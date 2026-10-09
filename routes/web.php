@@ -11,6 +11,7 @@ use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\BranchWebController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\EmployeeController;
+use App\Http\Controllers\Web\PasswordResetController;
 use App\Http\Controllers\Web\PayslipWebController;
 use App\Http\Controllers\Web\ReportWebController;
 use App\Http\Controllers\Web\ShiftWebController;
@@ -41,6 +42,13 @@ Route::get('/secure-files/{kind}/{id}', [SecureFileController::class, 'show'])
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.post')->middleware('throttle:10,1');
+
+    // Recuperación de contraseña (panel y colaboradores de la app: mismo correo)
+    Route::get('/forgot-password', [PasswordResetController::class, 'showRequestForm'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->name('password.email')->middleware('throttle:5,1');
+    // El correo enlaza a /reset-password?token=...&email=... (AppServiceProvider); también /reset-password/{token}
+    Route::get('/reset-password/{token?}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update')->middleware('throttle:5,1');
 });
 
 Route::middleware(['auth', 'web.tenant'])->group(function () {
