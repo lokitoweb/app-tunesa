@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\URL;
  */
 class SecureFileUrl
 {
-    public const KINDS = ['document', 'selfie-in', 'selfie-out', 'payment-proof'];
+    public const KINDS = ['document', 'selfie-in', 'selfie-out'];
 
     public function make(string $disk, string $path, string $kind, int $id, ?int $minutes = null): string
     {

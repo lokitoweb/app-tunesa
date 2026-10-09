@@ -64,6 +64,7 @@
                         <tr>
                             <td>
                                 <a href="{{ route('employees.file', $r['id']) }}" class="fw-semibold text-decoration-none">{{ $r['full_name'] }}</a>
+                                @include('partials.tenant-badge', ['tenantId' => $r['tenant_id']])
                                 <div class="small text-body-secondary">{{ $r['employee_code'] }} · {{ $r['branch'] ?: 'Sin sucursal' }}</div>
                             </td>
                             <td>{{ $r['shirt_size'] ?? '—' }}</td>
@@ -124,7 +125,7 @@
             <ul class="list-group list-group-flush">
                 @forelse($recent as $d)
                     <li class="list-group-item d-flex justify-content-between small">
-                        <span>{{ $d->user?->full_name }}: {{ $d->quantity }} × {{ UniformDelivery::ITEMS[$d->item] }} {{ $d->size }}</span>
+                        <span>{{ $d->user?->full_name }}: {{ $d->quantity }} × {{ UniformDelivery::ITEMS[$d->item] }} {{ $d->size }} @include('partials.tenant-badge', ['tenantId' => $d->tenant_id])</span>
                         <span class="text-body-secondary">{{ $d->delivered_at->format('d/m/Y') }}</span>
                     </li>
                 @empty

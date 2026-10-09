@@ -60,7 +60,9 @@ class DocumentStorageService
 
         if ($duplicate) {
             throw ValidationException::withMessages([
-                'file' => ['Este archivo ya está en tu legajo.'],
+                'file' => [$uploader->is($owner)
+                    ? 'Este archivo ya está en tu legajo.'
+                    : 'Este archivo ya está en el legajo del colaborador.'],
             ]);
         }
 

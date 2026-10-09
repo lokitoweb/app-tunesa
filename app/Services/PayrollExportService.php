@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class PayrollExportService
 {
     public const COLUMNS = [
+        'company'            => 'Empresa',
         'employee_code'      => 'Código',
         'document_type'      => 'Tipo doc.',
         'document_number'    => 'N° documento',
@@ -65,7 +66,7 @@ class PayrollExportService
             ->whereIn('role', ['employee', 'supervisor'])
             ->where(fn ($q) => $q->whereNull('termination_date')->orWhere('termination_date', '>=', $from->toDateString()))
             ->when($branchId, fn ($q) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $branchId)))
-            ->with('profile')
+            ->with(['profile', 'tenant:id,company_name'])
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();
@@ -104,6 +105,8 @@ class PayrollExportService
                 ->sum(fn (LeaveRequest $l) => $this->overlapDays($l, $from, $to));
 
             return [
+                'tenant_id'          => $user->tenant_id,
+                'company'            => $user->tenant?->company_name,
                 'employee_code'      => $user->employee_code,
                 'document_type'      => strtoupper((string) $user->document_type),
                 'document_number'    => $user->document_number,
