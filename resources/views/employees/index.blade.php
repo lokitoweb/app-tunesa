@@ -94,7 +94,7 @@
                                     <div style="font-size: 0.75rem; color: #94a3b8;">{{ $emp->email }} • {{ $emp->position ?? 'Sin cargo' }}</div>
                                 </div>
                             </div>
-                        </td>
+                        @include('partials.tenant-badge', ['tenantId' => $emp->tenant_id])</td>
                         <td style="padding: 1rem; color: #cbd5e1;">
                             <div style="font-weight: 600; color: #fff;">{{ $emp->employee_code ?? 'EMP-' . $emp->id }}</div>
                             <div style="font-size: 0.75rem; color: #94a3b8;">{{ $emp->document_type }}: {{ $emp->document_number }}</div>

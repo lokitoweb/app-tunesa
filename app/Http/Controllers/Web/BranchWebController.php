@@ -23,9 +23,9 @@ class BranchWebController extends Controller
      */
     public function index(): View
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
-        $branches = Branch::where('tenant_id', $tenantId)
+        $branches = Branch::forTenant($tenantId)
             ->with('supervisor')
             ->withCount(['employees' => fn($q) => $q->where('status', 'active')])
             ->orderBy('name')
@@ -39,9 +39,9 @@ class BranchWebController extends Controller
      */
     public function create(): View
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
-        $supervisors = User::where('tenant_id', $tenantId)
+        $supervisors = User::forTenant($tenantId)
             ->whereIn('role', ['company_admin', 'hr_manager', 'supervisor'])
             ->where('status', 'active')
             ->get();
@@ -63,7 +63,7 @@ class BranchWebController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
         $validated = $request->validate([
             'name'                  => ['required', 'string', 'max:150'],
@@ -94,10 +94,10 @@ class BranchWebController extends Controller
      */
     public function edit(int $id): View
     {
-        $tenantId = current_tenant_id();
-        $branch = Branch::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $branch = Branch::forTenant($tenantId)->findOrFail($id);
 
-        $supervisors = User::where('tenant_id', $tenantId)
+        $supervisors = User::forTenant($tenantId)
             ->whereIn('role', ['company_admin', 'hr_manager', 'supervisor'])
             ->where('status', 'active')
             ->get();
@@ -114,8 +114,8 @@ class BranchWebController extends Controller
      */
     public function update(Request $request, int $id): RedirectResponse
     {
-        $tenantId = current_tenant_id();
-        $branch = Branch::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $branch = Branch::forTenant($tenantId)->findOrFail($id);
 
         $validated = $request->validate([
             'name'                  => ['required', 'string', 'max:150'],
@@ -143,8 +143,8 @@ class BranchWebController extends Controller
      */
     public function destroy(int $id): RedirectResponse
     {
-        $tenantId = current_tenant_id();
-        $branch = Branch::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $branch = Branch::forTenant($tenantId)->findOrFail($id);
 
         $branch->delete();
 

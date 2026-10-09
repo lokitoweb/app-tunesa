@@ -123,7 +123,7 @@
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
                         <td style="padding: 0.85rem 1.25rem; color: #cbd5e1; white-space: nowrap;">
                             {{ $att->work_date ? $att->work_date->format('Y-m-d') : '--' }}
-                        </td>
+                        @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])</td>
                         <td style="padding: 0.85rem; color: #fff; font-weight: 600;">
                             {{ $att->user->first_name ?? 'N/A' }} {{ $att->user->last_name ?? '' }}
                         </td>

@@ -28,13 +28,13 @@ class AttendanceWebController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
         // Rango de fechas por defecto: hoy
         $startDate = $request->input('start_date', Carbon::today()->toDateString());
         $endDate   = $request->input('end_date', Carbon::today()->toDateString());
 
-        $query = Attendance::where('tenant_id', $tenantId)
+        $query = Attendance::forTenant($tenantId)
             ->whereBetween('work_date', [$startDate, $endDate])
             ->with(['user', 'branch', 'shift'])
             ->orderBy('work_date', 'desc')
@@ -65,14 +65,14 @@ class AttendanceWebController extends Controller
         }
 
         $attendances = $query->paginate(20)->withQueryString();
-        $branches = Branch::where('tenant_id', $tenantId)->get();
+        $branches = Branch::forTenant($tenantId)->get();
 
         // Conteo rápido para cabecera de filtros
         $summary = [
-            'total'      => Attendance::where('tenant_id', $tenantId)->whereBetween('work_date', [$startDate, $endDate])->count(),
-            'on_time'    => Attendance::where('tenant_id', $tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('status', 'present')->count(),
-            'late'       => Attendance::where('tenant_id', $tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('status', 'late')->count(),
-            'out_of_geo' => Attendance::where('tenant_id', $tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('clock_in_within_geofence', false)->count(),
+            'total'      => Attendance::forTenant($tenantId)->whereBetween('work_date', [$startDate, $endDate])->count(),
+            'on_time'    => Attendance::forTenant($tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('status', 'present')->count(),
+            'late'       => Attendance::forTenant($tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('status', 'late')->count(),
+            'out_of_geo' => Attendance::forTenant($tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('clock_in_within_geofence', false)->count(),
         ];
 
         return view('attendance.index', compact(
@@ -89,9 +89,9 @@ class AttendanceWebController extends Controller
      */
     public function show(int $id): View
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
-        $attendance = Attendance::where('tenant_id', $tenantId)
+        $attendance = Attendance::forTenant($tenantId)
             ->with(['user', 'branch', 'shift', 'reviewer'])
             ->findOrFail($id);
 
@@ -114,8 +114,8 @@ class AttendanceWebController extends Controller
      */
     public function reviewJustification(Request $request, int $id): RedirectResponse
     {
-        $tenantId = current_tenant_id();
-        $attendance = Attendance::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $attendance = Attendance::forTenant($tenantId)->findOrFail($id);
 
         $validated = $request->validate([
             'justification_status' => ['required', 'in:approved,rejected'],

@@ -42,15 +42,15 @@ class DashboardController extends Controller
         $kpis = $this->calculateDailyKpis($tenantId, $today);
 
         // 2. Sucursales activas con geocercas y 3. marcaciones recientes:
-        //    solo dentro de una empresa; la vista de plataforma no lista registros.
-        $branches = $tenantId === null ? collect() : Branch::where('tenant_id', $tenantId)
+        //    con $tenantId null (vista global del Super Admin) son de todas las empresas.
+        $branches = Branch::forTenant($tenantId)
             ->where('is_active', true)
             ->withCount(['employees' => function ($q) {
                 $q->where('status', 'active');
             }])
             ->get();
 
-        $recentAttendances = $tenantId === null ? collect() : Attendance::where('tenant_id', $tenantId)
+        $recentAttendances = Attendance::forTenant($tenantId)
             ->whereDate('work_date', $today)
             ->whereNotNull('clock_in_at')
             ->with(['user', 'branch'])
@@ -110,7 +110,7 @@ class DashboardController extends Controller
         $kpis = $this->calculateDailyKpis($tenantId, $today);
 
         // Marcaciones del día con coordenadas para pintar pines sobre el mapa
-        $attendances = $tenantId === null ? collect() : Attendance::where('tenant_id', $tenantId)
+        $attendances = Attendance::forTenant($tenantId)
             ->whereDate('work_date', $today)
             ->whereNotNull('clock_in_at')
             ->with(['user:id,first_name,last_name,avatar_path,position', 'branch:id,name,latitude,longitude,allowed_radius_meters'])

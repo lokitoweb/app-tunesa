@@ -27,14 +27,14 @@ class ReportWebController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
         $startDate = $request->input('start_date', Carbon::today()->startOfMonth()->toDateString());
         $endDate   = $request->input('end_date', Carbon::today()->toDateString());
         $branchId  = $request->input('branch_id');
         $status    = $request->input('status');
 
-        $query = Attendance::where('tenant_id', $tenantId)
+        $query = Attendance::forTenant($tenantId)
             ->whereBetween('work_date', [$startDate, $endDate])
             ->with(['user', 'branch', 'shift']);
 
@@ -59,7 +59,7 @@ class ReportWebController extends Controller
 
         $punctualityRate = $totalRecords > 0 ? round(($onTimeCount / $totalRecords) * 100, 1) : 0;
 
-        $branches = Branch::where('tenant_id', $tenantId)->get();
+        $branches = Branch::forTenant($tenantId)->get();
 
         return view('reports.index', compact(
             'attendances',
@@ -83,7 +83,7 @@ class ReportWebController extends Controller
      */
     public function exportExcel(Request $request): StreamedResponse
     {
-        $tenantId  = current_tenant_id();
+        $tenantId  = current_tenant_id_or_null();
         $startDate = $request->input('start_date', Carbon::today()->startOfMonth()->toDateString());
         $endDate   = $request->input('end_date', Carbon::today()->toDateString());
         $branchId  = $request->input('branch_id') ? (int) $request->input('branch_id') : null;
@@ -100,13 +100,13 @@ class ReportWebController extends Controller
      */
     public function exportPdf(Request $request): View
     {
-        $tenantId  = current_tenant_id();
-        $tenant    = Tenant::findOrFail($tenantId);
+        $tenantId  = current_tenant_id_or_null();
+        $tenant    = $tenantId ? Tenant::findOrFail($tenantId) : new Tenant(['company_name' => 'Todas las empresas']);
         $startDate = $request->input('start_date', Carbon::today()->startOfMonth()->toDateString());
         $endDate   = $request->input('end_date', Carbon::today()->toDateString());
         $branchId  = $request->input('branch_id');
 
-        $query = Attendance::where('tenant_id', $tenantId)
+        $query = Attendance::forTenant($tenantId)
             ->whereBetween('work_date', [$startDate, $endDate])
             ->with(['user', 'branch'])
             ->orderBy('work_date', 'asc');

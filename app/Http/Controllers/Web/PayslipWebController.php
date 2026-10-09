@@ -27,12 +27,12 @@ class PayslipWebController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
         $currentYear  = (int) $request->input('year', Carbon::now()->year);
         $currentMonth = (int) $request->input('month', Carbon::now()->month);
 
-        $query = Payslip::where('tenant_id', $tenantId)
+        $query = Payslip::forTenant($tenantId)
             ->where('period_year', $currentYear)
             ->where('period_month', $currentMonth)
             ->with(['user', 'tenant'])
@@ -48,17 +48,17 @@ class PayslipWebController extends Controller
 
         $payslips = $query->paginate(20)->withQueryString();
 
-        $employees = User::where('tenant_id', $tenantId)
+        $employees = User::forTenant($tenantId)
             ->where('role', 'employee')
             ->orderBy('first_name')
             ->get();
 
         // Resumen del periodo
         $summary = [
-            'total_emitted' => Payslip::where('tenant_id', $tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->count(),
-            'published'     => Payslip::where('tenant_id', $tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->where('status', 'published')->count(),
-            'read_count'    => Payslip::where('tenant_id', $tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->whereNotNull('read_at')->count(),
-            'total_payroll' => Payslip::where('tenant_id', $tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->sum('net_salary'),
+            'total_emitted' => Payslip::forTenant($tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->count(),
+            'published'     => Payslip::forTenant($tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->where('status', 'published')->count(),
+            'read_count'    => Payslip::forTenant($tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->whereNotNull('read_at')->count(),
+            'total_payroll' => Payslip::forTenant($tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->sum('net_salary'),
         ];
 
         return view('payslips.index', compact(
@@ -75,9 +75,9 @@ class PayslipWebController extends Controller
      */
     public function create(): View
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
-        $employees = User::where('tenant_id', $tenantId)
+        $employees = User::forTenant($tenantId)
             ->where('role', 'employee')
             ->where('status', 'active')
             ->orderBy('first_name')
@@ -91,7 +91,7 @@ class PayslipWebController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
         $validated = $request->validate([
             'user_id'       => ['required', 'exists:users,id'],
@@ -149,8 +149,8 @@ class PayslipWebController extends Controller
      */
     public function publish(int $id): RedirectResponse
     {
-        $tenantId = current_tenant_id();
-        $payslip = Payslip::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $payslip = Payslip::forTenant($tenantId)->findOrFail($id);
 
         $payslip->update([
             'status'       => 'published',
@@ -165,11 +165,11 @@ class PayslipWebController extends Controller
      */
     public function bulkPublish(Request $request): RedirectResponse
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
         $year  = (int) $request->input('year');
         $month = (int) $request->input('month');
 
-        $count = Payslip::where('tenant_id', $tenantId)
+        $count = Payslip::forTenant($tenantId)
             ->where('period_year', $year)
             ->where('period_month', $month)
             ->where('status', 'draft')
@@ -241,8 +241,8 @@ class PayslipWebController extends Controller
      */
     public function download(int $id)
     {
-        $tenantId = current_tenant_id();
-        $payslip = Payslip::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $payslip = Payslip::forTenant($tenantId)->findOrFail($id);
 
         if (!Storage::disk('private')->exists($payslip->file_path)) {
             return back()->withErrors(['msg' => 'El archivo PDF no fue encontrado en el almacenamiento seguro.']);

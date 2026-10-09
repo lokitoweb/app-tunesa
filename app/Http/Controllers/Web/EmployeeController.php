@@ -30,9 +30,9 @@ class EmployeeController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
-        $query = User::where('tenant_id', $tenantId)
+        $query = User::forTenant($tenantId)
             ->with(['branches', 'employeeShifts.shift'])
             ->orderBy('first_name');
 
@@ -65,7 +65,7 @@ class EmployeeController extends Controller
         }
 
         $employees = $query->paginate(15)->withQueryString();
-        $branches = Branch::where('tenant_id', $tenantId)->where('is_active', true)->get();
+        $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
 
         return view('employees.index', compact('employees', 'branches'));
     }
@@ -75,9 +75,9 @@ class EmployeeController extends Controller
      */
     public function create(): View
     {
-        $tenantId = current_tenant_id();
-        $branches = Branch::where('tenant_id', $tenantId)->where('is_active', true)->get();
-        $shifts = Shift::where('tenant_id', $tenantId)->where('is_active', true)->get();
+        $tenantId = current_tenant_id_or_null();
+        $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
+        $shifts = Shift::forTenant($tenantId)->where('is_active', true)->get();
 
         return view('employees.create', compact('branches', 'shifts'));
     }
@@ -87,7 +87,7 @@ class EmployeeController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
         $validated = $request->validate([
             'first_name'      => ['required', 'string', 'max:100'],
@@ -175,13 +175,13 @@ class EmployeeController extends Controller
      */
     public function edit(int $id): View
     {
-        $tenantId = current_tenant_id();
-        $employee = User::where('tenant_id', $tenantId)
+        $tenantId = current_tenant_id_or_null();
+        $employee = User::forTenant($tenantId)
             ->with(['branches', 'employeeShifts' => fn($q) => $q->where('is_active', true)->with('shift')])
             ->findOrFail($id);
 
-        $branches = Branch::where('tenant_id', $tenantId)->where('is_active', true)->get();
-        $shifts = Shift::where('tenant_id', $tenantId)->where('is_active', true)->get();
+        $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
+        $shifts = Shift::forTenant($tenantId)->where('is_active', true)->get();
         $currentShift = $employee->employeeShifts->first();
 
         return view('employees.edit', compact('employee', 'branches', 'shifts', 'currentShift'));
@@ -192,8 +192,8 @@ class EmployeeController extends Controller
      */
     public function update(Request $request, int $id): RedirectResponse
     {
-        $tenantId = current_tenant_id();
-        $employee = User::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $employee = User::forTenant($tenantId)->findOrFail($id);
 
         $validated = $request->validate([
             'first_name'      => ['required', 'string', 'max:100'],
@@ -272,7 +272,7 @@ class EmployeeController extends Controller
 
             // Actualizar turno
             if (!empty($validated['shift_id'])) {
-                EmployeeShift::where('tenant_id', $tenantId)
+                EmployeeShift::forTenant($tenantId)
                     ->where('user_id', $employee->id)
                     ->where('is_active', true)
                     ->update(['is_active' => false, 'end_date' => Carbon::yesterday()->toDateString()]);
@@ -310,8 +310,8 @@ class EmployeeController extends Controller
      */
     public function toggleStatus(int $id): RedirectResponse
     {
-        $tenantId = current_tenant_id();
-        $employee = User::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $employee = User::forTenant($tenantId)->findOrFail($id);
         abort_unless(Auth::user()->canManage($employee) && Auth::id() !== $employee->id, 403);
 
         $newStatus = $employee->status === 'active' ? 'inactive' : 'active';

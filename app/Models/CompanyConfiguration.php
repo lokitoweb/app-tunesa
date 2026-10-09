@@ -66,6 +66,12 @@ class CompanyConfiguration extends Model
         return static::firstOrCreate(['tenant_id' => current_tenant_id()]);
     }
 
+    /** Configuración de una empresa concreta (p. ej. el legajo abierto desde la vista global) */
+    public static function forTenantId(int $tenantId): self
+    {
+        return static::withoutGlobalScopes()->firstOrCreate(['tenant_id' => $tenantId]);
+    }
+
     public function requiredDocuments(): array
     {
         return $this->required_documents ?: self::DEFAULT_REQUIRED_DOCUMENTS;

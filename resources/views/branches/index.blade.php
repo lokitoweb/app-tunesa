@@ -24,6 +24,7 @@
                     <div>
                         <h3 style="color: #fff; font-size: 1.15rem; font-weight: 700;">{{ $b->name }}</h3>
                         <span style="font-size: 0.75rem; color: #818cf8; font-weight: 600;">{{ $b->code }}</span>
+                        @include('partials.tenant-badge', ['tenantId' => $b->tenant_id])
                     </div>
                     <span style="padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; {{ $b->is_active ? 'background: rgba(16,185,129,0.15); color: #10b981;' : 'background: rgba(239,68,68,0.15); color: #ef4444;' }}">
                         {{ $b->is_active ? 'Activa' : 'Inactiva' }}

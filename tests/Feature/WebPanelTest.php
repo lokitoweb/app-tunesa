@@ -167,30 +167,78 @@ class WebPanelTest extends TestCase
         $this->assertSame(3, Attendance::count());
     }
 
-    public function test_super_admin_without_tenant_sees_platform_dashboard_without_error(): void
+    public function test_super_admin_without_tenant_sees_global_dashboard_with_every_company(): void
     {
         $acme  = $this->makeTenant('acme');
         $other = $this->makeTenant('other');
         $this->makeUser(null, 'super_admin', ['email' => 'root@tunesa.app', 'password' => 'Secret123']);
-        $this->makeUser($acme);
+        $acmeEmp = $this->makeUser($acme);
         $this->makeUser($other);
-        $this->makeBranch($acme, ['name' => 'Sede Acme Secreta']);
+        $acmeBranch = $this->makeBranch($acme, ['name' => 'Sede Acme']);
+        $this->makeBranch($other, ['name' => 'Sede Other']);
+        Attendance::create([
+            'tenant_id' => $acme->id, 'user_id' => $acmeEmp->id, 'branch_id' => $acmeBranch->id,
+            'work_date' => today()->toDateString(), 'clock_in_at' => now(), 'status' => 'present',
+        ]);
 
         $this->post('/login', ['email' => 'root@tunesa.app', 'password' => 'Secret123'])
             ->assertRedirect(route('dashboard'));
 
         $this->get('/dashboard')
             ->assertOk()
-            ->assertSee('Consolidado de la plataforma')
+            ->assertSee('Vista global: mostrando registros de todas las empresas')
             ->assertViewHas('kpis', fn ($kpis) => $kpis['total_employees'] === 2)
-            // Sin empresa elegida no se listan registros de ninguna empresa
-            ->assertViewHas('branches', fn ($branches) => $branches->isEmpty())
-            ->assertDontSee('Sede Acme Secreta');
+            ->assertViewHas('branches', fn ($branches) => $branches->count() === 2)
+            ->assertSee('Sede Acme')
+            ->assertSee('Sede Other');
 
-        $this->getJson('/dashboard/live-stream')->assertOk()->assertJsonCount(0, 'attendances');
+        $this->getJson('/dashboard/live-stream')->assertOk()->assertJsonCount(1, 'attendances');
+    }
 
-        // Los módulos de empresa piden elegir una antes de consultar nada
-        $this->get('/employees')->assertRedirect(route('dashboard'));
+    public function test_super_admin_without_tenant_opens_every_module_without_redirect(): void
+    {
+        $acme  = $this->makeTenant('acme', ['company_name' => 'Acme SAC']);
+        $other = $this->makeTenant('other', ['company_name' => 'Other SRL']);
+        $root  = $this->makeUser(null, 'super_admin');
+        $acmeEmp  = $this->makeUser($acme, 'employee', ['first_name' => 'Lucia']);
+        $otherEmp = $this->makeUser($other, 'employee', ['first_name' => 'Mateo']);
+        $acmeBranch  = $this->makeBranch($acme, ['name' => 'Sede Acme']);
+        $otherBranch = $this->makeBranch($other, ['name' => 'Sede Other']);
+        $acmeAtt = null;
+        foreach ([[$acme, $acmeEmp, $acmeBranch], [$other, $otherEmp, $otherBranch]] as [$tenant, $emp, $branch]) {
+            $att = Attendance::create([
+                'tenant_id' => $tenant->id, 'user_id' => $emp->id, 'branch_id' => $branch->id,
+                'work_date' => today()->toDateString(), 'clock_in_at' => now(), 'status' => 'present',
+            ]);
+            $acmeAtt ??= $att;
+            Shift::create(['tenant_id' => $tenant->id, 'name' => 'Turno ' . $tenant->slug, 'code' => 'T-' . $tenant->id,
+                'start_time' => '08:00', 'end_time' => '17:00']);
+        }
+
+        $this->actingAs($root);
+
+        // Lo que pide la directiva: 200 y nunca 302 al dashboard
+        foreach (['/attendance', '/employees', '/shifts', '/branches', '/payslips'] as $url) {
+            $this->get($url)->assertOk()->assertSee('Vista global: mostrando registros de todas las empresas');
+        }
+
+        // El resto de módulos tampoco redirige
+        foreach (['/dashboard', '/approvals', '/approvals?tab=justifications', '/documents', '/uniforms', '/payroll',
+            '/reports', '/reports/export/pdf', '/settings/mobile', "/attendance/{$acmeAtt->id}",
+            "/employees/{$acmeEmp->id}/file"] as $url) {
+            $this->get($url)->assertOk();
+        }
+
+        // Los listados muestran registros de todas las empresas con su nombre
+        $this->get('/employees')->assertSee('Lucia')->assertSee('Mateo')->assertSee('Acme SAC')->assertSee('Other SRL');
+        $this->get('/attendance')->assertSee('Lucia')->assertSee('Mateo');
+        $this->get('/branches')->assertSee('Sede Acme')->assertSee('Sede Other');
+        $this->get('/shifts')->assertSee('Turno acme')->assertSee('Turno other');
+
+        // Crear o editar sí necesita empresa: vuelve al listado del módulo, no al dashboard
+        $this->from('/employees')->get('/employees/create')->assertRedirect(route('employees.index'))->assertSessionHas('error');
+        $this->post('/branches', ['name' => 'Sin empresa'])->assertRedirect()->assertSessionHas('error');
+        $this->assertDatabaseMissing('branches', ['name' => 'Sin empresa']);
     }
 
     public function test_super_admin_can_switch_into_a_tenant_and_back(): void
@@ -215,7 +263,7 @@ class WebPanelTest extends TestCase
         $this->get('/employees')->assertOk()->assertSee('Lucia')->assertDontSee('Ajena');
 
         $this->post('/admin/switch-tenant', ['tenant_id' => null])->assertRedirect(route('dashboard'));
-        $this->get('/employees')->assertRedirect(route('dashboard'));
+        $this->get('/employees')->assertOk()->assertSee('Lucia')->assertSee('Ajena');
     }
 
     public function test_company_admin_dashboard_only_counts_its_own_tenant(): void
@@ -241,7 +289,7 @@ class WebPanelTest extends TestCase
 
         $this->get('/dashboard')
             ->assertOk()
-            ->assertDontSee('Consolidado de la plataforma')
+            ->assertDontSee('Vista global')
             ->assertViewHas('kpis', fn ($kpis) => $kpis['total_employees'] === 1 && $kpis['present_count'] === 1)
             ->assertViewHas('recentAttendances', fn ($rows) => $rows->pluck('tenant_id')->unique()->all() === [$acme->id])
             ->assertSee('Sede Acme')
