@@ -83,6 +83,9 @@
 
             <div class="nav-heading">Monitoreo</div>
             {!! $nav('dashboard', [], 'speedometer2', 'Dashboard', request()->routeIs('dashboard*')) !!}
+            @if($navUser->can('attendance.view_team') || $navUser->can('attendance.view_all'))
+                {!! $nav('live.index', [], 'broadcast', 'Tablero en vivo', request()->routeIs('live.*')) !!}
+            @endif
 
             @can('attendance.view_all')
                 {!! $nav('attendance.index', [], 'clock-history', 'Marcaciones y GPS', request()->routeIs('attendance*') && request('status') !== 'absent') !!}

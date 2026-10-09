@@ -16,6 +16,7 @@ use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\EmployeeController;
 use App\Http\Controllers\Web\HolidayWebController;
 use App\Http\Controllers\Web\HoursReportWebController;
+use App\Http\Controllers\Web\LiveBoardController;
 use App\Http\Controllers\Web\NotificationWebController;
 use App\Http\Controllers\Web\PasswordResetController;
 use App\Http\Controllers\Web\PayslipWebController;
@@ -211,4 +212,8 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
             ->whereNumber('tenant')->where('period', '\\d{4}-\\d{2}')
             ->middleware(['signed', 'can:reports.export']);
     });
+
+    // Tablero en vivo (supervisores: solo su equipo)
+    Route::get('/live', [LiveBoardController::class, 'index'])->name('live.index');
+    Route::get('/live/data', [LiveBoardController::class, 'data'])->name('live.data');
 });
