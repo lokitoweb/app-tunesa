@@ -321,6 +321,22 @@ class User extends Authenticatable
         return $viewer->seesAllAttendance() ? $query : $query->supervisedBy($viewer);
     }
 
+    /** Roles que marcan asistencia desde la app (colaboradores y supervisores) */
+    public const CLOCKING_ROLES = ['employee', 'supervisor'];
+
+    /**
+     * Equipo de $viewer para la app: personal activo que marca (colaboradores y
+     * supervisores) visible para él, sin incluirse a sí mismo. Lo usan
+     * GET /api/supervisor/team y /api/supervisor/attendance/live.
+     */
+    public function scopeTeamOf($query, User $viewer, bool $activeOnly = true)
+    {
+        return $query->visibleTo($viewer)
+            ->where('users.id', '!=', $viewer->id)
+            ->whereIn('users.role', self::CLOCKING_ROLES)
+            ->when($activeOnly, fn ($q) => $q->where('users.status', 'active'));
+    }
+
     public function scopeActiveEmployees($query)
     {
         return $query->where('role', 'employee')
