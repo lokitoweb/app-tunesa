@@ -103,11 +103,7 @@
                         <td class="text-end text-nowrap">S/ {{ number_format((float) $p->gross_salary, 2) }}</td>
                         <td class="text-end text-nowrap text-danger">− S/ {{ number_format((float) $p->deductions, 2) }}</td>
                         <td class="text-end text-nowrap fw-semibold">S/ {{ number_format((float) $p->net_salary, 2) }}</td>
-                        <td>@include('partials.badge', match ($p->status) {
-                            'published' => ['tone' => 'success', 'label' => 'Publicada'],
-                            'archived'  => ['tone' => 'danger', 'label' => 'Anulada'],
-                            default     => ['tone' => 'secondary', 'label' => 'Borrador'],
-                        })</td>
+                        <td><x-status-badge type="payslip_status" :value="$p->status ?? 'draft'" /></td>
                         <td class="small">
                             @if($p->read_at)
                                 <span class="text-success"><i class="bi bi-check2-all"></i> {{ $p->read_at->format('d/m/Y H:i') }}</span>

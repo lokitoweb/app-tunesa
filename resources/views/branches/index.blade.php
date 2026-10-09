@@ -22,7 +22,7 @@
                             @if($b->code)<span class="small text-body-secondary">{{ $b->code }}</span>@endif
                             @include('partials.tenant-badge', ['tenantId' => $b->tenant_id])
                         </div>
-                        @include('partials.badge', ['tone' => $b->is_active ? 'success' : 'secondary', 'label' => $b->is_active ? 'Activa' : 'Inactiva'])
+                        <x-status-badge type="branch_status" :value="$b->is_active" />
                     </div>
                     <p class="small text-body-secondary mb-3">
                         <i class="bi bi-geo-alt"></i> {{ $b->address }}

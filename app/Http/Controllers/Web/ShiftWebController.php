@@ -57,7 +57,8 @@ class ShiftWebController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Shift::create($this->validated($request));
+        $shift = Shift::create($this->validated($request));
+        app(\App\Services\AuditLogger::class)->logCreated('shift.created', $shift, ['name' => $shift->name]);
 
         return redirect()->route('shifts.index')->with('success', 'Turno creado correctamente.');
     }
@@ -70,7 +71,7 @@ class ShiftWebController extends Controller
     public function update(Request $request, int $id): RedirectResponse
     {
         $shift = Shift::findOrFail($id);
-        $shift->update($this->validated($request, $shift));
+        app(\App\Services\AuditLogger::class)->updateWithAudit('shift.updated', $shift, $this->validated($request, $shift), ['name' => $shift->name]);
 
         return redirect()->route('shifts.index')->with('success', "Turno {$shift->name} actualizado.");
     }
@@ -84,6 +85,7 @@ class ShiftWebController extends Controller
         }
 
         $shift->delete();
+        app(\App\Services\AuditLogger::class)->log('shift.deleted', $shift, ['name' => $shift->name]);
 
         return back()->with('success', 'Turno eliminado.');
     }

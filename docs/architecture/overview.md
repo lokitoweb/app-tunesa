@@ -191,3 +191,55 @@ producción hace falta `php artisan queue:work` y el scheduler (`* * * * * php a
 **Sondeo del tablero.** `/live/data` calcula un `ETag` del estado (sin las URLs firmadas,
 que cambian en cada llamada, y renovado cada 5 min para refrescarlas): si el navegador envía
 el mismo `If-None-Match` responde `304` sin cuerpo.
+
+## Presentación de datos
+
+Regla de producto: **la interfaz nunca muestra datos técnicos** — ni claves de base de
+datos (`snake_case`), ni valores de enum crudos (`hr_manager`, `pending`), ni JSON, ni
+textos de relleno ("no se usa", "próximamente"). Todo pasa por `App\Support\Labels`.
+
+| Necesito mostrar… | En Blade | En PHP |
+|---|---|---|
+| Un estado/tipo/rol como insignia | `<x-status-badge type="leave_status" :value="$x->status" />` | `Labels::enum()` + `Labels::tone()` |
+| Un estado/tipo/rol como texto | `{{ label('user_role', $u->role) }}` o `@label('user_role', $u->role)` | `Labels::enum('user_role', $v)` |
+| El nombre de un campo | `{{ field_label('default_grace_minutes') }}` o `@fieldLabel(...)` | `Labels::field($campo)` |
+| Un valor según su campo | `{{ field_value('lunch_paid', $v) }}` (Sí/No, min, m, colores, fechas) | `Labels::value($campo, $v, inherits: true)` |
+| Opciones de un `<select>` | `@foreach(\App\Support\Labels::options('geocoding_provider') as $k => $txt)` | `Labels::options($conjunto)` |
+| Un secreto (clave, token) | `{{ masked($row->webhook_secret) }}` → `••••••••1234` | `SensitiveFields::maskString()` |
+| Una acción de la bitácora | — | `Labels::actionBadge($accion)` → etiqueta, color, icono |
+
+Conjuntos disponibles (`Labels::ENUMS`): `attendance_status`, `justification_status`,
+`leave_status`, `leave_type`, `document_status`, `document_type`, `payslip_status`,
+`uniform_item`, `uniform_status`, `shoe_type`, `user_role`, `user_status`, `tenant_status`,
+`tenant_plan`, `branch_status` y `active_status` (booleanos `is_active`), `shift_type`,
+`holiday_type`, `notification_type`, `geofence_policy`, `mock_location_policy`,
+`geocoding_provider`, `id_document_type`, `gender`, `contract_type`, `bank_account_type`,
+`pension_system`, `health_insurance`, `labor_regime`, `payment_info_status`, `weekday`, `month`.
+
+Al agregar una columna, un ajuste, un estado o una acción de auditoría, agrega su etiqueta
+en `Labels` (`FIELDS`, `ENUMS`, `ACTIONS`): `LabelsCoverageTest` falla si falta, y
+`PanelRawValuesTest` falla si una vista imprime `{{ $x->status }}`, `str_replace('_', ...)`
+o `json_encode(...)`.
+
+### Bitácora de auditoría
+
+`AuditLogger` guarda `meta` estructurado:
+
+```json
+{"changes": [{"field": "lunch_paid", "old": false, "new": true}], "context": {"scope": "tenant"}}
+```
+
+- Cambios de un modelo: `$audit->updateWithAudit('branch.updated', $branch, $datos, ['name' => $branch->name])`
+  (reemplaza `$branch->update($datos)`), `saveWithAudit()` (reemplaza `save()`),
+  `logModelUpdate()` (antes de `save()` o con un `AuditLogger::snapshot()` previo),
+  `logCreated()` para altas y `logChanges($accion, $modelo, $antes, $despues, $contexto)` para
+  ajustes que viven en varias tablas (Marca y app).
+- Eventos sin cambios: `$audit->log($accion, $modelo, $contexto)` → `{"context": {...}}`.
+- Los campos de `App\Support\SensitiveFields` (`webhook_secret`, `maps_api_key`,
+  `fcm_service_account_json`, contraseñas, tokens, `two_factor_*`, cuentas bancarias) se guardan
+  enmascarados (`••••••••1234`) o como `(cambiado)`: nunca en claro.
+- `App\Presenters\AuditLogPresenter` arma lo que ve el usuario: insignia de la acción, resumen
+  ("Carlos Ramírez cambió 3 campos de Marca y app: Tolerancia por defecto, Almuerzo pagado y 1 más."),
+  cuadro Campo | Valor previo | Valor nuevo, IP completa solo para Super Admin y Administrador
+  (parcial `190.23.x.x` para el resto) y el dispositivo resumido ("Chrome en Android").
+  Las filas antiguas (meta plano) se muestran como lista de datos con etiquetas.

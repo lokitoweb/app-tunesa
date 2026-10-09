@@ -80,8 +80,7 @@ class EmployeeProfileController extends Controller
             ]);
         }
 
-        $profile->save();
-        $this->audit->log('profile.updated_by_hr', $profile, ['fields' => array_keys($validated)]);
+        $this->audit->saveWithAudit('profile.updated_by_hr', $profile, ['name' => $employee->full_name]);
 
         return response()->json(['success' => true, 'message' => 'Ficha actualizada.', 'data' => ProfileController::payload($employee->fresh())]);
     }
@@ -102,14 +101,12 @@ class EmployeeProfileController extends Controller
 
         $profile = EmployeeProfile::where('user_id', $employee->id)->firstOrFail();
 
-        $profile->update([
+        $this->audit->updateWithAudit("payment_info.{$validated['decision']}", $profile, [
             'payment_info_status'      => $validated['decision'],
             'payment_rejection_reason' => $validated['decision'] === 'rejected' ? $validated['reason'] : null,
             'payment_verified_by'      => $request->user()->id,
             'payment_verified_at'      => now(),
         ]);
-
-        $this->audit->log("payment_info.{$validated['decision']}", $profile);
 
         return response()->json(['success' => true, 'data' => $profile->fresh()->toApi()]);
     }

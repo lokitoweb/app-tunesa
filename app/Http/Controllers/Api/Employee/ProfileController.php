@@ -92,9 +92,8 @@ class ProfileController extends Controller
             'payment_verified_by'      => null,
             'payment_verified_at'      => null,
             'payment_rejection_reason' => null,
-        ])->save();
-
-        $this->audit->log('payment_info.updated_by_employee', $profile, ['fields' => array_keys($validated)]);
+        ]);
+        $this->audit->saveWithAudit('payment_info.updated_by_employee', $profile);
 
         return response()->json([
             'success' => true,

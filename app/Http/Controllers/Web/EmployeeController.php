@@ -151,6 +151,7 @@ class EmployeeController extends Controller
                 $branchesToSync[$bId] = ['is_primary' => ($bId == $validated['primary_branch_id'])];
             }
             $user->branches()->sync($branchesToSync);
+            app(\App\Services\AuditLogger::class)->log('employee.created', $user, ['name' => $user->full_name, 'role' => $user->role]);
 
             // Asignar turno inicial si fue provisto
             if (!empty($validated['shift_id'])) {
@@ -259,7 +260,7 @@ class EmployeeController extends Controller
                 $dataToUpdate['avatar_path'] = $request->file('avatar')->store('avatars', 'public');
             }
 
-            $employee->update($dataToUpdate);
+            app(\App\Services\AuditLogger::class)->updateWithAudit('employee.updated', $employee, $dataToUpdate, ['name' => $employee->full_name]);
 
             // Sincronizar sucursales
             $branchesToSync = [];
@@ -299,7 +300,8 @@ class EmployeeController extends Controller
         $employee = User::findOrFail($id);
         abort_unless(Auth::user()->canManage($employee), 403);
 
-        $employee->forceFill(['locked_until' => null, 'failed_login_attempts' => 0])->save();
+        $employee->forceFill(['locked_until' => null, 'failed_login_attempts' => 0]);
+        app(\App\Services\AuditLogger::class)->saveWithAudit('auth.account_unlocked', $employee, ['name' => $employee->full_name]);
 
         return back()->with('success', "Se desbloqueó el acceso de {$employee->first_name}.");
     }
@@ -314,7 +316,7 @@ class EmployeeController extends Controller
         abort_unless(Auth::user()->canManage($employee) && Auth::id() !== $employee->id, 403);
 
         $newStatus = $employee->status === 'active' ? 'inactive' : 'active';
-        $employee->update(['status' => $newStatus]);
+        app(\App\Services\AuditLogger::class)->updateWithAudit('employee.updated', $employee, ['status' => $newStatus], ['name' => $employee->full_name]);
 
         $statusMsg = $newStatus === 'active' ? 'activado' : 'desactivado';
         return back()->with('success', "Colaborador {$employee->first_name} ha sido {$statusMsg}.");

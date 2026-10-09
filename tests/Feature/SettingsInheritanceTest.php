@@ -184,7 +184,8 @@ class SettingsInheritanceTest extends TestCase
         // Queda en la bitácora como cualquier cambio de Marca y app
         $audit = AuditLog::where('action', 'tenant_settings.updated')->orderBy('id')->first();
         $this->assertNotNull($audit);
-        $this->assertContains('company_name', $audit->meta['changed']);
-        $this->assertContains('logo_path', $audit->meta['changed']);
+        $fields = array_column($audit->meta['changes'], 'field');
+        $this->assertContains('company_name', $fields);
+        $this->assertContains('logo_path', $fields);
     }
 }

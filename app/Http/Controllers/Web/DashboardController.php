@@ -274,14 +274,6 @@ class DashboardController extends Controller
      */
     private function getStatusLabel(string $status): string
     {
-        return match ($status) {
-            'present'    => 'Puntual',
-            'late'       => 'Tardanza',
-            'absent'     => 'Ausente',
-            'excused'    => 'Justificado',
-            'holiday'    => 'Feriado',
-            'day_off'    => 'Descanso',
-            default      => ucfirst($status),
-        };
+        return \App\Support\Labels::enum('attendance_status', $status);
     }
 }

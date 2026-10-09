@@ -122,7 +122,7 @@ class UserController extends Controller
 
         abort_unless($request->user()->canManage($user), 403, 'No puedes editar a un usuario de rango igual o superior.');
 
-        $user->update($validated);
+        app(\App\Services\AuditLogger::class)->updateWithAudit('employee.updated', $user, $validated, ['name' => $user->full_name]);
 
         return response()->json([
             'success' => true,
@@ -136,7 +136,7 @@ class UserController extends Controller
     {
         $user = User::where('tenant_id', current_tenant_id())->findOrFail($id);
         abort_unless($request->user()->canManage($user) && $request->user()->id !== $user->id, 403);
-        $user->update(['status' => 'inactive']);
+        app(\App\Services\AuditLogger::class)->updateWithAudit('employee.deleted', $user, ['status' => 'inactive'], ['name' => $user->full_name]);
         $user->delete();
 
         return response()->json([

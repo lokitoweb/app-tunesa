@@ -112,6 +112,7 @@ class TenantSettingsService
         $row     = TenantSetting::editableRowFor($tenant);
         $changed = [];
         $secrets = [];
+        $before  = AuditLogger::snapshot($row, $tenant?->only(['company_name', 'primary_color', 'secondary_color', 'logo_path']), ['geofence_policy' => $tenant ? CompanyConfiguration::forTenantId($tenant->id)->geofence_policy : null]);
 
         DB::transaction(function () use ($tenant, $data, $request, $actor, $row, &$changed, &$secrets) {
             foreach (TenantSetting::SETTING_FIELDS as $field) {
@@ -201,11 +202,8 @@ class TenantSettingsService
             $row->save();
         });
 
-        $this->audit->log('tenant_settings.updated', $row, [
-            'scope'           => $tenant ? 'tenant' : 'platform',
-            'changed'         => array_values(array_unique($changed)),
-            'secrets_changed' => $secrets,
-        ]);
+        $after = AuditLogger::snapshot($row, $tenant?->only(['company_name', 'primary_color', 'secondary_color', 'logo_path']), ['geofence_policy' => $tenant ? CompanyConfiguration::forTenantId($tenant->id)->geofence_policy : null]);
+        $this->audit->logChanges('tenant_settings.updated', $row, $before, $after, ['scope' => $tenant ? 'tenant' : 'platform']);
 
         return $row;
     }
