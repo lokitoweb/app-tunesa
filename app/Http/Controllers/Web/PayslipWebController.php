@@ -27,7 +27,7 @@ class PayslipWebController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $currentYear  = (int) $request->input('year', Carbon::now()->year);
         $currentMonth = (int) $request->input('month', Carbon::now()->month);
@@ -75,7 +75,7 @@ class PayslipWebController extends Controller
      */
     public function create(): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $employees = User::where('tenant_id', $tenantId)
             ->where('role', 'employee')
@@ -91,7 +91,7 @@ class PayslipWebController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $validated = $request->validate([
             'user_id'       => ['required', 'exists:users,id'],
@@ -149,7 +149,7 @@ class PayslipWebController extends Controller
      */
     public function publish(int $id): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $payslip = Payslip::where('tenant_id', $tenantId)->findOrFail($id);
 
         $payslip->update([
@@ -165,7 +165,7 @@ class PayslipWebController extends Controller
      */
     public function bulkPublish(Request $request): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $year  = (int) $request->input('year');
         $month = (int) $request->input('month');
 
@@ -241,7 +241,7 @@ class PayslipWebController extends Controller
      */
     public function download(int $id)
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $payslip = Payslip::where('tenant_id', $tenantId)->findOrFail($id);
 
         if (!Storage::disk('private')->exists($payslip->file_path)) {

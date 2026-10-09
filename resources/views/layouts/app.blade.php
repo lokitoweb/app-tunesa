@@ -17,7 +17,10 @@
     <!-- Panel Design System -->
     <link rel="stylesheet" href="{{ asset('css/panel.css') }}">
 
-    @php $brand = Auth::user()?->tenant; @endphp
+    @php
+        // Empresa activa (la del usuario, o la que eligió el Super Admin)
+        $brand = app(\App\Services\TenantContext::class)->getOrNull() ?? Auth::user()?->tenant;
+    @endphp
     @if($brand)
     <style>
         /* Marca blanca: colores corporativos de la empresa */
@@ -40,7 +43,7 @@
                         </svg>
                     </div>
                     <div>
-                        <div style="font-size: 1.15rem; font-weight: 800; letter-spacing: -0.5px; color: #fff;">{{ Auth::user()->tenant->company_name ?? 'TuneSA' }}</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; letter-spacing: -0.5px; color: #fff;">{{ $brand->company_name ?? 'TuneSA' }}</div>
                         <div style="font-size: 0.68rem; text-transform: uppercase; color: #818cf8; font-weight: 600; letter-spacing: 0.5px;">Control Geocercas</div>
                     </div>
                 </a>
@@ -187,8 +190,20 @@
             <header class="topbar" style="height: var(--header-h); border-bottom: 1px solid var(--border); background: rgba(17, 18, 24, 0.8); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; position: sticky; top: 0; z-index: 100;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(99, 102, 241, 0.15); color: #818cf8; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.25); font-weight: 600;">
-                        {{ Auth::user()->tenant->company_name ?? 'Plataforma' }}
+                        {{ $brand->company_name ?? 'Plataforma' }}
                     </span>
+                    @if(Auth::user()->isSuperAdmin())
+                        <form method="POST" action="{{ route('admin.tenant.switch') }}" style="margin: 0;">
+                            @csrf
+                            <select name="tenant_id" onchange="this.form.submit()" aria-label="Empresa a administrar"
+                                    style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem;">
+                                <option value="">Consolidado de la plataforma</option>
+                                @foreach(\App\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
+                                    <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
+                                @endforeach
+                            </select>
+                        </form>
+                    @endif
                     <span style="color: var(--text-muted);">•</span>
                     <span style="font-size: 0.85rem; color: var(--text-secondary);" id="liveClock">
                         {{ date('d M, Y') }}

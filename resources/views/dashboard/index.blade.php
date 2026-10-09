@@ -104,6 +104,12 @@
 @endsection
 
 @section('content')
+@if($platform)
+<div style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; padding: 1rem 1.25rem; color: #c7d2fe; font-size: 0.9rem; margin-bottom: 1.5rem;">
+    <strong>Consolidado de la plataforma:</strong> {{ $platform['active_tenants'] }} de {{ $platform['tenants'] }} empresas activas.
+    Las cifras suman todas las empresas. Para ver el mapa, las marcaciones y los módulos de una empresa, elígela en el selector superior.
+</div>
+@endif
 <div style="margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: gap;">
     <div>
         <h1 style="font-size: 1.85rem; font-weight: 800; color: #fff; margin-bottom: 0.25rem; letter-spacing: -0.5px;">Centro de Control en Tiempo Real</h1>

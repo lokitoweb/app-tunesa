@@ -166,4 +166,88 @@ class WebPanelTest extends TestCase
         $this->assertSame('excused', Attendance::where('user_id', $onLeave->id)->sole()->status);
         $this->assertSame(3, Attendance::count());
     }
+
+    public function test_super_admin_without_tenant_sees_platform_dashboard_without_error(): void
+    {
+        $acme  = $this->makeTenant('acme');
+        $other = $this->makeTenant('other');
+        $this->makeUser(null, 'super_admin', ['email' => 'root@tunesa.app', 'password' => 'Secret123']);
+        $this->makeUser($acme);
+        $this->makeUser($other);
+        $this->makeBranch($acme, ['name' => 'Sede Acme Secreta']);
+
+        $this->post('/login', ['email' => 'root@tunesa.app', 'password' => 'Secret123'])
+            ->assertRedirect(route('dashboard'));
+
+        $this->get('/dashboard')
+            ->assertOk()
+            ->assertSee('Consolidado de la plataforma')
+            ->assertViewHas('kpis', fn ($kpis) => $kpis['total_employees'] === 2)
+            // Sin empresa elegida no se listan registros de ninguna empresa
+            ->assertViewHas('branches', fn ($branches) => $branches->isEmpty())
+            ->assertDontSee('Sede Acme Secreta');
+
+        $this->getJson('/dashboard/live-stream')->assertOk()->assertJsonCount(0, 'attendances');
+
+        // Los módulos de empresa piden elegir una antes de consultar nada
+        $this->get('/employees')->assertRedirect(route('dashboard'));
+    }
+
+    public function test_super_admin_can_switch_into_a_tenant_and_back(): void
+    {
+        $acme  = $this->makeTenant('acme');
+        $other = $this->makeTenant('other');
+        $root  = $this->makeUser(null, 'super_admin');
+        $this->makeUser($acme, 'employee', ['first_name' => 'Lucia']);
+        $this->makeUser($other, 'employee', ['first_name' => 'Ajena']);
+        $this->makeBranch($acme, ['name' => 'Sede Acme']);
+        $this->makeBranch($other, ['name' => 'Sede Ajena']);
+
+        $this->actingAs($root)->post('/admin/switch-tenant', ['tenant_id' => $acme->id])
+            ->assertRedirect(route('dashboard'));
+
+        $this->get('/dashboard')
+            ->assertOk()
+            ->assertViewHas('kpis', fn ($kpis) => $kpis['total_employees'] === 1)
+            ->assertSee('Sede Acme')
+            ->assertDontSee('Sede Ajena');
+
+        $this->get('/employees')->assertOk()->assertSee('Lucia')->assertDontSee('Ajena');
+
+        $this->post('/admin/switch-tenant', ['tenant_id' => null])->assertRedirect(route('dashboard'));
+        $this->get('/employees')->assertRedirect(route('dashboard'));
+    }
+
+    public function test_company_admin_dashboard_only_counts_its_own_tenant(): void
+    {
+        $acme  = $this->makeTenant('acme');
+        $other = $this->makeTenant('other');
+        $this->makeUser($acme, 'company_admin', ['email' => 'admin@acme.pe', 'password' => 'Secret123']);
+        $acmeBranch  = $this->makeBranch($acme, ['name' => 'Sede Acme']);
+        $otherBranch = $this->makeBranch($other, ['name' => 'Sede Ajena']);
+        $acmeEmp  = $this->makeUser($acme);
+        $otherEmp = $this->makeUser($other);
+        $this->makeUser($other);
+
+        foreach ([[$acme, $acmeEmp, $acmeBranch], [$other, $otherEmp, $otherBranch]] as [$tenant, $emp, $branch]) {
+            Attendance::create([
+                'tenant_id' => $tenant->id, 'user_id' => $emp->id, 'branch_id' => $branch->id,
+                'work_date' => today()->toDateString(), 'clock_in_at' => now(), 'status' => 'present',
+            ]);
+        }
+
+        $this->post('/login', ['email' => 'admin@acme.pe', 'password' => 'Secret123'])
+            ->assertRedirect(route('dashboard'));
+
+        $this->get('/dashboard')
+            ->assertOk()
+            ->assertDontSee('Consolidado de la plataforma')
+            ->assertViewHas('kpis', fn ($kpis) => $kpis['total_employees'] === 1 && $kpis['present_count'] === 1)
+            ->assertViewHas('recentAttendances', fn ($rows) => $rows->pluck('tenant_id')->unique()->all() === [$acme->id])
+            ->assertSee('Sede Acme')
+            ->assertDontSee('Sede Ajena');
+
+        // Un admin de empresa no puede cambiarse de empresa
+        $this->post('/admin/switch-tenant', ['tenant_id' => $other->id])->assertForbidden();
+    }
 }

@@ -30,7 +30,7 @@ class EmployeeController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $query = User::where('tenant_id', $tenantId)
             ->with(['branches', 'employeeShifts.shift'])
@@ -75,7 +75,7 @@ class EmployeeController extends Controller
      */
     public function create(): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $branches = Branch::where('tenant_id', $tenantId)->where('is_active', true)->get();
         $shifts = Shift::where('tenant_id', $tenantId)->where('is_active', true)->get();
 
@@ -87,7 +87,7 @@ class EmployeeController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $validated = $request->validate([
             'first_name'      => ['required', 'string', 'max:100'],
@@ -175,7 +175,7 @@ class EmployeeController extends Controller
      */
     public function edit(int $id): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $employee = User::where('tenant_id', $tenantId)
             ->with(['branches', 'employeeShifts' => fn($q) => $q->where('is_active', true)->with('shift')])
             ->findOrFail($id);
@@ -192,7 +192,7 @@ class EmployeeController extends Controller
      */
     public function update(Request $request, int $id): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $employee = User::where('tenant_id', $tenantId)->findOrFail($id);
 
         $validated = $request->validate([
@@ -310,7 +310,7 @@ class EmployeeController extends Controller
      */
     public function toggleStatus(int $id): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $employee = User::where('tenant_id', $tenantId)->findOrFail($id);
         abort_unless(Auth::user()->canManage($employee) && Auth::id() !== $employee->id, 403);
 
