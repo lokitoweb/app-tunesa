@@ -9,6 +9,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -35,7 +36,7 @@ class PayslipWebController extends Controller
         $query = Payslip::forTenant($tenantId)
             ->where('period_year', $currentYear)
             ->where('period_month', $currentMonth)
-            ->with(['user', 'tenant'])
+            ->with(['employee', 'tenant'])
             ->orderBy('created_at', 'desc');
 
         if ($userId = $request->input('user_id')) {
@@ -94,7 +95,7 @@ class PayslipWebController extends Controller
         $tenantId = current_tenant_id_or_null();
 
         $validated = $request->validate([
-            'user_id'       => ['required', 'exists:users,id'],
+            'user_id'       => ['required', 'integer', Rule::exists('users', 'id')->where('tenant_id', $tenantId)],
             'title'         => ['required', 'string', 'max:150'],
             'period_month'  => ['required', 'integer', 'between:1,12'],
             'period_year'   => ['required', 'integer', 'between:2020,2035'],
@@ -105,6 +106,15 @@ class PayslipWebController extends Controller
             'publish_now'   => ['nullable', 'boolean'],
             'notes'         => ['nullable', 'string', 'max:500'],
         ]);
+
+        // Una boleta por colaborador y periodo (índice unique_payslip_per_period)
+        $duplicate = Payslip::withTrashed()->where('user_id', $validated['user_id'])
+            ->where('period_month', $validated['period_month'])
+            ->where('period_year', $validated['period_year'])
+            ->exists();
+        if ($duplicate) {
+            return back()->withInput()->withErrors(['user_id' => 'Ese colaborador ya tiene una boleta para ese periodo.']);
+        }
 
         $file = $request->file('pdf_file');
         $fileName = sprintf(
@@ -157,7 +167,7 @@ class PayslipWebController extends Controller
             'published_at' => Carbon::now(),
         ]);
 
-        return back()->with('success', "Boleta publicada para {$payslip->user->first_name}.");
+        return back()->with('success', "Boleta publicada para {$payslip->employee?->first_name}.");
     }
 
     /**

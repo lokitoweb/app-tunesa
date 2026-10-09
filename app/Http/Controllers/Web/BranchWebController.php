@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -74,7 +75,7 @@ class BranchWebController extends Controller
             'latitude'              => ['required', 'numeric', 'between:-90,90'],
             'longitude'             => ['required', 'numeric', 'between:-180,180'],
             'allowed_radius_meters' => ['required', 'integer', 'min:10', 'max:5000'],
-            'supervisor_id'         => ['nullable', 'exists:users,id'],
+            'supervisor_id'         => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $tenantId)],
             'is_active'             => ['nullable', 'boolean'],
             'notes'                 => ['nullable', 'string', 'max:500'],
         ]);
@@ -126,7 +127,7 @@ class BranchWebController extends Controller
             'latitude'              => ['required', 'numeric', 'between:-90,90'],
             'longitude'             => ['required', 'numeric', 'between:-180,180'],
             'allowed_radius_meters' => ['required', 'integer', 'min:10', 'max:5000'],
-            'supervisor_id'         => ['nullable', 'exists:users,id'],
+            'supervisor_id'         => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $tenantId)],
             'is_active'             => ['nullable', 'boolean'],
             'notes'                 => ['nullable', 'string', 'max:500'],
         ]);

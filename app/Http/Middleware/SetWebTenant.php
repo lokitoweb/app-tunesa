@@ -55,6 +55,7 @@ class SetWebTenant
         }
 
         $this->activate($tenant);
+        View::share('globalView', false);
 
         return $next($request);
     }

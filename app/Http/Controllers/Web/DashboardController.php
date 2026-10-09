@@ -25,8 +25,8 @@ use Illuminate\View\View;
  *
  * La empresa sale del TenantContext (SetWebTenant), nunca de un dato nulo:
  * los usuarios de empresa ven solo la suya; el Super Admin ve la empresa que
- * eligió en el selector o, sin elegir, solo totales agregados de la plataforma
- * (sin listados de personas, sucursales ni marcaciones de ninguna empresa).
+ * eligió en el selector o, sin elegir, la vista global con cifras, sucursales
+ * y marcaciones de todas las empresas.
  */
 class DashboardController extends Controller
 {
@@ -246,8 +246,8 @@ class DashboardController extends Controller
     }
 
     /**
-     * Filtra por empresa. Sin empresa (Super Admin) la consulta es un total
-     * agregado de la plataforma: los llamadores solo cuentan, nunca listan filas.
+     * Filtra por empresa. Sin empresa (vista global del Super Admin) abarca
+     * todas las empresas.
      */
     private function forTenant(Builder $query, ?int $tenantId): Builder
     {
