@@ -1,4 +1,4 @@
-package pe.tunesa.tunesa_mobile
+package com.tunesa.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 
