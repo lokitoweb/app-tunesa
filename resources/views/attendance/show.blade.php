@@ -154,8 +154,13 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const branch = @json($branch ? ['lat' => (float) $branch->latitude, 'lng' => (float) $branch->longitude, 'radius' => (int) $branch->allowed_radius_meters, 'name' => $branch->name] : null);
-    const point = @json($attendance->clock_in_latitude !== null ? ['lat' => (float) $attendance->clock_in_latitude, 'lng' => (float) $attendance->clock_in_longitude] : null);
+    @php
+        // @json no admite arreglos con comas dentro de un ternario: se arman antes
+        $mapBranch = $branch ? ['lat' => (float) $branch->latitude, 'lng' => (float) $branch->longitude, 'radius' => (int) $branch->allowed_radius_meters, 'name' => $branch->name] : null;
+        $mapPoint  = $attendance->clock_in_latitude !== null ? ['lat' => (float) $attendance->clock_in_latitude, 'lng' => (float) $attendance->clock_in_longitude] : null;
+    @endphp
+    const branch = @json($mapBranch);
+    const point = @json($mapPoint);
     const within = @json((bool) $attendance->clock_in_within_geofence);
     const distance = @json($attendance->clock_in_distance_meters);
     const brand = Panel.cssVar('--brand') || '#1E40AF';
