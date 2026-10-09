@@ -20,6 +20,7 @@ void main() {
     test('apiUrl agrega /api a la URL base sin duplicar la barra', () {
       expect(Env.apiUrl, '${Env.apiBaseUrl.replaceAll(RegExp(r'/+$'), '')}/api');
       expect(Env.apiUrl.endsWith('//api'), isFalse);
+      expect(Env.apiUrl.endsWith('/api/api'), isFalse);
     });
   });
 

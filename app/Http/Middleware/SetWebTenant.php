@@ -63,6 +63,12 @@ class SetWebTenant
     /** Rutas de escritura permitidas en la vista global (no crean registros de empresa) */
     public const GLOBAL_WRITE_ROUTES = ['logout', 'admin.tenant.switch'];
 
+    /**
+     * Rutas que eligen la empresa en el propio formulario (selector "Empresa"
+     * para crear, o la empresa del registro al editar): funcionan en la vista global.
+     */
+    public const GLOBAL_TENANT_PICKER_ROUTES = ['branches.create', 'branches.store', 'branches.edit', 'branches.update'];
+
     /** Formularios GET que preparan una escritura y por eso necesitan empresa */
     public const GLOBAL_FORM_ROUTES = ['*.create', '*.edit', 'payslips.bulk'];
 
@@ -109,7 +115,7 @@ class SetWebTenant
     {
         $route = $request->route()?->getName() ?? '';
 
-        if (in_array($route, self::GLOBAL_WRITE_ROUTES, true)) {
+        if (in_array($route, self::GLOBAL_WRITE_ROUTES, true) || in_array($route, self::GLOBAL_TENANT_PICKER_ROUTES, true)) {
             return false;
         }
 

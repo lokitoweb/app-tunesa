@@ -26,6 +26,12 @@ class CompanyConfiguration extends Model
         'lock_verified_payment_info'  => ['Bloquear datos verificados', 'Cuando RRHH verifica la cuenta, el colaborador ya no puede cambiarla desde la app.'],
     ];
 
+    /** Qué pasa si alguien marca fuera del radio de su sucursal */
+    public const GEOFENCE_POLICIES = [
+        'reject' => ['Rechazar la marcación', 'La app muestra a qué distancia está y no registra la entrada ni la salida.'],
+        'flag'   => ['Registrar como incidencia', 'La marcación se guarda marcada "Fuera de geocerca" y queda para revisión de RRHH.'],
+    ];
+
     public const DEFAULT_REQUIRED_DOCUMENTS = ['dni', 'cv', 'proof_of_address'];
 
     protected $fillable = [
@@ -33,7 +39,7 @@ class CompanyConfiguration extends Model
         'mobile_payslips_enabled', 'mobile_documents_enabled', 'mobile_documents_upload',
         'mobile_payment_info_enabled', 'mobile_payment_info_edit',
         'mobile_uniforms_enabled', 'mobile_uniforms_edit',
-        'lock_verified_payment_info', 'required_documents', 'max_upload_mb', 'updated_by',
+        'lock_verified_payment_info', 'required_documents', 'max_upload_mb', 'geofence_policy', 'updated_by',
     ];
 
     protected $casts = [
@@ -59,6 +65,7 @@ class CompanyConfiguration extends Model
         'mobile_uniforms_edit'        => true,
         'lock_verified_payment_info'  => true,
         'max_upload_mb'               => 5,
+        'geofence_policy'             => 'reject',
     ];
 
     public static function current(): self
@@ -73,6 +80,12 @@ class CompanyConfiguration extends Model
     public static function forTenantId(?int $tenantId): self
     {
         return static::withoutGlobalScopes()->firstOrNew(['tenant_id' => $tenantId]);
+    }
+
+    /** true si la empresa registra (en vez de rechazar) las marcaciones fuera del radio */
+    public function flagsOutOfGeofence(): bool
+    {
+        return $this->geofence_policy === 'flag';
     }
 
     public function requiredDocuments(): array

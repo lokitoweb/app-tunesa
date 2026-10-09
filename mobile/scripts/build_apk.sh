@@ -5,6 +5,7 @@
 #   scripts/build_apk.sh staging          # release contra env/staging.json
 #   scripts/build_apk.sh dev debug        # debug contra el backend local (http)
 #   API_BASE_URL=https://api.cliente.pe scripts/build_apk.sh prod   # otro dominio
+#   API_BASE_URL=https://xxxx.trycloudflare.com scripts/build_apk.sh tunnel   # túnel de pruebas
 #
 # Firma: si existe android/key.properties usa la llave de producción; si no,
 # el APK release queda firmado con la llave debug (sirve para pruebas, no para Play Store).
@@ -27,6 +28,11 @@ if [[ "$MODE" != "release" && "$MODE" != "debug" ]]; then
 fi
 if [[ "$MODE" == "release" ]] && grep -q '"API_BASE_URL": *"http://' "$ENV_FILE" && [[ -z "${API_BASE_URL:-}" ]]; then
   echo "Aviso: $ENV_FILE usa http://. Android bloquea tráfico sin cifrar en release; usa https o el modo debug." >&2
+fi
+
+if grep -q 'CAMBIA-ESTE-SUBDOMINIO' "$ENV_FILE" && [[ -z "${API_BASE_URL:-}" ]]; then
+  echo "Falta la URL del túnel: edita API_BASE_URL en $ENV_FILE o compila con API_BASE_URL=https://xxxx.trycloudflare.com" >&2
+  exit 1
 fi
 
 EXTRA_DEFINES=()
