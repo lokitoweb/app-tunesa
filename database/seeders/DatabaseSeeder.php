@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 /**
  * DatabaseSeeder — Datos iniciales para desarrollo y demostración.
@@ -18,6 +19,10 @@ use Illuminate\Support\Facades\Hash;
  * - Company Admin, HR Manager, Supervisor y 3 Empleados
  * - 2 Sucursales con geocercas reales (Lima, Perú)
  * - 3 Turnos de trabajo (Mañana, Tarde, Noche)
+ *
+ * En producción (APP_ENV=production) solo crea roles y el Super Admin, con
+ * el correo y la contraseña de SEED_SUPERADMIN_EMAIL / SEED_SUPERADMIN_PASSWORD:
+ * nunca la empresa demo ni contraseñas conocidas.
  */
 class DatabaseSeeder extends Seeder
 {
@@ -25,6 +30,12 @@ class DatabaseSeeder extends Seeder
     {
         // Roles y matriz de permisos (idempotente)
         $this->call(RolesAndPermissionsSeeder::class);
+
+        if (app()->isProduction()) {
+            $this->seedProductionSuperAdmin();
+
+            return;
+        }
 
         // =====================================================================
         // 1. SUPER ADMIN (sin tenant)
@@ -340,5 +351,27 @@ class DatabaseSeeder extends Seeder
             ]
         );
         $this->command->info("🚀 Seeder completado. Header para la API: X-Tenant-Slug: empresa-demo");
+    }
+
+    /** Producción: Super Admin con credenciales del entorno, sin datos demo */
+    private function seedProductionSuperAdmin(): void
+    {
+        $email    = env('SEED_SUPERADMIN_EMAIL');
+        $password = (string) env('SEED_SUPERADMIN_PASSWORD');
+
+        if (! $email || strlen($password) < 12) {
+            throw new RuntimeException('Define SEED_SUPERADMIN_EMAIL y SEED_SUPERADMIN_PASSWORD (12+ caracteres) en el .env antes de sembrar producción.');
+        }
+
+        User::firstOrCreate(['email' => $email, 'tenant_id' => null], [
+            'first_name'           => 'Super',
+            'last_name'            => 'Admin',
+            'password'             => Hash::make($password),
+            'role'                 => 'super_admin',
+            'status'               => 'active',
+            'must_change_password' => true,
+        ]);
+
+        $this->command->info("✅ Super Admin de producción: {$email}. Borra SEED_SUPERADMIN_PASSWORD del .env.");
     }
 }
