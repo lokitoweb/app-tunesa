@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Http\Requests\Api\Concerns\MarksWithTenantSettings;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -14,6 +15,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class ClockInRequest extends FormRequest
 {
+    use MarksWithTenantSettings;
+
     public function authorize(): bool
     {
         return true; // La autorización se maneja en el middleware
@@ -34,13 +37,8 @@ class ClockInRequest extends FormRequest
                 'between:-180,180',
             ],
 
-            // Foto selfie (obligatoria en Clock-In y Clock-Out)
-            'photo' => [
-                'required',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
-                'max:5120',  // 5 MB máximo
-            ],
+            // Foto selfie (5 MB máx.): obligatoria salvo que la empresa la desactive (selfie_required)
+            'photo' => $this->photoRules(),
 
             // Precisión del GPS en metros (del sensor del teléfono)
             'accuracy_meters' => ['sometimes', 'numeric', 'min:0', 'max:10000'],
@@ -52,7 +50,7 @@ class ClockInRequest extends FormRequest
             'device_os'      => ['sometimes', 'nullable', 'string', 'in:android,ios'],
             'is_mocked'       => ['sometimes', 'boolean'],
             'app_version'    => ['sometimes', 'nullable', 'string', 'max:20'],
-        ];
+        ] + $this->offlineRules();
     }
 
     public function messages(): array
@@ -66,7 +64,7 @@ class ClockInRequest extends FormRequest
             'photo.image'         => 'El archivo debe ser una imagen.',
             'photo.mimes'         => 'La foto debe ser JPG, JPEG, PNG o WebP.',
             'photo.max'           => 'La foto no debe superar 5MB.',
-        ];
+        ] + $this->offlineMessages();
     }
 
     /**
@@ -74,13 +72,6 @@ class ClockInRequest extends FormRequest
      */
     public function deviceMeta(): array
     {
-        return array_filter([
-            'accuracy_meters' => $this->input('accuracy_meters'),
-            'device_os'       => $this->input('device_os'),
-            'app_version'     => $this->input('app_version'),
-            'is_mocked'       => $this->has('is_mocked') ? $this->boolean('is_mocked') : null,
-            'ip'              => $this->ip(),
-            'user_agent'      => $this->userAgent(),
-        ]);
+        return $this->baseDeviceMeta();
     }
 }

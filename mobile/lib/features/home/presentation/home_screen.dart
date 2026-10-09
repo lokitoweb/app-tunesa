@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config_controller.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/brand_logo.dart';
 import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../attendance/domain/models.dart';
 import '../../attendance/presentation/attendance_providers.dart';
+import '../../attendance/presentation/offline_sync.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../notifications/presentation/notifications_providers.dart';
 import '../../notifications/presentation/notifications_screen.dart';
@@ -48,10 +51,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final auth = ref.watch(authControllerProvider);
     final today = ref.watch(todayStatusProvider);
     final user = auth.user;
+    final appName = ref.watch(appConfigProvider.select((s) => s.config.tenant?.displayName)) ??
+        auth.branding?.companyName ??
+        'TuneSA';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(auth.branding?.companyName ?? 'TuneSA'),
+        title: Row(children: [
+          const BrandLogo(height: 32),
+          const SizedBox(width: 10),
+          Flexible(child: Text(appName, overflow: TextOverflow.ellipsis)),
+        ]),
         actions: [
           const NotificationBell(),
           IconButton(
@@ -62,8 +72,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () {
+        onRefresh: () async {
           _refreshBadges();
+          // Envía marcaciones guardadas sin conexión antes de recargar el día
+          await ref.read(offlineSyncProvider.notifier).sync();
           return ref.refresh(todayStatusProvider.future);
         },
         child: ListView(

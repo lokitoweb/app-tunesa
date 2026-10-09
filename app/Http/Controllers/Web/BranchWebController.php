@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Tenant;
+use App\Models\TenantSetting;
+use App\Services\TenantContext;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Collection;
@@ -53,7 +55,8 @@ class BranchWebController extends Controller
         return view('branches.form', [
             'branch'      => new Branch([
                 'tenant_id'             => $tenantId,
-                'allowed_radius_meters' => 50,
+                // Radio por defecto de "Marca y app › Reglas operativas"
+                'allowed_radius_meters' => TenantSetting::forTenant(app(TenantContext::class)->getOrNull())->default_geofence_radius,
                 'is_active'             => true,
                 'latitude'              => -12.046374,  // Default (e.g. Lima Centro)
                 'longitude'             => -77.042793,

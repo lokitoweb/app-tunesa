@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\AttendanceException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\BreakRequest;
 use App\Http\Requests\Api\ClockInRequest;
@@ -61,6 +62,11 @@ class AttendanceController extends Controller
             return $rejection;
         }
 
+        [$offlineAt, $rejection] = $this->resolveOfflineTime($request);
+        if ($rejection) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->clockIn(
                 employee:  $request->user(),
@@ -69,6 +75,7 @@ class AttendanceController extends Controller
                 photo:     $request->file('photo'),
                 deviceId:  $request->input('device_id', ''),
                 meta:      $request->deviceMeta(),
+                at:        $offlineAt,
             );
 
             return response()->json([
@@ -97,11 +104,16 @@ class AttendanceController extends Controller
      */
     public function breakStart(BreakRequest $request): JsonResponse
     {
+        if ($rejection = $this->rejectUntrustedLocation($request)) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->breakStart(
                 employee:  $request->user(),
                 latitude:  (float) $request->input('latitude'),
                 longitude: (float) $request->input('longitude'),
+                meta:      $request->deviceMeta(),
             );
 
             return response()->json([
@@ -124,11 +136,16 @@ class AttendanceController extends Controller
      */
     public function breakEnd(BreakRequest $request): JsonResponse
     {
+        if ($rejection = $this->rejectUntrustedLocation($request)) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->breakEnd(
                 employee:  $request->user(),
                 latitude:  (float) $request->input('latitude'),
                 longitude: (float) $request->input('longitude'),
+                meta:      $request->deviceMeta(),
             );
 
             return response()->json([
@@ -158,6 +175,11 @@ class AttendanceController extends Controller
             return $rejection;
         }
 
+        [$offlineAt, $rejection] = $this->resolveOfflineTime($request);
+        if ($rejection) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->clockOut(
                 employee:  $request->user(),
@@ -166,6 +188,7 @@ class AttendanceController extends Controller
                 photo:     $request->file('photo'),
                 deviceId:  $request->input('device_id', ''),
                 meta:      $request->deviceMeta(),
+                at:        $offlineAt,
             );
 
             $workedHours = number_format($attendance->worked_hours, 1);
@@ -556,7 +579,7 @@ class AttendanceController extends Controller
         $from = $request->input('from', now($tz)->startOfMonth()->toDateString());
         $to   = $request->input('to', now($tz)->toDateString());
 
-        $attendances = Attendance::whereIn('user_id', $this->teamUserIds($request->user()))
+        $attendances = Attendance::whereIn('user_id', $this->teamUserIds($request->user(), activeOnly: false))
             ->whereBetween('work_date', [$from, $to])
             ->when($request->user_id, fn ($q) => $q->where('user_id', $request->user_id))
             ->when($request->status,  fn ($q) => $q->where('status',  $request->status))
@@ -715,9 +738,12 @@ class AttendanceController extends Controller
     /**
      * Anti-fraude: rechaza la marcación si la app detectó ubicación simulada
      * (mock GPS) o si la precisión del GPS es peor que el máximo permitido.
+     * Se aplica a entrada, salida e inicio/fin de descanso.
      */
-    private function rejectUntrustedLocation(Request $request): ?JsonResponse
+    private function rejectUntrustedLocation(ClockInRequest|ClockOutRequest|BreakRequest $request): ?JsonResponse
     {
+        $settings = $request->tenantSettings();
+
         if (config('attendance.reject_mock_location') && $request->boolean('is_mocked')) {
             logger()->warning('Marcación con ubicación simulada rechazada', [
                 'user_id'   => $request->user()->id,
@@ -732,7 +758,8 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        $maxAccuracy = (int) config('attendance.max_gps_accuracy_meters');
+        // Precisión máxima de "Marca y app" (empresa > plataforma > ATTENDANCE_MAX_GPS_ACCURACY)
+        $maxAccuracy = $settings->maxGpsAccuracy();
         if ($maxAccuracy > 0 && $request->filled('accuracy_meters') && (float) $request->input('accuracy_meters') > $maxAccuracy) {
             return response()->json([
                 'success' => false,
@@ -741,49 +768,99 @@ class AttendanceController extends Controller
             ], 422);
         }
 
+        // La app hace la detección de rostro; el backend rechaza si informó que no hubo rostro
+        if ($settings->face_detection_required && $request->has('face_detected') && ! $request->boolean('face_detected')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se detectó un rostro en la selfie. Toma la foto de frente y con buena luz.',
+                'code'    => 'FACE_NOT_DETECTED',
+            ], 422);
+        }
+
         return null;
     }
 
     /**
-     * IDs de los colaboradores que supervisa el usuario: los asignados a las
-     * sucursales donde él es supervisor (branches.supervisor_id).
+     * Marcación sin conexión: la app envía offline_recorded_at con la hora real.
+     * Solo si la empresa lo permite y dentro de offline_max_hours.
+     *
+     * @return array{0: ?Carbon, 1: ?JsonResponse}
+     */
+    private function resolveOfflineTime(ClockInRequest|ClockOutRequest $request): array
+    {
+        if (! $request->filled('offline_recorded_at')) {
+            return [null, null];
+        }
+
+        $settings = $request->tenantSettings();
+
+        if (! $settings->offline_mode_enabled) {
+            return [null, response()->json([
+                'success' => false,
+                'message' => 'Tu empresa no permite registrar marcaciones sin conexión.',
+                'code'    => 'OFFLINE_NOT_ALLOWED',
+            ], 422)];
+        }
+
+        $at       = Carbon::parse($request->input('offline_recorded_at'))->setTimezone(tenant_timezone());
+        $maxHours = max(1, (int) $settings->offline_max_hours);
+
+        if ($at->lt(Carbon::now(tenant_timezone())->subHours($maxHours))) {
+            return [null, response()->json([
+                'success' => false,
+                'message' => "La marcación sin conexión tiene más de {$maxHours} h. Pide a RRHH que la registre manualmente.",
+                'code'    => 'OFFLINE_TOO_OLD',
+            ], 422)];
+        }
+
+        return [$at, null];
+    }
+
+    /**
+     * Equipo del usuario (User::teamOf): colaboradores y supervisores de sus
+     * sucursales, o todo el personal que marca si ve toda la asistencia (RRHH,
+     * admin). Nunca él mismo. El reporte incluye también a los inactivos
+     * (historial de quien ya no está).
      *
      * @return array<int, int>
      */
-    /**
-     * Equipo visible (User::visibleTo): el supervisor ve a los de sus sucursales;
-     * quien ve toda la asistencia (RRHH, admin) ve a todo el personal activo de campo.
-     */
-    private function teamUserIds(User $viewer): array
+    private function teamUserIds(User $viewer, bool $activeOnly = true): array
     {
-        return User::visibleTo($viewer)
-            ->where('users.id', '!=', $viewer->id)
-            ->when($viewer->seesAllAttendance(), fn ($q) => $q
-                ->whereIn('role', ['employee', 'supervisor'])
-                ->where('status', 'active'))
+        return User::teamOf($viewer, $activeOnly)
             ->pluck('users.id')
             ->all();
     }
 
     /**
-     * Convierte excepciones del servicio en respuestas JSON apropiadas.
+     * Convierte excepciones del servicio en respuestas JSON.
+     *
+     * AttendanceException trae su propio código (GEOFENCE_VIOLATION solo para
+     * distancia, NO_BRANCH_ASSIGNED, ALREADY_CLOCKED_IN...) y su HTTP status.
+     * Cualquier otra excepción es un error inesperado: 500 sin detalles internos.
      */
     private function handleAttendanceException(\Exception $e): JsonResponse
     {
-        $code = $e->getCode();
+        if ($e instanceof AttendanceException) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'code'    => $e->errorCode,
+            ], $e->status());
+        }
 
-        // Usar el código de la excepción como HTTP status cuando es válido
-        $httpStatus = in_array($code, [400, 404, 409, 422]) ? $code : 500;
+        // Errores HTTP/validación/no encontrado: los renderiza el manejador global
+        if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
+            || $e instanceof \Illuminate\Validation\ValidationException
+            || $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+            throw $e;
+        }
+
+        report($e);
 
         return response()->json([
             'success' => false,
-            'message' => $e->getMessage(),
-            'code'    => match ($httpStatus) {
-                404     => 'NOT_FOUND',
-                409     => 'CONFLICT',
-                422     => 'GEOFENCE_VIOLATION',
-                default => 'SERVER_ERROR',
-            },
-        ], $httpStatus);
+            'message' => 'No se pudo registrar la marcación. Intenta de nuevo en unos minutos.',
+            'code'    => 'SERVER_ERROR',
+        ], 500);
     }
 }

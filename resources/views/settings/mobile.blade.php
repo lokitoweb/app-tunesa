@@ -14,6 +14,7 @@
         <h1>Configuración de la app móvil</h1>
         <p>Decide qué ve y qué puede editar el personal desde su celular. Los cambios aplican la próxima vez que abren la app.</p>
     </div>
+    <a href="{{ route('settings.branding') }}" class="btn btn-outline-secondary"><i class="bi bi-palette me-1"></i> Marca y app</a>
 </div>
 
 @if(! $config)
@@ -68,16 +69,11 @@
                     </div>
 
                     <h2 class="h6 fw-semibold mt-4 mb-1">Marcación fuera de geocerca</h2>
-                    <small class="d-block text-body-secondary mb-2">Qué pasa si alguien marca lejos de su sucursal (radio configurado en Sucursales).</small>
-                    @foreach(CompanyConfiguration::GEOFENCE_POLICIES as $policy => [$label, $desc])
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="radio" name="geofence_policy" value="{{ $policy }}" id="geo_{{ $policy }}" @checked(old('geofence_policy', $config->geofence_policy) === $policy)>
-                            <label class="form-check-label" for="geo_{{ $policy }}">
-                                <span class="d-block fw-semibold">{{ $label }}</span>
-                                <span class="d-block small text-body-secondary">{{ $desc }}</span>
-                            </label>
-                        </div>
-                    @endforeach
+                    <p class="small text-body-secondary mb-0">
+                        Ahora: <strong>{{ CompanyConfiguration::GEOFENCE_POLICIES[$config->geofence_policy][0] ?? $config->geofence_policy }}</strong>.
+                        Se cambia en <a href="{{ route('settings.branding', ['tab' => 'reglas']) }}">Marca y app › Reglas operativas</a>,
+                        junto con la selfie, la marcación sin conexión y la precisión GPS.
+                    </p>
 
                     <button class="btn btn-primary w-100 mt-4">Guardar configuración</button>
                     @if($config->updated_at)

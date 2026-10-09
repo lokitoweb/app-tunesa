@@ -34,8 +34,15 @@ class Env {
   /// URL base de la API REST: `<API_BASE_URL>/api`.
   /// Acepta el dominio con o sin `/api` al final (https://x.trycloudflare.com
   /// o https://x.trycloudflare.com/api terminan en la misma URL).
-  static String get apiUrl {
-    final base = apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '').replaceAll(RegExp(r'/api$'), '');
-    return '$base/api';
-  }
+  static String get apiUrl => apiUrlFor(apiBaseUrl);
+
+  /// Dominio sin barras finales ni `/api` (https://x.app/api/ → https://x.app).
+  static String normalizeBaseUrl(String base) =>
+      base.trim().replaceAll(RegExp(r'/+$'), '').replaceAll(RegExp(r'/api$'), '');
+
+  /// URL de la API REST para un dominio cualquiera (override en tiempo de ejecución).
+  static String apiUrlFor(String base) => '${normalizeBaseUrl(base)}/api';
+
+  /// `http://` solo se acepta en builds de desarrollo.
+  static bool get allowsHttp => name == 'dev';
 }

@@ -84,6 +84,29 @@ class DashboardAndSupervisorApiTest extends TestCase
             ->assertJsonCount(2, 'attendances');
         $this->actingIn($hr, $acme)->getJson('/api/supervisor/attendance')->assertJsonPath('meta.total', 2);
         $ids = collect($this->actingIn($hr, $acme)->getJson('/api/supervisor/team')->assertOk()->json('data'))->pluck('id')->sort()->values()->all();
-        $this->assertSame(collect([$mine->id, $notMine->id])->sort()->values()->all(), $ids);
+        // Mismo equipo que attendance/live: también el supervisor, que marca
+        $this->assertSame(collect([$mine->id, $notMine->id, $supervisor->id])->sort()->values()->all(), $ids);
+    }
+
+    public function test_supervisor_team_includes_supervisors_of_its_branches_like_attendance_live(): void
+    {
+        $acme      = $this->makeTenant('acme');
+        $boss      = $this->makeUser($acme, 'supervisor');
+        $branch    = $this->makeBranch($acme, ['supervisor_id' => $boss->id]);
+        $employee  = $this->makeUser($acme, 'employee');
+        $colleague = $this->makeUser($acme, 'supervisor');   // supervisor que marca en la sede de $boss
+        $inactive  = $this->makeUser($acme, 'employee', ['status' => 'inactive']);
+        $hr        = $this->makeUser($acme, 'hr_manager');   // no marca desde la app
+        foreach ([$employee, $colleague, $inactive, $hr, $boss] as $u) {
+            $u->branches()->attach($branch->id, ['is_primary' => true]);
+        }
+
+        $ids = collect($this->actingIn($boss, $acme)->getJson('/api/supervisor/team')->assertOk()->json('data'))
+            ->pluck('id')->sort()->values()->all();
+        $expected = collect([$employee->id, $colleague->id])->sort()->values()->all();
+        $this->assertSame($expected, $ids);
+
+        $this->actingIn($boss, $acme)->getJson('/api/supervisor/attendance/live')
+            ->assertOk()->assertJsonPath('summary.team_size', 2);
     }
 }

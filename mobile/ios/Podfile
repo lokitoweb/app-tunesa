@@ -1,6 +1,7 @@
-# Mínimo iOS 15 (igual que IPHONEOS_DEPLOYMENT_TARGET del proyecto; camera,
+# Mínimo iOS 15.5 (igual que IPHONEOS_DEPLOYMENT_TARGET del proyecto; lo exige
+# google_mlkit_face_detection. camera,
 # geolocator, pdfx y flutter_secure_storage piden iOS 12-13 o superior).
-platform :ios, '15.0'
+platform :ios, '15.5'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'

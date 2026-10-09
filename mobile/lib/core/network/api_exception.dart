@@ -22,6 +22,9 @@ class ApiException implements Exception {
   bool get isForbidden => statusCode == 403;
   bool get isNetwork => code == 'NETWORK' || code == 'TIMEOUT';
 
+  /// No hubo conexión con el servidor (la solicitud no llegó).
+  bool get isConnectionError => code == 'NETWORK';
+
   /// Primer error de validación de un campo, si lo hay.
   String? fieldError(String field) => fieldErrors[field]?.first;
 
@@ -90,6 +93,7 @@ class ApiException implements Exception {
         403 => 'No tienes permiso para realizar esta acción.',
         404 => 'No se encontró el recurso solicitado.',
         422 => 'Revisa los datos enviados.',
+        426 => 'Debes actualizar la app para continuar.',
         429 => 'Demasiados intentos. Espera un momento e inténtalo de nuevo.',
         final s? when s >= 500 => 'El servidor tuvo un problema. Inténtalo más tarde.',
         _ => 'Ocurrió un error inesperado.',
