@@ -7,9 +7,11 @@ use App\Models\Attendance;
 use App\Models\LeaveRequest;
 use App\Models\Tenant;
 use App\Models\TenantSetting;
+use App\Services\Integrations\WebhookSender;
 use Carbon\CarbonInterface;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -21,7 +23,8 @@ use Illuminate\Support\Facades\Log;
  *    (canal database) que recibe un usuario de la empresa.
  *
  * Cuerpo: {"event", "occurred_at", "tenant": {"slug"}, "data": {...}}, firmado
- * con webhook_secret (ver SendTenantWebhook). Se encola un job por evento; un
+ * con webhook_secret (ver WebhookSender). Se encola un job por evento y cada
+ * envío queda en webhook_deliveries (historial del panel); un
  * fallo nunca interrumpe la acción que lo originó (marcar, aprobar...).
  */
 class IntegrationDispatcher
@@ -112,7 +115,14 @@ class IntegrationDispatcher
                 'data'        => $data($tenant),
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
-            SendTenantWebhook::dispatch($tenant->id, $target, $event, $body)->afterCommit();
+            $job = new SendTenantWebhook($tenant->id, $target, $event, $body);
+            $url = $row->{$target};
+
+            // Fila "pending" en webhook_deliveries desde ya: si no hay worker de la cola,
+            // el historial del panel lo muestra en lugar de no mostrar nada
+            DB::afterCommit(fn () => app(WebhookSender::class)->open($tenant->id, $target, $event, $url, $body, $job->deliveryUuid));
+
+            dispatch($job)->afterCommit();
         } catch (\Throwable $e) {
             // Con la cola "sync" el envío corre aquí mismo: su fallo no debe tumbar la marcación
             Log::warning("No se pudo enviar el evento {$event} a la integración: " . $e->getMessage(), [

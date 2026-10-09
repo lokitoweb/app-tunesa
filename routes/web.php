@@ -3,6 +3,7 @@
 use App\Http\Controllers\SecureFileController;
 use App\Http\Controllers\Web\ApprovalWebController;
 use App\Http\Controllers\Web\BrandingWebController;
+use App\Http\Controllers\Web\IntegrationsWebController;
 use App\Http\Controllers\Web\CompanySettingsWebController;
 use App\Http\Controllers\Web\CompanyWebController;
 use App\Http\Controllers\Web\DocumentWebController;
@@ -119,6 +120,14 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::prefix('settings/branding')->name('settings.branding')->middleware('can:company.configure')->group(function () {
         Route::get('/', [BrandingWebController::class, 'edit']);
         Route::put('/', [BrandingWebController::class, 'update'])->name('.update');
+
+        // Integraciones: pruebas en vivo e historial de envíos (webhook_deliveries)
+        Route::get('/deliveries', [IntegrationsWebController::class, 'deliveries'])->name('.deliveries');
+        Route::middleware('throttle:20,1')->group(function () {
+            Route::post('/test-webhook', [IntegrationsWebController::class, 'testWebhook'])->name('.test-webhook');
+            Route::post('/test-notification', [IntegrationsWebController::class, 'testNotification'])->name('.test-notification');
+            Route::post('/test-push', [IntegrationsWebController::class, 'testPush'])->name('.test-push');
+        });
     });
 
     // Turnos (fijos y rotativos), tolerancias y asignaciones

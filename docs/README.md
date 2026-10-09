@@ -22,6 +22,7 @@ workflows). Si algo no coincide con el código, manda el código: avisa y se cor
 | Documento | Qué explica |
 |---|---|
 | [deployment/mobile-cloudflare-tunnel.md](deployment/mobile-cloudflare-tunnel.md) | Probar la app en un celular real con el backend en tu PC expuesto por Cloudflare Tunnel, paso a paso, con solución de problemas. |
+| [deployment/integrations-queue.md](deployment/integrations-queue.md) | Worker de la cola, reintentos e historial de envíos del webhook y del endpoint de notificaciones; variables `INTEGRATIONS_*`. |
 
 ## Otros documentos del repositorio
 
