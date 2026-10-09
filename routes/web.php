@@ -11,6 +11,7 @@ use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\BranchWebController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\EmployeeController;
+use App\Http\Controllers\Web\NotificationWebController;
 use App\Http\Controllers\Web\PasswordResetController;
 use App\Http\Controllers\Web\PayslipWebController;
 use App\Http\Controllers\Web\ReportWebController;
@@ -59,6 +60,11 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/live-stream', [DashboardController::class, 'liveStream'])->name('dashboard.live-stream');
     Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
+
+    // Notificaciones personales (campana del topbar)
+    Route::get('/notifications', [NotificationWebController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationWebController::class, 'readAll'])->name('notifications.read-all');
+    Route::post('/notifications/{id}/read', [NotificationWebController::class, 'read'])->name('notifications.read')->whereUuid('id');
 
     // Gestión de Colaboradores
     Route::prefix('employees')->name('employees.')->middleware('can:users.manage')->group(function () {

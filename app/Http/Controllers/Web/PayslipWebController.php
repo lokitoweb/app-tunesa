@@ -179,14 +179,20 @@ class PayslipWebController extends Controller
         $year  = (int) $request->input('year');
         $month = (int) $request->input('month');
 
-        $count = Payslip::forTenant($tenantId)
+        // Una por una (no update masivo) para que cada colaborador reciba su notificación
+        $drafts = Payslip::forTenant($tenantId)
             ->where('period_year', $year)
             ->where('period_month', $month)
             ->where('status', 'draft')
-            ->update([
+            ->get();
+
+        foreach ($drafts as $payslip) {
+            $payslip->update([
                 'status'       => 'published',
                 'published_at' => Carbon::now(),
             ]);
+        }
+        $count = $drafts->count();
 
         return back()->with('success', "Se publicaron {$count} boletas de pago del periodo {$month}/{$year}.");
     }

@@ -161,6 +161,7 @@
             </div>
             <div class="d-flex align-items-center gap-2">
                 <span class="small text-body-secondary d-none d-md-inline">{{ now()->isoFormat('dddd D [de] MMMM') }}</span>
+                @include('layouts.partials.notifications-bell')
                 <button type="button" class="btn btn-light border btn-sm" id="themeToggle" aria-label="Cambiar tema claro u oscuro" title="Tema claro / oscuro">
                     <i class="bi bi-moon-stars"></i>
                 </button>
