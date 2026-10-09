@@ -165,7 +165,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const distance = @json($attendance->clock_in_distance_meters);
     const brand = Panel.cssVar('--brand') || '#1E40AF';
 
-    const map = L.map('auditMap', { scrollWheelZoom: false });
+    // Leaflet necesita una vista antes de agregar círculos (getBounds los proyecta)
+    const center = point ? [point.lat, point.lng] : (branch ? [branch.lat, branch.lng] : [-12.046374, -77.042793]);
+    const map = L.map('auditMap', { scrollWheelZoom: false }).setView(center, 16);
     Panel.tiles(map);
     const layer = L.featureGroup().addTo(map);
 

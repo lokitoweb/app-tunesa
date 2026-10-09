@@ -236,7 +236,7 @@ class WebPanelTest extends TestCase
         $this->get('/shifts')->assertSee('Turno acme')->assertSee('Turno other');
 
         // Crear o editar sí necesita empresa: vuelve al listado del módulo, no al dashboard
-        $this->from('/employees')->get('/employees/create')->assertRedirect(route('employees.index'))->assertSessionHas('error');
+        $this->from('/secure-files/selfie-in/1')->get('/employees/create')->assertRedirect(route('employees.index'))->assertSessionHas('error');
         $this->post('/branches', ['name' => 'Sin empresa'])->assertRedirect()->assertSessionHas('error');
         $this->assertDatabaseMissing('branches', ['name' => 'Sin empresa']);
     }

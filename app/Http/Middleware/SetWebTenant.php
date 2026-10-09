@@ -89,7 +89,9 @@ class SetWebTenant
                 return response()->json(['message' => $message], 409);
             }
 
-            return redirect()->back(fallback: $this->moduleIndex($request))->with('error', $message);
+            // Al listado del módulo, no a back(): la URL previa de la sesión puede ser
+            // un recurso (p. ej. la selfie firmada que pidió un <img>).
+            return redirect()->to($this->moduleIndex($request))->with('error', $message);
         }
 
         return $next($request);

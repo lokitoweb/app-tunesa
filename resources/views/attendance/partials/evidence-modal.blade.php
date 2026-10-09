@@ -119,7 +119,8 @@
     function drawMap(d, p) {
         if (!window.L) return;
         if (!evidenceMap) {
-            evidenceMap = L.map('evidenceMap');
+            // Vista inicial antes de agregar capas: los círculos la necesitan para calcular límites
+            evidenceMap = L.map('evidenceMap').setView([-12.046374, -77.042793], 12);
             Panel.tiles(evidenceMap);
         }
         if (evidenceLayer) evidenceLayer.remove();

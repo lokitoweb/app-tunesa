@@ -40,9 +40,13 @@
     --bs-link-color-rgb: var(--brand-rgb);
     --bs-link-hover-color: color-mix(in srgb, var(--brand) 80%, #000);
 }
+/* Bootstrap pinta los enlaces con rgba(var(--bs-link-color-rgb)): en oscuro
+ * se fija un azul claro legible sobre slate (contraste > 7:1). */
 [data-bs-theme="dark"] {
-    --bs-link-color: color-mix(in srgb, var(--brand) 55%, #fff);
-    --bs-link-hover-color: color-mix(in srgb, var(--brand) 40%, #fff);
+    --bs-link-color: #93c5fd;
+    --bs-link-color-rgb: 147, 197, 253;
+    --bs-link-hover-color: #bfdbfe;
+    --bs-link-hover-color-rgb: 191, 219, 254;
 }
 .btn-primary {
     --bs-btn-bg: var(--brand);
@@ -249,9 +253,14 @@ body { background: var(--bs-body-bg); font-size: .925rem; }
 .empty-state { padding: 3rem 1rem; text-align: center; color: var(--bs-secondary-color); }
 .empty-state .bi { font-size: 2rem; display: block; margin-bottom: .5rem; opacity: .6; }
 
-.kv { display: grid; grid-template-columns: minmax(120px, 40%) 1fr; gap: .5rem 1rem; margin: 0; }
+.kv { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); gap: .5rem 1rem; margin: 0; }
 .kv dt { font-weight: 500; color: var(--bs-secondary-color); }
-.kv dd { margin: 0; }
+.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+/* En celular cada dato va debajo de su etiqueta: nunca se desborda */
+@media (max-width: 575.98px) {
+    .kv { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .kv dd { margin-bottom: .5rem; }
+}
 
 /* Mapas Leaflet confinados en su tarjeta: isolation crea un contexto de
  * apilamiento propio, así los paneles de Leaflet (z-index 400-1000) no
@@ -287,7 +296,7 @@ body { background: var(--bs-body-bg); font-size: .925rem; }
 .form-switch.form-switch-lg .form-check-input { margin-left: -3.2em; }
 
 /* Mapa a pantalla del dashboard */
-#liveMap { height: 460px; }
+#liveMap { height: 420px; }
 @media (max-width: 767.98px) { #liveMap { height: 320px; } }
 
 /* Feed en vivo */

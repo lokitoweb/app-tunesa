@@ -65,7 +65,7 @@
                 <span class="badge text-bg-light border">{{ $branches->count() }} sucursales activas</span>
             </div>
             <div class="card-body pt-2">
-                <div id="liveMap" class="map-frame rounded" style="height: 420px;"></div>
+                <div id="liveMap" class="map-frame rounded"></div>
                 <div class="d-flex flex-wrap gap-3 small text-body-secondary mt-2">
                     <span><i class="bi bi-circle-fill text-primary"></i> Geocerca</span>
                     <span><i class="bi bi-circle-fill text-success"></i> Dentro</span>
