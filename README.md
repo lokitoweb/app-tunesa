@@ -4,7 +4,8 @@ SaaS multi-tenant de control de asistencias: marcación con GPS y selfie, geocer
 
 - `app/`, `routes/`, `resources/views/`: backend Laravel 11 (API para la app móvil + panel web).
 - `mobile/`: app Flutter para colaboradores.
-- `serve_panel.js` + `server/`: prototipo del panel en Node (sin Laravel).
+
+El prototipo del panel en Node (`serve_panel.js`, `server/`, `database/data.json`) se retiró: el panel oficial es el de Laravel. Sigue en el historial de git si hace falta consultarlo.
 
 ## Levantar el backend en local
 
@@ -18,7 +19,14 @@ php artisan serve
 
 - Panel web: http://localhost:8000/login
 - API: `http://localhost:8000/api/...` con el header `X-Tenant-Slug: empresa-demo`
-- Usuarios demo: los imprime el seeder al terminar (`database/seeders/DatabaseSeeder.php`).
+- Usuarios demo: los imprime el seeder al terminar (`database/seeders/DatabaseSeeder.php`). Son solo para desarrollo.
+
+## Producción
+
+1. `.env` propio con `APP_ENV=production`, `APP_DEBUG=false`, un `APP_KEY` nuevo (`php artisan key:generate`) y credenciales nuevas de base de datos y correo. No reutilices ninguna clave de un `.env` que haya estado en el repositorio.
+2. `php artisan migrate --force`
+3. Super Admin inicial: define `SEED_SUPERADMIN_EMAIL` y `SEED_SUPERADMIN_PASSWORD` (12+ caracteres) y corre `php artisan db:seed --force`. En producción el seeder no crea la empresa demo ni usuarios con contraseñas conocidas; luego borra la contraseña del `.env`. Al entrar se pedirá cambiarla.
+4. Asigna el supervisor de cada sucursal (Sucursales → Editar): define a quién ve cada supervisor.
 
 Tests: `php artisan test`
 
