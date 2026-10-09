@@ -167,6 +167,8 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/bulk', [PayslipWebController::class, 'bulkCreate'])->name('bulk');
         Route::post('/bulk', [PayslipWebController::class, 'bulkStore'])->name('bulk.store');
         Route::post('/{id}/publish', [PayslipWebController::class, 'publish'])->name('publish');
+        Route::post('/{id}/annul', [PayslipWebController::class, 'annul'])->name('annul');
+        Route::delete('/{id}', [PayslipWebController::class, 'destroy'])->name('destroy');
         Route::post('/bulk-publish', [PayslipWebController::class, 'bulkPublish'])->name('bulk-publish');
         Route::get('/{id}/download', [PayslipWebController::class, 'download'])->name('download');
         Route::get('/{id}/view', [PayslipWebController::class, 'view'])->name('view');
