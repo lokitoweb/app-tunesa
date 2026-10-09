@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/app_update/presentation/update_screen.dart';
 import '../../features/attendance/domain/models.dart';
 import '../../features/attendance/presentation/clock_screen.dart';
 import '../../features/attendance/presentation/history_screen.dart';
+import '../../features/attendance/presentation/offline_sync.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/change_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -24,17 +26,23 @@ import '../../features/payslips/presentation/payslips_screen.dart';
 import '../../features/requests/presentation/new_request_screen.dart';
 import '../../features/requests/presentation/requests_screen.dart';
 import '../../features/team/presentation/approvals_screen.dart';
+import '../../features/splash/splash_screen.dart';
 import '../../features/team/presentation/team_live_screen.dart';
+import '../config/app_config_controller.dart';
+import '../config/version_gate.dart';
 import '../providers.dart';
 import '../widgets/async_views.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
 /// Rutas de la app. Redirige según el estado de sesión:
+/// sin configuración → /splash, versión no soportada → /update,
 /// sin empresa → /tenant, sin sesión → /login, con sesión → /home.
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   ref.listen(authControllerProvider, (_, _) => refresh.value++);
+  ref.listen(appConfigProvider.select((s) => s.ready), (_, _) => refresh.value++);
+  ref.listen(updateLevelProvider, (_, _) => refresh.value++);
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
@@ -45,6 +53,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       final auth = ref.read(authControllerProvider);
       final loc = state.matchedLocation;
 
+      // Primer arranque sin configuración en caché: splash hasta tenerla
+      if (!ref.read(appConfigProvider).ready) return loc == '/splash' ? null : '/splash';
+
+      // Versión no soportada (force_update o 426): pantalla bloqueante
+      if (ref.read(updateLevelProvider) == UpdateLevel.required) return loc == '/update' ? null : '/update';
+
       // Contraseña temporal entregada por RRHH: primero debe cambiarla
       if (auth.status == AuthStatus.authenticated && (auth.user?.mustChangePassword ?? false)) {
         return loc == '/change-password' ? null : '/change-password';
@@ -53,10 +67,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       return switch (auth.status) {
         AuthStatus.needsTenant => loc == '/tenant' ? null : '/tenant',
         AuthStatus.unauthenticated => loc == '/login' ? null : '/login',
-        AuthStatus.authenticated => (loc == '/login' || loc == '/tenant') ? '/home' : null,
+        AuthStatus.authenticated => const {'/login', '/tenant', '/splash', '/update'}.contains(loc) ? '/home' : null,
       };
     },
     routes: [
+      GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+      GoRoute(path: '/update', builder: (_, _) => const UpdateScreen()),
       GoRoute(path: '/tenant', builder: (_, _) => const TenantScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       StatefulShellRoute.indexedStack(
@@ -143,6 +159,7 @@ class _AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final online = ref.watch(connectivityProvider).value ?? true;
+    final offlineClocking = ref.watch(appConfigProvider.select((s) => s.config.mobile.offlineModeEnabled));
     final config = ref.watch(companyConfigProvider).value ?? const CompanyConfig();
 
     // Índices de rama visibles, en orden
@@ -154,7 +171,9 @@ class _AppShell extends ConsumerWidget {
 
     return Scaffold(
       body: Column(children: [
-        if (!online) const OfflineBanner(),
+        if (!online) OfflineBanner(offlineClocking: offlineClocking),
+        const UpdateBanner(),
+        const OfflineSyncListener(),
         Expanded(child: shell),
       ]),
       bottomNavigationBar: NavigationBar(

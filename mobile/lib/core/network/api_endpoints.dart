@@ -2,7 +2,10 @@
 class ApiEndpoints {
   const ApiEndpoints._();
 
-  // Empresa / marca blanca (público, requiere X-Tenant-Slug)
+  // Configuración pública de arranque (marca blanca, reglas, versión mínima)
+  static const appConfig = '/v1/app/config';
+
+  // Empresa / marca blanca (legado: backend sin /v1/app/config; requiere X-Tenant-Slug)
   static const branding = '/tenant/branding';
 
   // Autenticación

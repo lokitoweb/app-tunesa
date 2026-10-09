@@ -6,20 +6,32 @@ import 'api_exception.dart';
 
 /// Cliente HTTP único de la app.
 ///
-/// - Agrega `Authorization: Bearer`, `X-Tenant-Slug` y `Accept: application/json`.
+/// - Agrega `Authorization: Bearer`, `X-Tenant-Slug`, `X-App-Version` y
+///   `Accept: application/json`.
 /// - Convierte todo error de Dio en [ApiException] con mensaje en español.
 /// - Ante un 401 en una ruta autenticada avisa con [onUnauthorized] para
 ///   cerrar la sesión y volver al login.
+/// - Ante un 426 (APP_UPDATE_REQUIRED) avisa con [onUpdateRequired].
+/// - El dominio puede cambiar en caliente con [baseUrl] (override de testers
+///   o `mobile.api_base_url` del servidor).
 class ApiClient {
-  ApiClient(this._storage, {this.onUnauthorized, Dio? dio})
-      : _dio = dio ??
+  ApiClient(
+    this._storage, {
+    this.onUnauthorized,
+    this.onUpdateRequired,
+    this.onNetworkResult,
+    String? baseUrl,
+    String? appVersion,
+    Dio? dio,
+  }) : _dio = dio ??
             Dio(BaseOptions(
-              baseUrl: Env.apiUrl,
+              baseUrl: baseUrl == null ? Env.apiUrl : Env.apiUrlFor(baseUrl),
               connectTimeout: Env.connectTimeout,
               receiveTimeout: Env.receiveTimeout,
               sendTimeout: Env.receiveTimeout,
               headers: {'Accept': 'application/json'},
             )) {
+    if (appVersion != null) _dio.options.headers['X-App-Version'] = appVersion;
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await _storage.readToken();
@@ -33,18 +45,44 @@ class ApiClient {
         }
         handler.next(options);
       },
+      onResponse: (response, handler) {
+        onNetworkResult?.call(true);
+        handler.next(response);
+      },
       onError: (error, handler) {
-        if (error.response?.statusCode == 401 && error.requestOptions.extra['auth'] != false) {
+        final status = error.response?.statusCode;
+        if (status == 401 && error.requestOptions.extra['auth'] != false) {
           onUnauthorized?.call();
+        }
+        if (status == 426) {
+          final body = error.response?.data;
+          final data = body is Map && body['data'] is Map ? body['data'] as Map : const {};
+          onUpdateRequired?.call(data['min_supported_version']?.toString(), data['latest_version']?.toString());
+        }
+        if (error.response != null) {
+          onNetworkResult?.call(true);
+        } else if (const {
+          DioExceptionType.connectionError,
+          DioExceptionType.connectionTimeout,
+          DioExceptionType.unknown,
+        }.contains(error.type)) {
+          onNetworkResult?.call(false);
         }
         handler.next(error);
       },
     ));
   }
 
+  /// Cambia el dominio del backend sin recrear el cliente.
+  set baseUrl(String base) => _dio.options.baseUrl = Env.apiUrlFor(base);
+
+  String get apiUrl => _dio.options.baseUrl;
+
   final Dio _dio;
   final SessionStorage _storage;
   final void Function()? onUnauthorized;
+  final void Function(String? minVersion, String? latestVersion)? onUpdateRequired;
+  final void Function(bool ok)? onNetworkResult;
 
   Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? query}) =>
       _send(() => _dio.get(path, queryParameters: query));
@@ -59,6 +97,10 @@ class ApiClient {
   /// GET sin token con un slug de empresa explícito (antes de elegir empresa).
   Future<Map<String, dynamic>> getPublic(String path, {required String tenant}) =>
       _send(() => _dio.get(path, options: Options(extra: {'auth': false, 'tenant': tenant})));
+
+  /// GET público sin token ni empresa (configuración de arranque).
+  Future<Map<String, dynamic>> getAnonymous(String path, {Map<String, dynamic>? query}) =>
+      _send(() => _dio.get(path, queryParameters: query, options: Options(extra: {'auth': false, 'tenant': ''})));
 
   /// Envío multipart (selfie de marcación, sustentos).
   Future<Map<String, dynamic>> postMultipart(String path, FormData form) =>

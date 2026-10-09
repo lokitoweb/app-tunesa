@@ -1,11 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/version_gate.dart';
 import '../../../core/providers.dart';
 import '../data/attendance_repository.dart';
 import '../domain/models.dart';
 
 final attendanceRepositoryProvider = Provider<AttendanceRepository>(
-  (ref) => AttendanceRepository(ref.watch(apiClientProvider), ref.watch(sessionStorageProvider)),
+  (ref) => AttendanceRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(sessionStorageProvider),
+    appVersion: ref.watch(appVersionProvider),
+  ),
 );
 
 /// Estado del día (registro, acciones disponibles y turno programado).

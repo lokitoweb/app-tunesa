@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config_controller.dart';
 import '../../../core/config/env.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
@@ -48,8 +49,12 @@ class AuthController extends Notifier<AuthState> {
   /// Empresa fija por build (DEFAULT_TENANT): se resuelve sin pantalla de código.
   bool get hasFixedTenant => Env.defaultTenant.isNotEmpty;
 
+  /// Valida el código de empresa con `/v1/app/config` y aplica su marca.
   Future<void> selectTenant(String slug) async {
-    final branding = await _repo.selectTenant(slug);
+    final clean = slug.trim().toLowerCase();
+    final config = await ref.read(appConfigProvider.notifier).loadForTenant(clean);
+    final branding = Branding.fromConfig(clean, config);
+    await _repo.saveTenant(clean, branding);
     state = AuthState(status: AuthStatus.unauthenticated, branding: branding);
   }
 
@@ -76,6 +81,7 @@ class AuthController extends Notifier<AuthState> {
     await _repo.logout();
     await ref.read(sessionStorageProvider).clearTenant();
     state = const AuthState(status: AuthStatus.needsTenant);
+    await ref.read(appConfigProvider.notifier).resetToPlatform();
   }
 
   /// Llamado por ApiClient ante un 401.

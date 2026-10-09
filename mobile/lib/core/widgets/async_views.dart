@@ -80,7 +80,10 @@ class EmptyView extends StatelessWidget {
 
 /// Banner fijo cuando el teléfono no tiene red.
 class OfflineBanner extends StatelessWidget {
-  const OfflineBanner({super.key});
+  const OfflineBanner({super.key, this.offlineClocking = false});
+
+  /// La empresa permite marcar sin conexión (se envía al recuperar señal).
+  final bool offlineClocking;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -93,7 +96,10 @@ class OfflineBanner extends StatelessWidget {
               Icon(Icons.wifi_off_rounded, size: 18, color: Theme.of(context).colorScheme.onErrorContainer),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Sin conexión. Para marcar necesitas internet.',
+                child: Text(
+                    offlineClocking
+                        ? 'Sin conexión. Tus marcaciones se guardarán y se enviarán al recuperar señal.'
+                        : 'Sin conexión. Para marcar necesitas internet.',
                     style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer)),
               ),
             ]),
