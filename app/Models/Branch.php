@@ -96,4 +96,10 @@ class Branch extends Model
             'longitude' => (float) $this->longitude,
         ];
     }
+
+    /** Sucursales que puede ver $viewer: todas o solo las que supervisa */
+    public function scopeVisibleTo($query, User $viewer)
+    {
+        return $viewer->seesAllAttendance() ? $query : $query->where('supervisor_id', $viewer->id);
+    }
 }

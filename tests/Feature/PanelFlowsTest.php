@@ -181,4 +181,36 @@ class PanelFlowsTest extends TestCase
         $this->post("/employees/{$ana->id}/file/documents", ['type' => 'dni', 'file' => $pdf()])
             ->assertSessionHasErrors(['file' => 'Este archivo ya está en el legajo del colaborador.']);
     }
+
+    public function test_supervisor_reports_and_dashboard_only_cover_their_team(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $sup  = $this->makeUser($acme, 'supervisor');
+        $hr   = $this->makeUser($acme, 'hr_manager');
+        $mine   = $this->makeBranch($acme, ['name' => 'Sede Propia', 'supervisor_id' => $sup->id]);
+        $others = $this->makeBranch($acme, ['name' => 'Sede Ajena']);
+        $ana  = $this->makeUser($acme, 'employee', ['first_name' => 'Ana']);
+        $beto = $this->makeUser($acme, 'employee', ['first_name' => 'Beto']);
+        $ana->branches()->attach($mine->id, ['is_primary' => true]);
+        $beto->branches()->attach($others->id, ['is_primary' => true]);
+        foreach ([[$ana, $mine], [$beto, $others]] as [$emp, $branch]) {
+            \App\Models\Attendance::create([
+                'tenant_id' => $acme->id, 'user_id' => $emp->id, 'branch_id' => $branch->id,
+                'work_date' => today()->toDateString(), 'clock_in_at' => now(), 'status' => 'present',
+            ]);
+        }
+
+        $this->actingAs($sup)->get('/reports')->assertOk()
+            ->assertViewHas('totalRecords', 1)
+            ->assertViewHas('branches', fn ($b) => $b->pluck('name')->all() === ['Sede Propia'])
+            ->assertSee('Ana')->assertDontSee('Beto');
+        $this->get('/reports/export/excel')->assertForbidden(); // exportar es de RRHH
+        $this->get('/dashboard')->assertOk()
+            ->assertViewHas('kpis', fn ($k) => $k['total_employees'] === 1 && $k['present_count'] === 1)
+            ->assertViewHas('recentAttendances', fn ($rows) => $rows->pluck('user_id')->all() === [$ana->id]);
+        $this->getJson('/dashboard/live-stream')->assertOk()->assertJsonCount(1, 'attendances');
+
+        // RRHH sigue viendo toda la empresa
+        $this->actingAs($hr)->get('/reports')->assertOk()->assertViewHas('totalRecords', 2);
+    }
 }
