@@ -1,0 +1,179 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+/**
+ * Modelo Attendance (Registro de Asistencia)
+ * Core del sistema. Cada fila representa la jornada de un empleado.
+ *
+ * @property int    $id
+ * @property int    $tenant_id
+ * @property int    $user_id
+ * @property int    $branch_id
+ * @property string $work_date
+ * @property string $status
+ * @property float  $worked_hours
+ */
+class Attendance extends Model
+{
+    use SoftDeletes;
+
+    protected $fillable = [
+        'tenant_id',
+        'user_id',
+        'branch_id',
+        'shift_id',
+        'work_date',
+
+        // Clock-In
+        'clock_in_at',
+        'clock_in_latitude',
+        'clock_in_longitude',
+        'clock_in_distance_meters',
+        'clock_in_photo',
+        'clock_in_device_id',
+        'clock_in_meta',
+        'clock_in_within_geofence',
+
+        // Break
+        'break_start_at',
+        'break_start_latitude',
+        'break_start_longitude',
+        'break_end_at',
+        'break_end_latitude',
+        'break_end_longitude',
+
+        // Clock-Out
+        'clock_out_at',
+        'clock_out_latitude',
+        'clock_out_longitude',
+        'clock_out_distance_meters',
+        'clock_out_photo',
+        'clock_out_device_id',
+        'clock_out_meta',
+        'clock_out_within_geofence',
+
+        // Cálculos
+        'status',
+        'late_minutes',
+        'break_minutes',
+        'worked_hours',
+        'overtime_hours',
+
+        // Justificación
+        'notes',
+        'justification_file',
+        'justification_status',
+        'reviewed_by',
+        'reviewed_at',
+    ];
+
+    protected $casts = [
+        'work_date'                 => 'date',
+        'clock_in_at'               => 'datetime',
+        'break_start_at'            => 'datetime',
+        'break_end_at'              => 'datetime',
+        'clock_out_at'              => 'datetime',
+        'clock_in_latitude'         => 'decimal:8',
+        'clock_in_longitude'        => 'decimal:8',
+        'clock_out_latitude'        => 'decimal:8',
+        'clock_out_longitude'       => 'decimal:8',
+        'clock_in_within_geofence'  => 'boolean',
+        'clock_out_within_geofence' => 'boolean',
+        'clock_in_meta'             => 'array',
+        'clock_out_meta'            => 'array',
+        'worked_hours'              => 'decimal:2',
+        'overtime_hours'            => 'decimal:2',
+        'reviewed_at'               => 'datetime',
+    ];
+
+    // =========================================================================
+    // RELACIONES
+    // =========================================================================
+
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class);
+    }
+
+    public function reviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
+
+    /**
+     * Verifica si el empleado ya marcó entrada pero no salida.
+     */
+    public function isOpen(): bool
+    {
+        return ! is_null($this->clock_in_at) && is_null($this->clock_out_at);
+    }
+
+    /**
+     * Verifica si el empleado está en break actualmente.
+     */
+    public function isOnBreak(): bool
+    {
+        return ! is_null($this->break_start_at) && is_null($this->break_end_at);
+    }
+
+    /**
+     * Verifica si el empleado completó su jornada.
+     */
+    public function isComplete(): bool
+    {
+        return ! is_null($this->clock_in_at) && ! is_null($this->clock_out_at);
+    }
+
+    // =========================================================================
+    // SCOPES
+    // =========================================================================
+
+    /** Asistencias del día actual */
+    public function scopeToday($query)
+    {
+        return $query->whereDate('work_date', today());
+    }
+
+    /** Asistencias de un mes/año dado */
+    public function scopeForPeriod($query, int $year, int $month)
+    {
+        return $query->whereYear('work_date', $year)
+            ->whereMonth('work_date', $month);
+    }
+
+    /** Solo presentes (clock_in no nulo) */
+    public function scopePresent($query)
+    {
+        return $query->whereNotNull('clock_in_at');
+    }
+
+    /** Empleados con tardanza */
+    public function scopeLate($query)
+    {
+        return $query->where('late_minutes', '>', 0);
+    }
+}

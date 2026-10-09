@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Http\Controllers\Web;
+
+use App\Http\Controllers\Controller;
+use App\Models\Tenant;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\View\View;
+
+/**
+ * AuthController (Web)
+ *
+ * Gestiona el acceso al panel web para administradores, RRHH y supervisores.
+ * Soporta autenticación contextual por tenant (empresa).
+ */
+class AuthController extends Controller
+{
+    /**
+     * Muestra la vista de inicio de sesión.
+     */
+    public function showLoginForm(): View
+    {
+        $tenants = Tenant::where('is_active', true)->select('id', 'name', 'domain')->get();
+
+        return view('auth.login', compact('tenants'));
+    }
+
+    /**
+     * Procesa la solicitud de login.
+     */
+    public function login(Request $request): RedirectResponse
+    {
+        $credentials = $request->validate([
+            'email'     => ['required', 'email'],
+            'password'  => ['required', 'string'],
+            'tenant_id' => ['nullable', 'exists:tenants,id'],
+            'remember'  => ['nullable', 'boolean'],
+        ]);
+
+        $remember = $request->boolean('remember');
+
+        // Búsqueda del usuario con sus credenciales
+        $userQuery = User::where('email', $credentials['email'])
+            ->where('status', 'active');
+
+        if (!empty($credentials['tenant_id'])) {
+            $userQuery->where('tenant_id', $credentials['tenant_id']);
+        }
+
+        $user = $userQuery->first();
+
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+            return back()
+                ->withInput($request->only('email', 'tenant_id'))
+                ->withErrors(['email' => 'Las credenciales proporcionadas no son válidas o la cuenta está inactiva.']);
+        }
+
+        // Validar que el rol tenga acceso al panel web
+        if ($user->role === 'employee') {
+            return back()
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => 'Los empleados de campo deben registrarse a través de la aplicación móvil TuneSA.']);
+        }
+
+        // Iniciar sesión
+        Auth::login($user, $remember);
+        $request->session()->regenerate();
+
+        // Guardar tenant_id en la sesión para aislamiento multi-tenant
+        if ($user->tenant_id) {
+            $request->session()->put('current_tenant_id', $user->tenant_id);
+        }
+
+        return redirect()->intended(route('dashboard'))
+            ->with('success', "¡Bienvenido de nuevo, {$user->first_name}!");
+    }
+
+    /**
+     * Cierra la sesión activa.
+     */
+    public function logout(Request $request): RedirectResponse
+    {
+        Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')
+            ->with('info', 'Has cerrado sesión exitosamente.');
+    }
+}

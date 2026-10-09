@@ -1,0 +1,43 @@
+name: tunesa_mobile
+description: "TuneSA Mobile — App Multiplataforma Android e iOS de Asistencias, Geocercas GPS y Boletas"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Red & HTTP Multipart
+  dio: ^5.4.0
+
+  # Geolocalización GPS en Alta Precisión
+  geolocator: ^11.0.0
+
+  # Cámara Frontal para Selfies de Marcación
+  camera: ^0.10.5+9
+
+  # Persistencia Local & Cola Offline
+  shared_preferences: ^2.2.2
+
+  # Estado & UI
+  provider: ^6.1.1
+  google_fonts: ^6.1.0
+  intl: ^0.19.0
+  uuid: ^4.3.3
+
+  # Utilidades de Archivos & PDF
+  path_provider: ^2.1.2
+  url_launcher: ^6.2.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
