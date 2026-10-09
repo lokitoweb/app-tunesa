@@ -23,6 +23,9 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // Roles y matriz de permisos (idempotente)
+        $this->call(RolesAndPermissionsSeeder::class);
+
         // =====================================================================
         // 1. SUPER ADMIN (sin tenant)
         // =====================================================================
@@ -52,6 +55,8 @@ class DatabaseSeeder extends Seeder
             'status'       => 'active',
             'timezone'     => 'America/Lima',
             'currency'     => 'PEN',
+            'primary_color'   => '#1E40AF',
+            'secondary_color' => '#F59E0B',
         ]);
 
         $this->command->info("✅ Tenant creado: {$tenant->company_name} (slug: {$tenant->slug})");
@@ -168,8 +173,8 @@ class DatabaseSeeder extends Seeder
             'address'                => 'Av. Larco 345, Miraflores',
             'city'                   => 'Lima',
             'country'                => 'Peru',
-            'latitude'               => -18.0546000,  // Coordenadas reales Miraflores
-            'longitude'              => -70.2518900,
+            'latitude'               => -12.12110,   // Av. Larco, Miraflores
+            'longitude'              => -77.02970,
             'allowed_radius_meters'  => 50,
             'is_active'              => true,
             'supervisor_id'          => $supervisor->id,
@@ -243,7 +248,27 @@ class DatabaseSeeder extends Seeder
             'is_active'              => true,
         ]);
 
-        $this->command->info("✅ Turnos creados: Mañana, Tarde y Noche");
+        // Turno rotativo 4x2 (4 días de trabajo, 2 de descanso)
+        Shift::create([
+            'tenant_id'              => $tenant->id,
+            'name'                   => 'Rotativo 4x2',
+            'code'                   => 'T-ROT',
+            'type'                   => 'rotating',
+            'start_time'             => '07:00:00',
+            'end_time'               => '19:00:00',
+            'crosses_midnight'       => false,
+            'grace_period_minutes'   => 10,
+            'break_allowed'          => true,
+            'break_duration_minutes' => 60,
+            'working_days'           => [0, 1, 2, 3, 4, 5, 6],
+            'rotation_work_days'     => 4,
+            'rotation_rest_days'     => 2,
+            'daily_hours'            => 11.0,
+            'color'                  => '#10B981',
+            'is_active'              => true,
+        ]);
+
+        $this->command->info("✅ Turnos creados: Mañana, Tarde, Noche y Rotativo 4x2");
 
         // =====================================================================
         // 7. ASIGNAR TURNOS A EMPLEADOS

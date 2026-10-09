@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -23,7 +24,7 @@ use Laravel\Sanctum\HasApiTokens;
  */
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use BelongsToTenant, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
@@ -49,6 +50,9 @@ class User extends Authenticatable
         'fcm_token',
     ];
 
+    /** Caché en memoria (no persistida) para consultas derivadas del rol */
+    protected array $permissionCache = [];
+
     protected $hidden = [
         'password',
         'remember_token',
@@ -69,11 +73,6 @@ class User extends Authenticatable
     // RELACIONES
     // =========================================================================
 
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
-    }
-
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(Branch::class, 'employee_branch')
@@ -81,10 +80,21 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
-    /** Sucursal principal del empleado */
-    public function primaryBranch(): BelongsTo
+    /** Sucursal principal del empleado (pivot is_primary) */
+    public function primaryBranch(): BelongsToMany
     {
-        return $this->belongsTo(Branch::class, 'branch_id');
+        return $this->branches()->wherePivot('is_primary', true);
+    }
+
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class);
+    }
+
+    /** Rol del sistema que corresponde a users.role */
+    public function roleModel(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'role', 'slug')->whereNull('roles.tenant_id');
     }
 
     public function employeeShifts(): HasMany
@@ -129,6 +139,31 @@ class User extends Authenticatable
     public function isEmployee(): bool
     {
         return $this->role === 'employee';
+    }
+
+    /**
+     * Slugs de permisos del rol del usuario (memoizados por request).
+     *
+     * @return array<int, string>
+     */
+    public function permissionSlugs(): array
+    {
+        if (! array_key_exists('permission_slugs', $this->permissionCache)) {
+            $this->permissionCache['permission_slugs'] = Permission::query()
+                ->whereHas('roles', fn ($q) => $q->whereNull('tenant_id')->where('slug', $this->role))
+                ->pluck('slug')
+                ->all();
+        }
+
+        return $this->permissionCache['permission_slugs'];
+    }
+
+    /**
+     * Verifica si el usuario tiene un permiso. El super admin tiene todos.
+     */
+    public function hasPermission(string $permission): bool
+    {
+        return $this->isSuperAdmin() || in_array($permission, $this->permissionSlugs(), true);
     }
 
     /**

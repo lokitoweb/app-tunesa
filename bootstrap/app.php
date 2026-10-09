@@ -8,6 +8,7 @@
  * =============================================================================
  */
 
+use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\EnforceTenantScope;
 use App\Http\Middleware\ResolveTenant;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant'       => ResolveTenant::class,
             'tenant.scope' => EnforceTenantScope::class,
             'role'         => CheckRole::class,
+            'permission'   => CheckPermission::class,
         ]);
 
         // =====================================================================

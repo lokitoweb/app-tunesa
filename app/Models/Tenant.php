@@ -23,11 +23,14 @@ class Tenant extends Model
 
     protected $fillable = [
         'slug',
+        'custom_domain',
         'company_name',
         'ruc',
         'email',
         'phone',
         'logo_path',
+        'primary_color',
+        'secondary_color',
         'address',
         'plan',
         'trial_ends_at',
@@ -35,12 +38,37 @@ class Tenant extends Model
         'status',
         'timezone',
         'currency',
+        'settings',
     ];
 
     protected $casts = [
         'trial_ends_at'         => 'datetime',
         'subscription_ends_at'  => 'datetime',
+        'settings'              => 'array',
     ];
+
+    /**
+     * ResolveTenant cachea el tenant 5 minutos por slug y dominio:
+     * al cambiar estado, marca o dominio se invalida para que aplique ya.
+     */
+    protected static function booted(): void
+    {
+        $forget = function (Tenant $tenant) {
+            foreach (array_filter([
+                $tenant->slug, $tenant->getOriginal('slug'),
+            ]) as $slug) {
+                cache()->forget("tenant:slug:{$slug}");
+            }
+            foreach (array_filter([
+                $tenant->custom_domain, $tenant->getOriginal('custom_domain'),
+            ]) as $domain) {
+                cache()->forget("tenant:domain:{$domain}");
+            }
+        };
+
+        static::saved($forget);
+        static::deleted($forget);
+    }
 
     // =========================================================================
     // RELACIONES
@@ -71,6 +99,11 @@ class Tenant extends Model
         return $this->hasMany(Payslip::class);
     }
 
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class);
+    }
+
     // =========================================================================
     // HELPERS
     // =========================================================================
@@ -81,6 +114,31 @@ class Tenant extends Model
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    /**
+     * Datos de marca blanca para el panel y la app móvil.
+     */
+    public function branding(): array
+    {
+        return [
+            'company_name'    => $this->company_name,
+            'slug'            => $this->slug,
+            'logo_url'        => $this->logo_path ? asset('storage/' . $this->logo_path) : null,
+            'primary_color'   => $this->primary_color,
+            'secondary_color' => $this->secondary_color,
+            'custom_domain'   => $this->custom_domain,
+            'timezone'        => $this->timezone,
+            'currency'        => $this->currency,
+        ];
+    }
+
+    /**
+     * Lee una preferencia de la empresa (settings JSON).
+     */
+    public function setting(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->settings, $key, $default);
     }
 
     /**

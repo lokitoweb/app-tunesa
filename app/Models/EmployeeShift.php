@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\HasDateOnlyColumns;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,9 +15,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class EmployeeShift extends Model
 {
-    use SoftDeletes;
+    use BelongsToTenant, HasDateOnlyColumns, SoftDeletes;
 
     protected $table = 'employee_shifts';
+
+    /** Columnas DATE guardadas como Y-m-d (ver HasDateOnlyColumns) */
+    protected array $dateOnly = ['effective_from', 'effective_until', 'rotation_anchor_date'];
 
     protected $fillable = [
         'tenant_id',
@@ -23,6 +29,7 @@ class EmployeeShift extends Model
         'branch_id',
         'effective_from',
         'effective_until',
+        'rotation_anchor_date',
         'assigned_by',
         'notes',
         'is_active',
@@ -31,17 +38,13 @@ class EmployeeShift extends Model
     protected $casts = [
         'effective_from'  => 'date',
         'effective_until' => 'date',
+        'rotation_anchor_date' => 'date',
         'is_active'       => 'boolean',
     ];
 
     // =========================================================================
     // RELACIONES
     // =========================================================================
-
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
-    }
 
     public function user(): BelongsTo
     {
@@ -67,10 +70,19 @@ class EmployeeShift extends Model
     // SCOPES
     // =========================================================================
 
-    /** Solo asignaciones actualmente vigentes */
-    public function scopeCurrent($query)
+    /**
+     * ¿El empleado trabaja este turno en la fecha dada?
+     * En rotativos el ciclo arranca en rotation_anchor_date (o effective_from).
+     */
+    public function worksOn(CarbonInterface $date): bool
     {
-        $today = now()->toDateString();
+        return $this->shift?->appliesOnDate($date, $this->rotation_anchor_date ?? $this->effective_from) ?? false;
+    }
+
+    /** Solo asignaciones vigentes (hoy o en la fecha dada) */
+    public function scopeCurrent($query, ?string $date = null)
+    {
+        $today = $date ?? now()->toDateString();
         return $query->where('is_active', true)
             ->where('effective_from', '<=', $today)
             ->where(function ($q) use ($today) {
