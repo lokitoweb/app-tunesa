@@ -4,7 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Acceso') — TuneSA</title>
+    @php
+        // Login por subdominio o dominio propio de una empresa: su marca; si no, la de la plataforma
+        $brandTenant = isset($tenant) && $tenant instanceof \App\Models\Tenant ? $tenant : \App\Models\Tenant::fromHost(request()->getHost());
+        $brandSettings = \App\Models\TenantSetting::forTenant($brandTenant);
+    @endphp
+    <title>@yield('title', 'Acceso') — {{ $brandSettings->tradeName() }}</title>
 
     <script>
         (function () {
@@ -21,7 +26,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{{ asset('css/panel.css') }}">
-    <style>:root { --brand: #1E40AF; --brand-rgb: 30, 64, 175; }</style>
+    @include('layouts.partials.brand-head', ['brandSettings' => $brandSettings])
 </head>
 <body>
     <main class="auth-shell">

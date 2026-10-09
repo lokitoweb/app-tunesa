@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\SecureFileController;
 use App\Http\Controllers\Web\ApprovalWebController;
+use App\Http\Controllers\Web\BrandingWebController;
 use App\Http\Controllers\Web\CompanySettingsWebController;
 use App\Http\Controllers\Web\CompanyWebController;
 use App\Http\Controllers\Web\DocumentWebController;
@@ -111,6 +112,13 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::prefix('settings/mobile')->name('settings.mobile')->middleware('can:company.configure')->group(function () {
         Route::get('/', [CompanySettingsWebController::class, 'edit']);
         Route::put('/', [CompanySettingsWebController::class, 'update'])->name('.update');
+    });
+
+    // Marca y app: marca blanca, app móvil, reglas operativas e integraciones.
+    // Vista global del Super Admin = valores por defecto de la plataforma.
+    Route::prefix('settings/branding')->name('settings.branding')->middleware('can:company.configure')->group(function () {
+        Route::get('/', [BrandingWebController::class, 'edit']);
+        Route::put('/', [BrandingWebController::class, 'update'])->name('.update');
     });
 
     // Turnos (fijos y rotativos), tolerancias y asignaciones

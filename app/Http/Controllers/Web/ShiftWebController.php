@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\EmployeeShift;
+use App\Models\TenantSetting;
+use App\Services\TenantContext;
 use App\Models\Shift;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -43,7 +45,14 @@ class ShiftWebController extends Controller
 
     public function create(): View
     {
-        return view('shifts.form', ['shift' => new Shift(['type' => 'fixed', 'grace_period_minutes' => 10, 'working_days' => [1, 2, 3, 4, 5], 'color' => '#3B82F6', 'is_active' => true, 'break_allowed' => true, 'break_duration_minutes' => 60, 'daily_hours' => 8])]);
+        // Tolerancia y refrigerio por defecto de "Marca y app › Reglas operativas"
+        $rules = TenantSetting::forTenant(app(TenantContext::class)->getOrNull());
+
+        return view('shifts.form', ['shift' => new Shift([
+            'type' => 'fixed', 'grace_period_minutes' => $rules->default_grace_minutes, 'working_days' => [1, 2, 3, 4, 5],
+            'color' => '#3B82F6', 'is_active' => true, 'break_allowed' => true,
+            'break_duration_minutes' => $rules->lunch_minutes, 'daily_hours' => 8,
+        ])]);
     }
 
     public function store(Request $request): RedirectResponse

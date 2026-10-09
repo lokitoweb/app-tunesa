@@ -2,14 +2,17 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Http\Requests\Api\Concerns\MarksWithTenantSettings;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
  * ClockOutRequest — Valida la marcación de salida.
- * Igual que ClockIn pero también requiere foto.
+ * Igual que ClockIn (selfie según selfie_required de la empresa).
  */
 class ClockOutRequest extends FormRequest
 {
+    use MarksWithTenantSettings;
+
     public function authorize(): bool { return true; }
 
     public function rules(): array
@@ -17,13 +20,13 @@ class ClockOutRequest extends FormRequest
         return [
             'latitude'        => ['required', 'numeric', 'between:-90,90'],
             'longitude'       => ['required', 'numeric', 'between:-180,180'],
-            'photo'           => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'photo'           => $this->photoRules(),
             'accuracy_meters' => ['sometimes', 'numeric', 'min:0'],
             'device_id'       => ['sometimes', 'nullable', 'string', 'max:255'],
             'device_os'       => ['sometimes', 'nullable', 'string', 'in:android,ios'],
             'is_mocked'       => ['sometimes', 'boolean'],
             'app_version'     => ['sometimes', 'nullable', 'string', 'max:20'],
-        ];
+        ] + $this->offlineRules();
     }
 
     public function messages(): array
@@ -33,19 +36,12 @@ class ClockOutRequest extends FormRequest
             'longitude.required' => 'La longitud GPS es obligatoria.',
             'photo.required'     => 'La foto selfie es obligatoria para registrar salida.',
             'photo.max'          => 'La foto no debe superar 5MB.',
-        ];
+        ] + $this->offlineMessages();
     }
 
     public function deviceMeta(): array
     {
-        return array_filter([
-            'accuracy_meters' => $this->input('accuracy_meters'),
-            'device_os'       => $this->input('device_os'),
-            'app_version'     => $this->input('app_version'),
-            'is_mocked'       => $this->has('is_mocked') ? $this->boolean('is_mocked') : null,
-            'ip'              => $this->ip(),
-            'user_agent'      => $this->userAgent(),
-        ]);
+        return $this->baseDeviceMeta();
     }
 }
 

@@ -12,10 +12,14 @@
  *                           (contraseña temporal → solo /auth/me y change-password)
  *  [... + permission:x]     + CheckPermission (matriz sembrada por RolesAndPermissionsSeeder)
  *  [superadmin]             Sanctum Auth + role:super_admin, SIN tenant (cross-tenant)
+ *  app.version              426 APP_UPDATE_REQUIRED si X-App-Version < mínima (force_update)
+ *
+ * Nota: esta API no usa prefijo /v1, salvo el alias GET /api/v1/app/config.
  * =============================================================================
  */
 
 use App\Http\Controllers\Api\Admin\AttendanceDetailController;
+use App\Http\Controllers\Api\AppConfigController;
 use App\Http\Controllers\Api\Admin\CompanyConfigurationController;
 use App\Http\Controllers\Api\Admin\DocumentReviewController;
 use App\Http\Controllers\Api\Admin\EmployeeProfileController;
@@ -37,6 +41,15 @@ use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 // =============================================================================
+// ARRANQUE DE LA APP (público, sin [tenant]): marca blanca + reglas de la empresa
+// ?tenant_slug= o X-Tenant-Slug; sin empresa → valores de la plataforma
+// =============================================================================
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('v1/app/config', [AppConfigController::class, 'show']);
+    Route::get('app/config',    [AppConfigController::class, 'show']);
+});
+
+// =============================================================================
 // RUTAS PÚBLICAS CON TENANT (requieren identificar la empresa)
 // =============================================================================
 Route::middleware(['tenant'])->group(function () {
@@ -55,7 +68,7 @@ Route::middleware(['tenant'])->group(function () {
 // =============================================================================
 // RUTAS PROTEGIDAS (Tenant + Auth + TenantScope)
 // =============================================================================
-Route::middleware(['tenant', 'auth:sanctum', 'tenant.scope', 'password.fresh'])->group(function () {
+Route::middleware(['tenant', 'app.version', 'auth:sanctum', 'tenant.scope', 'password.fresh'])->group(function () {
 
     // --- AUTH ---
     Route::prefix('auth')->group(function () {
@@ -229,6 +242,10 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.scope', 'password.fresh'])-
         Route::middleware('permission:company.configure')->group(function () {
             Route::get('company-configuration', [CompanyConfigurationController::class, 'show']);
             Route::put('company-configuration', [CompanyConfigurationController::class, 'update']);
+
+            // Marca y app (misma validación que /settings/branding); POST para multipart
+            Route::get('app-config',                  [AppConfigController::class, 'adminShow']);
+            Route::match(['put', 'post'], 'app-config', [AppConfigController::class, 'adminUpdate']);
         });
     });
 

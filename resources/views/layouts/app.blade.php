@@ -4,7 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Panel') — TuneSA</title>
+    @php
+        // Empresa activa (la del usuario, o la que eligió el Super Admin); sin empresa = plataforma
+        $brand = app(\App\Services\TenantContext::class)->getOrNull() ?? Auth::user()?->tenant;
+        $brandSettings = \App\Models\TenantSetting::forTenant($brand);
+    @endphp
+    <title>@yield('title', 'Panel') — {{ $brandSettings->tradeName() }}</title>
 
     {{-- Aplica el tema guardado antes de pintar para evitar parpadeo --}}
     <script>
@@ -25,16 +30,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="{{ asset('css/panel.css') }}">
 
-    @php
-        // Empresa activa (la del usuario, o la que eligió el Super Admin)
-        $brand = app(\App\Services\TenantContext::class)->getOrNull() ?? Auth::user()?->tenant;
-        $brandColor = $brand && preg_match('/^#[0-9a-fA-F]{6}$/', (string) $brand->primary_color) ? $brand->primary_color : '#1E40AF';
-        [$br, $bg, $bb] = sscanf($brandColor, '#%02x%02x%02x');
-    @endphp
-    <style>
-        /* Marca blanca: color corporativo de la empresa */
-        :root { --brand: {{ $brandColor }}; --brand-rgb: {{ $br }}, {{ $bg }}, {{ $bb }}; }
-    </style>
+    @include('layouts.partials.brand-head', ['brandSettings' => $brandSettings])
 
     @yield('styles')
 </head>
@@ -62,13 +58,17 @@
     <aside id="sidebar" class="offcanvas-lg offcanvas-start panel-sidebar" tabindex="-1" aria-labelledby="sidebarLabel">
         <div class="sidebar-brand">
             <a href="{{ route('dashboard') }}" class="d-flex align-items-center gap-2 text-decoration-none">
-                @if($brand?->logo_path)
-                    <img src="{{ asset('storage/' . $brand->logo_path) }}" alt="" class="brand-logo">
+                @if($logoUrl = $brandSettings->logoUrl())
+                    @php $logoDarkUrl = $brandSettings->logoDarkUrl(); @endphp
+                    <img src="{{ $logoUrl }}" alt="" class="brand-logo brand-logo-light {{ $logoDarkUrl !== $logoUrl ? 'has-dark' : '' }}">
+                    @if($logoDarkUrl && $logoDarkUrl !== $logoUrl)
+                        <img src="{{ $logoDarkUrl }}" alt="" class="brand-logo brand-logo-dark">
+                    @endif
                 @else
                     <span class="brand-mark"><i class="bi bi-geo-alt-fill"></i></span>
                 @endif
                 <span class="lh-sm">
-                    <span id="sidebarLabel" class="d-block fw-semibold text-body text-truncate" style="max-width: 160px;">{{ $brand->company_name ?? 'TuneSA' }}</span>
+                    <span id="sidebarLabel" class="d-block fw-semibold text-body text-truncate" style="max-width: 160px;">{{ $brandSettings->tradeName() }}</span>
                     <small class="text-body-secondary">Asistencia y RRHH</small>
                 </span>
             </a>
@@ -127,6 +127,7 @@
             @endcan
             @can('company.configure')
                 {!! $nav('settings.mobile', [], 'phone', 'Configuración de la app', request()->routeIs('settings.mobile*')) !!}
+                {!! $nav('settings.branding', [], 'palette', 'Marca y app', request()->routeIs('settings.branding*')) !!}
             @endcan
             @can('audit.view')
                 {!! $nav('audit.index', [], 'journal-text', 'Bitácora de auditoría', request()->routeIs('audit*')) !!}
