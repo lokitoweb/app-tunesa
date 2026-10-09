@@ -18,6 +18,8 @@
     </div>
 </div>
 
+@include('reports.partials.tabs')
+
 {{-- Filtros --}}
 <div class="card border-0 mb-4">
     <div class="card-body">
