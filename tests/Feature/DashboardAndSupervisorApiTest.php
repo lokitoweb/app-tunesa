@@ -67,5 +67,23 @@ class DashboardAndSupervisorApiTest extends TestCase
             ->assertOk()->assertJsonPath('meta.total', 1);
 
         $this->actingIn($supervisor, $acme)->getJson('/api/admin/dashboard/stats')->assertForbidden();
+
+        // Cada marcación del equipo dice de quién es
+        $this->actingIn($supervisor, $acme)->getJson('/api/supervisor/attendance/live')
+            ->assertJsonPath('attendances.0.user.id', $mine->id)
+            ->assertJsonPath('attendances.0.user.full_name', $mine->full_name);
+        $this->actingIn($supervisor, $acme)->getJson('/api/supervisor/attendance')
+            ->assertJsonPath('data.0.user.id', $mine->id);
+        $this->actingIn($supervisor, $acme)->getJson('/api/supervisor/team')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $mine->id);
+
+        // RRHH (ve toda la asistencia) cubre a toda la empresa, sin la otra empresa
+        $this->actingIn($hr, $acme)->getJson('/api/supervisor/attendance/live')
+            ->assertOk()
+            ->assertJsonPath('summary.team_size', 3) // Ana, Luis y el supervisor
+            ->assertJsonCount(2, 'attendances');
+        $this->actingIn($hr, $acme)->getJson('/api/supervisor/attendance')->assertJsonPath('meta.total', 2);
+        $ids = collect($this->actingIn($hr, $acme)->getJson('/api/supervisor/team')->assertOk()->json('data'))->pluck('id')->sort()->values()->all();
+        $this->assertSame(collect([$mine->id, $notMine->id])->sort()->values()->all(), $ids);
     }
 }
