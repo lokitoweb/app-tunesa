@@ -271,6 +271,28 @@ class User extends Authenticatable
     // =========================================================================
 
     /** Filtra empleados activos del tenant actual */
+    /** Ve la asistencia de toda la empresa (RRHH, admin) o solo la de su equipo (supervisor) */
+    public function seesAllAttendance(): bool
+    {
+        return $this->hasPermission('attendance.view_all');
+    }
+
+    /**
+     * Equipo de un supervisor: colaboradores asignados a las sucursales donde
+     * él es supervisor (branches.supervisor_id). Misma regla que la API y Aprobaciones.
+     */
+    public function scopeSupervisedBy($query, User $supervisor)
+    {
+        return $query->where('users.id', '!=', $supervisor->id)
+            ->whereHas('branches', fn ($q) => $q->where('branches.supervisor_id', $supervisor->id));
+    }
+
+    /** Usuarios cuya asistencia puede ver $viewer: todos o solo su equipo */
+    public function scopeVisibleTo($query, User $viewer)
+    {
+        return $viewer->seesAllAttendance() ? $query : $query->supervisedBy($viewer);
+    }
+
     public function scopeActiveEmployees($query)
     {
         return $query->where('role', 'employee')

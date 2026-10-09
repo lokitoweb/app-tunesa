@@ -153,6 +153,16 @@ class Attendance extends Model
     // =========================================================================
 
     /** Asistencias del día actual */
+    /** Marcaciones que puede ver $viewer: toda la empresa o solo su equipo */
+    public function scopeVisibleTo($query, User $viewer)
+    {
+        if ($viewer->seesAllAttendance()) {
+            return $query;
+        }
+
+        return $query->whereIn('user_id', User::query()->supervisedBy($viewer)->select('users.id'));
+    }
+
     public function scopeToday($query)
     {
         return $query->whereDate('work_date', today());

@@ -34,7 +34,9 @@ class ReportWebController extends Controller
         $branchId  = $request->input('branch_id');
         $status    = $request->input('status');
 
+        // El supervisor solo ve a su equipo; RRHH y el administrador, toda la empresa
         $query = Attendance::forTenant($tenantId)
+            ->visibleTo($request->user())
             ->whereBetween('work_date', [$startDate, $endDate])
             ->with(['user', 'branch', 'shift']);
 
@@ -59,7 +61,7 @@ class ReportWebController extends Controller
 
         $punctualityRate = $totalRecords > 0 ? round(($onTimeCount / $totalRecords) * 100, 1) : 0;
 
-        $branches = Branch::forTenant($tenantId)->get();
+        $branches = Branch::forTenant($tenantId)->visibleTo($request->user())->get();
 
         return view('reports.index', compact(
             'attendances',
@@ -89,7 +91,7 @@ class ReportWebController extends Controller
         $branchId  = $request->input('branch_id') ? (int) $request->input('branch_id') : null;
         $status    = $request->input('status');
 
-        $export = new AttendanceExport($tenantId, $startDate, $endDate, $branchId, $status);
+        $export = new AttendanceExport($tenantId, $startDate, $endDate, $branchId, $status, $request->user());
         $fileName = sprintf('asistencias_%s_al_%s.csv', $startDate, $endDate);
 
         return $export->download($fileName);
@@ -107,6 +109,7 @@ class ReportWebController extends Controller
         $branchId  = $request->input('branch_id');
 
         $query = Attendance::forTenant($tenantId)
+            ->visibleTo($request->user())
             ->whereBetween('work_date', [$startDate, $endDate])
             ->with(['user', 'branch'])
             ->orderBy('work_date', 'asc');
