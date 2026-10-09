@@ -78,7 +78,12 @@ lib/
     attendance/  marcación GPS + selfie, historial, justificaciones
     requests/    vacaciones, permisos y licencias médicas
     payslips/    lista y visor PDF
+    profile/     Mi perfil: Mi Legajo, Datos de Pago y Previsión, Dotación,
+                 contacto de emergencia y tema claro/oscuro
 ```
+
+Las secciones de Mi perfil (y la pestaña de Boletas) se muestran u ocultan según los
+switches que la empresa configura en el panel (`config` de `GET /api/employee/profile`).
 
 Estado con **Riverpod**; navegación con **go_router** (redirige según la sesión).
 

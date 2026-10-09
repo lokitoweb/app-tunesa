@@ -8,6 +8,7 @@ import '../../../core/widgets/status_chip.dart';
 import '../../attendance/domain/models.dart';
 import '../../attendance/presentation/attendance_providers.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../profile/presentation/profile_providers.dart';
 
 /// Inicio del colaborador: turno de hoy, estado de la jornada y botones de marcación.
 class HomeScreen extends ConsumerWidget {
@@ -22,30 +23,10 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(auth.branding?.companyName ?? 'TuneSA'),
         actions: [
-          PopupMenuButton<String>(
+          IconButton(
+            tooltip: 'Mi perfil',
             icon: const Icon(Icons.account_circle_outlined),
-            onSelected: (value) async {
-              if (value != 'logout') return;
-              final ok = await showDialog<bool>(
-                context: context,
-                builder: (c) => AlertDialog(
-                  title: const Text('Cerrar sesión'),
-                  content: const Text('¿Seguro que quieres salir?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
-                    FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Salir')),
-                  ],
-                ),
-              );
-              if (ok == true) await ref.read(authControllerProvider.notifier).logout();
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                enabled: false,
-                child: Text('${auth.user?.fullName ?? ''}\n${auth.user?.email ?? ''}'),
-              ),
-              const PopupMenuItem(value: 'logout', child: Text('Cerrar sesión')),
-            ],
+            onPressed: () => context.go('/profile'),
           ),
         ],
       ),
@@ -54,9 +35,9 @@ class HomeScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Hola, ${auth.user?.firstName ?? ''}', style: Theme.of(context).textTheme.headlineSmall),
-            Text(Fmt.dayLong(DateTime.now())),
+            _Greeting(name: auth.user?.firstName ?? ''),
             const SizedBox(height: 16),
+            const _OnboardingBanner(),
             today.when(
               loading: () => const Padding(padding: EdgeInsets.all(48), child: LoadingView()),
               error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(todayStatusProvider)),
@@ -95,6 +76,61 @@ class HomeScreen extends ConsumerWidget {
         const SizedBox(height: 12),
       ],
     ];
+  }
+}
+
+class _Greeting extends StatelessWidget {
+  const _Greeting({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12 ? 'Buenos días' : (hour < 19 ? 'Buenas tardes' : 'Buenas noches');
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: [scheme.primary, Color.lerp(scheme.primary, scheme.tertiary, 0.55)!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('$greeting, $name', style: TextStyle(color: scheme.onPrimary, fontSize: 22, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4),
+        Text(Fmt.dayLong(DateTime.now()), style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85))),
+      ]),
+    );
+  }
+}
+
+/// Recordatorio para completar la ficha de ingreso (legajo, cuenta, tallas).
+class _OnboardingBanner extends ConsumerWidget {
+  const _OnboardingBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final file = ref.watch(employeeFileProvider).value;
+    if (file == null || !file.config.hasEmployeeFile || file.progress >= 100) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Card(
+        color: Theme.of(context).colorScheme.secondaryContainer,
+        child: ListTile(
+          leading: const Icon(Icons.assignment_ind_outlined),
+          title: Text('Completa tu ficha (${file.progress}%)'),
+          subtitle: const Text('Sube tus documentos, tu cuenta de pago y tus tallas.'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.go('/profile'),
+        ),
+      ),
+    );
   }
 }
 

@@ -58,6 +58,14 @@ class AuthController extends Notifier<AuthState> {
     state = AuthState(status: AuthStatus.authenticated, branding: state.branding, user: user);
   }
 
+  /// Cambia la contraseña (obligatorio si RRHH entregó una temporal).
+  Future<void> changePassword(String current, String next) async {
+    await _repo.changePassword(current: current, next: next);
+    final user = state.user?.copyWith(mustChangePassword: false);
+    if (user != null) await ref.read(sessionStorageProvider).saveUser(user.toJson());
+    state = AuthState(status: AuthStatus.authenticated, branding: state.branding, user: user);
+  }
+
   Future<void> logout() async {
     await _repo.logout();
     state = AuthState(status: AuthStatus.unauthenticated, branding: state.branding);

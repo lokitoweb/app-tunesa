@@ -78,12 +78,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   if (branding?.logoUrl != null)
                     Image.network(branding!.logoUrl!, height: 72, errorBuilder: (_, _, _) => const SizedBox.shrink())
                   else
-                    Icon(Icons.fingerprint_rounded, size: 72, color: theme.colorScheme.primary),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(color: theme.colorScheme.primaryContainer, borderRadius: BorderRadius.circular(24)),
+                        child: Icon(Icons.fingerprint_rounded, size: 52, color: theme.colorScheme.onPrimaryContainer),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   Text(branding?.companyName ?? 'TuneSA',
                       textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 4),
-                  const Text('Inicia sesión para marcar tu asistencia', textAlign: TextAlign.center),
+                  Text('Inicia sesión con la cuenta que te entregó RRHH',
+                      textAlign: TextAlign.center, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
                   const SizedBox(height: 24),
                   if (auth.notice != null && _error == null) ...[
                     _Banner(text: auth.notice!, color: theme.colorScheme.tertiaryContainer),
