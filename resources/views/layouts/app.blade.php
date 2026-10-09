@@ -17,6 +17,14 @@
     <!-- Panel Design System -->
     <link rel="stylesheet" href="{{ asset('css/panel.css') }}">
 
+    @php $brand = Auth::user()?->tenant; @endphp
+    @if($brand)
+    <style>
+        /* Marca blanca: colores corporativos de la empresa */
+        :root { --primary: {{ $brand->primary_color }}; --primary-light: {{ $brand->primary_color }}; --primary-dark: {{ $brand->primary_color }}; --warning: {{ $brand->secondary_color }}; }
+    </style>
+    @endif
+
     @yield('styles')
 </head>
 <body>
@@ -32,13 +40,22 @@
                         </svg>
                     </div>
                     <div>
-                        <div style="font-size: 1.15rem; font-weight: 800; letter-spacing: -0.5px; color: #fff;">TuneSA</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; letter-spacing: -0.5px; color: #fff;">{{ Auth::user()->tenant->company_name ?? 'TuneSA' }}</div>
                         <div style="font-size: 0.68rem; text-transform: uppercase; color: #818cf8; font-weight: 600; letter-spacing: 0.5px;">Control Geocercas</div>
                     </div>
                 </a>
             </div>
 
             <!-- Menú Principal -->
+            @php
+                $navUser = Auth::user();
+                $pendingApprovals = $navUser->can('leave.approve_all')
+                    ? \App\Models\LeaveRequest::where('status', 'pending')->count()
+                        + ($navUser->can('attendance.review') ? \App\Models\Attendance::where('justification_status', 'pending')->count() : 0)
+                    : ($navUser->can('leave.approve_team')
+                        ? \App\Models\LeaveRequest::where('status', 'pending')->whereHas('employee.branches', fn ($q) => $q->where('branches.supervisor_id', $navUser->id))->count()
+                        : 0);
+            @endphp
             <nav class="sidebar-nav">
                 <div class="nav-section-title">MONITOREO & ASISTENCIA</div>
 
@@ -47,32 +64,61 @@
                     <span>Dashboard en Vivo</span>
                 </a>
 
-                <a href="{{ route('attendance.index') }}" class="nav-item {{ request()->routeIs('attendance*') ? 'active' : '' }}">
+                @can('attendance.view_all')
+                <a href="{{ route('attendance.index') }}" class="nav-item {{ request()->routeIs('attendance*') && request('status') !== 'absent' ? 'active' : '' }}">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <span>Marcaciones & GPS</span>
                 </a>
+                <a href="{{ route('attendance.index', ['status' => 'absent', 'start_date' => now()->startOfMonth()->toDateString(), 'end_date' => now()->toDateString()]) }}" class="nav-item {{ request()->routeIs('attendance*') && request('status') === 'absent' ? 'active' : '' }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/></svg>
+                    <span>Control de Faltas</span>
+                </a>
+                @endcan
+
+                @can('leave.approve_team')
+                <a href="{{ route('approvals.index') }}" class="nav-item {{ request()->routeIs('approvals*') ? 'active' : '' }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span>Aprobaciones</span>
+                    @if($pendingApprovals > 0)<span class="nav-badge">{{ $pendingApprovals }}</span>@endif
+                </a>
+                @endcan
 
                 <div class="nav-section-title">ADMINISTRACIÓN & RRHH</div>
 
+                @can('users.manage')
                 <a href="{{ route('employees.index') }}" class="nav-item {{ request()->routeIs('employees*') ? 'active' : '' }}">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <span>Colaboradores</span>
                 </a>
+                @endcan
 
+                @can('shifts.manage')
+                <a href="{{ route('shifts.index') }}" class="nav-item {{ request()->routeIs('shifts*') ? 'active' : '' }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                    <span>Turnos & Horarios</span>
+                </a>
+                @endcan
+
+                @can('branches.manage')
                 <a href="{{ route('branches.index') }}" class="nav-item {{ request()->routeIs('branches*') ? 'active' : '' }}">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                     <span>Sucursales & Geocercas</span>
                 </a>
+                @endcan
 
+                @can('payslips.manage')
                 <a href="{{ route('payslips.index') }}" class="nav-item {{ request()->routeIs('payslips*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
                     <span>Boletas de Pago</span>
                 </a>
+                @endcan
 
+                @can('reports.view')
                 <a href="{{ route('reports.index') }}" class="nav-item {{ request()->routeIs('reports*') ? 'active' : '' }}">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>
                     <span>Reportes & Nómina</span>
                 </a>
+                @endcan
             </nav>
 
             <!-- Tenant & Perfil Info -->
@@ -107,7 +153,7 @@
             <header class="topbar" style="height: var(--header-h); border-bottom: 1px solid var(--border); background: rgba(17, 18, 24, 0.8); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; position: sticky; top: 0; z-index: 100;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(99, 102, 241, 0.15); color: #818cf8; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.25); font-weight: 600;">
-                        Tenant: {{ Auth::user()->tenant->name ?? 'Empresa Activa' }}
+                        {{ Auth::user()->tenant->company_name ?? 'Plataforma' }}
                     </span>
                     <span style="color: var(--text-muted);">•</span>
                     <span style="font-size: 0.85rem; color: var(--text-secondary);" id="liveClock">

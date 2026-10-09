@@ -9,6 +9,7 @@
         <p style="color: var(--text-secondary); font-size: 0.9rem;">Carga de comprobantes PDF firmados y distribución segura hacia la app móvil de cada colaborador.</p>
     </div>
     <div style="display: flex; gap: 10px;">
+        <a href="{{ route('payslips.bulk') }}" class="btn btn-ghost">Carga masiva</a>
         <a href="{{ route('payslips.create') }}" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #fff; text-decoration: none; padding: 0.65rem 1.25rem; border-radius: 10px; font-weight: 600; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(99,102,241,0.35);">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
             Subir Boleta PDF
@@ -139,6 +140,7 @@
                                     </form>
                                 @endif
 
+                                <a href="{{ route('payslips.view', $p->id) }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">Ver</a>
                                 <a href="{{ route('payslips.download', $p->id) }}" style="padding: 6px 10px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); color: #818cf8; border-radius: 6px; font-size: 0.75rem; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
                                     PDF

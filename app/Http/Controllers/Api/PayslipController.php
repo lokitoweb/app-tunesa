@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payslip;
+use App\Services\PayslipImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -117,6 +118,36 @@ class PayslipController extends Controller
             'success' => true,
             'message' => 'Boleta subida correctamente. Publica cuando esté lista.',
             'data'    => $this->formatPayslip($payslip),
+        ], 201);
+    }
+
+    /**
+     * Carga masiva de boletas de un período (multipart, files[]).
+     * Cada PDF se asigna por DNI o código de empleado en el nombre del archivo.
+     * POST /api/admin/payslips/bulk
+     */
+    public function bulkStore(Request $request, PayslipImportService $importer): JsonResponse
+    {
+        $validated = $request->validate([
+            'period_month' => ['required', 'integer', 'between:1,12'],
+            'period_year'  => ['required', 'integer', 'between:2020,2100'],
+            'files'        => ['required', 'array', 'min:1', 'max:500'],
+            'files.*'      => ['file', 'mimes:pdf', 'max:10240'],
+            'publish_now'  => ['sometimes', 'boolean'],
+        ]);
+
+        $result = $importer->import(
+            $request->file('files'),
+            (int) $validated['period_month'],
+            (int) $validated['period_year'],
+            $request->user()->id,
+            $request->boolean('publish_now'),
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => (count($result['created']) + count($result['replaced'])) . ' boletas cargadas, ' . count($result['skipped']) . ' omitidas.',
+            'data'    => $result,
         ], 201);
     }
 

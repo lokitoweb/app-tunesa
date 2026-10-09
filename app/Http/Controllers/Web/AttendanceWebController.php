@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 /**
@@ -67,7 +68,7 @@ class AttendanceWebController extends Controller
         // Conteo rápido para cabecera de filtros
         $summary = [
             'total'      => Attendance::where('tenant_id', $tenantId)->whereBetween('work_date', [$startDate, $endDate])->count(),
-            'on_time'    => Attendance::where('tenant_id', $tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('status', 'on_time')->count(),
+            'on_time'    => Attendance::where('tenant_id', $tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('status', 'present')->count(),
             'late'       => Attendance::where('tenant_id', $tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('status', 'late')->count(),
             'out_of_geo' => Attendance::where('tenant_id', $tenantId)->whereBetween('work_date', [$startDate, $endDate])->where('clock_in_within_geofence', false)->count(),
         ];
@@ -109,7 +110,7 @@ class AttendanceWebController extends Controller
         ]);
 
         $statusToApply = ($validated['justification_status'] === 'approved')
-            ? 'justified'
+            ? 'excused'
             : $attendance->status;
 
         $attendance->update([
@@ -124,5 +125,22 @@ class AttendanceWebController extends Controller
         $action = $validated['justification_status'] === 'approved' ? 'aprobada' : 'rechazada';
 
         return back()->with('success', "La justificación fue {$action} correctamente.");
+    }
+
+    /**
+     * Archivo de sustento de la justificación (disco privado).
+     */
+    public function justificationFile(int $id)
+    {
+        $attendance = Attendance::findOrFail($id);
+
+        abort_unless(
+            $attendance->justification_file && Storage::disk('private')->exists($attendance->justification_file),
+            404
+        );
+
+        return response()->file(Storage::disk('private')->path($attendance->justification_file), [
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 }

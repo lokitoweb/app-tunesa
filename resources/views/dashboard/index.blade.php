@@ -226,10 +226,10 @@
                             {{ $att->clock_in_at ? $att->clock_in_at->format('H:i') : '--:--' }}
                         </div>
                         <span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; display: inline-block;
-                            @if($att->status === 'on_time') background: rgba(16, 185, 129, 0.15); color: #10b981;
+                            @if($att->status === 'present') background: rgba(16, 185, 129, 0.15); color: #10b981;
                             @elseif($att->status === 'late') background: rgba(245, 158, 11, 0.15); color: #f59e0b;
                             @else background: rgba(99, 102, 241, 0.15); color: #818cf8; @endif">
-                            {{ $att->status === 'on_time' ? 'Puntual' : ($att->status === 'late' ? 'Tardanza' : $att->status) }}
+                            {{ $att->status === 'present' ? 'Puntual' : ($att->status === 'late' ? 'Tardanza' : $att->status) }}
                         </span>
                     </div>
                 </div>

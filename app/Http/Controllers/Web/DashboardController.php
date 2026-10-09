@@ -129,7 +129,7 @@ class DashboardController extends Controller
         })->count();
 
         $onTimeCount = $todayAttendances->filter(function ($a) {
-            return $a->status === 'on_time';
+            return $a->status === 'present';
         })->count();
 
         $onBreakCount = $todayAttendances->filter(function ($a) {
@@ -177,7 +177,7 @@ class DashboardController extends Controller
                 ->whereDate('work_date', $dayStr)
                 ->get();
 
-            $onTimeData[] = $records->where('status', 'on_time')->count();
+            $onTimeData[] = $records->where('status', 'present')->count();
             $lateData[] = $records->filter(fn($r) => $r->status === 'late' || ($r->late_minutes ?? 0) > 0)->count();
             $absentData[] = $records->where('status', 'absent')->count();
         }
@@ -196,10 +196,10 @@ class DashboardController extends Controller
     private function getStatusLabel(string $status): string
     {
         return match ($status) {
-            'on_time'    => 'Puntual',
+            'present'    => 'Puntual',
             'late'       => 'Tardanza',
             'absent'     => 'Ausente',
-            'justified'  => 'Justificado',
+            'excused'    => 'Justificado',
             'holiday'    => 'Feriado',
             'day_off'    => 'Descanso',
             default      => ucfirst($status),

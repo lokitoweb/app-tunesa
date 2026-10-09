@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payslip;
+use App\Services\PayslipImportService;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -178,6 +179,61 @@ class PayslipWebController extends Controller
             ]);
 
         return back()->with('success', "Se publicaron {$count} boletas de pago del periodo {$month}/{$year}.");
+    }
+
+    /**
+     * Formulario de carga masiva de boletas PDF.
+     */
+    public function bulkCreate(): View
+    {
+        return view('payslips.bulk', [
+            'result' => session('import_result'),
+        ]);
+    }
+
+    /**
+     * Carga masiva: varios PDFs de un período, asignados por DNI o código
+     * de empleado en el nombre del archivo.
+     */
+    public function bulkStore(Request $request, PayslipImportService $importer): RedirectResponse
+    {
+        $validated = $request->validate([
+            'period_month' => ['required', 'integer', 'between:1,12'],
+            'period_year'  => ['required', 'integer', 'between:2020,2100'],
+            'files'        => ['required', 'array', 'min:1', 'max:500'],
+            'files.*'      => ['file', 'mimes:pdf', 'max:10240'],
+            'publish_now'  => ['nullable', 'boolean'],
+        ]);
+
+        $result = $importer->import(
+            $request->file('files'),
+            (int) $validated['period_month'],
+            (int) $validated['period_year'],
+            Auth::id(),
+            $request->boolean('publish_now'),
+        );
+
+        $ok = count($result['created']) + count($result['replaced']);
+
+        return redirect()->route('payslips.bulk')
+            ->with('import_result', $result)
+            ->with($ok > 0 ? 'success' : 'error', "Se cargaron {$ok} boletas; " . count($result['skipped']) . ' archivo(s) omitido(s).');
+    }
+
+    /**
+     * Vista previa del PDF en el navegador (inline), sin URL pública.
+     */
+    public function view(int $id)
+    {
+        $payslip = Payslip::findOrFail($id);
+
+        abort_unless(Storage::disk('private')->exists($payslip->file_path), 404);
+
+        return response()->file(Storage::disk('private')->path($payslip->file_path), [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . addslashes($payslip->file_name) . '"',
+            'Cache-Control'       => 'private, no-store',
+        ]);
     }
 
     /**

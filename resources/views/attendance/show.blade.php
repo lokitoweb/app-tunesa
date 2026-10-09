@@ -13,9 +13,9 @@
     </div>
     <div>
         <span style="font-size: 0.9rem; padding: 6px 14px; border-radius: 8px; font-weight: 700;
-            @if($attendance->status === 'on_time') background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3);
+            @if($attendance->status === 'present') background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3);
             @elseif($attendance->status === 'late') background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);
-            @elseif($attendance->status === 'justified') background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3);
+            @elseif($attendance->status === 'excused') background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3);
             @else background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); @endif">
             Estado: {{ strtoupper($attendance->status) }}
         </span>

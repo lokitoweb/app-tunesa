@@ -50,6 +50,7 @@ class ClockInRequest extends FormRequest
 
             // Metadatos opcionales del dispositivo
             'device_os'      => ['sometimes', 'nullable', 'string', 'in:android,ios'],
+            'is_mocked'       => ['sometimes', 'boolean'],
             'app_version'    => ['sometimes', 'nullable', 'string', 'max:20'],
         ];
     }
@@ -77,6 +78,7 @@ class ClockInRequest extends FormRequest
             'accuracy_meters' => $this->input('accuracy_meters'),
             'device_os'       => $this->input('device_os'),
             'app_version'     => $this->input('app_version'),
+            'is_mocked'       => $this->has('is_mocked') ? $this->boolean('is_mocked') : null,
             'ip'              => $this->ip(),
             'user_agent'      => $this->userAgent(),
         ]);

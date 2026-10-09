@@ -22,11 +22,13 @@ class AuthController extends Controller
     /**
      * Muestra la vista de inicio de sesión.
      */
-    public function showLoginForm(): View
+    public function showLoginForm(Request $request): View
     {
-        $tenants = Tenant::where('is_active', true)->select('id', 'name', 'domain')->get();
+        // Marca blanca: si se entra por el subdominio o dominio propio de una
+        // empresa se muestra su logo y nombre. Nunca se lista a las empresas.
+        $tenant = $this->tenantFromHost($request->getHost());
 
-        return view('auth.login', compact('tenants'));
+        return view('auth.login', compact('tenant'));
     }
 
     /**
@@ -37,7 +39,6 @@ class AuthController extends Controller
         $credentials = $request->validate([
             'email'     => ['required', 'email'],
             'password'  => ['required', 'string'],
-            'tenant_id' => ['nullable', 'exists:tenants,id'],
             'remember'  => ['nullable', 'boolean'],
         ]);
 
@@ -47,20 +48,21 @@ class AuthController extends Controller
         $userQuery = User::where('email', $credentials['email'])
             ->where('status', 'active');
 
-        if (!empty($credentials['tenant_id'])) {
-            $userQuery->where('tenant_id', $credentials['tenant_id']);
+        // En el dominio de una empresa solo entran sus usuarios
+        if ($hostTenant = $this->tenantFromHost($request->getHost())) {
+            $userQuery->where('tenant_id', $hostTenant->id);
         }
 
         $user = $userQuery->first();
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             return back()
-                ->withInput($request->only('email', 'tenant_id'))
+                ->withInput($request->only('email'))
                 ->withErrors(['email' => 'Las credenciales proporcionadas no son válidas o la cuenta está inactiva.']);
         }
 
         // Validar que el rol tenga acceso al panel web
-        if ($user->role === 'employee') {
+        if (! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view')) {
             return back()
                 ->withInput($request->only('email'))
                 ->withErrors(['email' => 'Los empleados de campo deben registrarse a través de la aplicación móvil TuneSA.']);
@@ -77,6 +79,28 @@ class AuthController extends Controller
 
         return redirect()->intended(route('dashboard'))
             ->with('success', "¡Bienvenido de nuevo, {$user->first_name}!");
+    }
+
+    /**
+     * Empresa del subdominio (empresa.tunesa.app) o dominio propio, si aplica.
+     */
+    private function tenantFromHost(string $host): ?Tenant
+    {
+        $appDomain = config('app.domain', 'tunesa.app');
+
+        if (str_ends_with($host, ".{$appDomain}")) {
+            $slug = substr($host, 0, -strlen(".{$appDomain}"));
+
+            return in_array($slug, ['www', 'api', 'admin', 'app', 'mail', 'cdn'], true)
+                ? null
+                : Tenant::where('slug', $slug)->first();
+        }
+
+        if ($host === $appDomain || in_array($host, ['localhost', '127.0.0.1'], true)) {
+            return null;
+        }
+
+        return Tenant::where('custom_domain', strtolower($host))->first();
     }
 
     /**

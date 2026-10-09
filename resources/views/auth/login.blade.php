@@ -36,17 +36,12 @@
     <form method="POST" action="{{ route('login.post') }}">
         @csrf
 
-        @if(isset($tenants) && $tenants->count() > 0)
-            <div class="form-group">
-                <label class="form-label" for="tenant_id">Empresa (Tenant)</label>
-                <select name="tenant_id" id="tenant_id" class="form-control">
-                    <option value="">-- Detección Automática por Cuenta --</option>
-                    @foreach($tenants as $tenant)
-                        <option value="{{ $tenant->id }}" {{ old('tenant_id') == $tenant->id ? 'selected' : '' }}>
-                            {{ $tenant->name }} ({{ $tenant->domain }})
-                        </option>
-                    @endforeach
-                </select>
+        @if(isset($tenant) && $tenant)
+            <div class="form-group" style="text-align: center; margin-bottom: 1.25rem;">
+                @if($tenant->logo_path)
+                    <img src="{{ asset('storage/' . $tenant->logo_path) }}" alt="{{ $tenant->company_name }}" style="max-height: 56px; margin-bottom: 0.5rem;">
+                @endif
+                <div style="font-weight: 700; color: {{ $tenant->primary_color ?? '#818cf8' }};">{{ $tenant->company_name }}</div>
             </div>
         @endif
 
