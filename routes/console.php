@@ -14,3 +14,6 @@ Schedule::command('attendance:mark-absences')->dailyAt('01:30')->withoutOverlapp
 
 // Limpia los tokens de Sanctum vencidos hace más de 24 h
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
+
+// Historial de envíos a integraciones (webhook / notificaciones): borra lo de más de 30 días
+Schedule::command('model:prune', ['--model' => [\App\Models\WebhookDelivery::class]])->dailyAt('03:15');

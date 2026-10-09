@@ -133,8 +133,8 @@ class IntegrationWebhooksTest extends TestCase
 
         Queue::assertPushed(SendTenantWebhook::class, function (SendTenantWebhook $job) {
             return $job->event === 'attendance.clock_in'
-                && $job->tries === 3
-                && $job->backoff() === [10, 60]
+                && $job->tries === 5
+                && $job->backoff() === [10, 60, 300, 900]
                 && ! str_contains(serialize($job), self::SECRET);
         });
     }
