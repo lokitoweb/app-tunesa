@@ -44,6 +44,7 @@ class DashboardController extends Controller
         // 2. Sucursales activas con geocercas y 3. marcaciones recientes:
         //    con $tenantId null (vista global del Super Admin) son de todas las empresas.
         $branches = Branch::forTenant($tenantId)
+            ->visibleTo($request->user())
             ->where('is_active', true)
             ->withCount(['employees' => function ($q) {
                 $q->where('status', 'active');
@@ -51,6 +52,7 @@ class DashboardController extends Controller
             ->get();
 
         $recentAttendances = Attendance::forTenant($tenantId)
+            ->visibleTo($request->user())
             ->whereDate('work_date', $today)
             ->whereNotNull('clock_in_at')
             ->with(['user', 'branch'])
@@ -111,6 +113,7 @@ class DashboardController extends Controller
 
         // Marcaciones del día con coordenadas para pintar pines sobre el mapa
         $attendances = Attendance::forTenant($tenantId)
+            ->visibleTo($request->user())
             ->whereDate('work_date', $today)
             ->whereNotNull('clock_in_at')
             ->with(['user:id,first_name,last_name,avatar_path,position', 'branch:id,name,latitude,longitude,allowed_radius_meters'])
@@ -152,11 +155,13 @@ class DashboardController extends Controller
     private function calculateDailyKpis(?int $tenantId, string $date): array
     {
         $totalEmployees = $this->forTenant(User::query(), $tenantId)
+            ->visibleTo(Auth::user())
             ->where('role', 'employee')
             ->where('status', 'active')
             ->count();
 
         $todayAttendances = $this->forTenant(Attendance::query(), $tenantId)
+            ->visibleTo(Auth::user())
             ->whereDate('work_date', $date)
             ->get();
 
@@ -212,6 +217,7 @@ class DashboardController extends Controller
             $labels[] = $day->isoFormat('ddd D');
 
             $records = $this->forTenant(Attendance::query(), $tenantId)
+                ->visibleTo(Auth::user())
                 ->whereDate('work_date', $dayStr)
                 ->get();
 
