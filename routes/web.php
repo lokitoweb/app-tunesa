@@ -74,10 +74,10 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [EmployeeController::class, 'index'])->name('index');
         Route::get('/create', [EmployeeController::class, 'create'])->name('create');
         Route::post('/', [EmployeeController::class, 'store'])->name('store');
-        Route::get('/{id}/edit', [EmployeeController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [EmployeeController::class, 'update'])->name('update');
-        Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status');
-        Route::patch('/{id}/unlock', [EmployeeController::class, 'unlock'])->name('unlock');
+        Route::get('/{id}/edit', [EmployeeController::class, 'edit'])->name('edit')->whereNumber('id');
+        Route::put('/{id}', [EmployeeController::class, 'update'])->name('update')->whereNumber('id');
+        Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status')->whereNumber('id');
+        Route::patch('/{id}/unlock', [EmployeeController::class, 'unlock'])->name('unlock')->whereNumber('id');
     });
 
     // Legajo digital: ficha del colaborador y revisión de documentos
@@ -118,11 +118,11 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [ShiftWebController::class, 'index'])->name('index');
         Route::get('/create', [ShiftWebController::class, 'create'])->name('create');
         Route::post('/', [ShiftWebController::class, 'store'])->name('store');
-        Route::get('/{id}/edit', [ShiftWebController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [ShiftWebController::class, 'update'])->name('update');
-        Route::delete('/{id}', [ShiftWebController::class, 'destroy'])->name('destroy');
+        Route::get('/{id}/edit', [ShiftWebController::class, 'edit'])->name('edit')->whereNumber('id');
+        Route::put('/{id}', [ShiftWebController::class, 'update'])->name('update')->whereNumber('id');
+        Route::delete('/{id}', [ShiftWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
         Route::post('/assign', [ShiftWebController::class, 'assign'])->name('assign')->middleware('can:shifts.assign');
-        Route::delete('/assignments/{id}', [ShiftWebController::class, 'unassign'])->name('unassign')->middleware('can:shifts.assign');
+        Route::delete('/assignments/{id}', [ShiftWebController::class, 'unassign'])->name('unassign')->middleware('can:shifts.assign')->whereNumber('id');
     });
 
     // Feriados: el control de faltas no registra ausencias en estas fechas
@@ -138,15 +138,15 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [AttendanceWebController::class, 'index'])->name('index');
         Route::get('/{id}', [AttendanceWebController::class, 'show'])->name('show')->whereNumber('id');
         Route::get('/{id}/evidence', [AttendanceWebController::class, 'evidence'])->name('evidence')->whereNumber('id');
-        Route::post('/{id}/review', [AttendanceWebController::class, 'reviewJustification'])->name('review')->middleware('can:attendance.review');
-        Route::get('/{id}/justification-file', [AttendanceWebController::class, 'justificationFile'])->name('justification-file');
+        Route::post('/{id}/review', [AttendanceWebController::class, 'reviewJustification'])->name('review')->middleware('can:attendance.review')->whereNumber('id');
+        Route::get('/{id}/justification-file', [AttendanceWebController::class, 'justificationFile'])->name('justification-file')->whereNumber('id');
     });
 
     // Aprobaciones: vacaciones, permisos, licencias y justificaciones
     Route::prefix('approvals')->name('approvals.')->middleware('can:leave.approve_team')->group(function () {
         Route::get('/', [ApprovalWebController::class, 'index'])->name('index');
-        Route::post('/leave/{id}', [ApprovalWebController::class, 'reviewLeave'])->name('leave.review');
-        Route::get('/leave/{id}/attachment', [ApprovalWebController::class, 'leaveAttachment'])->name('leave.attachment');
+        Route::post('/leave/{id}', [ApprovalWebController::class, 'reviewLeave'])->name('leave.review')->whereNumber('id');
+        Route::get('/leave/{id}/attachment', [ApprovalWebController::class, 'leaveAttachment'])->name('leave.attachment')->whereNumber('id');
     });
 
     // Gestión de Sucursales y Geocercas (GPS Leaflet)
@@ -154,9 +154,9 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [BranchWebController::class, 'index'])->name('index');
         Route::get('/create', [BranchWebController::class, 'create'])->name('create');
         Route::post('/', [BranchWebController::class, 'store'])->name('store');
-        Route::get('/{id}/edit', [BranchWebController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [BranchWebController::class, 'update'])->name('update');
-        Route::delete('/{id}', [BranchWebController::class, 'destroy'])->name('destroy');
+        Route::get('/{id}/edit', [BranchWebController::class, 'edit'])->name('edit')->whereNumber('id');
+        Route::put('/{id}', [BranchWebController::class, 'update'])->name('update')->whereNumber('id');
+        Route::delete('/{id}', [BranchWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     });
 
     // Módulo de Nómina y Boletas de Pago en PDF
@@ -166,12 +166,12 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::post('/', [PayslipWebController::class, 'store'])->name('store');
         Route::get('/bulk', [PayslipWebController::class, 'bulkCreate'])->name('bulk');
         Route::post('/bulk', [PayslipWebController::class, 'bulkStore'])->name('bulk.store');
-        Route::post('/{id}/publish', [PayslipWebController::class, 'publish'])->name('publish');
-        Route::post('/{id}/annul', [PayslipWebController::class, 'annul'])->name('annul');
-        Route::delete('/{id}', [PayslipWebController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/publish', [PayslipWebController::class, 'publish'])->name('publish')->whereNumber('id');
+        Route::post('/{id}/annul', [PayslipWebController::class, 'annul'])->name('annul')->whereNumber('id');
+        Route::delete('/{id}', [PayslipWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
         Route::post('/bulk-publish', [PayslipWebController::class, 'bulkPublish'])->name('bulk-publish');
-        Route::get('/{id}/download', [PayslipWebController::class, 'download'])->name('download');
-        Route::get('/{id}/view', [PayslipWebController::class, 'view'])->name('view');
+        Route::get('/{id}/download', [PayslipWebController::class, 'download'])->name('download')->whereNumber('id');
+        Route::get('/{id}/view', [PayslipWebController::class, 'view'])->name('view')->whereNumber('id');
     });
 
     // Plataforma (Super Admin): empresas, su primer administrador y marca blanca

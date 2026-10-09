@@ -23,7 +23,7 @@ php artisan serve
 
 ## Producción
 
-1. `.env` propio con `APP_ENV=production`, `APP_DEBUG=false`, un `APP_KEY` nuevo (`php artisan key:generate`) y credenciales nuevas de base de datos y correo. No reutilices ninguna clave de un `.env` que haya estado en el repositorio.
+1. `.env` propio con `APP_ENV=production`, `APP_DEBUG=false`, un `APP_KEY` nuevo (`php artisan key:generate`) y credenciales nuevas de base de datos y correo. No reutilices ninguna clave de un `.env` que haya estado en el repositorio. Con HTTPS activa `SESSION_SECURE_COOKIE=true`, pon en `SANCTUM_STATEFUL_DOMAINS` los dominios del panel y configura `MAIL_MAILER` (SMTP u otro) para que lleguen los correos de recuperación de contraseña (ver `.env.example`).
 2. `php artisan migrate --force`
 3. Super Admin inicial: define `SEED_SUPERADMIN_EMAIL` y `SEED_SUPERADMIN_PASSWORD` (12+ caracteres) y corre `php artisan db:seed --force`. En producción el seeder no crea la empresa demo ni usuarios con contraseñas conocidas; luego borra la contraseña del `.env`. Al entrar se pedirá cambiarla.
 4. Asigna el supervisor de cada sucursal (Sucursales → Editar): define a quién ve cada supervisor.

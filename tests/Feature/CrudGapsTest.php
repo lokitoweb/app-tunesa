@@ -95,6 +95,17 @@ class CrudGapsTest extends TestCase
         $this->assertSame(['payslip.archived', 'payslip.deleted'], AuditLog::orderBy('id')->pluck('action')->all());
     }
 
+    public function test_web_routes_with_id_only_accept_numbers(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $this->actingAs($this->makeUser($acme, 'company_admin'));
+
+        foreach (['/employees/abc/edit', '/shifts/abc/edit', '/branches/1x/edit', '/payslips/abc/view', '/approvals/leave/abc/attachment'] as $url) {
+            $this->get($url)->assertNotFound();
+        }
+        $this->delete('/payslips/abc')->assertNotFound();
+    }
+
     public function test_cannot_touch_another_companys_payslip(): void
     {
         $acme  = $this->makeTenant('acme');
