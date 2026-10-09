@@ -112,4 +112,25 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Login endurecido (App\Services\LoginGuard)
+    |--------------------------------------------------------------------------
+    |
+    | max_attempts fallos seguidos bloquean la cuenta 'minutes' minutos.
+    | Los tokens de la app vencen a los mobile_token_days días y cada usuario
+    | puede tener como máximo max_devices sesiones abiertas.
+    |
+    */
+
+    'lockout' => [
+        'max_attempts' => (int) env('LOGIN_MAX_ATTEMPTS', 5),
+        'minutes'      => (int) env('LOGIN_LOCK_MINUTES', 15),
+    ],
+
+    'mobile_token_days' => (int) env('MOBILE_TOKEN_DAYS', 30),
+
+    'max_devices' => (int) env('MAX_DEVICES_PER_USER', 3),
+
 ];

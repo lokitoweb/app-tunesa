@@ -398,6 +398,6 @@ class AttendanceService
         $filename  = "{$ts}_{$userId}.jpg";
 
         // Storage::disk('public') o 's3' según config
-        return $photo->storeAs($directory, $filename, config('filesystems.attendance_disk', 'public'));
+        return $photo->storeAs($directory, $filename, config('filesystems.attendance_disk', 'private'));
     }
 }

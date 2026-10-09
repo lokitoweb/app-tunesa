@@ -95,7 +95,7 @@ class DashboardController extends Controller
                     'longitude'        => (float) ($att->clock_in_longitude ?? 0),
                     'distance_meters'  => $att->clock_in_distance_meters,
                     'within_geofence'  => (bool) $att->clock_in_within_geofence,
-                    'photo_url'        => $att->clock_in_photo ? asset('storage/' . $att->clock_in_photo) : null,
+                    'photo_url'        => attendance_photo_url($att, 'in'),
                     'is_on_break'      => !is_null($att->break_start_at) && is_null($att->break_end_at),
                 ];
             });

@@ -113,6 +113,8 @@ class EmployeeController extends Controller
             'avatar'          => ['nullable', 'image', 'max:2048'],
         ]);
 
+        abort_unless(Auth::user()->canAssignRole($validated['role']), 403, 'No puedes crear usuarios con un rol igual o superior al tuyo.');
+
         DB::transaction(function () use ($validated, $tenantId, $request) {
             $avatarPath = null;
             if ($request->hasFile('avatar')) {
@@ -137,6 +139,8 @@ class EmployeeController extends Controller
                 'base_salary'     => $validated['base_salary'] ?? null,
                 'hire_date'       => $validated['hire_date'] ?? Carbon::today(),
                 'avatar_path'     => $avatarPath,
+                // Contraseña temporal: se exige cambiarla en el primer ingreso
+                'must_change_password' => true,
             ]);
 
             // Asignar sucursales (con bandera de sucursal principal)
@@ -216,6 +220,14 @@ class EmployeeController extends Controller
             'avatar'          => ['nullable', 'image', 'max:2048'],
         ]);
 
+        $actor = Auth::user();
+        abort_unless($actor->canManage($employee), 403, 'No puedes editar a un usuario de rango igual o superior.');
+        abort_unless(
+            $validated['role'] === $employee->role || $actor->canAssignRole($validated['role']),
+            403,
+            'No puedes asignar un rol igual o superior al tuyo.'
+        );
+
         DB::transaction(function () use ($validated, $tenantId, $employee, $request) {
             $dataToUpdate = [
                 'first_name'      => $validated['first_name'],
@@ -235,6 +247,8 @@ class EmployeeController extends Controller
 
             if (!empty($validated['password'])) {
                 $dataToUpdate['password'] = Hash::make($validated['password']);
+                // Contraseña asignada por RRHH = temporal
+                $dataToUpdate['must_change_password'] = true;
             }
 
             if ($request->hasFile('avatar')) {
@@ -279,12 +293,26 @@ class EmployeeController extends Controller
     }
 
     /**
+     * Desbloquea una cuenta bloqueada por intentos fallidos de login.
+     */
+    public function unlock(int $id): RedirectResponse
+    {
+        $employee = User::findOrFail($id);
+        abort_unless(Auth::user()->canManage($employee), 403);
+
+        $employee->forceFill(['locked_until' => null, 'failed_login_attempts' => 0])->save();
+
+        return back()->with('success', "Se desbloqueó el acceso de {$employee->first_name}.");
+    }
+
+    /**
      * Alterna el estado activo / inactivo del colaborador.
      */
     public function toggleStatus(int $id): RedirectResponse
     {
         $tenantId = Auth::user()->tenant_id;
         $employee = User::where('tenant_id', $tenantId)->findOrFail($id);
+        abort_unless(Auth::user()->canManage($employee) && Auth::id() !== $employee->id, 403);
 
         $newStatus = $employee->status === 'active' ? 'inactive' : 'active';
         $employee->update(['status' => $newStatus]);

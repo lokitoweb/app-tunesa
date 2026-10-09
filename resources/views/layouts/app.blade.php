@@ -113,6 +113,40 @@
                 </a>
                 @endcan
 
+                @if($navUser->can('documents.review') || $navUser->can('uniforms.manage') || $navUser->can('payroll.export') || $navUser->can('company.configure'))
+                <div class="nav-section-title">LEGAJO & PLANILLA</div>
+                @endif
+
+                @can('documents.review')
+                @php $pendingDocs = \App\Models\EmployeeDocument::where('status', 'pending')->count(); @endphp
+                <a href="{{ route('documents.index') }}" class="nav-item {{ request()->routeIs('documents*') || request()->routeIs('employees.file*') ? 'active' : '' }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M9 14l2 2 4-4"/></svg>
+                    <span>Legajos digitales</span>
+                    @if($pendingDocs > 0)<span class="nav-badge">{{ $pendingDocs }}</span>@endif
+                </a>
+                @endcan
+
+                @can('uniforms.manage')
+                <a href="{{ route('uniforms.index') }}" class="nav-item {{ request()->routeIs('uniforms*') ? 'active' : '' }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
+                    <span>Dotación & tallas</span>
+                </a>
+                @endcan
+
+                @can('payroll.export')
+                <a href="{{ route('payroll.index') }}" class="nav-item {{ request()->routeIs('payroll*') ? 'active' : '' }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
+                    <span>Cruce con planilla</span>
+                </a>
+                @endcan
+
+                @can('company.configure')
+                <a href="{{ route('settings.mobile') }}" class="nav-item {{ request()->routeIs('settings.mobile*') ? 'active' : '' }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    <span>Configuración de la app</span>
+                </a>
+                @endcan
+
                 @can('reports.view')
                 <a href="{{ route('reports.index') }}" class="nav-item {{ request()->routeIs('reports*') ? 'active' : '' }}">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>

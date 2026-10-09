@@ -6,10 +6,19 @@ import '../../features/attendance/domain/models.dart';
 import '../../features/attendance/presentation/clock_screen.dart';
 import '../../features/attendance/presentation/history_screen.dart';
 import '../../features/auth/presentation/auth_controller.dart';
+import '../../features/auth/presentation/change_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/tenant_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/payslips/presentation/payslip_viewer_screen.dart';
+import '../../features/profile/domain/models.dart';
+import '../../features/profile/presentation/contact_screen.dart';
+import '../../features/profile/presentation/document_viewer_screen.dart';
+import '../../features/profile/presentation/documents_screen.dart';
+import '../../features/profile/presentation/payment_info_screen.dart';
+import '../../features/profile/presentation/profile_providers.dart';
+import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/profile/presentation/uniforms_screen.dart';
 import '../../features/payslips/presentation/payslips_screen.dart';
 import '../../features/requests/presentation/new_request_screen.dart';
 import '../../features/requests/presentation/requests_screen.dart';
@@ -30,10 +39,15 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/home',
     refreshListenable: refresh,
     redirect: (context, state) {
-      final status = ref.read(authControllerProvider).status;
+      final auth = ref.read(authControllerProvider);
       final loc = state.matchedLocation;
 
-      return switch (status) {
+      // Contraseña temporal entregada por RRHH: primero debe cambiarla
+      if (auth.status == AuthStatus.authenticated && (auth.user?.mustChangePassword ?? false)) {
+        return loc == '/change-password' ? null : '/change-password';
+      }
+
+      return switch (auth.status) {
         AuthStatus.needsTenant => loc == '/tenant' ? null : '/tenant',
         AuthStatus.unauthenticated => loc == '/login' ? null : '/login',
         AuthStatus.authenticated => (loc == '/login' || loc == '/tenant') ? '/home' : null,
@@ -49,8 +63,26 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [GoRoute(path: '/history', builder: (_, _) => const HistoryScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: '/requests', builder: (_, _) => const RequestsScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: '/payslips', builder: (_, _) => const PayslipsScreen())]),
+          StatefulShellBranch(routes: [GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen())]),
         ],
       ),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/change-password',
+        builder: (_, _) => const ChangePasswordScreen(),
+      ),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/profile/documents', builder: (_, _) => const DocumentsScreen()),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/profile/documents/:id',
+        builder: (_, state) => DocumentViewerScreen(
+          id: int.parse(state.pathParameters['id']!),
+          document: state.extra as EmployeeDocument?,
+        ),
+      ),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/profile/payment', builder: (_, _) => const PaymentInfoScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/profile/uniforms', builder: (_, _) => const UniformsScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/profile/contact', builder: (_, _) => const ContactScreen()),
       GoRoute(
         parentNavigatorKey: _rootKey,
         path: '/clock/:action',
@@ -74,15 +106,34 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-/// Navegación inferior + aviso de sin conexión.
+/// Navegación inferior + aviso de sin conexión. La pestaña Boletas se oculta
+/// si la empresa la desactivó (flags de /api/employee/config).
 class _AppShell extends ConsumerWidget {
   const _AppShell({required this.shell});
 
   final StatefulNavigationShell shell;
 
+  static const _payslipsBranch = 3;
+
+  static const _destinations = [
+    NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Inicio'),
+    NavigationDestination(icon: Icon(Icons.history_rounded), label: 'Asistencia'),
+    NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note_rounded), label: 'Solicitudes'),
+    NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long_rounded), label: 'Boletas'),
+    NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'Mi perfil'),
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final online = ref.watch(connectivityProvider).value ?? true;
+    final config = ref.watch(companyConfigProvider).value ?? const CompanyConfig();
+
+    // Índices de rama visibles, en orden
+    final branches = [
+      for (var i = 0; i < _destinations.length; i++)
+        if (i != _payslipsBranch || config.payslips) i,
+    ];
+    final selected = branches.indexOf(shell.currentIndex);
 
     return Scaffold(
       body: Column(children: [
@@ -90,14 +141,12 @@ class _AppShell extends ConsumerWidget {
         Expanded(child: shell),
       ]),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: shell.currentIndex,
-        onDestinationSelected: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Inicio'),
-          NavigationDestination(icon: Icon(Icons.history), label: 'Asistencia'),
-          NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note), label: 'Solicitudes'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Boletas'),
-        ],
+        selectedIndex: selected < 0 ? 0 : selected,
+        onDestinationSelected: (i) {
+          final branch = branches[i];
+          shell.goBranch(branch, initialLocation: branch == shell.currentIndex);
+        },
+        destinations: [for (final b in branches) _destinations[b]],
       ),
     );
   }

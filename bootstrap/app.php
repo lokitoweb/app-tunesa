@@ -11,6 +11,7 @@
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\EnforceTenantScope;
+use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SetWebTenant;
 use Illuminate\Foundation\Application;
@@ -36,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role'         => CheckRole::class,
             'permission'   => CheckPermission::class,
             'web.tenant'   => SetWebTenant::class,
+            'password.fresh' => EnsurePasswordChanged::class,
         ]);
 
         // =====================================================================
@@ -73,12 +75,17 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, $request) {
             if ($request->is('api/*')) {
+                // 423 = cuenta bloqueada, 429 = demasiados intentos (LoginGuard)
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error de validación.',
-                    'code'    => 'VALIDATION_ERROR',
+                    'message' => $e->status === 422 ? 'Error de validación.' : collect($e->errors())->flatten()->first(),
+                    'code'    => match ($e->status) {
+                        423     => 'ACCOUNT_LOCKED',
+                        429     => 'TOO_MANY_ATTEMPTS',
+                        default => 'VALIDATION_ERROR',
+                    },
                     'errors'  => $e->errors(),
-                ], 422);
+                ], $e->status);
             }
         });
 

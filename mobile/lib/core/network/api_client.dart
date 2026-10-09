@@ -52,6 +52,10 @@ class ApiClient {
   Future<Map<String, dynamic>> post(String path, {Object? data, bool auth = true, String? tenant}) =>
       _send(() => _dio.post(path, data: data, options: Options(extra: {'auth': auth, 'tenant': ?tenant})));
 
+  Future<Map<String, dynamic>> put(String path, {Object? data}) => _send(() => _dio.put(path, data: data));
+
+  Future<Map<String, dynamic>> delete(String path) => _send(() => _dio.delete(path));
+
   /// GET sin token con un slug de empresa explícito (antes de elegir empresa).
   Future<Map<String, dynamic>> getPublic(String path, {required String tenant}) =>
       _send(() => _dio.get(path, options: Options(extra: {'auth': false, 'tenant': tenant})));
@@ -66,6 +70,20 @@ class ApiClient {
       final response = await _dio.get<List<int>>(
         path,
         options: Options(responseType: ResponseType.bytes, headers: {'Accept': 'application/pdf'}),
+      );
+      return response.data ?? const [];
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// Descarga una URL firmada temporal (legajo). No lleva token: la firma
+  /// es la autorización y vence en minutos.
+  Future<List<int>> downloadSigned(String url) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes, extra: {'auth': false}),
       );
       return response.data ?? const [];
     } on DioException catch (e) {

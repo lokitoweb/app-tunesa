@@ -17,6 +17,7 @@ class ClockInAntiFraudTest extends TestCase
         parent::setUp();
         $this->seedRoles();
         Storage::fake('public');
+        Storage::fake('private');
     }
 
     private function payload(array $overrides = []): array

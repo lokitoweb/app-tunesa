@@ -44,3 +44,13 @@ if (! function_exists('tenant_timezone')) {
         return $ctx->resolved() ? $ctx->get()->timezone : config('app.timezone');
     }
 }
+
+if (! function_exists('attendance_photo_url')) {
+    /**
+     * URL temporal (firmada) de la selfie de entrada ('in') o salida ('out').
+     */
+    function attendance_photo_url(\App\Models\Attendance $attendance, string $moment = 'in'): ?string
+    {
+        return app(\App\Services\AttendanceEvidence::class)->photoUrl($attendance, $moment);
+    }
+}

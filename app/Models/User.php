@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -48,6 +49,19 @@ class User extends Authenticatable
         'position',
         'department',
         'fcm_token',
+        'must_change_password',
+    ];
+
+    /**
+     * Jerarquía de rangos: nadie puede crear, editar ni asignar un rol de
+     * rango superior al propio (ver canAssignRole / canManage).
+     */
+    public const ROLE_RANKS = [
+        'super_admin'   => 100,
+        'company_admin' => 80,
+        'hr_manager'    => 60,
+        'supervisor'    => 40,
+        'employee'      => 20,
     ];
 
     /** Caché en memoria (no persistida) para consultas derivadas del rol */
@@ -67,7 +81,24 @@ class User extends Authenticatable
         'termination_date'  => 'date',
         'base_salary'       => 'decimal:2',
         'password'          => 'hashed',
+        'locked_until'         => 'datetime',
+        'last_login_at'        => 'datetime',
+        'must_change_password' => 'boolean',
+        'failed_login_attempts' => 'integer',
     ];
+
+    /**
+     * Al desactivar o suspender una cuenta se revocan todas sus sesiones
+     * (tokens de la app), para que el acceso se corte en el acto.
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (User $user) {
+            if ($user->wasChanged('status') && $user->status !== 'active') {
+                $user->tokens()->delete();
+            }
+        });
+    }
 
     // =========================================================================
     // RELACIONES
@@ -110,6 +141,26 @@ class User extends Authenticatable
     public function payslips(): HasMany
     {
         return $this->hasMany(Payslip::class);
+    }
+
+    public function profile(): HasOne
+    {
+        return $this->hasOne(EmployeeProfile::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(EmployeeDocument::class);
+    }
+
+    public function uniformSize(): HasOne
+    {
+        return $this->hasOne(UniformSize::class);
+    }
+
+    public function uniformDeliveries(): HasMany
+    {
+        return $this->hasMany(UniformDelivery::class);
     }
 
     // =========================================================================
@@ -172,6 +223,39 @@ class User extends Authenticatable
     public function canManageTenant(): bool
     {
         return in_array($this->role, ['company_admin', 'hr_manager']);
+    }
+
+    public function roleRank(): int
+    {
+        return self::ROLE_RANKS[$this->role] ?? 0;
+    }
+
+    /**
+     * Puede dar este rol a otra persona: el administrador hasta su mismo
+     * rango, el resto solo rangos inferiores (RRHH no crea administradores).
+     */
+    public function canAssignRole(string $role): bool
+    {
+        $target = self::ROLE_RANKS[$role] ?? PHP_INT_MAX;
+
+        if ($role === 'super_admin') {
+            return $this->isSuperAdmin();
+        }
+
+        return $this->roleRank() >= self::ROLE_RANKS['company_admin']
+            ? $target <= $this->roleRank()
+            : $target < $this->roleRank();
+    }
+
+    /** Puede editar, desactivar o ver datos sensibles de este usuario */
+    public function canManage(User $other): bool
+    {
+        return $this->id === $other->id || $this->canAssignRole($other->role);
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->locked_until !== null && $this->locked_until->isFuture();
     }
 
     /**

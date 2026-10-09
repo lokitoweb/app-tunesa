@@ -46,6 +46,7 @@ class AppUser {
     this.employeeCode,
     this.position,
     this.companyName,
+    this.mustChangePassword = false,
   });
 
   final int id;
@@ -57,6 +58,9 @@ class AppUser {
   final String? position;
   final String? companyName;
 
+  /// Cuenta creada por RRHH con contraseña temporal: debe cambiarla primero.
+  final bool mustChangePassword;
+
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
         id: (json['id'] as num).toInt(),
         fullName: json['full_name']?.toString() ?? '',
@@ -66,6 +70,19 @@ class AppUser {
         employeeCode: json['employee_code'] as String?,
         position: json['position'] as String?,
         companyName: (json['company'] as Map?)?['name'] as String? ?? json['company_name'] as String?,
+        mustChangePassword: json['must_change_password'] == true,
+      );
+
+  AppUser copyWith({bool? mustChangePassword}) => AppUser(
+        id: id,
+        fullName: fullName,
+        firstName: firstName,
+        email: email,
+        role: role,
+        employeeCode: employeeCode,
+        position: position,
+        companyName: companyName,
+        mustChangePassword: mustChangePassword ?? this.mustChangePassword,
       );
 
   Map<String, dynamic> toJson() => {
@@ -77,5 +94,6 @@ class AppUser {
         'employee_code': employeeCode,
         'position': position,
         'company_name': companyName,
+        'must_change_password': mustChangePassword,
       };
 }

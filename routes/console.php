@@ -11,3 +11,6 @@ Artisan::command('inspire', function () {
 // Control de faltas: cada madrugada registra las faltas del día anterior
 // (requiere el scheduler: `* * * * * php artisan schedule:run`)
 Schedule::command('attendance:mark-absences')->dailyAt('01:30')->withoutOverlapping();
+
+// Limpia los tokens de Sanctum vencidos hace más de 24 h
+Schedule::command('sanctum:prune-expired --hours=24')->daily();

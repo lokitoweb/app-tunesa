@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Branch;
 use App\Models\User;
+use App\Services\AttendanceEvidence;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -94,6 +96,17 @@ class AttendanceWebController extends Controller
             ->findOrFail($id);
 
         return view('attendance.show', compact('attendance'));
+    }
+
+    /**
+     * Evidencia en JSON para el modal del listado: selfies (URL temporal),
+     * hora exacta, sucursal y punto GPS contra el radio de la geocerca.
+     */
+    public function evidence(int $id, AttendanceEvidence $evidence): JsonResponse
+    {
+        $attendance = Attendance::with(['user', 'branch', 'shift'])->findOrFail($id);
+
+        return response()->json($evidence->detail($attendance));
     }
 
     /**

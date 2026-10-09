@@ -7,6 +7,7 @@ use App\Http\Requests\Api\LoginRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\LoginGuard;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,9 @@ use Illuminate\Validation\ValidationException;
  * AuthController
  *
  * Gestiona la autenticación de todos los usuarios mediante Laravel Sanctum.
- * Los tokens de la app móvil tienen una duración de 30 días.
+ * Los tokens de la app móvil vencen a los auth.mobile_token_days días (30 por defecto)
+ * y son revocables (logout, logout-all, /auth/sessions). Login con bloqueo por
+ * fuerza bruta (App\Services\LoginGuard). No existe auto-registro público.
  * Los tokens del panel web son de sesión (se destruyen al cerrar).
  *
  * Flujo de autenticación:
@@ -31,6 +34,8 @@ use Illuminate\Validation\ValidationException;
  */
 class AuthController extends Controller
 {
+    public function __construct(private readonly LoginGuard $guard) {}
+
     // =========================================================================
     // LOGIN
     // =========================================================================
@@ -62,12 +67,8 @@ class AuthController extends Controller
             ->where('email', $request->email)
             ->first();
 
-        // Verificar credenciales
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Las credenciales proporcionadas son incorrectas.'],
-            ]);
-        }
+        // Credenciales + bloqueo por fuerza bruta (429 ráfaga / 423 cuenta bloqueada)
+        $user = $this->guard->attempt($request, $user, $tenant->id);
 
         // Verificar que el usuario está activo
         if ($user->status !== 'active') {
@@ -82,16 +83,20 @@ class AuthController extends Controller
             ], 403);
         }
 
+        $this->guard->registerSuccess($user, $request);
+
         // Revocar tokens anteriores del mismo dispositivo (evitar sesiones huérfanas)
         $deviceName = $request->input('device_name', 'mobile_app');
         $user->tokens()->where('name', $deviceName)->delete();
 
-        // Crear nuevo token Sanctum
+        // Crear nuevo token Sanctum (revocable, con expiración)
         $token = $user->createToken(
             name:       $deviceName,
             abilities:  $this->getAbilitiesForRole($user->role),
-            expiresAt:  now()->addDays(30),
+            expiresAt:  now()->addDays((int) config('auth.mobile_token_days', 30)),
         );
+
+        $this->pruneDevices($user);
 
         // Actualizar FCM token si se proporcionó
         if ($fcmToken = $request->input('fcm_token')) {
@@ -105,6 +110,7 @@ class AuthController extends Controller
                 'token'      => $token->plainTextToken,
                 'token_type' => 'Bearer',
                 'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
+                'must_change_password' => (bool) $user->must_change_password,
                 'user'       => new UserResource($user->load('tenant')),
             ],
         ]);
@@ -127,11 +133,15 @@ class AuthController extends Controller
             ->where('email', $request->email)
             ->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password) || $user->status !== 'active') {
+        $user = $this->guard->attempt($request, $user, null);
+
+        if ($user->status !== 'active') {
             throw ValidationException::withMessages([
                 'email' => ['Las credenciales proporcionadas son incorrectas.'],
             ]);
         }
+
+        $this->guard->registerSuccess($user, $request);
 
         $token = $user->createToken(
             name:      $request->input('device_name', 'superadmin'),
@@ -150,52 +160,8 @@ class AuthController extends Controller
         ]);
     }
 
-    // =========================================================================
-    // REGISTRO (auto-registro de colaboradores)
-    // =========================================================================
-
-    /**
-     * Auto-registro de un colaborador en la empresa resuelta.
-     *
-     * Solo si la empresa lo habilitó (settings.allow_self_registration).
-     * La cuenta nace INACTIVA: RRHH debe activarla antes de poder iniciar sesión.
-     *
-     * POST /api/auth/register
-     */
-    public function register(Request $request): JsonResponse
-    {
-        $tenant = current_tenant();
-
-        if (! $tenant->setting('allow_self_registration', false)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tu empresa no permite el auto-registro. Solicita tu cuenta a RRHH.',
-                'code'    => 'REGISTRATION_DISABLED',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'first_name'      => ['required', 'string', 'max:100'],
-            'last_name'       => ['required', 'string', 'max:100'],
-            'email'           => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password'        => ['required', 'confirmed', PasswordRule::min(8)->letters()->numbers()],
-            'document_type'   => ['sometimes', 'in:dni,passport,ce'],
-            'document_number' => ['required', 'string', 'max:20'],
-            'phone'           => ['sometimes', 'nullable', 'string', 'max:20'],
-        ]);
-
-        $user = User::create(array_merge($validated, [
-            'tenant_id' => $tenant->id,
-            'role'      => Role::EMPLOYEE,
-            'status'    => 'inactive',
-        ]));
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Registro recibido. RRHH debe activar tu cuenta antes de que puedas ingresar.',
-            'data'    => ['id' => $user->id, 'email' => $user->email, 'status' => $user->status],
-        ], 201);
-    }
+    // El auto-registro público quedó eliminado (Fase 3): solo Super Admin,
+    // Company Admin o RRHH dan de alta colaboradores (panel o /api/admin/employees).
 
     // =========================================================================
     // RECUPERACIÓN DE CONTRASEÑA
@@ -238,8 +204,11 @@ class AuthController extends Controller
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user, string $password) {
                 $user->forceFill([
-                    'password'       => $password,
-                    'remember_token' => Str::random(60),
+                    'password'              => $password,
+                    'remember_token'        => Str::random(60),
+                    'must_change_password'  => false,
+                    'failed_login_attempts' => 0,
+                    'locked_until'          => null,
                 ])->save();
 
                 // Cerrar sesión en todos los dispositivos
@@ -274,6 +243,54 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Sesión cerrada correctamente.',
         ]);
+    }
+
+    /**
+     * Cerrar sesión en todos los dispositivos.
+     * POST /api/auth/logout-all
+     */
+    public function logoutAll(Request $request): JsonResponse
+    {
+        $request->user()->tokens()->delete();
+
+        return response()->json(['success' => true, 'message' => 'Se cerró la sesión en todos tus dispositivos.']);
+    }
+
+    /**
+     * Dispositivos con sesión abierta (tokens vigentes).
+     * GET /api/auth/sessions
+     */
+    public function sessions(Request $request): JsonResponse
+    {
+        $current = $request->user()->currentAccessToken()?->id;
+
+        return response()->json([
+            'success' => true,
+            'data'    => $request->user()->tokens()
+                ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                ->latest('last_used_at')
+                ->get()
+                ->map(fn ($t) => [
+                    'id'           => $t->id,
+                    'device'       => $t->name,
+                    'last_used_at' => $t->last_used_at?->toIso8601String(),
+                    'expires_at'   => $t->expires_at?->toIso8601String(),
+                    'current'      => $t->id === $current,
+                ]),
+        ]);
+    }
+
+    /**
+     * Revocar la sesión de un dispositivo.
+     * DELETE /api/auth/sessions/{id}
+     */
+    public function revokeSession(Request $request, int $id): JsonResponse
+    {
+        $deleted = $request->user()->tokens()->where('id', $id)->delete();
+
+        abort_if($deleted === 0, 404);
+
+        return response()->json(['success' => true, 'message' => 'Sesión revocada.']);
     }
 
     // =========================================================================
@@ -329,7 +346,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'current_password' => ['required', 'string'],
-            'new_password'     => ['required', 'string', 'min:8', 'confirmed'],
+            'new_password'     => ['required', 'string', 'confirmed', 'different:current_password', PasswordRule::min(8)->letters()->mixedCase()->numbers()],
         ]);
 
         $user = $request->user();
@@ -340,7 +357,10 @@ class AuthController extends Controller
             ]);
         }
 
-        $user->update(['password' => $request->new_password]);
+        $user->forceFill([
+            'password'             => $request->new_password,
+            'must_change_password' => false,
+        ])->save();
 
         // Revocar todos los otros tokens (forzar re-login en otros dispositivos)
         $user->tokens()->where('id', '!=', $user->currentAccessToken()->id)->delete();
@@ -369,6 +389,17 @@ class AuthController extends Controller
     // =========================================================================
     // HELPERS PRIVADOS
     // =========================================================================
+
+    /**
+     * Mantiene como máximo N dispositivos con sesión abierta (los más antiguos se revocan).
+     */
+    private function pruneDevices(User $user): void
+    {
+        $max = (int) config('auth.max_devices', 3);
+
+        $keep = $user->tokens()->latest('id')->limit($max)->pluck('id');
+        $user->tokens()->whereNotIn('id', $keep)->delete();
+    }
 
     /**
      * Define las abilities del token según el rol.

@@ -42,6 +42,18 @@ Programar el scheduler para el control de faltas (`attendance:mark-absences`, 01
 - **Boletas** (`/payslips/bulk`): carga masiva de PDF; cada archivo se asigna al empleado cuyo DNI o código aparece en el nombre (ej. `boleta_45879632.pdf`). También por API: `POST /api/admin/payslips/bulk`.
 - El acceso a cada módulo depende de los permisos del rol, y el panel aplica el logo y los colores de la empresa.
 
+## Fase 3: legajo, dotación y planilla
+
+Tras actualizar, corre `php artisan migrate` y vuelve a sembrar los permisos con `php artisan db:seed --class=RolesAndPermissionsSeeder`.
+
+- **Sin auto-registro:** no existe `POST /api/auth/register`. Solo Super Admin, Company Admin y RRHH crean personal, y nadie puede crear o editar a alguien de rango igual o superior. La contraseña temporal obliga a cambiarla en el primer ingreso (`must_change_password`).
+- **Login endurecido:** bloqueo temporal por intentos fallidos (`AUTH_MAX_ATTEMPTS`, `AUTH_LOCKOUT_MINUTES`), contraseñas con Argon2id (las bcrypt antiguas se rehashean al entrar), tokens Sanctum con prefijo y caducidad (`MOBILE_TOKEN_DAYS`), máximo de dispositivos (`AUTH_MAX_DEVICES`), cierre de todas las sesiones y desbloqueo desde el panel.
+- **Archivos privados:** documentos y selfies van al disco `private` (`DOCUMENTS_DISK`, `ATTENDANCE_DISK`) y solo se ven con URLs firmadas que caducan (`SIGNED_URL_MINUTES`). Cada archivo se valida por su tipo real y guarda su SHA-256.
+- **API del empleado:** `GET /api/employee/profile`, `PUT /api/employee/payment-info`, `PUT /api/employee/contact`, `POST /api/employee/documents` (multipart), `DELETE /api/employee/documents/{id}`, `PUT /api/employee/uniform-sizes`.
+- **API de administración:** `/api/admin/documents` (aprobar o rechazar), `/api/admin/employees/{id}/profile`, `/api/admin/uniforms`, `/api/admin/payroll/export`, `/api/admin/company-configuration`, `/api/admin/attendance/{id}`.
+- **Panel web:** visor de marcación con selfie ampliada y mapa de geocerca, revisión de documentos, legajo por empleado con verificación de cuenta bancaria, dotación con exportación para logística, consolidado de planilla en CSV y `Configuración > App móvil` con los switches de lo que el empleado ve y edita.
+- **Datos sensibles:** números de cuenta y CCI cifrados en base de datos, enmascarados por defecto y auditados cuando alguien los revela (`audit_logs`).
+
 ## App móvil
 
 Ver [`mobile/README.md`](mobile/README.md): entornos y URL del backend, compilación del APK (`mobile/scripts/build_apk.sh`) y firma. El workflow **App móvil: APK** de GitHub Actions compila el APK en cada PR que toca `mobile/`.

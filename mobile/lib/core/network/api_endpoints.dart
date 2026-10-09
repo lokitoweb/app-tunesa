@@ -10,6 +10,8 @@ class ApiEndpoints {
   static const logout = '/auth/logout';
   static const me = '/auth/me';
   static const forgotPassword = '/auth/forgot-password';
+  static const changePassword = '/auth/change-password';
+  static const logoutAll = '/auth/logout-all';
 
   // Asistencia
   static const attendanceToday = '/attendance/today';
@@ -32,4 +34,14 @@ class ApiEndpoints {
   // Boletas
   static const payslips = '/payslips';
   static String payslipDownload(int id) => '/payslips/$id/download';
+
+  // Autoservicio: legajo, datos de pago y dotación
+  static const employeeConfig = '/employee/config';
+  static const employeeProfile = '/employee/profile';
+  static const paymentInfo = '/employee/payment-info';
+  static const contactInfo = '/employee/contact';
+  static const documents = '/employee/documents';
+  static String documentUrl(int id) => '/employee/documents/$id/url';
+  static String document(int id) => '/employee/documents/$id';
+  static const uniformSizes = '/employee/uniform-sizes';
 }

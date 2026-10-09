@@ -8,15 +8,25 @@
  *
  *  [tenant]                 ResolveTenant → identifica la empresa (X-Tenant-Slug,
  *                           subdominio o dominio propio) y activa los global scopes
- *  [tenant+auth]            + Sanctum Auth + EnforceTenantScope
+ *  [tenant+auth]            + Sanctum Auth + EnforceTenantScope + password.fresh
+ *                           (contraseña temporal → solo /auth/me y change-password)
  *  [... + permission:x]     + CheckPermission (matriz sembrada por RolesAndPermissionsSeeder)
  *  [superadmin]             Sanctum Auth + role:super_admin, SIN tenant (cross-tenant)
  * =============================================================================
  */
 
+use App\Http\Controllers\Api\Admin\AttendanceDetailController;
+use App\Http\Controllers\Api\Admin\CompanyConfigurationController;
+use App\Http\Controllers\Api\Admin\DocumentReviewController;
+use App\Http\Controllers\Api\Admin\EmployeeProfileController;
+use App\Http\Controllers\Api\Admin\PayrollController;
+use App\Http\Controllers\Api\Admin\UniformAdminController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
+use App\Http\Controllers\Api\Employee\DocumentController;
+use App\Http\Controllers\Api\Employee\ProfileController;
+use App\Http\Controllers\Api\Employee\UniformController;
 use App\Http\Controllers\Api\LeaveRequestController;
 use App\Http\Controllers\Api\PayslipController;
 use App\Http\Controllers\Api\RoleController;
@@ -33,7 +43,6 @@ Route::middleware(['tenant'])->group(function () {
     // Autenticación
     Route::prefix('auth')->group(function () {
         Route::post('login',           [AuthController::class, 'login'])->middleware('throttle:10,1');
-        Route::post('register',        [AuthController::class, 'register'])->middleware('throttle:5,1');
         Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
         Route::post('reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
     });
@@ -45,11 +54,14 @@ Route::middleware(['tenant'])->group(function () {
 // =============================================================================
 // RUTAS PROTEGIDAS (Tenant + Auth + TenantScope)
 // =============================================================================
-Route::middleware(['tenant', 'auth:sanctum', 'tenant.scope'])->group(function () {
+Route::middleware(['tenant', 'auth:sanctum', 'tenant.scope', 'password.fresh'])->group(function () {
 
     // --- AUTH ---
     Route::prefix('auth')->group(function () {
         Route::post('logout',         [AuthController::class, 'logout']);
+        Route::post('logout-all',     [AuthController::class, 'logoutAll']);
+        Route::get('sessions',        [AuthController::class, 'sessions']);
+        Route::delete('sessions/{id}', [AuthController::class, 'revokeSession'])->whereNumber('id');
         Route::get('me',              [AuthController::class, 'me']);
         Route::put('profile',         [AuthController::class, 'updateProfile']);
         Route::put('change-password', [AuthController::class, 'changePassword']);
@@ -88,6 +100,22 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.scope'])->group(function ()
 
     // --- SUCURSALES (para la app móvil, ver sucursales asignadas) ---
     Route::get('my-branches', [BranchController::class, 'myBranches']);
+
+    // --- AUTOSERVICIO: onboarding, legajo, datos de pago y dotación ---
+    Route::middleware('permission:profile.manage_own')->prefix('employee')->group(function () {
+        Route::get('config',          [ProfileController::class, 'config']);
+        Route::get('profile',         [ProfileController::class, 'show']);
+        Route::put('payment-info',    [ProfileController::class, 'updatePaymentInfo']);
+        Route::put('contact',         [ProfileController::class, 'updateContact']);
+
+        Route::get('documents',              [DocumentController::class, 'index']);
+        Route::post('documents',             [DocumentController::class, 'store'])->middleware('throttle:20,1');
+        Route::get('documents/{id}/url',     [DocumentController::class, 'url'])->whereNumber('id');
+        Route::delete('documents/{id}',      [DocumentController::class, 'destroy'])->whereNumber('id');
+
+        Route::get('uniform-sizes',   [UniformController::class, 'show']);
+        Route::put('uniform-sizes',   [UniformController::class, 'update']);
+    });
 
     // --- SOLICITUDES: vacaciones, permisos, licencias médicas ---
     Route::middleware('permission:leave.request')->prefix('leave-requests')->group(function () {
@@ -156,6 +184,44 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.scope'])->group(function ()
 
         // Roles y permisos
         Route::get('roles', [RoleController::class, 'index'])->middleware('permission:roles.view');
+
+        // Visor de marcaciones (selfie, hora, sucursal, geocerca)
+        Route::get('attendance/{id}', [AttendanceDetailController::class, 'show'])
+            ->whereNumber('id')->middleware('permission:attendance.view_all');
+
+        // Legajo digital: revisión de documentos
+        Route::middleware('permission:documents.review')->group(function () {
+            Route::get('documents',                  [DocumentReviewController::class, 'index']);
+            Route::get('documents/{id}/url',         [DocumentReviewController::class, 'url'])->whereNumber('id');
+            Route::post('documents/{id}/approve',    [DocumentReviewController::class, 'approve'])->whereNumber('id');
+            Route::post('documents/{id}/reject',     [DocumentReviewController::class, 'reject'])->whereNumber('id');
+            Route::post('employees/{id}/documents',  [DocumentReviewController::class, 'storeFor'])->whereNumber('id');
+        });
+
+        // Ficha laboral (régimen, CTS, verificación de cuenta)
+        Route::middleware('permission:profiles.manage')->group(function () {
+            Route::get('employees/{id}/profile',               [EmployeeProfileController::class, 'show'])->whereNumber('id');
+            Route::put('employees/{id}/profile',               [EmployeeProfileController::class, 'update'])->whereNumber('id');
+            Route::post('employees/{id}/payment-info/review',  [EmployeeProfileController::class, 'reviewPayment'])->whereNumber('id');
+        });
+
+        // Dotación de uniformes
+        Route::middleware('permission:uniforms.manage')->group(function () {
+            Route::get('uniforms',                       [UniformAdminController::class, 'index']);
+            Route::get('uniforms/export',                [UniformAdminController::class, 'export']);
+            Route::post('uniforms/deliveries',           [UniformAdminController::class, 'storeDelivery']);
+            Route::put('employees/{id}/uniform-sizes',   [UniformAdminController::class, 'updateSizes'])->whereNumber('id');
+        });
+
+        // Cruce con planilla / nómina
+        Route::get('payroll/export', [PayrollController::class, 'export'])
+            ->middleware(['permission:payroll.export', 'throttle:10,1']);
+
+        // Qué ve y edita el colaborador en la app
+        Route::middleware('permission:company.configure')->group(function () {
+            Route::get('company-configuration', [CompanyConfigurationController::class, 'show']);
+            Route::put('company-configuration', [CompanyConfigurationController::class, 'update']);
+        });
     });
 
     // =========================================================================
