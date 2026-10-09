@@ -55,6 +55,16 @@ class RolesAndPermissionsSeeder extends Seeder
         // Nómina
         'payslips.view_own'      => ['Ver y descargar mis boletas', 'payslips'],
         'payslips.manage'        => ['Subir, publicar y eliminar boletas', 'payslips'],
+        'payroll.export'         => ['Exportar consolidado para planilla (incluye cuentas)', 'payslips'],
+
+        // Legajo, ficha laboral y dotación (Fase 3)
+        'profile.manage_own'      => ['Gestionar mi legajo, datos de pago y tallas', 'profiles'],
+        'profiles.manage'         => ['Editar fichas laborales (régimen, CTS, cuentas)', 'profiles'],
+        'profiles.view_sensitive' => ['Ver números de cuenta completos', 'profiles'],
+        'documents.review'        => ['Revisar y aprobar documentos del legajo', 'profiles'],
+        'uniforms.manage'         => ['Gestionar tallas y entregas de dotación', 'profiles'],
+        'company.configure'       => ['Configurar qué ve el colaborador en la app', 'tenants'],
+        'audit.view'              => ['Ver la bitácora de auditoría', 'tenants'],
     ];
 
     /** slug del rol => [nombre, descripción, permisos ('*' = todos)] */
@@ -72,7 +82,7 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::HR_MANAGER => [
             'Recursos Humanos',
             'Gestiona colaboradores, turnos, solicitudes y nómina.',
-            ['*', '-tenants.manage', '-tenants.branding'],
+            ['*', '-tenants.manage', '-tenants.branding', '-company.configure', '-audit.view'],
         ],
         Role::SUPERVISOR => [
             'Supervisor',
@@ -82,7 +92,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'attendance.mark', 'attendance.view_own', 'attendance.view_team',
                 'dashboard.view', 'reports.view',
                 'leave.request', 'leave.approve_team',
-                'payslips.view_own',
+                'payslips.view_own', 'profile.manage_own',
             ],
         ],
         Role::EMPLOYEE => [
@@ -90,7 +100,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'Marca asistencia, consulta turnos, solicitudes y boletas.',
             [
                 'shifts.view_own', 'attendance.mark', 'attendance.view_own',
-                'leave.request', 'payslips.view_own',
+                'leave.request', 'payslips.view_own', 'profile.manage_own',
             ],
         ],
     ];

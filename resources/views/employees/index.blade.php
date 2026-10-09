@@ -132,6 +132,22 @@
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                                 </a>
 
+                                @can('profiles.manage')
+                                <a href="{{ route('employees.file', $emp->id) }}" style="padding: 6px; border-radius: 6px; background: rgba(16,185,129,0.1); color: #6ee7b7; display: inline-flex;" title="Legajo y ficha laboral">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
+                                </a>
+                                @endcan
+
+                                @if($emp->isLocked())
+                                <form method="POST" action="{{ route('employees.unlock', $emp->id) }}" style="display: inline;">
+                                    @csrf
+                                    @method('PATCH')
+                                    <button type="submit" style="padding: 6px; border-radius: 6px; border: none; cursor: pointer; background: rgba(245,158,11,0.15); color: #f59e0b;" title="Bloqueado por intentos fallidos hasta {{ $emp->locked_until->format('H:i') }}. Clic para desbloquear.">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                    </button>
+                                </form>
+                                @endif
+
                                 <form method="POST" action="{{ route('employees.toggle-status', $emp->id) }}" style="display: inline;">
                                     @csrf
                                     @method('PATCH')

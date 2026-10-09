@@ -99,7 +99,7 @@
                         </td>
                         <td style="padding: 1rem;">
                             @if($att->clock_in_photo)
-                                <img src="{{ asset('storage/' . $att->clock_in_photo) }}" alt="Selfie" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 2px solid {{ $att->clock_in_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openPhotoModal('{{ asset('storage/' . $att->clock_in_photo) }}', '{{ $att->user->first_name }} {{ $att->user->last_name }}', 'Hora: {{ $att->clock_in_at ? $att->clock_in_at->format('H:i:s') : '' }} | Distancia: {{ $att->clock_in_distance_meters }}m')">
+                                <img src="{{ attendance_photo_url($att, 'in') }}" alt="Selfie" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 2px solid {{ $att->clock_in_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openEvidence({{ $att->id }})" title="Ver selfie, mapa y geocerca">
                             @else
                                 <span style="font-size: 0.75rem; color: #64748b;">Sin foto</span>
                             @endif
@@ -140,6 +140,9 @@
                             </span>
                         </td>
                         <td style="padding: 1rem; text-align: center;">
+                            <button type="button" onclick="openEvidence({{ $att->id }})" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: rgba(16,185,129,0.15); color: #10b981; border: none; cursor: pointer; margin-right: 4px;" title="Visor rápido: selfie y mapa">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                            </button>
                             <a href="{{ route('attendance.show', $att->id) }}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: rgba(99,102,241,0.15); color: #818cf8; text-decoration: none;" title="Ver auditoría completa">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                             </a>
@@ -162,4 +165,6 @@
         </div>
     @endif
 </div>
+
+@include('attendance.partials.evidence-modal')
 @endsection

@@ -24,7 +24,21 @@ return [
     |
     */
 
-    'attendance_disk' => env('ATTENDANCE_DISK', 'public'),
+    'attendance_disk' => env('ATTENDANCE_DISK', 'private'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Legajo digital y URLs temporales
+    |--------------------------------------------------------------------------
+    |
+    | documents_disk: disco privado (local 'private' o un bucket 's3').
+    | signed_url_minutes: vigencia de las URLs firmadas / prefirmadas.
+    |
+    */
+
+    'documents_disk' => env('DOCUMENTS_DISK', 'private'),
+
+    'signed_url_minutes' => (int) env('SIGNED_URL_MINUTES', 5),
 
     /*
     |--------------------------------------------------------------------------

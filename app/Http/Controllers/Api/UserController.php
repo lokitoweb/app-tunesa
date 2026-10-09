@@ -88,9 +88,13 @@ class UserController extends Controller
             'phone'         => ['sometimes', 'nullable', 'string', 'max:20'],
         ]);
 
+        abort_unless($request->user()->canAssignRole($validated['role']), 403, 'No puedes crear usuarios con un rol igual o superior al tuyo.');
+
+        // La contraseña es temporal: el colaborador debe cambiarla en su primer ingreso
         $user = User::create(array_merge($validated, [
-            'tenant_id' => current_tenant_id(),
-            'status'    => 'active',
+            'tenant_id'            => current_tenant_id(),
+            'status'               => 'active',
+            'must_change_password' => true,
         ]));
 
         return response()->json([
@@ -116,6 +120,8 @@ class UserController extends Controller
             'phone'         => ['sometimes', 'nullable', 'string'],
         ]);
 
+        abort_unless($request->user()->canManage($user), 403, 'No puedes editar a un usuario de rango igual o superior.');
+
         $user->update($validated);
 
         return response()->json([
@@ -126,9 +132,10 @@ class UserController extends Controller
     }
 
     /** Desactivar empleado (soft) */
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
         $user = User::where('tenant_id', current_tenant_id())->findOrFail($id);
+        abort_unless($request->user()->canManage($user) && $request->user()->id !== $user->id, 403);
         $user->update(['status' => 'inactive']);
         $user->delete();
 

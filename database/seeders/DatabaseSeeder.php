@@ -292,6 +292,38 @@ class DatabaseSeeder extends Seeder
         $this->command->info("✅ Turnos asignados a empleados");
 
         // =====================================================================
+        // 6. LEGAJO, DATOS DE PAGO Y DOTACIÓN (Fase 3)
+        // =====================================================================
+        \App\Models\CompanyConfiguration::create(['tenant_id' => $tenant->id]);
+
+        [$ana, $luis] = [$employeeUsers[0], $employeeUsers[1]];
+
+        \App\Models\EmployeeProfile::create([
+            'tenant_id' => $tenant->id, 'user_id' => $ana->id,
+            'address' => 'Av. Arequipa 1234', 'district' => 'Lince',
+            'emergency_contact_name' => 'Carmen Torres', 'emergency_contact_phone' => '987654321',
+            'bank_name' => 'BCP', 'bank_account_type' => 'payroll', 'bank_account_currency' => 'PEN',
+            'bank_account_number' => '19112345678012', 'interbank_code' => '00219111234567801254',
+            'pension_system' => 'afp', 'pension_fund' => 'AFP Integra', 'pension_code' => '612345ATOEA1',
+            'health_insurance' => 'essalud', 'labor_regime' => 'general',
+            'cts_bank_name' => 'Interbank', 'cts_account_number' => '8983123456789', 'cts_currency' => 'PEN',
+            'payment_info_status' => 'verified', 'payment_info_updated_at' => now(),
+            'payment_verified_by' => $hrManager->id, 'payment_verified_at' => now(),
+        ]);
+        \App\Models\EmployeeProfile::create([
+            'tenant_id' => $tenant->id, 'user_id' => $luis->id,
+            'bank_name' => 'BBVA', 'bank_account_type' => 'savings', 'bank_account_currency' => 'PEN',
+            'bank_account_number' => '001101230200123456', 'pension_system' => 'onp',
+            'payment_info_status' => 'pending', 'payment_info_updated_at' => now(),
+        ]);
+
+        \App\Models\UniformSize::create(['tenant_id' => $tenant->id, 'user_id' => $ana->id, 'shirt_size' => 'S', 'pants_size' => '28', 'shoe_size' => '37', 'shoe_type' => 'safety']);
+        \App\Models\UniformSize::create(['tenant_id' => $tenant->id, 'user_id' => $luis->id, 'shirt_size' => 'L', 'pants_size' => '34', 'shoe_size' => '42', 'shoe_type' => 'safety']);
+        \App\Models\UniformDelivery::create(['tenant_id' => $tenant->id, 'user_id' => $ana->id, 'item' => 'shirt', 'size' => 'S', 'quantity' => 2, 'delivered_at' => now()->subMonth(), 'delivered_by' => $hrManager->id]);
+
+        $this->command->info("✅ Legajo demo: datos de pago, tallas y una entrega");
+
+        // =====================================================================
         // RESUMEN FINAL
         // =====================================================================
         $this->command->newLine();

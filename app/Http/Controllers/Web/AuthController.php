@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\LoginGuard;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -55,10 +57,15 @@ class AuthController extends Controller
 
         $user = $userQuery->first();
 
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        // Mismo bloqueo por fuerza bruta que la API (LoginGuard)
+        try {
+            $user = app(LoginGuard::class)->attempt($request, $user, $hostTenant?->id ?? $user?->tenant_id);
+        } catch (ValidationException $e) {
             return back()
                 ->withInput($request->only('email'))
-                ->withErrors(['email' => 'Las credenciales proporcionadas no son válidas o la cuenta está inactiva.']);
+                ->withErrors(['email' => $e->status === 422
+                    ? 'Las credenciales proporcionadas no son válidas o la cuenta está inactiva.'
+                    : collect($e->errors())->flatten()->first()]);
         }
 
         // Validar que el rol tenga acceso al panel web
@@ -67,6 +74,8 @@ class AuthController extends Controller
                 ->withInput($request->only('email'))
                 ->withErrors(['email' => 'Los empleados de campo deben registrarse a través de la aplicación móvil TuneSA.']);
         }
+
+        app(LoginGuard::class)->registerSuccess($user, $request);
 
         // Iniciar sesión
         Auth::login($user, $remember);

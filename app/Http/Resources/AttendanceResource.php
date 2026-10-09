@@ -32,9 +32,7 @@ class AttendanceResource extends JsonResource
                 'longitude'           => (float) $this->clock_in_longitude,
                 'distance_meters'     => $this->clock_in_distance_meters,
                 'within_geofence'     => $this->clock_in_within_geofence,
-                'photo_url'           => $this->clock_in_photo
-                    ? Storage_url($this->clock_in_photo)
-                    : null,
+                'photo_url'           => app(\App\Services\AttendanceEvidence::class)->photoUrl($this->resource, 'in'),
             ]),
 
             // Break
@@ -52,9 +50,7 @@ class AttendanceResource extends JsonResource
                 'longitude'       => (float) $this->clock_out_longitude,
                 'distance_meters' => $this->clock_out_distance_meters,
                 'within_geofence' => $this->clock_out_within_geofence,
-                'photo_url'       => $this->clock_out_photo
-                    ? Storage_url($this->clock_out_photo)
-                    : null,
+                'photo_url'       => app(\App\Services\AttendanceEvidence::class)->photoUrl($this->resource, 'out'),
             ]),
 
             // Cálculos de tiempo
@@ -69,9 +65,7 @@ class AttendanceResource extends JsonResource
             'justification' => [
                 'status'  => $this->justification_status,
                 'notes'   => $this->notes,
-                'file_url'=> $this->justification_file
-                    ? Storage_url($this->justification_file)
-                    : null,
+                'has_file'=> (bool) $this->justification_file,
             ],
 
             // Relaciones cargadas
@@ -104,14 +98,4 @@ class AttendanceResource extends JsonResource
             default      => 'Desconocido',
         };
     }
-}
-
-/**
- * Helper para generar URL pública de Storage.
- * Soporta disco 'public' (local) y 's3'.
- */
-function Storage_url(string $path): string
-{
-    $disk = config('filesystems.attendance_disk', 'public');
-    return \Illuminate\Support\Facades\Storage::disk($disk)->url($path);
 }

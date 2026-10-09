@@ -38,7 +38,7 @@
         <div style="display: grid; grid-template-columns: 140px 1fr; gap: 1.25rem; align-items: start;">
             <div>
                 @if($attendance->clock_in_photo)
-                    <img src="{{ asset('storage/' . $attendance->clock_in_photo) }}" alt="Selfie Entrada" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; border: 2px solid {{ $attendance->clock_in_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openPhotoModal('{{ asset('storage/' . $attendance->clock_in_photo) }}', 'Selfie de Entrada', 'Hora: {{ $attendance->clock_in_at ? $attendance->clock_in_at->format('H:i:s') : '' }} | Distancia: {{ $attendance->clock_in_distance_meters }}m')">
+                    <img src="{{ attendance_photo_url($attendance, 'in') }}" alt="Selfie Entrada" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; border: 2px solid {{ $attendance->clock_in_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openPhotoModal('{{ attendance_photo_url($attendance, 'in') }}', 'Selfie de Entrada', 'Hora: {{ $attendance->clock_in_at ? $attendance->clock_in_at->format('H:i:s') : '' }} | Distancia: {{ $attendance->clock_in_distance_meters }}m')">
                     <div style="font-size: 0.72rem; color: #818cf8; text-align: center; margin-top: 4px; cursor: pointer;">🔍 Clic para ampliar</div>
                 @else
                     <div style="width: 100%; height: 160px; border-radius: 12px; background: #1a1c26; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 0.8rem; text-align: center; padding: 10px;">
@@ -72,7 +72,7 @@
         <div style="display: grid; grid-template-columns: 140px 1fr; gap: 1.25rem; align-items: start;">
             <div>
                 @if($attendance->clock_out_photo)
-                    <img src="{{ asset('storage/' . $attendance->clock_out_photo) }}" alt="Selfie Salida" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; border: 2px solid {{ $attendance->clock_out_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openPhotoModal('{{ asset('storage/' . $attendance->clock_out_photo) }}', 'Selfie de Salida', 'Hora: {{ $attendance->clock_out_at ? $attendance->clock_out_at->format('H:i:s') : '' }} | Distancia: {{ $attendance->clock_out_distance_meters }}m')">
+                    <img src="{{ attendance_photo_url($attendance, 'out') }}" alt="Selfie Salida" style="width: 100%; height: 160px; object-fit: cover; border-radius: 12px; border: 2px solid {{ $attendance->clock_out_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openPhotoModal('{{ attendance_photo_url($attendance, 'out') }}', 'Selfie de Salida', 'Hora: {{ $attendance->clock_out_at ? $attendance->clock_out_at->format('H:i:s') : '' }} | Distancia: {{ $attendance->clock_out_distance_meters }}m')">
                     <div style="font-size: 0.72rem; color: #818cf8; text-align: center; margin-top: 4px; cursor: pointer;">🔍 Clic para ampliar</div>
                 @else
                     <div style="width: 100%; height: 160px; border-radius: 12px; background: #1a1c26; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 0.8rem; text-align: center; padding: 10px;">
@@ -115,7 +115,7 @@
 
                 @if($attendance->justification_file)
                     <div style="margin-top: 1rem;">
-                        <a href="{{ asset('storage/' . $attendance->justification_file) }}" target="_blank" style="color: #818cf8; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                        <a href="{{ route('attendance.justification-file', $attendance->id) }}" target="_blank" style="color: #818cf8; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
                             📎 Ver comprobante / documento adjunto
                         </a>
                     </div>

@@ -50,7 +50,8 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Tope de seguridad: ningún token vive más de esto aunque se cree sin expiresAt
+    'expiration' => env('SANCTUM_EXPIRATION', 60 * 24 * 30),
 
     /*
     |--------------------------------------------------------------------------
@@ -65,7 +66,7 @@ return [
     |
     */
 
-    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
+    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', 'tunesa_'),
 
     /*
     |--------------------------------------------------------------------------

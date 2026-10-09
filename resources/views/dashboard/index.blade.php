@@ -202,7 +202,7 @@
                 <div class="stream-item">
                     <!-- Foto selfie o avatar -->
                     @if($att->clock_in_photo)
-                        <img src="{{ asset('storage/' . $att->clock_in_photo) }}" alt="Selfie" style="width: 44px; height: 44px; border-radius: 10px; object-fit: cover; border: 2px solid {{ $att->clock_in_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openPhotoModal('{{ asset('storage/' . $att->clock_in_photo) }}', '{{ $att->user->first_name }} {{ $att->user->last_name }}', 'Hora: {{ $att->clock_in_at->format('H:i:s') }} | Distancia: {{ $att->clock_in_distance_meters }}m')">
+                        <img src="{{ attendance_photo_url($att, 'in') }}" alt="Selfie" style="width: 44px; height: 44px; border-radius: 10px; object-fit: cover; border: 2px solid {{ $att->clock_in_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openPhotoModal('{{ attendance_photo_url($att, 'in') }}', '{{ $att->user->first_name }} {{ $att->user->last_name }}', 'Hora: {{ $att->clock_in_at->format('H:i:s') }} | Distancia: {{ $att->clock_in_distance_meters }}m')">
                     @else
                         <div style="width: 44px; height: 44px; border-radius: 10px; background: #1e1b4b; display: flex; align-items: center; justify-content: center; color: #818cf8; font-weight: 700; font-size: 0.9rem;">
                             {{ substr($att->user->first_name ?? 'U', 0, 1) }}{{ substr($att->user->last_name ?? 'U', 0, 1) }}
