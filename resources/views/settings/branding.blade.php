@@ -223,13 +223,9 @@
                                     <input type="text" id="latest_version" name="latest_version" maxlength="40" value="{{ $val('latest_version') }}" placeholder="{{ $inh('latest_version') ?: '1.4.0' }}" class="form-control font-monospace @error('latest_version') is-invalid @enderror">
                                 </div>
                             </div>
-                            <div class="form-check form-switch form-switch-lg d-flex justify-content-between align-items-center gap-3 mt-3 mb-0 ps-0">
-                                <label class="form-check-label" for="force_update">
-                                    <span class="d-block fw-semibold">Obligar a actualizar</span>
-                                    <span class="d-block small text-body-secondary">Las apps con una versión menor a la mínima no podrán marcar hasta actualizar.</span>
-                                </label>
-                                <input class="form-check-input flex-shrink-0 ms-0" type="checkbox" role="switch" name="force_update" value="1" id="force_update" @checked(old('force_update', $effective->force_update))>
-                            </div>
+                            @include('settings.partials.bool-setting', ['flag' => 'force_update', 'class' => 'mt-3',
+                                'label' => 'Obligar a actualizar',
+                                'desc'  => 'Las apps con una versión menor a la mínima no podrán marcar hasta actualizar.'])
                         </div>
                     </div>
                 </div>
@@ -244,13 +240,7 @@
                                 'offline_mode_enabled'    => ['Marcación sin conexión', 'Sin internet la app guarda la marcación y la envía al recuperar la señal.'],
                             ] as $flag => [$label, $desc])
                                 <li class="list-group-item py-3">
-                                    <div class="form-check form-switch form-switch-lg d-flex justify-content-between align-items-center gap-3 mb-0 ps-0">
-                                        <label class="form-check-label" for="{{ $flag }}">
-                                            <span class="d-block fw-semibold">{{ $label }}</span>
-                                            <span class="d-block small text-body-secondary">{{ $desc }}</span>
-                                        </label>
-                                        <input class="form-check-input flex-shrink-0 ms-0" type="checkbox" role="switch" name="{{ $flag }}" value="1" id="{{ $flag }}" @checked(old($flag, $effective->{$flag}))>
-                                    </div>
+                                    @include('settings.partials.bool-setting', ['flag' => $flag, 'label' => $label, 'desc' => $desc])
                                 </li>
                             @endforeach
                             <li class="list-group-item py-3" id="offlineHoursRow">
@@ -308,14 +298,10 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="form-check form-switch form-switch-lg d-flex justify-content-between align-items-center gap-3 mt-3 mb-0 ps-0">
-                                <label class="form-check-label" for="lunch_paid">
-                                    <span class="d-block fw-semibold">Refrigerio pagado</span>
-                                    <span class="d-block small text-body-secondary">El tiempo de refrigerio cuenta como hora trabajada en los reportes.</span>
-                                </label>
-                                <input class="form-check-input flex-shrink-0 ms-0" type="checkbox" role="switch" name="lunch_paid" value="1" id="lunch_paid" @checked(old('lunch_paid', $effective->lunch_paid))>
-                            </div>
-                            <p class="small text-body-secondary mt-3 mb-0">Campos vacíos: se usa el valor de {{ $isGlobal ? 'fábrica' : 'la plataforma' }} (indicado en gris).</p>
+                            @include('settings.partials.bool-setting', ['flag' => 'lunch_paid', 'class' => 'mt-3',
+                                'label' => 'Refrigerio pagado',
+                                'desc'  => 'Si está activo, el descanso registrado no se descuenta de las horas trabajadas al marcar la salida.'])
+                            <p class="small text-body-secondary mt-3 mb-0">Campos vacíos: se usa el valor de {{ $isGlobal ? 'fábrica' : 'la plataforma' }} (indicado en gris).@unless($isGlobal) Las opciones Sí/No en "Heredar" siguen a la plataforma aunque cambie después.@endunless</p>
                         </div>
                     </div>
                 </div>
@@ -353,19 +339,22 @@
                 <div class="card-header border-0 pt-3">
                     <h2 class="h6 fw-semibold mb-0">Integraciones</h2>
                     <small class="text-body-secondary">Las claves se guardan cifradas y nunca se muestran completas ni se envían a la app.</small>
+                    @if($isGlobal)
+                        <small class="d-block text-body-secondary">El webhook y el endpoint de notificaciones son propios de cada empresa: los valores de la vista global no se heredan ni envían eventos.</small>
+                    @endif
                 </div>
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="webhook_url" class="form-label">URL del webhook</label>
                             <input type="url" id="webhook_url" name="webhook_url" maxlength="255" value="{{ $val('webhook_url') }}" placeholder="https://erp.empresa.com/webhooks/asistencia" class="form-control @error('webhook_url') is-invalid @enderror">
-                            <div class="form-text">Recibe un aviso por cada marcación (para ERP o planilla).</div>
+                            <div class="form-text">Recibe un POST JSON por cada entrada, inicio y fin de descanso y salida, y por cada cambio de estado de un permiso (para ERP o planilla).</div>
                         </div>
                         <div class="col-md-6">
                             <label for="webhook_secret" class="form-label">Secreto del webhook</label>
                             <input type="password" id="webhook_secret" name="webhook_secret" maxlength="255" autocomplete="new-password" value=""
                                    placeholder="{{ $values['webhook_secret'] ?? 'Sin secreto' }}" class="form-control font-monospace @error('webhook_secret') is-invalid @enderror">
-                            <div class="form-text">Dejar vacío para no cambiar.</div>
+                            <div class="form-text">Firma cada envío en la cabecera <code>X-Tunesa-Signature: sha256=…</code> (HMAC-SHA256 del cuerpo). Dejar vacío para no cambiar.</div>
                             @if($values['has_webhook_secret'])
                                 <div class="form-check mt-1">
                                     <input class="form-check-input" type="checkbox" name="clear_webhook_secret" value="1" id="clear_webhook_secret">
@@ -377,7 +366,7 @@
                             <label for="maps_api_key" class="form-label">Clave de mapas</label>
                             <input type="password" id="maps_api_key" name="maps_api_key" maxlength="255" autocomplete="new-password" value=""
                                    placeholder="{{ $values['maps_api_key'] ?? 'Sin clave' }}" class="form-control font-monospace @error('maps_api_key') is-invalid @enderror">
-                            <div class="form-text">Dejar vacío para no cambiar.{{ $isGlobal ? '' : ' Sin clave propia se usa la de la plataforma.' }}</div>
+                            <div class="form-text">Reservada para una futura geocodificación de direcciones: <strong>todavía no se usa</strong> en el panel ni en la app. Dejar vacío para no cambiar.</div>
                             @if($values['has_maps_api_key'])
                                 <div class="form-check mt-1">
                                     <input class="form-check-input" type="checkbox" name="clear_maps_api_key" value="1" id="clear_maps_api_key">
@@ -388,7 +377,7 @@
                         <div class="col-md-6">
                             <label for="notification_endpoint" class="form-label">Endpoint de notificaciones</label>
                             <input type="url" id="notification_endpoint" name="notification_endpoint" maxlength="255" value="{{ $val('notification_endpoint') }}" placeholder="https://notificaciones.empresa.com/push" class="form-control @error('notification_endpoint') is-invalid @enderror">
-                            <div class="form-text">Servicio externo de avisos (opcional).</div>
+                            <div class="form-text">Recibe un POST JSON por cada aviso in-app creado para un usuario de la empresa, con la misma firma que el webhook (opcional).</div>
                         </div>
                     </div>
                 </div>
@@ -475,7 +464,11 @@
     // Las horas sin conexión solo aplican si la marcación sin conexión está activa
     const offline = document.getElementById('offline_mode_enabled');
     const hoursRow = document.getElementById('offlineHoursRow');
-    const syncOffline = () => hoursRow.classList.toggle('opacity-50', !offline.checked);
+    // Interruptor (plataforma) o selector Heredar/Sí/No (empresa)
+    const offlineOn = () => offline.type === 'checkbox'
+        ? offline.checked
+        : (offline.value === '' ? offline.dataset.inherited === '1' : offline.value === '1');
+    const syncOffline = () => hoursRow.classList.toggle('opacity-50', !offlineOn());
     offline.addEventListener('change', syncOffline);
     syncOffline();
 

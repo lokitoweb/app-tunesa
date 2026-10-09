@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use LogicException;
 
 /**
@@ -123,14 +124,41 @@ class TenantSetting extends Model
     /** Fila guardada de la empresa (null = la plataforma), si existe */
     public static function rowFor(?Tenant $tenant): ?self
     {
-        return static::query()->ofTenant($tenant?->id)->first();
+        // orderBy: si alguna vez quedaran dos filas globales, siempre se lee la misma
+        return static::query()->ofTenant($tenant?->id)->orderBy('id')->first();
+    }
+
+    /**
+     * Fila global de la plataforma (tenant_id NULL), creándola si no existe.
+     *
+     * El índice único de tenant_id no impide varias filas NULL, así que la
+     * creación va en una transacción con bloqueo: es el único camino de
+     * código que crea la fila global.
+     */
+    public static function platform(): self
+    {
+        return DB::transaction(function () {
+            $row = static::query()->whereNull('tenant_id')->orderBy('id')->lockForUpdate()->first();
+
+            if (! $row) {
+                $row = new static();
+                $row->tenant_id = null;
+                $row->save();
+            }
+
+            return $row;
+        });
     }
 
     /** Fila a editar: la existente o una nueva con el tenant_id correcto */
     public static function editableRowFor(?Tenant $tenant): self
     {
+        if (! $tenant) {
+            return static::platform();
+        }
+
         $row = static::rowFor($tenant) ?? new static();
-        $row->tenant_id = $tenant?->id;
+        $row->tenant_id = $tenant->id;
 
         return $row;
     }

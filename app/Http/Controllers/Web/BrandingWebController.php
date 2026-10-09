@@ -49,9 +49,16 @@ class BrandingWebController extends Controller
     {
         $tenant = $this->tenantContext->getOrNull();
 
-        // Un switch desmarcado no se envía: en el formulario ausente = false
-        $request->merge(collect(TenantSettingsService::BOOLEANS)
-            ->mapWithKeys(fn ($f) => [$f => $request->boolean($f)])->all());
+        if ($tenant === null) {
+            // Plataforma: interruptores; uno desmarcado no se envía, así que ausente = false
+            $request->merge(collect(TenantSettingsService::BOOLEANS)
+                ->mapWithKeys(fn ($f) => [$f => $request->boolean($f)])->all());
+        } else {
+            // Empresa: selector Heredar ("" → NULL) / Sí ("1") / No ("0"); ausente = no cambiar
+            $request->merge(collect(TenantSettingsService::BOOLEANS)
+                ->filter(fn ($f) => $request->exists($f))
+                ->mapWithKeys(fn ($f) => [$f => TenantSettingsService::triState($request->input($f))])->all());
+        }
 
         $validated = $request->validate($this->settings->rules(global: $tenant === null), $this->settings->messages());
 
