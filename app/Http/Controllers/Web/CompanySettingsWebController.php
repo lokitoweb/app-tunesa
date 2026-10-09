@@ -39,13 +39,12 @@ class CompanySettingsWebController extends Controller
 
         $config = CompanyConfiguration::current();
         $validated['geofence_policy'] ??= $config->geofence_policy;
-        $config->update($flags + [
+        $audit->updateWithAudit('company_configuration.updated', $config, $flags + [
             'required_documents' => $validated['required_documents'] ?? [],
             'max_upload_mb'      => $validated['max_upload_mb'],
             'geofence_policy'    => $validated['geofence_policy'],
             'updated_by'         => Auth::id(),
         ]);
-        $audit->log('company_configuration.updated', $config, $flags + ['geofence_policy' => $validated['geofence_policy']]);
 
         return back()->with('success', 'Configuración de la app guardada. Los colaboradores la verán al refrescar.');
     }

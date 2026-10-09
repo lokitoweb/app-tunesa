@@ -42,12 +42,14 @@ class AuditLogWebTest extends TestCase
 
         $this->actingAs($admin)->get('/audit')->assertOk()
             ->assertSee('Planilla exportada')->assertSee('Cuenta bancaria revelada')
-            ->assertSee('period')->assertSee('2026-09')->assertSee('rows')
-            ->assertDontSee('document.viewed')->assertDontSee('Zoe');
+            ->assertSee('Periodo')->assertSee('2026-09')->assertSee('Filas')
+            ->assertDontSee('Documento abierto')->assertDontSee('Zoe')
+            // Nada de claves técnicas en la página
+            ->assertDontSee('payroll.exported</code>', false)->assertDontSee('period</dt>', false);
 
-        $this->get('/audit?action=payroll.exported')->assertSee('payroll.exported</code>', false)->assertDontSee('payment_info.revealed</code>', false);
-        $this->get("/audit?user_id={$admin->id}")->assertSee('payment_info.revealed</code>', false)->assertDontSee('10.0.0.1');
-        $this->get('/audit?from=2026-09-01&to=2026-09-30')->assertSee('10.0.0.1')->assertDontSee('payment_info.revealed</code>', false);
+        $this->get('/audit?action=payroll.exported')->assertSee('Planilla exportada</span>', false)->assertDontSee('Cuenta bancaria revelada</span>', false);
+        $this->get("/audit?user_id={$admin->id}")->assertSee('Cuenta bancaria revelada</span>', false)->assertDontSee('10.0.0.1');
+        $this->get('/audit?from=2026-09-01&to=2026-09-30')->assertSee('10.0.0.1')->assertDontSee('Cuenta bancaria revelada</span>', false);
         $this->get('/audit?from=2026-10-05&to=2026-09-01')->assertSessionHasErrors('to');
 
         $this->get('/dashboard')->assertSee(route('audit.index'));
@@ -59,7 +61,7 @@ class AuditLogWebTest extends TestCase
         $root = $this->makeUser(null, 'super_admin');
 
         $this->actingAs($root)->get('/audit')->assertOk()
-            ->assertSee('document.viewed</code>', false)->assertSee('payroll.exported</code>', false)
+            ->assertSee('Documento abierto</span>', false)->assertSee('Planilla exportada</span>', false)
             ->assertSee('tenant-badge')->assertSee('Other');
     }
 

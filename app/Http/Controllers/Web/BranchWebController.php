@@ -85,6 +85,7 @@ class BranchWebController extends Controller
         $validated['code']      = $validated['code'] ?? 'BR-' . strtoupper(substr(uniqid(), -5));
 
         $branch = Branch::create($validated);
+        app(AuditLogger::class)->logCreated('branch.created', $branch, ['name' => $branch->name]);
 
         return redirect()->route('branches.index')
             ->with('success', "Sucursal '{$branch->name}' creada con geocerca de {$branch->allowed_radius_meters}m.");
@@ -115,7 +116,7 @@ class BranchWebController extends Controller
         $validated = $request->validate($this->rules($branch->tenant_id));
 
         $validated['is_active'] = $request->boolean('is_active', true);
-        $branch->update($validated);
+        app(AuditLogger::class)->updateWithAudit('branch.updated', $branch, $validated, ['name' => $branch->name]);
 
         return redirect()->route('branches.index')
             ->with('success', "Sucursal '{$branch->name}' actualizada correctamente.");

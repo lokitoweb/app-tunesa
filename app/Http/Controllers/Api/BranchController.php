@@ -75,6 +75,7 @@ class BranchController extends Controller
         $branch = Branch::create(array_merge($validated, [
             'tenant_id' => current_tenant_id(),
         ]));
+        app(\App\Services\AuditLogger::class)->logCreated('branch.created', $branch, ['name' => $branch->name]);
 
         return response()->json([
             'success' => true,
@@ -99,7 +100,7 @@ class BranchController extends Controller
             'is_active'              => ['sometimes', 'boolean'],
         ]);
 
-        $branch->update($validated);
+        app(\App\Services\AuditLogger::class)->updateWithAudit('branch.updated', $branch, $validated, ['name' => $branch->name]);
 
         return response()->json([
             'success' => true,
@@ -113,6 +114,7 @@ class BranchController extends Controller
     {
         $branch = Branch::where('tenant_id', current_tenant_id())->findOrFail($id);
         $branch->delete();
+        app(\App\Services\AuditLogger::class)->log('branch.deleted', $branch, ['name' => $branch->name]);
 
         return response()->json([
             'success' => true,

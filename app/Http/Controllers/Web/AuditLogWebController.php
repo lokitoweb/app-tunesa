@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Scopes\TenantScope;
 use App\Models\User;
+use App\Presenters\AuditLogPresenter;
+use App\Support\Labels;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -17,29 +19,6 @@ use Illuminate\View\View;
  */
 class AuditLogWebController extends Controller
 {
-    /** Etiquetas de las acciones registradas por AuditLogger */
-    public const ACTIONS = [
-        'auth.account_locked'               => 'Cuenta bloqueada por intentos fallidos',
-        'company_configuration.updated'     => 'Configuración de la app cambiada',
-        'document.uploaded'                 => 'Documento subido',
-        'document.viewed'                   => 'Documento abierto',
-        'document.approved'                 => 'Documento aprobado',
-        'document.rejected'                 => 'Documento rechazado',
-        'payment_info.revealed'             => 'Cuenta bancaria revelada',
-        'payment_info.verified'             => 'Cuenta bancaria verificada',
-        'payment_info.rejected'             => 'Cuenta bancaria rechazada',
-        'payment_info.updated_by_employee'  => 'Datos de pago editados por el colaborador',
-        'profile.updated_by_hr'             => 'Ficha laboral editada por RRHH',
-        'payroll.exported'                  => 'Planilla exportada',
-        'payslip.deleted'                   => 'Boleta eliminada',
-        'payslip.archived'                  => 'Boleta anulada',
-        'branch.deleted'                    => 'Sucursal eliminada',
-        'holiday.created'                   => 'Feriado creado',
-        'holiday.deleted'                   => 'Feriado eliminado',
-        'tenant.created'                    => 'Empresa creada',
-        'tenant.updated'                    => 'Empresa actualizada',
-    ];
-
     public function index(Request $request): View
     {
         $validated = $request->validate([
@@ -62,34 +41,25 @@ class AuditLogWebController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        $actions = AuditLog::forTenant($tenantId)->distinct()->orderBy('action')->pluck('action');
+        // Filtro "Acción": etiquetas en español, ordenadas alfabéticamente
+        $actions = AuditLog::forTenant($tenantId)->distinct()->pluck('action')
+            ->mapWithKeys(fn ($a) => [$a => Labels::action($a)])
+            ->sortBy(fn ($label) => \Illuminate\Support\Str::ascii($label));
 
         $users = User::withoutGlobalScope(TenantScope::class)->withTrashed()
             ->whereIn('id', AuditLog::forTenant($tenantId)->whereNotNull('user_id')->distinct()->select('user_id'))
             ->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name', 'tenant_id']);
 
-        return view('audit.index', compact('logs', 'actions', 'users'));
+        $viewer     = $request->user();
+        $presenters = $logs->getCollection()->map(fn (AuditLog $log) => AuditLogPresenter::make($log, $viewer));
+
+        return view('audit.index', compact('logs', 'presenters', 'actions', 'users'));
     }
 
+    /** @deprecated Usa App\Support\Labels::action() */
     public static function actionLabel(string $action): string
     {
-        return self::ACTIONS[$action] ?? $action;
-    }
-
-    /** meta → lista plana clave: valor para mostrar */
-    public static function metaPairs(?array $meta): array
-    {
-        $pairs = [];
-        foreach ($meta ?? [] as $key => $value) {
-            $pairs[$key] = match (true) {
-                is_bool($value)  => $value ? 'sí' : 'no',
-                is_array($value) => array_is_list($value) ? implode(', ', array_map('strval', array_filter($value, 'is_scalar'))) : json_encode($value, JSON_UNESCAPED_UNICODE),
-                $value === null  => '—',
-                default          => (string) $value,
-            };
-        }
-
-        return $pairs;
+        return Labels::action($action);
     }
 }

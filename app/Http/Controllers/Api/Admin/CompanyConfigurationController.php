@@ -40,8 +40,7 @@ class CompanyConfigurationController extends Controller
         ]);
 
         $config = CompanyConfiguration::current();
-        $config->update($validated + ['updated_by' => $request->user()->id]);
-        $audit->log('company_configuration.updated', $config, $validated);
+        $audit->updateWithAudit('company_configuration.updated', $config, $validated + ['updated_by' => $request->user()->id]);
 
         return $this->show();
     }
