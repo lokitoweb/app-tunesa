@@ -7,8 +7,11 @@
 #   API_BASE_URL=https://api.cliente.pe scripts/build_apk.sh prod   # otro dominio
 #   API_BASE_URL=https://xxxx.trycloudflare.com scripts/build_apk.sh tunnel   # túnel de pruebas
 #
-# Firma: si existe android/key.properties usa la llave de producción; si no,
-# el APK release queda firmado con la llave debug (sirve para pruebas, no para Play Store).
+# Firma: si existe android/key.properties usa la llave de producción. Sin ella,
+# un release de prod FALLA; staging/tunnel/dev se firman con la llave debug
+# (sirve para pruebas, no para Play Store) y se muestra un aviso.
+# ALLOW_DEBUG_SIGNING=1 permite un APK prod de prueba firmado con la llave debug
+# (lo usa el CI en PRs sin secrets; nunca para distribuir).
 set -euo pipefail
 
 ENV_NAME="${1:-prod}"
@@ -40,7 +43,12 @@ if [[ -n "${API_BASE_URL:-}" ]]; then
   EXTRA_DEFINES+=("--dart-define=API_BASE_URL=${API_BASE_URL}")
 fi
 if [[ ! -f android/key.properties && "$MODE" == "release" ]]; then
-  echo "Aviso: sin android/key.properties, el APK se firma con la llave debug." >&2
+  if [[ "$ENV_NAME" == "prod" && "${ALLOW_DEBUG_SIGNING:-0}" != "1" ]]; then
+    echo "Error: un release de producción exige android/key.properties (llave de firma de la empresa)." >&2
+    echo "Ver la sección 'Firma del APK' de mobile/README.md. Para pruebas usa: scripts/build_apk.sh staging|tunnel|dev" >&2
+    exit 1
+  fi
+  echo "Aviso: sin android/key.properties, el APK de ${ENV_NAME} se firma con la llave debug (solo para pruebas)." >&2
 fi
 
 flutter --version

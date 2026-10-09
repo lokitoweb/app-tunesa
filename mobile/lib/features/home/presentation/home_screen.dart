@@ -8,21 +8,52 @@ import '../../../core/widgets/status_chip.dart';
 import '../../attendance/domain/models.dart';
 import '../../attendance/presentation/attendance_providers.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../notifications/presentation/notifications_providers.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 import '../../profile/presentation/profile_providers.dart';
+import '../../team/presentation/team_providers.dart';
 
 /// Inicio del colaborador: turno de hoy, estado de la jornada y botones de marcación.
-class HomeScreen extends ConsumerWidget {
+/// Para supervisores / RRHH agrega la sección "Mi equipo".
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Al volver a la app se actualizan los avisos (sin servicio en segundo plano)
+    _lifecycle = AppLifecycleListener(onResume: _refreshBadges);
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  void _refreshBadges() {
+    ref.invalidate(unreadCountProvider);
+    ref.invalidate(pendingApprovalsCountProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final today = ref.watch(todayStatusProvider);
+    final user = auth.user;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(auth.branding?.companyName ?? 'TuneSA'),
         actions: [
+          const NotificationBell(),
           IconButton(
             tooltip: 'Mi perfil',
             icon: const Icon(Icons.account_circle_outlined),
@@ -31,13 +62,20 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.refresh(todayStatusProvider.future),
+        onRefresh: () {
+          _refreshBadges();
+          return ref.refresh(todayStatusProvider.future);
+        },
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             _Greeting(name: auth.user?.firstName ?? ''),
             const SizedBox(height: 16),
             const _OnboardingBanner(),
+            if (user != null && user.hasTeamArea) ...[
+              _TeamSection(canApprove: user.canApproveRequests, canViewTeam: user.canViewTeam),
+              const SizedBox(height: 16),
+            ],
             today.when(
               loading: () => const Padding(padding: EdgeInsets.all(48), child: LoadingView()),
               error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(todayStatusProvider)),
@@ -104,6 +142,50 @@ class _Greeting extends StatelessWidget {
         Text('$greeting, $name', style: TextStyle(color: scheme.onPrimary, fontSize: 22, fontWeight: FontWeight.w700)),
         const SizedBox(height: 4),
         Text(Fmt.dayLong(DateTime.now()), style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85))),
+      ]),
+    );
+  }
+}
+
+/// Accesos del supervisor / RRHH: bandeja de aprobaciones y equipo en vivo.
+class _TeamSection extends ConsumerWidget {
+  const _TeamSection({required this.canApprove, required this.canViewTeam});
+
+  final bool canApprove;
+  final bool canViewTeam;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pending = canApprove ? (ref.watch(pendingApprovalsCountProvider).value ?? 0) : 0;
+
+    return Card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Text('Mi equipo', style: Theme.of(context).textTheme.titleMedium),
+        ),
+        if (canApprove)
+          ListTile(
+            leading: const Icon(Icons.fact_check_outlined),
+            title: const Text('Aprobaciones'),
+            subtitle: Text(pending > 0 ? '$pending solicitud(es) por revisar' : 'Sin solicitudes pendientes'),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (pending > 0) Badge(label: Text(pending > 99 ? '99+' : '$pending')),
+              const Icon(Icons.chevron_right_rounded),
+            ]),
+            onTap: () async {
+              await context.push('/approvals');
+              if (context.mounted) ref.invalidate(pendingApprovalsCountProvider);
+            },
+          ),
+        if (canViewTeam)
+          ListTile(
+            leading: const Icon(Icons.groups_outlined),
+            title: const Text('Equipo en vivo'),
+            subtitle: const Text('Quién marcó, tardanzas y fuera de geocerca'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.push('/team'),
+          ),
       ]),
     );
   }

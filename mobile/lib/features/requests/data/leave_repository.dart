@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/utils/attachment_picker.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/paged.dart';
 import '../domain/models.dart';
 
 class LeaveRepository {
@@ -11,11 +12,10 @@ class LeaveRepository {
 
   final ApiClient _api;
 
-  Future<List<LeaveRequest>> list() async {
-    final json = await _api.get(ApiEndpoints.leaveRequests);
-    return ((json['data'] as List?) ?? const [])
-        .map((e) => LeaveRequest.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
+  /// Mis solicitudes, paginadas de 20 en 20 por el backend.
+  Future<Paged<LeaveRequest>> list({int page = 1}) async {
+    final json = await _api.get(ApiEndpoints.leaveRequests, query: {'page': page});
+    return Paged.fromJson(json, LeaveRequest.fromJson);
   }
 
   Future<void> create({

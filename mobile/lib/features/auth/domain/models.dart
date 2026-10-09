@@ -47,6 +47,7 @@ class AppUser {
     this.position,
     this.companyName,
     this.mustChangePassword = false,
+    this.permissions = const {},
   });
 
   final int id;
@@ -61,6 +62,40 @@ class AppUser {
   /// Cuenta creada por RRHH con contraseña temporal: debe cambiarla primero.
   final bool mustChangePassword;
 
+  /// Permisos que envía el backend (UserResource.permissions): flags
+  /// `can_*` o, si algún día llega como lista, slugs (`leave.approve_team`).
+  final Map<String, bool> permissions;
+
+  /// Roles que ven el área de equipo según RolesAndPermissionsSeeder
+  /// (respaldo para sesiones guardadas antes de leer los permisos).
+  static const _managerRoles = {'supervisor', 'hr_manager', 'company_admin'};
+
+  bool? _flag(List<String> keys) {
+    bool? result;
+    for (final key in keys) {
+      final value = permissions[key];
+      if (value == true) return true;
+      if (value == false) result = false;
+    }
+    return result;
+  }
+
+  /// Puede aprobar o rechazar solicitudes (leave.approve_team / approve_all).
+  bool get canApproveRequests =>
+      _flag(const ['can_approve_requests', 'leave.approve_team', 'leave.approve_all']) ?? _managerRoles.contains(role);
+
+  /// Puede ver la asistencia en vivo de su equipo (attendance.view_team).
+  bool get canViewTeam => _flag(const ['attendance.view_team']) ?? _managerRoles.contains(role);
+
+  /// Muestra la sección "Mi equipo" en Inicio.
+  bool get hasTeamArea => canApproveRequests || canViewTeam;
+
+  static Map<String, bool> parsePermissions(Object? raw) {
+    if (raw is Map) return {for (final e in raw.entries) '${e.key}': e.value == true};
+    if (raw is List) return {for (final slug in raw) '$slug': true};
+    return const {};
+  }
+
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
         id: (json['id'] as num).toInt(),
         fullName: json['full_name']?.toString() ?? '',
@@ -71,6 +106,7 @@ class AppUser {
         position: json['position'] as String?,
         companyName: (json['company'] as Map?)?['name'] as String? ?? json['company_name'] as String?,
         mustChangePassword: json['must_change_password'] == true,
+        permissions: parsePermissions(json['permissions']),
       );
 
   AppUser copyWith({bool? mustChangePassword}) => AppUser(
@@ -83,6 +119,7 @@ class AppUser {
         position: position,
         companyName: companyName,
         mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+        permissions: permissions,
       );
 
   Map<String, dynamic> toJson() => {
@@ -95,5 +132,6 @@ class AppUser {
         'position': position,
         'company_name': companyName,
         'must_change_password': mustChangePassword,
+        'permissions': permissions,
       };
 }

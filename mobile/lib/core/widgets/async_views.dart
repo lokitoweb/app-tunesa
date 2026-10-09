@@ -2,16 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../network/api_exception.dart';
 
-/// Mensaje de error con botón de reintento. Distingue falta de conexión.
+/// Mensaje de error con botón de reintento. Distingue falta de conexión y
+/// falta de permisos (403). El 401 ya lo resuelve ApiClient cerrando sesión.
 class ErrorView extends StatelessWidget {
   const ErrorView({super.key, required this.error, this.onRetry});
 
   final Object error;
   final VoidCallback? onRetry;
 
+  static const forbiddenMessage = 'No tienes permiso para ver esta sección.';
+
   @override
   Widget build(BuildContext context) {
-    final isNetwork = error is ApiException && (error as ApiException).isNetwork;
+    final api = error is ApiException ? error as ApiException : null;
+    final isNetwork = api?.isNetwork ?? false;
+    final isForbidden = api?.isForbidden ?? false;
+    // Contraseña temporal: el router ya lleva a cambiarla; se muestra el mensaje del backend
+    final message = isForbidden && api?.code != 'PASSWORD_CHANGE_REQUIRED' ? forbiddenMessage : error.toString();
 
     return Center(
       child: Padding(
@@ -19,11 +26,15 @@ class ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(isNetwork ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
-                size: 48, color: Theme.of(context).colorScheme.error),
+            Icon(
+                isNetwork
+                    ? Icons.wifi_off_rounded
+                    : (isForbidden ? Icons.lock_outline_rounded : Icons.error_outline_rounded),
+                size: 48,
+                color: Theme.of(context).colorScheme.error),
             const SizedBox(height: 12),
-            Text(error.toString(), textAlign: TextAlign.center),
-            if (onRetry != null) ...[
+            Text(message, textAlign: TextAlign.center),
+            if (onRetry != null && !isForbidden) ...[
               const SizedBox(height: 16),
               OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
             ],
@@ -100,4 +111,51 @@ void showSnack(BuildContext context, String message, {bool error = false}) {
       backgroundColor: error ? scheme.error : null,
       behavior: SnackBarBehavior.floating,
     ));
+}
+
+/// Pie de una lista paginada: indicador mientras carga la siguiente página,
+/// error con reintento, o botón "Cargar más" si quedan páginas.
+class LoadMoreFooter extends StatelessWidget {
+  const LoadMoreFooter({
+    super.key,
+    required this.hasMore,
+    required this.loading,
+    required this.onLoadMore,
+    this.error,
+  });
+
+  final bool hasMore;
+  final bool loading;
+  final Object? error;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 3))),
+      );
+    }
+    if (error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(children: [
+          Text(error.toString(), textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          TextButton.icon(onPressed: onLoadMore, icon: const Icon(Icons.refresh), label: const Text('Reintentar')),
+        ]),
+      );
+    }
+    if (!hasMore) return const SizedBox(height: 8);
+    return Center(
+      child: TextButton(onPressed: onLoadMore, child: const Text('Cargar más')),
+    );
+  }
+}
+
+/// Llama a [onLoadMore] cuando el usuario se acerca al final de la lista
+/// (scroll infinito). El controlador evita cargas duplicadas.
+bool loadMoreOnScroll(ScrollNotification n, VoidCallback onLoadMore) {
+  if (n.metrics.axis == Axis.vertical && n.metrics.extentAfter < 300) onLoadMore();
+  return false;
 }

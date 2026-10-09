@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/paged.dart';
 import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../data/leave_repository.dart';
@@ -12,8 +13,14 @@ import '../domain/models.dart';
 
 final leaveRepositoryProvider = Provider<LeaveRepository>((ref) => LeaveRepository(ref.watch(apiClientProvider)));
 
-final leaveRequestsProvider = FutureProvider.autoDispose<List<LeaveRequest>>(
-  (ref) => ref.watch(leaveRepositoryProvider).list(),
+/// Mis solicitudes con scroll infinito (20 por página).
+class LeaveRequestsController extends PagedController<LeaveRequest> {
+  @override
+  Future<Paged<LeaveRequest>> fetchPage(int page) => ref.read(leaveRepositoryProvider).list(page: page);
+}
+
+final leaveRequestsProvider = AsyncNotifierProvider.autoDispose<LeaveRequestsController, Paged<LeaveRequest>>(
+  LeaveRequestsController.new,
 );
 
 /// Mis solicitudes de vacaciones, permisos y licencias.
@@ -37,19 +44,33 @@ class RequestsScreen extends ConsumerWidget {
       body: requests.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(leaveRequestsProvider)),
-        data: (list) => RefreshIndicator(
-          onRefresh: () => ref.refresh(leaveRequestsProvider.future),
-          child: list.isEmpty
-              ? ListView(children: const [
-                  SizedBox(height: 80),
-                  EmptyView(icon: Icons.beach_access_outlined, message: 'Aún no tienes solicitudes.\nToca "Nueva" para pedir vacaciones o un permiso.'),
-                ])
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-                  itemCount: list.length,
-                  itemBuilder: (_, i) => _RequestCard(request: list[i]),
-                ),
-        ),
+        data: (paged) {
+          final list = paged.items;
+          final controller = ref.read(leaveRequestsProvider.notifier);
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(leaveRequestsProvider.future),
+            child: list.isEmpty
+                ? ListView(children: const [
+                    SizedBox(height: 80),
+                    EmptyView(icon: Icons.beach_access_outlined, message: 'Aún no tienes solicitudes.\nToca "Nueva" para pedir vacaciones o un permiso.'),
+                  ])
+                : NotificationListener<ScrollNotification>(
+                    onNotification: (n) => loadMoreOnScroll(n, controller.loadMore),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                      itemCount: list.length + 1,
+                      itemBuilder: (_, i) => i < list.length
+                          ? _RequestCard(request: list[i])
+                          : LoadMoreFooter(
+                              hasMore: paged.hasMore,
+                              loading: paged.loadingMore,
+                              error: paged.loadMoreError,
+                              onLoadMore: () => controller.loadMore(retry: true),
+                            ),
+                    ),
+                  ),
+          );
+        },
       ),
     );
   }
