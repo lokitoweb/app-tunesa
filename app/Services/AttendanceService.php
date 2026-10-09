@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\AttendanceRuleException;
 use App\Models\Attendance;
 use App\Models\Branch;
 use App\Models\CompanyConfiguration;
@@ -46,13 +47,17 @@ class AttendanceService
         User          $employee,
         float         $latitude,
         float         $longitude,
-        UploadedFile  $photo,
+        ?UploadedFile $photo,
         string        $deviceId,
         array         $meta = [],
+        ?Carbon       $at = null,
     ): Attendance {
 
         $tenant  = $this->tenantContext->get();
-        $today   = Carbon::now($tenant->timezone)->toDateString();
+        // Marcación sin conexión: se registra con la hora real en que se hizo
+        $offline = $at !== null;
+        $at      = $offline ? $at->copy()->setTimezone($tenant->timezone) : Carbon::now($tenant->timezone);
+        $today   = $at->toDateString();
 
         // 1. Verificar si ya existe un registro abierto para hoy
         $existing = Attendance::where('user_id', $employee->id)
@@ -78,11 +83,11 @@ class AttendanceService
         $employeeShift = $this->getCurrentShift($employee, $today);
         $shift = $employeeShift?->shift;
 
-        // 5. Guardar la foto selfie en Storage
-        $photoPath = $this->storePhoto($photo, $employee->tenant_id, $employee->id, 'clock_in');
+        // 5. Guardar la foto selfie en Storage (opcional si la empresa no exige selfie)
+        $photoPath = $photo ? $this->storePhoto($photo, $employee->tenant_id, $employee->id, 'clock_in') : null;
 
-        // 6. Calcular tardanza
-        $lateMinutes = $this->calculateLateMinutes($shift, $today, $tenant->timezone);
+        // 6. Calcular tardanza (con la hora efectiva de la marcación)
+        $lateMinutes = $this->calculateLateMinutes($shift, $today, $tenant->timezone, $at);
 
         // 7. Crear el registro de asistencia
         $attendance = Attendance::create([
@@ -92,7 +97,7 @@ class AttendanceService
             'shift_id'                 => $shift?->id,
             'work_date'                => $today,
 
-            'clock_in_at'              => Carbon::now($tenant->timezone),
+            'clock_in_at'              => $at,
             'clock_in_latitude'        => $latitude,
             'clock_in_longitude'       => $longitude,
             'clock_in_distance_meters' => $geofenceResult->distanceMeters,
@@ -101,14 +106,15 @@ class AttendanceService
             'clock_in_within_geofence' => $geofenceResult->isWithinGeofence,
             'clock_in_meta'            => array_merge($meta, [
                 'geofence' => $geofenceResult->toArray(),
-                'recorded_at' => now()->toIso8601String(),
-            ]),
+                'recorded_at' => $at->toIso8601String(),
+            ], $this->offlineMeta($offline)),
 
             'status'       => $lateMinutes > 0 ? 'late' : 'present',
             'late_minutes' => $lateMinutes,
         ]);
 
         $this->logOutOfGeofence($attendance, $geofenceResult, 'clock_in');
+        $this->logOfflineSync($attendance, $offline, 'clock_in', $at);
 
         return $attendance->load(['branch', 'shift']);
     }
@@ -201,15 +207,24 @@ class AttendanceService
      * Registra la salida del empleado y calcula horas trabajadas.
      */
     public function clockOut(
-        User         $employee,
-        float        $latitude,
-        float        $longitude,
-        UploadedFile $photo,
-        string       $deviceId,
-        array        $meta = [],
+        User          $employee,
+        float         $latitude,
+        float         $longitude,
+        ?UploadedFile $photo,
+        string        $deviceId,
+        array         $meta = [],
+        ?Carbon       $at = null,
     ): Attendance {
 
-        $attendance = $this->getOpenAttendanceOrFail($employee);
+        $offline      = $at !== null;
+        $clockOutTime = $offline ? $at->copy()->setTimezone(tenant_timezone()) : Carbon::now(tenant_timezone());
+
+        // Sin conexión: la jornada abierta del día en que se marcó (puede ser ayer)
+        $attendance = $this->getOpenAttendanceOrFail($employee, $offline ? $clockOutTime->toDateString() : null);
+
+        if ($offline && $clockOutTime->lt($attendance->clock_in_at)) {
+            throw new AttendanceRuleException('La salida sin conexión no puede ser anterior a tu entrada.', 422, 'OFFLINE_BEFORE_CLOCK_IN');
+        }
 
         // 1. Validar geocerca de salida
         $branch         = $attendance->branch;
@@ -217,10 +232,9 @@ class AttendanceService
         $this->enforceGeofencePolicy($geofenceResult, $employee);
 
         // 2. Foto de salida
-        $photoPath = $this->storePhoto($photo, $employee->tenant_id, $employee->id, 'clock_out');
+        $photoPath = $photo ? $this->storePhoto($photo, $employee->tenant_id, $employee->id, 'clock_out') : null;
 
         // 3. Calcular horas trabajadas
-        $clockOutTime  = Carbon::now(tenant_timezone());
         $clockInTime   = $attendance->clock_in_at;
         $breakMinutes  = $attendance->break_minutes ?? 0;
 
@@ -248,13 +262,14 @@ class AttendanceService
             'clock_out_meta'             => array_merge($meta, [
                 'geofence'    => $geofenceResult->toArray(),
                 'recorded_at' => $clockOutTime->toIso8601String(),
-            ]),
+            ], $this->offlineMeta($offline)),
             'worked_hours'   => $workedHours,
             'overtime_hours' => $overtimeHours,
             'status'         => $finalStatus,
         ]);
 
         $this->logOutOfGeofence($attendance, $geofenceResult, 'clock_out');
+        $this->logOfflineSync($attendance, $offline, 'clock_out', $clockOutTime);
 
         return $attendance->fresh()->load(['branch', 'shift', 'user']);
     }
@@ -279,6 +294,23 @@ class AttendanceService
         }
     }
 
+    /** Marca de sincronización: offline + cuándo llegó al servidor */
+    private function offlineMeta(bool $offline): array
+    {
+        return $offline ? ['offline' => true, 'synced_at' => now()->toIso8601String()] : [];
+    }
+
+    private function logOfflineSync(Attendance $attendance, bool $offline, string $moment, Carbon $recordedAt): void
+    {
+        if ($offline) {
+            $this->audit->log('attendance.offline_synced', $attendance, [
+                'moment'      => $moment,
+                'recorded_at' => $recordedAt->toIso8601String(),
+                'synced_at'   => now()->toIso8601String(),
+            ]);
+        }
+    }
+
     /** Deja constancia en la auditoría de una marcación aceptada fuera del radio */
     private function logOutOfGeofence(Attendance $attendance, GeofenceResult $result, string $moment): void
     {
@@ -293,9 +325,9 @@ class AttendanceService
      * Obtiene el registro de asistencia abierto del día de hoy.
      * Lanza excepción si no existe o ya está cerrado.
      */
-    private function getOpenAttendanceOrFail(User $employee): Attendance
+    private function getOpenAttendanceOrFail(User $employee, ?string $date = null): Attendance
     {
-        $today = Carbon::now(tenant_timezone())->toDateString();
+        $today = $date ?? Carbon::now(tenant_timezone())->toDateString();
 
         $attendance = Attendance::where('user_id', $employee->id)
             ->where('work_date', $today)
@@ -362,13 +394,13 @@ class AttendanceService
      * Calcula los minutos de tardanza comparando la hora actual con el
      * horario de entrada programado del turno (más el período de gracia).
      */
-    private function calculateLateMinutes(?Shift $shift, string $date, string $timezone): int
+    private function calculateLateMinutes(?Shift $shift, string $date, string $timezone, ?Carbon $at = null): int
     {
         if (! $shift) {
             return 0; // Sin turno asignado = no se calcula tardanza
         }
 
-        $now = Carbon::now($timezone);
+        $now = $at ?? Carbon::now($timezone);
 
         // Hora límite de entrada = hora_inicio + período de gracia
         $expectedEntry = Carbon::parse("{$date} {$shift->start_time}", $timezone)

@@ -120,6 +120,9 @@
                         </td>
                         <td class="text-nowrap">
                             <span class="fw-semibold">{{ $att->clock_in_at?->format('H:i:s') ?? '--:--:--' }}</span>
+                            @if(data_get($att->clock_in_meta, 'offline'))
+                                <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis ms-1" title="Marcada sin conexión y sincronizada después"><i class="bi bi-wifi-off"></i> Sin conexión</span>
+                            @endif
                             @if($att->late_minutes > 0)
                                 <div class="small text-warning-emphasis">+{{ $att->late_minutes }} min</div>
                             @endif
@@ -133,7 +136,11 @@
                                 <span class="small text-body-secondary">No registrado</span>
                             @endif
                         </td>
-                        <td class="text-nowrap">{{ $att->clock_out_at?->format('H:i:s') ?? '--:--:--' }}</td>
+                        <td class="text-nowrap">{{ $att->clock_out_at?->format('H:i:s') ?? '--:--:--' }}
+                            @if(data_get($att->clock_out_meta, 'offline'))
+                                <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis ms-1" title="Salida marcada sin conexión"><i class="bi bi-wifi-off"></i> Sin conexión</span>
+                            @endif
+                        </td>
                         <td class="text-nowrap">{{ number_format((float) ($att->worked_hours ?? 0), 2) }} h</td>
                         <td>@include('partials.attendance-status', ['status' => $att->status])</td>
                         <td class="text-end text-nowrap">

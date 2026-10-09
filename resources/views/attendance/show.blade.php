@@ -10,11 +10,13 @@
             'title' => 'Entrada', 'icon' => 'box-arrow-in-right', 'photo' => $attendance->clock_in_photo, 'at' => $attendance->clock_in_at,
             'within' => $attendance->clock_in_within_geofence, 'distance' => $attendance->clock_in_distance_meters,
             'lat' => $attendance->clock_in_latitude, 'lng' => $attendance->clock_in_longitude,
+            'offline' => data_get($attendance->clock_in_meta, 'offline'), 'synced' => data_get($attendance->clock_in_meta, 'synced_at'),
         ],
         'out' => [
             'title' => 'Salida', 'icon' => 'box-arrow-right', 'photo' => $attendance->clock_out_photo, 'at' => $attendance->clock_out_at,
             'within' => $attendance->clock_out_within_geofence, 'distance' => $attendance->clock_out_distance_meters,
             'lat' => $attendance->clock_out_latitude, 'lng' => $attendance->clock_out_longitude,
+            'offline' => data_get($attendance->clock_out_meta, 'offline'), 'synced' => data_get($attendance->clock_out_meta, 'synced_at'),
         ],
     ];
 @endphp
@@ -44,7 +46,11 @@
         <div class="col-12 col-lg-6">
             <div class="card border-0 h-100">
                 <div class="card-header border-0 pt-3 d-flex justify-content-between align-items-center">
-                    <h2 class="h6 fw-semibold mb-0"><i class="bi bi-{{ $m['icon'] }} me-1"></i>{{ $m['title'] }}</h2>
+                    <h2 class="h6 fw-semibold mb-0"><i class="bi bi-{{ $m['icon'] }} me-1"></i>{{ $m['title'] }}
+                        @if($m['offline'])
+                            <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis ms-1 fw-normal" title="Sincronizada {{ $m['synced'] ? \Illuminate\Support\Carbon::parse($m['synced'])->setTimezone(tenant_timezone())->format('d/m/Y H:i') : '' }}"><i class="bi bi-wifi-off"></i> Sin conexión</span>
+                        @endif
+                    </h2>
                     @if($m['at'])
                         <span class="badge rounded-pill {{ $m['within'] ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis' }}">
                             {{ $m['within'] ? 'Dentro de la geocerca' : 'Fuera de la geocerca' }}

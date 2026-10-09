@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\AttendanceRuleException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\BreakRequest;
 use App\Http\Requests\Api\ClockInRequest;
@@ -61,6 +62,11 @@ class AttendanceController extends Controller
             return $rejection;
         }
 
+        [$offlineAt, $rejection] = $this->resolveOfflineTime($request);
+        if ($rejection) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->clockIn(
                 employee:  $request->user(),
@@ -69,6 +75,7 @@ class AttendanceController extends Controller
                 photo:     $request->file('photo'),
                 deviceId:  $request->input('device_id', ''),
                 meta:      $request->deviceMeta(),
+                at:        $offlineAt,
             );
 
             return response()->json([
@@ -158,6 +165,11 @@ class AttendanceController extends Controller
             return $rejection;
         }
 
+        [$offlineAt, $rejection] = $this->resolveOfflineTime($request);
+        if ($rejection) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->clockOut(
                 employee:  $request->user(),
@@ -166,6 +178,7 @@ class AttendanceController extends Controller
                 photo:     $request->file('photo'),
                 deviceId:  $request->input('device_id', ''),
                 meta:      $request->deviceMeta(),
+                at:        $offlineAt,
             );
 
             $workedHours = number_format($attendance->worked_hours, 1);
@@ -716,8 +729,10 @@ class AttendanceController extends Controller
      * Anti-fraude: rechaza la marcación si la app detectó ubicación simulada
      * (mock GPS) o si la precisión del GPS es peor que el máximo permitido.
      */
-    private function rejectUntrustedLocation(Request $request): ?JsonResponse
+    private function rejectUntrustedLocation(ClockInRequest|ClockOutRequest $request): ?JsonResponse
     {
+        $settings = $request->tenantSettings();
+
         if (config('attendance.reject_mock_location') && $request->boolean('is_mocked')) {
             logger()->warning('Marcación con ubicación simulada rechazada', [
                 'user_id'   => $request->user()->id,
@@ -732,7 +747,8 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        $maxAccuracy = (int) config('attendance.max_gps_accuracy_meters');
+        // Precisión máxima de "Marca y app" (empresa > plataforma > ATTENDANCE_MAX_GPS_ACCURACY)
+        $maxAccuracy = $settings->maxGpsAccuracy();
         if ($maxAccuracy > 0 && $request->filled('accuracy_meters') && (float) $request->input('accuracy_meters') > $maxAccuracy) {
             return response()->json([
                 'success' => false,
@@ -741,7 +757,52 @@ class AttendanceController extends Controller
             ], 422);
         }
 
+        // La app hace la detección de rostro; el backend rechaza si informó que no hubo rostro
+        if ($settings->face_detection_required && $request->has('face_detected') && ! $request->boolean('face_detected')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se detectó un rostro en la selfie. Toma la foto de frente y con buena luz.',
+                'code'    => 'FACE_NOT_DETECTED',
+            ], 422);
+        }
+
         return null;
+    }
+
+    /**
+     * Marcación sin conexión: la app envía offline_recorded_at con la hora real.
+     * Solo si la empresa lo permite y dentro de offline_max_hours.
+     *
+     * @return array{0: ?Carbon, 1: ?JsonResponse}
+     */
+    private function resolveOfflineTime(ClockInRequest|ClockOutRequest $request): array
+    {
+        if (! $request->filled('offline_recorded_at')) {
+            return [null, null];
+        }
+
+        $settings = $request->tenantSettings();
+
+        if (! $settings->offline_mode_enabled) {
+            return [null, response()->json([
+                'success' => false,
+                'message' => 'Tu empresa no permite registrar marcaciones sin conexión.',
+                'code'    => 'OFFLINE_NOT_ALLOWED',
+            ], 422)];
+        }
+
+        $at       = Carbon::parse($request->input('offline_recorded_at'))->setTimezone(tenant_timezone());
+        $maxHours = max(1, (int) $settings->offline_max_hours);
+
+        if ($at->lt(Carbon::now(tenant_timezone())->subHours($maxHours))) {
+            return [null, response()->json([
+                'success' => false,
+                'message' => "La marcación sin conexión tiene más de {$maxHours} h. Pide a RRHH que la registre manualmente.",
+                'code'    => 'OFFLINE_TOO_OLD',
+            ], 422)];
+        }
+
+        return [$at, null];
     }
 
     /**
@@ -778,7 +839,7 @@ class AttendanceController extends Controller
         return response()->json([
             'success' => false,
             'message' => $e->getMessage(),
-            'code'    => match ($httpStatus) {
+            'code'    => $e instanceof AttendanceRuleException ? $e->errorCode : match ($httpStatus) {
                 404     => 'NOT_FOUND',
                 409     => 'CONFLICT',
                 422     => 'GEOFENCE_VIOLATION',
