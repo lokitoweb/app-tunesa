@@ -79,7 +79,7 @@ class TenantController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate(array_merge($this->tenantRules(), [
+        $validated = $request->validate(array_merge(self::tenantRules(), [
             'admin'            => ['required', 'array'],
             'admin.first_name' => ['required', 'string', 'max:100'],
             'admin.last_name'  => ['required', 'string', 'max:100'],
@@ -116,7 +116,7 @@ class TenantController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $tenant = Tenant::findOrFail($id);
-        $tenant->update($request->validate($this->tenantRules($tenant)));
+        $tenant->update($request->validate(self::tenantRules($tenant)));
 
         return response()->json([
             'success' => true,
@@ -214,7 +214,7 @@ class TenantController extends Controller
     // HELPERS
     // =========================================================================
 
-    private function tenantRules(?Tenant $tenant = null): array
+    public static function tenantRules(?Tenant $tenant = null): array
     {
         $required = $tenant ? 'sometimes' : 'required';
 

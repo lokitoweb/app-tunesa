@@ -103,7 +103,11 @@
                         <td class="text-end text-nowrap">S/ {{ number_format((float) $p->gross_salary, 2) }}</td>
                         <td class="text-end text-nowrap text-danger">− S/ {{ number_format((float) $p->deductions, 2) }}</td>
                         <td class="text-end text-nowrap fw-semibold">S/ {{ number_format((float) $p->net_salary, 2) }}</td>
-                        <td>@include('partials.badge', ['tone' => $p->status === 'published' ? 'success' : 'secondary', 'label' => $p->status === 'published' ? 'Publicada' : 'Borrador'])</td>
+                        <td>@include('partials.badge', match ($p->status) {
+                            'published' => ['tone' => 'success', 'label' => 'Publicada'],
+                            'archived'  => ['tone' => 'danger', 'label' => 'Anulada'],
+                            default     => ['tone' => 'secondary', 'label' => 'Borrador'],
+                        })</td>
                         <td class="small">
                             @if($p->read_at)
                                 <span class="text-success"><i class="bi bi-check2-all"></i> {{ $p->read_at->format('d/m/Y H:i') }}</span>
@@ -120,6 +124,17 @@
                             @endif
                             <a href="{{ route('payslips.view', $p->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" aria-label="Ver boleta"><i class="bi bi-eye"></i></a>
                             <a href="{{ route('payslips.download', $p->id) }}" class="btn btn-sm btn-outline-secondary" aria-label="Descargar PDF"><i class="bi bi-download"></i></a>
+                            @if($p->status === 'published')
+                                <form method="POST" action="{{ route('payslips.annul', $p->id) }}" class="d-inline" onsubmit="return confirm('¿Anular esta boleta? El colaborador dejará de verla en la app.')">
+                                    @csrf
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Anular boleta" title="Anular"><i class="bi bi-x-circle"></i></button>
+                                </form>
+                            @else
+                                <form method="POST" action="{{ route('payslips.destroy', $p->id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar esta boleta y su PDF? Podrás volver a subir la de este periodo.')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Eliminar boleta" title="Eliminar"><i class="bi bi-trash"></i></button>
+                                </form>
+                            @endif
                         </td>
                     </tr>
                 @empty

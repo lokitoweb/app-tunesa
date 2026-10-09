@@ -69,6 +69,11 @@ class AttendanceResource extends JsonResource
             ],
 
             // Relaciones cargadas
+            'user' => $this->whenLoaded('user', fn() => $this->user ? [
+                'id'        => $this->user->id,
+                'full_name' => $this->user->full_name,
+            ] : null),
+
             'branch' => $this->whenLoaded('branch', fn() => [
                 'id'   => $this->branch->id,
                 'name' => $this->branch->name,

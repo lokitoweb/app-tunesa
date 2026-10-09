@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -118,14 +119,21 @@ class BranchWebController extends Controller
     }
 
     /**
-     * Elimina lógicamente la sucursal si no tiene registros críticos en conflicto.
+     * Elimina lógicamente la sucursal; no si aún tiene colaboradores activos asignados.
      */
     public function destroy(int $id): RedirectResponse
     {
         $tenantId = current_tenant_id_or_null();
         $branch = Branch::forTenant($tenantId)->findOrFail($id);
 
+        $active = $branch->employees()->where('users.status', 'active')->count();
+        if ($active > 0) {
+            return redirect()->route('branches.index')->with('error',
+                "No se puede eliminar {$branch->name}: tiene {$active} colaborador(es) activo(s) asignado(s). Reasígnalos a otra sucursal primero.");
+        }
+
         $branch->delete();
+        app(AuditLogger::class)->log('branch.deleted', $branch, ['name' => $branch->name]);
 
         return redirect()->route('branches.index')
             ->with('success', "Sucursal eliminada satisfactoriamente.");

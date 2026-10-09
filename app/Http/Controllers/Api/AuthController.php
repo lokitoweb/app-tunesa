@@ -8,12 +8,10 @@ use App\Http\Resources\UserResource;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\LoginGuard;
-use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 
@@ -197,25 +195,12 @@ class AuthController extends Controller
         $request->validate([
             'token'    => ['required', 'string'],
             'email'    => ['required', 'email'],
-            'password' => ['required', 'confirmed', PasswordRule::min(8)->letters()->numbers()],
+            'password' => ['required', 'confirmed', User::resetPasswordRule()],
         ]);
 
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password'              => $password,
-                    'remember_token'        => Str::random(60),
-                    'must_change_password'  => false,
-                    'failed_login_attempts' => 0,
-                    'locked_until'          => null,
-                ])->save();
-
-                // Cerrar sesión en todos los dispositivos
-                $user->tokens()->delete();
-
-                event(new PasswordReset($user));
-            }
+            fn (User $user, string $password) => $user->completePasswordReset($password)
         );
 
         if ($status !== Password::PASSWORD_RESET) {

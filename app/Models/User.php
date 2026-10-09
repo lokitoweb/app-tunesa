@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -251,6 +254,31 @@ class User extends Authenticatable
     public function canManage(User $other): bool
     {
         return $this->id === $other->id || $this->canAssignRole($other->role);
+    }
+
+    /** Reglas de la nueva contraseña al restablecerla (API y panel web) */
+    public static function resetPasswordRule(): PasswordRule
+    {
+        return PasswordRule::min(8)->letters()->numbers();
+    }
+
+    /**
+     * Cierra el flujo de "olvidé mi contraseña": guarda la nueva, quita la
+     * contraseña temporal y el bloqueo, y cierra la sesión en todos los dispositivos.
+     */
+    public function completePasswordReset(string $password): void
+    {
+        $this->forceFill([
+            'password'              => $password,
+            'remember_token'        => Str::random(60),
+            'must_change_password'  => false,
+            'failed_login_attempts' => 0,
+            'locked_until'          => null,
+        ])->save();
+
+        $this->tokens()->delete();
+
+        event(new PasswordReset($this));
     }
 
     public function isLocked(): bool

@@ -36,7 +36,7 @@ class DashboardController extends Controller
     public function index(Request $request): View
     {
         $tenantId = $this->resolveTenantId();
-        $today = Carbon::today()->toDateString();
+        $today = $this->today()->toDateString();
 
         // 1. Métricas / KPIs del día
         $kpis = $this->calculateDailyKpis($tenantId, $today);
@@ -107,7 +107,7 @@ class DashboardController extends Controller
     public function liveStream(Request $request): JsonResponse
     {
         $tenantId = $this->resolveTenantId();
-        $today = Carbon::today()->toDateString();
+        $today = $this->today()->toDateString();
 
         $kpis = $this->calculateDailyKpis($tenantId, $today);
 
@@ -143,7 +143,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'success'     => true,
-            'timestamp'   => Carbon::now()->toIso8601String(),
+            'timestamp'   => Carbon::now(tenant_timezone())->toIso8601String(),
             'kpis'        => $kpis,
             'attendances' => $attendances,
         ]);
@@ -212,7 +212,7 @@ class DashboardController extends Controller
         $absentData = [];
 
         for ($i = 6; $i >= 0; $i--) {
-            $day = Carbon::today()->subDays($i);
+            $day = $this->today()->subDays($i);
             $dayStr = $day->toDateString();
             $labels[] = $day->isoFormat('ddd D');
 
@@ -249,6 +249,15 @@ class DashboardController extends Controller
         abort_unless(Auth::user()?->isSuperAdmin(), 403);
 
         return null;
+    }
+
+    /**
+     * "Hoy" en la zona horaria de la empresa activa; en la vista global del
+     * Super Admin, en la de la aplicación (APP_TIMEZONE).
+     */
+    private function today(): Carbon
+    {
+        return Carbon::now(tenant_timezone())->startOfDay();
     }
 
     /**

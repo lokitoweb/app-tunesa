@@ -23,7 +23,7 @@ php artisan serve
 
 ## Producción
 
-1. `.env` propio con `APP_ENV=production`, `APP_DEBUG=false`, un `APP_KEY` nuevo (`php artisan key:generate`) y credenciales nuevas de base de datos y correo. No reutilices ninguna clave de un `.env` que haya estado en el repositorio.
+1. `.env` propio con `APP_ENV=production`, `APP_DEBUG=false`, un `APP_KEY` nuevo (`php artisan key:generate`) y credenciales nuevas de base de datos y correo. No reutilices ninguna clave de un `.env` que haya estado en el repositorio. Con HTTPS activa `SESSION_SECURE_COOKIE=true`, pon en `SANCTUM_STATEFUL_DOMAINS` los dominios del panel y configura `MAIL_MAILER` (SMTP u otro) para que lleguen los correos de recuperación de contraseña (ver `.env.example`).
 2. `php artisan migrate --force`
 3. Super Admin inicial: define `SEED_SUPERADMIN_EMAIL` y `SEED_SUPERADMIN_PASSWORD` (12+ caracteres) y corre `php artisan db:seed --force`. En producción el seeder no crea la empresa demo ni usuarios con contraseñas conocidas; luego borra la contraseña del `.env`. Al entrar se pedirá cambiarla.
 4. Asigna el supervisor de cada sucursal (Sucursales → Editar): define a quién ve cada supervisor.
@@ -61,6 +61,15 @@ Tras actualizar, corre `php artisan migrate` y vuelve a sembrar los permisos con
 - **API de administración:** `/api/admin/documents` (aprobar o rechazar), `/api/admin/employees/{id}/profile`, `/api/admin/uniforms`, `/api/admin/payroll/export`, `/api/admin/company-configuration`, `/api/admin/attendance/{id}`.
 - **Panel web:** visor de marcación con selfie ampliada y mapa de geocerca, revisión de documentos, legajo por empleado con verificación de cuenta bancaria, dotación con exportación para logística, consolidado de planilla en CSV y `Configuración > App móvil` con los switches de lo que el empleado ve y edita.
 - **Datos sensibles:** números de cuenta y CCI cifrados en base de datos, enmascarados por defecto y auditados cuando alguien los revela (`audit_logs`).
+
+## Notificaciones
+
+- **In-app (canal `database`):** el colaborador recibe aviso cuando aprueban o rechazan su solicitud o su justificación, cuando le publican una boleta y cuando RRHH revisa un documento de su legajo; el supervisor de su sucursal y RRHH, cuando envía una solicitud. API (cualquier rol, con `X-Tenant-Slug`): `GET /api/notifications`, `POST /api/notifications/{id}/read`, `POST /api/notifications/read-all`. En el panel: campana del topbar y `/notifications`.
+- **Correo:** con `NOTIFY_BY_MAIL=true` (y `MAIL_MAILER` configurado) las decisiones sobre solicitudes también se envían por correo.
+
+### Notificaciones push
+
+La app ya registra su token de Firebase Cloud Messaging con `POST /api/auth/refresh-fcm` (columna `users.fcm_token`), pero el envío push no está activo porque necesita el proyecto de Firebase del cliente. Para activarlo hace falta: crear el proyecto en Firebase y registrar la app Android (y la de iOS con su clave APNs), poner su `google-services.json` en la app, generar una cuenta de servicio con permiso de Firebase Cloud Messaging y guardar su JSON en el servidor (fuera del repositorio), e instalar un canal de notificaciones FCM para Laravel (p. ej. `laravel-notification-channels/fcm`) agregando `'fcm'` al `via()` de las clases en `app/Notifications`. Los datos de cada aviso (`type`, `title`, `body`, `data`) son los mismos que guarda el canal `database`.
 
 ## App móvil
 

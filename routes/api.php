@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\Employee\DocumentController;
 use App\Http\Controllers\Api\Employee\ProfileController;
 use App\Http\Controllers\Api\Employee\UniformController;
 use App\Http\Controllers\Api\LeaveRequestController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PayslipController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ShiftController;
@@ -66,6 +67,13 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.scope', 'password.fresh'])-
         Route::put('profile',         [AuthController::class, 'updateProfile']);
         Route::put('change-password', [AuthController::class, 'changePassword']);
         Route::post('refresh-fcm',    [AuthController::class, 'updateFcmToken']);
+    });
+
+    // --- NOTIFICACIONES IN-APP (cualquier rol) ---
+    Route::prefix('notifications')->group(function () {
+        Route::get('/',          [NotificationController::class, 'index']);
+        Route::post('read-all',  [NotificationController::class, 'readAll']);
+        Route::post('{id}/read', [NotificationController::class, 'read'])->whereUuid('id');
     });
 
     // --- ASISTENCIAS (marcación con selfie + GPS) ---

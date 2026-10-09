@@ -327,3 +327,9 @@ body { background: var(--bs-body-bg); font-size: .925rem; }
     background: var(--bs-body-bg);
 }
 .auth-card { width: 100%; max-width: 420px; }
+
+/* ---------- Notificaciones (campana del topbar) ---------- */
+.notif-menu { width: min(360px, 92vw); }
+.notif-list { max-height: 420px; overflow-y: auto; }
+.notif-unread { background: rgba(var(--brand-rgb), .07); }
+.notif-count { font-size: .62rem; }
