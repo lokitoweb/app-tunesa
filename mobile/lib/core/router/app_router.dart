@@ -10,6 +10,7 @@ import '../../features/auth/presentation/change_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/tenant_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/payslips/presentation/payslip_viewer_screen.dart';
 import '../../features/profile/domain/models.dart';
 import '../../features/profile/presentation/contact_screen.dart';
@@ -22,6 +23,8 @@ import '../../features/profile/presentation/uniforms_screen.dart';
 import '../../features/payslips/presentation/payslips_screen.dart';
 import '../../features/requests/presentation/new_request_screen.dart';
 import '../../features/requests/presentation/requests_screen.dart';
+import '../../features/team/presentation/approvals_screen.dart';
+import '../../features/team/presentation/team_live_screen.dart';
 import '../providers.dart';
 import '../widgets/async_views.dart';
 
@@ -93,6 +96,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootKey,
         path: '/requests/new',
         builder: (_, _) => const NewRequestScreen(),
+      ),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/notifications', builder: (_, _) => const NotificationsScreen()),
+      // Área de supervisor / RRHH: solo con permiso (el backend igual responde 403)
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/approvals',
+        redirect: (_, _) => (ref.read(authControllerProvider).user?.canApproveRequests ?? false) ? null : '/home',
+        builder: (_, _) => const ApprovalsScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/team',
+        redirect: (_, _) => (ref.read(authControllerProvider).user?.canViewTeam ?? false) ? null : '/home',
+        builder: (_, _) => const TeamLiveScreen(),
       ),
       GoRoute(
         parentNavigatorKey: _rootKey,

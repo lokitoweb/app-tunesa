@@ -19,6 +19,7 @@ class ApiException implements Exception {
   final Map<String, List<String>> fieldErrors;
 
   bool get isUnauthorized => statusCode == 401;
+  bool get isForbidden => statusCode == 403;
   bool get isNetwork => code == 'NETWORK' || code == 'TIMEOUT';
 
   /// Primer error de validación de un campo, si lo hay.

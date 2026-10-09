@@ -52,7 +52,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
     try {
       await ref.read(authRepositoryProvider).forgotPassword(email);
-      if (mounted) showSnack(context, 'Si el correo existe, te enviamos un enlace para restablecerla.');
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          icon: const Icon(Icons.mark_email_read_outlined),
+          title: const Text('Revisa tu correo'),
+          content: Text(
+            'Si $email está registrado, te enviamos un enlace para restablecer tu contraseña.\n\n'
+            '1. Abre el enlace del correo (se abre una página web).\n'
+            '2. Crea ahí tu nueva contraseña.\n'
+            '3. Vuelve a la app e ingresa con tu correo y la nueva contraseña.\n\n'
+            'Si no lo ves, revisa la carpeta de spam. El enlace vence en una hora.',
+          ),
+          actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Entendido'))],
+        ),
+      );
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, error: true);
     }
