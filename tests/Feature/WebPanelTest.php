@@ -237,7 +237,11 @@ class WebPanelTest extends TestCase
 
         // Crear o editar sí necesita empresa: vuelve al listado del módulo, no al dashboard
         $this->from('/secure-files/selfie-in/1')->get('/employees/create')->assertRedirect(route('employees.index'))->assertSessionHas('error');
-        $this->post('/branches', ['name' => 'Sin empresa'])->assertRedirect()->assertSessionHas('error');
+        $this->post('/shifts', ['name' => 'Sin empresa'])->assertRedirect()->assertSessionHas('error');
+        $this->assertDatabaseMissing('shifts', ['name' => 'Sin empresa']);
+
+        // Sucursales eligen la empresa en el propio formulario: sin ella, error de validación
+        $this->post('/branches', ['name' => 'Sin empresa'])->assertSessionHasErrors('tenant_id');
         $this->assertDatabaseMissing('branches', ['name' => 'Sin empresa']);
     }
 

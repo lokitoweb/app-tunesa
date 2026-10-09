@@ -6,7 +6,8 @@
 #
 # Firma de producción (opcional): secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
 # ANDROID_KEY_ALIAS y ANDROID_KEY_PASSWORD. Sin ellos el APK sale firmado con la llave debug.
-# Dominio del backend: variable de repositorio API_BASE_URL (opcional, sobrescribe env/<entorno>.json).
+# Dominio del backend: input api_base_url del Run workflow, o variable de repositorio API_BASE_URL
+# (opcional, sobrescribe env/<entorno>.json). Túnel de pruebas: entorno "tunnel" + api_base_url.
 name: "App móvil: APK"
 
 on:
@@ -21,8 +22,12 @@ on:
       environment:
         description: "Entorno (archivo mobile/env/<entorno>.json)"
         type: choice
-        options: [prod, staging, dev]
+        options: [prod, staging, tunnel, dev]
         default: prod
+      api_base_url:
+        description: "URL del backend (opcional). Ej: https://xxxx.trycloudflare.com — sobrescribe API_BASE_URL del JSON"
+        type: string
+        required: false
       mode:
         description: "Modo de compilación"
         type: choice
@@ -46,7 +51,7 @@ jobs:
     env:
       ENV_NAME: ${{ inputs.environment || 'prod' }}
       BUILD_MODE: ${{ inputs.mode || 'release' }}
-      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
 

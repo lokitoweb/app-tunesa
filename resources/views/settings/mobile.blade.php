@@ -67,6 +67,18 @@
                         <span class="input-group-text">MB</span>
                     </div>
 
+                    <h2 class="h6 fw-semibold mt-4 mb-1">Marcación fuera de geocerca</h2>
+                    <small class="d-block text-body-secondary mb-2">Qué pasa si alguien marca lejos de su sucursal (radio configurado en Sucursales).</small>
+                    @foreach(CompanyConfiguration::GEOFENCE_POLICIES as $policy => [$label, $desc])
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="geofence_policy" value="{{ $policy }}" id="geo_{{ $policy }}" @checked(old('geofence_policy', $config->geofence_policy) === $policy)>
+                            <label class="form-check-label" for="geo_{{ $policy }}">
+                                <span class="d-block fw-semibold">{{ $label }}</span>
+                                <span class="d-block small text-body-secondary">{{ $desc }}</span>
+                            </label>
+                        </div>
+                    @endforeach
+
                     <button class="btn btn-primary w-100 mt-4">Guardar configuración</button>
                     @if($config->updated_at)
                         <p class="small text-body-secondary mt-2 mb-0">Último cambio: {{ $config->updated_at->format('d/m/Y H:i') }}</p>

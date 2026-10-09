@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Attendance;
 use App\Models\Branch;
+use App\Models\CompanyConfiguration;
 use App\Models\EmployeeShift;
 use App\Models\Shift;
 use App\Models\User;
@@ -29,6 +30,7 @@ class AttendanceService
     public function __construct(
         private readonly GeofenceService $geofence,
         private readonly TenantContext   $tenantContext,
+        private readonly AuditLogger     $audit,
     ) {}
 
     // =========================================================================
@@ -70,10 +72,7 @@ class AttendanceService
 
         // 3. Validar geocerca con Haversine
         $geofenceResult = $this->geofence->check($latitude, $longitude, $branch);
-
-        if (! $geofenceResult->isWithinGeofence) {
-            throw new \Exception($geofenceResult->getMessage(), 422);
-        }
+        $this->enforceGeofencePolicy($geofenceResult, $employee);
 
         // 4. Obtener el turno activo
         $employeeShift = $this->getCurrentShift($employee, $today);
@@ -99,7 +98,7 @@ class AttendanceService
             'clock_in_distance_meters' => $geofenceResult->distanceMeters,
             'clock_in_photo'           => $photoPath,
             'clock_in_device_id'       => $deviceId,
-            'clock_in_within_geofence' => true,
+            'clock_in_within_geofence' => $geofenceResult->isWithinGeofence,
             'clock_in_meta'            => array_merge($meta, [
                 'geofence' => $geofenceResult->toArray(),
                 'recorded_at' => now()->toIso8601String(),
@@ -108,6 +107,8 @@ class AttendanceService
             'status'       => $lateMinutes > 0 ? 'late' : 'present',
             'late_minutes' => $lateMinutes,
         ]);
+
+        $this->logOutOfGeofence($attendance, $geofenceResult, 'clock_in');
 
         return $attendance->load(['branch', 'shift']);
     }
@@ -213,10 +214,7 @@ class AttendanceService
         // 1. Validar geocerca de salida
         $branch         = $attendance->branch;
         $geofenceResult = $this->geofence->check($latitude, $longitude, $branch);
-
-        if (! $geofenceResult->isWithinGeofence) {
-            throw new \Exception($geofenceResult->getMessage(), 422);
-        }
+        $this->enforceGeofencePolicy($geofenceResult, $employee);
 
         // 2. Foto de salida
         $photoPath = $this->storePhoto($photo, $employee->tenant_id, $employee->id, 'clock_out');
@@ -246,7 +244,7 @@ class AttendanceService
             'clock_out_distance_meters'  => $geofenceResult->distanceMeters,
             'clock_out_photo'            => $photoPath,
             'clock_out_device_id'        => $deviceId,
-            'clock_out_within_geofence'  => true,
+            'clock_out_within_geofence'  => $geofenceResult->isWithinGeofence,
             'clock_out_meta'             => array_merge($meta, [
                 'geofence'    => $geofenceResult->toArray(),
                 'recorded_at' => $clockOutTime->toIso8601String(),
@@ -256,12 +254,40 @@ class AttendanceService
             'status'         => $finalStatus,
         ]);
 
+        $this->logOutOfGeofence($attendance, $geofenceResult, 'clock_out');
+
         return $attendance->fresh()->load(['branch', 'shift', 'user']);
     }
 
     // =========================================================================
     // HELPERS PRIVADOS
     // =========================================================================
+
+    /**
+     * Aplica la política de geocerca de la empresa (CompanyConfiguration::geofence_policy):
+     * "reject" rechaza la marcación fuera del radio; "flag" la deja pasar y quien
+     * llama la guarda con within_geofence = false (incidencia para RRHH).
+     */
+    private function enforceGeofencePolicy(GeofenceResult $result, User $employee): void
+    {
+        if ($result->isWithinGeofence) {
+            return;
+        }
+
+        if (! CompanyConfiguration::forTenantId($employee->tenant_id)->flagsOutOfGeofence()) {
+            throw new \Exception($result->getMessage(), 422);
+        }
+    }
+
+    /** Deja constancia en la auditoría de una marcación aceptada fuera del radio */
+    private function logOutOfGeofence(Attendance $attendance, GeofenceResult $result, string $moment): void
+    {
+        if ($result->isWithinGeofence) {
+            return;
+        }
+
+        $this->audit->log("attendance.{$moment}_out_of_geofence", $attendance, $result->toArray());
+    }
 
     /**
      * Obtiene el registro de asistencia abierto del día de hoy.

@@ -73,7 +73,9 @@ class AttendanceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => '✅ Entrada registrada correctamente.',
+                'message' => $attendance->clock_in_within_geofence
+                    ? '✅ Entrada registrada correctamente.'
+                    : "⚠️ Entrada registrada fuera del radio de la sucursal ({$attendance->clock_in_distance_meters} m). RRHH la revisará.",
                 'data'    => new AttendanceResource($attendance),
             ], 201);
 
@@ -170,7 +172,8 @@ class AttendanceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "🏁 Salida registrada. Horas trabajadas hoy: {$workedHours}h.",
+                'message' => "🏁 Salida registrada. Horas trabajadas hoy: {$workedHours}h."
+                    . ($attendance->clock_out_within_geofence ? '' : ' ⚠️ Marcada fuera del radio de la sucursal; RRHH la revisará.'),
                 'data'    => new AttendanceResource($attendance),
             ]);
 

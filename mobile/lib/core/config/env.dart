@@ -32,5 +32,10 @@ class Env {
   static bool get isProduction => name == 'prod';
 
   /// URL base de la API REST: `<API_BASE_URL>/api`.
-  static String get apiUrl => '${apiBaseUrl.replaceAll(RegExp(r'/+$'), '')}/api';
+  /// Acepta el dominio con o sin `/api` al final (https://x.trycloudflare.com
+  /// o https://x.trycloudflare.com/api terminan en la misma URL).
+  static String get apiUrl {
+    final base = apiBaseUrl.trim().replaceAll(RegExp(r'/+$'), '').replaceAll(RegExp(r'/api$'), '');
+    return '$base/api';
+  }
 }

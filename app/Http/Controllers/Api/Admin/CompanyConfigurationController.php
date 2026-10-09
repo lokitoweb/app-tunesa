@@ -23,6 +23,7 @@ class CompanyConfigurationController extends Controller
         return response()->json(['success' => true, 'data' => $config->only(array_keys(CompanyConfiguration::FLAGS)) + [
             'required_documents' => $config->requiredDocuments(),
             'max_upload_mb'      => $config->max_upload_mb,
+            'geofence_policy'    => $config->geofence_policy,
         ]]);
     }
 
@@ -35,6 +36,7 @@ class CompanyConfigurationController extends Controller
             'required_documents'   => ['sometimes', 'array'],
             'required_documents.*' => [Rule::in(array_keys(EmployeeDocument::TYPES))],
             'max_upload_mb'        => ['sometimes', 'integer', 'between:1,20'],
+            'geofence_policy'      => ['sometimes', Rule::in(array_keys(CompanyConfiguration::GEOFENCE_POLICIES))],
         ]);
 
         $config = CompanyConfiguration::current();

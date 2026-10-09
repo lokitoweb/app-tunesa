@@ -31,18 +31,21 @@ class CompanySettingsWebController extends Controller
             'required_documents'   => ['nullable', 'array'],
             'required_documents.*' => [Rule::in(array_keys(EmployeeDocument::TYPES))],
             'max_upload_mb'        => ['required', 'integer', 'between:1,20'],
+            'geofence_policy'      => ['sometimes', Rule::in(array_keys(CompanyConfiguration::GEOFENCE_POLICIES))],
         ]);
 
         // Un checkbox desmarcado no se envía: cada flag ausente es false
         $flags = collect(CompanyConfiguration::FLAGS)->keys()->mapWithKeys(fn ($f) => [$f => $request->boolean($f)])->all();
 
         $config = CompanyConfiguration::current();
+        $validated['geofence_policy'] ??= $config->geofence_policy;
         $config->update($flags + [
             'required_documents' => $validated['required_documents'] ?? [],
             'max_upload_mb'      => $validated['max_upload_mb'],
+            'geofence_policy'    => $validated['geofence_policy'],
             'updated_by'         => Auth::id(),
         ]);
-        $audit->log('company_configuration.updated', $config, $flags);
+        $audit->log('company_configuration.updated', $config, $flags + ['geofence_policy' => $validated['geofence_policy']]);
 
         return back()->with('success', 'Configuración de la app guardada. Los colaboradores la verán al refrescar.');
     }
