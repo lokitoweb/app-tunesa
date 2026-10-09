@@ -11,14 +11,9 @@ class AuthRepository {
   final ApiClient _api;
   final SessionStorage _storage;
 
-  /// Valida el código de empresa y guarda su marca blanca.
-  Future<Branding> selectTenant(String slug) async {
-    final clean = slug.trim().toLowerCase();
-    final json = await _api.getPublic(ApiEndpoints.branding, tenant: clean);
-    final branding = Branding.fromJson(Map<String, dynamic>.from(json['data'] as Map));
-    await _storage.saveTenant(clean, branding.toJson());
-    return branding;
-  }
+  /// Guarda la empresa elegida (la validación la hace AppConfigController
+  /// contra `/v1/app/config`).
+  Future<void> saveTenant(String slug, Branding branding) => _storage.saveTenant(slug, branding.toJson());
 
   Future<AppUser> login({required String email, required String password}) async {
     final json = await _api.post(

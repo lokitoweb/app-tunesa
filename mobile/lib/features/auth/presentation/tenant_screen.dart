@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config_controller.dart';
 import '../../../core/config/env.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/brand_logo.dart';
+import '../../server/server_connection_dialog.dart';
 import 'auth_controller.dart';
 
 /// Paso 1 del login por empresa: el colaborador ingresa el código de su
-/// empresa (slug). Se valida contra /tenant/branding y se aplica su marca.
+/// empresa (slug). Se valida contra /v1/app/config y se aplica su marca.
+/// Mantener presionado el logo abre "Conexión del servidor".
 class TenantScreen extends ConsumerStatefulWidget {
   const TenantScreen({super.key});
 
@@ -45,7 +49,9 @@ class _TenantScreenState extends ConsumerState<TenantScreen> {
     try {
       await ref.read(authControllerProvider.notifier).selectTenant(_slug.text);
     } on ApiException catch (e) {
-      setState(() => _error = e.statusCode == 404 ? 'No encontramos una empresa con ese código.' : e.message);
+      if (mounted) {
+        setState(() => _error = e.statusCode == 404 ? 'No encontramos una empresa con ese código.' : e.message);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -54,6 +60,7 @@ class _TenantScreenState extends ConsumerState<TenantScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appName = ref.watch(appConfigProvider.select((s) => s.config.displayName));
 
     return Scaffold(
       body: SafeArea(
@@ -65,9 +72,10 @@ class _TenantScreenState extends ConsumerState<TenantScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.apartment_rounded, size: 64, color: theme.colorScheme.primary),
+                  // Mantener presionado: conexión del servidor (testers)
+                  BrandLogo(height: 72, onLongPress: () => showServerConnectionDialog(context)),
                   const SizedBox(height: 16),
-                  Text('Bienvenido a TuneSA', textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
+                  Text('Bienvenido a $appName', textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 8),
                   const Text('Ingresa el código de tu empresa. Te lo da RRHH.', textAlign: TextAlign.center),
                   const SizedBox(height: 32),

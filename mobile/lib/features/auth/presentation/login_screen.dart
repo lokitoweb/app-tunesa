@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config_controller.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/brand_logo.dart';
+import '../../server/server_connection_dialog.dart';
 import '../../../core/widgets/async_views.dart';
 import 'auth_controller.dart';
 
@@ -77,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final controller = ref.read(authControllerProvider.notifier);
-    final branding = auth.branding;
+    final config = ref.watch(appConfigProvider.select((s) => s.config));
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -90,18 +93,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (branding?.logoUrl != null)
-                    Image.network(branding!.logoUrl!, height: 72, errorBuilder: (_, _, _) => const SizedBox.shrink())
-                  else
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(color: theme.colorScheme.primaryContainer, borderRadius: BorderRadius.circular(24)),
-                        child: Icon(Icons.fingerprint_rounded, size: 52, color: theme.colorScheme.onPrimaryContainer),
-                      ),
-                    ),
+                  // Mantener presionado: conexión del servidor (testers)
+                  BrandLogo(height: 72, onLongPress: () => showServerConnectionDialog(context)),
                   const SizedBox(height: 16),
-                  Text(branding?.companyName ?? 'TuneSA',
+                  Text(config.tenant?.displayName ?? auth.branding?.companyName ?? config.displayName,
                       textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 4),
                   Text('Inicia sesión con la cuenta que te entregó RRHH',

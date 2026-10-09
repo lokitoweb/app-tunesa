@@ -1,8 +1,11 @@
+import 'dart:io';
+import 'dart:math';
+
 import 'package:camera/camera.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -10,12 +13,16 @@ import '../../../core/storage/session_storage.dart';
 import '../../../core/utils/attachment_picker.dart';
 import '../../../core/utils/formatters.dart';
 import '../domain/models.dart';
+import 'offline_clock_queue.dart';
 
 class AttendanceRepository {
-  AttendanceRepository(this._api, this._storage);
+  AttendanceRepository(this._api, this._storage, {this.appVersion = '0.0.0'});
 
   final ApiClient _api;
   final SessionStorage _storage;
+
+  /// Versión instalada (PackageInfo), enviada como `app_version`.
+  final String appVersion;
 
   Future<TodayStatus> today() async {
     final now = DateTime.now();
@@ -55,40 +62,128 @@ class AttendanceRepository {
         .toList();
   }
 
-  /// Envía la marcación. Devuelve el mensaje del servidor.
-  Future<String> clock(ClockAction action, Position position, {XFile? selfie}) async {
-    final path = switch (action) {
-      ClockAction.clockIn => ApiEndpoints.clockIn,
-      ClockAction.breakStart => ApiEndpoints.breakStart,
-      ClockAction.breakEnd => ApiEndpoints.breakEnd,
-      ClockAction.clockOut => ApiEndpoints.clockOut,
-    };
+  static String _pathFor(ClockAction action) => switch (action) {
+        ClockAction.clockIn => ApiEndpoints.clockIn,
+        ClockAction.breakStart => ApiEndpoints.breakStart,
+        ClockAction.breakEnd => ApiEndpoints.breakEnd,
+        ClockAction.clockOut => ApiEndpoints.clockOut,
+      };
 
+  static String get _deviceOs => defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
+
+  /// Envía la marcación. Devuelve el mensaje del servidor.
+  ///
+  /// [selfie] es opcional si la empresa desactivó `selfie_required`;
+  /// [faceDetected] solo se envía si se pudo analizar la foto.
+  Future<String> clock(ClockAction action, Position position, {XFile? selfie, bool? faceDetected}) async {
+    return _post(
+      action,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      accuracy: position.accuracy,
+      isMocked: position.isMocked,
+      deviceId: await _storage.installationId(),
+      photo: selfie == null ? null : await selfie.readAsBytes(),
+      faceDetected: faceDetected,
+    );
+  }
+
+  /// Marcación tomada sin conexión: copia la selfie a los documentos de la
+  /// app (la cámara la deja en caché, que el sistema puede borrar).
+  Future<PendingClock> buildPending(
+    ClockAction action,
+    Position position, {
+    int? userId,
+    XFile? selfie,
+    bool? faceDetected,
+  }) async {
+    final now = DateTime.now();
+    final id = '${now.microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
+    String? photoPath;
+    if (selfie != null) {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/offline_clocks/$id.jpg');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(await selfie.readAsBytes(), flush: true);
+      photoPath = file.path;
+    }
+    return PendingClock(
+      id: id,
+      action: action,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      accuracy: position.accuracy,
+      isMocked: position.isMocked,
+      recordedAt: Fmt.isoWithOffset(now),
+      userId: userId,
+      deviceId: await _storage.installationId(),
+      deviceOs: _deviceOs,
+      appVersion: appVersion,
+      photoPath: photoPath,
+      faceDetected: faceDetected,
+    );
+  }
+
+  /// Envía una marcación de la cola offline con su hora real (`offline_recorded_at`).
+  Future<String> sendPending(PendingClock item) async {
+    List<int>? photo;
+    final path = item.photoPath;
+    if (path != null) {
+      final file = File(path);
+      if (await file.exists()) photo = await file.readAsBytes();
+    }
+    return _post(
+      item.action,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      accuracy: item.accuracy,
+      isMocked: item.isMocked,
+      deviceId: item.deviceId ?? await _storage.installationId(),
+      deviceOs: item.deviceOs,
+      version: item.appVersion,
+      photo: photo,
+      faceDetected: item.faceDetected,
+      offlineRecordedAt: item.recordedAt,
+    );
+  }
+
+  Future<String> _post(
+    ClockAction action, {
+    required double latitude,
+    required double longitude,
+    required double accuracy,
+    required bool isMocked,
+    required String deviceId,
+    String? deviceOs,
+    String? version,
+    List<int>? photo,
+    bool? faceDetected,
+    String? offlineRecordedAt,
+  }) async {
     final fields = <String, dynamic>{
-      'latitude': position.latitude,
-      'longitude': position.longitude,
-      'accuracy_meters': position.accuracy,
-      'is_mocked': position.isMocked ? 1 : 0,
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy_meters': accuracy,
+      'is_mocked': isMocked ? 1 : 0,
+      'offline_recorded_at': ?offlineRecordedAt,
     };
 
     final Map<String, dynamic> json;
     if (action.requiresSelfie) {
-      if (selfie == null) throw ArgumentError('La selfie es obligatoria para ${action.label}.');
-      final info = await PackageInfo.fromPlatform();
+      // Entrada y salida: multipart con datos del equipo; la foto es opcional
+      // si la empresa no exige selfie (el backend valida).
       final form = FormData.fromMap({
         ...fields,
-        'device_id': await _storage.installationId(),
-        'device_os': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
-        'app_version': info.version,
-        'photo': MultipartFile.fromBytes(
-          await selfie.readAsBytes(),
-          filename: 'selfie.jpg',
-          contentType: DioMediaType('image', 'jpeg'),
-        ),
+        'device_id': deviceId,
+        'device_os': deviceOs ?? _deviceOs,
+        'app_version': version ?? appVersion,
+        if (faceDetected != null) 'face_detected': faceDetected ? 1 : 0,
+        if (photo != null)
+          'photo': MultipartFile.fromBytes(photo, filename: 'selfie.jpg', contentType: DioMediaType('image', 'jpeg')),
       });
-      json = await _api.postMultipart(path, form);
+      json = await _api.postMultipart(_pathFor(action), form);
     } else {
-      json = await _api.post(path, data: fields);
+      json = await _api.post(_pathFor(action), data: fields);
     }
     return json['message']?.toString() ?? 'Marcación registrada.';
   }

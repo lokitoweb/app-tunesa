@@ -1,4 +1,7 @@
-/// Marca blanca de la empresa (GET /api/tenant/branding).
+import '../../../core/config/app_config.dart';
+
+/// Empresa elegida en el teléfono (se guarda con la sesión). Los colores y
+/// logos vigentes salen de [AppConfig]; estos campos son solo respaldo.
 class Branding {
   const Branding({
     required this.slug,
@@ -15,6 +18,14 @@ class Branding {
   final String? primaryColor;
   final String? secondaryColor;
   final String? timezone;
+
+  factory Branding.fromConfig(String slug, AppConfig config) => Branding(
+        slug: slug,
+        companyName: config.tenant?.displayName ?? slug,
+        logoUrl: config.branding.logoUrl,
+        primaryColor: config.branding.primaryColor,
+        secondaryColor: config.branding.secondaryColor,
+      );
 
   factory Branding.fromJson(Map<String, dynamic> json) => Branding(
         slug: json['slug']?.toString() ?? '',

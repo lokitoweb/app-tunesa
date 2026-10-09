@@ -35,13 +35,15 @@ class LocationException implements Exception {
 /// 2. Permiso concedido (lo solicita si hace falta).
 /// 3. Lectura fresca de alta precisión (no se usa la última posición cacheada).
 /// 4. Rechaza ubicaciones simuladas (mock GPS / apps de GPS falso).
-/// 5. Rechaza lecturas con precisión peor que [Env.maxGpsAccuracyMeters].
+/// 5. Rechaza lecturas con precisión peor que `max_gps_accuracy_meters` de
+///    la configuración de la empresa (respaldo: [Env.maxGpsAccuracyMeters]).
 ///
 /// El backend vuelve a validar mock, precisión y geocerca (Haversine).
 class LocationService {
   static const double _earthRadiusMeters = 6371000;
 
-  Future<Position> getVerifiedPosition() async {
+  Future<Position> getVerifiedPosition({int? maxAccuracyMeters}) async {
+    final maxAccuracy = maxAccuracyMeters ?? Env.maxGpsAccuracyMeters;
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw const LocationException(
         LocationFailure.serviceDisabled,
@@ -86,7 +88,7 @@ class LocationService {
       );
     }
 
-    if (position.accuracy > Env.maxGpsAccuracyMeters) {
+    if (position.accuracy > maxAccuracy) {
       throw LocationException(
         LocationFailure.lowAccuracy,
         'La señal GPS es imprecisa (±${position.accuracy.round()} m). Acércate a una ventana o sal al exterior y reintenta.',

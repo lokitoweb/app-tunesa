@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
+
 /// Sistema visual de la app: Material 3 generado desde los colores de marca
-/// de la empresa, con variante clara y oscura.
+/// de la empresa ([BrandingConfig] de `/v1/app/config`), con variante clara y
+/// oscura. AppBar y barra inferior toman `navbar_color` con texto legible.
 class AppTheme {
   const AppTheme._();
 
@@ -10,20 +13,35 @@ class AppTheme {
 
   static const double radius = 16;
 
-  static ThemeData light({Color? primary, Color? secondary}) =>
-      _build(Brightness.light, primary: primary, secondary: secondary);
+  static ThemeData light({Color? primary, Color? secondary, Color? accent, Color? navbar}) =>
+      _build(Brightness.light, primary: primary, secondary: secondary, accent: accent, navbar: navbar);
 
-  static ThemeData dark({Color? primary, Color? secondary}) =>
-      _build(Brightness.dark, primary: primary, secondary: secondary);
+  static ThemeData dark({Color? primary, Color? secondary, Color? accent, Color? navbar}) =>
+      _build(Brightness.dark, primary: primary, secondary: secondary, accent: accent, navbar: navbar);
 
-  static ThemeData _build(Brightness brightness, {Color? primary, Color? secondary}) {
+  /// Tema claro u oscuro desde la marca de [AppConfig] (colores null → por defecto).
+  static ThemeData fromBranding(BrandingConfig branding, Brightness brightness) => _build(
+        brightness,
+        primary: parseHex(branding.primaryColor),
+        secondary: parseHex(branding.secondaryColor),
+        accent: parseHex(branding.accentColor),
+        navbar: parseHex(branding.navbarColor),
+      );
+
+  /// Texto/íconos legibles sobre [background] (blanco o casi negro según su luminancia).
+  static Color foregroundOn(Color background) =>
+      ThemeData.estimateBrightnessForColor(background) == Brightness.dark ? Colors.white : const Color(0xFF111827);
+
+  static ThemeData _build(Brightness brightness, {Color? primary, Color? secondary, Color? accent, Color? navbar}) {
     final scheme = ColorScheme.fromSeed(
       seedColor: primary ?? defaultPrimary,
       secondary: secondary ?? defaultSecondary,
+      tertiary: accent,
       brightness: brightness,
     );
     final isDark = brightness == Brightness.dark;
     final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius));
+    final barForeground = navbar == null ? null : foregroundOn(navbar);
 
     return ThemeData(
       colorScheme: scheme,
@@ -32,13 +50,13 @@ class AppTheme {
       scaffoldBackgroundColor: isDark ? scheme.surface : scheme.surfaceContainerLowest,
       visualDensity: VisualDensity.standard,
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
-        foregroundColor: scheme.onSurface,
+        backgroundColor: navbar ?? Colors.transparent,
+        foregroundColor: barForeground ?? scheme.onSurface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: scheme.onSurface),
+        titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: barForeground ?? scheme.onSurface),
       ),
       cardTheme: CardThemeData(
         margin: EdgeInsets.zero,
@@ -75,10 +93,18 @@ class AppTheme {
       chipTheme: ChipThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
       navigationBarTheme: NavigationBarThemeData(
         height: 68,
-        backgroundColor: isDark ? scheme.surfaceContainer : scheme.surface,
-        indicatorColor: scheme.primaryContainer,
+        backgroundColor: navbar ?? (isDark ? scheme.surfaceContainer : scheme.surface),
+        indicatorColor: barForeground?.withValues(alpha: 0.18) ?? scheme.primaryContainer,
+        iconTheme: barForeground == null
+            ? null
+            : WidgetStateProperty.resolveWith((states) => IconThemeData(
+                color: states.contains(WidgetState.selected) ? barForeground : barForeground.withValues(alpha: 0.75))),
         labelTextStyle: WidgetStatePropertyAll(
-          TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: scheme.onSurfaceVariant),
+          TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: barForeground?.withValues(alpha: 0.9) ?? scheme.onSurfaceVariant,
+          ),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
