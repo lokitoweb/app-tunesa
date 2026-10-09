@@ -76,8 +76,8 @@ limpieza de tokens vencidos (`sanctum:prune-expired`, diario), ambos en `routes/
 `* * * * * cd /ruta/al/proyecto && php artisan schedule:run >> /dev/null 2>&1`
 
 Si alguna empresa usa el webhook o el endpoint de notificaciones de "Marca y app", deja corriendo
-un worker de la cola (`QUEUE_CONNECTION=database`): `php artisan queue:work --tries=3`. Sin worker
-los envíos quedan pendientes en la tabla `jobs` (ver `docs/architecture/white-label.md`).
+un worker de la cola (`QUEUE_CONNECTION=database`): `php artisan queue:work` (los reintentos los define el job: 5 intentos). Sin worker
+los envíos quedan pendientes en la tabla `jobs` (ver `docs/deployment/integrations-queue.md`).
 
 ## Multi-tenant, roles y permisos
 

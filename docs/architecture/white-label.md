@@ -39,7 +39,8 @@ Super Admin. **Todas las columnas de configuración aceptan NULL y NULL signific
 | Colores | `primary_color`*, `secondary_color`*, `accent_color`, `navbar_color` (hex `#RRGGBB`) |
 | App móvil | `api_base_url`, `min_supported_version`, `latest_version`, `force_update`, `selfie_required`, `face_detection_required`, `offline_mode_enabled`, `offline_max_hours`, `max_gps_accuracy_meters` |
 | Reglas | `default_grace_minutes`, `lunch_minutes`, `lunch_paid`, `default_geofence_radius` |
-| Integraciones | `webhook_url`, `webhook_secret` (cifrado), `maps_api_key` (cifrado), `notification_endpoint` |
+| Integraciones | `webhook_url`, `webhook_secret` (cifrado), `maps_api_key` (cifrado), `notification_endpoint`, `geocoding_provider`, `fcm_enabled`, `fcm_service_account_json` (cifrado, solo fila global) |
+| Antifraude | `mock_location_policy` (`reject` / `flag`), `max_time_drift_seconds` |
 | Meta | `updated_by`, `created_at`, `updated_at` |
 
 \* solo en la fila global.
@@ -77,9 +78,10 @@ Casos especiales del modelo:
   (nunca el de la plataforma junto a su marca).
 - **Precisión GPS** (`maxGpsAccuracy()`): empresa → plataforma → `ATTENDANCE_MAX_GPS_ACCURACY`
   de `.env` (`config/attendance.php`), no el `DEFAULTS`.
-- **`maps_api_key`**: se hereda de la plataforma (no está en `NOT_INHERITED`), pero hoy
-  **ningún código la usa**: está reservada para una futura geocodificación. Solo se ve
-  (enmascarada) en el panel y en `GET /api/admin/app-config`, nunca en la API pública.
+- **`maps_api_key`**: clave de Google Maps Geocoding. Se hereda de la plataforma (no está en
+  `NOT_INHERITED`) y la usa `App\Services\Geocoding\GeocodingService` cuando el proveedor
+  efectivo (`geocoding_provider`) es `google`; sin clave vuelve solo a OpenStreetMap/Nominatim.
+  Solo se ve (enmascarada) en el panel y en `GET /api/admin/app-config`, nunca en la API pública.
 - **`config_version`**: la fecha más reciente entre `tenants.updated_at`, la fila de la empresa,
   la fila global y `company_configurations.updated_at`. La app puede usarla para saber si recargar.
 
@@ -132,12 +134,77 @@ X-Tunesa-Signature: sha256=<hex de HMAC-SHA256(cuerpo, webhook_secret)>
 - `leave_request.status_changed` trae `id`, `user_id`, `type`, `start_date`, `end_date`, `days`,
   `status`, `previous_status`, `reviewed_by`, `review_notes`. `notification.created` trae `id`,
   `type`, `user_id`, `title`, `body`, `data`.
-- Timeout de 5 s, 3 intentos (esperas de 10 s y 60 s); el fallo final se registra en el log.
+- Timeout de 10 s (`INTEGRATIONS_TIMEOUT`), sin seguir redirecciones. Cualquier respuesta que
+  no sea 2xx o un error de conexión es un fallo.
+- **Reintentos:** 5 intentos con espera exponencial (`SendTenantWebhook::BACKOFF`: 10 s, 1 min,
+  5 min, 15 min). El fallo final queda como `failed` en el historial y en el log.
   La URL y el secreto se leen al ejecutar el job (el secreto no viaja en la cola).
 - Nunca interrumpe la acción que lo dispara: con la cola `sync` el envío corre en la misma
-  petición y un error solo queda en el log. En producción conviene `QUEUE_CONNECTION=database`
-  (por defecto) con un worker (`php artisan queue:work`): sin worker los eventos quedan en la
-  tabla `jobs` sin enviarse.
+  petición, un solo intento, y un error solo queda en el log y en el historial. En producción
+  hace falta `QUEUE_CONNECTION=database` (por defecto) con un worker (`php artisan queue:work`):
+  sin worker los eventos quedan en la tabla `jobs` sin enviarse y en el historial como
+  "Pendiente" con intento 0. Ver [deployment/integrations-queue.md](../deployment/integrations-queue.md).
+- **Redes privadas:** no se envía a direcciones privadas, locales o reservadas (`127.0.0.1`,
+  `10.x`, `192.168.x`, `169.254.x`…), porque el historial muestra la respuesta. Solo en desarrollo
+  o con un ERP en la misma red: `INTEGRATIONS_ALLOW_PRIVATE_URLS=true` (`config/integrations.php`).
+
+### Historial de envíos (`webhook_deliveries`)
+
+`App\Services\Integrations\WebhookSender` hace cada envío y lo registra en
+`webhook_deliveries` (`App\Models\WebhookDelivery`): una fila por envío, que los reintentos
+actualizan (la identifica `uuid`, que viaja en el job como `deliveryUuid`).
+
+| Columna | Contenido |
+|---|---|
+| `tenant_id` | Empresa; `NULL` = prueba hecha desde la vista global |
+| `target`, `event`, `url` | `webhook_url` / `notification_endpoint`, evento y URL usada |
+| `request_body`, `signature` | Cuerpo enviado (máx. 16 KB) y valor de `X-Tunesa-Signature` |
+| `attempt`, `status` | Número de intento; `pending` (en cola o esperando reintento), `success`, `failed` |
+| `http_status`, `response_ms`, `response_body`, `error` | Resultado del último intento (respuesta máx. 4 KB) |
+| `next_retry_at` | Cuándo se reintenta (solo si el último intento falló y quedan intentos) |
+
+La fila se crea como `pending` al encolar el evento (después del commit) y se actualiza en cada
+intento. Si falla el guardado del historial, el envío sigue igual. Las filas de más de 30 días se
+borran con `model:prune` (`WebhookDelivery` es `Prunable`), programado a diario a las 03:15 en
+`routes/console.php`.
+
+### Botones de prueba (pestaña Integraciones)
+
+Mismo permiso que la pantalla (`company.configure`); `IntegrationsWebController`. En la vista
+global prueban y listan las filas de la plataforma (`tenant_id NULL`). Límite: 20 pruebas por minuto.
+
+| Botón | Ruta | Qué hace |
+|---|---|---|
+| Probar Webhook Ahora | `POST /settings/branding/test-webhook` | Envía al instante (sin cola) `{"event":"ping","occurred_at","tenant":{"slug"},"data":{"message":"Prueba desde TuneSA"}}` con `X-Tunesa-Event: ping` y la firma, a la URL escrita en el formulario (o la guardada) y con el secreto escrito (o el guardado). |
+| Enviar Notificación de Prueba | `POST /settings/branding/test-notification` | Igual, al endpoint de notificaciones, evento `notification.test`. |
+| Enviar push de prueba | `POST /settings/branding/test-push` | `App\Services\Push\FcmSender::test(usuario actual)`. Si el usuario no tiene `fcm_token` explica que debe iniciar sesión en la app con ese usuario. |
+| Probar geocodificación | `GET /geocode/reverse?lat=&lng=` | Dirección de la primera sucursal (o el centro de Lima) y el proveedor que respondió. |
+
+Las pruebas de webhook y notificaciones responden `{ok, status, ms, body|error, signed, delivery_id}`
+y quedan en el historial. La tabla "Últimos 20 envíos" sale de `GET /settings/branding/deliveries`
+(`{"success":true,"data":[{event, target, url, host, attempt, status, http_status, response_ms,
+response_body, error, created_at, next_retry_at}]}`), con botón Actualizar y refresco automático
+opcional cada 10 s.
+
+### Geocodificación y push
+
+- **Geocodificación:** `geocoding_provider` = `nominatim` (OpenStreetMap, gratis) o `google`
+  (usa `maps_api_key`; sin clave cae a OpenStreetMap). En una empresa el selector tiene
+  "Heredar de la plataforma". Lo usa el formulario de sucursales (abajo).
+- **Push:** `fcm_enabled` (Sí/No con el mismo selector de tres estados) y la cuenta de servicio
+  de Firebase, **solo en la fila global**: se pega el JSON o se sube el archivo; debe traer
+  `project_id`, `client_email` y `private_key` (`BrandingWebController::fcmServiceAccountInput`).
+  Se guarda cifrada; la empresa solo ve "Configurado por la plataforma" / "No configurado".
+
+### Búsqueda de direcciones en sucursales
+
+`resources/views/branches/form.blade.php`: sobre el mapa hay un buscador predictivo
+(`GET /geocode/search?q=`, 400 ms de espera, mínimo 3 caracteres, flechas/Enter/Escape). Elegir
+un resultado centra el mapa, mueve el pin y el círculo, y llena latitud, longitud, dirección y
+ciudad (deducida del texto del resultado). Al arrastrar el pin, hacer clic en el mapa, usar "mi
+ubicación" o cambiar las coordenadas, `GET /geocode/reverse` (600 ms de espera) llena la
+dirección si el usuario no la escribió a mano; si la escribió, ofrece "Usar dirección sugerida".
+Si el servicio no responde se muestra el error bajo el buscador y el formulario sigue funcionando.
 
 ### Refrigerio pagado (`lunch_paid`)
 
@@ -154,15 +221,19 @@ Admin). Un solo formulario con cuatro pestañas (`BrandingWebController::TABS`):
 |---|---|
 | `marca` | nombre comercial, contacto, logo claro/oscuro, favicon, splash, 4 colores con vista previa |
 | `app` | URL del servidor, versión mínima / última, forzar actualización, selfie, rostro, offline, horas offline, precisión GPS |
-| `reglas` | tolerancia, refrigerio, refrigerio pagado, radio de geocerca por defecto, política de geocerca (solo empresa) |
-| `integraciones` | webhook, secreto, clave de mapas, endpoint de notificaciones |
+| `reglas` | tolerancia, refrigerio, refrigerio pagado, radio de geocerca por defecto, política de geocerca (solo empresa), ubicación simulada (Bloquear / Marcar como sospechosa), diferencia máxima de hora |
+| `integraciones` | webhook, secreto, endpoint de notificaciones (con botones de prueba), geocodificación (proveedor, clave de Google, prueba), push (activar, cuenta de servicio de Firebase, prueba) e historial "Últimos 20 envíos" |
 
 - Con empresa en contexto edita su fila; en la **vista global** del Super Admin edita la fila de
   la plataforma (muestra un aviso y la ruta `settings.branding.update` está permitida en
   `SetWebTenant::GLOBAL_WRITE_ROUTES`).
 - Los placeholders muestran el valor heredado; dejar un campo de texto o número vacío = heredar.
+  Los selectores y radios de una empresa (`geocoding_provider`, `mock_location_policy`) tienen
+  una opción "Heredar de la plataforma" que guarda `NULL`.
+- Los campos de geocodificación, push y antifraude solo se muestran si su columna existe en
+  `tenant_settings` (`BrandingWebController::settingColumns()`).
 - Opciones Sí/No (`force_update`, `selfie_required`, `face_detection_required`,
-  `offline_mode_enabled`, `lunch_paid`; `TenantSettingsService::BOOLEANS`): en la fila de la
+  `offline_mode_enabled`, `lunch_paid`; `TenantSettingsService::BOOLEANS`, más `fcm_enabled`): en la fila de la
   plataforma son interruptores (desmarcado = No). En una empresa son un selector de tres
   estados (`resources/views/settings/partials/bool-setting.blade.php`): "Heredar de la
   plataforma (actual: Sí/No)" guarda `NULL`, "Sí" guarda `true` y "No" `false`. Con "Heredar" la
