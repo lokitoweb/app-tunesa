@@ -8,6 +8,7 @@ use App\Http\Controllers\Web\DocumentWebController;
 use App\Http\Controllers\Web\PayrollWebController;
 use App\Http\Controllers\Web\UniformWebController;
 use App\Http\Controllers\Web\AttendanceWebController;
+use App\Http\Controllers\Web\AuditLogWebController;
 use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\BranchWebController;
 use App\Http\Controllers\Web\DashboardController;
@@ -170,6 +171,9 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/{id}/edit', [CompanyWebController::class, 'edit'])->name('edit')->whereNumber('id');
         Route::put('/{id}', [CompanyWebController::class, 'update'])->name('update')->whereNumber('id');
     });
+
+    // Bitácora de auditoría
+    Route::get('/audit', [AuditLogWebController::class, 'index'])->name('audit.index')->middleware('can:audit.view');
 
     // Reportes analíticos y exportación
     Route::prefix('reports')->name('reports.')->middleware('can:reports.view')->group(function () {

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -21,6 +22,7 @@ class AuditLog extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        // Quien actuó puede ser el Super Admin (sin empresa) o un usuario ya dado de baja
+        return $this->belongsTo(User::class)->withoutGlobalScope(TenantScope::class)->withTrashed();
     }
 }

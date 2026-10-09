@@ -109,7 +109,7 @@
                 {!! $nav('payslips.index', [], 'file-earmark-text', 'Boletas de pago', request()->routeIs('payslips*')) !!}
             @endcan
 
-            @if($navUser->can('documents.review') || $navUser->can('uniforms.manage') || $navUser->can('payroll.export') || $navUser->can('company.configure') || $navUser->can('reports.view'))
+            @if($navUser->can('documents.review') || $navUser->can('uniforms.manage') || $navUser->can('payroll.export') || $navUser->can('company.configure') || $navUser->can('reports.view') || $navUser->can('audit.view'))
                 <div class="nav-heading">Legajo y planilla</div>
             @endif
             @can('documents.review')
@@ -126,6 +126,9 @@
             @endcan
             @can('company.configure')
                 {!! $nav('settings.mobile', [], 'phone', 'Configuración de la app', request()->routeIs('settings.mobile*')) !!}
+            @endcan
+            @can('audit.view')
+                {!! $nav('audit.index', [], 'journal-text', 'Bitácora de auditoría', request()->routeIs('audit*')) !!}
             @endcan
         </nav>
 
