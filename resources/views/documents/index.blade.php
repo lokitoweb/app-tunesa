@@ -92,6 +92,7 @@
                         <a href="{{ route('documents.open', $doc->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">
                             <i class="bi {{ $doc->isImage() ? 'bi-image' : 'bi-file-earmark-pdf' }} me-1"></i>Ver
                         </a>
+                        <div class="small text-truncate mt-1" style="max-width: 220px;" title="{{ $doc->original_name }}">{{ $doc->original_name }}</div>
                         <div class="small text-body-secondary font-monospace" title="SHA-256 {{ $doc->sha256 }}">{{ number_format($doc->size_bytes / 1024, 0) }} KB · {{ substr($doc->sha256, 0, 10) }}…</div>
                     </td>
                     <td class="small text-body-secondary text-nowrap">{{ $doc->created_at->format('d/m/Y H:i') }}</td>
@@ -135,7 +136,10 @@
         <ul class="list-group list-group-flush">
             @foreach($expiring as $doc)
                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <a href="{{ route('employees.file', $doc->user_id) }}" class="text-decoration-none">{{ $doc->user?->full_name }} · {{ EmployeeDocument::TYPES[$doc->type] }}</a>
+                    <div>
+                        <a href="{{ route('employees.file', $doc->user_id) }}" class="text-decoration-none">{{ $doc->user?->full_name }} · {{ EmployeeDocument::TYPES[$doc->type] }}</a>
+                        @include('partials.tenant-badge', ['tenantId' => $doc->tenant_id])
+                    </div>
                     @include('partials.badge', ['tone' => $doc->expires_at->isPast() ? 'danger' : 'warning', 'label' => ($doc->expires_at->isPast() ? 'Vencido ' : 'Vence ') . $doc->expires_at->format('d/m/Y')])
                 </li>
             @endforeach

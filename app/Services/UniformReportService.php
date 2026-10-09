@@ -19,11 +19,13 @@ class UniformReportService
             ->whereIn('role', ['employee', 'supervisor'])
             ->where('status', 'active')
             ->when($branchId, fn ($q) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $branchId)))
-            ->with(['uniformSize', 'branches:id,name', 'uniformDeliveries' => fn ($q) => $q->latest('delivered_at')])
+            ->with(['tenant:id,company_name', 'uniformSize', 'branches:id,name', 'uniformDeliveries' => fn ($q) => $q->latest('delivered_at')])
             ->orderBy('last_name')
             ->get()
             ->map(fn (User $u) => [
                 'id'             => $u->id,
+                'tenant_id'      => $u->tenant_id,
+                'company'        => $u->tenant?->company_name,
                 'employee_code'  => $u->employee_code,
                 'full_name'      => $u->full_name,
                 'position'       => $u->position,
@@ -64,11 +66,11 @@ class UniformReportService
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Código', 'Colaborador', 'Cargo', 'Sucursal', 'Polo/Camisa', 'Pantalón', 'Calzado', 'Tipo de calzado', 'Observaciones', 'Última entrega']);
+            fputcsv($out, ['Empresa', 'Código', 'Colaborador', 'Cargo', 'Sucursal', 'Polo/Camisa', 'Pantalón', 'Calzado', 'Tipo de calzado', 'Observaciones', 'Última entrega']);
             foreach ($rows as $r) {
                 fputcsv($out, array_map(
                     fn ($v) => is_string($v) && preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v,
-                    [$r['employee_code'], $r['full_name'], $r['position'], $r['branch'], $r['shirt_size'], $r['pants_size'], $r['shoe_size'], $r['shoe_type'], $r['notes'], $r['last_delivery']]
+                    [$r['company'], $r['employee_code'], $r['full_name'], $r['position'], $r['branch'], $r['shirt_size'], $r['pants_size'], $r['shoe_size'], $r['shoe_type'], $r['notes'], $r['last_delivery']]
                 ));
             }
             fclose($out);

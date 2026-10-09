@@ -151,4 +151,34 @@ class PanelFlowsTest extends TestCase
         // Los Super Admin no aparecen como colaboradores en la vista global
         $this->get('/employees')->assertOk()->assertViewHas('employees', fn ($rows) => $rows->pluck('id')->doesntContain($root->id));
     }
+
+    public function test_global_view_shows_company_in_uniforms_and_payroll(): void
+    {
+        $acme  = $this->makeTenant('acme', ['company_name' => 'Acme SAC']);
+        $other = $this->makeTenant('other', ['company_name' => 'Other SRL']);
+        $root  = $this->makeUser(null, 'super_admin');
+        $this->makeUser($acme, 'employee', ['first_name' => 'Lucia']);
+        $this->makeUser($other, 'employee', ['first_name' => 'Mateo']);
+
+        $this->actingAs($root);
+        $this->get('/uniforms')->assertOk()->assertSee('Lucia')->assertSee('Mateo')->assertSee('Acme SAC')->assertSee('Other SRL');
+        $this->get('/payroll')->assertOk()->assertSee('Acme SAC')->assertSee('Other SRL');
+
+        $csv = $this->get('/payroll/export')->assertOk()->streamedContent();
+        $this->assertStringContainsString('Empresa', strtok($csv, "\n"));
+        $this->assertStringContainsString('Other SRL', $csv);
+        $this->assertStringContainsString('Empresa', strtok($this->get('/uniforms/export')->streamedContent(), "\n"));
+    }
+
+    public function test_hr_duplicate_document_message_speaks_about_the_employee(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $hr   = $this->makeUser($acme, 'hr_manager');
+        $ana  = $this->makeUser($acme);
+        $pdf  = fn () => UploadedFile::fake()->createWithContent('dni.pdf', "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF");
+
+        $this->actingAs($hr)->post("/employees/{$ana->id}/file/documents", ['type' => 'dni', 'file' => $pdf()])->assertSessionHasNoErrors();
+        $this->post("/employees/{$ana->id}/file/documents", ['type' => 'dni', 'file' => $pdf()])
+            ->assertSessionHasErrors(['file' => 'Este archivo ya está en el legajo del colaborador.']);
+    }
 }

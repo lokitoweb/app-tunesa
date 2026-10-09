@@ -78,7 +78,7 @@
             <tbody>
             @forelse($rows as $r)
                 <tr>
-                    <td><div class="fw-semibold">{{ $r['full_name'] }}</div><div class="text-body-secondary">{{ $r['employee_code'] }} · {{ $r['document_number'] }}</div></td>
+                    <td><div class="fw-semibold">{{ $r['full_name'] }}</div><div class="text-body-secondary">{{ $r['employee_code'] }} · {{ $r['document_number'] }}</div>@include('partials.tenant-badge', ['tenantId' => $r['tenant_id']])</td>
                     <td>{{ $r['labor_regime'] ?? '—' }}</td>
                     <td class="text-end">{{ $r['days_worked'] }}</td>
                     <td class="text-end">{{ number_format($r['worked_hours'], 2) }}</td>
