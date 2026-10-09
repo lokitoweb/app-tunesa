@@ -28,7 +28,7 @@ class AttendanceWebController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         // Rango de fechas por defecto: hoy
         $startDate = $request->input('start_date', Carbon::today()->toDateString());
@@ -89,7 +89,7 @@ class AttendanceWebController extends Controller
      */
     public function show(int $id): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $attendance = Attendance::where('tenant_id', $tenantId)
             ->with(['user', 'branch', 'shift', 'reviewer'])
@@ -114,7 +114,7 @@ class AttendanceWebController extends Controller
      */
     public function reviewJustification(Request $request, int $id): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $attendance = Attendance::where('tenant_id', $tenantId)->findOrFail($id);
 
         $validated = $request->validate([

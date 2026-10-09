@@ -50,6 +50,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     // Dashboard en tiempo real
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/live-stream', [DashboardController::class, 'liveStream'])->name('dashboard.live-stream');
+    Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
 
     // Gestión de Colaboradores
     Route::prefix('employees')->name('employees.')->middleware('can:users.manage')->group(function () {

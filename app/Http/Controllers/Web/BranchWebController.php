@@ -23,7 +23,7 @@ class BranchWebController extends Controller
      */
     public function index(): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $branches = Branch::where('tenant_id', $tenantId)
             ->with('supervisor')
@@ -39,7 +39,7 @@ class BranchWebController extends Controller
      */
     public function create(): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $supervisors = User::where('tenant_id', $tenantId)
             ->whereIn('role', ['company_admin', 'hr_manager', 'supervisor'])
@@ -63,7 +63,7 @@ class BranchWebController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $validated = $request->validate([
             'name'                  => ['required', 'string', 'max:150'],
@@ -94,7 +94,7 @@ class BranchWebController extends Controller
      */
     public function edit(int $id): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $branch = Branch::where('tenant_id', $tenantId)->findOrFail($id);
 
         $supervisors = User::where('tenant_id', $tenantId)
@@ -114,7 +114,7 @@ class BranchWebController extends Controller
      */
     public function update(Request $request, int $id): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $branch = Branch::where('tenant_id', $tenantId)->findOrFail($id);
 
         $validated = $request->validate([
@@ -143,7 +143,7 @@ class BranchWebController extends Controller
      */
     public function destroy(int $id): RedirectResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
         $branch = Branch::where('tenant_id', $tenantId)->findOrFail($id);
 
         $branch->delete();

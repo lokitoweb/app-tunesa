@@ -5,9 +5,13 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Branch;
+use App\Models\Tenant;
 use App\Models\User;
+use App\Services\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +22,11 @@ use Illuminate\View\View;
  *
  * Administra el cuadro de mando en tiempo real con estadísticas operativas,
  * mapa interactivo Leaflet de geocercas y feed en vivo de marcaciones.
+ *
+ * La empresa sale del TenantContext (SetWebTenant), nunca de un dato nulo:
+ * los usuarios de empresa ven solo la suya; el Super Admin ve la empresa que
+ * eligió en el selector o, sin elegir, solo totales agregados de la plataforma
+ * (sin listados de personas, sucursales ni marcaciones de ninguna empresa).
  */
 class DashboardController extends Controller
 {
@@ -26,22 +35,22 @@ class DashboardController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = $this->resolveTenantId();
         $today = Carbon::today()->toDateString();
 
         // 1. Métricas / KPIs del día
         $kpis = $this->calculateDailyKpis($tenantId, $today);
 
-        // 2. Sucursales activas con geocercas para el mapa Leaflet
-        $branches = Branch::where('tenant_id', $tenantId)
+        // 2. Sucursales activas con geocercas y 3. marcaciones recientes:
+        //    solo dentro de una empresa; la vista de plataforma no lista registros.
+        $branches = $tenantId === null ? collect() : Branch::where('tenant_id', $tenantId)
             ->where('is_active', true)
             ->withCount(['employees' => function ($q) {
                 $q->where('status', 'active');
             }])
             ->get();
 
-        // 3. Marcaciones recientes del día con detalles y fotos
-        $recentAttendances = Attendance::where('tenant_id', $tenantId)
+        $recentAttendances = $tenantId === null ? collect() : Attendance::where('tenant_id', $tenantId)
             ->whereDate('work_date', $today)
             ->whereNotNull('clock_in_at')
             ->with(['user', 'branch'])
@@ -52,13 +61,42 @@ class DashboardController extends Controller
         // 4. Datos de puntualidad de los últimos 7 días para Chart.js
         $weeklyChart = $this->getWeeklyTrendData($tenantId);
 
+        $platform = $tenantId === null ? [
+            'tenants'        => Tenant::count(),
+            'active_tenants' => Tenant::where('status', 'active')->count(),
+        ] : null;
+
         return view('dashboard.index', compact(
             'kpis',
             'branches',
             'recentAttendances',
             'weeklyChart',
-            'today'
+            'today',
+            'platform'
         ));
+    }
+
+    /**
+     * Super Admin: elige la empresa a administrar (o vuelve a la vista de plataforma).
+     */
+    public function switchTenant(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403);
+
+        $validated = $request->validate([
+            'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
+        ]);
+
+        if (empty($validated['tenant_id'])) {
+            $request->session()->forget('admin_tenant_id');
+
+            return redirect()->route('dashboard')->with('success', 'Estás viendo el consolidado de la plataforma.');
+        }
+
+        $tenant = Tenant::findOrFail($validated['tenant_id']);
+        $request->session()->put('admin_tenant_id', $tenant->id);
+
+        return redirect()->route('dashboard')->with('success', "Ahora administras {$tenant->company_name}.");
     }
 
     /**
@@ -66,13 +104,13 @@ class DashboardController extends Controller
      */
     public function liveStream(Request $request): JsonResponse
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = $this->resolveTenantId();
         $today = Carbon::today()->toDateString();
 
         $kpis = $this->calculateDailyKpis($tenantId, $today);
 
         // Marcaciones del día con coordenadas para pintar pines sobre el mapa
-        $attendances = Attendance::where('tenant_id', $tenantId)
+        $attendances = $tenantId === null ? collect() : Attendance::where('tenant_id', $tenantId)
             ->whereDate('work_date', $today)
             ->whereNotNull('clock_in_at')
             ->with(['user:id,first_name,last_name,avatar_path,position', 'branch:id,name,latitude,longitude,allowed_radius_meters'])
@@ -111,14 +149,14 @@ class DashboardController extends Controller
     /**
      * Calcula los KPIs consolidados del día.
      */
-    private function calculateDailyKpis(int $tenantId, string $date): array
+    private function calculateDailyKpis(?int $tenantId, string $date): array
     {
-        $totalEmployees = User::where('tenant_id', $tenantId)
+        $totalEmployees = $this->forTenant(User::query(), $tenantId)
             ->where('role', 'employee')
             ->where('status', 'active')
             ->count();
 
-        $todayAttendances = Attendance::where('tenant_id', $tenantId)
+        $todayAttendances = $this->forTenant(Attendance::query(), $tenantId)
             ->whereDate('work_date', $date)
             ->get();
 
@@ -161,7 +199,7 @@ class DashboardController extends Controller
     /**
      * Obtiene los datos agrupados de los últimos 7 días para el gráfico.
      */
-    private function getWeeklyTrendData(int $tenantId): array
+    private function getWeeklyTrendData(?int $tenantId): array
     {
         $labels = [];
         $onTimeData = [];
@@ -173,7 +211,7 @@ class DashboardController extends Controller
             $dayStr = $day->toDateString();
             $labels[] = $day->isoFormat('ddd D');
 
-            $records = Attendance::where('tenant_id', $tenantId)
+            $records = $this->forTenant(Attendance::query(), $tenantId)
                 ->whereDate('work_date', $dayStr)
                 ->get();
 
@@ -188,6 +226,32 @@ class DashboardController extends Controller
             'late'    => $lateData,
             'absent'  => $absentData,
         ];
+    }
+
+    /**
+     * Empresa activa del TenantContext. Null solo para el Super Admin sin
+     * empresa elegida; cualquier otro usuario sin empresa queda fuera.
+     */
+    private function resolveTenantId(): ?int
+    {
+        $context = app(TenantContext::class);
+
+        if ($context->resolved()) {
+            return $context->id();
+        }
+
+        abort_unless(Auth::user()?->isSuperAdmin(), 403);
+
+        return null;
+    }
+
+    /**
+     * Filtra por empresa. Sin empresa (Super Admin) la consulta es un total
+     * agregado de la plataforma: los llamadores solo cuentan, nunca listan filas.
+     */
+    private function forTenant(Builder $query, ?int $tenantId): Builder
+    {
+        return $tenantId === null ? $query : $query->where('tenant_id', $tenantId);
     }
 
     /**

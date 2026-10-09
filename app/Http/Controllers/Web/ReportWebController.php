@@ -27,7 +27,7 @@ class ReportWebController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = current_tenant_id();
 
         $startDate = $request->input('start_date', Carbon::today()->startOfMonth()->toDateString());
         $endDate   = $request->input('end_date', Carbon::today()->toDateString());
@@ -83,7 +83,7 @@ class ReportWebController extends Controller
      */
     public function exportExcel(Request $request): StreamedResponse
     {
-        $tenantId  = Auth::user()->tenant_id;
+        $tenantId  = current_tenant_id();
         $startDate = $request->input('start_date', Carbon::today()->startOfMonth()->toDateString());
         $endDate   = $request->input('end_date', Carbon::today()->toDateString());
         $branchId  = $request->input('branch_id') ? (int) $request->input('branch_id') : null;
@@ -100,7 +100,7 @@ class ReportWebController extends Controller
      */
     public function exportPdf(Request $request): View
     {
-        $tenantId  = Auth::user()->tenant_id;
+        $tenantId  = current_tenant_id();
         $tenant    = Tenant::findOrFail($tenantId);
         $startDate = $request->input('start_date', Carbon::today()->startOfMonth()->toDateString());
         $endDate   = $request->input('end_date', Carbon::today()->toDateString());
