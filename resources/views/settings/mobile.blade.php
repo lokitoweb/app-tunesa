@@ -9,57 +9,61 @@
     $children = ['mobile_documents_upload' => 'mobile_documents_enabled', 'mobile_payment_info_edit' => 'mobile_payment_info_enabled', 'mobile_uniforms_edit' => 'mobile_uniforms_enabled'];
 @endphp
 
-<div class="page-head">
+<div class="page-header">
     <div>
         <h1>Configuración de la app móvil</h1>
         <p>Decide qué ve y qué puede editar el personal desde su celular. Los cambios aplican la próxima vez que abren la app.</p>
     </div>
 </div>
 
-@if ($errors->any())
-    <div class="card" style="margin-bottom: 1rem; border-color: rgba(239,68,68,0.3);"><div class="card-body" style="color: #fca5a5;">{{ $errors->first() }}</div></div>
-@endif
-
 <form method="POST" action="{{ route('settings.mobile.update') }}">
     @csrf @method('PUT')
 
-    <div class="grid-2" style="align-items: start;">
-        <div class="card">
-            <div class="card-header"><div class="card-title">Módulos y permisos</div></div>
-            @foreach (CompanyConfiguration::FLAGS as $flag => [$label, $desc])
-                <label class="switch-row {{ isset($children[$flag]) ? 'is-child' : '' }}" data-parent="{{ $children[$flag] ?? '' }}">
-                    <div>
-                        <div class="switch-title">{{ $label }}</div>
-                        <div class="switch-desc">{{ $desc }}</div>
-                    </div>
-                    <span class="switch">
-                        <input type="checkbox" name="{{ $flag }}" value="1" id="flag_{{ $flag }}" @checked($config->{$flag})>
-                        <span class="slider"></span>
-                    </span>
-                </label>
-            @endforeach
+    <div class="row g-3">
+        <div class="col-12 col-xl-7">
+            <div class="card border-0">
+                <div class="card-header border-0 pt-3"><h2 class="h6 fw-semibold mb-0">Módulos y permisos</h2></div>
+                <ul class="list-group list-group-flush">
+                    @foreach(CompanyConfiguration::FLAGS as $flag => [$label, $desc])
+                        <li class="list-group-item py-3 {{ isset($children[$flag]) ? 'ps-5' : '' }}" data-parent="{{ $children[$flag] ?? '' }}">
+                            <div class="form-check form-switch form-switch-lg d-flex justify-content-between align-items-center gap-3 mb-0 ps-0">
+                                <label class="form-check-label" for="flag_{{ $flag }}">
+                                    <span class="d-block fw-semibold">{{ $label }}</span>
+                                    <span class="d-block small text-body-secondary">{{ $desc }}</span>
+                                </label>
+                                <input class="form-check-input flex-shrink-0 ms-0" type="checkbox" role="switch" name="{{ $flag }}" value="1" id="flag_{{ $flag }}" @checked($config->{$flag})>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
         </div>
 
-        <div class="card">
-            <div class="card-header"><div class="card-title">Legajo obligatorio</div></div>
-            <div class="card-body">
-                <p class="text-muted" style="margin-bottom: 1rem;">Documentos que cuentan para el avance del onboarding de cada colaborador.</p>
-                @foreach (EmployeeDocument::TYPES as $type => $label)
-                    <label style="display: flex; gap: 10px; align-items: center; padding: 6px 0; color: var(--text-primary);">
-                        <input type="checkbox" name="required_documents[]" value="{{ $type }}" @checked(in_array($type, $config->requiredDocuments(), true))>
-                        {{ $label }}
-                    </label>
-                @endforeach
-
-                <div class="form-group" style="margin-top: 1.25rem;">
-                    <label class="form-label" for="max_upload_mb">Tamaño máximo por archivo (MB)</label>
-                    <input type="number" id="max_upload_mb" name="max_upload_mb" class="form-control" min="1" max="20" value="{{ $config->max_upload_mb }}" style="max-width: 120px;">
+        <div class="col-12 col-xl-5">
+            <div class="card border-0">
+                <div class="card-header border-0 pt-3">
+                    <h2 class="h6 fw-semibold mb-0">Legajo obligatorio</h2>
+                    <small class="text-body-secondary">Documentos que cuentan para el avance del onboarding.</small>
                 </div>
+                <div class="card-body">
+                    @foreach(EmployeeDocument::TYPES as $type => $label)
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="required_documents[]" value="{{ $type }}" id="req_{{ $type }}" @checked(in_array($type, $config->requiredDocuments(), true))>
+                            <label class="form-check-label" for="req_{{ $type }}">{{ $label }}</label>
+                        </div>
+                    @endforeach
 
-                <button class="btn btn-primary" style="margin-top: 1rem; width: 100%;">Guardar configuración</button>
-                @if ($config->updated_at)
-                    <p class="text-muted" style="font-size: 0.78rem; margin-top: 0.75rem;">Último cambio: {{ $config->updated_at->format('d/m/Y H:i') }}</p>
-                @endif
+                    <label class="form-label mt-3" for="max_upload_mb">Tamaño máximo por archivo</label>
+                    <div class="input-group" style="max-width: 160px;">
+                        <input type="number" id="max_upload_mb" name="max_upload_mb" class="form-control" min="1" max="20" value="{{ $config->max_upload_mb }}">
+                        <span class="input-group-text">MB</span>
+                    </div>
+
+                    <button class="btn btn-primary w-100 mt-4">Guardar configuración</button>
+                    @if($config->updated_at)
+                        <p class="small text-body-secondary mt-2 mb-0">Último cambio: {{ $config->updated_at->format('d/m/Y H:i') }}</p>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
@@ -68,12 +72,13 @@
 
 @section('scripts')
 <script>
-    // Un permiso de edición se desactiva visualmente si su módulo está apagado
-    document.querySelectorAll('.switch-row[data-parent]').forEach(row => {
+    // Un permiso de edición se desactiva si su módulo está apagado
+    document.querySelectorAll('[data-parent]').forEach((row) => {
         const parentId = row.dataset.parent;
         if (!parentId) return;
         const parent = document.getElementById('flag_' + parentId);
-        const sync = () => { row.style.opacity = parent.checked ? 1 : 0.45; row.querySelector('input').disabled = !parent.checked; };
+        const input = row.querySelector('input');
+        const sync = () => { row.classList.toggle('opacity-50', !parent.checked); input.disabled = !parent.checked; };
         parent.addEventListener('change', sync);
         sync();
     });

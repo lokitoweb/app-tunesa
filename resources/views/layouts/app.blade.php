@@ -1,283 +1,220 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Panel') — TuneSA SaaS</title>
+    <title>@yield('title', 'Panel') — TuneSA</title>
 
-    <!-- Google Fonts: Inter -->
+    {{-- Aplica el tema guardado antes de pintar para evitar parpadeo --}}
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('panel-theme');
+                if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-bs-theme', t);
+            } catch (e) {}
+        })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Leaflet Map CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-
-    <!-- Panel Design System -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="{{ asset('css/panel.css') }}">
 
     @php
         // Empresa activa (la del usuario, o la que eligió el Super Admin)
         $brand = app(\App\Services\TenantContext::class)->getOrNull() ?? Auth::user()?->tenant;
+        $brandColor = $brand && preg_match('/^#[0-9a-fA-F]{6}$/', (string) $brand->primary_color) ? $brand->primary_color : '#1E40AF';
+        [$br, $bg, $bb] = sscanf($brandColor, '#%02x%02x%02x');
     @endphp
-    @if($brand)
     <style>
-        /* Marca blanca: colores corporativos de la empresa */
-        :root { --primary: {{ $brand->primary_color }}; --primary-light: {{ $brand->primary_color }}; --primary-dark: {{ $brand->primary_color }}; --warning: {{ $brand->secondary_color }}; }
+        /* Marca blanca: color corporativo de la empresa */
+        :root { --brand: {{ $brandColor }}; --brand-rgb: {{ $br }}, {{ $bg }}, {{ $bb }}; }
     </style>
-    @endif
 
     @yield('styles')
 </head>
 <body>
-    <div class="app-layout">
-        <!-- SIDEBAR NAVEGACIÓN -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <a href="{{ route('dashboard') }}" class="brand-logo" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px;">
-                    <div style="width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                            <circle cx="12" cy="11" r="3"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <div style="font-size: 1.15rem; font-weight: 800; letter-spacing: -0.5px; color: #fff;">{{ $brand->company_name ?? 'TuneSA' }}</div>
-                        <div style="font-size: 0.68rem; text-transform: uppercase; color: #818cf8; font-weight: 600; letter-spacing: 0.5px;">Control Geocercas</div>
-                    </div>
-                </a>
-            </div>
+@php
+    $navUser = Auth::user();
+    // Sin empresa activa (Super Admin en el consolidado) no hay contadores por empresa
+    $hasTenant = app(\App\Services\TenantContext::class)->resolved();
+    $pendingApprovals = ! $hasTenant ? 0 : ($navUser->can('leave.approve_all')
+        ? \App\Models\LeaveRequest::where('status', 'pending')->count()
+            + ($navUser->can('attendance.review') ? \App\Models\Attendance::where('justification_status', 'pending')->count() : 0)
+        : ($navUser->can('leave.approve_team')
+            ? \App\Models\LeaveRequest::where('status', 'pending')->whereHas('employee.branches', fn ($q) => $q->where('branches.supervisor_id', $navUser->id))->count()
+            : 0));
+    $pendingDocs = $hasTenant && $navUser->can('documents.review')
+        ? \App\Models\EmployeeDocument::where('status', 'pending')->count()
+        : 0;
+    $nav = function (string $route, array $params, string $icon, string $label, bool $active, int $badge = 0) {
+        return view('layouts.partials.nav-link', compact('route', 'params', 'icon', 'label', 'active', 'badge'));
+    };
+@endphp
 
-            <!-- Menú Principal -->
-            @php
-                $navUser = Auth::user();
-                $pendingApprovals = $navUser->can('leave.approve_all')
-                    ? \App\Models\LeaveRequest::where('status', 'pending')->count()
-                        + ($navUser->can('attendance.review') ? \App\Models\Attendance::where('justification_status', 'pending')->count() : 0)
-                    : ($navUser->can('leave.approve_team')
-                        ? \App\Models\LeaveRequest::where('status', 'pending')->whereHas('employee.branches', fn ($q) => $q->where('branches.supervisor_id', $navUser->id))->count()
-                        : 0);
-            @endphp
-            <nav class="sidebar-nav">
-                <div class="nav-section-title">MONITOREO & ASISTENCIA</div>
-
-                <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-                    <span>Dashboard en Vivo</span>
-                </a>
-
-                @can('attendance.view_all')
-                <a href="{{ route('attendance.index') }}" class="nav-item {{ request()->routeIs('attendance*') && request('status') !== 'absent' ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <span>Marcaciones & GPS</span>
-                </a>
-                <a href="{{ route('attendance.index', ['status' => 'absent', 'start_date' => now()->startOfMonth()->toDateString(), 'end_date' => now()->toDateString()]) }}" class="nav-item {{ request()->routeIs('attendance*') && request('status') === 'absent' ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" x2="22" y1="8" y2="13"/><line x1="22" x2="17" y1="8" y2="13"/></svg>
-                    <span>Control de Faltas</span>
-                </a>
-                @endcan
-
-                @can('leave.approve_team')
-                <a href="{{ route('approvals.index') }}" class="nav-item {{ request()->routeIs('approvals*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    <span>Aprobaciones</span>
-                    @if($pendingApprovals > 0)<span class="nav-badge">{{ $pendingApprovals }}</span>@endif
-                </a>
-                @endcan
-
-                <div class="nav-section-title">ADMINISTRACIÓN & RRHH</div>
-
-                @can('users.manage')
-                <a href="{{ route('employees.index') }}" class="nav-item {{ request()->routeIs('employees*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <span>Colaboradores</span>
-                </a>
-                @endcan
-
-                @can('shifts.manage')
-                <a href="{{ route('shifts.index') }}" class="nav-item {{ request()->routeIs('shifts*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                    <span>Turnos & Horarios</span>
-                </a>
-                @endcan
-
-                @can('branches.manage')
-                <a href="{{ route('branches.index') }}" class="nav-item {{ request()->routeIs('branches*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                    <span>Sucursales & Geocercas</span>
-                </a>
-                @endcan
-
-                @can('payslips.manage')
-                <a href="{{ route('payslips.index') }}" class="nav-item {{ request()->routeIs('payslips*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
-                    <span>Boletas de Pago</span>
-                </a>
-                @endcan
-
-                @if($navUser->can('documents.review') || $navUser->can('uniforms.manage') || $navUser->can('payroll.export') || $navUser->can('company.configure'))
-                <div class="nav-section-title">LEGAJO & PLANILLA</div>
+<div class="panel-shell">
+    {{-- SIDEBAR: fijo en escritorio (lg+), offcanvas en móvil --}}
+    <aside id="sidebar" class="offcanvas-lg offcanvas-start panel-sidebar" tabindex="-1" aria-labelledby="sidebarLabel">
+        <div class="sidebar-brand">
+            <a href="{{ route('dashboard') }}" class="d-flex align-items-center gap-2 text-decoration-none">
+                @if($brand?->logo_path)
+                    <img src="{{ asset('storage/' . $brand->logo_path) }}" alt="" class="brand-logo">
+                @else
+                    <span class="brand-mark"><i class="bi bi-geo-alt-fill"></i></span>
                 @endif
+                <span class="lh-sm">
+                    <span id="sidebarLabel" class="d-block fw-semibold text-body text-truncate" style="max-width: 160px;">{{ $brand->company_name ?? 'TuneSA' }}</span>
+                    <small class="text-body-secondary">Asistencia y RRHH</small>
+                </span>
+            </a>
+            <button type="button" class="btn-close d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Cerrar menú"></button>
+        </div>
 
-                @can('documents.review')
-                @php $pendingDocs = \App\Models\EmployeeDocument::where('status', 'pending')->count(); @endphp
-                <a href="{{ route('documents.index') }}" class="nav-item {{ request()->routeIs('documents*') || request()->routeIs('employees.file*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M9 14l2 2 4-4"/></svg>
-                    <span>Legajos digitales</span>
-                    @if($pendingDocs > 0)<span class="nav-badge">{{ $pendingDocs }}</span>@endif
-                </a>
-                @endcan
+        <nav class="sidebar-nav" aria-label="Menú principal">
+            <div class="nav-heading">Monitoreo</div>
+            {!! $nav('dashboard', [], 'speedometer2', 'Dashboard', request()->routeIs('dashboard*')) !!}
 
-                @can('uniforms.manage')
-                <a href="{{ route('uniforms.index') }}" class="nav-item {{ request()->routeIs('uniforms*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
-                    <span>Dotación & tallas</span>
-                </a>
-                @endcan
+            @can('attendance.view_all')
+                {!! $nav('attendance.index', [], 'clock-history', 'Marcaciones y GPS', request()->routeIs('attendance*') && request('status') !== 'absent') !!}
+                {!! $nav('attendance.index', ['status' => 'absent', 'start_date' => now()->startOfMonth()->toDateString(), 'end_date' => now()->toDateString()], 'person-x', 'Control de faltas', request()->routeIs('attendance*') && request('status') === 'absent') !!}
+            @endcan
 
-                @can('payroll.export')
-                <a href="{{ route('payroll.index') }}" class="nav-item {{ request()->routeIs('payroll*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
-                    <span>Cruce con planilla</span>
-                </a>
-                @endcan
+            @can('leave.approve_team')
+                {!! $nav('approvals.index', [], 'check2-square', 'Aprobaciones', request()->routeIs('approvals*'), $pendingApprovals) !!}
+            @endcan
 
-                @can('company.configure')
-                <a href="{{ route('settings.mobile') }}" class="nav-item {{ request()->routeIs('settings.mobile*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                    <span>Configuración de la app</span>
-                </a>
-                @endcan
+            @if($navUser->can('users.manage') || $navUser->can('shifts.manage') || $navUser->can('branches.manage') || $navUser->can('payslips.manage'))
+                <div class="nav-heading">Administración</div>
+            @endif
+            @can('users.manage')
+                {!! $nav('employees.index', [], 'people', 'Colaboradores', request()->routeIs('employees.index', 'employees.create', 'employees.edit')) !!}
+            @endcan
+            @can('shifts.manage')
+                {!! $nav('shifts.index', [], 'calendar-week', 'Turnos y horarios', request()->routeIs('shifts*')) !!}
+            @endcan
+            @can('branches.manage')
+                {!! $nav('branches.index', [], 'pin-map', 'Sucursales y geocercas', request()->routeIs('branches*')) !!}
+            @endcan
+            @can('payslips.manage')
+                {!! $nav('payslips.index', [], 'file-earmark-text', 'Boletas de pago', request()->routeIs('payslips*')) !!}
+            @endcan
 
-                @can('reports.view')
-                <a href="{{ route('reports.index') }}" class="nav-item {{ request()->routeIs('reports*') ? 'active' : '' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>
-                    <span>Reportes & Nómina</span>
-                </a>
-                @endcan
-            </nav>
+            @if($navUser->can('documents.review') || $navUser->can('uniforms.manage') || $navUser->can('payroll.export') || $navUser->can('company.configure') || $navUser->can('reports.view'))
+                <div class="nav-heading">Legajo y planilla</div>
+            @endif
+            @can('documents.review')
+                {!! $nav('documents.index', [], 'folder-check', 'Legajos digitales', request()->routeIs('documents*', 'employees.file*'), $pendingDocs) !!}
+            @endcan
+            @can('uniforms.manage')
+                {!! $nav('uniforms.index', [], 'bag', 'Dotación y tallas', request()->routeIs('uniforms*')) !!}
+            @endcan
+            @can('payroll.export')
+                {!! $nav('payroll.index', [], 'cash-stack', 'Cruce con planilla', request()->routeIs('payroll*')) !!}
+            @endcan
+            @can('reports.view')
+                {!! $nav('reports.index', [], 'bar-chart-line', 'Reportes', request()->routeIs('reports*')) !!}
+            @endcan
+            @can('company.configure')
+                {!! $nav('settings.mobile', [], 'phone', 'Configuración de la app', request()->routeIs('settings.mobile*')) !!}
+            @endcan
+        </nav>
 
-            <!-- Tenant & Perfil Info -->
-            <div class="sidebar-footer" style="padding: 1.25rem; border-top: 1px solid var(--border); background: rgba(0,0,0,0.2);">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.75rem;">
-                    <div style="width: 36px; height: 36px; border-radius: 50%; background: #3730a3; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #c7d2fe; font-size: 0.85rem;">
-                        {{ strtoupper(substr(Auth::user()->first_name ?? 'U', 0, 1)) }}{{ strtoupper(substr(Auth::user()->last_name ?? 'A', 0, 1)) }}
-                    </div>
-                    <div style="overflow: hidden;">
-                        <div style="font-size: 0.85rem; font-weight: 600; color: #fff; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
-                            {{ Auth::user()->first_name ?? 'Usuario' }} {{ Auth::user()->last_name ?? '' }}
-                        </div>
-                        <div style="font-size: 0.72rem; color: #818cf8; text-transform: uppercase;">
-                            {{ str_replace('_', ' ', Auth::user()->role ?? 'Admin') }}
-                        </div>
-                    </div>
+        <div class="sidebar-footer">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="avatar avatar-sm">{{ strtoupper(mb_substr($navUser->first_name ?? 'U', 0, 1) . mb_substr($navUser->last_name ?? '', 0, 1)) }}</span>
+                <div class="overflow-hidden">
+                    <div class="small fw-semibold text-truncate">{{ $navUser->first_name }} {{ $navUser->last_name }}</div>
+                    <div class="small text-body-secondary text-capitalize">{{ str_replace('_', ' ', $navUser->role) }}</div>
                 </div>
-
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" style="width: 100%; padding: 0.5rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; color: #f87171; font-size: 0.8rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-                        Cerrar Sesión
-                    </button>
-                </form>
             </div>
-        </aside>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión</button>
+            </form>
+        </div>
+    </aside>
 
-        <!-- CONTENIDO PRINCIPAL -->
-        <main class="main-wrapper">
-            <!-- Topbar -->
-            <header class="topbar" style="height: var(--header-h); border-bottom: 1px solid var(--border); background: rgba(17, 18, 24, 0.8); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; position: sticky; top: 0; z-index: 100;">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <span style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(99, 102, 241, 0.15); color: #818cf8; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.25); font-weight: 600;">
-                        {{ $brand->company_name ?? 'Plataforma' }}
-                    </span>
-                    @if(Auth::user()->isSuperAdmin())
-                        <form method="POST" action="{{ route('admin.tenant.switch') }}" style="margin: 0;">
-                            @csrf
-                            <select name="tenant_id" onchange="this.form.submit()" aria-label="Empresa a administrar"
-                                    style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem;">
-                                <option value="">Consolidado de la plataforma</option>
-                                @foreach(\App\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
-                                    <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
-                                @endforeach
-                            </select>
-                        </form>
-                    @endif
-                    <span style="color: var(--text-muted);">•</span>
-                    <span style="font-size: 0.85rem; color: var(--text-secondary);" id="liveClock">
-                        {{ date('d M, Y') }}
-                    </span>
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 16px;">
-                    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #10b981;">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 10px #10b981; display: inline-block;"></span>
-                        GPS Engine Online
-                    </div>
-                </div>
-            </header>
-
-            <!-- Alertas Flash -->
-            <div style="padding: 1.5rem 2rem 0 2rem;">
-                @if (session('success'))
-                    <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 1rem 1.25rem; color: #6ee7b7; font-size: 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                        <span>{{ session('success') }}</span>
-                    </div>
-                @endif
-
-                @if (session('error'))
-                    <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 1rem 1.25rem; color: #fca5a5; font-size: 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
-                        <span>{{ session('error') }}</span>
-                    </div>
+    {{-- CONTENIDO --}}
+    <div class="panel-main">
+        <header class="panel-topbar">
+            <div class="d-flex align-items-center gap-2 min-w-0">
+                <button class="btn btn-light border d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Abrir menú">
+                    <i class="bi bi-list"></i>
+                </button>
+                <span class="badge text-bg-light border text-truncate d-none d-sm-inline-block">{{ $brand->company_name ?? 'Plataforma' }}</span>
+                @if($navUser->isSuperAdmin())
+                    <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0">
+                        @csrf
+                        <select name="tenant_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="Empresa a administrar" style="max-width: 240px;">
+                            <option value="">Consolidado de la plataforma</option>
+                            @foreach(\App\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
+                                <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
+                            @endforeach
+                        </select>
+                    </form>
                 @endif
             </div>
-
-            <!-- Contenido de la vista -->
-            <div class="content-container" style="padding: 1.5rem 2rem 3rem 2rem;">
-                @yield('content')
+            <div class="d-flex align-items-center gap-2">
+                <span class="small text-body-secondary d-none d-md-inline">{{ now()->isoFormat('dddd D [de] MMMM') }}</span>
+                <button type="button" class="btn btn-light border btn-sm" id="themeToggle" aria-label="Cambiar tema claro u oscuro" title="Tema claro / oscuro">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
             </div>
+        </header>
+
+        <main id="main-content" class="panel-content">
+            @foreach(['success' => 'success', 'info' => 'info', 'error' => 'danger'] as $key => $variant)
+                @if(session($key))
+                    <div class="alert alert-{{ $variant }} alert-dismissible fade show d-flex align-items-start gap-2" role="alert">
+                        <i class="bi {{ $variant === 'success' ? 'bi-check-circle' : ($variant === 'danger' ? 'bi-exclamation-octagon' : 'bi-info-circle') }}"></i>
+                        <div>{{ session($key) }}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
+                @endif
+            @endforeach
+
+            @if($errors->any())
+                <div class="alert alert-danger" role="alert">
+                    <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i> Revisa los datos del formulario</div>
+                    <ul class="mb-0 small">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            @yield('content')
         </main>
     </div>
+</div>
 
-    <!-- MODAL GLOBAL DE AUDITORÍA DE SELFIE / FOTO -->
-    <div id="photoModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center; padding: 2rem;">
-        <div style="position: relative; max-width: 600px; width: 100%; background: #111218; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.8);">
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);">
-                <div style="font-weight: 700; color: #fff; font-size: 1rem;" id="photoModalTitle">Evidencia Fotográfica de Marcación</div>
-                <button onclick="closePhotoModal()" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 1.5rem; line-height: 1;">&times;</button>
+{{-- Modal global para ver una selfie ampliada --}}
+<div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-6" id="photoModalTitle">Evidencia de marcación</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div style="padding: 1.5rem; text-align: center; background: #07080b;">
-                <img id="photoModalImg" src="" alt="Selfie de asistencia" style="max-height: 480px; max-width: 100%; border-radius: 12px; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
+            <div class="modal-body text-center bg-body-tertiary">
+                <img id="photoModalImg" src="" alt="Selfie de marcación" class="img-fluid rounded" style="max-height: 70vh;">
             </div>
-            <div style="padding: 1rem 1.5rem; font-size: 0.85rem; color: #94a3b8; border-top: 1px solid var(--border); display: flex; justify-content: space-between;" id="photoModalMeta">
-                <!-- Metadatos dinámicos -->
-            </div>
+            <div class="modal-footer justify-content-start small text-body-secondary" id="photoModalMeta"></div>
         </div>
     </div>
+</div>
 
-    <!-- Scripts Leaflet y Chart.js -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ asset('js/panel.js') }}"></script>
 
-    <script>
-        function openPhotoModal(imgUrl, title, meta) {
-            document.getElementById('photoModalImg').src = imgUrl;
-            document.getElementById('photoModalTitle').innerText = title || 'Evidencia de Marcación';
-            document.getElementById('photoModalMeta').innerHTML = meta || '';
-            document.getElementById('photoModal').style.display = 'flex';
-        }
-        function closePhotoModal() {
-            document.getElementById('photoModal').style.display = 'none';
-        }
-        // Cerrar con Escape
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closePhotoModal();
-        });
-    </script>
-
-    @yield('scripts')
+@yield('scripts')
 </body>
 </html>

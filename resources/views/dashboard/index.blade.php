@@ -1,433 +1,223 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard en Vivo')
-
-@section('styles')
-<style>
-    .kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1.25rem;
-        margin-bottom: 2rem;
-    }
-    .kpi-card {
-        background: var(--bg-surface, #111218);
-        border: 1px solid var(--border, rgba(255,255,255,0.07));
-        border-radius: var(--radius-lg, 16px);
-        padding: 1.5rem;
-        position: relative;
-        overflow: hidden;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-    }
-    .kpi-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-    .kpi-icon {
-        width: 42px;
-        height: 42px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .kpi-value {
-        font-size: 2.25rem;
-        font-weight: 800;
-        line-height: 1.1;
-        color: #fff;
-        margin-bottom: 0.35rem;
-    }
-    .kpi-label {
-        font-size: 0.85rem;
-        color: var(--text-secondary, #94a3b8);
-        font-weight: 500;
-    }
-    .dashboard-split {
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-    }
-    @media (max-width: 1024px) {
-        .dashboard-split {
-            grid-template-columns: 1fr;
-        }
-    }
-    .card-panel {
-        background: var(--bg-surface, #111218);
-        border: 1px solid var(--border, rgba(255,255,255,0.07));
-        border-radius: var(--radius-lg, 16px);
-        overflow: hidden;
-    }
-    .card-panel-header {
-        padding: 1.25rem 1.5rem;
-        border-bottom: 1px solid var(--border, rgba(255,255,255,0.07));
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .stream-list {
-        max-height: 480px;
-        overflow-y: auto;
-    }
-    .stream-item {
-        padding: 1rem 1.25rem;
-        border-bottom: 1px solid rgba(255,255,255,0.04);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        transition: background 0.2s;
-    }
-    .stream-item:hover {
-        background: rgba(255,255,255,0.02);
-    }
-    .pulse-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        display: inline-block;
-        animation: pulseAnimation 2s infinite;
-    }
-    @keyframes pulseAnimation {
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-        70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-    }
-</style>
-@endsection
+@section('title', 'Dashboard')
 
 @section('content')
 @if($platform)
-<div style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; padding: 1rem 1.25rem; color: #c7d2fe; font-size: 0.9rem; margin-bottom: 1.5rem;">
-    <strong>Consolidado de la plataforma:</strong> {{ $platform['active_tenants'] }} de {{ $platform['tenants'] }} empresas activas.
-    Las cifras suman todas las empresas. Para ver el mapa, las marcaciones y los módulos de una empresa, elígela en el selector superior.
-</div>
-@endif
-<div style="margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: gap;">
-    <div>
-        <h1 style="font-size: 1.85rem; font-weight: 800; color: #fff; margin-bottom: 0.25rem; letter-spacing: -0.5px;">Centro de Control en Tiempo Real</h1>
-        <p style="color: var(--text-secondary); font-size: 0.92rem;">Monitoreo satelital de geocercas, marcaciones con selfie y flujo de colaboradores hoy: {{ \Carbon\Carbon::parse($today)->isoFormat('dddd D [de] MMMM, Y') }}</p>
-    </div>
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <span class="pulse-dot" style="background: #10b981;"></span>
-        <span style="font-size: 0.85rem; color: #10b981; font-weight: 600;">Feed en vivo activo</span>
-    </div>
-</div>
-
-<!-- 1. KPI CARDS -->
-<div class="kpi-grid">
-    <div class="kpi-card" style="border-top: 3px solid #10b981;">
-        <div class="kpi-header">
-            <span class="kpi-label">PRESENTES HOY</span>
-            <div class="kpi-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
-            </div>
-        </div>
-        <div class="kpi-value" id="kpiPresent">{{ $kpis['present_count'] }}</div>
-        <div style="font-size: 0.8rem; color: #94a3b8;">
-            <span style="color: #10b981; font-weight: 600;">{{ $kpis['attendance_rate'] }}%</span> de asistencia total ({{ $kpis['total_employees'] }} colaboradores)
-        </div>
-    </div>
-
-    <div class="kpi-card" style="border-top: 3px solid #f59e0b;">
-        <div class="kpi-header">
-            <span class="kpi-label">TARDANZAS REGISTRADAS</span>
-            <div class="kpi-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            </div>
-        </div>
-        <div class="kpi-value" id="kpiLate" style="color: #fbbf24;">{{ $kpis['late_count'] }}</div>
-        <div style="font-size: 0.8rem; color: #94a3b8;">
-            Tolerancia configurada por turno
-        </div>
-    </div>
-
-    <div class="kpi-card" style="border-top: 3px solid #3b82f6;">
-        <div class="kpi-header">
-            <span class="kpi-label">EN DESCANSO / BREAK</span>
-            <div class="kpi-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg>
-            </div>
-        </div>
-        <div class="kpi-value" id="kpiBreak" style="color: #60a5fa;">{{ $kpis['on_break_count'] }}</div>
-        <div style="font-size: 0.8rem; color: #94a3b8;">
-            Pausa activa en este momento
-        </div>
-    </div>
-
-    <div class="kpi-card" style="border-top: 3px solid #ef4444;">
-        <div class="kpi-header">
-            <span class="kpi-label">AUSENTES / PENDIENTES</span>
-            <div class="kpi-icon" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
-            </div>
-        </div>
-        <div class="kpi-value" id="kpiAbsent" style="color: #f87171;">{{ $kpis['absent_count'] }}</div>
-        <div style="font-size: 0.8rem; color: #94a3b8;">
-            Sin registro de entrada hoy
-        </div>
-    </div>
-</div>
-
-<!-- 2. SPLIT: MAPA LEAFLET + LIVE STREAM -->
-<div class="dashboard-split">
-    <!-- MAPA LEAFLET INTERACTIVO -->
-    <div class="card-panel">
-        <div class="card-panel-header">
-            <div>
-                <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff;">Mapa Satelital de Geocercas & Marcaciones</h3>
-                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Visualización de radio perimetral y puntos GPS de colaboradores</p>
-            </div>
-            <div style="font-size: 0.8rem; color: #818cf8; background: rgba(99, 102, 241, 0.1); padding: 4px 10px; border-radius: 8px;">
-                {{ $branches->count() }} Sucursales Activas
-            </div>
-        </div>
-        <div id="liveMap" style="height: 520px; width: 100%; background: #0a0b0f;"></div>
-    </div>
-
-    <!-- FEED EN TIEMPO REAL -->
-    <div class="card-panel">
-        <div class="card-panel-header">
-            <div>
-                <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff;">Stream en Vivo</h3>
-                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Últimas marcaciones registradas</p>
-            </div>
-            <span style="font-size: 0.75rem; background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 3px 8px; border-radius: 6px; font-weight: 600;">
-                Auto-sync 15s
-            </span>
-        </div>
-        <div class="stream-list" id="streamContainer">
-            @forelse($recentAttendances as $att)
-                <div class="stream-item">
-                    <!-- Foto selfie o avatar -->
-                    @if($att->clock_in_photo)
-                        <img src="{{ attendance_photo_url($att, 'in') }}" alt="Selfie" style="width: 44px; height: 44px; border-radius: 10px; object-fit: cover; border: 2px solid {{ $att->clock_in_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openPhotoModal('{{ attendance_photo_url($att, 'in') }}', '{{ $att->user->first_name }} {{ $att->user->last_name }}', 'Hora: {{ $att->clock_in_at->format('H:i:s') }} | Distancia: {{ $att->clock_in_distance_meters }}m')">
-                    @else
-                        <div style="width: 44px; height: 44px; border-radius: 10px; background: #1e1b4b; display: flex; align-items: center; justify-content: center; color: #818cf8; font-weight: 700; font-size: 0.9rem;">
-                            {{ substr($att->user->first_name ?? 'U', 0, 1) }}{{ substr($att->user->last_name ?? 'U', 0, 1) }}
-                        </div>
-                    @endif
-
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: 600; color: #fff; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            {{ $att->user->first_name }} {{ $att->user->last_name }}
-                        </div>
-                        <div style="font-size: 0.75rem; color: #94a3b8;">
-                            {{ $att->branch->name ?? 'Sucursal' }} • 
-                            <span style="color: {{ $att->clock_in_within_geofence ? '#10b981' : '#ef4444' }};">
-                                {{ $att->clock_in_distance_meters }}m ({{ $att->clock_in_within_geofence ? 'Dentro' : 'Fuera' }})
-                            </span>
-                        </div>
-                    </div>
-
-                    <div style="text-align: right;">
-                        <div style="font-size: 0.85rem; font-weight: 700; color: #fff;">
-                            {{ $att->clock_in_at ? $att->clock_in_at->format('H:i') : '--:--' }}
-                        </div>
-                        <span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; display: inline-block;
-                            @if($att->status === 'present') background: rgba(16, 185, 129, 0.15); color: #10b981;
-                            @elseif($att->status === 'late') background: rgba(245, 158, 11, 0.15); color: #f59e0b;
-                            @else background: rgba(99, 102, 241, 0.15); color: #818cf8; @endif">
-                            {{ $att->status === 'present' ? 'Puntual' : ($att->status === 'late' ? 'Tardanza' : $att->status) }}
-                        </span>
-                    </div>
-                </div>
-            @empty
-                <div style="padding: 2.5rem 1rem; text-align: center; color: #64748b; font-size: 0.9rem;">
-                    No hay marcaciones registradas todavía hoy.
-                </div>
-            @endforelse
-        </div>
-    </div>
-</div>
-
-<!-- 3. GRÁFICO DE PUNTUALIDAD SEMANAL (CHART.JS) -->
-<div class="card-panel">
-    <div class="card-panel-header">
+    <div class="alert alert-primary d-flex gap-2" role="status">
+        <i class="bi bi-buildings"></i>
         <div>
-            <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff;">Tendencia de Asistencia y Puntualidad (Últimos 7 Días)</h3>
-            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">Comparativa diaria entre colaboradores puntuales, tardanzas e inasistencias</p>
+            <strong>Consolidado de la plataforma:</strong> {{ $platform['active_tenants'] }} de {{ $platform['tenants'] }} empresas activas.
+            Las cifras suman todas las empresas. Para ver el mapa, las marcaciones y los módulos de una empresa, elígela en el selector superior.
         </div>
     </div>
-    <div style="padding: 1.5rem; height: 320px;">
-        <canvas id="weeklyChartCanvas"></canvas>
+@endif
+
+<div class="page-header">
+    <div>
+        <h1>Dashboard</h1>
+        <p >Asistencia de hoy, {{ \Carbon\Carbon::parse($today)->isoFormat('dddd D [de] MMMM [de] YYYY') }}</p>
+    </div>
+    <div class="d-flex align-items-center gap-2 small text-success fw-semibold">
+        <span class="live-dot"></span> Actualización automática cada 15 s
+    </div>
+</div>
+
+{{-- 1. KPIs --}}
+@php
+    $kpiCards = [
+        ['id' => 'kpiPresent', 'label' => 'Presentes hoy', 'value' => $kpis['present_count'], 'icon' => 'person-check', 'tone' => 'success',
+         'hint' => "{$kpis['attendance_rate']}% de {$kpis['total_employees']} colaboradores"],
+        ['id' => 'kpiLate', 'label' => 'Tardanzas', 'value' => $kpis['late_count'], 'icon' => 'alarm', 'tone' => 'warning',
+         'hint' => 'Según la tolerancia de cada turno'],
+        ['id' => 'kpiBreak', 'label' => 'En descanso', 'value' => $kpis['on_break_count'], 'icon' => 'cup-hot', 'tone' => 'info',
+         'hint' => 'Pausa activa en este momento'],
+        ['id' => 'kpiAbsent', 'label' => 'Sin marcar', 'value' => $kpis['absent_count'], 'icon' => 'person-dash', 'tone' => 'danger',
+         'hint' => "{$kpis['out_of_geofence']} marcaciones fuera de geocerca"],
+    ];
+@endphp
+<div class="row g-3 mb-4">
+    @foreach($kpiCards as $card)
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 h-100 kpi-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="kpi-label">{{ $card['label'] }}</span>
+                        <span class="kpi-icon bg-{{ $card['tone'] }}-subtle text-{{ $card['tone'] }}-emphasis"><i class="bi bi-{{ $card['icon'] }}"></i></span>
+                    </div>
+                    <div class="kpi-value" id="{{ $card['id'] }}">{{ $card['value'] }}</div>
+                    <div class="small text-body-secondary mt-1">{{ $card['hint'] }}</div>
+                </div>
+            </div>
+        </div>
+    @endforeach
+</div>
+
+{{-- 2. Mapa + actividad reciente --}}
+<div class="row g-3 mb-4">
+    <div class="col-12 col-xl-8">
+        <div class="card border-0 h-100">
+            <div class="card-header border-0 pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h2 class="h6 fw-semibold mb-0">Mapa de geocercas y marcaciones</h2>
+                    <small class="text-body-secondary">Radio permitido de cada sucursal y ubicación GPS de cada marcación</small>
+                </div>
+                <span class="badge text-bg-light border">{{ $branches->count() }} sucursales activas</span>
+            </div>
+            <div class="card-body pt-2">
+                <div id="liveMap" class="map-frame rounded"></div>
+                <div class="d-flex flex-wrap gap-3 small text-body-secondary mt-2">
+                    <span><i class="bi bi-circle-fill text-primary"></i> Geocerca</span>
+                    <span><i class="bi bi-circle-fill text-success"></i> Dentro</span>
+                    <span><i class="bi bi-circle-fill text-danger"></i> Fuera</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-xl-4">
+        <div class="card border-0 h-100">
+            <div class="card-header border-0 pt-3">
+                <h2 class="h6 fw-semibold mb-0">Actividad reciente</h2>
+                <small class="text-body-secondary">Últimas entradas registradas hoy</small>
+            </div>
+            <div class="list-group list-group-flush stream-list" id="streamContainer">
+                @forelse($recentAttendances as $att)
+                    <div class="list-group-item d-flex align-items-center gap-3">
+                        @if($att->clock_in_photo)
+                            <img src="{{ attendance_photo_url($att, 'in') }}" alt="Selfie de {{ $att->user->first_name }}"
+                                 class="selfie-thumb {{ $att->clock_in_within_geofence ? '' : 'is-outside' }}"
+                                 data-photo="{{ attendance_photo_url($att, 'in') }}"
+                                 data-photo-title="{{ $att->user->first_name }} {{ $att->user->last_name }}"
+                                 data-photo-meta="Hora: {{ $att->clock_in_at->format('H:i:s') }} · Distancia: {{ $att->clock_in_distance_meters }} m">
+                        @else
+                            <span class="avatar">{{ mb_substr($att->user->first_name ?? 'U', 0, 1) }}{{ mb_substr($att->user->last_name ?? '', 0, 1) }}</span>
+                        @endif
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-semibold text-truncate">{{ $att->user->first_name }} {{ $att->user->last_name }}</div>
+                            <div class="small text-body-secondary text-truncate">
+                                {{ $att->branch->name ?? 'Sin sucursal' }} ·
+                                <span class="{{ $att->clock_in_within_geofence ? 'text-success' : 'text-danger' }}">{{ $att->clock_in_distance_meters }} m</span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-semibold">{{ $att->clock_in_at?->format('H:i') ?? '--:--' }}</div>
+                            @include('partials.attendance-status', ['status' => $att->status])
+                        </div>
+                    </div>
+                @empty
+                    <div class="empty-state"><i class="bi bi-inbox"></i>No hay marcaciones registradas hoy.</div>
+                @endforelse
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- 3. Tendencia semanal --}}
+<div class="card border-0">
+    <div class="card-header border-0 pt-3">
+        <h2 class="h6 fw-semibold mb-0">Puntualidad de los últimos 7 días</h2>
+        <small class="text-body-secondary">Puntuales, tardanzas y ausencias por día</small>
+    </div>
+    <div class="card-body" style="height: 320px;">
+        <canvas id="weeklyChartCanvas" aria-label="Gráfico de puntualidad semanal" role="img"></canvas>
     </div>
 </div>
 @endsection
 
 @section('scripts')
 <script>
-    // 1. INICIALIZACIÓN DEL MAPA LEAFLET
-    const branchesData = @json($branches);
-    let map;
-    let employeeMarkers = [];
+document.addEventListener('DOMContentLoaded', () => {
+    const branches = @json($branches);
+    const chartData = @json($weeklyChart);
+    const brand = Panel.cssVar('--brand') || '#1E40AF';
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Coordenadas centrales iniciales
-        let initialLat = -12.046374;
-        let initialLng = -77.042793;
+    // 1. Mapa (OpenStreetMap, sin API key)
+    const first = branches[0];
+    const map = L.map('liveMap', { scrollWheelZoom: false })
+        .setView(first ? [parseFloat(first.latitude), parseFloat(first.longitude)] : [-12.046374, -77.042793], first ? 14 : 11);
+    Panel.tiles(map);
 
-        if (branchesData.length > 0) {
-            initialLat = parseFloat(branchesData[0].latitude);
-            initialLng = parseFloat(branchesData[0].longitude);
-        }
-
-        map = L.map('liveMap', {
-            zoomControl: true,
-            scrollWheelZoom: true
-        }).setView([initialLat, initialLng], 14);
-
-        // Capa de mapa CartoDB Dark Matter (tema oscuro premium)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-            subdomains: 'abcd',
-            maxZoom: 19
-        }).addTo(map);
-
-        // Dibujar sucursales y sus geocercas permitidas (L.circle)
-        branchesData.forEach(branch => {
-            const lat = parseFloat(branch.latitude);
-            const lng = parseFloat(branch.longitude);
-            const radius = parseInt(branch.allowed_radius_meters) || 50;
-
-            // Círculo de geocerca permitido
-            L.circle([lat, lng], {
-                color: '#6366f1',
-                fillColor: '#6366f1',
-                fillOpacity: 0.15,
-                weight: 2,
-                radius: radius
-            }).addTo(map).bindPopup(`
-                <div style="color: #0f172a; padding: 4px;">
-                    <div style="font-weight: 700; font-size: 14px;">📍 ${branch.name}</div>
-                    <div style="font-size: 12px; color: #64748b;">${branch.address}</div>
-                    <div style="font-size: 11px; margin-top: 4px; color: #4338ca; font-weight: 600;">Radio Geocerca: ${radius} metros</div>
-                </div>
-            `);
-
-            // Pin del centro de la sucursal
-            L.marker([lat, lng]).addTo(map);
-        });
-
-        // 2. INICIALIZACIÓN DE CHART.JS
-        initWeeklyChart();
-
-        // 3. PRIMER RECARGA Y POLLING EN VIVO (CADA 15 SEGUNDOS)
-        fetchLiveUpdates();
-        setInterval(fetchLiveUpdates, 15000);
+    const bounds = [];
+    branches.forEach((b) => {
+        const center = [parseFloat(b.latitude), parseFloat(b.longitude)];
+        const radius = parseInt(b.allowed_radius_meters, 10) || 50;
+        L.circle(center, { radius, color: brand, fillColor: brand, fillOpacity: .12, weight: 2 })
+            .addTo(map)
+            .bindPopup(`<strong>${Panel.esc(b.name)}</strong><br><small>${Panel.esc(b.address || '')}</small><br><small>Radio: ${radius} m</small>`);
+        bounds.push(center);
     });
+    if (bounds.length > 1) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
 
-    // POLLING EN VIVO
-    function fetchLiveUpdates() {
-        fetch('{{ route('dashboard.live-stream') }}')
-            .then(res => res.json())
-            .then(data => {
+    // 2. Marcaciones en vivo
+    let markers = [];
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+    function refresh() {
+        fetch(@json(route('dashboard.live-stream')), { headers: { Accept: 'application/json' } })
+            .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+            .then((data) => {
                 if (!data.success) return;
+                setText('kpiPresent', data.kpis.present_count);
+                setText('kpiLate', data.kpis.late_count);
+                setText('kpiBreak', data.kpis.on_break_count);
+                setText('kpiAbsent', data.kpis.absent_count);
 
-                // Actualizar KPIs
-                document.getElementById('kpiPresent').innerText = data.kpis.present_count;
-                document.getElementById('kpiLate').innerText = data.kpis.late_count;
-                document.getElementById('kpiBreak').innerText = data.kpis.on_break_count;
-                document.getElementById('kpiAbsent').innerText = data.kpis.absent_count;
-
-                // Limpiar marcadores antiguos de colaboradores
-                employeeMarkers.forEach(m => map.removeLayer(m));
-                employeeMarkers = [];
-
-                // Renderizar nuevos marcadores en el mapa
-                data.attendances.forEach(att => {
-                    if (att.latitude && att.longitude) {
-                        const markerColor = att.within_geofence ? '#10b981' : '#ef4444';
-                        
-                        // Marcador circular personalizado
-                        const empIcon = L.divIcon({
-                            className: 'custom-emp-marker',
-                            html: `<div style="width: 22px; height: 22px; border-radius: 50%; background: ${markerColor}; border: 3px solid #fff; box-shadow: 0 0 10px ${markerColor};"></div>`,
-                            iconSize: [22, 22],
-                            iconAnchor: [11, 11]
+                markers.forEach((m) => map.removeLayer(m));
+                markers = data.attendances
+                    .filter((a) => a.latitude && a.longitude)
+                    .map((a) => {
+                        const color = a.within_geofence ? '#198754' : '#dc3545';
+                        const icon = L.divIcon({
+                            className: '',
+                            html: `<div class="emp-marker" style="width:18px;height:18px;background:${color}"></div>`,
+                            iconSize: [18, 18],
+                            iconAnchor: [9, 9],
                         });
-
-                        const empMarker = L.marker([att.latitude, att.longitude], { icon: empIcon })
-                            .addTo(map)
-                            .bindPopup(`
-                                <div style="color: #0f172a; padding: 4px; min-width: 180px;">
-                                    ${att.photo_url ? `<img src="${att.photo_url}" style="width: 100%; height: 90px; object-fit: cover; border-radius: 6px; margin-bottom: 6px;">` : ''}
-                                    <div style="font-weight: 700; font-size: 13px;">${att.user_name}</div>
-                                    <div style="font-size: 11px; color: #64748b;">${att.user_position}</div>
-                                    <div style="font-size: 11px; margin-top: 4px;">
-                                        <strong>Hora:</strong> ${att.clock_in_at || '--'} | <strong>Dist:</strong> ${att.distance_meters}m
-                                    </div>
-                                    <div style="margin-top: 4px; font-size: 11px; font-weight: 700; color: ${att.within_geofence ? '#059669' : '#dc2626'};">
-                                        ${att.within_geofence ? '✓ Dentro de Geocerca' : '⚠ Fuera de Geocerca'}
-                                    </div>
-                                </div>
-                            `);
-
-                        employeeMarkers.push(empMarker);
-                    }
-                });
+                        const photo = a.photo_url ? `<img src="${Panel.esc(a.photo_url)}" alt="" class="rounded mb-2" style="width:100%;height:90px;object-fit:cover">` : '';
+                        return L.marker([a.latitude, a.longitude], { icon }).addTo(map).bindPopup(`
+                            <div style="min-width:170px">${photo}
+                                <strong>${Panel.esc(a.user_name)}</strong><br>
+                                <small>${Panel.esc(a.user_position)} · ${Panel.esc(a.branch_name)}</small><br>
+                                <small>Hora: ${Panel.esc(a.clock_in_at || '--')} · ${Panel.esc(a.distance_meters ?? '-')} m</small><br>
+                                <small style="color:${color};font-weight:600">${a.within_geofence ? 'Dentro de la geocerca' : 'Fuera de la geocerca'}</small>
+                            </div>`);
+                    });
             })
-            .catch(err => console.error("Error sincronizando dashboard:", err));
+            .catch((err) => console.warn('No se pudo actualizar el dashboard', err));
     }
+    refresh();
+    setInterval(refresh, 15000);
 
-    // CHART.JS TENDENCIA
-    function initWeeklyChart() {
-        const chartData = @json($weeklyChart);
-        const ctx = document.getElementById('weeklyChartCanvas').getContext('2d');
-
-        new Chart(ctx, {
+    // 3. Gráfico semanal
+    let chart;
+    function drawChart() {
+        const text = Panel.cssVar('--bs-secondary-color');
+        const grid = Panel.cssVar('--bs-border-color');
+        if (chart) chart.destroy();
+        chart = new Chart(document.getElementById('weeklyChartCanvas'), {
             type: 'bar',
             data: {
                 labels: chartData.labels,
                 datasets: [
-                    {
-                        label: 'Puntuales',
-                        data: chartData.on_time,
-                        backgroundColor: '#10b981',
-                        borderRadius: 6,
-                    },
-                    {
-                        label: 'Tardanzas',
-                        data: chartData.late,
-                        backgroundColor: '#f59e0b',
-                        borderRadius: 6,
-                    },
-                    {
-                        label: 'Ausencias',
-                        data: chartData.absent,
-                        backgroundColor: '#ef4444',
-                        borderRadius: 6,
-                    }
-                ]
+                    { label: 'Puntuales', data: chartData.on_time, backgroundColor: '#198754', borderRadius: 4 },
+                    { label: 'Tardanzas', data: chartData.late, backgroundColor: '#f59e0b', borderRadius: 4 },
+                    { label: 'Ausencias', data: chartData.absent, backgroundColor: '#dc3545', borderRadius: 4 },
+                ],
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: { color: '#94a3b8', font: { family: 'Inter', size: 12 } }
-                    }
-                },
+                plugins: { legend: { labels: { color: text } } },
                 scales: {
-                    x: {
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#94a3b8', font: { family: 'Inter' } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#94a3b8', font: { family: 'Inter' } }
-                    }
-                }
-            }
+                    x: { grid: { display: false }, ticks: { color: text } },
+                    y: { beginAtZero: true, grid: { color: grid }, ticks: { color: text, precision: 0 } },
+                },
+            },
         });
     }
+    drawChart();
+    document.addEventListener('panel:theme', drawChart);
+});
 </script>
 @endsection

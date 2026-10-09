@@ -1,168 +1,158 @@
 @extends('layouts.app')
 
-@section('title', 'Control de Asistencias & GPS')
+@section('title', request('status') === 'absent' ? 'Control de faltas' : 'Marcaciones y GPS')
 
 @section('content')
-<div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+<div class="page-header">
     <div>
-        <h1 style="font-size: 1.75rem; font-weight: 800; color: #fff; margin-bottom: 0.25rem;">Registro de Asistencias & Auditoría GPS</h1>
-        <p style="color: var(--text-secondary); font-size: 0.9rem;">Inspección forense de marcaciones con selfies en tiempo real y cumplimiento de geocercas.</p>
+        <h1>{{ request('status') === 'absent' ? 'Control de faltas' : 'Marcaciones y GPS' }}</h1>
+        <p>Revisa cada marcación con su selfie, hora, sucursal y validación de geocerca.</p>
     </div>
-    <div style="display: flex; gap: 10px;">
-        <a href="{{ route('reports.export.excel', request()->all()) }}" class="btn" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; padding: 0.6rem 1.1rem; border-radius: 10px; text-decoration: none; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-            Exportar a Excel
-        </a>
+    <a href="{{ route('reports.export.excel', request()->all()) }}" class="btn btn-outline-success">
+        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exportar a Excel
+    </a>
+</div>
+
+{{-- Resumen del rango --}}
+@isset($summary)
+<div class="row g-3 mb-4">
+    @foreach([
+        ['Marcaciones', $summary['total'] ?? 0, 'list-check', 'primary'],
+        ['Puntuales', $summary['on_time'] ?? 0, 'check-circle', 'success'],
+        ['Tardanzas', $summary['late'] ?? 0, 'alarm', 'warning'],
+        ['Fuera de geocerca', $summary['out_of_geo'] ?? 0, 'geo-alt', 'danger'],
+    ] as [$label, $value, $icon, $tone])
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 h-100 kpi-card">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <span class="kpi-icon bg-{{ $tone }}-subtle text-{{ $tone }}-emphasis"><i class="bi bi-{{ $icon }}"></i></span>
+                    <div>
+                        <div class="kpi-label">{{ $label }}</div>
+                        <div class="fs-4 fw-bold">{{ $value }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endforeach
+</div>
+@endisset
+
+{{-- Filtros --}}
+<div class="card border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ route('attendance.index') }}" class="row g-3 align-items-end">
+            <div class="col-6 col-md-3 col-xl-2">
+                <label for="start_date" class="form-label small">Desde</label>
+                <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" class="form-control">
+            </div>
+            <div class="col-6 col-md-3 col-xl-2">
+                <label for="end_date" class="form-label small">Hasta</label>
+                <input type="date" id="end_date" name="end_date" value="{{ $endDate }}" class="form-control">
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <label for="branch_id" class="form-label small">Sucursal</label>
+                <select id="branch_id" name="branch_id" class="form-select">
+                    <option value="">Todas las sucursales</option>
+                    @foreach($branches as $b)
+                        <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <label for="status" class="form-label small">Estado</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="present" @selected(request('status') == 'present')>Puntual</option>
+                    <option value="late" @selected(request('status') == 'late')>Tardanza</option>
+                    <option value="absent" @selected(request('status') == 'absent')>Ausente</option>
+                    <option value="excused" @selected(request('status') == 'excused')>Justificado</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-5 col-xl-2">
+                <label for="search" class="form-label small">Colaborador</label>
+                <input type="search" id="search" name="search" value="{{ request('search') }}" placeholder="Nombre o código" class="form-control">
+            </div>
+            <div class="col-12 col-md-3 col-xl-1 d-grid">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- BARRA DE FILTROS -->
-<div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.5rem;">
-    <form method="GET" action="{{ route('attendance.index') }}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) auto; gap: 1rem; align-items: flex-end;">
-        <div>
-            <label style="display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Desde:</label>
-            <input type="date" name="start_date" value="{{ $startDate }}" class="form-control" style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 0.6rem; border-radius: 8px; width: 100%;">
-        </div>
-
-        <div>
-            <label style="display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Hasta:</label>
-            <input type="date" name="end_date" value="{{ $endDate }}" class="form-control" style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 0.6rem; border-radius: 8px; width: 100%;">
-        </div>
-
-        <div>
-            <label style="display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Sucursal / Obra:</label>
-            <select name="branch_id" class="form-control" style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 0.6rem; border-radius: 8px; width: 100%;">
-                <option value="">Todas las sucursales</option>
-                @foreach($branches as $b)
-                    <option value="{{ $b->id }}" {{ request('branch_id') == $b->id ? 'selected' : '' }}>{{ $b->name }}</option>
-                @endforeach
-            </select>
-        </div>
-
-        <div>
-            <label style="display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Estado:</label>
-            <select name="status" class="form-control" style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 0.6rem; border-radius: 8px; width: 100%;">
-                <option value="">Todos los estados</option>
-                <option value="present" {{ request('status') == 'present' ? 'selected' : '' }}>Puntual</option>
-                <option value="late" {{ request('status') == 'late' ? 'selected' : '' }}>Tardanza</option>
-                <option value="absent" {{ request('status') == 'absent' ? 'selected' : '' }}>Ausente</option>
-                <option value="excused" {{ request('status') == 'excused' ? 'selected' : '' }}>Justificado</option>
-            </select>
-        </div>
-
-        <div>
-            <label style="display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Buscar Empleado:</label>
-            <input type="text" name="search" value="{{ request('search') }}" placeholder="Nombre o código..." class="form-control" style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 0.6rem; border-radius: 8px; width: 100%;">
-        </div>
-
-        <div>
-            <button type="submit" style="background: #6366f1; border: none; color: #fff; padding: 0.65rem 1.25rem; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                Filtrar
-            </button>
-        </div>
-    </form>
-</div>
-
-<!-- TABLA DE MARCADORES -->
-<div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden;">
-    <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+{{-- Tabla --}}
+<div class="card border-0">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
             <thead>
-                <tr style="border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); color: #94a3b8;">
-                    <th style="padding: 1rem 1.25rem;">Colaborador</th>
-                    <th style="padding: 1rem;">Fecha</th>
-                    <th style="padding: 1rem;">Selfie Entrada</th>
-                    <th style="padding: 1rem;">Hora Entrada</th>
-                    <th style="padding: 1rem;">GPS & Distancia</th>
-                    <th style="padding: 1rem;">Hora Salida</th>
-                    <th style="padding: 1rem;">Total Horas</th>
-                    <th style="padding: 1rem;">Estado</th>
-                    <th style="padding: 1rem; text-align: center;">Acciones</th>
+                <tr>
+                    <th>Colaborador</th>
+                    <th>Fecha</th>
+                    <th>Selfie</th>
+                    <th>Entrada</th>
+                    <th>Geocerca</th>
+                    <th>Salida</th>
+                    <th>Horas</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($attendances as $att)
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s;">
-                        <td style="padding: 1rem 1.25rem;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <div style="width: 36px; height: 36px; border-radius: 50%; background: #1e1b4b; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #818cf8; font-size: 0.8rem;">
-                                    {{ substr($att->user->first_name ?? 'U', 0, 1) }}{{ substr($att->user->last_name ?? 'A', 0, 1) }}
-                                </div>
-                                <div>
-                                    <div style="font-weight: 600; color: #fff;">{{ $att->user->first_name ?? 'N/A' }} {{ $att->user->last_name ?? '' }}</div>
-                                    <div style="font-size: 0.75rem; color: #94a3b8;">{{ $att->user->employee_code ?? 'EMP' }} • {{ $att->branch->name ?? 'Sucursal' }}</div>
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="avatar avatar-sm">{{ mb_substr($att->user->first_name ?? 'U', 0, 1) }}{{ mb_substr($att->user->last_name ?? '', 0, 1) }}</span>
+                                <div class="min-w-0">
+                                    <div class="fw-semibold text-truncate">{{ $att->user->first_name ?? 'N/A' }} {{ $att->user->last_name ?? '' }}</div>
+                                    <div class="small text-body-secondary text-truncate">{{ $att->user->employee_code ?? '—' }} · {{ $att->branch->name ?? 'Sin sucursal' }}</div>
                                 </div>
                             </div>
                         </td>
-                        <td style="padding: 1rem; color: #cbd5e1; white-space: nowrap;">
-                            {{ $att->work_date ? $att->work_date->format('d/m/Y') : '--' }}
-                        </td>
-                        <td style="padding: 1rem;">
+                        <td class="text-nowrap">{{ $att->work_date?->format('d/m/Y') ?? '--' }}</td>
+                        <td>
                             @if($att->clock_in_photo)
-                                <img src="{{ attendance_photo_url($att, 'in') }}" alt="Selfie" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 2px solid {{ $att->clock_in_within_geofence ? '#10b981' : '#ef4444' }}; cursor: pointer;" onclick="openEvidence({{ $att->id }})" title="Ver selfie, mapa y geocerca">
+                                <img src="{{ attendance_photo_url($att, 'in') }}" alt="Selfie de entrada"
+                                     class="selfie-thumb {{ $att->clock_in_within_geofence ? '' : 'is-outside' }}"
+                                     role="button" onclick="openEvidence({{ $att->id }})" title="Ver selfie, mapa y geocerca">
                             @else
-                                <span style="font-size: 0.75rem; color: #64748b;">Sin foto</span>
+                                <span class="small text-body-secondary">Sin foto</span>
                             @endif
                         </td>
-                        <td style="padding: 1rem; color: #fff; font-weight: 600;">
-                            {{ $att->clock_in_at ? $att->clock_in_at->format('H:i:s') : '--:--:--' }}
+                        <td class="text-nowrap">
+                            <span class="fw-semibold">{{ $att->clock_in_at?->format('H:i:s') ?? '--:--:--' }}</span>
                             @if($att->late_minutes > 0)
-                                <div style="font-size: 0.72rem; color: #f59e0b; font-weight: normal;">+{{ $att->late_minutes }}m retardo</div>
+                                <div class="small text-warning-emphasis">+{{ $att->late_minutes }} min</div>
                             @endif
                         </td>
-                        <td style="padding: 1rem;">
+                        <td class="text-nowrap">
                             @if($att->clock_in_distance_meters !== null)
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <span style="font-size: 0.8rem; font-weight: 700; color: {{ $att->clock_in_within_geofence ? '#10b981' : '#ef4444' }};">
-                                        {{ $att->clock_in_distance_meters }}m
-                                    </span>
-                                    <span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; {{ $att->clock_in_within_geofence ? 'background: rgba(16,185,129,0.15); color: #10b981;' : 'background: rgba(239,68,68,0.15); color: #ef4444;' }}">
-                                        {{ $att->clock_in_within_geofence ? 'En Geocerca' : 'Fuera' }}
-                                    </span>
-                                </div>
+                                <span class="badge rounded-pill {{ $att->clock_in_within_geofence ? 'bg-success-subtle text-success-emphasis' : 'bg-danger-subtle text-danger-emphasis' }}">
+                                    {{ $att->clock_in_within_geofence ? 'Dentro' : 'Fuera' }} · {{ $att->clock_in_distance_meters }} m
+                                </span>
                             @else
-                                <span style="color: #64748b; font-size: 0.8rem;">No registrado</span>
+                                <span class="small text-body-secondary">No registrado</span>
                             @endif
                         </td>
-                        <td style="padding: 1rem; color: #cbd5e1;">
-                            {{ $att->clock_out_at ? $att->clock_out_at->format('H:i:s') : '--:--:--' }}
-                        </td>
-                        <td style="padding: 1rem; color: #fff; font-weight: 600;">
-                            {{ number_format((float) ($att->worked_hours ?? 0), 2) }} hrs
-                        </td>
-                        <td style="padding: 1rem;">
-                            <span style="padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;
-                                @if($att->status === 'present') background: rgba(16,185,129,0.15); color: #10b981;
-                                @elseif($att->status === 'late') background: rgba(245,158,11,0.15); color: #f59e0b;
-                                @elseif($att->status === 'excused') background: rgba(59,130,246,0.15); color: #60a5fa;
-                                @else background: rgba(239,68,68,0.15); color: #f87171; @endif">
-                                {{ ucfirst($att->status) }}
-                            </span>
-                        </td>
-                        <td style="padding: 1rem; text-align: center;">
-                            <button type="button" onclick="openEvidence({{ $att->id }})" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: rgba(16,185,129,0.15); color: #10b981; border: none; cursor: pointer; margin-right: 4px;" title="Visor rápido: selfie y mapa">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <td class="text-nowrap">{{ $att->clock_out_at?->format('H:i:s') ?? '--:--:--' }}</td>
+                        <td class="text-nowrap">{{ number_format((float) ($att->worked_hours ?? 0), 2) }} h</td>
+                        <td>@include('partials.attendance-status', ['status' => $att->status])</td>
+                        <td class="text-end text-nowrap">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="openEvidence({{ $att->id }})" title="Ver selfie y mapa" aria-label="Ver selfie y mapa">
+                                <i class="bi bi-geo-alt"></i>
                             </button>
-                            <a href="{{ route('attendance.show', $att->id) }}" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: rgba(99,102,241,0.15); color: #818cf8; text-decoration: none;" title="Ver auditoría completa">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <a href="{{ route('attendance.show', $att->id) }}" class="btn btn-sm btn-outline-secondary" title="Auditoría completa" aria-label="Auditoría completa">
+                                <i class="bi bi-eye"></i>
                             </a>
                         </td>
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="9" style="padding: 3rem; text-align: center; color: #64748b;">
-                            No se encontraron registros de asistencia para los filtros seleccionados.
-                        </td>
-                    </tr>
+                    <tr><td colspan="9"><div class="empty-state"><i class="bi bi-inbox"></i>No hay marcaciones para los filtros seleccionados.</div></td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
-
     @if($attendances->hasPages())
-        <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border);">
-            {{ $attendances->links() }}
-        </div>
+        <div class="card-footer bg-transparent">{{ $attendances->links() }}</div>
     @endif
 </div>
 

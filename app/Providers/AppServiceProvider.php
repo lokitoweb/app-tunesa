@@ -6,6 +6,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -25,6 +26,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // El panel web usa Bootstrap 5
+        Paginator::useBootstrapFive();
+
         // Límite usado por el grupo 'api' en bootstrap/app.php (ThrottleRequests:api)
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
