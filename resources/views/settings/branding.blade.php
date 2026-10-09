@@ -40,7 +40,7 @@
 <div class="page-header">
     <div>
         <h1>Marca y app</h1>
-        <p>Logo, colores, comportamiento de la app móvil y reglas de marcación de {{ $ownerName }}.</p>
+        <p>Logo, colores, comportamiento de la app móvil y reglas de marcación de {{ rtrim($ownerName, '.') }}.</p>
     </div>
     <a href="{{ route('settings.mobile') }}" class="btn btn-outline-secondary"><i class="bi bi-phone me-1"></i> Módulos visibles en la app</a>
 </div>
