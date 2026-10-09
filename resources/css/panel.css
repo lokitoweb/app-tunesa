@@ -1089,3 +1089,24 @@ select.form-control { cursor: pointer; }
     .page-wrapper { padding: 16px; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* =========================================================================
+   FASE 2: utilidades para turnos, aprobaciones y carga masiva
+   ========================================================================= */
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+.page-head h1 { font-size: 1.75rem; font-weight: 800; color: #fff; margin-bottom: 0.25rem; }
+.page-head p { color: var(--text-secondary); font-size: 0.9rem; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.tabs { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+.tab { padding: 8px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 600; }
+.tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.day-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+.day-picker label { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+.text-muted { color: var(--text-muted); }
+.inline-form { display: inline; }
+.result-list { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+.result-list li { padding: 6px 0; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+.result-list li.ok { color: #6ee7b7; }
+.result-list li.err { color: #fca5a5; }

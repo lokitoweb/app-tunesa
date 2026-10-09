@@ -47,10 +47,10 @@
             <label style="display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Estado:</label>
             <select name="status" class="form-control" style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 0.6rem; border-radius: 8px; width: 100%;">
                 <option value="">Todos</option>
-                <option value="on_time" {{ $status == 'on_time' ? 'selected' : '' }}>Puntual</option>
+                <option value="present" {{ $status == 'present' ? 'selected' : '' }}>Puntual</option>
                 <option value="late" {{ $status == 'late' ? 'selected' : '' }}>Tardanza</option>
                 <option value="absent" {{ $status == 'absent' ? 'selected' : '' }}>Inasistencia</option>
-                <option value="justified" {{ $status == 'justified' ? 'selected' : '' }}>Justificado</option>
+                <option value="excused" {{ $status == 'excused' ? 'selected' : '' }}>Justificado</option>
             </select>
         </div>
 
@@ -152,7 +152,7 @@
                         </td>
                         <td style="padding: 0.85rem;">
                             <span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 4px;
-                                @if($att->status === 'on_time') background: rgba(16,185,129,0.15); color: #10b981;
+                                @if($att->status === 'present') background: rgba(16,185,129,0.15); color: #10b981;
                                 @elseif($att->status === 'late') background: rgba(245,158,11,0.15); color: #f59e0b;
                                 @else background: rgba(99,102,241,0.15); color: #818cf8; @endif">
                                 {{ ucfirst($att->status) }}

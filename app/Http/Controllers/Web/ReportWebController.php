@@ -51,7 +51,7 @@ class ReportWebController extends Controller
         // Estadísticas agregadas
         $allRecords = (clone $query)->get();
         $totalRecords = $allRecords->count();
-        $onTimeCount  = $allRecords->where('status', 'on_time')->count();
+        $onTimeCount  = $allRecords->where('status', 'present')->count();
         $lateCount    = $allRecords->filter(fn($r) => $r->status === 'late' || ($r->late_minutes ?? 0) > 0)->count();
         $absentCount  = $allRecords->where('status', 'absent')->count();
         $totalHours   = $allRecords->sum('worked_hours');

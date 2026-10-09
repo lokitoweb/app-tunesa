@@ -43,10 +43,10 @@
             <label style="display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.4rem;">Estado:</label>
             <select name="status" class="form-control" style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 0.6rem; border-radius: 8px; width: 100%;">
                 <option value="">Todos los estados</option>
-                <option value="on_time" {{ request('status') == 'on_time' ? 'selected' : '' }}>Puntual</option>
+                <option value="present" {{ request('status') == 'present' ? 'selected' : '' }}>Puntual</option>
                 <option value="late" {{ request('status') == 'late' ? 'selected' : '' }}>Tardanza</option>
                 <option value="absent" {{ request('status') == 'absent' ? 'selected' : '' }}>Ausente</option>
-                <option value="justified" {{ request('status') == 'justified' ? 'selected' : '' }}>Justificado</option>
+                <option value="excused" {{ request('status') == 'excused' ? 'selected' : '' }}>Justificado</option>
             </select>
         </div>
 
@@ -132,9 +132,9 @@
                         </td>
                         <td style="padding: 1rem;">
                             <span style="padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;
-                                @if($att->status === 'on_time') background: rgba(16,185,129,0.15); color: #10b981;
+                                @if($att->status === 'present') background: rgba(16,185,129,0.15); color: #10b981;
                                 @elseif($att->status === 'late') background: rgba(245,158,11,0.15); color: #f59e0b;
-                                @elseif($att->status === 'justified') background: rgba(59,130,246,0.15); color: #60a5fa;
+                                @elseif($att->status === 'excused') background: rgba(59,130,246,0.15); color: #60a5fa;
                                 @else background: rgba(239,68,68,0.15); color: #f87171; @endif">
                                 {{ ucfirst($att->status) }}
                             </span>

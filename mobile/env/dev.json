@@ -1,0 +1,6 @@
+{
+  "ENV_NAME": "dev",
+  "API_BASE_URL": "http://10.0.2.2:8000",
+  "DEFAULT_TENANT": "empresa-demo",
+  "MAX_GPS_ACCURACY": "100"
+}

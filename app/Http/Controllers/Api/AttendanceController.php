@@ -57,6 +57,10 @@ class AttendanceController extends Controller
      */
     public function clockIn(ClockInRequest $request): JsonResponse
     {
+        if ($rejection = $this->rejectUntrustedLocation($request)) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->clockIn(
                 employee:  $request->user(),
@@ -148,6 +152,10 @@ class AttendanceController extends Controller
      */
     public function clockOut(ClockOutRequest $request): JsonResponse
     {
+        if ($rejection = $this->rejectUntrustedLocation($request)) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->clockOut(
                 employee:  $request->user(),
@@ -699,6 +707,38 @@ class AttendanceController extends Controller
 
         // Jornada completa
         return ['action' => 'completed', 'label' => 'Jornada Completada', 'icon' => 'check_circle'];
+    }
+
+    /**
+     * Anti-fraude: rechaza la marcación si la app detectó ubicación simulada
+     * (mock GPS) o si la precisión del GPS es peor que el máximo permitido.
+     */
+    private function rejectUntrustedLocation(Request $request): ?JsonResponse
+    {
+        if (config('attendance.reject_mock_location') && $request->boolean('is_mocked')) {
+            logger()->warning('Marcación con ubicación simulada rechazada', [
+                'user_id'   => $request->user()->id,
+                'tenant_id' => $request->user()->tenant_id,
+                'device_id' => $request->input('device_id'),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Se detectó una ubicación simulada. Desactiva las apps de GPS falso para marcar.',
+                'code'    => 'MOCK_LOCATION_DETECTED',
+            ], 422);
+        }
+
+        $maxAccuracy = (int) config('attendance.max_gps_accuracy_meters');
+        if ($maxAccuracy > 0 && $request->filled('accuracy_meters') && (float) $request->input('accuracy_meters') > $maxAccuracy) {
+            return response()->json([
+                'success' => false,
+                'message' => "La precisión del GPS es baja ({$request->input('accuracy_meters')} m). Sal a un lugar despejado e intenta de nuevo.",
+                'code'    => 'GPS_ACCURACY_TOO_LOW',
+            ], 422);
+        }
+
+        return null;
     }
 
     /**

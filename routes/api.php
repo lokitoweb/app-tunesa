@@ -144,6 +144,7 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.scope'])->group(function ()
 
         // Nómina / Boletas
         Route::middleware('permission:payslips.manage')->group(function () {
+            Route::post('payslips/bulk', [PayslipController::class, 'bulkStore']);
             Route::apiResource('payslips', PayslipController::class)->except(['index', 'show']);
             Route::post('payslips/{id}/publish',     [PayslipController::class, 'publish']);
             Route::get('payslips/employee/{userId}', [PayslipController::class, 'byEmployee']);
