@@ -15,6 +15,7 @@ use App\Http\Controllers\Web\BranchWebController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\EmployeeController;
 use App\Http\Controllers\Web\HolidayWebController;
+use App\Http\Controllers\Web\HoursReportWebController;
 use App\Http\Controllers\Web\NotificationWebController;
 use App\Http\Controllers\Web\PasswordResetController;
 use App\Http\Controllers\Web\PayslipWebController;
@@ -199,5 +200,15 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [ReportWebController::class, 'index'])->name('index');
         Route::get('/export/excel', [ReportWebController::class, 'exportExcel'])->name('export.excel')->middleware('can:reports.export');
         Route::get('/export/pdf', [ReportWebController::class, 'exportPdf'])->name('export.pdf')->middleware('can:reports.export');
+
+        // Reporte de horas y faltas (vista previa + Excel / PDF)
+        Route::get('/hours', [HoursReportWebController::class, 'index'])->name('hours');
+        Route::get('/hours/excel', [HoursReportWebController::class, 'excel'])->name('hours.excel')->middleware('can:reports.export');
+        Route::get('/hours/pdf', [HoursReportWebController::class, 'pdf'])->name('hours.pdf')->middleware('can:reports.export');
+
+        // Reporte mensual automático (enlace firmado de la notificación)
+        Route::get('/monthly/{tenant}/{period}', [HoursReportWebController::class, 'monthly'])->name('monthly.download')
+            ->whereNumber('tenant')->where('period', '\\d{4}-\\d{2}')
+            ->middleware(['signed', 'can:reports.export']);
     });
 });
