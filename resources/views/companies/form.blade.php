@@ -162,7 +162,7 @@
                         @forelse($admins as $a)
                             <li class="list-group-item d-flex justify-content-between align-items-center small">
                                 <span>{{ $a->full_name }}<span class="d-block text-body-secondary">{{ $a->email }}</span></span>
-                                @include('partials.badge', ['tone' => $a->status === 'active' ? 'success' : 'secondary', 'label' => $a->status === 'active' ? 'Activo' : 'Inactivo'])
+                                <x-status-badge type="user_status" :value="$a->status" />
                             </li>
                         @empty
                             <li class="list-group-item small text-body-secondary">Sin administradores.</li>

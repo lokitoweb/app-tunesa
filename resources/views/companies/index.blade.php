@@ -69,13 +69,10 @@
                             <span class="font-monospace">{{ $c->slug }}.{{ config('app.domain', 'tunesa.app') }}</span>
                             @if($c->custom_domain)<div class="text-body-secondary font-monospace">{{ $c->custom_domain }}</div>@endif
                         </td>
-                        <td>{{ C::PLANS[$c->plan] ?? $c->plan }}</td>
+                        <td>{{ label('tenant_plan', $c->plan) }}</td>
                         <td class="text-end">{{ $c->users_count }}</td>
                         <td>
-                            @include('partials.badge', [
-                                'tone'  => match ($c->status) { 'active' => 'success', 'suspended' => 'warning', default => 'secondary' },
-                                'label' => C::STATUSES[$c->status] ?? 'Dada de baja',
-                            ])
+                            <x-status-badge type="tenant_status" :value="$c->status ?? 'cancelled'" />
                         </td>
                         <td class="small text-body-secondary text-nowrap">{{ $c->created_at?->format('d/m/Y') }}</td>
                         <td class="text-end">

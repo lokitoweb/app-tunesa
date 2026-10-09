@@ -139,7 +139,7 @@
                 <span class="avatar avatar-sm">{{ strtoupper(mb_substr($navUser->first_name ?? 'U', 0, 1) . mb_substr($navUser->last_name ?? '', 0, 1)) }}</span>
                 <div class="overflow-hidden">
                     <div class="small fw-semibold text-truncate">{{ $navUser->first_name }} {{ $navUser->last_name }}</div>
-                    <div class="small text-body-secondary text-capitalize">{{ str_replace('_', ' ', $navUser->role) }}</div>
+                    <div class="small text-body-secondary">{{ label('user_role', $navUser->role) }}</div>
                 </div>
             </div>
             <form method="POST" action="{{ route('logout') }}">

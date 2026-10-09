@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $roleLabels = ['employee' => 'Empleado', 'supervisor' => 'Supervisor', 'hr_manager' => 'RRHH', 'company_admin' => 'Administrador', 'super_admin' => 'Super Admin'];
+    $roleLabels = \App\Support\Labels::options('user_role');
 @endphp
 <div class="page-header">
     <div>
@@ -87,9 +87,9 @@
                          @include('partials.tenant-badge', ['tenantId' => $emp->tenant_id])</td>
                         <td>
                             <div class="fw-semibold">{{ $emp->employee_code ?? 'EMP-' . $emp->id }}</div>
-                            <div class="small text-body-secondary">{{ $emp->document_type }} {{ $emp->document_number }}</div>
+                            <div class="small text-body-secondary">{{ label('id_document_type', $emp->document_type) }} {{ $emp->document_number }}</div>
                         </td>
-                        <td><span class="badge text-bg-light border">{{ $roleLabels[$emp->role] ?? $emp->role }}</span></td>
+                        <td><span class="badge text-bg-light border">{{ label('user_role', $emp->role) }}</span></td>
                         <td>
                             <div class="d-flex flex-wrap gap-1">
                                 @forelse($emp->branches as $b)
@@ -103,9 +103,7 @@
                         </td>
                         <td class="small">{{ $activeShift?->shift?->name ?? 'No asignado' }}</td>
                         <td>
-                            <span class="badge rounded-pill {{ $emp->status === 'active' ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis' }}">
-                                {{ $emp->status === 'active' ? 'Activo' : 'Inactivo' }}
-                            </span>
+                            <x-status-badge type="user_status" :value="$emp->status" />
                             @if($emp->isLocked())
                                 <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis"><i class="bi bi-lock"></i> Bloqueado</span>
                             @endif
