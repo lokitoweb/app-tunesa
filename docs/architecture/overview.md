@@ -118,6 +118,8 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
 | **Planilla** | — | `/payroll` | Consolidado CSV. |
 | **Notificaciones in-app** | `/api/notifications` | campana + `/notifications` | Se disparan desde eventos de modelos en `AppServiceProvider` (sirven para API, panel y cargas masivas). Push FCM no implementado. |
 | **Feriados** | — | `/holidays` | Incluye carga de feriados de Perú. |
+| **Reportes** | — | `/reports`, `/reports/hours` | "Reporte de horas y faltas" (`App\Services\Reports\AttendanceReportService`): horas efectivas según `lunch_paid`, tardanzas, salidas anticipadas, horas extra diurnas/nocturnas (22:00–06:00, la extra es la cola de la jornada), faltas justificadas e injustificadas. Excel (PhpSpreadsheet: hojas "Resumen" y "Detalle diario") y PDF (Dompdf). `reports:send-monthly` (día 1, 07:00) guarda el Excel del mes anterior en el disco `private` y notifica a administradores y RRHH con enlace firmado. |
+| **Tablero en vivo** | — | `/live`, `/live/data` | Quién trabaja, está en descanso, no llegó, por llegar, salió o tiene permiso. Sondeo cada 10 s con `ETag` (304 si nada cambió), reintento exponencial y pausa con la pestaña oculta. |
 | **Auditoría** | — | `/audit` | `audit_logs` vía `AuditLogger`: revelado de cuentas, documentos vistos, marcaciones fuera de geocerca, sincronizaciones offline, cambios de "Marca y app". |
 | **Marca y app** | `/api/v1/app/config`, `/api/admin/app-config` | `/settings/branding`, `/settings/mobile` | Ver [white-label.md](white-label.md). |
 
@@ -148,3 +150,44 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
 | Selfies (`ATTENDANCE_DISK`) | `private` (o S3) | URL firmada `/secure-files/selfie-in|selfie-out/{id}` o prefirmada de S3 |
 | Legajo (`DOCUMENTS_DISK`) | `private` (o S3) | URL firmada `/secure-files/document/{id}` |
 | Boletas, sustentos de solicitudes y justificaciones | `private` | Descarga autenticada (`/api/payslips/{id}/download`, panel) |
+
+## Escalabilidad
+
+**Índices compuestos** (todas las consultas filtran primero por `tenant_id`). Los de las
+migraciones originales más los de `2026_10_14_000001_add_composite_indexes_for_reports`, que
+solo crea un índice si la tabla y columnas existen y ningún índice existente lo cubre como
+prefijo:
+
+| Tabla | Índices | Para qué |
+|---|---|---|
+| `attendances` | `(tenant_id, user_id, work_date)`, `(tenant_id, work_date, user_id)`, `(tenant_id, branch_id, work_date)`, `(tenant_id, status, work_date)`; único `(user_id, branch_id, work_date)` | Reportes por colaborador y rango, tablero del día, filtros por sucursal/estado |
+| `leave_requests` | `(tenant_id, status, start_date)`, `(tenant_id, user_id, start_date)` | Solicitudes aprobadas que cruzan un rango |
+| `payslips` | `(tenant_id, user_id, period_year, period_month)` | Boletas por periodo |
+| `audit_logs` | `(tenant_id, created_at)`, `(tenant_id, action, created_at)` | Bitácora ordenada por fecha |
+| `notifications` | `(notifiable_type, notifiable_id, read_at)` | Campana (no leídas) |
+| `users` | `(tenant_id, status, role)` | Personal activo por rol |
+| `employee_shifts` | `(tenant_id, user_id, effective_from)` | Turno vigente en una fecha |
+| `employee_documents` | `(tenant_id, status)` | Documentos pendientes |
+| `holidays` | único `(tenant_id, date)` | Feriados |
+
+No hay un único `(tenant_id, user_id, work_date)` en `attendances`: el modelo usa borrado
+lógico y la regla de unicidad vigente incluye la sucursal.
+
+**Consultas.** Los reportes y el tablero cargan por bloque y sin N+1: primero los
+colaboradores, luego en una consulta cada uno de marcaciones, turnos vigentes, solicitudes
+aprobadas y feriados (`whereIn user_id`), y se cruzan en memoria. Los listados usan eager
+loading (`with([...])`) con columnas acotadas.
+
+**Exportaciones grandes.** `AttendanceReportService::each()` recorre a los colaboradores por
+bloques de 200 (paginación por id, equivalente a `chunkById`), así que la memoria crece con
+el tamaño del bloque y no con la empresa. La exportación CSV de marcaciones usa `chunk()`.
+El reporte mensual se genera fuera de la request (comando programado) y queda en disco.
+
+**Colas.** `QUEUE_CONNECTION=database` por defecto (Redis recomendado en producción). Hoy se
+encolan los webhooks (`SendTenantWebhook`). Las notificaciones extienden `AppNotification`
+(`Queueable`); para enviarlas en segundo plano basta con implementar `ShouldQueue`. En
+producción hace falta `php artisan queue:work` y el scheduler (`* * * * * php artisan schedule:run`).
+
+**Sondeo del tablero.** `/live/data` calcula un `ETag` del estado (sin las URLs firmadas,
+que cambian en cada llamada, y renovado cada 5 min para refrescarlas): si el navegador envía
+el mismo `If-None-Match` responde `304` sin cuerpo.
