@@ -46,8 +46,12 @@ class AttendanceEvidence
                 // % del radio consumido (100 = justo en el borde)
                 'radius_usage'    => $radius > 0 && $distance !== null ? (int) round(100 * $distance / $radius) : null,
                 'excess_meters'   => $radius > 0 && $distance !== null ? max(0, $distance - $radius) : null,
-                'gps_accuracy'    => $meta['accuracy_meters'] ?? null,
-                'is_mocked'       => (bool) ($meta['is_mocked'] ?? false),
+                'gps_accuracy'    => $attendance->{"clock_{$moment}_accuracy_meters"} ?? $meta['accuracy_meters'] ?? null,
+                'is_mocked'       => (bool) ($attendance->{"clock_{$moment}_mock_location"} || ($meta['is_mocked'] ?? false)),
+                'face_detected'   => $attendance->{"clock_{$moment}_face_detected"},
+                'device_time'     => $attendance->{"clock_{$moment}_device_time"}?->toIso8601String(),
+                'time_drift_seconds' => $attendance->{"clock_{$moment}_time_drift_seconds"},
+                'suspicion_reasons'  => $meta['suspicion_reasons'] ?? [],
                 'device'          => $attendance->{"clock_{$moment}_device_id"},
                 'photo_url'       => $this->photoUrl($attendance, $moment),
             ];
@@ -74,6 +78,9 @@ class AttendanceEvidence
             'shift'     => $attendance->shift?->name,
             'clock_in'  => $point('in'),
             'clock_out' => $point('out'),
+            'is_suspicious' => (bool) $attendance->is_suspicious,
+            // Bitácora inmutable: cada evento con su hora de servidor/teléfono, GPS y motivos
+            'punches'   => $attendance->punches()->withoutGlobalScopes()->get()->map->toApi()->all(),
         ];
     }
 }

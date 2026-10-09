@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\GeocodeController;
 use App\Http\Controllers\SecureFileController;
 use App\Http\Controllers\Web\ApprovalWebController;
 use App\Http\Controllers\Web\BrandingWebController;
@@ -64,6 +65,12 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/live-stream', [DashboardController::class, 'liveStream'])->name('dashboard.live-stream');
     Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
+
+    // Geocodificación (buscar direcciones / dirección de un punto) con el proveedor de la empresa
+    Route::middleware('throttle:60,1')->prefix('geocode')->name('geocode.')->group(function () {
+        Route::get('/search', [GeocodeController::class, 'search'])->name('search');
+        Route::get('/reverse', [GeocodeController::class, 'reverse'])->name('reverse');
+    });
 
     // Notificaciones personales (campana del topbar)
     Route::get('/notifications', [NotificationWebController::class, 'index'])->name('notifications.index');

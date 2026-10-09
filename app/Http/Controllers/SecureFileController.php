@@ -51,6 +51,9 @@ class SecureFileController extends Controller
         $attendance = Attendance::withoutGlobalScopes()->findOrFail($id);
         $path       = $moment === 'in' ? $attendance->clock_in_photo : $attendance->clock_out_photo;
 
-        return [config('filesystems.attendance_disk', 'private'), $path, "selfie_{$moment}_{$id}.jpg"];
+        // Las selfies nuevas son .webp (SelfieStorage); las anteriores, .jpg
+        $extension = $path ? (pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg') : 'jpg';
+
+        return [config('filesystems.attendance_disk', 'private'), $path, "selfie_{$moment}_{$id}.{$extension}"];
     }
 }

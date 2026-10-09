@@ -35,4 +35,24 @@ return [
         ],
     ],
 
+    // Geocodificación (App\Services\Geocoding). Nominatim: máx. 1 petición por segundo
+    // (política de uso de OpenStreetMap); el User-Agent lleva APP_URL.
+    'nominatim' => [
+        'url'             => env('NOMINATIM_URL', 'https://nominatim.openstreetmap.org'),
+        'countrycodes'    => env('NOMINATIM_COUNTRYCODES'), // p. ej. "pe" o "pe,cl"
+        'email'           => env('NOMINATIM_EMAIL'),
+        'min_interval_ms' => (int) env('NOMINATIM_MIN_INTERVAL_MS', 1000),
+        'timeout'         => (int) env('NOMINATIM_TIMEOUT', 8),
+    ],
+
+    'google_geocoding' => [
+        'url'     => env('GOOGLE_GEOCODING_URL', 'https://maps.googleapis.com/maps/api/geocode/json'),
+        'timeout' => (int) env('GOOGLE_GEOCODING_TIMEOUT', 8),
+    ],
+
+    // Push FCM (App\Services\Push\FcmSender). La cuenta de servicio se carga en Marca y app.
+    'fcm' => [
+        'android_channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'tunesa_default'),
+    ],
+
 ];

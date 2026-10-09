@@ -10,6 +10,7 @@ use App\Models\TenantSetting;
 use Carbon\CarbonInterface;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -112,7 +113,18 @@ class IntegrationDispatcher
                 'data'        => $data($tenant),
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
-            SendTenantWebhook::dispatch($tenant->id, $target, $event, $body)->afterCommit();
+            // Después del commit (la marcación se guarda en una transacción). Con la cola
+            // "sync" el job corre dentro de este callback: su fallo solo va al log.
+            DB::afterCommit(function () use ($tenant, $target, $event, $body, $tenantId) {
+                try {
+                    SendTenantWebhook::dispatch($tenant->id, $target, $event, $body);
+                } catch (\Throwable $e) {
+                    Log::warning("No se pudo enviar el evento {$event} a la integración: " . $e->getMessage(), [
+                        'tenant_id' => $tenantId,
+                        'target'    => $target,
+                    ]);
+                }
+            });
         } catch (\Throwable $e) {
             // Con la cola "sync" el envío corre aquí mismo: su fallo no debe tumbar la marcación
             Log::warning("No se pudo enviar el evento {$event} a la integración: " . $e->getMessage(), [

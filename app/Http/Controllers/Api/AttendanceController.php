@@ -11,6 +11,8 @@ use App\Http\Resources\AttendanceResource;
 use App\Models\Attendance;
 use App\Models\Branch;
 use App\Models\User;
+use App\Services\Attendance\PunchData;
+use App\Services\Attendance\PunchResult;
 use App\Services\AttendanceService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -25,11 +27,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * Delega TODA la lógica al AttendanceService.
  * Este controlador solo: valida → delega → responde.
  *
- * Endpoints del ciclo de marcación:
- *   POST /api/attendance/clock-in      → Entrada (GPS + foto obligatoria)
+ * Endpoints del ciclo de marcación (todos pasan por AttendanceService::punch,
+ * que escribe la jornada y la bitácora inmutable attendance_punches):
+ *   POST /api/attendance/clock-in      → Entrada (GPS + selfie según la empresa)
  *   POST /api/attendance/break-start   → Inicio de descanso
  *   POST /api/attendance/break-end     → Fin de descanso
- *   POST /api/attendance/clock-out     → Salida (GPS + foto obligatoria)
+ *   POST /api/attendance/clock-out     → Salida
+ * Sincronización offline en lote: AttendanceSyncController.
  */
 class AttendanceController extends Controller
 {
@@ -38,171 +42,69 @@ class AttendanceController extends Controller
     ) {}
 
     // =========================================================================
-    // 1. CLOCK-IN — ENTRADA
+    // CICLO DE MARCACIÓN (entrada, descanso, salida)
     // =========================================================================
 
     /**
-     * Registra la entrada del empleado.
+     * Entrada. Multipart: latitude, longitude, photo (según selfie_required),
+     * accuracy_meters, is_mocked, face_detected, device_id, device_os,
+     * app_version, offline_recorded_at, device_time, client_uuid.
      *
-     * Request (multipart/form-data):
-     *   - latitude:        float  (GPS del dispositivo)
-     *   - longitude:       float  (GPS del dispositivo)
-     *   - photo:           file   (selfie JPG/PNG/WEBP, max 5MB)
-     *   - device_id:       string (ID único del dispositivo)
-     *   - accuracy_meters: float  (precisión del GPS)
-     *   - device_os:       string (android|ios)
-     *
-     * Response 201: Registro de asistencia creado
-     * Response 409: Ya marcó entrada hoy
-     * Response 422: Fuera de geocerca / coordenadas inválidas
+     * 201 creada · 200 duplicate:true (mismo client_uuid) · 409/422 AttendanceException
      */
     public function clockIn(ClockInRequest $request): JsonResponse
     {
-        if ($rejection = $this->rejectUntrustedLocation($request)) {
-            return $rejection;
-        }
-
-        [$offlineAt, $rejection] = $this->resolveOfflineTime($request);
-        if ($rejection) {
-            return $rejection;
-        }
-
-        try {
-            $attendance = $this->attendanceService->clockIn(
-                employee:  $request->user(),
-                latitude:  (float) $request->input('latitude'),
-                longitude: (float) $request->input('longitude'),
-                photo:     $request->file('photo'),
-                deviceId:  $request->input('device_id', ''),
-                meta:      $request->deviceMeta(),
-                at:        $offlineAt,
-            );
-
-            return response()->json([
-                'success' => true,
-                'message' => $attendance->clock_in_within_geofence
-                    ? '✅ Entrada registrada correctamente.'
-                    : "⚠️ Entrada registrada fuera del radio de la sucursal ({$attendance->clock_in_distance_meters} m). RRHH la revisará.",
-                'data'    => new AttendanceResource($attendance),
-            ], 201);
-
-        } catch (\Exception $e) {
-            return $this->handleAttendanceException($e);
-        }
+        return $this->punch($request->user(), $request->toPunchData('clock_in'));
     }
 
-    // =========================================================================
-    // 2. BREAK START — INICIO DE DESCANSO
-    // =========================================================================
-
-    /**
-     * Registra el inicio del descanso/lunch.
-     *
-     * Request (JSON o form):
-     *   - latitude:  float
-     *   - longitude: float
-     */
+    /** Inicio de descanso (mismos campos; foto opcional) */
     public function breakStart(BreakRequest $request): JsonResponse
     {
-        if ($rejection = $this->rejectUntrustedLocation($request)) {
-            return $rejection;
-        }
-
-        try {
-            $attendance = $this->attendanceService->breakStart(
-                employee:  $request->user(),
-                latitude:  (float) $request->input('latitude'),
-                longitude: (float) $request->input('longitude'),
-                meta:      $request->deviceMeta(),
-            );
-
-            return response()->json([
-                'success' => true,
-                'message' => '☕ Descanso iniciado.',
-                'data'    => new AttendanceResource($attendance),
-            ]);
-
-        } catch (\Exception $e) {
-            return $this->handleAttendanceException($e);
-        }
+        return $this->punch($request->user(), $request->toPunchData('break_start'));
     }
 
-    // =========================================================================
-    // 3. BREAK END — FIN DE DESCANSO
-    // =========================================================================
-
-    /**
-     * Registra el regreso del descanso.
-     */
+    /** Fin de descanso */
     public function breakEnd(BreakRequest $request): JsonResponse
     {
-        if ($rejection = $this->rejectUntrustedLocation($request)) {
-            return $rejection;
-        }
-
-        try {
-            $attendance = $this->attendanceService->breakEnd(
-                employee:  $request->user(),
-                latitude:  (float) $request->input('latitude'),
-                longitude: (float) $request->input('longitude'),
-                meta:      $request->deviceMeta(),
-            );
-
-            return response()->json([
-                'success' => true,
-                'message' => '🔄 Regreso de descanso registrado.',
-                'data'    => new AttendanceResource($attendance),
-            ]);
-
-        } catch (\Exception $e) {
-            return $this->handleAttendanceException($e);
-        }
+        return $this->punch($request->user(), $request->toPunchData('break_end'));
     }
 
-    // =========================================================================
-    // 4. CLOCK-OUT — SALIDA
-    // =========================================================================
-
-    /**
-     * Registra la salida del empleado y calcula horas trabajadas.
-     *
-     * Request (multipart/form-data):
-     *   - latitude, longitude, photo, device_id (igual que clock-in)
-     */
+    /** Salida: calcula horas trabajadas */
     public function clockOut(ClockOutRequest $request): JsonResponse
     {
-        if ($rejection = $this->rejectUntrustedLocation($request)) {
-            return $rejection;
-        }
+        return $this->punch($request->user(), $request->toPunchData('clock_out'));
+    }
 
-        [$offlineAt, $rejection] = $this->resolveOfflineTime($request);
-        if ($rejection) {
-            return $rejection;
-        }
-
+    private function punch(User $employee, PunchData $data): JsonResponse
+    {
         try {
-            $attendance = $this->attendanceService->clockOut(
-                employee:  $request->user(),
-                latitude:  (float) $request->input('latitude'),
-                longitude: (float) $request->input('longitude'),
-                photo:     $request->file('photo'),
-                deviceId:  $request->input('device_id', ''),
-                meta:      $request->deviceMeta(),
-                at:        $offlineAt,
-            );
-
-            $workedHours = number_format($attendance->worked_hours, 1);
-
-            return response()->json([
-                'success' => true,
-                'message' => "🏁 Salida registrada. Horas trabajadas hoy: {$workedHours}h."
-                    . ($attendance->clock_out_within_geofence ? '' : ' ⚠️ Marcada fuera del radio de la sucursal; RRHH la revisará.'),
-                'data'    => new AttendanceResource($attendance),
-            ]);
-
+            $result = $this->attendanceService->punch($employee, $data);
         } catch (\Exception $e) {
             return $this->handleAttendanceException($e);
         }
+
+        return response()->json([
+            'success'   => true,
+            'duplicate' => $result->duplicate,
+            'message'   => $result->duplicate ? 'Esta marcación ya estaba registrada.' : self::successMessage($result),
+            'data'      => new AttendanceResource($result->attendance),
+            'punch'     => $result->punch->toApi(),
+        ], $data->type === 'clock_in' && ! $result->duplicate ? 201 : 200);
+    }
+
+    public static function successMessage(PunchResult $result): string
+    {
+        $a = $result->attendance;
+
+        return match ($result->punch->type) {
+            'clock_in'    => $a->clock_in_within_geofence
+                ? '✅ Entrada registrada correctamente.'
+                : "⚠️ Entrada registrada fuera del radio de la sucursal ({$a->clock_in_distance_meters} m). RRHH la revisará.",
+            'break_start' => '☕ Descanso iniciado.',
+            'break_end'   => '🔄 Regreso de descanso registrado.',
+            'clock_out'   => '🏁 Salida registrada. Horas trabajadas hoy: ' . number_format((float) $a->worked_hours, 1) . 'h.'
+                . ($a->clock_out_within_geofence ? '' : ' ⚠️ Marcada fuera del radio de la sucursal; RRHH la revisará.'),
+        };
     }
 
     // =========================================================================
@@ -733,87 +635,6 @@ class AttendanceController extends Controller
 
         // Jornada completa
         return ['action' => 'completed', 'label' => 'Jornada Completada', 'icon' => 'check_circle'];
-    }
-
-    /**
-     * Anti-fraude: rechaza la marcación si la app detectó ubicación simulada
-     * (mock GPS) o si la precisión del GPS es peor que el máximo permitido.
-     * Se aplica a entrada, salida e inicio/fin de descanso.
-     */
-    private function rejectUntrustedLocation(ClockInRequest|ClockOutRequest|BreakRequest $request): ?JsonResponse
-    {
-        $settings = $request->tenantSettings();
-
-        if (config('attendance.reject_mock_location') && $request->boolean('is_mocked')) {
-            logger()->warning('Marcación con ubicación simulada rechazada', [
-                'user_id'   => $request->user()->id,
-                'tenant_id' => $request->user()->tenant_id,
-                'device_id' => $request->input('device_id'),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Se detectó una ubicación simulada. Desactiva las apps de GPS falso para marcar.',
-                'code'    => 'MOCK_LOCATION_DETECTED',
-            ], 422);
-        }
-
-        // Precisión máxima de "Marca y app" (empresa > plataforma > ATTENDANCE_MAX_GPS_ACCURACY)
-        $maxAccuracy = $settings->maxGpsAccuracy();
-        if ($maxAccuracy > 0 && $request->filled('accuracy_meters') && (float) $request->input('accuracy_meters') > $maxAccuracy) {
-            return response()->json([
-                'success' => false,
-                'message' => "La precisión del GPS es baja ({$request->input('accuracy_meters')} m). Sal a un lugar despejado e intenta de nuevo.",
-                'code'    => 'GPS_ACCURACY_TOO_LOW',
-            ], 422);
-        }
-
-        // La app hace la detección de rostro; el backend rechaza si informó que no hubo rostro
-        if ($settings->face_detection_required && $request->has('face_detected') && ! $request->boolean('face_detected')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No se detectó un rostro en la selfie. Toma la foto de frente y con buena luz.',
-                'code'    => 'FACE_NOT_DETECTED',
-            ], 422);
-        }
-
-        return null;
-    }
-
-    /**
-     * Marcación sin conexión: la app envía offline_recorded_at con la hora real.
-     * Solo si la empresa lo permite y dentro de offline_max_hours.
-     *
-     * @return array{0: ?Carbon, 1: ?JsonResponse}
-     */
-    private function resolveOfflineTime(ClockInRequest|ClockOutRequest $request): array
-    {
-        if (! $request->filled('offline_recorded_at')) {
-            return [null, null];
-        }
-
-        $settings = $request->tenantSettings();
-
-        if (! $settings->offline_mode_enabled) {
-            return [null, response()->json([
-                'success' => false,
-                'message' => 'Tu empresa no permite registrar marcaciones sin conexión.',
-                'code'    => 'OFFLINE_NOT_ALLOWED',
-            ], 422)];
-        }
-
-        $at       = Carbon::parse($request->input('offline_recorded_at'))->setTimezone(tenant_timezone());
-        $maxHours = max(1, (int) $settings->offline_max_hours);
-
-        if ($at->lt(Carbon::now(tenant_timezone())->subHours($maxHours))) {
-            return [null, response()->json([
-                'success' => false,
-                'message' => "La marcación sin conexión tiene más de {$maxHours} h. Pide a RRHH que la registre manualmente.",
-                'code'    => 'OFFLINE_TOO_OLD',
-            ], 422)];
-        }
-
-        return [$at, null];
     }
 
     /**

@@ -43,7 +43,15 @@ class TenantSetting extends Model
         'lunch_minutes'           => 60,
         'lunch_paid'              => false,
         'default_geofence_radius' => 50,
+        'mock_location_policy'    => 'reject',
+        'max_time_drift_seconds'  => 300,
+        'geocoding_provider'      => 'nominatim',
+        'fcm_enabled'             => false,
     ];
+
+    public const MOCK_LOCATION_POLICIES = ['reject', 'flag'];
+
+    public const GEOCODING_PROVIDERS = ['nominatim', 'google'];
 
     /** Columnas de configuración editables (NULL = heredar) */
     public const SETTING_FIELDS = [
@@ -53,15 +61,21 @@ class TenantSetting extends Model
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius',
         'webhook_url', 'notification_endpoint',
+        'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled',
     ];
 
     /** Imágenes guardadas en esta tabla (el logo claro de una empresa vive en tenants.logo_path) */
     public const IMAGE_FIELDS = ['logo' => 'logo_path', 'logo_dark' => 'logo_dark_path', 'favicon' => 'favicon_path', 'splash' => 'splash_path'];
 
-    public const SECRET_FIELDS = ['webhook_secret', 'maps_api_key'];
+    /**
+     * Secretos cifrados. maps_api_key es la clave de Google Maps (en formularios
+     * y API se llama google_maps_api_key); fcm_service_account_json es la cuenta
+     * de servicio de Firebase (solo fila global).
+     */
+    public const SECRET_FIELDS = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json'];
 
     /** Solo valen en la fila global: una empresa usa sus columnas de `tenants` */
-    public const PLATFORM_ONLY = ['logo_path', 'primary_color', 'secondary_color'];
+    public const PLATFORM_ONLY = ['logo_path', 'primary_color', 'secondary_color', 'fcm_service_account_json'];
 
     /** Propios de cada empresa: no se heredan de la plataforma */
     public const NOT_INHERITED = ['trade_name', 'webhook_url', 'webhook_secret', 'notification_endpoint'];
@@ -79,9 +93,10 @@ class TenantSetting extends Model
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius',
         'webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint',
+        'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_service_account_json', 'fcm_enabled',
     ];
 
-    protected $hidden = ['webhook_secret', 'maps_api_key'];
+    protected $hidden = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json'];
 
     protected $casts = [
         'force_update'            => 'boolean',
@@ -96,6 +111,9 @@ class TenantSetting extends Model
         'default_geofence_radius' => 'integer',
         'webhook_secret'          => 'encrypted',
         'maps_api_key'            => 'encrypted',
+        'fcm_service_account_json' => 'encrypted',
+        'fcm_enabled'             => 'boolean',
+        'max_time_drift_seconds'  => 'integer',
     ];
 
     /** Instancia resuelta por forTenant(): solo lectura */
@@ -307,6 +325,87 @@ class TenantSetting extends Model
         return (int) ($explicit ?? config('attendance.max_gps_accuracy_meters', self::DEFAULTS['max_gps_accuracy_meters']));
     }
 
+    /**
+     * GPS simulado: "reject" (422 MOCK_LOCATION_DETECTED) o "flag" (se acepta
+     * como sospechosa con motivo MOCK_LOCATION). Empresa → plataforma →
+     * ATTENDANCE_REJECT_MOCK_LOCATION de .env (true = reject, false = flag).
+     */
+    public function mockLocationPolicy(): string
+    {
+        $explicit = ($this->resolvedTenant ? $this->tenantRow?->mock_location_policy : null)
+            ?? $this->globalRow?->mock_location_policy;
+
+        if (in_array($explicit, self::MOCK_LOCATION_POLICIES, true)) {
+            return $explicit;
+        }
+
+        return config('attendance.reject_mock_location', true) ? 'reject' : 'flag';
+    }
+
+    /** Diferencia máxima (s) entre el reloj del teléfono y el del servidor antes de marcar TIME_DRIFT */
+    public function maxTimeDriftSeconds(): int
+    {
+        return max(0, (int) ($this->max_time_drift_seconds ?? self::DEFAULTS['max_time_drift_seconds']));
+    }
+
+    /** Clave de Google Maps (columna maps_api_key, cifrada). Se hereda de la plataforma. */
+    public function googleMapsApiKey(): ?string
+    {
+        return filled($this->maps_api_key) ? (string) $this->maps_api_key : null;
+    }
+
+    /** Proveedor elegido en Marca y app (nominatim | google) */
+    public function configuredGeocodingProvider(): string
+    {
+        return in_array($this->geocoding_provider, self::GEOCODING_PROVIDERS, true)
+            ? $this->geocoding_provider
+            : self::DEFAULTS['geocoding_provider'];
+    }
+
+    /** Proveedor que realmente se usa: Google solo si está elegido y hay clave; si no, Nominatim */
+    public function geocodingProvider(): string
+    {
+        return $this->configuredGeocodingProvider() === 'google' && $this->googleMapsApiKey() ? 'google' : 'nominatim';
+    }
+
+    /**
+     * Cuenta de servicio de Firebase (fila global). null si no hay o si el JSON
+     * no trae lo necesario para FCM HTTP v1.
+     *
+     * @return array{project_id: string, client_email: string, private_key: string, token_uri: string}|null
+     */
+    public function fcmServiceAccount(): ?array
+    {
+        return self::parseServiceAccount($this->globalRow?->fcm_service_account_json);
+    }
+
+    /** Valida y normaliza el JSON de una cuenta de servicio de Google */
+    public static function parseServiceAccount(?string $json): ?array
+    {
+        if (blank($json)) {
+            return null;
+        }
+
+        $data = json_decode($json, true);
+        if (! is_array($data) || blank($data['project_id'] ?? null) || blank($data['client_email'] ?? null)
+            || ! is_string($data['private_key'] ?? null) || ! str_contains($data['private_key'], 'PRIVATE KEY')) {
+            return null;
+        }
+
+        return [
+            'project_id'   => (string) $data['project_id'],
+            'client_email' => (string) $data['client_email'],
+            'private_key'  => $data['private_key'],
+            'token_uri'    => (string) ($data['token_uri'] ?? 'https://oauth2.googleapis.com/token'),
+        ];
+    }
+
+    /** Push activo: fcm_enabled efectivo (empresa → plataforma) y credenciales válidas en la plataforma */
+    public function fcmEnabled(): bool
+    {
+        return (bool) $this->fcm_enabled && $this->fcmServiceAccount() !== null;
+    }
+
     /** "Rechazar" = modo estricto; se guarda en company_configurations.geofence_policy */
     public function geofenceStrictMode(): bool
     {
@@ -359,6 +458,10 @@ class TenantSetting extends Model
             'offline_max_hours'       => (int) $this->offline_max_hours,
             'max_gps_accuracy_meters' => $this->maxGpsAccuracy(),
             'geofence_strict_mode'    => $this->geofenceStrictMode(),
+            'mock_location_policy'    => $this->mockLocationPolicy(),
+            'max_time_drift_seconds'  => $this->maxTimeDriftSeconds(),
+            'geocoding_provider'      => $this->geocodingProvider(),
+            'fcm_enabled'             => $this->fcmEnabled(),
         ];
     }
 

@@ -10,7 +10,7 @@ class LeaveRequestReviewed extends AppNotification
 {
     public function __construct(public readonly LeaveRequest $leave) {}
 
-    public function via(object $notifiable): array
+    protected function channels(object $notifiable): array
     {
         return config('notifications.by_mail') && $notifiable->email
             ? ['database', 'mail']

@@ -62,6 +62,19 @@ class Attendance extends Model
         'clock_out_meta',
         'clock_out_within_geofence',
 
+        // Integridad (resumen; el detalle está en attendance_punches)
+        'clock_in_accuracy_meters',
+        'clock_out_accuracy_meters',
+        'clock_in_device_time',
+        'clock_out_device_time',
+        'clock_in_time_drift_seconds',
+        'clock_out_time_drift_seconds',
+        'clock_in_mock_location',
+        'clock_out_mock_location',
+        'clock_in_face_detected',
+        'clock_out_face_detected',
+        'is_suspicious',
+
         // Cálculos
         'status',
         'late_minutes',
@@ -94,6 +107,17 @@ class Attendance extends Model
         'worked_hours'              => 'decimal:2',
         'overtime_hours'            => 'decimal:2',
         'reviewed_at'               => 'datetime',
+        'clock_in_accuracy_meters'  => 'float',
+        'clock_out_accuracy_meters' => 'float',
+        'clock_in_device_time'      => \App\Casts\UtcDateTime::class,
+        'clock_out_device_time'     => \App\Casts\UtcDateTime::class,
+        'clock_in_time_drift_seconds'  => 'integer',
+        'clock_out_time_drift_seconds' => 'integer',
+        'clock_in_mock_location'    => 'boolean',
+        'clock_out_mock_location'   => 'boolean',
+        'clock_in_face_detected'    => 'boolean',
+        'clock_out_face_detected'   => 'boolean',
+        'is_suspicious'             => 'boolean',
     ];
 
     // =========================================================================
@@ -113,6 +137,12 @@ class Attendance extends Model
     public function shift(): BelongsTo
     {
         return $this->belongsTo(Shift::class);
+    }
+
+    /** Bitácora inmutable de marcaciones de la jornada */
+    public function punches(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(AttendancePunch::class)->orderBy('id');
     }
 
     public function reviewer(): BelongsTo

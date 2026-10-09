@@ -32,7 +32,8 @@ class WhiteLabelSettingsTest extends TestCase
             'tenant' => ['slug', 'company_name', 'trade_name'],
             'branding' => ['logo_url', 'logo_dark_url', 'favicon_url', 'splash_url', 'primary_color', 'secondary_color', 'accent_color', 'navbar_color'],
             'mobile' => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'selfie_required',
-                'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'geofence_strict_mode'],
+                'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'geofence_strict_mode',
+                'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled'],
             'rules' => ['grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius'],
             'contact' => ['email', 'phone', 'website', 'address'],
             'modules' => ['payslips', 'documents', 'payment_info', 'uniforms'],
@@ -294,7 +295,7 @@ class WhiteLabelSettingsTest extends TestCase
         // Exactamente estas secciones, sin datos de integraciones
         $this->assertSame(['tenant', 'branding', 'mobile', 'rules', 'contact', 'modules'], array_keys($res->json('data')));
         $this->assertSame(['config_version'], array_keys($res->json('meta')));
-        $this->assertCount(10, $res->json('data.mobile'));
+        $this->assertCount(14, $res->json('data.mobile'));
         $res->assertDontSee('whsec_super_secreto')->assertDontSee('AIzaClaveMapas')->assertDontSee('webhook');
         $this->assertNotFalse(Carbon::parse($res->json('meta.config_version')));
 
