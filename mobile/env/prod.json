@@ -1,0 +1,6 @@
+{
+  "ENV_NAME": "prod",
+  "API_BASE_URL": "https://api.tunesa.app",
+  "DEFAULT_TENANT": "",
+  "MAX_GPS_ACCURACY": "50"
+}

@@ -1,224 +1,168 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/constants/api_constants.dart';
-import '../../../core/network/api_client.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../home/home_screen.dart';
-import '../models/user_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class LoginScreen extends StatefulWidget {
+import '../../../core/network/api_exception.dart';
+import '../../../core/widgets/async_views.dart';
+import 'auth_controller.dart';
+
+/// Paso 2: correo y contraseña dentro de la empresa elegida.
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _tenantController = TextEditingController();
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _loading = false;
+  bool _obscure = true;
+  ApiException? _error;
 
-  bool _isLoading = false;
-  bool _obscurePassword = true;
-  String? _errorMessage;
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
 
-  Future<void> _handleLogin() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authControllerProvider.notifier).login(_email.text, _password.text);
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Por favor ingresa tu correo y contraseña.');
+  Future<void> _forgotPassword() async {
+    final email = _email.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      showSnack(context, 'Escribe tu correo y vuelve a tocar "Olvidé mi contraseña".');
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
     try {
-      final response = await ApiClient().post(
-        ApiConstants.login,
-        data: {
-          'email': email,
-          'password': password,
-          if (_tenantController.text.isNotEmpty) 'tenant_domain': _tenantController.text.trim(),
-        },
-      );
-
-      final data = response.data;
-      if (data['success'] == true) {
-        final token = data['token'];
-        final user = UserModel.fromJson(data['user']);
-
-        // Guardar token y datos del colaborador localmente
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(ApiConstants.tokenKey, token);
-        await prefs.setString(ApiConstants.userKey, jsonEncode(data['user']));
-        await prefs.setString(ApiConstants.tenantIdKey, user.tenantId.toString());
-
-        if (!mounted) return;
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
-        );
-      } else {
-        setState(() => _errorMessage = data['message'] ?? 'Error de autenticación.');
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Credenciales inválidas o no fue posible conectar con el servidor.';
-      });
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      await ref.read(authRepositoryProvider).forgotPassword(email);
+      if (mounted) showSnack(context, 'Si el correo existe, te enviamos un enlace para restablecerla.');
+    } on ApiException catch (e) {
+      if (mounted) showSnack(context, e.message, error: true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authControllerProvider);
+    final controller = ref.read(authControllerProvider.notifier);
+    final branding = auth.branding;
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo & Marca
-                Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppTheme.primary, AppTheme.primaryDark],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (branding?.logoUrl != null)
+                    Image.network(branding!.logoUrl!, height: 72, errorBuilder: (_, _, _) => const SizedBox.shrink())
+                  else
+                    Icon(Icons.fingerprint_rounded, size: 72, color: theme.colorScheme.primary),
+                  const SizedBox(height: 16),
+                  Text(branding?.companyName ?? 'TuneSA',
+                      textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 4),
+                  const Text('Inicia sesión para marcar tu asistencia', textAlign: TextAlign.center),
+                  const SizedBox(height: 24),
+                  if (auth.notice != null && _error == null) ...[
+                    _Banner(text: auth.notice!, color: theme.colorScheme.tertiaryContainer),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_error != null && _error!.fieldErrors.isEmpty) ...[
+                    _Banner(text: _error!.message, color: theme.colorScheme.errorContainer),
+                    const SizedBox(height: 16),
+                  ],
+                  TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    autofillHints: const [AutofillHints.username],
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: 'Correo',
+                      prefixIcon: const Icon(Icons.mail_outline),
+                      errorText: _error?.fieldError('email'),
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primary.withOpacity(0.4),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
+                    validator: (v) => (v == null || !v.contains('@')) ? 'Ingresa un correo válido' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _password,
+                    obscureText: _obscure,
+                    autofillHints: const [AutofillHints.password],
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _submit(),
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      errorText: _error?.fieldError('password'),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setState(() => _obscure = !_obscure),
                       ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.location_on_rounded,
-                    size: 38,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'TuneSA Mobile',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Control de Asistencia Satelital & Geocercas',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 36),
-
-                // Mensaje de Error
-                if (_errorMessage != null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 20),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.danger.withOpacity(0.15),
-                      border: Border.all(color: AppTheme.danger.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline, color: AppTheme.danger, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
+                    validator: (v) => (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
                   ),
-
-                // Formulario
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Correo Electrónico',
-                    prefixIcon: Icon(Icons.email_outlined, color: AppTheme.textSecondary),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(onPressed: _forgotPassword, child: const Text('Olvidé mi contraseña')),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.textSecondary),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                        color: AppTheme.textSecondary,
-                      ),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                    ),
+                  const SizedBox(height: 8),
+                  FilledButton(
+                    onPressed: _loading ? null : _submit,
+                    child: _loading
+                        ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+                        : const Text('Ingresar'),
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // Botón Iniciar Sesión
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                          )
-                        : const Text('Ingresar y Fichar'),
-                  ),
-                ),
-                const SizedBox(height: 30),
-
-                // Info de Permisos
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.shield_outlined, size: 14, color: AppTheme.textMuted),
-                    SizedBox(width: 6),
-                    Text(
-                      'GPS de alta precisión y selfie facial requeridos',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                  if (!controller.hasFixedTenant) ...[
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: _loading ? null : controller.changeTenant,
+                      icon: const Icon(Icons.swap_horiz),
+                      label: const Text('Cambiar de empresa'),
                     ),
                   ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+class _Banner extends StatelessWidget {
+  const _Banner({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+        child: Text(text),
+      );
 }

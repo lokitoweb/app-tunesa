@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TuneSA usa tu ubicación para verificar que estás dentro de la sucursal al marcar asistencia.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>TuneSA necesita la cámara frontal para tomar la selfie obligatoria de cada marcación.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>TuneSA te permite adjuntar sustentos (certificados, constancias) a tus solicitudes.</string>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -13,7 +21,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>tunesa_mobile</string>
+	<string>TuneSA</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -24,6 +32,29 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -31,23 +62,15 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-
-	<!-- Permisos Nativos de iOS para Geolocalización GPS en Geocerca -->
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>TuneSA requiere acceso a tu ubicación GPS para verificar que te encuentras dentro del perímetro de la sucursal al registrar tu asistencia.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>TuneSA utiliza la ubicación en alta precisión para confirmar el cumplimiento de la geocerca asignada.</string>
-
-	<!-- Permisos Nativos de iOS para Cámara Frontal (Selfie) -->
-	<key>NSCameraUsageDescription</key>
-	<string>TuneSA requiere acceso a la cámara frontal para capturar una fotografía selfie obligatoria en cada marcación de entrada y salida.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>TuneSA requiere acceso a la galería para adjuntar comprobantes de justificación médica o laboral.</string>
-
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 </dict>
 </plist>

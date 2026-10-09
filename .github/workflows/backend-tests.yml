@@ -1,0 +1,30 @@
+name: "Backend: pruebas"
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    paths-ignore: ["mobile/**"]
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo_sqlite, sqlite3, gd, zip
+          coverage: none
+
+      - name: Dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Preparar .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: PHPUnit
+        run: php artisan test

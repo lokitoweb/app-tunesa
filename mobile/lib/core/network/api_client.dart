@@ -1,105 +1,87 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../constants/api_constants.dart';
 
-/// Cliente HTTP robusto con Dio para comunicación con el backend Laravel
+import '../config/env.dart';
+import '../storage/session_storage.dart';
+import 'api_exception.dart';
+
+/// Cliente HTTP único de la app.
+///
+/// - Agrega `Authorization: Bearer`, `X-Tenant-Slug` y `Accept: application/json`.
+/// - Convierte todo error de Dio en [ApiException] con mensaje en español.
+/// - Ante un 401 en una ruta autenticada avisa con [onUnauthorized] para
+///   cerrar la sesión y volver al login.
 class ApiClient {
-  static final ApiClient _instance = ApiClient._internal();
-  factory ApiClient() => _instance;
+  ApiClient(this._storage, {this.onUnauthorized, Dio? dio})
+      : _dio = dio ??
+            Dio(BaseOptions(
+              baseUrl: Env.apiUrl,
+              connectTimeout: Env.connectTimeout,
+              receiveTimeout: Env.receiveTimeout,
+              sendTimeout: Env.receiveTimeout,
+              headers: {'Accept': 'application/json'},
+            )) {
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await _storage.readToken();
+        final slug = options.extra['tenant'] as String? ?? _storage.tenantSlug;
 
-  late final Dio _dio;
-
-  ApiClient._internal() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: ApiConstants.baseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      ),
-    );
-
-    // Interceptor para inyectar Token Sanctum y Tenant Context
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) async {
-          final prefs = await SharedPreferences.getInstance();
-          final token = prefs.getString(ApiConstants.tokenKey);
-          final tenantId = prefs.getString(ApiConstants.tenantIdKey);
-
-          if (token != null && token.isNotEmpty) {
-            options.headers['Authorization'] = 'Bearer $token';
-          }
-
-          if (tenantId != null && tenantId.isNotEmpty) {
-            options.headers['X-Tenant-ID'] = tenantId;
-          }
-
-          return handler.next(options);
-        },
-        onError: (DioException error, handler) {
-          // Log controlado
-          return handler.next(error);
-        },
-      ),
-    );
+        if (token != null && options.extra['auth'] != false) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        if (slug != null && slug.isNotEmpty) {
+          options.headers['X-Tenant-Slug'] = slug;
+        }
+        handler.next(options);
+      },
+      onError: (error, handler) {
+        if (error.response?.statusCode == 401 && error.requestOptions.extra['auth'] != false) {
+          onUnauthorized?.call();
+        }
+        handler.next(error);
+      },
+    ));
   }
 
-  Dio get dio => _dio;
+  final Dio _dio;
+  final SessionStorage _storage;
+  final void Function()? onUnauthorized;
 
-  /// Petición GET
-  Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) async {
+  Future<Map<String, dynamic>> get(String path, {Map<String, dynamic>? query}) =>
+      _send(() => _dio.get(path, queryParameters: query));
+
+  Future<Map<String, dynamic>> post(String path, {Object? data, bool auth = true, String? tenant}) =>
+      _send(() => _dio.post(path, data: data, options: Options(extra: {'auth': auth, 'tenant': ?tenant})));
+
+  /// GET sin token con un slug de empresa explícito (antes de elegir empresa).
+  Future<Map<String, dynamic>> getPublic(String path, {required String tenant}) =>
+      _send(() => _dio.get(path, options: Options(extra: {'auth': false, 'tenant': tenant})));
+
+  /// Envío multipart (selfie de marcación, sustentos).
+  Future<Map<String, dynamic>> postMultipart(String path, FormData form) =>
+      _send(() => _dio.post(path, data: form));
+
+  /// Descarga binaria autenticada (PDF de boletas). No se guarda en disco.
+  Future<List<int>> download(String path) async {
     try {
-      return await _dio.get(path, queryParameters: queryParameters);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Petición POST JSON
-  Future<Response> post(String path, {dynamic data}) async {
-    try {
-      return await _dio.post(path, data: data);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Petición POST Multipart (para envío de Selfie de marcación o archivos)
-  Future<Response> postMultipart(
-    String path, {
-    required Map<String, dynamic> fields,
-    File? file,
-    String fileField = 'photo',
-  }) async {
-    try {
-      final Map<String, dynamic> formMap = Map.from(fields);
-
-      if (file != null && await file.exists()) {
-        final fileName = file.path.split('/').last.split('\\').last;
-        formMap[fileField] = await MultipartFile.fromFile(
-          file.path,
-          filename: fileName,
-        );
-      }
-
-      final formData = FormData.fromMap(formMap);
-
-      return await _dio.post(
+      final response = await _dio.get<List<int>>(
         path,
-        data: formData,
-        options: Options(
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        ),
+        options: Options(responseType: ResponseType.bytes, headers: {'Accept': 'application/pdf'}),
       );
-    } catch (e) {
-      rethrow;
+      return response.data ?? const [];
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _send(Future<Response<dynamic>> Function() request) async {
+    try {
+      final response = await request();
+      final data = response.data;
+      if (data is Map<String, dynamic>) return data;
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return {'data': data};
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
     }
   }
 }
