@@ -61,7 +61,11 @@ class SetWebTenant
     }
 
     /** Rutas de escritura permitidas en la vista global (no crean registros de empresa) */
-    public const GLOBAL_WRITE_ROUTES = ['logout', 'admin.tenant.switch', 'notifications.read', 'notifications.read-all'];
+    public const GLOBAL_WRITE_ROUTES = [
+        'logout', 'admin.tenant.switch', 'notifications.read', 'notifications.read-all',
+        // Sin empresa elegida edita los valores por defecto de la plataforma (tenant_settings global)
+        'settings.branding.update',
+    ];
 
     /**
      * Rutas que eligen la empresa en el propio formulario (selector "Empresa"
