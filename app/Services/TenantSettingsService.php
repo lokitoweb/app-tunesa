@@ -1,0 +1,234 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\CompanyConfiguration;
+use App\Models\Tenant;
+use App\Models\TenantSetting;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+
+/**
+ * Validación y guardado de "Marca y app" (panel web y PUT /api/admin/app-config).
+ *
+ * La empresa a editar SIEMPRE la decide quien llama (TenantContext, o null =
+ * fila global de la plataforma para el Super Admin): nunca sale del input.
+ */
+class TenantSettingsService
+{
+    private const HEX     = 'regex:/^#[0-9A-Fa-f]{6}$/';
+    private const SEMVER  = 'regex:/^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/';
+    public const BOOLEANS = ['force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'lunch_paid'];
+
+    public function __construct(private readonly AuditLogger $audit) {}
+
+    /** Reglas comunes: todo es opcional (ausente = no cambiar; null = heredar) */
+    public function rules(bool $global): array
+    {
+        $image = ['sometimes', 'nullable', 'file', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048'];
+
+        return [
+            'trade_name'    => ['sometimes', 'nullable', 'string', 'max:200'],
+            'contact_email' => ['sometimes', 'nullable', 'email', 'max:255'],
+            'contact_phone' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'website'       => ['sometimes', 'nullable', 'url:http,https', 'max:255'],
+            'address'       => ['sometimes', 'nullable', 'string', 'max:500'],
+
+            'primary_color'   => $global ? ['sometimes', 'nullable', self::HEX] : ['sometimes', 'required', self::HEX],
+            'secondary_color' => $global ? ['sometimes', 'nullable', self::HEX] : ['sometimes', 'required', self::HEX],
+            'accent_color'    => ['sometimes', 'nullable', self::HEX],
+            'navbar_color'    => ['sometimes', 'nullable', self::HEX],
+
+            'logo'      => $image,
+            'logo_dark' => $image,
+            'splash'    => $image,
+            // SVG excluido (puede llevar scripts); el favicon admite ICO
+            'favicon'   => ['sometimes', 'nullable', 'file', 'mimes:png,ico', 'extensions:png,ico', 'max:2048'],
+            'remove_logo'      => ['sometimes', 'boolean'],
+            'remove_logo_dark' => ['sometimes', 'boolean'],
+            'remove_favicon'   => ['sometimes', 'boolean'],
+            'remove_splash'    => ['sometimes', 'boolean'],
+
+            'api_base_url'            => ['sometimes', 'nullable', 'url:https', 'max:255', 'not_regex:/\/api\/?$/i'],
+            'min_supported_version'   => ['sometimes', 'nullable', 'string', 'max:40', self::SEMVER],
+            'latest_version'          => ['sometimes', 'nullable', 'string', 'max:40', self::SEMVER],
+            'force_update'            => ['sometimes', 'nullable', 'boolean'],
+            'selfie_required'         => ['sometimes', 'nullable', 'boolean'],
+            'face_detection_required' => ['sometimes', 'nullable', 'boolean'],
+            'offline_mode_enabled'    => ['sometimes', 'nullable', 'boolean'],
+            'offline_max_hours'       => ['sometimes', 'nullable', 'integer', 'between:1,72'],
+            'max_gps_accuracy_meters' => ['sometimes', 'nullable', 'integer', 'between:10,1000'],
+
+            'default_grace_minutes'   => ['sometimes', 'nullable', 'integer', 'between:0,240'],
+            'lunch_minutes'           => ['sometimes', 'nullable', 'integer', 'between:0,480'],
+            'lunch_paid'              => ['sometimes', 'nullable', 'boolean'],
+            'default_geofence_radius' => ['sometimes', 'nullable', 'integer', 'between:10,5000'],
+            'geofence_policy'         => ['sometimes', Rule::in(array_keys(CompanyConfiguration::GEOFENCE_POLICIES))],
+
+            'webhook_url'           => ['sometimes', 'nullable', 'url:http,https', 'max:255'],
+            'webhook_secret'        => ['sometimes', 'nullable', 'string', 'max:255'],
+            'maps_api_key'          => ['sometimes', 'nullable', 'string', 'max:255'],
+            'notification_endpoint' => ['sometimes', 'nullable', 'url:http,https', 'max:255'],
+            'clear_webhook_secret'  => ['sometimes', 'boolean'],
+            'clear_maps_api_key'    => ['sometimes', 'boolean'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'api_base_url.url'        => 'La URL de la API debe empezar con https://.',
+            'api_base_url.not_regex'  => 'Escribe la URL sin /api al final (la app la agrega).',
+            'min_supported_version.regex' => 'Usa el formato de versión 1.2.3.',
+            'latest_version.regex'    => 'Usa el formato de versión 1.2.3.',
+            '*.regex'                 => 'El color debe ser hexadecimal, por ejemplo #1E40AF.',
+            'favicon.mimes'           => 'El favicon debe ser PNG o ICO.',
+            'favicon.extensions'      => 'El favicon debe ser PNG o ICO.',
+        ];
+    }
+
+    /**
+     * Guarda lo validado en la fila de la empresa (o la global si $tenant es null).
+     */
+    public function update(?Tenant $tenant, array $data, Request $request, ?User $actor): TenantSetting
+    {
+        $row     = TenantSetting::editableRowFor($tenant);
+        $changed = [];
+        $secrets = [];
+
+        DB::transaction(function () use ($tenant, $data, $request, $actor, $row, &$changed, &$secrets) {
+            foreach (TenantSetting::SETTING_FIELDS as $field) {
+                if (array_key_exists($field, $data)) {
+                    $row->{$field} = $data[$field] === '' ? null : $data[$field];
+                }
+            }
+            if (isset($data['api_base_url'])) {
+                $row->api_base_url = rtrim($data['api_base_url'], '/');
+            }
+            foreach (['accent_color', 'navbar_color'] as $c) {
+                if (! empty($data[$c])) {
+                    $row->{$c} = strtoupper($data[$c]);
+                }
+            }
+
+            // Secretos: vacío = no cambiar; "borrar" los elimina
+            foreach (TenantSetting::SECRET_FIELDS as $secret) {
+                if ($request->boolean("clear_{$secret}")) {
+                    $row->{$secret} = null;
+                    $secrets[] = $secret;
+                } elseif (! empty($data[$secret])) {
+                    $row->{$secret} = $data[$secret];
+                    $secrets[] = $secret;
+                }
+            }
+
+            // Colores primario/secundario: en `tenants` para una empresa, en la fila global para la plataforma
+            $tenantChanges = [];
+            foreach (['primary_color', 'secondary_color'] as $c) {
+                if (array_key_exists($c, $data)) {
+                    $value = $data[$c] ? strtoupper($data[$c]) : null;
+                    if ($tenant) {
+                        $tenantChanges[$c] = $value;
+                    } else {
+                        $row->{$c} = $value;
+                    }
+                }
+            }
+
+            // Imágenes
+            $dir = $tenant ? "tenants/{$tenant->id}/branding" : 'platform/branding';
+            foreach (TenantSetting::IMAGE_FIELDS as $input => $column) {
+                $owner = ($input === 'logo' && $tenant) ? $tenant : $row;
+                $file  = $request->file($input);
+
+                if ($file instanceof UploadedFile) {
+                    $this->deleteFile($owner->{$column});
+                    $value = $file->store($dir, 'public');
+                } elseif ($request->boolean("remove_{$input}") && $owner->{$column}) {
+                    $this->deleteFile($owner->{$column});
+                    $value = null;
+                } else {
+                    continue;
+                }
+
+                if ($owner === $tenant) {
+                    $tenantChanges[$column] = $value;
+                } else {
+                    $row->{$column} = $value;
+                }
+            }
+
+            if ($tenant && $tenantChanges) {
+                $tenant->fill($tenantChanges);
+                $changed = array_merge($changed, array_keys($tenant->getDirty()));
+                $tenant->save();
+            }
+
+            // Política de geocerca: una sola fuente (company_configurations)
+            if ($tenant && isset($data['geofence_policy'])) {
+                $config = CompanyConfiguration::forTenantId($tenant->id);
+                $config->geofence_policy = $data['geofence_policy'];
+                if ($config->isDirty('geofence_policy') || ! $config->exists) {
+                    $config->updated_by = $actor?->id;
+                    $config->save();
+                    $changed[] = 'geofence_policy';
+                }
+            }
+
+            $changed = array_merge($changed, array_diff(array_keys($row->getDirty()), TenantSetting::SECRET_FIELDS));
+            $row->updated_by = $actor?->id;
+            $row->save();
+        });
+
+        $this->audit->log('tenant_settings.updated', $row, [
+            'scope'           => $tenant ? 'tenant' : 'platform',
+            'changed'         => array_values(array_unique($changed)),
+            'secrets_changed' => $secrets,
+        ]);
+
+        return $row;
+    }
+
+    /** Lo que ve el administrador al editar (secretos enmascarados) */
+    public function editablePayload(?Tenant $tenant): array
+    {
+        $row = TenantSetting::rowFor($tenant) ?? new TenantSetting();
+
+        $values = collect(TenantSetting::SETTING_FIELDS)->mapWithKeys(fn ($f) => [$f => $row->{$f}])->all();
+
+        return $values + [
+            'primary_color'   => $tenant ? $tenant->primary_color : $row->primary_color,
+            'secondary_color' => $tenant ? $tenant->secondary_color : $row->secondary_color,
+            'logo_url'        => TenantSetting::publicUrl($tenant ? $tenant->logo_path : $row->logo_path),
+            'logo_dark_url'   => TenantSetting::publicUrl($row->logo_dark_path),
+            'favicon_url'     => TenantSetting::publicUrl($row->favicon_path),
+            'splash_url'      => TenantSetting::publicUrl($row->splash_path),
+            'geofence_policy' => $tenant ? CompanyConfiguration::forTenantId($tenant->id)->geofence_policy : null,
+            'webhook_secret'  => self::mask($row->webhook_secret),
+            'maps_api_key'    => self::mask($row->maps_api_key),
+            'has_webhook_secret' => filled($row->webhook_secret),
+            'has_maps_api_key'   => filled($row->maps_api_key),
+        ];
+    }
+
+    /** "sk_live_abcdef1234" → "••••••••1234" */
+    public static function mask(?string $secret): ?string
+    {
+        if (blank($secret)) {
+            return null;
+        }
+
+        return str_repeat('•', 8) . (mb_strlen($secret) > 8 ? mb_substr($secret, -4) : '');
+    }
+
+    private function deleteFile(?string $path): void
+    {
+        if ($path) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+}

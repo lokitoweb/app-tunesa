@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\Tenant;
+use App\Models\TenantSetting;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -175,9 +176,22 @@ class TenantController extends Controller
      */
     public function branding(): JsonResponse
     {
+        $tenant    = current_tenant();
+        $effective = TenantSetting::forTenant($tenant);
+        $extra     = $effective->branding();
+
+        // Claves históricas intactas; lo nuevo de "Marca y app" se agrega al final
         return response()->json([
             'success' => true,
-            'data'    => current_tenant()->branding(),
+            'data'    => $tenant->branding() + [
+                'trade_name'    => $effective->tradeName(),
+                'logo_dark_url' => $extra['logo_dark_url'],
+                'favicon_url'   => $extra['favicon_url'],
+                'splash_url'    => $extra['splash_url'],
+                'accent_color'  => $extra['accent_color'],
+                'navbar_color'  => $extra['navbar_color'],
+                'contact'       => $effective->contact(),
+            ],
         ]);
     }
 

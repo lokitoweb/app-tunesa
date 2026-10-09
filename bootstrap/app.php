@@ -12,6 +12,7 @@ use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\EnforceTenantScope;
 use App\Http\Middleware\EnsurePasswordChanged;
+use App\Http\Middleware\EnsureSupportedAppVersion;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SetWebTenant;
 use Illuminate\Foundation\Application;
@@ -38,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission'   => CheckPermission::class,
             'web.tenant'   => SetWebTenant::class,
             'password.fresh' => EnsurePasswordChanged::class,
+            'app.version'  => EnsureSupportedAppVersion::class,
         ]);
 
         // =====================================================================
