@@ -49,6 +49,16 @@ return [
             'report' => false,
         ],
 
+        // Archivos sensibles (boletas, sustentos de solicitudes). Nunca se
+        // exponen por URL pública: se descargan vía endpoint autenticado.
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

@@ -319,9 +319,17 @@ class AttendanceService
      */
     private function getCurrentShift(User $employee, string $date): ?EmployeeShift
     {
-        return EmployeeShift::where('user_id', $employee->id)
-            ->current()
-            ->first();
+        $assignments = EmployeeShift::where('user_id', $employee->id)
+            ->current($date)
+            ->with('shift')
+            ->get();
+
+        // Preferir el turno que realmente toca ese día (fijo o rotativo);
+        // si ninguno aplica, usar la primera asignación vigente.
+        $day = Carbon::parse($date);
+
+        return $assignments->first(fn (EmployeeShift $a) => $a->worksOn($day))
+            ?? $assignments->first();
     }
 
     /**

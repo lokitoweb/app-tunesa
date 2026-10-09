@@ -5,10 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\LoginRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Role;
 use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -102,6 +107,157 @@ class AuthController extends Controller
                 'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
                 'user'       => new UserResource($user->load('tenant')),
             ],
+        ]);
+    }
+
+    // =========================================================================
+    // LOGIN DE PLATAFORMA (Super Admin, sin tenant)
+    // =========================================================================
+
+    /**
+     * El super admin no pertenece a ninguna empresa, así que no pasa por
+     * ResolveTenant. Su token solo sirve para /api/superadmin/*.
+     *
+     * POST /api/superadmin/auth/login
+     */
+    public function superAdminLogin(LoginRequest $request): JsonResponse
+    {
+        $user = User::whereNull('tenant_id')
+            ->where('role', Role::SUPER_ADMIN)
+            ->where('email', $request->email)
+            ->first();
+
+        if (! $user || ! Hash::check($request->password, $user->password) || $user->status !== 'active') {
+            throw ValidationException::withMessages([
+                'email' => ['Las credenciales proporcionadas son incorrectas.'],
+            ]);
+        }
+
+        $token = $user->createToken(
+            name:      $request->input('device_name', 'superadmin'),
+            abilities: ['*'],
+            expiresAt: now()->addHours(12),
+        );
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'token'      => $token->plainTextToken,
+                'token_type' => 'Bearer',
+                'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
+                'user'       => new UserResource($user),
+            ],
+        ]);
+    }
+
+    // =========================================================================
+    // REGISTRO (auto-registro de colaboradores)
+    // =========================================================================
+
+    /**
+     * Auto-registro de un colaborador en la empresa resuelta.
+     *
+     * Solo si la empresa lo habilitó (settings.allow_self_registration).
+     * La cuenta nace INACTIVA: RRHH debe activarla antes de poder iniciar sesión.
+     *
+     * POST /api/auth/register
+     */
+    public function register(Request $request): JsonResponse
+    {
+        $tenant = current_tenant();
+
+        if (! $tenant->setting('allow_self_registration', false)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tu empresa no permite el auto-registro. Solicita tu cuenta a RRHH.',
+                'code'    => 'REGISTRATION_DISABLED',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'first_name'      => ['required', 'string', 'max:100'],
+            'last_name'       => ['required', 'string', 'max:100'],
+            'email'           => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password'        => ['required', 'confirmed', PasswordRule::min(8)->letters()->numbers()],
+            'document_type'   => ['sometimes', 'in:dni,passport,ce'],
+            'document_number' => ['required', 'string', 'max:20'],
+            'phone'           => ['sometimes', 'nullable', 'string', 'max:20'],
+        ]);
+
+        $user = User::create(array_merge($validated, [
+            'tenant_id' => $tenant->id,
+            'role'      => Role::EMPLOYEE,
+            'status'    => 'inactive',
+        ]));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Registro recibido. RRHH debe activar tu cuenta antes de que puedas ingresar.',
+            'data'    => ['id' => $user->id, 'email' => $user->email, 'status' => $user->status],
+        ], 201);
+    }
+
+    // =========================================================================
+    // RECUPERACIÓN DE CONTRASEÑA
+    // =========================================================================
+
+    /**
+     * Envía el enlace de restablecimiento al correo (si existe en la empresa).
+     * Siempre responde igual para no revelar qué correos están registrados.
+     *
+     * POST /api/auth/forgot-password
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate(['email' => ['required', 'email']]);
+
+        // El broker consulta User con el TenantScope activo: solo encuentra
+        // usuarios de la empresa resuelta.
+        Password::sendResetLink($request->only('email'));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
+        ]);
+    }
+
+    /**
+     * Restablece la contraseña con el token recibido por correo.
+     *
+     * POST /api/auth/reset-password
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'token'    => ['required', 'string'],
+            'email'    => ['required', 'email'],
+            'password' => ['required', 'confirmed', PasswordRule::min(8)->letters()->numbers()],
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) {
+                $user->forceFill([
+                    'password'       => $password,
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                // Cerrar sesión en todos los dispositivos
+                $user->tokens()->delete();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'email' => ['El enlace de restablecimiento no es válido o expiró.'],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Contraseña restablecida. Ya puedes iniciar sesión.',
         ]);
     }
 

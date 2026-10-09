@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\HasDateOnlyColumns;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,7 +22,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Attendance extends Model
 {
-    use SoftDeletes;
+    use BelongsToTenant, HasDateOnlyColumns, SoftDeletes;
+
+    /** Columnas DATE guardadas como Y-m-d (ver HasDateOnlyColumns) */
+    protected array $dateOnly = ['work_date'];
 
     protected $fillable = [
         'tenant_id',
@@ -94,11 +99,6 @@ class Attendance extends Model
     // =========================================================================
     // RELACIONES
     // =========================================================================
-
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
-    }
 
     public function user(): BelongsTo
     {

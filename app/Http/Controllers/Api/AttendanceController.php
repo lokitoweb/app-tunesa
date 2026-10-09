@@ -8,10 +8,14 @@ use App\Http\Requests\Api\ClockInRequest;
 use App\Http\Requests\Api\ClockOutRequest;
 use App\Http\Resources\AttendanceResource;
 use App\Models\Attendance;
+use App\Models\Branch;
+use App\Models\User;
 use App\Services\AttendanceService;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * AttendanceController
@@ -330,6 +334,287 @@ class AttendanceController extends Controller
     }
 
     /**
+     * Métricas agregadas para las tarjetas y gráficos del dashboard.
+     *
+     * GET /api/admin/dashboard/stats?from=2026-10-01&to=2026-10-31&branch_id=1
+     */
+    public function dashboardStats(Request $request): JsonResponse
+    {
+        $request->validate([
+            'from'      => ['sometimes', 'date'],
+            'to'        => ['sometimes', 'date', 'after_or_equal:from'],
+            'branch_id' => ['sometimes', 'integer'],
+        ]);
+
+        $tz   = tenant_timezone();
+        $to   = Carbon::parse($request->input('to', now($tz)->toDateString()));
+        $from = Carbon::parse($request->input('from', $to->copy()->subDays(6)->toDateString()));
+
+        if ($from->diffInDays($to) > 92) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El rango máximo es de 92 días.',
+                'code'    => 'RANGE_TOO_LARGE',
+            ], 422);
+        }
+
+        $base = Attendance::whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
+            ->when($request->branch_id, fn ($q) => $q->where('branch_id', $request->branch_id));
+
+        $byStatus = (clone $base)->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $totals = (clone $base)->selectRaw(
+            'COUNT(*) as records, COALESCE(SUM(worked_hours),0) as worked_hours, '
+            . 'COALESCE(SUM(overtime_hours),0) as overtime_hours, COALESCE(SUM(late_minutes),0) as late_minutes, '
+            . 'SUM(CASE WHEN clock_in_at IS NOT NULL AND clock_in_within_geofence = false THEN 1 ELSE 0 END) as out_of_geofence'
+        )->first();
+
+        // Serie diaria para el gráfico de tendencia
+        $daily = (clone $base)->selectRaw(
+            'work_date, COUNT(*) as total, '
+            . "SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late, "
+            . "SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent"
+        )->groupBy('work_date')->get()->keyBy(fn ($r) => Carbon::parse($r->work_date)->toDateString());
+
+        $series = [];
+        foreach (CarbonPeriod::create($from, $to) as $day) {
+            $row = $daily->get($day->toDateString());
+            $series[] = [
+                'date'    => $day->toDateString(),
+                'present' => (int) ($row->total ?? 0) - (int) ($row->absent ?? 0),
+                'late'    => (int) ($row->late ?? 0),
+                'absent'  => (int) ($row->absent ?? 0),
+            ];
+        }
+
+        // Top tardanzas del período
+        $topLate = (clone $base)->where('late_minutes', '>', 0)
+            ->selectRaw('user_id, COUNT(*) as late_days, SUM(late_minutes) as late_minutes')
+            ->groupBy('user_id')
+            ->orderByDesc('late_minutes')
+            ->limit(5)
+            ->with('user:id,first_name,last_name,employee_code')
+            ->get()
+            ->map(fn ($r) => [
+                'user_id'      => $r->user_id,
+                'name'         => $r->user?->full_name,
+                'late_days'    => (int) $r->late_days,
+                'late_minutes' => (int) $r->late_minutes,
+            ]);
+
+        $activeEmployees = User::where('role', 'employee')->where('status', 'active')
+            ->when($request->branch_id, fn ($q) => $q->whereHas('branches', fn ($bq) => $bq->where('branches.id', $request->branch_id)))
+            ->count();
+
+        return response()->json([
+            'success' => true,
+            'period'  => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
+            'data'    => [
+                'active_employees' => $activeEmployees,
+                'active_branches'  => Branch::where('is_active', true)->count(),
+                'pending_justifications' => Attendance::where('justification_status', 'pending')->count(),
+                'records'          => (int) $totals->records,
+                'by_status'        => $byStatus,
+                'worked_hours'     => round((float) $totals->worked_hours, 1),
+                'overtime_hours'   => round((float) $totals->overtime_hours, 1),
+                'late_minutes'     => (int) $totals->late_minutes,
+                'out_of_geofence'  => (int) $totals->out_of_geofence,
+                'daily'            => $series,
+                'top_late'         => $topLate,
+            ],
+        ]);
+    }
+
+    /**
+     * Exporta el reporte de asistencias en CSV (abre en Excel).
+     *
+     * GET /api/admin/reports/attendance/export?from=...&to=...&branch_id=&user_id=&status=
+     */
+    public function exportReport(Request $request): StreamedResponse
+    {
+        $request->validate([
+            'from'      => ['required', 'date'],
+            'to'        => ['required', 'date', 'after_or_equal:from'],
+            'branch_id' => ['sometimes', 'integer'],
+            'user_id'   => ['sometimes', 'integer'],
+            'status'    => ['sometimes', 'string', 'in:present,late,absent,excused,half_day,incomplete'],
+        ]);
+
+        // tenant_id explícito: el CSV se genera al enviar la respuesta, fuera
+        // del ciclo normal de la request.
+        $query = Attendance::where('tenant_id', current_tenant_id())
+            ->whereBetween('work_date', [$request->from, $request->to])
+            ->when($request->branch_id, fn ($q) => $q->where('branch_id', $request->branch_id))
+            ->when($request->user_id,   fn ($q) => $q->where('user_id',   $request->user_id))
+            ->when($request->status,    fn ($q) => $q->where('status',    $request->status))
+            ->with(['user:id,first_name,last_name,employee_code,document_number', 'branch:id,name', 'shift:id,name'])
+            ->orderBy('work_date')
+            ->orderBy('user_id');
+
+        $filename = "asistencias_{$request->from}_{$request->to}.csv";
+
+        return response()->streamDownload(function () use ($query) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // BOM para que Excel lea UTF-8 (tildes, ñ)
+
+            fputcsv($out, [
+                'Fecha', 'Código', 'Documento', 'Colaborador', 'Sucursal', 'Turno',
+                'Entrada', 'Salida', 'Estado', 'Tardanza (min)', 'Descanso (min)',
+                'Horas trabajadas', 'Horas extra', 'Dentro de geocerca', 'Distancia entrada (m)',
+            ]);
+
+            $query->chunk(500, function ($rows) use ($out) {
+                foreach ($rows as $a) {
+                    fputcsv($out, [
+                        $a->work_date?->toDateString(),
+                        $a->user?->employee_code,
+                        $a->user?->document_number,
+                        $a->user?->full_name,
+                        $a->branch?->name,
+                        $a->shift?->name,
+                        $a->clock_in_at?->format('H:i'),
+                        $a->clock_out_at?->format('H:i'),
+                        $a->status,
+                        $a->late_minutes,
+                        $a->break_minutes,
+                        $a->worked_hours,
+                        $a->overtime_hours,
+                        $a->clock_in_within_geofence ? 'Sí' : 'No',
+                        $a->clock_in_distance_meters,
+                    ]);
+                }
+            });
+
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    // =========================================================================
+    // SUPERVISOR (solo su equipo)
+    // =========================================================================
+
+    /**
+     * Estado en tiempo real del equipo del supervisor.
+     *
+     * GET /api/supervisor/attendance/live
+     */
+    public function teamLive(Request $request): JsonResponse
+    {
+        $teamIds = $this->teamUserIds($request->user());
+        $today   = Carbon::now(tenant_timezone())->toDateString();
+
+        $attendances = Attendance::where('work_date', $today)
+            ->whereIn('user_id', $teamIds)
+            ->with(['user', 'branch', 'shift'])
+            ->get();
+
+        $present = $attendances->whereNotNull('clock_in_at')->count();
+
+        return response()->json([
+            'success'     => true,
+            'server_time' => Carbon::now(tenant_timezone())->toIso8601String(),
+            'summary'     => [
+                'team_size'   => count($teamIds),
+                'present'     => $present,
+                'late'        => $attendances->where('status', 'late')->count(),
+                'on_break'    => $attendances->filter(fn ($a) => $a->isOnBreak())->count(),
+                'clocked_out' => $attendances->whereNotNull('clock_out_at')->count(),
+                'absent'      => max(count($teamIds) - $present, 0),
+            ],
+            'attendances' => AttendanceResource::collection($attendances),
+        ]);
+    }
+
+    /**
+     * Reporte de asistencias del equipo del supervisor.
+     *
+     * GET /api/supervisor/attendance?from=...&to=...&user_id=&status=
+     */
+    public function teamReport(Request $request): JsonResponse
+    {
+        $request->validate([
+            'from'    => ['sometimes', 'date'],
+            'to'      => ['sometimes', 'date', 'after_or_equal:from'],
+            'user_id' => ['sometimes', 'integer'],
+            'status'  => ['sometimes', 'string', 'in:present,late,absent,excused,half_day,incomplete'],
+        ]);
+
+        $tz   = tenant_timezone();
+        $from = $request->input('from', now($tz)->startOfMonth()->toDateString());
+        $to   = $request->input('to', now($tz)->toDateString());
+
+        $attendances = Attendance::whereIn('user_id', $this->teamUserIds($request->user()))
+            ->whereBetween('work_date', [$from, $to])
+            ->when($request->user_id, fn ($q) => $q->where('user_id', $request->user_id))
+            ->when($request->status,  fn ($q) => $q->where('status',  $request->status))
+            ->with(['user', 'branch', 'shift'])
+            ->orderBy('work_date', 'desc')
+            ->paginate(50);
+
+        return response()->json([
+            'success' => true,
+            'data'    => AttendanceResource::collection($attendances),
+            'meta'    => [
+                'from'         => $from,
+                'to'           => $to,
+                'total'        => $attendances->total(),
+                'current_page' => $attendances->currentPage(),
+                'last_page'    => $attendances->lastPage(),
+            ],
+        ]);
+    }
+
+    // =========================================================================
+    // JUSTIFICACIÓN (empleado)
+    // =========================================================================
+
+    /**
+     * El empleado adjunta una justificación (tardanza, falta, marcación fuera
+     * de geocerca). Queda pendiente de revisión por RRHH/supervisor.
+     *
+     * POST /api/attendance/{id}/justification  (multipart)
+     */
+    public function submitJustification(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'notes' => ['required', 'string', 'max:1000'],
+            'file'  => ['sometimes', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        $attendance = Attendance::where('user_id', $request->user()->id)->findOrFail($id);
+
+        if ($attendance->justification_status === 'approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Esta justificación ya fue aprobada.',
+                'code'    => 'CONFLICT',
+            ], 409);
+        }
+
+        $data = [
+            'notes'                => $validated['notes'],
+            'justification_status' => 'pending',
+            'reviewed_by'          => null,
+            'reviewed_at'          => null,
+        ];
+
+        if ($request->hasFile('file')) {
+            $data['justification_file'] = $request->file('file')
+                ->store("justifications/{$attendance->tenant_id}/{$attendance->user_id}", 'private');
+        }
+
+        $attendance->update($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Justificación enviada. Te avisaremos cuando sea revisada.',
+            'data'    => new AttendanceResource($attendance->fresh(['branch', 'shift'])),
+        ]);
+    }
+
+    /**
      * Aprobar justificación de ausencia.
      *
      * POST /api/admin/attendance/{id}/approve-justification
@@ -414,6 +699,20 @@ class AttendanceController extends Controller
 
         // Jornada completa
         return ['action' => 'completed', 'label' => 'Jornada Completada', 'icon' => 'check_circle'];
+    }
+
+    /**
+     * IDs de los colaboradores que supervisa el usuario: los asignados a las
+     * sucursales donde él es supervisor (branches.supervisor_id).
+     *
+     * @return array<int, int>
+     */
+    private function teamUserIds(User $supervisor): array
+    {
+        return User::where('id', '!=', $supervisor->id)
+            ->whereHas('branches', fn ($q) => $q->where('branches.supervisor_id', $supervisor->id))
+            ->pluck('id')
+            ->all();
     }
 
     /**

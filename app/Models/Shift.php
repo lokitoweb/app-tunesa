@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,12 +22,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Shift extends Model
 {
-    use SoftDeletes;
+    use BelongsToTenant, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
         'name',
         'code',
+        'type',
         'start_time',
         'end_time',
         'crosses_midnight',
@@ -33,6 +36,8 @@ class Shift extends Model
         'break_allowed',
         'break_duration_minutes',
         'working_days',
+        'rotation_work_days',
+        'rotation_rest_days',
         'daily_hours',
         'color',
         'is_active',
@@ -45,16 +50,13 @@ class Shift extends Model
         'break_allowed'          => 'boolean',
         'is_active'              => 'boolean',
         'daily_hours'            => 'decimal:2',
+        'rotation_work_days'     => 'integer',
+        'rotation_rest_days'     => 'integer',
     ];
 
     // =========================================================================
     // RELACIONES
     // =========================================================================
-
-    public function tenant(): BelongsTo
-    {
-        return $this->belongsTo(Tenant::class);
-    }
 
     public function employeeShifts(): HasMany
     {
@@ -77,5 +79,38 @@ class Shift extends Model
     public function appliesOnDay(int $dayOfWeek): bool
     {
         return in_array($dayOfWeek, $this->working_days ?? []);
+    }
+
+    public function isRotating(): bool
+    {
+        return $this->type === 'rotating';
+    }
+
+    /**
+     * Verifica si el turno es laborable en una fecha concreta.
+     *
+     * - fixed:    según working_days.
+     * - rotating: ciclo de rotation_work_days de trabajo + rotation_rest_days
+     *             de descanso, contado desde $anchor (primer día de trabajo).
+     */
+    public function appliesOnDate(CarbonInterface $date, ?CarbonInterface $anchor = null): bool
+    {
+        if (! $this->isRotating()) {
+            return $this->appliesOnDay($date->dayOfWeek);
+        }
+
+        $work  = (int) $this->rotation_work_days;
+        $cycle = $work + (int) $this->rotation_rest_days;
+
+        if ($work < 1 || $cycle < 1 || ! $anchor) {
+            return false;
+        }
+
+        $offset = (int) $anchor->copy()->startOfDay()->diffInDays($date->copy()->startOfDay(), false);
+        if ($offset < 0) {
+            return false;
+        }
+
+        return ($offset % $cycle) < $work;
     }
 }

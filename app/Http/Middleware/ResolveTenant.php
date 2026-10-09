@@ -15,7 +15,8 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * 1. Cabecera HTTP:    X-Tenant-Slug: empresa-acme       (App móvil Flutter)
  * 2. Subdominio:       empresa-acme.tunesa.app            (Panel web)
- * 3. Parámetro URL:    ?tenant=empresa-acme               (Solo para testing)
+ * 3. Dominio propio:   asistencia.acme.com                (Marca blanca)
+ * 4. Parámetro URL:    ?tenant=empresa-acme               (Solo para testing)
  *
  * Una vez resuelto, el tenant se inyecta en:
  * - TenantContext (singleton en el Service Container)
@@ -81,7 +82,12 @@ class ResolveTenant
             return $this->findTenantBySlug($slug);
         }
 
-        // Estrategia 3: Query param (solo desarrollo/testing)
+        // Estrategia 3: Dominio propio de la empresa (marca blanca)
+        if ($tenant = $this->findTenantByCustomDomain($request->getHost())) {
+            return $tenant;
+        }
+
+        // Estrategia 4: Query param (solo desarrollo/testing)
         if (app()->isLocal() && $slug = $request->query('tenant')) {
             return $this->findTenantBySlug($slug);
         }
@@ -117,6 +123,24 @@ class ResolveTenant
         }
 
         return null;
+    }
+
+    /**
+     * Busca y cachea el tenant por dominio propio (custom_domain).
+     */
+    private function findTenantByCustomDomain(string $host): ?Tenant
+    {
+        $appDomain = config('app.domain', 'tunesa.app');
+
+        if ($host === $appDomain || str_ends_with($host, ".{$appDomain}")) {
+            return null;
+        }
+
+        return cache()->remember(
+            "tenant:domain:{$host}",
+            now()->addMinutes(5),
+            fn () => Tenant::where('custom_domain', strtolower($host))->first()
+        );
     }
 
     /**
