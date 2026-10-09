@@ -3,67 +3,68 @@
 @section('title', 'Carga masiva de boletas')
 
 @section('content')
-<div class="page-head">
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb small mb-2">
+        <li class="breadcrumb-item"><a href="{{ route('payslips.index') }}">Boletas</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Carga masiva</li>
+    </ol>
+</nav>
+<div class="page-header">
     <div>
-        <h1>Carga masiva de boletas PDF</h1>
-        <p>Sube todas las boletas del período a la vez. Cada PDF se asigna al colaborador cuyo <strong>DNI</strong> o <strong>código de empleado</strong> aparece en el nombre del archivo, por ejemplo <code>boleta_45871236.pdf</code> o <code>EMP-003.pdf</code>.</p>
+        <h1>Carga masiva de boletas</h1>
+        <p>Cada PDF se asigna al colaborador cuyo <strong>DNI</strong> o <strong>código</strong> aparece en el nombre del archivo, por ejemplo <code>boleta_45871236.pdf</code> o <code>EMP-003.pdf</code>.</p>
     </div>
-    <a href="{{ route('payslips.index') }}" class="btn btn-ghost">← Volver a boletas</a>
 </div>
 
-@if ($errors->any())
-    <div class="card" style="margin-bottom: 1rem; border-color: rgba(239,68,68,0.3);">
-        <div class="card-body" style="color: #fca5a5;">
-            @foreach ($errors->all() as $error)<div>{{ $error }}</div>@endforeach
-        </div>
+<div class="row g-3">
+    <div class="col-12 col-xl-6">
+        <form method="POST" action="{{ route('payslips.bulk.store') }}" enctype="multipart/form-data" class="card border-0 h-100">
+            @csrf
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label for="period_month" class="form-label">Mes</label>
+                        <select id="period_month" name="period_month" class="form-select">
+                            @foreach(range(1, 12) as $m)
+                                <option value="{{ $m }}" @selected(old('period_month', now()->month) == $m)>{{ ucfirst(\Carbon\Carbon::create(null, $m, 1)->locale('es')->isoFormat('MMMM')) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label for="period_year" class="form-label">Año</label>
+                        <input type="number" id="period_year" name="period_year" class="form-control" value="{{ old('period_year', now()->year) }}" min="2020" max="2100">
+                    </div>
+                    <div class="col-12">
+                        <label for="bulkFiles" class="form-label">Archivos PDF <span class="text-body-secondary">(máx. 10 MB cada uno)</span></label>
+                        <input type="file" name="files[]" accept="application/pdf" multiple required class="form-control" id="bulkFiles" aria-describedby="bulkCount">
+                        <div class="form-text" id="bulkCount">Ningún archivo seleccionado.</div>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="publish_now" name="publish_now" value="1">
+                            <label class="form-check-label" for="publish_now">Publicar de inmediato en la app</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <button class="btn btn-primary w-100"><i class="bi bi-upload me-1"></i>Subir boletas</button>
+                <div class="form-text">Las boletas en borrador del mismo periodo se reemplazan. Las publicadas no se tocan.</div>
+            </div>
+        </form>
     </div>
-@endif
 
-<div class="grid-2">
-    <form method="POST" action="{{ route('payslips.bulk.store') }}" enctype="multipart/form-data" class="card">
-        @csrf
-        <div class="card-body">
-            <div class="grid-3">
-                <div class="form-group">
-                    <label class="form-label">Mes</label>
-                    <select name="period_month" class="form-control">
-                        @foreach(range(1, 12) as $m)
-                            <option value="{{ $m }}" @selected(old('period_month', now()->month) == $m)>{{ ucfirst(\Carbon\Carbon::create(null, $m, 1)->locale('es')->isoFormat('MMMM')) }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Año</label>
-                    <input type="number" name="period_year" class="form-control" value="{{ old('period_year', now()->year) }}" min="2020" max="2100">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Archivos PDF (máx. 10 MB c/u)</label>
-                <input type="file" name="files[]" accept="application/pdf" multiple required class="form-control" id="bulkFiles">
-                <div class="text-muted" style="font-size: 12px; margin-top: 6px;" id="bulkCount">Ningún archivo seleccionado.</div>
-            </div>
-
-            <div class="form-group day-picker">
-                <label><input type="checkbox" name="publish_now" value="1"> Publicar de inmediato en la app móvil</label>
-            </div>
-
-            <button class="btn btn-primary">Subir boletas</button>
-            <p class="text-muted" style="font-size: 12px; margin-top: 8px;">Las boletas en borrador del mismo período se reemplazan. Las ya publicadas no se tocan.</p>
-        </div>
-    </form>
-
-    <div class="card">
-        <div class="card-header"><div class="card-title">Resultado de la última carga</div></div>
-        <div class="card-body">
+    <div class="col-12 col-xl-6">
+        <div class="card border-0 h-100">
+            <div class="card-header border-0 pt-3"><h2 class="h6 fw-semibold mb-0">Resultado de la última carga</h2></div>
             @if($result)
-                <ul class="result-list">
-                    @foreach($result['created'] as $r)<li class="ok">✓ {{ $r['file'] }} → {{ $r['employee'] }}</li>@endforeach
-                    @foreach($result['replaced'] as $r)<li class="ok">↻ {{ $r['file'] }} → {{ $r['employee'] }} (reemplazada)</li>@endforeach
-                    @foreach($result['skipped'] as $r)<li class="err">✕ {{ $r['file'] }}: {{ $r['reason'] }}</li>@endforeach
+                <ul class="list-group list-group-flush small">
+                    @foreach($result['created'] as $r)<li class="list-group-item text-success"><i class="bi bi-check-circle me-1"></i>{{ $r['file'] }} → {{ $r['employee'] }}</li>@endforeach
+                    @foreach($result['replaced'] as $r)<li class="list-group-item text-success"><i class="bi bi-arrow-repeat me-1"></i>{{ $r['file'] }} → {{ $r['employee'] }} (reemplazada)</li>@endforeach
+                    @foreach($result['skipped'] as $r)<li class="list-group-item text-danger"><i class="bi bi-x-circle me-1"></i>{{ $r['file'] }}: {{ $r['reason'] }}</li>@endforeach
                 </ul>
             @else
-                <p class="text-muted">Aún no hay cargas en esta sesión.</p>
+                <div class="empty-state">Aún no hay cargas en esta sesión.</div>
             @endif
         </div>
     </div>
@@ -74,7 +75,7 @@
 <script>
     document.getElementById('bulkFiles').addEventListener('change', function () {
         const n = this.files.length;
-        document.getElementById('bulkCount').innerText = n ? `${n} archivo(s) listos para subir.` : 'Ningún archivo seleccionado.';
+        document.getElementById('bulkCount').textContent = n ? `${n} archivo(s) listos para subir.` : 'Ningún archivo seleccionado.';
     });
 </script>
 @endsection
