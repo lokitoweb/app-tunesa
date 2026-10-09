@@ -121,7 +121,10 @@ API_BASE_URL=https://palabras-al-azar.trycloudflare.com scripts/build_apk.sh tun
 En Windows usa Git Bash o WSL para correr el script. El script corre `flutter analyze` y
 `flutter test`, compila con `--dart-define-from-file=env/tunnel.json` más
 `--dart-define=API_BASE_URL=...`, y deja el APK en
-`mobile/build/dist/tunesa-<versión>-tunnel-release.apk`.
+`mobile/build/dist/tunesa-<versión>-tunnel-release.apk`. El `--dart-define` explícito reemplaza
+el `API_BASE_URL` del JSON (comprobado con Flutter 3.47.7: con
+`flutter test --dart-define-from-file=env/tunnel.json --dart-define=API_BASE_URL=https://x.example`,
+`Env.apiBaseUrl` vale `https://x.example`; lo mismo con los dos argumentos en orden inverso).
 
 ### Opción 2: editar `mobile/env/tunnel.json`
 
@@ -171,14 +174,27 @@ tampoco existe, el valor del JSON.
 | `422 GPS_ACCURACY_TOO_LOW` | Precisión peor que el máximo (100 m por defecto) | Salir a un lugar abierto; o subir "Precisión GPS máxima" en Marca y app → App. |
 | `422 MOCK_LOCATION_DETECTED` | App de GPS falso activa | Desactivarla (`ATTENDANCE_REJECT_MOCK_LOCATION=false` solo para pruebas). |
 | `422 GEOFENCE_VIOLATION` "Estás fuera del área permitida…" | Estás lejos de la sucursal y la política es "Rechazar" | Para probar desde casa: edita la sucursal en el panel (ubicación/radio) o cambia la política a "Registrar como incidencia" en Marca y app → Reglas. |
-| `422` "No tienes ninguna sucursal asignada" | El colaborador no tiene sucursal vigente | Asígnale una sucursal en el panel. (Llega con código `GEOFENCE_VIOLATION`, ver nota en la API.) |
+| `422 NO_BRANCH_ASSIGNED` "No tienes ninguna sucursal asignada" | El colaborador no tiene sucursal vigente | Asígnale una sucursal en el panel. |
 | `422 VALIDATION_ERROR` con `photo` | La empresa exige selfie y no se envió | Tomar la selfie, o desactivar "Selfie obligatoria". |
 
-<!-- verificar tras unir la app -->
-### Conexión del servidor (pendiente de verificar tras unir la app)
+### Conexión del servidor
 
-> La app que se está desarrollando en paralelo incluye un diálogo oculto **"Conexión del
-> servidor"**: se abre manteniendo presionado el logo en la pantalla de inicio y permite cambiar
-> la URL del backend sin recompilar. Sirve justo para el túnel rápido, cuya URL cambia en cada
-> reinicio: abres el diálogo, pegas la URL nueva (`https://…trycloudflare.com`, sin `/api`) y
-> listo. Este comportamiento todavía no está en esta rama; revisar cuando se una.
+La app trae un diálogo oculto **"Conexión del servidor"**
+(`mobile/lib/features/server/server_connection_dialog.dart`) para cambiar la URL del backend sin
+recompilar. Sirve justo para el túnel rápido, cuya URL cambia en cada reinicio:
+
+1. En la pantalla del código de empresa o en la de login, **mantén presionado el logo**.
+2. El diálogo muestra la URL en uso ("(predeterminado)" si es la compilada). Pega la nueva
+   (`https://…trycloudflare.com`, sin `/api`; si lo pones, se quita).
+3. **Probar** comprueba que responda con HTTP 200 en `GET /up` o
+   `GET /api/v1/app/config`; **Guardar** prueba, guarda la URL en el teléfono y recarga la
+   configuración. Si el servidor no responde, no se guarda.
+4. **Restablecer** (solo si hay una URL guardada) vuelve a la URL compilada.
+
+Detalles (`mobile/lib/core/network/server_url.dart`):
+
+- Solo acepta `https://`; `http://` únicamente en builds `dev` (`ENV_NAME=dev`).
+- Si con una URL guardada fallan 3 conexiones seguidas y la URL compilada sí responde, la app
+  vuelve sola a la compilada.
+- Si el panel define "URL del servidor (API)" (`mobile.api_base_url`) y responde, la app se
+  cambia sola a esa URL al cargar la configuración.

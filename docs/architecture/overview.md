@@ -131,7 +131,9 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
    valida (`ClockInRequest`) → rechaza GPS simulado / precisión baja / sin rostro →
    resuelve la hora si es offline → busca la sucursal vigente del colaborador → calcula la
    distancia → aplica la política de geocerca → guarda la selfie en el disco `private` →
-   calcula tardanza con el turno → crea el registro en `attendances`.
+   calcula tardanza con el turno → crea el registro en `attendances`. Si la empresa configuró
+   un webhook, se encola un POST firmado `attendance.clock_in` (igual en descansos y salida).
+   Los errores de regla salen como `AttendanceException` con su `code` (ver la API).
 3. El panel lo ve al instante: el dashboard refresca con `GET /dashboard/live-stream`
    (sondeo JSON) y el visor `/attendance/{id}` muestra selfie (URL firmada), mapa y distancia.
    Las marcaciones aceptadas fuera del radio quedan con `within_geofence = false` y en auditoría.

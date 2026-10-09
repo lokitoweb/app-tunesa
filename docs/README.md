@@ -33,6 +33,5 @@ workflows). Si algo no coincide con el código, manda el código: avisa y se cor
 - Las rutas de archivos son relativas a la raíz del repositorio.
 - La API vive bajo `/api` **sin** prefijo de versión. La única excepción es
   `GET /api/v1/app/config` (alias de `GET /api/app/config`), ver `routes/api.php`.
-- Las secciones marcadas con `<!-- verificar tras unir la app -->` describen
-  comportamiento de la app Flutter que todavía no está en esta rama; hay que revisarlas
-  cuando se una ese trabajo.
+- Las secciones "Comportamiento de la app" y "Conexión del servidor" están verificadas
+  contra el código Flutter de `mobile/lib` y citan los archivos de donde sale cada dato.

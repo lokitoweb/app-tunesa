@@ -73,8 +73,11 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
-            if ($request->is('api/*')) {
+        // Laravel convierte AuthorizationException en AccessDeniedHttpException
+        // (prepareException) ANTES de llamar a estos renderers: se atiende la
+        // excepción convertida y se mira la original en getPrevious().
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, $request) {
+            if ($request->is('api/*') && $e->getPrevious() instanceof \Illuminate\Auth\Access\AuthorizationException) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No tienes permiso para esta acción.',
@@ -99,8 +102,9 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        $exceptions->render(function (\Illuminate\Database\Eloquent\ModelNotFoundException $e, $request) {
-            if ($request->is('api/*')) {
+        // Igual que arriba: ModelNotFoundException llega como NotFoundHttpException
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
+            if ($request->is('api/*') && $e->getPrevious() instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
                 return response()->json([
                     'success' => false,
                     'message' => 'El recurso solicitado no fue encontrado.',

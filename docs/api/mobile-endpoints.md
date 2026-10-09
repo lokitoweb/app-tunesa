@@ -47,14 +47,22 @@ el texto.
 | 403 | `USER_INACTIVE` | Login de cuenta desactivada/suspendida. |
 | 403 | `MODULE_DISABLED` | La empresa ocultó ese módulo en la app (boletas, legajo, datos de pago, dotación). |
 | 404 | `TENANT_NOT_FOUND` | Slug inexistente (o suspendido, en la ruta de config). |
-| 404 | `NOT_FOUND` | Recurso inexistente (ver nota al final). |
+| 403 | `UNAUTHORIZED` | Falla una autorización de Laravel (`AuthorizationException`, p. ej. `Gate::authorize`). |
+| 404 | `NOT_FOUND` | Recurso inexistente (`findOrFail` con un id que no existe o no es tuyo). |
+| 404 | `NO_OPEN_ATTENDANCE` | Descanso o salida sin jornada abierta. |
 | 409 | `CONFLICT`, `OVERLAPPING_REQUEST`, `NOT_PENDING`, `DOCUMENT_LOCKED` | Estado incompatible. |
+| 409 | `ALREADY_CLOCKED_IN`, `BREAK_ALREADY_STARTED`, `BREAK_NOT_STARTED`, `BREAK_ALREADY_ENDED` | Estado de la jornada incompatible (ver [Marcación](#marcación)). |
 | 423 | `PAYMENT_INFO_LOCKED` | Datos de pago ya verificados por RRHH y bloqueados. |
 | 422 | `VALIDATION_ERROR` | Validación de campos. |
-| 422 | códigos de marcación | Ver [Marcación](#marcación). |
+| 422 | `GEOFENCE_VIOLATION`, `NO_BRANCH_ASSIGNED`, `BREAK_NOT_ALLOWED`, `MOCK_LOCATION_DETECTED`, `GPS_ACCURACY_TOO_LOW`, `FACE_NOT_DETECTED`, `OFFLINE_*` | Reglas de marcación, ver [Marcación](#marcación). |
 | 423 | `ACCOUNT_LOCKED` | Demasiados intentos fallidos (`LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCK_MINUTES`). |
 | 426 | `APP_UPDATE_REQUIRED` | Versión de la app por debajo de la mínima con `force_update`. |
 | 429 | `TOO_MANY_ATTEMPTS` | Ráfaga de intentos de login (`LoginGuard`). Los límites `throttle:` de las rutas devuelven el 429 estándar de Laravel, sin `code`. |
+| 500 | `SERVER_ERROR` | Error inesperado al marcar (se registra en el log; el mensaje no expone detalles internos). |
+
+Los errores de la marcación salen de `App\Exceptions\AttendanceException` (código + HTTP
+status), que `AttendanceController::handleAttendanceException` devuelve tal cual.
+`GEOFENCE_VIOLATION` es **solo** distancia a la sucursal.
 
 Ejemplo de 426:
 
@@ -237,9 +245,9 @@ Qué valida el backend, en orden (`AttendanceController::rejectUntrustedLocation
    más vieja que `offline_max_hours` → `422 OFFLINE_TOO_OLD`. Si pasa, la marcación se guarda con
    esa hora (y la tardanza se calcula con ella), con `offline: true` y `synced_at` en el meta, y
    queda en auditoría (`attendance.offline_synced`).
-5. Clock-in: si ya marcó entrada ese día → `409 CONFLICT`. Si no tiene sucursal vigente → `422`
-   "No tienes ninguna sucursal asignada. Contacta a RRHH."
-6. Clock-out: sin jornada abierta → `404 NOT_FOUND` ("Primero debes marcar tu entrada."). Una
+5. Clock-in: si ya marcó entrada ese día → `409 ALREADY_CLOCKED_IN`. Si no tiene sucursal
+   vigente → `422 NO_BRANCH_ASSIGNED` "No tienes ninguna sucursal asignada. Contacta a RRHH."
+6. Clock-out: sin jornada abierta → `404 NO_OPEN_ATTENDANCE` ("Primero debes marcar tu entrada."). Una
    salida offline busca la jornada del día de `offline_recorded_at`; si es anterior a la entrada
    → `422 OFFLINE_BEFORE_CLOCK_IN`.
 7. **Geocerca** (Haversine contra la sucursal): fuera del radio, según
@@ -291,11 +299,24 @@ hubo selfie.
 ### Descansos
 
 `POST /api/attendance/break-start` y `POST /api/attendance/break-end` (JSON o form):
-`latitude`, `longitude` obligatorios, `accuracy_meters` opcional. No piden foto, no validan
-geocerca ni anti-fraude y no admiten modo offline (usan la hora del servidor).
+`latitude`, `longitude` obligatorios; opcionales `accuracy_meters`, `is_mocked`, `device_id`,
+`device_os`, `app_version`. No piden foto ni exigen geocerca, pero aplican **los mismos controles
+anti-fraude que la entrada**: `422 MOCK_LOCATION_DETECTED` y `422 GPS_ACCURACY_TOO_LOW` (precisión
+máxima efectiva de Marca y app). La distancia a la sucursal y los metadatos del dispositivo se
+guardan en `clock_in_meta.breaks.start` / `.end` (solo informativo).
 
-Errores: `404` sin jornada abierta; `409 CONFLICT` "Ya iniciaste tu descanso." / "No has iniciado
-un descanso." / "Ya finalizaste tu descanso."; `422` "Tu turno no permite descansos.".
+La hora es la del servidor en la **zona horaria de la empresa** (`tenant_timezone()`), igual que
+la entrada y la salida, y `break_minutes` se calcula con esas horas. No admiten modo offline: un
+`offline_recorded_at` enviado a estas rutas se ignora y el descanso queda con la hora en que llega
+al servidor (ver nota en "Comportamiento de la app").
+
+Errores: `404 NO_OPEN_ATTENDANCE` sin jornada abierta; `409 BREAK_ALREADY_STARTED` "Ya iniciaste
+tu descanso.", `409 BREAK_NOT_STARTED` "No has iniciado un descanso.", `409 BREAK_ALREADY_ENDED`
+"Ya finalizaste tu descanso."; `422 BREAK_NOT_ALLOWED` "Tu turno no permite descansos.".
+
+Horas trabajadas al marcar la salida: de la entrada a la salida, menos `break_minutes`, salvo que
+"Refrigerio pagado" (`lunch_paid` efectivo: empresa → plataforma → `false`) esté activo; en ese
+caso el descanso no se descuenta.
 
 ### `GET /api/attendance/today`
 
@@ -379,9 +400,9 @@ Permiso `attendance.view_team` (supervisor, RRHH y admin).
 
 | Ruta | Detalle |
 |---|---|
-| `GET /api/supervisor/team` | Colaboradores activos (rol `employee`) visibles para el usuario, como `UserResource`. |
+| `GET /api/supervisor/team` | Personal activo que marca (roles `employee` y `supervisor`) visible para el usuario, sin él mismo, como `UserResource`. Es el mismo equipo que cuenta `attendance/live` (`User::teamOf`). |
 | `GET /api/supervisor/attendance/live` | Marcaciones de hoy del equipo + `summary` (`team_size`, `present`, `late`, `on_break`, `clocked_out`, `absent`). |
-| `GET /api/supervisor/attendance?from=&to=&user_id=&status=` | Reporte paginado (50), por defecto desde el inicio de mes. |
+| `GET /api/supervisor/attendance?from=&to=&user_id=&status=` | Reporte paginado (50), por defecto desde el inicio de mes. Incluye también a los integrantes ya inactivos (historial). |
 
 ## Boletas
 
@@ -441,34 +462,57 @@ Cualquier rol autenticado.
 
 (Ejemplo de `app/Notifications/LeaveRequestReviewed.php`; los demás avisos están en
 `app/Notifications/` y los dispara `app/Services/NotificationDispatcher.php`.) Push por FCM **no está implementado**: el backend guarda el token
-(`refresh-fcm`) pero no envía push.
+(`refresh-fcm`) pero no envía push. Si la empresa configuró un "Endpoint de notificaciones" en
+Marca y app, cada aviso creado también se reenvía por POST firmado a ese endpoint
+(`notification.created`, ver [white-label.md](../architecture/white-label.md#integraciones-webhook-y-endpoint-de-notificaciones)).
 
 ## Notas y diferencias conocidas
 
-- Los 422 de `AttendanceService` que no tienen código propio (por ejemplo "No tienes ninguna
-  sucursal asignada" o "Tu turno no permite descansos") salen con `code: "GEOFENCE_VIOLATION"`,
-  porque `AttendanceController::handleAttendanceException` mapea cualquier 422 genérico a ese
-  código. La app no debería asumir que todo `GEOFENCE_VIOLATION` es un problema de distancia.
 - El objeto `user.permissions` de login/me se calcula por **rol** fijo en `UserResource`, no con
   la matriz de permisos de la base de datos.
-- `NOT_FOUND` / `UNAUTHORIZED`: `bootstrap/app.php` registra respuestas para
-  `ModelNotFoundException` y `AuthorizationException`, pero Laravel suele convertir esas
-  excepciones a `NotFoundHttpException` / `AccessDeniedHttpException` antes de llamar a los
-  renderers; ningún test lo cubre. La app debe apoyarse en el HTTP status (404 / 403) además del `code`.
+- `NOT_FOUND` / `UNAUTHORIZED`: Laravel convierte `ModelNotFoundException` y
+  `AuthorizationException` en `NotFoundHttpException` / `AccessDeniedHttpException` antes de
+  llamar a los renderers, así que `bootstrap/app.php` atiende esas excepciones convertidas y mira
+  `getPrevious()` (`tests/Feature/ApiExceptionRenderingTest.php`). Una ruta inexistente o un
+  `abort(404/403)` sin excepción original siguen con la respuesta estándar de Laravel (sin `code`).
 
-<!-- verificar tras unir la app -->
-## Comportamiento de la app (pendiente de verificar)
+## Comportamiento de la app
 
-> La app que se está actualizando en paralelo todavía no está en esta rama. Revisar contra
-> `mobile/lib` cuando se una.
+Verificado contra `mobile/lib` (rutas entre paréntesis).
 
-- Llama a `GET /api/v1/app/config` al arrancar, la guarda en caché y aplica el tema dinámico.
-- Envía `X-App-Version` en todas las peticiones y muestra la pantalla de "actualiza la app" ante
-  `426 APP_UPDATE_REQUIRED` o si su versión es menor que `mobile.min_supported_version` con
-  `force_update`.
-- Con `mobile.offline_mode_enabled`, encola las marcaciones hechas sin red y las envía después con
-  `offline_recorded_at`; debe tratar `OFFLINE_TOO_OLD`, `OFFLINE_NOT_ALLOWED` y
-  `OFFLINE_BEFORE_CLOCK_IN` como errores definitivos (no reintentar).
-- Envía `photo` solo si `mobile.selfie_required` (o si el usuario la toma) y `face_detected`
-  cuando `mobile.face_detection_required`.
-- Diálogo oculto "Conexión del servidor" (mantener presionado el logo) para cambiar la URL base.
+- **Arranque** (`core/config/app_config_controller.dart`): pinta al instante la última
+  configuración guardada (`SharedPreferences`, por slug) y la refresca en segundo plano con
+  `GET /api/v1/app/config?tenant_slug=` al abrir y al volver a la app. Sin caché espera como
+  máximo 4 s en el splash. Si la ruta nueva responde 404 sin código (backend viejo) usa
+  `GET /api/tenant/branding`. Sin red conserva la caché o los valores por defecto.
+- **Tema** (`app.dart`, `core/theme/app_theme.dart`): `ThemeData` claro y oscuro con los cuatro
+  colores de `branding`; el logo usa `logo_dark_url` en tema oscuro (si falta, `logo_url`).
+  `splash_url` se guarda pero **la app todavía no lo muestra** (el splash usa el logo).
+- **Versión** (`core/network/api_client.dart`, `core/config/version_gate.dart`): manda
+  `X-App-Version` en todas las peticiones. Bloquea con la pantalla de actualización si recibe un
+  `426 APP_UPDATE_REQUIRED` o si su versión es menor que `min_supported_version` con
+  `force_update`; si es menor sin forzar, o menor que `latest_version`, muestra un aviso
+  descartable.
+- **Cola offline** (`features/attendance/data/offline_clock_queue.dart`): con
+  `offline_mode_enabled`, si no hay señal (o se cae al enviar) guarda la marcación cifrada en el
+  teléfono (`flutter_secure_storage`; la selfie se copia a los documentos de la app) y la envía
+  después con `offline_recorded_at`, al recuperar señal, al volver a la app o al deslizar para
+  actualizar. Decide por **HTTP status**, no por `code`: reintenta en errores de red, 5xx y
+  401/408/425/426/429; cualquier otro rechazo (por ejemplo `422 OFFLINE_TOO_OLD`,
+  `OFFLINE_NOT_ALLOWED`, `OFFLINE_BEFORE_CLOCK_IN`) la descarta y avisa. Las que superan
+  `offline_max_hours` se descartan en el teléfono sin enviarse. Solo envía las del usuario con
+  sesión iniciada.
+- **Descansos offline:** la app también encola inicio/fin de descanso, pero el backend ignora
+  `offline_recorded_at` en esas rutas: el descanso queda con la hora de sincronización.
+- **Selfie y rostro** (`clock_screen.dart`, `face_detection_service.dart`): la selfie solo se pide
+  y se envía en entrada/salida cuando `selfie_required`. Con `face_detection_required`, ML Kit
+  analiza la foto en el teléfono; si no encuentra rostro el botón de enviar queda bloqueado, y
+  si ML Kit no puede analizarla no se envía `face_detected` (el backend no rechaza).
+- **Precisión GPS:** la app exige `max_gps_accuracy_meters` antes de enviar (respaldo:
+  `MAX_GPS_ACCURACY` compilado) y manda `accuracy_meters` e `is_mocked` también en los descansos.
+- **Errores de marcación** (`_SendErrorCard`): ofrece volver a leer el GPS ante
+  `GEOFENCE_VIOLATION`, `MOCK_LOCATION_DETECTED` y `GPS_ACCURACY_TOO_LOW`, y pide repetir la
+  selfie ante `FACE_NOT_DETECTED`. Los demás códigos solo muestran `message`.
+- **Conexión del servidor** (`features/server/server_connection_dialog.dart`): diálogo oculto que
+  se abre manteniendo presionado el logo de la pantalla de código de empresa o de login. Ver
+  [mobile-cloudflare-tunnel.md](../deployment/mobile-cloudflare-tunnel.md#conexión-del-servidor).

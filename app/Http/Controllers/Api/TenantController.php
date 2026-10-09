@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\TenantSetting;
 use App\Models\User;
+use App\Services\TenantSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -198,24 +199,26 @@ class TenantController extends Controller
     /**
      * Editar marca blanca de la empresa propia (Company Admin).
      * PUT /api/admin/branding  (multipart si incluye logo)
+     *
+     * Endpoint histórico: misma forma de respuesta, pero el guardado lo hace
+     * TenantSettingsService (sin SVG, borra el logo anterior y deja auditoría),
+     * igual que "Marca y app" y PUT /api/admin/app-config.
      */
-    public function updateBranding(Request $request): JsonResponse
+    public function updateBranding(Request $request, TenantSettingsService $settings): JsonResponse
     {
         $tenant = current_tenant();
+        $rules  = $settings->rules(global: false);
 
         $validated = $request->validate([
             'company_name'    => ['sometimes', 'string', 'max:200'],
-            'primary_color'   => ['sometimes', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'secondary_color' => ['sometimes', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'logo'            => ['sometimes', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
+            'primary_color'   => $rules['primary_color'],
+            'secondary_color' => $rules['secondary_color'],
+            'logo'            => $rules['logo'],
+        ], $settings->messages() + [
+            'logo.mimes' => 'El logo debe ser PNG, JPG o WebP.',
         ]);
 
-        if ($request->hasFile('logo')) {
-            $validated['logo_path'] = $request->file('logo')->store("logos/{$tenant->id}", 'public');
-            unset($validated['logo']);
-        }
-
-        $tenant->update($validated);
+        $settings->update($tenant, $validated, $request, $request->user());
 
         return response()->json([
             'success' => true,

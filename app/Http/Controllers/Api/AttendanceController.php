@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Exceptions\AttendanceRuleException;
+use App\Exceptions\AttendanceException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\BreakRequest;
 use App\Http\Requests\Api\ClockInRequest;
@@ -104,11 +104,16 @@ class AttendanceController extends Controller
      */
     public function breakStart(BreakRequest $request): JsonResponse
     {
+        if ($rejection = $this->rejectUntrustedLocation($request)) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->breakStart(
                 employee:  $request->user(),
                 latitude:  (float) $request->input('latitude'),
                 longitude: (float) $request->input('longitude'),
+                meta:      $request->deviceMeta(),
             );
 
             return response()->json([
@@ -131,11 +136,16 @@ class AttendanceController extends Controller
      */
     public function breakEnd(BreakRequest $request): JsonResponse
     {
+        if ($rejection = $this->rejectUntrustedLocation($request)) {
+            return $rejection;
+        }
+
         try {
             $attendance = $this->attendanceService->breakEnd(
                 employee:  $request->user(),
                 latitude:  (float) $request->input('latitude'),
                 longitude: (float) $request->input('longitude'),
+                meta:      $request->deviceMeta(),
             );
 
             return response()->json([
@@ -569,7 +579,7 @@ class AttendanceController extends Controller
         $from = $request->input('from', now($tz)->startOfMonth()->toDateString());
         $to   = $request->input('to', now($tz)->toDateString());
 
-        $attendances = Attendance::whereIn('user_id', $this->teamUserIds($request->user()))
+        $attendances = Attendance::whereIn('user_id', $this->teamUserIds($request->user(), activeOnly: false))
             ->whereBetween('work_date', [$from, $to])
             ->when($request->user_id, fn ($q) => $q->where('user_id', $request->user_id))
             ->when($request->status,  fn ($q) => $q->where('status',  $request->status))
@@ -728,8 +738,9 @@ class AttendanceController extends Controller
     /**
      * Anti-fraude: rechaza la marcación si la app detectó ubicación simulada
      * (mock GPS) o si la precisión del GPS es peor que el máximo permitido.
+     * Se aplica a entrada, salida e inicio/fin de descanso.
      */
-    private function rejectUntrustedLocation(ClockInRequest|ClockOutRequest $request): ?JsonResponse
+    private function rejectUntrustedLocation(ClockInRequest|ClockOutRequest|BreakRequest $request): ?JsonResponse
     {
         $settings = $request->tenantSettings();
 
@@ -806,45 +817,50 @@ class AttendanceController extends Controller
     }
 
     /**
-     * IDs de los colaboradores que supervisa el usuario: los asignados a las
-     * sucursales donde él es supervisor (branches.supervisor_id).
+     * Equipo del usuario (User::teamOf): colaboradores y supervisores de sus
+     * sucursales, o todo el personal que marca si ve toda la asistencia (RRHH,
+     * admin). Nunca él mismo. El reporte incluye también a los inactivos
+     * (historial de quien ya no está).
      *
      * @return array<int, int>
      */
-    /**
-     * Equipo visible (User::visibleTo): el supervisor ve a los de sus sucursales;
-     * quien ve toda la asistencia (RRHH, admin) ve a todo el personal activo de campo.
-     */
-    private function teamUserIds(User $viewer): array
+    private function teamUserIds(User $viewer, bool $activeOnly = true): array
     {
-        return User::visibleTo($viewer)
-            ->where('users.id', '!=', $viewer->id)
-            ->when($viewer->seesAllAttendance(), fn ($q) => $q
-                ->whereIn('role', ['employee', 'supervisor'])
-                ->where('status', 'active'))
+        return User::teamOf($viewer, $activeOnly)
             ->pluck('users.id')
             ->all();
     }
 
     /**
-     * Convierte excepciones del servicio en respuestas JSON apropiadas.
+     * Convierte excepciones del servicio en respuestas JSON.
+     *
+     * AttendanceException trae su propio código (GEOFENCE_VIOLATION solo para
+     * distancia, NO_BRANCH_ASSIGNED, ALREADY_CLOCKED_IN...) y su HTTP status.
+     * Cualquier otra excepción es un error inesperado: 500 sin detalles internos.
      */
     private function handleAttendanceException(\Exception $e): JsonResponse
     {
-        $code = $e->getCode();
+        if ($e instanceof AttendanceException) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'code'    => $e->errorCode,
+            ], $e->status());
+        }
 
-        // Usar el código de la excepción como HTTP status cuando es válido
-        $httpStatus = in_array($code, [400, 404, 409, 422]) ? $code : 500;
+        // Errores HTTP/validación/no encontrado: los renderiza el manejador global
+        if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
+            || $e instanceof \Illuminate\Validation\ValidationException
+            || $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+            throw $e;
+        }
+
+        report($e);
 
         return response()->json([
             'success' => false,
-            'message' => $e->getMessage(),
-            'code'    => $e instanceof AttendanceRuleException ? $e->errorCode : match ($httpStatus) {
-                404     => 'NOT_FOUND',
-                409     => 'CONFLICT',
-                422     => 'GEOFENCE_VIOLATION',
-                default => 'SERVER_ERROR',
-            },
-        ], $httpStatus);
+            'message' => 'No se pudo registrar la marcación. Intenta de nuevo en unos minutos.',
+            'code'    => 'SERVER_ERROR',
+        ], 500);
     }
 }

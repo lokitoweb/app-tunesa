@@ -44,6 +44,12 @@ Super Admin. **Todas las columnas de configuración aceptan NULL y NULL signific
 
 \* solo en la fila global.
 
+**Fila única de la plataforma.** El índice único de `tenant_id` no impide varias filas con
+`tenant_id = NULL`, así que el único camino que crea la fila global es
+`TenantSetting::platform()`: busca la fila con `lockForUpdate()` dentro de una transacción y la
+crea si no existe. `editableRowFor(null)` (panel global, `TenantSettingsService`) la usa, y
+`rowFor(null)` lee siempre la de menor `id`.
+
 ### Orden de resolución
 
 `TenantSetting::forTenant($tenant)` arma en memoria (no se guarda) la configuración efectiva:
@@ -71,7 +77,9 @@ Casos especiales del modelo:
   (nunca el de la plataforma junto a su marca).
 - **Precisión GPS** (`maxGpsAccuracy()`): empresa → plataforma → `ATTENDANCE_MAX_GPS_ACCURACY`
   de `.env` (`config/attendance.php`), no el `DEFAULTS`.
-- **`maps_api_key`**: se hereda de la plataforma (no está en `NOT_INHERITED`).
+- **`maps_api_key`**: se hereda de la plataforma (no está en `NOT_INHERITED`), pero hoy
+  **ningún código la usa**: está reservada para una futura geocodificación. Solo se ve
+  (enmascarada) en el panel y en `GET /api/admin/app-config`, nunca en la API pública.
 - **`config_version`**: la fecha más reciente entre `tenants.updated_at`, la fila de la empresa,
   la fila global y `company_configurations.updated_at`. La app puede usarla para saber si recargar.
 
@@ -93,9 +101,49 @@ y al editar se muestran enmascarados (`••••••••1234`). En el for
 las casillas `clear_webhook_secret` / `clear_maps_api_key` los borran. La auditoría registra
 qué secretos cambiaron, no su valor.
 
-> **Estado actual:** `webhook_url`, `webhook_secret`, `maps_api_key`, `notification_endpoint` y
-> `lunch_paid` se guardan y validan, pero **ningún código del backend los usa todavía** (no se
-> envía ningún webhook ni se calcula el refrigerio pagado).
+### Integraciones: webhook y endpoint de notificaciones
+
+`App\Services\IntegrationDispatcher` (enganchado a los eventos de los modelos en
+`AppServiceProvider`) encola un `App\Jobs\SendTenantWebhook` (`ShouldQueue`) por evento, solo si
+**la fila de la empresa** tiene la URL (no se heredan de la plataforma):
+
+| Destino | Eventos |
+|---|---|
+| `webhook_url` | `attendance.clock_in`, `attendance.break_start`, `attendance.break_end`, `attendance.clock_out` (al llenarse cada hora de la marcación, desde la API o el panel) y `leave_request.status_changed` (cada cambio de `status`, incluida la cancelación). |
+| `notification_endpoint` | `notification.created`: cada aviso in-app (canal `database`) creado para un usuario de la empresa. |
+
+```http
+POST <url>
+Content-Type: application/json
+X-Tunesa-Event: attendance.clock_in
+X-Tunesa-Signature: sha256=<hex de HMAC-SHA256(cuerpo, webhook_secret)>
+
+{"event":"attendance.clock_in","occurred_at":"2026-10-09T08:02:11-05:00",
+ "tenant":{"slug":"empresa-demo"},
+ "data":{"id":120,"user_id":7,"employee_code":"EMP-001","branch_id":1,"work_date":"2026-10-09",
+         "clock_in_at":"2026-10-09T08:02:11-05:00","break_start_at":null,"break_end_at":null,
+         "clock_out_at":null,"status":"present","late_minutes":0,"break_minutes":null,
+         "worked_hours":null,"clock_in_within_geofence":true,"clock_out_within_geofence":null}}
+```
+
+- Para verificar: calcular el HMAC del cuerpo **tal como llega** con el secreto y comparar.
+  Sin `webhook_secret` el envío va sin `X-Tunesa-Signature`. El endpoint de notificaciones
+  usa el mismo secreto.
+- `leave_request.status_changed` trae `id`, `user_id`, `type`, `start_date`, `end_date`, `days`,
+  `status`, `previous_status`, `reviewed_by`, `review_notes`. `notification.created` trae `id`,
+  `type`, `user_id`, `title`, `body`, `data`.
+- Timeout de 5 s, 3 intentos (esperas de 10 s y 60 s); el fallo final se registra en el log.
+  La URL y el secreto se leen al ejecutar el job (el secreto no viaja en la cola).
+- Nunca interrumpe la acción que lo dispara: con la cola `sync` el envío corre en la misma
+  petición y un error solo queda en el log. En producción conviene `QUEUE_CONNECTION=database`
+  (por defecto) con un worker (`php artisan queue:work`): sin worker los eventos quedan en la
+  tabla `jobs` sin enviarse.
+
+### Refrigerio pagado (`lunch_paid`)
+
+Al marcar la salida, `AttendanceService::clockOut` resta `break_minutes` de las horas
+trabajadas salvo que el `lunch_paid` efectivo (empresa → plataforma → `false`) sea verdadero.
+`lunch_minutes` solo se usa como duración de descanso propuesta al crear un turno.
 
 ## Panel: `/settings/branding`
 
@@ -112,7 +160,14 @@ Admin). Un solo formulario con cuatro pestañas (`BrandingWebController::TABS`):
 - Con empresa en contexto edita su fila; en la **vista global** del Super Admin edita la fila de
   la plataforma (muestra un aviso y la ruta `settings.branding.update` está permitida en
   `SetWebTenant::GLOBAL_WRITE_ROUTES`).
-- Los placeholders muestran el valor heredado; dejar un campo vacío = heredar.
+- Los placeholders muestran el valor heredado; dejar un campo de texto o número vacío = heredar.
+- Opciones Sí/No (`force_update`, `selfie_required`, `face_detection_required`,
+  `offline_mode_enabled`, `lunch_paid`; `TenantSettingsService::BOOLEANS`): en la fila de la
+  plataforma son interruptores (desmarcado = No). En una empresa son un selector de tres
+  estados (`resources/views/settings/partials/bool-setting.blade.php`): "Heredar de la
+  plataforma (actual: Sí/No)" guarda `NULL`, "Sí" guarda `true` y "No" `false`. Con "Heredar" la
+  empresa sigue a la plataforma aunque esta cambie después. Un booleano ausente del formulario
+  no se modifica.
 - Validación (`TenantSettingsService::rules`): colores `#RRGGBB` (primario y secundario son
   obligatorios para una empresa), imágenes PNG/JPG/WebP hasta 2 MB, favicon PNG/ICO (SVG
   excluido), `api_base_url` solo `https://` y **sin `/api` al final**, versiones tipo `1.2.3`,
@@ -127,17 +182,15 @@ Lo mismo por API (Administrador de empresa): `GET /api/admin/app-config` devuelv
 `PUT`/`POST /api/admin/app-config` (multipart) guarda con las mismas reglas. La empresa siempre
 es la de la request, nunca un campo del input.
 
-> **Ojo con los interruptores del panel:** como un checkbox desmarcado no se envía,
-> `BrandingWebController::update` convierte los ausentes en `false`. Al guardar el formulario
-> los cinco booleanos (`force_update`, `selfie_required`, `face_detection_required`,
-> `offline_mode_enabled`, `lunch_paid`) quedan **fijados en la fila de la empresa** con el valor
-> que se veía, y desde el panel ya no se pueden volver a "heredar". Si después cambia el valor
-> de la plataforma, esa empresa no lo recibe. Por API sí se puede mandar `null`.
+Por API, `null` (JSON) o un campo vacío (multipart) en un booleano o un número también es
+"heredar"; un campo ausente no se cambia.
 
 También existe la API anterior de marca: `GET /api/tenant/branding` (pública, con
 `X-Tenant-Slug`; devuelve las claves históricas de `tenants` más las nuevas) y
 `PUT /api/admin/branding` (permiso `tenants.branding`; cambia `company_name`, colores y logo en
-`tenants`).
+`tenants`). Mantiene su ruta, permiso y forma de respuesta, pero guarda a través de
+`TenantSettingsService::update`: logo solo PNG/JPG/WebP (sin SVG), borra el logo anterior al
+reemplazarlo y deja la auditoría `tenant_settings.updated`.
 
 ## Marca dinámica en el panel y el login
 
@@ -184,26 +237,36 @@ la empresa tiene `force_update = true`, responde `426 APP_UPDATE_REQUIRED` con
 config. Si la app no manda la cabecera, no se bloquea. Se compara ignorando un prefijo `v` y el
 número de build (`1.2.3+45` → `1.2.3`).
 
-<!-- verificar tras unir la app -->
-### Comportamiento de la app (pendiente de verificar)
+### Comportamiento de la app
 
-> Esta sección describe el trabajo de la app Flutter que se está haciendo en paralelo y **todavía
-> no está en esta rama**. Revisar contra `mobile/lib` cuando se una.
+Verificado contra `mobile/lib`:
 
-- **Arranque:** al abrir, la app pide `GET /api/v1/app/config` con el slug guardado (o sin slug
-  antes de elegir empresa) y guarda la respuesta en caché. Si no hay red usa la última
-  configuración guardada.
-- **Tema dinámico:** construye el `ThemeData` con `branding.primary_color`, `secondary_color`,
-  `accent_color` y `navbar_color`, y muestra `logo_url` / `logo_dark_url` / `splash_url`.
-- **Conexión del servidor (oculta):** manteniendo presionado el logo se abre el diálogo
-  "Conexión del servidor" para cambiar la URL del backend sin recompilar (útil con túneles
-  cuya URL cambia). `mobile.api_base_url`, si viene, también indica la URL a usar.
-- **`X-App-Version`:** la app envía su versión en todas las peticiones.
-- **Pantalla de actualización:** si la versión instalada es menor que
-  `mobile.min_supported_version` con `force_update`, o si una petición devuelve
-  `426 APP_UPDATE_REQUIRED`, muestra una pantalla que bloquea el uso hasta actualizar.
-- **Cola offline:** con `mobile.offline_mode_enabled = true`, si no hay conexión al marcar, la
-  app guarda la marcación con la hora real y la envía después con `offline_recorded_at`
-  (el backend la rechaza si pasó más de `offline_max_hours`).
-- **Reglas en la app:** `selfie_required` decide si pide la foto; `max_gps_accuracy_meters`
-  reemplaza al `MAX_GPS_ACCURACY` compilado; `face_detection_required` activa la detección de rostro.
+- **Arranque** (`core/config/app_config_controller.dart`): pinta al instante la configuración
+  guardada para el slug actual (el guardado o `DEFAULT_TENANT`; sin slug, la de la plataforma) y
+  la refresca en segundo plano con `GET /api/v1/app/config` al abrir y al volver a la app. Sin
+  caché espera como máximo 4 s en el splash. Sin red conserva la caché (o los valores por
+  defecto). Si la ruta nueva no existe (404 sin código) usa `GET /api/tenant/branding`.
+- **Tema dinámico** (`core/theme/app_theme.dart`): `ThemeData` claro y oscuro con
+  `primary_color`, `secondary_color`, `accent_color` y `navbar_color`. El logo usa
+  `logo_dark_url` en tema oscuro (si falta, `logo_url`). `splash_url` se recibe y se guarda,
+  pero **la app todavía no lo muestra**.
+- **Conexión del servidor (oculta)** (`features/server/server_connection_dialog.dart`): se abre
+  manteniendo presionado el logo en la pantalla de código de empresa o en la de login. Ver
+  [mobile-cloudflare-tunnel.md](../deployment/mobile-cloudflare-tunnel.md#conexión-del-servidor).
+- **`mobile.api_base_url`:** si viene y es distinto del dominio en uso, la app comprueba que
+  responda y se cambia sola, sin avisar (`_maybeSwitchServer`).
+- **`X-App-Version`:** la app envía su versión en todas las peticiones (`core/network/api_client.dart`).
+- **Actualización** (`core/config/version_gate.dart`): pantalla bloqueante si la versión es menor
+  que `min_supported_version` con `force_update`, o si una petición devuelve
+  `426 APP_UPDATE_REQUIRED`; aviso descartable (una vez por arranque) si es menor sin forzar o
+  menor que `latest_version`.
+- **Cola offline** (`features/attendance/data/offline_clock_queue.dart`): con
+  `offline_mode_enabled`, guarda la marcación cifrada en el teléfono con la hora real y la envía
+  después con `offline_recorded_at`. Las que superan `offline_max_hours` se descartan en el
+  teléfono; un rechazo 4xx definitivo del backend (p. ej. `OFFLINE_TOO_OLD`) la descarta y avisa.
+  Los descansos también se encolan, pero el backend no acepta hora offline en esas rutas.
+- **Reglas en la app:** `selfie_required` decide si pide y envía la foto (solo entrada/salida);
+  `max_gps_accuracy_meters` reemplaza al `MAX_GPS_ACCURACY` compilado;
+  `face_detection_required` activa la detección con ML Kit en el teléfono
+  (`features/attendance/data/face_detection_service.dart`): sin rostro no deja enviar, y si ML
+  Kit falla no se envía `face_detected`.

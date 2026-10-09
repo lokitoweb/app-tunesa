@@ -181,7 +181,8 @@ class WhiteLabelSettingsTest extends TestCase
         $effective = TenantSetting::forTenant($acme->fresh());
         $this->assertSame('https://abcd.trycloudflare.com', $effective->api_base_url);
         $this->assertFalse($effective->geofenceStrictMode());
-        $this->assertFalse($effective->selfie_required); // switch desmarcado = false
+        $this->assertTrue($effective->selfie_required); // empresa: ausente = no cambiar (hereda true de fábrica)
+        $this->assertNull(TenantSetting::rowFor($acme)->selfie_required);
 
         // Los formularios de alta proponen los valores por defecto
         $this->actingAs($admin)->get('/branches/create')->assertOk()->assertSee('value="80"', false);

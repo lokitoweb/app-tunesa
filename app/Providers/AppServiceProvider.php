@@ -8,9 +8,13 @@ use App\Models\EmployeeDocument;
 use App\Models\LeaveRequest;
 use App\Models\Payslip;
 use App\Models\User;
+use App\Services\IntegrationDispatcher;
 use App\Services\NotificationDispatcher;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Notifications\Events\NotificationSent;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -58,6 +62,18 @@ class AppServiceProvider extends ServiceProvider
         Payslip::updated(fn (Payslip $m) => $notify()->payslipSaved($m));
         EmployeeDocument::updated(fn (EmployeeDocument $m) => $notify()->documentUpdated($m));
         Attendance::updated(fn (Attendance $m) => $notify()->attendanceUpdated($m));
+
+        // Integraciones de "Marca y app": webhook (marcaciones y permisos) y
+        // endpoint de notificaciones (cada aviso in-app). Encolados y firmados.
+        $integrations = fn () => app(IntegrationDispatcher::class);
+        Attendance::created(fn (Attendance $m) => $integrations()->attendanceSaved($m, created: true));
+        Attendance::updated(fn (Attendance $m) => $integrations()->attendanceSaved($m));
+        LeaveRequest::updated(fn (LeaveRequest $m) => $integrations()->leaveUpdated($m));
+        Event::listen(function (NotificationSent $event) use ($integrations) {
+            if ($event->channel === 'database' && $event->response instanceof DatabaseNotification) {
+                $integrations()->notificationCreated($event->notifiable, $event->response);
+            }
+        });
 
         // Los permisos sembrados (RolesAndPermissionsSeeder) funcionan como
         // abilities de Gate: $user->can('shifts.manage'), @can en Blade, etc.

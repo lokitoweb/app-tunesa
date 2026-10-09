@@ -26,6 +26,19 @@ class TenantSettingsService
 
     public function __construct(private readonly AuditLogger $audit) {}
 
+    /**
+     * Valor de un selector Heredar/Sí/No: null o "" = heredar (NULL en la fila).
+     * Lo que no sea un booleano reconocible se devuelve tal cual para que la validación lo rechace.
+     */
+    public static function triState(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $value;
+    }
+
     /** Reglas comunes: todo es opcional (ausente = no cambiar; null = heredar) */
     public function rules(bool $global): array
     {
@@ -128,6 +141,10 @@ class TenantSettingsService
 
             // Colores primario/secundario: en `tenants` para una empresa, en la fila global para la plataforma
             $tenantChanges = [];
+            // Solo lo envía PUT /api/admin/branding (no está en rules())
+            if ($tenant && isset($data['company_name'])) {
+                $tenantChanges['company_name'] = $data['company_name'];
+            }
             foreach (['primary_color', 'secondary_color'] as $c) {
                 if (array_key_exists($c, $data)) {
                     $value = $data[$c] ? strtoupper($data[$c]) : null;

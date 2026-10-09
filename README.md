@@ -75,6 +75,10 @@ Programar el scheduler para el control de faltas (`attendance:mark-absences`, 01
 limpieza de tokens vencidos (`sanctum:prune-expired`, diario), ambos en `routes/console.php`:
 `* * * * * cd /ruta/al/proyecto && php artisan schedule:run >> /dev/null 2>&1`
 
+Si alguna empresa usa el webhook o el endpoint de notificaciones de "Marca y app", deja corriendo
+un worker de la cola (`QUEUE_CONNECTION=database`): `php artisan queue:work --tries=3`. Sin worker
+los envíos quedan pendientes en la tabla `jobs` (ver `docs/architecture/white-label.md`).
+
 ## Multi-tenant, roles y permisos
 
 - **Aislamiento:** todo modelo con `tenant_id` usa el trait `App\Models\Concerns\BelongsToTenant`: un global scope filtra por la empresa resuelta en la request y `tenant_id` se completa solo al crear. `EnforceTenantScope` rechaza tokens de otra empresa.
@@ -87,7 +91,7 @@ Detalle en [docs/architecture/overview.md](docs/architecture/overview.md).
 ## Marca blanca y configuración de la app
 
 - **Panel:** `Configuración > Marca y app` (`/settings/branding`) con pestañas Marca, App, Reglas e Integraciones. En la vista global del Super Admin se editan los valores por defecto de la plataforma, que heredan las empresas en lo que no definan. `/settings/mobile` decide qué módulos ve el colaborador.
-- **API:** `GET /api/v1/app/config` (pública: marca, reglas de la app, versión mínima), `GET|PUT /api/admin/app-config` (Company Admin). Siguen existiendo `GET /api/tenant/branding` (público) y `PUT /api/admin/branding`.
+- **API:** `GET /api/v1/app/config` (pública: marca, reglas de la app, versión mínima), `GET|PUT /api/admin/app-config` (Company Admin). Siguen existiendo `GET /api/tenant/branding` (público) y `PUT /api/admin/branding` (guarda con el mismo servicio: sin SVG, borra el logo anterior y audita).
 - **Versión mínima:** con "Forzar actualización", una app que manda `X-App-Version` menor que la mínima recibe `426 APP_UPDATE_REQUIRED`.
 
 Detalle en [docs/architecture/white-label.md](docs/architecture/white-label.md).
