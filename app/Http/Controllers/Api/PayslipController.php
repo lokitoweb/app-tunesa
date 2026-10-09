@@ -21,6 +21,10 @@ class PayslipController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        if ($blocked = $this->moduleDisabledFor($request->user())) {
+            return $blocked;
+        }
+
         $payslips = Payslip::where('tenant_id', current_tenant_id())
             ->where('user_id', $request->user()->id)
             ->published()
@@ -40,6 +44,10 @@ class PayslipController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
+        if ($blocked = $this->moduleDisabledFor($request->user())) {
+            return $blocked;
+        }
+
         $user    = $request->user();
         $query   = Payslip::where('tenant_id', current_tenant_id());
 
@@ -200,6 +208,10 @@ class PayslipController extends Controller
      */
     public function download(Request $request, int $id)
     {
+        if ($blocked = $this->moduleDisabledFor($request->user())) {
+            return $blocked;
+        }
+
         $user  = $request->user();
         $query = Payslip::query();
 
@@ -296,6 +308,10 @@ class PayslipController extends Controller
     /** Marcar boleta como leída (la app llama esto al abrir el PDF). */
     public function markAsRead(Request $request, int $id): JsonResponse
     {
+        if ($blocked = $this->moduleDisabledFor($request->user())) {
+            return $blocked;
+        }
+
         $payslip = Payslip::where('tenant_id', current_tenant_id())
             ->where('user_id', $request->user()->id)
             ->published()
@@ -338,5 +354,22 @@ class PayslipController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * "Boletas de pago" apagado en la configuración de la app: el colaborador
+     * no puede listarlas ni descargarlas (RRHH y admins sí).
+     */
+    private function moduleDisabledFor(\App\Models\User $user): ?JsonResponse
+    {
+        if (! $user->isEmployee() || \App\Models\CompanyConfiguration::current()->allows('mobile_payslips_enabled')) {
+            return null;
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Tu empresa no habilitó esta sección en la app.',
+            'code'    => 'MODULE_DISABLED',
+        ], 403);
     }
 }

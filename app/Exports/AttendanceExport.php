@@ -13,13 +13,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class AttendanceExport
 {
-    protected int $tenantId;
+    protected ?int $tenantId;
     protected ?string $startDate;
     protected ?string $endDate;
     protected ?int $branchId;
     protected ?string $status;
 
-    public function __construct(int $tenantId, ?string $startDate = null, ?string $endDate = null, ?int $branchId = null, ?string $status = null)
+    public function __construct(?int $tenantId, ?string $startDate = null, ?string $endDate = null, ?int $branchId = null, ?string $status = null)
     {
         $this->tenantId  = $tenantId;
         $this->startDate = $startDate;
@@ -72,7 +72,7 @@ class AttendanceExport
                 'Estado Justificación',
             ], ';');
 
-            $query = Attendance::where('tenant_id', $this->tenantId)
+            $query = Attendance::forTenant($this->tenantId)
                 ->with(['user', 'branch', 'shift'])
                 ->orderBy('work_date', 'desc')
                 ->orderBy('clock_in_at', 'desc');

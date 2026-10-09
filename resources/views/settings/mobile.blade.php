@@ -16,6 +16,14 @@
     </div>
 </div>
 
+@if(! $config)
+    <div class="card border-0">
+        <div class="card-body empty-state">
+            <i class="bi bi-buildings"></i>
+            <p class="mb-0">La configuración de la app es propia de cada empresa. Elígela en el selector superior para verla o cambiarla.</p>
+        </div>
+    </div>
+@else
 <form method="POST" action="{{ route('settings.mobile.update') }}">
     @csrf @method('PUT')
 
@@ -68,6 +76,7 @@
         </div>
     </div>
 </form>
+@endif
 @endsection
 
 @section('scripts')

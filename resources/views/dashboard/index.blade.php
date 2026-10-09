@@ -7,8 +7,8 @@
     <div class="alert alert-primary d-flex gap-2" role="status">
         <i class="bi bi-buildings"></i>
         <div>
-            <strong>Consolidado de la plataforma:</strong> {{ $platform['active_tenants'] }} de {{ $platform['tenants'] }} empresas activas.
-            Las cifras suman todas las empresas. Para ver el mapa, las marcaciones y los módulos de una empresa, elígela en el selector superior.
+            <strong>Plataforma:</strong> {{ $platform['active_tenants'] }} de {{ $platform['tenants'] }} empresas activas.
+            Las cifras, el mapa y las marcaciones suman todas las empresas.
         </div>
     </div>
 @endif
@@ -95,6 +95,7 @@
                         @endif
                         <div class="flex-grow-1 min-w-0">
                             <div class="fw-semibold text-truncate">{{ $att->user->first_name }} {{ $att->user->last_name }}</div>
+                            @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])
                             <div class="small text-body-secondary text-truncate">
                                 {{ $att->branch->name ?? 'Sin sucursal' }} ·
                                 <span class="{{ $att->clock_in_within_geofence ? 'text-success' : 'text-danger' }}">{{ $att->clock_in_distance_meters }} m</span>

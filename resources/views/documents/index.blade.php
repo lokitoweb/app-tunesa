@@ -83,7 +83,7 @@
                     <td>
                         <a href="{{ route('employees.file', $doc->user_id) }}" class="fw-semibold text-decoration-none">{{ $doc->user?->full_name }}</a>
                         <div class="small text-body-secondary">{{ $doc->user?->employee_code }} · {{ $doc->user?->document_number }}</div>
-                    </td>
+                     @include('partials.tenant-badge', ['tenantId' => $doc->tenant_id])</td>
                     <td>
                         {{ EmployeeDocument::TYPES[$doc->type] ?? $doc->type }}
                         @if($doc->expires_at)<div class="small text-body-secondary">Vence {{ $doc->expires_at->format('d/m/Y') }}</div>@endif

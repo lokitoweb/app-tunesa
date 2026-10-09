@@ -96,9 +96,9 @@
                 @forelse($payslips as $p)
                     <tr>
                         <td>
-                            <div class="fw-semibold">{{ $p->user->first_name }} {{ $p->user->last_name }}</div>
-                            <div class="small text-body-secondary">{{ $p->user->employee_code }} · DNI {{ $p->user->document_number }}</div>
-                        </td>
+                            <div class="fw-semibold">{{ $p->employee?->first_name }} {{ $p->employee?->last_name }}</div>
+                            <div class="small text-body-secondary">{{ $p->employee?->employee_code }} · DNI {{ $p->employee?->document_number }}</div>
+                         @include('partials.tenant-badge', ['tenantId' => $p->tenant_id])</td>
                         <td>{{ $p->title }}</td>
                         <td class="text-end text-nowrap">S/ {{ number_format((float) $p->gross_salary, 2) }}</td>
                         <td class="text-end text-nowrap text-danger">− S/ {{ number_format((float) $p->deductions, 2) }}</td>

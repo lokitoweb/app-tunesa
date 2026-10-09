@@ -39,7 +39,7 @@
                                     @if($shift->code)<div class="small text-body-secondary">{{ $shift->code }}</div>@endif
                                 </div>
                             </div>
-                        </td>
+                         @include('partials.tenant-badge', ['tenantId' => $shift->tenant_id])</td>
                         <td><span class="badge text-bg-light border">{{ $shift->isRotating() ? 'Rotativo' : 'Fijo' }}</span></td>
                         <td class="text-nowrap">
                             {{ substr($shift->start_time, 0, 5) }} – {{ substr($shift->end_time, 0, 5) }}
@@ -140,7 +140,7 @@
                     <tbody>
                         @forelse($assignments as $a)
                             <tr>
-                                <td class="fw-semibold">{{ $a->user?->full_name }}</td>
+                                <td class="fw-semibold">{{ $a->user?->full_name }} @include('partials.tenant-badge', ['tenantId' => $a->tenant_id])</td>
                                 <td>
                                     <span class="rounded-circle d-inline-block me-1" style="width: 8px; height: 8px; background: {{ $a->shift?->color }}"></span>{{ $a->shift?->name }}
                                 </td>

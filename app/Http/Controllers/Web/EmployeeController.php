@@ -30,9 +30,11 @@ class EmployeeController extends Controller
      */
     public function index(Request $request): View
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
-        $query = User::where('tenant_id', $tenantId)
+        // Vista global: usuarios de empresas, no los Super Admin de la plataforma
+        $query = User::forTenant($tenantId)
+            ->whereNotNull('tenant_id')
             ->with(['branches', 'employeeShifts.shift'])
             ->orderBy('first_name');
 
@@ -65,7 +67,7 @@ class EmployeeController extends Controller
         }
 
         $employees = $query->paginate(15)->withQueryString();
-        $branches = Branch::where('tenant_id', $tenantId)->where('is_active', true)->get();
+        $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
 
         return view('employees.index', compact('employees', 'branches'));
     }
@@ -75,9 +77,9 @@ class EmployeeController extends Controller
      */
     public function create(): View
     {
-        $tenantId = current_tenant_id();
-        $branches = Branch::where('tenant_id', $tenantId)->where('is_active', true)->get();
-        $shifts = Shift::where('tenant_id', $tenantId)->where('is_active', true)->get();
+        $tenantId = current_tenant_id_or_null();
+        $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
+        $shifts = Shift::forTenant($tenantId)->where('is_active', true)->get();
 
         return view('employees.create', compact('branches', 'shifts'));
     }
@@ -87,7 +89,7 @@ class EmployeeController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
 
         $validated = $request->validate([
             'first_name'      => ['required', 'string', 'max:100'],
@@ -98,7 +100,7 @@ class EmployeeController extends Controller
             ],
             'password'        => ['required', 'string', 'min:8'],
             'role'            => ['required', 'in:company_admin,hr_manager,supervisor,employee'],
-            'document_type'   => ['required', 'string', 'max:20'],
+            'document_type'   => ['required', Rule::in(['dni', 'ce', 'passport'])],
             'document_number' => ['required', 'string', 'max:30'],
             'phone'           => ['nullable', 'string', 'max:30'],
             'employee_code'   => ['nullable', 'string', 'max:50'],
@@ -107,9 +109,9 @@ class EmployeeController extends Controller
             'base_salary'     => ['nullable', 'numeric', 'min:0'],
             'hire_date'       => ['nullable', 'date'],
             'branch_ids'      => ['required', 'array', 'min:1'],
-            'branch_ids.*'    => ['exists:branches,id'],
-            'primary_branch_id' => ['required', 'exists:branches,id'],
-            'shift_id'        => ['nullable', 'exists:shifts,id'],
+            'branch_ids.*'    => ['integer', Rule::exists('branches', 'id')->where('tenant_id', $tenantId)],
+            'primary_branch_id' => ['required', 'integer', 'in_array:branch_ids.*'],
+            'shift_id'        => ['nullable', 'integer', Rule::exists('shifts', 'id')->where('tenant_id', $tenantId)],
             'avatar'          => ['nullable', 'image', 'max:2048'],
         ]);
 
@@ -136,7 +138,7 @@ class EmployeeController extends Controller
                 'employee_code'   => $validated['employee_code'] ?? 'EMP-' . strtoupper(substr(uniqid(), -6)),
                 'position'        => $validated['position'] ?? null,
                 'department'      => $validated['department'] ?? null,
-                'base_salary'     => $validated['base_salary'] ?? null,
+                'base_salary'     => $validated['base_salary'] ?? 0,
                 'hire_date'       => $validated['hire_date'] ?? Carbon::today(),
                 'avatar_path'     => $avatarPath,
                 // Contraseña temporal: se exige cambiarla en el primer ingreso
@@ -146,22 +148,21 @@ class EmployeeController extends Controller
             // Asignar sucursales (con bandera de sucursal principal)
             $branchesToSync = [];
             foreach ($validated['branch_ids'] as $bId) {
-                $branchesToSync[$bId] = [
-                    'tenant_id'  => $tenantId,
-                    'is_primary' => ($bId == $validated['primary_branch_id']),
-                ];
+                $branchesToSync[$bId] = ['is_primary' => ($bId == $validated['primary_branch_id'])];
             }
             $user->branches()->sync($branchesToSync);
 
             // Asignar turno inicial si fue provisto
             if (!empty($validated['shift_id'])) {
                 EmployeeShift::create([
-                    'tenant_id'   => $tenantId,
-                    'user_id'     => $user->id,
-                    'shift_id'    => $validated['shift_id'],
-                    'assigned_by' => Auth::id(),
-                    'start_date'  => Carbon::today()->toDateString(),
-                    'is_active'   => true,
+                    'tenant_id'            => $tenantId,
+                    'user_id'              => $user->id,
+                    'shift_id'             => $validated['shift_id'],
+                    'branch_id'            => $validated['primary_branch_id'],
+                    'effective_from'       => Carbon::today()->toDateString(),
+                    'rotation_anchor_date' => Carbon::today()->toDateString(),
+                    'assigned_by'          => Auth::id(),
+                    'is_active'            => true,
                 ]);
             }
         });
@@ -175,13 +176,13 @@ class EmployeeController extends Controller
      */
     public function edit(int $id): View
     {
-        $tenantId = current_tenant_id();
-        $employee = User::where('tenant_id', $tenantId)
+        $tenantId = current_tenant_id_or_null();
+        $employee = User::forTenant($tenantId)
             ->with(['branches', 'employeeShifts' => fn($q) => $q->where('is_active', true)->with('shift')])
             ->findOrFail($id);
 
-        $branches = Branch::where('tenant_id', $tenantId)->where('is_active', true)->get();
-        $shifts = Shift::where('tenant_id', $tenantId)->where('is_active', true)->get();
+        $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
+        $shifts = Shift::forTenant($tenantId)->where('is_active', true)->get();
         $currentShift = $employee->employeeShifts->first();
 
         return view('employees.edit', compact('employee', 'branches', 'shifts', 'currentShift'));
@@ -192,8 +193,8 @@ class EmployeeController extends Controller
      */
     public function update(Request $request, int $id): RedirectResponse
     {
-        $tenantId = current_tenant_id();
-        $employee = User::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $employee = User::forTenant($tenantId)->findOrFail($id);
 
         $validated = $request->validate([
             'first_name'      => ['required', 'string', 'max:100'],
@@ -205,7 +206,7 @@ class EmployeeController extends Controller
             'password'        => ['nullable', 'string', 'min:8'],
             'role'            => ['required', 'in:company_admin,hr_manager,supervisor,employee'],
             'status'          => ['required', 'in:active,inactive,suspended'],
-            'document_type'   => ['required', 'string', 'max:20'],
+            'document_type'   => ['required', Rule::in(['dni', 'ce', 'passport'])],
             'document_number' => ['required', 'string', 'max:30'],
             'phone'           => ['nullable', 'string', 'max:30'],
             'employee_code'   => ['nullable', 'string', 'max:50'],
@@ -214,9 +215,9 @@ class EmployeeController extends Controller
             'base_salary'     => ['nullable', 'numeric', 'min:0'],
             'hire_date'       => ['nullable', 'date'],
             'branch_ids'      => ['required', 'array', 'min:1'],
-            'branch_ids.*'    => ['exists:branches,id'],
-            'primary_branch_id' => ['required', 'exists:branches,id'],
-            'shift_id'        => ['nullable', 'exists:shifts,id'],
+            'branch_ids.*'    => ['integer', Rule::exists('branches', 'id')->where('tenant_id', $tenantId)],
+            'primary_branch_id' => ['required', 'integer', 'in_array:branch_ids.*'],
+            'shift_id'        => ['nullable', 'integer', Rule::exists('shifts', 'id')->where('tenant_id', $tenantId)],
             'avatar'          => ['nullable', 'image', 'max:2048'],
         ]);
 
@@ -241,7 +242,7 @@ class EmployeeController extends Controller
                 'employee_code'   => $validated['employee_code'] ?? $employee->employee_code,
                 'position'        => $validated['position'] ?? null,
                 'department'      => $validated['department'] ?? null,
-                'base_salary'     => $validated['base_salary'] ?? null,
+                'base_salary'     => $validated['base_salary'] ?? 0,
                 'hire_date'       => $validated['hire_date'] ?? $employee->hire_date,
             ];
 
@@ -263,27 +264,25 @@ class EmployeeController extends Controller
             // Sincronizar sucursales
             $branchesToSync = [];
             foreach ($validated['branch_ids'] as $bId) {
-                $branchesToSync[$bId] = [
-                    'tenant_id'  => $tenantId,
-                    'is_primary' => ($bId == $validated['primary_branch_id']),
-                ];
+                $branchesToSync[$bId] = ['is_primary' => ($bId == $validated['primary_branch_id'])];
             }
             $employee->branches()->sync($branchesToSync);
 
-            // Actualizar turno
-            if (!empty($validated['shift_id'])) {
-                EmployeeShift::where('tenant_id', $tenantId)
-                    ->where('user_id', $employee->id)
-                    ->where('is_active', true)
-                    ->update(['is_active' => false, 'end_date' => Carbon::yesterday()->toDateString()]);
+            // Cambiar de turno solo si es distinto al vigente
+            $current = EmployeeShift::where('user_id', $employee->id)->current()->first();
+            if (! empty($validated['shift_id']) && $current?->shift_id !== (int) $validated['shift_id']) {
+                EmployeeShift::where('user_id', $employee->id)->current()
+                    ->update(['is_active' => false, 'effective_until' => Carbon::yesterday()->toDateString()]);
 
                 EmployeeShift::create([
-                    'tenant_id'   => $tenantId,
-                    'user_id'     => $employee->id,
-                    'shift_id'    => $validated['shift_id'],
-                    'assigned_by' => Auth::id(),
-                    'start_date'  => Carbon::today()->toDateString(),
-                    'is_active'   => true,
+                    'tenant_id'            => $employee->tenant_id,
+                    'user_id'              => $employee->id,
+                    'shift_id'             => $validated['shift_id'],
+                    'branch_id'            => $validated['primary_branch_id'],
+                    'effective_from'       => Carbon::today()->toDateString(),
+                    'rotation_anchor_date' => Carbon::today()->toDateString(),
+                    'assigned_by'          => Auth::id(),
+                    'is_active'            => true,
                 ]);
             }
         });
@@ -310,8 +309,8 @@ class EmployeeController extends Controller
      */
     public function toggleStatus(int $id): RedirectResponse
     {
-        $tenantId = current_tenant_id();
-        $employee = User::where('tenant_id', $tenantId)->findOrFail($id);
+        $tenantId = current_tenant_id_or_null();
+        $employee = User::forTenant($tenantId)->findOrFail($id);
         abort_unless(Auth::user()->canManage($employee) && Auth::id() !== $employee->id, 403);
 
         $newStatus = $employee->status === 'active' ? 'inactive' : 'active';

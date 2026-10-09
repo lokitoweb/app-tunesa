@@ -99,7 +99,7 @@ class DocumentWebController extends Controller
         $documents  = $employee->documents()->with('reviewer:id,first_name,last_name')->latest()->get();
         $deliveries = $employee->uniformDeliveries()->with('deliverer:id,first_name,last_name')->latest('delivered_at')->get();
         $profile    = $employee->profile ?? new EmployeeProfile();
-        $config     = CompanyConfiguration::current();
+        $config     = CompanyConfiguration::forTenantId($employee->tenant_id);
         $revealed   = session('revealed_profile') === $employee->id;
 
         return view('employees.file', compact('employee', 'documents', 'deliveries', 'profile', 'config', 'revealed'));

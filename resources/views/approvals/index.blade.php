@@ -49,7 +49,7 @@
             <tbody>
                 @forelse($items as $leave)
                     <tr>
-                        <td><div class="fw-semibold">{{ $leave->employee?->full_name }}</div><div class="small text-body-secondary">{{ $leave->employee?->employee_code }}</div></td>
+                        <td><div class="fw-semibold">{{ $leave->employee?->full_name }}</div><div class="small text-body-secondary">{{ $leave->employee?->employee_code }}</div> @include('partials.tenant-badge', ['tenantId' => $leave->tenant_id])</td>
                         <td>{{ $leave->type_label }}</td>
                         <td class="text-nowrap">{{ $leave->start_date->format('d/m/Y') }} → {{ $leave->end_date->format('d/m/Y') }}
                             @if($leave->start_time)<div class="small text-body-secondary">{{ substr($leave->start_time, 0, 5) }}–{{ substr($leave->end_time, 0, 5) }}</div>@endif
@@ -89,7 +89,7 @@
             <tbody>
                 @forelse($items as $att)
                     <tr>
-                        <td><div class="fw-semibold">{{ $att->user?->full_name }}</div><div class="small text-body-secondary">{{ $att->user?->employee_code }}</div></td>
+                        <td><div class="fw-semibold">{{ $att->user?->full_name }}</div><div class="small text-body-secondary">{{ $att->user?->employee_code }}</div> @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])</td>
                         <td><a href="{{ route('attendance.show', $att->id) }}">{{ $att->work_date->format('d/m/Y') }}</a></td>
                         <td>{{ $att->branch?->name }}</td>
                         <td>@include('partials.attendance-status', ['status' => $att->status]) @if($att->late_minutes)<span class="small text-body-secondary">({{ $att->late_minutes }} min)</span>@endif</td>

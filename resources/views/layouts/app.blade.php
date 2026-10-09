@@ -151,7 +151,7 @@
                     <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0">
                         @csrf
                         <select name="tenant_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="Empresa a administrar" style="max-width: 240px;">
-                            <option value="">Consolidado de la plataforma</option>
+                            <option value="">Vista global (todas las empresas)</option>
                             @foreach(\App\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
                                 <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
                             @endforeach
@@ -168,6 +168,13 @@
         </header>
 
         <main id="main-content" class="panel-content">
+            @if($globalView ?? false)
+                <div class="alert alert-primary d-flex align-items-start gap-2 global-view-banner" role="status">
+                    <i class="bi bi-globe2"></i>
+                    <div>Vista global: mostrando registros de todas las empresas. Para crear o editar, elige una empresa en el selector superior.</div>
+                </div>
+            @endif
+
             @foreach(['success' => 'success', 'info' => 'info', 'error' => 'danger'] as $key => $variant)
                 @if(session($key))
                     <div class="alert alert-{{ $variant }} alert-dismissible fade show d-flex align-items-start gap-2" role="alert">

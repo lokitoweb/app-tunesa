@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Reporte de Asistencias y Horas — {{ $tenant->name }}</title>
+    <title>Reporte de Asistencias y Horas — {{ $tenant->company_name }}</title>
     <style>
         @page {
             margin: 20mm 15mm 20mm 15mm;
@@ -91,7 +91,7 @@
     <table class="header-table">
         <tr>
             <td style="vertical-align: top;">
-                <div class="company-name">{{ $tenant->name }}</div>
+                <div class="company-name">{{ $tenant->company_name }}</div>
                 <div class="report-title">REPORTE EJECUTIVO DE ASISTENCIA Y JORNADAS</div>
                 <div class="meta-text">Periodo auditado: {{ $startDate }} al {{ $endDate }}</div>
             </td>
@@ -159,7 +159,7 @@
             <td style="width: 50%; text-align: center;">
                 <div class="signature-line" style="margin: 0 auto;">
                     Firma Responsable RRHH<br>
-                    {{ $tenant->name }}
+                    {{ $tenant->company_name }}
                 </div>
             </td>
             <td style="width: 50%; text-align: center;">

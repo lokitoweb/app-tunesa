@@ -84,7 +84,7 @@
                                     <div class="small text-body-secondary text-truncate">{{ $emp->email }} · {{ $emp->position ?? 'Sin cargo' }}</div>
                                 </div>
                             </div>
-                        </td>
+                         @include('partials.tenant-badge', ['tenantId' => $emp->tenant_id])</td>
                         <td>
                             <div class="fw-semibold">{{ $emp->employee_code ?? 'EMP-' . $emp->id }}</div>
                             <div class="small text-body-secondary">{{ $emp->document_type }} {{ $emp->document_number }}</div>

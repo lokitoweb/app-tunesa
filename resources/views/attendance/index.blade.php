@@ -107,7 +107,7 @@
                                     <div class="small text-body-secondary text-truncate">{{ $att->user->employee_code ?? '—' }} · {{ $att->branch->name ?? 'Sin sucursal' }}</div>
                                 </div>
                             </div>
-                        </td>
+                         @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])</td>
                         <td class="text-nowrap">{{ $att->work_date?->format('d/m/Y') ?? '--' }}</td>
                         <td>
                             @if($att->clock_in_photo)

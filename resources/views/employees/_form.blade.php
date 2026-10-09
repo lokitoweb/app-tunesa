@@ -42,7 +42,7 @@
                     <div class="col-md-4">
                         <label for="document_type" class="form-label">Tipo de documento <span class="text-danger">*</span></label>
                         <select id="document_type" name="document_type" class="form-select">
-                            @foreach(['DNI' => 'DNI', 'CE' => 'Carné de extranjería', 'PASSPORT' => 'Pasaporte', 'RUT' => 'RUT'] as $code => $label)
+                            @foreach(['dni' => 'DNI', 'ce' => 'Carné de extranjería', 'passport' => 'Pasaporte'] as $code => $label)
                                 <option value="{{ $code }}" @selected($val('document_type') == $code)>{{ $label }}</option>
                             @endforeach
                         </select>

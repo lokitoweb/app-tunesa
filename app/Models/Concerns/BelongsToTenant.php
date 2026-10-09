@@ -5,6 +5,7 @@ namespace App\Models\Concerns;
 use App\Models\Scopes\TenantScope;
 use App\Models\Tenant;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -38,6 +39,15 @@ trait BelongsToTenant
                 throw new \DomainException('No se puede guardar un registro de otra empresa.');
             }
         });
+    }
+
+    /**
+     * Filtra por empresa; con null (vista global del Super Admin) no filtra.
+     * Las empresas siempre llegan con su id: SetWebTenant fija el contexto.
+     */
+    public function scopeForTenant(Builder $query, ?int $tenantId): Builder
+    {
+        return $tenantId === null ? $query : $query->where($this->qualifyColumn('tenant_id'), $tenantId);
     }
 
     public function tenant(): BelongsTo

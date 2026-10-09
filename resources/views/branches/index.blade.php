@@ -20,6 +20,7 @@
                         <div>
                             <h2 class="h6 fw-semibold mb-0">{{ $b->name }}</h2>
                             @if($b->code)<span class="small text-body-secondary">{{ $b->code }}</span>@endif
+                            @include('partials.tenant-badge', ['tenantId' => $b->tenant_id])
                         </div>
                         @include('partials.badge', ['tone' => $b->is_active ? 'success' : 'secondary', 'label' => $b->is_active ? 'Activa' : 'Inactiva'])
                     </div>
