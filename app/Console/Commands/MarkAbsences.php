@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Attendance;
 use App\Models\EmployeeShift;
+use App\Models\Holiday;
 use App\Models\LeaveRequest;
 use App\Models\Tenant;
 use App\Services\TenantContext;
@@ -17,7 +18,8 @@ use Illuminate\Console\Command;
  * zona horaria de la empresa): todo colaborador con turno vigente que debía
  * trabajar ese día (fijo o rotativo) y no marcó entrada queda registrado como
  * falta ('absent'), o como 'excused' si tenía vacaciones/permiso/licencia
- * aprobada. Es idempotente: no toca días que ya tienen registro.
+ * aprobada. Los feriados de la empresa (tabla holidays) se saltan.
+ * Es idempotente: no toca días que ya tienen registro.
  *
  *   php artisan attendance:mark-absences
  *   php artisan attendance:mark-absences --date=2026-10-08 --tenant=empresa-demo
@@ -60,6 +62,13 @@ class MarkAbsences extends Command
     {
         $day = $date->toDateString();
         $absent = $excused = 0;
+
+        // Feriado de la empresa: nadie debía trabajar, no hay faltas que registrar
+        if (Holiday::where('date', $day)->exists()) {
+            $this->line("Feriado {$day}: no se registran faltas.");
+
+            return [0, 0];
+        }
 
         $assignments = EmployeeShift::current($day)
             ->with(['shift', 'user:id,status,hire_date,termination_date'])

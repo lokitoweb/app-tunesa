@@ -13,6 +13,7 @@ use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\BranchWebController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\EmployeeController;
+use App\Http\Controllers\Web\HolidayWebController;
 use App\Http\Controllers\Web\NotificationWebController;
 use App\Http\Controllers\Web\PasswordResetController;
 use App\Http\Controllers\Web\PayslipWebController;
@@ -122,6 +123,14 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::delete('/{id}', [ShiftWebController::class, 'destroy'])->name('destroy');
         Route::post('/assign', [ShiftWebController::class, 'assign'])->name('assign')->middleware('can:shifts.assign');
         Route::delete('/assignments/{id}', [ShiftWebController::class, 'unassign'])->name('unassign')->middleware('can:shifts.assign');
+    });
+
+    // Feriados: el control de faltas no registra ausencias en estas fechas
+    Route::prefix('holidays')->name('holidays.')->middleware('can:shifts.manage')->group(function () {
+        Route::get('/', [HolidayWebController::class, 'index'])->name('index');
+        Route::post('/', [HolidayWebController::class, 'store'])->name('store');
+        Route::post('/load-peru', [HolidayWebController::class, 'loadPeru'])->name('load-peru');
+        Route::delete('/{id}', [HolidayWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     });
 
     // Control de Asistencias, faltas y auditoría GPS / Selfie

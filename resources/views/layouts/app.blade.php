@@ -101,6 +101,7 @@
             @endcan
             @can('shifts.manage')
                 {!! $nav('shifts.index', [], 'calendar-week', 'Turnos y horarios', request()->routeIs('shifts*')) !!}
+                {!! $nav('holidays.index', [], 'calendar-heart', 'Feriados', request()->routeIs('holidays*')) !!}
             @endcan
             @can('branches.manage')
                 {!! $nav('branches.index', [], 'pin-map', 'Sucursales y geocercas', request()->routeIs('branches*')) !!}
