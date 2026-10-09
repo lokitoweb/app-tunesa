@@ -67,7 +67,11 @@ class SetWebTenant
      * Rutas que eligen la empresa en el propio formulario (selector "Empresa"
      * para crear, o la empresa del registro al editar): funcionan en la vista global.
      */
-    public const GLOBAL_TENANT_PICKER_ROUTES = ['branches.create', 'branches.store', 'branches.edit', 'branches.update'];
+    public const GLOBAL_TENANT_PICKER_ROUTES = [
+        'branches.create', 'branches.store', 'branches.edit', 'branches.update', 'branches.destroy',
+        // Las empresas mismas (Super Admin): no pertenecen a ninguna empresa
+        'companies.create', 'companies.store', 'companies.edit', 'companies.update',
+    ];
 
     /** Formularios GET que preparan una escritura y por eso necesitan empresa */
     public const GLOBAL_FORM_ROUTES = ['*.create', '*.edit', 'payslips.bulk'];

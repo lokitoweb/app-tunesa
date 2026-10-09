@@ -76,6 +76,11 @@
         </div>
 
         <nav class="sidebar-nav" aria-label="Menú principal">
+            @if($navUser->isSuperAdmin())
+                <div class="nav-heading">Plataforma</div>
+                {!! $nav('companies.index', [], 'buildings', 'Empresas', request()->routeIs('companies*')) !!}
+            @endif
+
             <div class="nav-heading">Monitoreo</div>
             {!! $nav('dashboard', [], 'speedometer2', 'Dashboard', request()->routeIs('dashboard*')) !!}
 

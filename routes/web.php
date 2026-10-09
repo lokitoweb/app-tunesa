@@ -3,6 +3,7 @@
 use App\Http\Controllers\SecureFileController;
 use App\Http\Controllers\Web\ApprovalWebController;
 use App\Http\Controllers\Web\CompanySettingsWebController;
+use App\Http\Controllers\Web\CompanyWebController;
 use App\Http\Controllers\Web\DocumentWebController;
 use App\Http\Controllers\Web\PayrollWebController;
 use App\Http\Controllers\Web\UniformWebController;
@@ -159,6 +160,15 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::post('/bulk-publish', [PayslipWebController::class, 'bulkPublish'])->name('bulk-publish');
         Route::get('/{id}/download', [PayslipWebController::class, 'download'])->name('download');
         Route::get('/{id}/view', [PayslipWebController::class, 'view'])->name('view');
+    });
+
+    // Plataforma (Super Admin): empresas, su primer administrador y marca blanca
+    Route::prefix('companies')->name('companies.')->middleware('can:tenants.manage')->group(function () {
+        Route::get('/', [CompanyWebController::class, 'index'])->name('index');
+        Route::get('/create', [CompanyWebController::class, 'create'])->name('create');
+        Route::post('/', [CompanyWebController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [CompanyWebController::class, 'edit'])->name('edit')->whereNumber('id');
+        Route::put('/{id}', [CompanyWebController::class, 'update'])->name('update')->whereNumber('id');
     });
 
     // Reportes analíticos y exportación
