@@ -58,10 +58,9 @@
                 <div>
                     <label style="display: block; font-size: 0.82rem; color: #94a3b8; margin-bottom: 0.4rem;">Tipo Documento *</label>
                     <select name="document_type" class="form-control" style="width: 100%; background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 0.65rem; border-radius: 8px;">
-                        <option value="DNI" {{ old('document_type') == 'DNI' ? 'selected' : '' }}>DNI</option>
-                        <option value="CE" {{ old('document_type') == 'CE' ? 'selected' : '' }}>Carné de Extranjería</option>
-                        <option value="PASSPORT" {{ old('document_type') == 'PASSPORT' ? 'selected' : '' }}>Pasaporte</option>
-                        <option value="RUT" {{ old('document_type') == 'RUT' ? 'selected' : '' }}>RUT</option>
+                        @foreach (['dni' => 'DNI', 'ce' => 'Carné de Extranjería', 'passport' => 'Pasaporte'] as $docValue => $docLabel)
+                            <option value="{{ $docValue }}" @selected(old('document_type') === $docValue)>{{ $docLabel }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div>

@@ -197,7 +197,7 @@
                             @csrf
                             <select name="tenant_id" onchange="this.form.submit()" aria-label="Empresa a administrar"
                                     style="background: #1a1c26; border: 1px solid var(--border); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem;">
-                                <option value="">Consolidado de la plataforma</option>
+                                <option value="">Vista global (todas las empresas)</option>
                                 @foreach(\App\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
                                     <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
                                 @endforeach
@@ -220,6 +220,11 @@
 
             <!-- Alertas Flash -->
             <div style="padding: 1.5rem 2rem 0 2rem;">
+                @if ($globalView ?? false)
+                    <div class="global-view-banner" role="status" style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 0.75rem 1.25rem; color: #93c5fd; font-size: 0.88rem; margin-bottom: 1rem;">
+                        Vista global: mostrando registros de todas las empresas. Para crear o editar, elige una empresa en el selector superior.
+                    </div>
+                @endif
                 @if (session('success'))
                     <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 1rem 1.25rem; color: #6ee7b7; font-size: 0.9rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>

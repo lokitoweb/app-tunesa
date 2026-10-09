@@ -19,7 +19,10 @@ class CompanySettingsWebController extends Controller
 {
     public function edit(): View
     {
-        return view('settings.mobile', ['config' => CompanyConfiguration::current()]);
+        // Vista global del Super Admin: la configuración es por empresa
+        $config = current_tenant_id_or_null() ? CompanyConfiguration::current() : null;
+
+        return view('settings.mobile', compact('config'));
     }
 
     public function update(Request $request, AuditLogger $audit): RedirectResponse

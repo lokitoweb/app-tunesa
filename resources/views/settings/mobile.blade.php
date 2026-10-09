@@ -16,6 +16,11 @@
     </div>
 </div>
 
+@if (! $config)
+    <div class="card"><div class="card-body">
+        La configuración de la app es propia de cada empresa. Elige una empresa en el selector superior para verla o cambiarla.
+    </div></div>
+@else
 @if ($errors->any())
     <div class="card" style="margin-bottom: 1rem; border-color: rgba(239,68,68,0.3);"><div class="card-body" style="color: #fca5a5;">{{ $errors->first() }}</div></div>
 @endif
@@ -64,6 +69,7 @@
         </div>
     </div>
 </form>
+@endif
 @endsection
 
 @section('scripts')

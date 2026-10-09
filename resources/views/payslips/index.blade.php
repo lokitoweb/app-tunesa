@@ -102,9 +102,9 @@
                 @forelse($payslips as $p)
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.2s;">
                         <td style="padding: 1rem 1.25rem;">
-                            <div style="font-weight: 600; color: #fff;">{{ $p->user->first_name }} {{ $p->user->last_name }}</div>
-                            <div style="font-size: 0.75rem; color: #94a3b8;">{{ $p->user->employee_code }} • DNI: {{ $p->user->document_number }}</div>
-                        </td>
+                            <div style="font-weight: 600; color: #fff;">{{ $p->employee?->first_name }} {{ $p->employee?->last_name }}</div>
+                            <div style="font-size: 0.75rem; color: #94a3b8;">{{ $p->employee?->employee_code }} • DNI: {{ $p->employee?->document_number }}</div>
+                        @include('partials.tenant-badge', ['tenantId' => $p->tenant_id])</td>
                         <td style="padding: 1rem; color: #cbd5e1;">
                             {{ $p->title }}
                         </td>

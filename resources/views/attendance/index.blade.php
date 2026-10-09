@@ -93,7 +93,7 @@
                                     <div style="font-size: 0.75rem; color: #94a3b8;">{{ $att->user->employee_code ?? 'EMP' }} • {{ $att->branch->name ?? 'Sucursal' }}</div>
                                 </div>
                             </div>
-                        </td>
+                        @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])</td>
                         <td style="padding: 1rem; color: #cbd5e1; white-space: nowrap;">
                             {{ $att->work_date ? $att->work_date->format('d/m/Y') : '--' }}
                         </td>

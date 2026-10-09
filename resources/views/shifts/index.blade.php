@@ -36,7 +36,7 @@
         <tbody>
             @forelse($shifts as $shift)
                 <tr>
-                    <td><span class="swatch" style="background: {{ $shift->color }}"></span><strong style="color:#fff">{{ $shift->name }}</strong> <span class="text-muted">{{ $shift->code }}</span></td>
+                    <td><span class="swatch" style="background: {{ $shift->color }}"></span><strong style="color:#fff">{{ $shift->name }}</strong> <span class="text-muted">{{ $shift->code }}</span>@include('partials.tenant-badge', ['tenantId' => $shift->tenant_id])</td>
                     <td>{{ $shift->isRotating() ? 'Rotativo' : 'Fijo' }}</td>
                     <td>{{ substr($shift->start_time, 0, 5) }} – {{ substr($shift->end_time, 0, 5) }}@if($shift->crosses_midnight) <span class="text-muted">(+1 día)</span>@endif</td>
                     <td>

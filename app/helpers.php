@@ -33,6 +33,18 @@ if (! function_exists('current_tenant_id')) {
     }
 }
 
+if (! function_exists('current_tenant_id_or_null')) {
+    /**
+     * ID del tenant activo o null (Super Admin en la vista global del panel).
+     * Úsalo con el scope forTenant(): X::forTenant(current_tenant_id_or_null()).
+     */
+    function current_tenant_id_or_null(): ?int
+    {
+        $ctx = app(TenantContext::class);
+        return $ctx->resolved() ? $ctx->id() : null;
+    }
+}
+
 if (! function_exists('tenant_timezone')) {
     /**
      * Retorna la zona horaria del tenant activo.
