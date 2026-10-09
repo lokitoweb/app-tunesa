@@ -142,6 +142,29 @@ class Tenant extends Model
     }
 
     /**
+     * Empresa del subdominio (empresa.tunesa.app) o dominio propio del host,
+     * si aplica (marca blanca del login y de la recuperación de contraseña).
+     */
+    public static function fromHost(string $host): ?self
+    {
+        $appDomain = config('app.domain', 'tunesa.app');
+
+        if (str_ends_with($host, ".{$appDomain}")) {
+            $slug = substr($host, 0, -strlen(".{$appDomain}"));
+
+            return in_array($slug, ['www', 'api', 'admin', 'app', 'mail', 'cdn'], true)
+                ? null
+                : self::where('slug', $slug)->first();
+        }
+
+        if ($host === $appDomain || in_array($host, ['localhost', '127.0.0.1'], true)) {
+            return null;
+        }
+
+        return self::where('custom_domain', strtolower($host))->first();
+    }
+
+    /**
      * Determina si el plan de prueba está vigente.
      */
     public function isOnTrial(): bool

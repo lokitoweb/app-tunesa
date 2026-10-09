@@ -222,12 +222,11 @@ class UserController extends Controller
     {
         $supervisor = $request->user();
 
+        // Supervisor: colaboradores de sus sucursales; RRHH/admin (attendance.view_all): toda la empresa
         $employees = User::where('tenant_id', current_tenant_id())
             ->where('role', 'employee')
             ->where('status', 'active')
-            ->whereHas('branches', fn($q) =>
-                $q->whereHas('supervisor', fn($sq) => $sq->where('users.id', $supervisor->id))
-            )
+            ->visibleTo($supervisor)
             ->with(['branches'])
             ->get();
 

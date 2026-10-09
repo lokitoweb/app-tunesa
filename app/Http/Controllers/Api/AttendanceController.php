@@ -750,11 +750,18 @@ class AttendanceController extends Controller
      *
      * @return array<int, int>
      */
-    private function teamUserIds(User $supervisor): array
+    /**
+     * Equipo visible (User::visibleTo): el supervisor ve a los de sus sucursales;
+     * quien ve toda la asistencia (RRHH, admin) ve a todo el personal activo de campo.
+     */
+    private function teamUserIds(User $viewer): array
     {
-        return User::where('id', '!=', $supervisor->id)
-            ->whereHas('branches', fn ($q) => $q->where('branches.supervisor_id', $supervisor->id))
-            ->pluck('id')
+        return User::visibleTo($viewer)
+            ->where('users.id', '!=', $viewer->id)
+            ->when($viewer->seesAllAttendance(), fn ($q) => $q
+                ->whereIn('role', ['employee', 'supervisor'])
+                ->where('status', 'active'))
+            ->pluck('users.id')
             ->all();
     }
 

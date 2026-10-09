@@ -4,20 +4,7 @@
 
 @section('content')
 <div class="auth-card">
-    <div class="text-center mb-4">
-        @if(isset($tenant) && $tenant)
-            @if($tenant->logo_path)
-                <img src="{{ asset('storage/' . $tenant->logo_path) }}" alt="{{ $tenant->company_name }}" class="mb-2" style="max-height: 56px;">
-            @endif
-            <div class="h5 fw-bold mb-0">{{ $tenant->company_name }}</div>
-        @else
-            <span class="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary text-white mb-2" style="width: 48px; height: 48px;">
-                <i class="bi bi-shield-check fs-4"></i>
-            </span>
-            <div class="h5 fw-bold mb-0">TuneSA</div>
-        @endif
-        <div class="small text-body-secondary">Asistencia, geocercas y planilla</div>
-    </div>
+    @include('auth._brand')
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-4">
@@ -29,6 +16,10 @@
                         <div>{{ $error }}</div>
                     @endforeach
                 </div>
+            @endif
+
+            @if(session('status'))
+                <div class="alert alert-success small" role="status"><i class="bi bi-check-circle me-1"></i>{{ session('status') }}</div>
             @endif
 
             @if(session('info'))
@@ -43,7 +34,10 @@
                            placeholder="admin@empresa.com" value="{{ old('email') }}" required autofocus autocomplete="username">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="password">Contraseña</label>
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <label class="form-label" for="password">Contraseña</label>
+                        <a href="{{ route('password.request') }}" class="small text-decoration-none">¿Olvidaste tu contraseña?</a>
+                    </div>
                     <input type="password" id="password" name="password" class="form-control" required autocomplete="current-password">
                 </div>
                 <div class="form-check mb-4">

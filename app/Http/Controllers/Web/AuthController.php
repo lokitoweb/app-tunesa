@@ -95,21 +95,7 @@ class AuthController extends Controller
      */
     private function tenantFromHost(string $host): ?Tenant
     {
-        $appDomain = config('app.domain', 'tunesa.app');
-
-        if (str_ends_with($host, ".{$appDomain}")) {
-            $slug = substr($host, 0, -strlen(".{$appDomain}"));
-
-            return in_array($slug, ['www', 'api', 'admin', 'app', 'mail', 'cdn'], true)
-                ? null
-                : Tenant::where('slug', $slug)->first();
-        }
-
-        if ($host === $appDomain || in_array($host, ['localhost', '127.0.0.1'], true)) {
-            return null;
-        }
-
-        return Tenant::where('custom_domain', strtolower($host))->first();
+        return Tenant::fromHost($host);
     }
 
     /**

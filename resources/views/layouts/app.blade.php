@@ -76,6 +76,11 @@
         </div>
 
         <nav class="sidebar-nav" aria-label="Menú principal">
+            @if($navUser->isSuperAdmin())
+                <div class="nav-heading">Plataforma</div>
+                {!! $nav('companies.index', [], 'buildings', 'Empresas', request()->routeIs('companies*')) !!}
+            @endif
+
             <div class="nav-heading">Monitoreo</div>
             {!! $nav('dashboard', [], 'speedometer2', 'Dashboard', request()->routeIs('dashboard*')) !!}
 
@@ -96,6 +101,7 @@
             @endcan
             @can('shifts.manage')
                 {!! $nav('shifts.index', [], 'calendar-week', 'Turnos y horarios', request()->routeIs('shifts*')) !!}
+                {!! $nav('holidays.index', [], 'calendar-heart', 'Feriados', request()->routeIs('holidays*')) !!}
             @endcan
             @can('branches.manage')
                 {!! $nav('branches.index', [], 'pin-map', 'Sucursales y geocercas', request()->routeIs('branches*')) !!}
@@ -104,7 +110,7 @@
                 {!! $nav('payslips.index', [], 'file-earmark-text', 'Boletas de pago', request()->routeIs('payslips*')) !!}
             @endcan
 
-            @if($navUser->can('documents.review') || $navUser->can('uniforms.manage') || $navUser->can('payroll.export') || $navUser->can('company.configure') || $navUser->can('reports.view'))
+            @if($navUser->can('documents.review') || $navUser->can('uniforms.manage') || $navUser->can('payroll.export') || $navUser->can('company.configure') || $navUser->can('reports.view') || $navUser->can('audit.view'))
                 <div class="nav-heading">Legajo y planilla</div>
             @endif
             @can('documents.review')
@@ -121,6 +127,9 @@
             @endcan
             @can('company.configure')
                 {!! $nav('settings.mobile', [], 'phone', 'Configuración de la app', request()->routeIs('settings.mobile*')) !!}
+            @endcan
+            @can('audit.view')
+                {!! $nav('audit.index', [], 'journal-text', 'Bitácora de auditoría', request()->routeIs('audit*')) !!}
             @endcan
         </nav>
 
@@ -161,6 +170,7 @@
             </div>
             <div class="d-flex align-items-center gap-2">
                 <span class="small text-body-secondary d-none d-md-inline">{{ now()->isoFormat('dddd D [de] MMMM') }}</span>
+                @include('layouts.partials.notifications-bell')
                 <button type="button" class="btn btn-light border btn-sm" id="themeToggle" aria-label="Cambiar tema claro u oscuro" title="Tema claro / oscuro">
                     <i class="bi bi-moon-stars"></i>
                 </button>

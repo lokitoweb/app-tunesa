@@ -31,6 +31,20 @@ class ApiEndpoints {
   static const leaveRequests = '/leave-requests';
   static String cancelLeaveRequest(int id) => '/leave-requests/$id/cancel';
 
+  // Aprobación de solicitudes (supervisor: su equipo; RRHH/Admin: todas)
+  static const approvals = '/approvals/leave-requests';
+  static String approveLeaveRequest(int id) => '/approvals/leave-requests/$id/approve';
+  static String rejectLeaveRequest(int id) => '/approvals/leave-requests/$id/reject';
+
+  // Supervisor: mi equipo y su asistencia de hoy
+  static const supervisorTeam = '/supervisor/team';
+  static const supervisorLive = '/supervisor/attendance/live';
+
+  // Notificaciones in-app
+  static const notifications = '/notifications';
+  static String notificationRead(String id) => '/notifications/$id/read';
+  static const notificationsReadAll = '/notifications/read-all';
+
   // Boletas
   static const payslips = '/payslips';
   static String payslipDownload(int id) => '/payslips/$id/download';

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Payslip;
 use App\Services\PayslipImportService;
 use App\Models\User;
+use App\Services\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -171,6 +172,52 @@ class PayslipWebController extends Controller
     }
 
     /**
+     * Elimina una boleta no publicada (borrador o anulada) junto con su PDF,
+     * para poder volver a subir la del mismo periodo. Igual que
+     * DELETE /api/admin/payslips/{id}: una publicada no se borra, se anula.
+     */
+    public function destroy(int $id): RedirectResponse
+    {
+        $payslip = Payslip::forTenant(current_tenant_id_or_null())->findOrFail($id);
+
+        if ($payslip->isPublished()) {
+            return back()->with('error', 'La boleta ya fue publicada: anúlala en lugar de eliminarla.');
+        }
+
+        Storage::disk('private')->delete($payslip->file_path);
+        $payslip->forceDelete();
+
+        app(AuditLogger::class)->log('payslip.deleted', $payslip, [
+            'employee_id' => $payslip->user_id,
+            'period'      => sprintf('%04d-%02d', $payslip->period_year, $payslip->period_month),
+        ]);
+
+        return back()->with('success', 'Boleta eliminada. Ya puedes volver a subir la de ese periodo.');
+    }
+
+    /**
+     * Anula una boleta publicada (status archived): deja de verse en la app
+     * pero queda el registro. Equivale a PUT /api/admin/payslips/{id} status=archived.
+     */
+    public function annul(int $id): RedirectResponse
+    {
+        $payslip = Payslip::forTenant(current_tenant_id_or_null())->findOrFail($id);
+
+        if (! $payslip->isPublished()) {
+            return back()->with('error', 'Solo se anulan boletas publicadas. Un borrador se puede eliminar.');
+        }
+
+        $payslip->update(['status' => 'archived']);
+
+        app(AuditLogger::class)->log('payslip.archived', $payslip, [
+            'employee_id' => $payslip->user_id,
+            'period'      => sprintf('%04d-%02d', $payslip->period_year, $payslip->period_month),
+        ]);
+
+        return back()->with('success', "Boleta de {$payslip->employee?->first_name} anulada: ya no se ve en la app.");
+    }
+
+    /**
      * Publicación masiva de todas las boletas en borrador del mes actual.
      */
     public function bulkPublish(Request $request): RedirectResponse
@@ -179,14 +226,20 @@ class PayslipWebController extends Controller
         $year  = (int) $request->input('year');
         $month = (int) $request->input('month');
 
-        $count = Payslip::forTenant($tenantId)
+        // Una por una (no update masivo) para que cada colaborador reciba su notificación
+        $drafts = Payslip::forTenant($tenantId)
             ->where('period_year', $year)
             ->where('period_month', $month)
             ->where('status', 'draft')
-            ->update([
+            ->get();
+
+        foreach ($drafts as $payslip) {
+            $payslip->update([
                 'status'       => 'published',
                 'published_at' => Carbon::now(),
             ]);
+        }
+        $count = $drafts->count();
 
         return back()->with('success', "Se publicaron {$count} boletas de pago del periodo {$month}/{$year}.");
     }

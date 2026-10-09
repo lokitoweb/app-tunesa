@@ -8,10 +8,11 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Cámara frontal: selfie obligatoria en cada marcación -->
+    <!-- Cámara frontal: selfie en cada marcación. required="false": la app verifica
+         cámara y GPS en tiempo de ejecución, así no se excluyen equipos en Play Store. -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera.front" android:required="true" />
-    <uses-feature android:name="android.hardware.location.gps" android:required="true" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <!--
       usesCleartextTraffic solo se habilita en builds de desarrollo (http://10.0.2.2)

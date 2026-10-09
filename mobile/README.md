@@ -2,7 +2,9 @@
 
 App del colaborador para Android e iOS: login por empresa, inicio con el turno del día,
 marcación con GPS estricto + selfie frontal, historial y justificaciones, solicitudes
-(vacaciones, permisos, licencias) y visor de boletas en PDF.
+(vacaciones, permisos, licencias) con scroll infinito, visor de boletas en PDF y
+notificaciones in-app. Supervisores y RRHH ven además **Mi equipo** en Inicio: bandeja de
+aprobaciones (aprobar / rechazar con motivo) y la asistencia del equipo en vivo.
 
 ## Requisitos
 
@@ -51,7 +53,12 @@ se adjunta al GitHub Release.
 
 ### Firma de release
 
-Sin llave, el APK release se firma con la llave debug: sirve para instalar y probar, no para Play Store.
+Un release de **prod** exige `android/key.properties`: sin él `scripts/build_apk.sh prod` falla.
+Para `staging`, `tunnel` y `dev` (o con `ALLOW_DEBUG_SIGNING=1`, que usa el CI en PRs) el APK se
+firma con la llave debug y se muestra un aviso: sirve para instalar y probar, no para Play Store.
+
+El release usa R8 (`isMinifyEnabled` + `isShrinkResources`) con las reglas de
+`android/app/proguard-rules.pro`; el `namespace` y el `applicationId` son `com.tunesa.mobile`.
 
 1. Crear la llave (una sola vez, guárdala en un lugar seguro):
    `keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`
@@ -66,6 +73,33 @@ Sin llave, el APK release se firma con la llave debug: sirve para instalar y pro
 3. CI: crear los secrets `ANDROID_KEYSTORE_BASE64` (`base64 -w0 upload-keystore.jks`),
    `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD`.
 
+## iOS
+
+Requisitos: una **Mac con Xcode** (y CocoaPods: `sudo gem install cocoapods` o `brew install cocoapods`),
+una **cuenta de Apple Developer** (de pago para TestFlight / App Store) y el **equipo de firma**
+(*Signing Team*) configurado en Xcode: abrir `ios/Runner.xcworkspace` → target *Runner* →
+*Signing & Capabilities* → elegir el *Team* y, si hace falta, cambiar el *Bundle Identifier*
+(hoy `pe.tunesa.tunesaMobile`). El mínimo es iOS 15 (`ios/Podfile`).
+
+```bash
+flutter pub get
+cd ios && pod install && cd ..                      # la primera vez o al cambiar plugins
+flutter run --dart-define-from-file=env/dev.json    # simulador → backend en localhost
+flutter build ipa --release --dart-define-from-file=env/tunnel.json
+```
+
+El `.ipa` queda en `build/ios/ipa/`; se sube con Xcode (*Organizer*) o con la app
+**Transporter** a App Store Connect / TestFlight. Para otro backend usa `env/staging.json`
+o `env/prod.json`, o agrega `--dart-define=API_BASE_URL=https://...`.
+
+Permisos declarados en `ios/Runner/Info.plist` (textos en español): cámara (selfie),
+ubicación en uso (geocerca) y galería (adjuntar sustentos). iOS solo permite HTTPS; `http`
+se admite únicamente en red local (`NSAllowsLocalNetworking`) para desarrollo.
+
+En GitHub Actions, *Run workflow* compila además iOS **sin firma** en `macos-latest`
+(`flutter build ios --release --no-codesign`) y deja `Runner.app` comprimido como artefacto,
+útil para verificar que compila; no se puede instalar sin firmar.
+
 ## Estructura
 
 ```
@@ -73,8 +107,10 @@ lib/
   core/        config (Env), network (Dio + errores), storage (token seguro),
                location (GPS estricto + Haversine), router, theme, widgets
   features/
-    auth/        empresa (marca blanca) y login
-    home/        inicio con turno del día y botones de marcación
+    auth/        empresa (marca blanca), login y "olvidé mi contraseña"
+    home/        inicio con turno del día, botones de marcación, campana y Mi equipo
+    notifications/ bandeja de notificaciones (marcar leída / todas, abre la pantalla)
+    team/        supervisor / RRHH: aprobaciones y asistencia del equipo en vivo
     attendance/  marcación GPS + selfie, historial, justificaciones
     requests/    vacaciones, permisos y licencias médicas
     payslips/    lista y visor PDF
