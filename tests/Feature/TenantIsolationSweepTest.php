@@ -31,8 +31,9 @@ class TenantIsolationSweepTest extends TestCase
      * Con tenant_id pero sin TenantScope a propósito: los roles del sistema y la
      * fila global de "Marca y app" tienen tenant_id NULL y se resuelven
      * explícitamente por empresa (ver test_tenant_settings_resolve_per_tenant).
+     * WebhookDelivery: filas de plataforma con tenant_id NULL; se consulta con ofTenant() (ver IntegrationDeliveriesTest).
      */
-    private const UNSCOPED_BY_DESIGN = ['App\\Models\\Role', 'App\\Models\\Permission', 'App\\Models\\TenantSetting'];
+    private const UNSCOPED_BY_DESIGN = ['App\\Models\\Role', 'App\\Models\\Permission', 'App\\Models\\TenantSetting', 'App\\Models\\WebhookDelivery'];
 
     /** Referencias dentro de la misma empresa que necesita cada fila */
     private array $refs = [];
