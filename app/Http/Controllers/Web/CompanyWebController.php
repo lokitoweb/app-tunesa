@@ -141,12 +141,7 @@ class CompanyWebController extends Controller
             $data['logo_path'] = null;
         }
 
-        $tenant->update($data);
-
-        $this->audit->log('tenant.updated', $tenant, array_filter([
-            'status' => $tenant->wasChanged('status') ? $tenant->status : null,
-            'fields' => implode(', ', array_keys($tenant->getChanges())) ?: null,
-        ]));
+        $this->audit->updateWithAudit('tenant.updated', $tenant, $data);
 
         return redirect()->route('companies.index')->with('success', "Empresa {$tenant->company_name} actualizada.");
     }

@@ -118,7 +118,7 @@ class TenantController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $tenant = Tenant::findOrFail($id);
-        $tenant->update($request->validate(self::tenantRules($tenant)));
+        app(\App\Services\AuditLogger::class)->updateWithAudit('tenant.updated', $tenant, $request->validate(self::tenantRules($tenant)));
 
         return response()->json([
             'success' => true,
@@ -131,7 +131,7 @@ class TenantController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $tenant = Tenant::findOrFail($id);
-        $tenant->update(['status' => 'cancelled']);
+        app(\App\Services\AuditLogger::class)->updateWithAudit('tenant.deleted', $tenant, ['status' => 'cancelled']);
         $tenant->delete();
 
         return response()->json([
@@ -144,7 +144,7 @@ class TenantController extends Controller
     public function suspend(int $id): JsonResponse
     {
         $tenant = Tenant::findOrFail($id);
-        $tenant->update(['status' => 'suspended']);
+        app(\App\Services\AuditLogger::class)->updateWithAudit('tenant.suspended', $tenant, ['status' => 'suspended']);
 
         return response()->json([
             'success' => true,
@@ -157,7 +157,7 @@ class TenantController extends Controller
     public function activate(int $id): JsonResponse
     {
         $tenant = Tenant::findOrFail($id);
-        $tenant->update(['status' => 'active']);
+        app(\App\Services\AuditLogger::class)->updateWithAudit('tenant.activated', $tenant, ['status' => 'active']);
 
         return response()->json([
             'success' => true,

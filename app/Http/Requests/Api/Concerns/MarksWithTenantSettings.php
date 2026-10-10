@@ -3,11 +3,13 @@
 namespace App\Http\Requests\Api\Concerns;
 
 use App\Models\TenantSetting;
+use App\Services\Attendance\PunchData;
 use App\Services\TenantContext;
 
 /**
- * Reglas de marcación que dependen de "Marca y app" de la empresa:
- * selfie obligatoria u opcional, hora de marcación sin conexión y detección de rostro.
+ * Reglas de marcación que dependen de "Marca y app" de la empresa (selfie
+ * obligatoria u opcional) y campos de integridad comunes a entrada, descansos,
+ * salida y a cada elemento de sync-batch.
  */
 trait MarksWithTenantSettings
 {
@@ -21,47 +23,72 @@ trait MarksWithTenantSettings
     /** Selfie obligatoria solo si la empresa la exige (selfie_required) */
     protected function photoRules(): array
     {
-        return [
-            $this->tenantSettings()->selfie_required ? 'required' : 'nullable',
-            'image',
-            'mimes:jpg,jpeg,png,webp',
-            'max:5120',
-        ];
+        return self::photoRulesFor($this->tenantSettings()->selfie_required);
+    }
+
+    public static function photoRulesFor(bool $required): array
+    {
+        return [$required ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'];
     }
 
     protected function offlineRules(): array
     {
+        return self::integrityRules();
+    }
+
+    /**
+     * Campos comunes de integridad (endpoints individuales y sync-batch).
+     * Tolerancia de 2 min hacia el futuro en offline_recorded_at por el reloj del celular.
+     */
+    public static function integrityRules(): array
+    {
         return [
-            // Hora real en que se marcó sin conexión (ISO 8601). Tolerancia de 2 min por reloj del celular.
+            'latitude'            => ['required', 'numeric', 'between:-90,90'],
+            'longitude'           => ['required', 'numeric', 'between:-180,180'],
+            'accuracy_meters'     => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100000'],
+            'device_id'           => ['sometimes', 'nullable', 'string', 'max:255'],
+            'device_os'           => ['sometimes', 'nullable', 'string', 'in:android,ios'],
+            'is_mocked'           => ['sometimes', 'boolean'],
+            'app_version'         => ['sometimes', 'nullable', 'string', 'max:40'],
             'offline_recorded_at' => ['sometimes', 'nullable', 'date', 'before_or_equal:' . now()->addMinutes(2)->toIso8601String()],
-            'face_detected'       => ['sometimes', 'boolean'],
+            'face_detected'       => ['sometimes', 'nullable', 'boolean'],
+            'device_time'         => ['sometimes', 'nullable', 'date'],
+            'device_sent_at'      => ['sometimes', 'nullable', 'date'],
+            'client_uuid'         => ['sometimes', 'nullable', 'uuid'],
+        ];
+    }
+
+    public static function integrityMessages(): array
+    {
+        return [
+            'latitude.required'                   => 'La latitud GPS es obligatoria.',
+            'latitude.between'                    => 'La latitud debe estar entre -90 y 90.',
+            'longitude.required'                  => 'La longitud GPS es obligatoria.',
+            'longitude.between'                   => 'La longitud debe estar entre -180 y 180.',
+            'offline_recorded_at.date'            => 'La hora de la marcación sin conexión no es válida.',
+            'offline_recorded_at.before_or_equal' => 'La hora de la marcación sin conexión no puede estar en el futuro.',
+            'device_time.date'                    => 'La hora del dispositivo debe ser ISO 8601 (con zona horaria).',
+            'client_uuid.uuid'                    => 'client_uuid debe ser un UUID.',
+            'photo.image'                         => 'El archivo debe ser una imagen.',
+            'photo.mimes'                         => 'La foto debe ser JPG, JPEG, PNG o WebP.',
+            'photo.max'                           => 'La foto no debe superar 5MB.',
         ];
     }
 
     protected function offlineMessages(): array
     {
-        return [
-            'offline_recorded_at.date'            => 'La hora de la marcación sin conexión no es válida.',
-            'offline_recorded_at.before_or_equal' => 'La hora de la marcación sin conexión no puede estar en el futuro.',
-        ];
+        return self::integrityMessages();
     }
 
-    /** Metadatos comunes del dispositivo + face_detected si la app lo informó */
-    protected function baseDeviceMeta(): array
+    /** Datos de la marcación para AttendanceService::punch() */
+    public function toPunchData(string $type): PunchData
     {
-        $meta = array_filter([
-            'accuracy_meters' => $this->input('accuracy_meters'),
-            'device_os'       => $this->input('device_os'),
-            'app_version'     => $this->input('app_version'),
-            'is_mocked'       => $this->has('is_mocked') ? $this->boolean('is_mocked') : null,
-            'ip'              => $this->ip(),
-            'user_agent'      => $this->userAgent(),
-        ]);
-
-        if ($this->has('face_detected')) {
-            $meta['face_detected'] = $this->boolean('face_detected');
-        }
-
-        return $meta;
+        return PunchData::fromInput(
+            $type,
+            $this->validated(),
+            $this->file('photo'),
+            $this->ip(),
+            $this->userAgent(),
+        );
     }
 }

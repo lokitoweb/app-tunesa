@@ -23,6 +23,7 @@ class AttendanceResource extends JsonResource
             'is_open'       => $this->isOpen(),
             'is_complete'   => $this->isComplete(),
             'is_on_break'   => $this->isOnBreak(),
+            'is_suspicious' => (bool) $this->is_suspicious,
 
             // Clock-In
             'clock_in' => $this->when($this->clock_in_at, [

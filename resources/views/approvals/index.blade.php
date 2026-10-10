@@ -5,8 +5,6 @@
 @section('content')
 @php
     $statusLabels = ['pending' => 'Pendientes', 'approved' => 'Aprobadas', 'rejected' => 'Rechazadas', 'cancelled' => 'Canceladas'];
-    $singular = ['pending' => 'Pendiente', 'approved' => 'Aprobada', 'rejected' => 'Rechazada', 'cancelled' => 'Cancelada'];
-    $tone = ['pending' => 'warning', 'approved' => 'success', 'rejected' => 'danger', 'cancelled' => 'secondary'];
 @endphp
 
 <div class="page-header">
@@ -59,7 +57,7 @@
                             @if($leave->attachment_path)<div><a href="{{ route('approvals.leave.attachment', $leave->id) }}" target="_blank" rel="noopener"><i class="bi bi-paperclip"></i> Ver sustento</a></div>@endif
                         </td>
                         <td>
-                            @include('partials.badge', ['tone' => $tone[$leave->status] ?? 'secondary', 'label' => $singular[$leave->status] ?? $leave->status])
+                            <x-status-badge type="leave_status" :value="$leave->status" />
                             @if($leave->reviewer)<div class="small text-body-secondary">{{ $leave->reviewer->full_name }} · {{ $leave->reviewed_at?->format('d/m H:i') }}</div>@endif
                             @if($leave->review_notes)<div class="small text-body-secondary">{{ $leave->review_notes }}</div>@endif
                         </td>
@@ -107,7 +105,7 @@
                                     </div>
                                 </form>
                             @else
-                                @include('partials.badge', ['tone' => $tone[$att->justification_status] ?? 'secondary', 'label' => $singular[$att->justification_status] ?? $att->justification_status])
+                                <x-status-badge type="justification_status" :value="$att->justification_status" />
                             @endif
                         </td>
                     </tr>

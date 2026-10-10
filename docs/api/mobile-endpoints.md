@@ -9,7 +9,8 @@ los datos demo del seeder.
 
 - Base: `<API_BASE_URL>/api` (por ejemplo `https://xxxx.trycloudflare.com/api`). La app arma esa
   URL en `Env.apiUrl` (`mobile/lib/core/config/env.dart`) y acepta el dominio con o sin `/api`.
-- **No hay prefijo de versión**, salvo el alias `GET /api/v1/app/config`.
+- **No hay prefijo de versión**, salvo los alias `GET /api/v1/app/config` y
+  `POST /api/v1/attendances/sync-batch`.
 
 | Cabecera | Cuándo | Para qué |
 |---|---|---|
@@ -17,7 +18,7 @@ los datos demo del seeder.
 | `X-Tenant-Slug: empresa-demo` | todas las rutas de empresa | Identifica la empresa (`ResolveTenant`). Sin ella: `404 TENANT_NOT_FOUND`. |
 | `Authorization: Bearer <token>` | rutas protegidas | Token Sanctum del login. |
 | `X-App-Version: 1.2.3` | rutas protegidas (opcional) | Si es menor que la versión mínima y la empresa fuerza actualizar: `426 APP_UPDATE_REQUIRED`. Sin la cabecera no se bloquea. No aplica a `/api/auth/*` ni a la config. |
-| `Content-Type: multipart/form-data` | clock-in/out, documentos, solicitudes con adjunto | Subida de archivos. |
+| `Content-Type: multipart/form-data` | marcaciones con foto, `sync-batch`, documentos, solicitudes con adjunto | Subida de archivos. |
 
 Cadena de middlewares de las rutas protegidas: `tenant` → `app.version` → `auth:sanctum` →
 `tenant.scope` → `password.fresh` → `permission:<x>`.
@@ -52,13 +53,15 @@ el texto.
 | 404 | `NO_OPEN_ATTENDANCE` | Descanso o salida sin jornada abierta. |
 | 409 | `CONFLICT`, `OVERLAPPING_REQUEST`, `NOT_PENDING`, `DOCUMENT_LOCKED` | Estado incompatible. |
 | 409 | `ALREADY_CLOCKED_IN`, `BREAK_ALREADY_STARTED`, `BREAK_NOT_STARTED`, `BREAK_ALREADY_ENDED` | Estado de la jornada incompatible (ver [Marcación](#marcación)). |
+| 409 | `CLIENT_UUID_CONFLICT` | El `client_uuid` ya lo usó otra persona de la empresa. |
 | 423 | `PAYMENT_INFO_LOCKED` | Datos de pago ya verificados por RRHH y bloqueados. |
 | 422 | `VALIDATION_ERROR` | Validación de campos. |
-| 422 | `GEOFENCE_VIOLATION`, `NO_BRANCH_ASSIGNED`, `BREAK_NOT_ALLOWED`, `MOCK_LOCATION_DETECTED`, `GPS_ACCURACY_TOO_LOW`, `FACE_NOT_DETECTED`, `OFFLINE_*` | Reglas de marcación, ver [Marcación](#marcación). |
+| 422 | `GEOFENCE_VIOLATION`, `NO_BRANCH_ASSIGNED`, `BREAK_NOT_ALLOWED`, `MOCK_LOCATION_DETECTED`, `GPS_ACCURACY_TOO_LOW`, `FACE_NOT_DETECTED`, `OFFLINE_NOT_ALLOWED`, `OFFLINE_TOO_OLD`, `OFFLINE_BEFORE_CLOCK_IN`, `OFFLINE_OUT_OF_ORDER` | Reglas de marcación, ver [Marcación](#marcación). |
 | 423 | `ACCOUNT_LOCKED` | Demasiados intentos fallidos (`LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCK_MINUTES`). |
 | 426 | `APP_UPDATE_REQUIRED` | Versión de la app por debajo de la mínima con `force_update`. |
 | 429 | `TOO_MANY_ATTEMPTS` | Ráfaga de intentos de login (`LoginGuard`). Los límites `throttle:` de las rutas devuelven el 429 estándar de Laravel, sin `code`. |
 | 500 | `SERVER_ERROR` | Error inesperado al marcar (se registra en el log; el mensaje no expone detalles internos). |
+| 503 | `GEOCODING_UNAVAILABLE` | El proveedor de mapas (Nominatim/Google) no respondió (`/api/geocode/reverse`). |
 
 Los errores de la marcación salen de `App\Exceptions\AttendanceException` (código + HTTP
 status), que `AttendanceController::handleAttendanceException` devuelve tal cual.
@@ -113,7 +116,11 @@ Respuesta para `empresa-demo` sin nada configurado en "Marca y app" (valores de 
       "offline_mode_enabled": false,
       "offline_max_hours": 24,
       "max_gps_accuracy_meters": 100,
-      "geofence_strict_mode": true
+      "geofence_strict_mode": true,
+      "mock_location_policy": "reject",
+      "max_time_drift_seconds": 300,
+      "geocoding_provider": "nominatim",
+      "fcm_enabled": false
     },
     "rules": {
       "grace_minutes": 10,
@@ -141,6 +148,13 @@ Respuesta para `empresa-demo` sin nada configurado en "Marca y app" (valores de 
 - Las URLs de imágenes son absolutas (`https://<host>/storage/...`).
 - `max_gps_accuracy_meters` sin valor en empresa ni plataforma sale de `ATTENDANCE_MAX_GPS_ACCURACY`.
 - `geofence_strict_mode: true` = política `reject`; `false` = `flag`.
+- `mock_location_policy`: `reject` (GPS simulado = `422 MOCK_LOCATION_DETECTED`) o `flag` (se
+  acepta como sospechosa). Sin valor en empresa ni plataforma sale de `ATTENDANCE_REJECT_MOCK_LOCATION`.
+- `max_time_drift_seconds`: desfase de reloj tolerado antes de marcar `TIME_DRIFT` (nunca rechaza).
+- `geocoding_provider`: el que **realmente** se usa (`google` solo si está elegido y hay clave).
+- `fcm_enabled`: `true` solo si la empresa (o la plataforma) activó push **y** la plataforma cargó
+  la cuenta de servicio de Firebase. La app puede usarlo para pedir permiso de notificaciones y
+  enviar su token con `POST /api/auth/refresh-fcm`.
 - `modules` dice qué secciones se ven; los permisos de edición (`upload_documents`,
   `edit_payment_info`, `edit_uniforms`), `required_documents` y `max_upload_mb` están en
   `GET /api/employee/config`.
@@ -212,57 +226,84 @@ El correo de recuperación enlaza a `APP_URL/reset-password?token=...&email=...&
 
 ## Marcación
 
-Todas requieren el permiso `attendance.mark` (colaborador y supervisor).
+Todas requieren el permiso `attendance.mark` (colaborador y supervisor). Las cuatro rutas y
+`sync-batch` pasan por `AttendanceService::punch()`, que en **una sola transacción** actualiza la
+jornada (`attendances`) y escribe un evento en la bitácora inmutable `attendance_punches` (ver
+[attendance-integrity.md](../architecture/attendance-integrity.md)).
 
-### `POST /api/attendance/clock-in` y `POST /api/attendance/clock-out`
+### Campos de una marcación
 
-`multipart/form-data` (`ClockInRequest`, `ClockOutRequest` y el trait
-`Concerns/MarksWithTenantSettings`):
+`POST /api/attendance/clock-in`, `/break-start`, `/break-end`, `/clock-out` (`multipart/form-data`,
+o JSON si no hay foto). Reglas en `Concerns/MarksWithTenantSettings::integrityRules()`; los mismos
+campos van en cada elemento de `sync-batch`.
 
 | Campo | Tipo | Reglas |
 |---|---|---|
 | `latitude` | número | obligatorio, -90..90 |
 | `longitude` | número | obligatorio, -180..180 |
-| `photo` | archivo | JPG/JPEG/PNG/WebP, máx. 5 MB. **Obligatorio solo si `selfie_required = true`**; si no, opcional |
-| `accuracy_meters` | número | opcional, ≥ 0 (en clock-in también ≤ 10000) |
-| `is_mocked` | booleano (`1`/`0`) | opcional; la app lo toma de `position.isMocked` |
+| `photo` | archivo | JPG/JPEG/PNG/WebP, máx. 5 MB. Entrada/salida: **obligatoria solo si `selfie_required = true`**. Descansos: siempre opcional. El servidor la guarda como WebP (calidad 80, lado mayor ≤ 1280 px) |
+| `accuracy_meters` | número | opcional, 0..100000 |
+| `is_mocked` | booleano (`1`/`0`) | opcional; `position.isMocked` |
+| `face_detected` | booleano | opcional; resultado de ML Kit en el teléfono |
+| `device_time` | fecha ISO 8601 **con zona** | opcional; reloj del teléfono en el momento de la marcación (p. ej. `2026-10-09T08:02:11-05:00`). Se guarda en UTC |
+| `offline_recorded_at` | fecha ISO 8601 | opcional; hora real de una marcación hecha sin conexión. No puede estar más de 2 min en el futuro. **También en descansos** |
+| `device_sent_at` | fecha ISO 8601 | opcional; reloj del teléfono al enviar (útil en `sync-batch`, ver desfase) |
+| `client_uuid` | UUID | opcional (obligatorio en `sync-batch`); idempotencia, único por empresa |
 | `device_id` | texto | opcional, máx. 255 |
 | `device_os` | `android` \| `ios` | opcional |
-| `app_version` | texto | opcional, máx. 20 |
-| `offline_recorded_at` | fecha ISO 8601 | opcional; hora real de una marcación hecha sin conexión. No puede estar más de 2 min en el futuro |
-| `face_detected` | booleano | opcional; resultado de la detección de rostro de la app |
+| `app_version` | texto | opcional, máx. 40 |
 
-Qué valida el backend, en orden (`AttendanceController::rejectUntrustedLocation`,
-`resolveOfflineTime` y `AttendanceService`):
+### Qué valida el backend, en orden
 
-1. `is_mocked = true` y `ATTENDANCE_REJECT_MOCK_LOCATION=true` → `422 MOCK_LOCATION_DETECTED`.
-2. `accuracy_meters` mayor que la precisión máxima (empresa → plataforma →
-   `ATTENDANCE_MAX_GPS_ACCURACY`, 100 m) → `422 GPS_ACCURACY_TOO_LOW`. Si no se envía
-   `accuracy_meters`, no se valida.
-3. `face_detection_required = true` y la app envió `face_detected = false` →
-   `422 FACE_NOT_DETECTED`. Si no envía `face_detected`, no se rechaza: la detección es de la app.
-4. Con `offline_recorded_at`: si la empresa no permite offline → `422 OFFLINE_NOT_ALLOWED`; si es
-   más vieja que `offline_max_hours` → `422 OFFLINE_TOO_OLD`. Si pasa, la marcación se guarda con
-   esa hora (y la tardanza se calcula con ella), con `offline: true` y `synced_at` en el meta, y
-   queda en auditoría (`attendance.offline_synced`).
-5. Clock-in: si ya marcó entrada ese día → `409 ALREADY_CLOCKED_IN`. Si no tiene sucursal
-   vigente → `422 NO_BRANCH_ASSIGNED` "No tienes ninguna sucursal asignada. Contacta a RRHH."
-6. Clock-out: sin jornada abierta → `404 NO_OPEN_ATTENDANCE` ("Primero debes marcar tu entrada."). Una
-   salida offline busca la jornada del día de `offline_recorded_at`; si es anterior a la entrada
-   → `422 OFFLINE_BEFORE_CLOCK_IN`.
-7. **Geocerca** (Haversine contra la sucursal): fuera del radio, según
+1. **Idempotencia:** si la empresa ya tiene un evento con ese `client_uuid` (sin distinguir
+   mayúsculas), responde `200` con `duplicate: true` y la jornada/evento existentes; no crea nada
+   ni vuelve a validar. Si el `client_uuid` es de **otra persona** → `409 CLIENT_UUID_CONFLICT`.
+2. **GPS simulado** (`is_mocked = true`), según `mock_location_policy` (empresa → plataforma →
+   `ATTENDANCE_REJECT_MOCK_LOCATION`): `reject` → `422 MOCK_LOCATION_DETECTED`; `flag` → se acepta
+   con motivo `MOCK_LOCATION`. Aplica también a los descansos.
+3. `accuracy_meters` mayor que la precisión máxima (empresa → plataforma →
+   `ATTENDANCE_MAX_GPS_ACCURACY`, 100 m) → `422 GPS_ACCURACY_TOO_LOW`. Sin `accuracy_meters` no se valida.
+4. **Rostro** con `face_detection_required = true`: `face_detected = false` → `422 FACE_NOT_DETECTED`;
+   en entrada/salida **sin** `face_detected` (con foto o selfie obligatoria) se acepta con motivo
+   `FACE_UNVERIFIED`.
+5. **Offline** (`offline_recorded_at`): si la empresa no lo permite → `422 OFFLINE_NOT_ALLOWED`; más
+   viejo que `offline_max_hours` → `422 OFFLINE_TOO_OLD`. Si pasa, la marcación (también un
+   descanso) se guarda con esa hora (la tardanza y los minutos de descanso se calculan con ella),
+   con `offline: true`, y queda en auditoría (`attendance.offline_synced`).
+6. **Desfase de reloj** (`time_drift_seconds` = teléfono − servidor, en segundos): en línea se mide
+   con `device_time`; en una marcación offline solo con `device_sent_at` (si no, `null`). Si supera
+   `max_time_drift_seconds` (300 por defecto) se acepta con motivo `TIME_DRIFT`. **Nunca rechaza.**
+7. Estado de la jornada: entrada repetida → `409 ALREADY_CLOCKED_IN`; sin sucursal vigente →
+   `422 NO_BRANCH_ASSIGNED`; descanso o salida sin jornada abierta → `404 NO_OPEN_ATTENDANCE`
+   (una marcación offline busca la jornada del día de `offline_recorded_at`); evento offline
+   anterior a la entrada → `422 OFFLINE_BEFORE_CLOCK_IN`; fin de descanso anterior a su inicio →
+   `422 OFFLINE_OUT_OF_ORDER`; `409 BREAK_ALREADY_STARTED`, `409 BREAK_NOT_STARTED`,
+   `409 BREAK_ALREADY_ENDED`, `422 BREAK_NOT_ALLOWED`.
+8. **Geocerca** (Haversine contra la sucursal), solo entrada y salida, según
    `company_configurations.geofence_policy`:
    - `reject` (por defecto): `422 GEOFENCE_VIOLATION` con el mensaje
      "Estás fuera del área permitida. Distancia: 180m. Máximo permitido: 100m. Necesitas acercarte 80m más."
-   - `flag`: se registra igual con `within_geofence: false`, queda en auditoría
-     (`attendance.clock_in_out_of_geofence` / `clock_out_out_of_geofence`) y el mensaje avisa
-     que RRHH la revisará.
+     y aviso `attendance.outside_geofence` al colaborador y al supervisor (máx. 1 cada 10 min por persona).
+   - `flag`: se registra con `within_geofence: false`, motivo `OUT_OF_GEOFENCE`, auditoría
+     (`attendance.clock_in_out_of_geofence` / `clock_out_out_of_geofence`) y el mismo aviso.
+   En los descansos la distancia se guarda pero no se exige.
+9. **Horario:** entrada o salida fuera de la ventana del turno asignado
+   (`inicio − tolerancia` .. `fin + tolerancia`; los turnos nocturnos cruzan la medianoche) o en un
+   día sin turno (teniendo turnos asignados) → se acepta con motivo `OUTSIDE_SCHEDULE` y aviso
+   `attendance.outside_schedule`. Sin turnos asignados no se evalúa.
 
-Respuesta de clock-in (`201`):
+Motivos de sospecha (`suspicion_reasons`): `MOCK_LOCATION`, `TIME_DRIFT`, `FACE_UNVERIFIED`,
+`OUT_OF_GEOFENCE`, `OUTSIDE_SCHEDULE`. Con al menos uno el evento queda `suspicious: true` y la
+jornada `is_suspicious: true`.
+
+### Respuesta
+
+Entrada nueva `201`; descansos, salida y duplicados `200`:
 
 ```json
 {
   "success": true,
+  "duplicate": false,
   "message": "✅ Entrada registrada correctamente.",
   "data": {
     "id": 120,
@@ -272,6 +313,7 @@ Respuesta de clock-in (`201`):
     "is_open": true,
     "is_complete": false,
     "is_on_break": false,
+    "is_suspicious": false,
     "clock_in": {
       "time": "08:12:31",
       "timestamp": "2026-10-09T08:12:31-05:00",
@@ -286,37 +328,104 @@ Respuesta de clock-in (`201`):
     "justification": { "status": null, "notes": null, "has_file": false },
     "branch": { "id": 1, "name": "Sede Principal - San Isidro", "code": "SED-01" },
     "shift": { "id": 1, "name": "Turno Mañana", "start_time": "08:00:00", "end_time": "17:00:00" }
+  },
+  "punch": {
+    "id": 311,
+    "type": "clock_in",
+    "client_uuid": "0d6c1c0e-7a2b-4c39-9a51-3e6d1b2f8a10",
+    "attendance_id": 120,
+    "server_time": "2026-10-09T13:12:31+00:00",
+    "device_time": "2026-10-09T13:12:27+00:00",
+    "time_drift_seconds": -4,
+    "offline": false,
+    "offline_recorded_at": null,
+    "latitude": -12.0912,
+    "longitude": -77.0245,
+    "accuracy_meters": 8.5,
+    "distance_meters": 23,
+    "within_geofence": true,
+    "address": null,
+    "face_detected": true,
+    "mock_location_detected": false,
+    "suspicious": false,
+    "suspicion_reasons": [],
+    "photo_url": "https://<host>/secure-files/punch-photo/311?expires=...&signature=..."
   }
 }
 ```
 
-Fuera del radio con política `flag` el mensaje es
-"⚠️ Entrada registrada fuera del radio de la sucursal (180 m). RRHH la revisará.". Clock-out
-responde `200` con "🏁 Salida registrada. Horas trabajadas hoy: 8.5h." y el bloque `clock_out`.
-`photo_url` es una URL firmada que vence a los `SIGNED_URL_MINUTES` (5) minutos, o `null` si no
-hubo selfie.
-
-### Descansos
-
-`POST /api/attendance/break-start` y `POST /api/attendance/break-end` (JSON o form):
-`latitude`, `longitude` obligatorios; opcionales `accuracy_meters`, `is_mocked`, `device_id`,
-`device_os`, `app_version`. No piden foto ni exigen geocerca, pero aplican **los mismos controles
-anti-fraude que la entrada**: `422 MOCK_LOCATION_DETECTED` y `422 GPS_ACCURACY_TOO_LOW` (precisión
-máxima efectiva de Marca y app). La distancia a la sucursal y los metadatos del dispositivo se
-guardan en `clock_in_meta.breaks.start` / `.end` (solo informativo).
-
-La hora es la del servidor en la **zona horaria de la empresa** (`tenant_timezone()`), igual que
-la entrada y la salida, y `break_minutes` se calcula con esas horas. No admiten modo offline: un
-`offline_recorded_at` enviado a estas rutas se ignora y el descanso queda con la hora en que llega
-al servidor (ver nota en "Comportamiento de la app").
-
-Errores: `404 NO_OPEN_ATTENDANCE` sin jornada abierta; `409 BREAK_ALREADY_STARTED` "Ya iniciaste
-tu descanso.", `409 BREAK_NOT_STARTED` "No has iniciado un descanso.", `409 BREAK_ALREADY_ENDED`
-"Ya finalizaste tu descanso."; `422 BREAK_NOT_ALLOWED` "Tu turno no permite descansos.".
+- `punch.address` lo completa después el job `ReverseGeocodePunch`; en la respuesta inmediata
+  suele venir `null`.
+- Las horas de `punch` van en UTC; las de `data`, en la zona de la empresa.
+- Mensajes: fuera del radio con `flag` "⚠️ Entrada registrada fuera del radio de la sucursal
+  (180 m). RRHH la revisará."; descansos "☕ Descanso iniciado." / "🔄 Regreso de descanso
+  registrado."; salida "🏁 Salida registrada. Horas trabajadas hoy: 8.5h."; duplicado "Esta
+  marcación ya estaba registrada.".
+- `photo_url` es una URL firmada que vence a los `SIGNED_URL_MINUTES` (5) minutos (15 en `punch`),
+  o `null` si no hubo foto.
 
 Horas trabajadas al marcar la salida: de la entrada a la salida, menos `break_minutes`, salvo que
 "Refrigerio pagado" (`lunch_paid` efectivo: empresa → plataforma → `false`) esté activo; en ese
-caso el descanso no se descuenta.
+caso el descanso no se descuenta. La hora de cada evento es la del servidor en la **zona horaria
+de la empresa** (`tenant_timezone()`), o `offline_recorded_at` si vino.
+
+### `POST /api/v1/attendances/sync-batch`
+
+Alias `POST /api/attendances/sync-batch`. Permiso `attendance.mark`, `throttle:30,1`. Sirve para
+vaciar la cola offline de la app en un solo envío (`AttendanceSyncController`).
+
+`multipart/form-data`:
+
+| Campo | Reglas |
+|---|---|
+| `punches[i][type]` | obligatorio: `clock_in`, `break_start`, `break_end`, `clock_out` |
+| `punches[i][client_uuid]` | **obligatorio**, UUID |
+| `punches[i][latitude]`, `punches[i][longitude]` | obligatorios |
+| `punches[i][accuracy_meters]`, `[device_time]`, `[offline_recorded_at]`, `[is_mocked]`, `[face_detected]`, `[photo]`, `[device_id]`, `[device_os]`, `[app_version]` | como en las rutas individuales |
+| `device_sent_at` | opcional, en la raíz: reloj del teléfono al enviar (mide el desfase de las marcaciones offline) |
+
+- Máximo **50** elementos (`punches` vacío o con más de 50: `422 VALIDATION_ERROR` del lote entero).
+- Se procesan en **orden cronológico** (`offline_recorded_at`; si no, `device_time`; si no, la hora
+  de llegada; empate: entrada < inicio de descanso < fin de descanso < salida), cada uno en **su
+  propia transacción**: un rechazo nunca aborta el resto.
+- Cada elemento pasa por las mismas reglas que las rutas individuales (incluidas
+  `offline_mode_enabled` y `offline_max_hours`, la selfie obligatoria en entrada/salida y la
+  geocerca).
+- `results` viene en el **mismo orden que `punches[]`**.
+
+```json
+{
+  "success": true,
+  "data": {
+    "results": [
+      { "client_uuid": "6f1d…", "status": "created", "code": null,
+        "message": "🏁 Salida registrada. Horas trabajadas hoy: 8.1h.", "attendance_id": 120, "punch_id": 314 },
+      { "client_uuid": "a2c9…", "status": "duplicate", "code": null,
+        "message": "Esta marcación ya estaba registrada.", "attendance_id": 120, "punch_id": 311 },
+      { "client_uuid": "9be0…", "status": "rejected", "code": "OFFLINE_TOO_OLD",
+        "message": "La marcación sin conexión tiene más de 24 h. Pide a RRHH que la registre manualmente.",
+        "attendance_id": null, "punch_id": null }
+    ]
+  },
+  "meta": { "created": 1, "duplicates": 1, "rejected": 1 }
+}
+```
+
+`code` de un rechazo: cualquier código de la tabla de errores de marcación, `VALIDATION_ERROR`
+(con el primer mensaje de validación) o `SERVER_ERROR`. La app puede borrar de su cola los
+`created` y `duplicate`, y los `rejected` (salvo `SERVER_ERROR`, que conviene reintentar).
+
+### `GET /api/geocode/reverse?lat=&lng=`
+
+Con token de la empresa (cualquier rol), `throttle:60,1`. Dirección legible de un punto con el
+proveedor efectivo de la empresa (Nominatim o Google):
+
+```json
+{ "success": true, "data": { "address": "Av. Javier Prado Este 2578, San Isidro, Lima, Perú", "provider": "nominatim" } }
+```
+
+`address` es `null` si el proveedor no encontró nada. Proveedor caído:
+`503 GEOCODING_UNAVAILABLE`. Coordenadas inválidas: `422 VALIDATION_ERROR`.
 
 ### `GET /api/attendance/today`
 
@@ -461,10 +570,56 @@ Cualquier rol autenticado.
 ```
 
 (Ejemplo de `app/Notifications/LeaveRequestReviewed.php`; los demás avisos están en
-`app/Notifications/` y los dispara `app/Services/NotificationDispatcher.php`.) Push por FCM **no está implementado**: el backend guarda el token
-(`refresh-fcm`) pero no envía push. Si la empresa configuró un "Endpoint de notificaciones" en
-Marca y app, cada aviso creado también se reenvía por POST firmado a ese endpoint
-(`notification.created`, ver [white-label.md](../architecture/white-label.md#integraciones-webhook-y-endpoint-de-notificaciones)).
+`app/Notifications/` y los dispara `app/Services/NotificationDispatcher.php`.) Si la empresa
+configuró un "Endpoint de notificaciones" en Marca y app, cada aviso creado también se reenvía por
+POST firmado a ese endpoint (`notification.created`, ver
+[white-label.md](../architecture/white-label.md#integraciones-webhook-y-endpoint-de-notificaciones)).
+
+Tipos de aviso de asistencia (además de `leave_request.*`, `justification.*`, `document.*`,
+`payslip.*`):
+
+| `type` | Cuándo | `data` |
+|---|---|---|
+| `attendance.outside_schedule` | Entrada o salida aceptada fuera de la ventana del turno (motivo `OUTSIDE_SCHEDULE`) | `attendance_id`, `punch_id`, `punch_type`, `user_id`, `work_date`, `screen` (`attendance`; `team_attendance` para el supervisor) |
+| `attendance.outside_geofence` | Entrada o salida lejos de la sucursal: rechazada (`rejected: true`, `GEOFENCE_VIOLATION`) o aceptada con `flag` | `punch_type`, `branch_id`, `distance_meters`, `allowed_radius`, `rejected`, `screen` y, si se aceptó, `attendance_id`, `punch_id` |
+
+El colaborador los recibe in-app **y por push**; el supervisor de la sucursal, solo in-app.
+
+### Push (FCM)
+
+El backend envía push con Firebase Cloud Messaging (API HTTP v1, `App\Services\Push\FcmSender`)
+**cada vez que crea un aviso in-app** para un usuario que:
+
+1. tiene `users.fcm_token` (lo manda la app en el login o con `POST /api/auth/refresh-fcm`), y
+2. es de una empresa con `fcm_enabled` efectivo (`mobile.fcm_enabled` de la config).
+
+Mensaje enviado:
+
+```json
+{
+  "message": {
+    "token": "<fcm_token>",
+    "notification": { "title": "Solicitud aprobada", "body": "Vacaciones del 02/11/2026 al 06/11/2026: aprobada." },
+    "data": { "type": "leave_request.approved", "notification_id": "9b1c...-uuid",
+              "leave_request_id": "14", "status": "approved", "screen": "leave_requests" },
+    "android": { "priority": "high", "notification": { "channel_id": "tunesa_default" } },
+    "apns": { "headers": { "apns-priority": "10" }, "payload": { "aps": { "sound": "default" } } }
+  }
+}
+```
+
+- `data` lleva `type`, `notification_id` (el id del aviso in-app, para marcarlo leído con
+  `POST /api/notifications/{id}/read`) y el mismo `data` del aviso, **todo como strings**
+  (booleanos `"true"`/`"false"`).
+- Canal Android: `tunesa_default` (`FCM_ANDROID_CHANNEL_ID`): la app debe crearlo al iniciar.
+- Si FCM responde que el token ya no existe (`404` / `UNREGISTERED`) el backend borra
+  `users.fcm_token`; la app debe volver a enviarlo con `refresh-fcm` cuando Firebase le dé uno nuevo.
+- El envío va en cola (`SendPushNotification`, 3 intentos ante errores de red/429/5xx).
+
+Configuración de Firebase para la app (la hace el equipo móvil con `--dart-define`):
+`FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_PROJECT_ID`,
+`FIREBASE_IOS_APP_ID`, `FIREBASE_IOS_BUNDLE_ID`. Pasos completos en
+[attendance-integrity.md](../architecture/attendance-integrity.md#push-fcm-puesta-en-marcha).
 
 ## Notas y diferencias conocidas
 
@@ -502,12 +657,13 @@ Verificado contra `mobile/lib` (rutas entre paréntesis).
   `OFFLINE_NOT_ALLOWED`, `OFFLINE_BEFORE_CLOCK_IN`) la descarta y avisa. Las que superan
   `offline_max_hours` se descartan en el teléfono sin enviarse. Solo envía las del usuario con
   sesión iniciada.
-- **Descansos offline:** la app también encola inicio/fin de descanso, pero el backend ignora
-  `offline_recorded_at` en esas rutas: el descanso queda con la hora de sincronización.
+- **Descansos offline:** la app también encola inicio/fin de descanso; el backend ahora respeta
+  `offline_recorded_at` también en esas rutas (y en `sync-batch`).
 - **Selfie y rostro** (`clock_screen.dart`, `face_detection_service.dart`): la selfie solo se pide
   y se envía en entrada/salida cuando `selfie_required`. Con `face_detection_required`, ML Kit
   analiza la foto en el teléfono; si no encuentra rostro el botón de enviar queda bloqueado, y
-  si ML Kit no puede analizarla no se envía `face_detected` (el backend no rechaza).
+  si ML Kit no puede analizarla no se envía `face_detected` (el backend no rechaza: la marca como
+  sospechosa con `FACE_UNVERIFIED`).
 - **Precisión GPS:** la app exige `max_gps_accuracy_meters` antes de enviar (respaldo:
   `MAX_GPS_ACCURACY` compilado) y manda `accuracy_meters` e `is_mocked` también en los descansos.
 - **Errores de marcación** (`_SendErrorCard`): ofrece volver a leer el GPS ante

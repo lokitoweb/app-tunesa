@@ -54,6 +54,10 @@ class NotificationWebController extends Controller
             'payslip.published'       => $user->can('payslips.manage') && isset($data['period_year'])
                 ? route('payslips.index', ['year' => $data['period_year'], 'month' => $data['period_month']])
                 : null,
+            // Enlace firmado nuevo (el guardado en la notificación vence)
+            'report.monthly_ready'    => $user->can('reports.export') && isset($data['tenant_id'], $data['period'])
+                ? \App\Notifications\MonthlyReportReady::signedUrl((int) $data['tenant_id'], (string) $data['period'], 1)
+                : null,
             default => null,
         };
     }
@@ -64,6 +68,7 @@ class NotificationWebController extends Controller
         return match ($type) {
             'leave_request.submitted', 'leave_request.approved', 'leave_request.rejected' => 'calendar2-check',
             'payslip.published'                                => 'file-earmark-text',
+            'report.monthly_ready'                             => 'file-earmark-spreadsheet',
             'document.approved', 'document.rejected'           => 'folder-check',
             'justification.approved', 'justification.rejected' => 'clock-history',
             default                                            => 'bell',

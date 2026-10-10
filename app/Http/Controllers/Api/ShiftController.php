@@ -57,6 +57,7 @@ class ShiftController extends Controller
     public function store(Request $request): JsonResponse
     {
         $shift = Shift::create($this->validateShift($request));
+        app(\App\Services\AuditLogger::class)->logCreated('shift.created', $shift, ['name' => $shift->name]);
 
         return response()->json([
             'success' => true,
@@ -69,7 +70,7 @@ class ShiftController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $shift = Shift::findOrFail($id);
-        $shift->update($this->validateShift($request, $shift));
+        app(\App\Services\AuditLogger::class)->updateWithAudit('shift.updated', $shift, $this->validateShift($request, $shift), ['name' => $shift->name]);
 
         return response()->json([
             'success' => true,
@@ -92,6 +93,7 @@ class ShiftController extends Controller
         }
 
         $shift->delete();
+        app(\App\Services\AuditLogger::class)->log('shift.deleted', $shift, ['name' => $shift->name]);
 
         return response()->json([
             'success' => true,

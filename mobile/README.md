@@ -105,15 +105,15 @@ En GitHub Actions, *Run workflow* compila además iOS **sin firma** en `macos-la
 ```
 lib/
   core/        config (Env, AppConfig remota, versión mínima), network (Dio + errores,
-               dominio en caliente), storage (token seguro),
+               dominio en caliente), storage (token seguro, llaves locales), push (FCM),
                location (GPS estricto + Haversine), router, theme, widgets
   features/
     auth/        empresa (marca blanca), login y "olvidé mi contraseña"
     home/        inicio con turno del día, botones de marcación, campana y Mi equipo
     notifications/ bandeja de notificaciones (marcar leída / todas, abre la pantalla)
     team/        supervisor / RRHH: aprobaciones y asistencia del equipo en vivo
-    attendance/  marcación GPS + selfie (+ rostro ML Kit), cola sin conexión, historial,
-                 justificaciones
+    attendance/  marcación GPS + selfie (+ rostro ML Kit, WebP), cola sin conexión cifrada
+                 (SQLCipher + lote), no aceptadas, dirección legible, historial, justificaciones
     app_update/  pantalla "Actualiza la app" y aviso de nueva versión
     server/      diálogo oculto "Conexión del servidor"
     splash/      primer arranque mientras llega la configuración
@@ -130,14 +130,26 @@ Estado con **Riverpod**; navegación con **go_router** (redirige según la sesi�
 
 ## Anti-fraude en la marcación
 
-- Lectura GPS fresca de máxima precisión (nunca la última posición cacheada).
-- Se rechaza la ubicación simulada (`isMocked`, apps de GPS falso) y la de baja precisión.
-- Validación previa de geocerca contra las sucursales asignadas; el backend vuelve a
-  validar mock, precisión y geocerca con Haversine (`ATTENDANCE_REJECT_MOCK_LOCATION`,
-  `ATTENDANCE_MAX_GPS_ACCURACY`).
-- Selfie solo con la cámara frontal y en el momento; no hay opción de galería.
-- Selfie, detección de rostro (ML Kit en el teléfono, se envía `face_detected`), precisión GPS
-  máxima y marcación sin conexión se activan por empresa desde `/v1/app/config` (ver abajo).
+- Todo se toma **en el momento de la marcación**: al disparar la selfie se pide una lectura GPS
+  fresca de máxima precisión (nunca la última cacheada) y se guarda la hora UTC del teléfono
+  (`device_time`); sin selfie (descansos), al confirmar. Una selfie de más de 5 min se repite.
+- Cada captura lleva un `client_uuid` (UUID v4) que se reusa en todos los reintentos: si el
+  servidor ya la tenía responde `duplicate: true` y la app lo toma como éxito.
+- Ubicación simulada: Android `Position.isMocked`; iOS 15+ además un canal nativo
+  (`tunesa/location_integrity` en `ios/Runner/AppDelegate.swift`) lee
+  `CLLocation.sourceInformation.isSimulatedBySoftware` / `isProducedByAccessory` con una lectura
+  puntual (si falla, `false`). Según `mock_location_policy`: `reject` bloquea antes de enviar con
+  la explicación; `flag` envía con `is_mocked=1` y avisa "Tu marcación quedará en revisión".
+- Precisión GPS máxima y geocerca previa contra las sucursales asignadas; el backend vuelve a
+  validar todo (mock, precisión, geocerca con Haversine, desfase de hora).
+- Selfie solo con la cámara frontal y en el momento (sin galería), detección de rostro con ML Kit
+  antes de habilitar el envío (`face_detected`) y compresión **WebP calidad 80, lado mayor ≤ 1280 px**
+  (`flutter_image_compress`; si el equipo no codifica WebP, JPEG 80). En los descansos la selfie
+  es opcional.
+- Si la hora del teléfono difiere de `server_time` más que `max_time_drift_seconds`, la pantalla
+  de marcación pide activar la hora automática (no bloquea).
+- La pantalla muestra la **dirección legible** de la posición (`GET /api/geocode/reverse`, con
+  espera de 600 ms y caché por ~50 m); es informativa y nunca bloquea la marcación.
 
 ## Configuración dinámica (`GET /api/v1/app/config`)
 
@@ -148,7 +160,9 @@ elegida (`?tenant_slug=`; sin empresa, la de la plataforma). Es la única fuente
   para AppBar y barra inferior (el texto se elige por luminancia) y logo claro/oscuro con caché
   en disco. Cualquier color o URL en null usa el valor por defecto.
 - **Reglas de marcación**: `selfie_required`, `face_detection_required`,
-  `max_gps_accuracy_meters` (respaldo `MAX_GPS_ACCURACY`), `offline_mode_enabled`, `offline_max_hours`.
+  `max_gps_accuracy_meters` (respaldo `MAX_GPS_ACCURACY`), `offline_mode_enabled`, `offline_max_hours`,
+  `mock_location_policy` (`reject` | `flag`; por defecto `reject`), `max_time_drift_seconds`,
+  `geocoding_provider` (informativo) y `fcm_enabled` (si es `false` no se registra el token push).
 - **Versión**: si la app es menor que `min_supported_version` con `force_update` (o cualquier API
   responde 426 `APP_UPDATE_REQUIRED`) se muestra la pantalla bloqueante "Actualiza la app" con el
   contacto de la empresa; si solo hay una versión más nueva, un aviso descartable. Toda solicitud
@@ -169,11 +183,57 @@ fallos de red seguidos vuelve al dominio compilado (solo si este sí responde).
 
 ## Marcación sin conexión
 
-Solo si la empresa activa `offline_mode_enabled`. Sin red, la marcación (tipo, GPS, precisión,
-hora ISO con desfase, datos del equipo) se guarda cifrada en el almacenamiento seguro y la selfie
-se copia a los documentos de la app; se avisa "Marcación guardada sin conexión, se enviará al
-recuperar señal" y la pantalla de marcación muestra cuántas faltan enviar. Se envían solas al
-recuperar señal, al volver a la app o deslizando para actualizar en Inicio, con
-`offline_recorded_at`. Las que superan `offline_max_hours` se descartan con aviso; un error de
-negocio (422 `OFFLINE_NOT_ALLOWED`, `OFFLINE_TOO_OLD`, geocerca…) la quita y muestra el motivo; un
-error de red la conserva. Sin el modo activo, sin red no se marca.
+Solo si la empresa activa `offline_mode_enabled`. Sin red (o si el envío falla por red/tiempo
+agotado) las cuatro marcaciones (entrada, inicio y fin de descanso, salida) se guardan en una
+**base SQLite cifrada con SQLCipher** (`sqflite_sqlcipher`, archivo `tunesa_offline.db`); la llave
+es aleatoria (32 bytes, `Random.secure`) y vive solo en el Keychain / Keystore
+(`flutter_secure_storage`). La selfie comprimida se guarda **cifrada con AES-256-GCM**
+(`cryptography`, otra llave aleatoria) en `<documentos de la app>/offline_punches/`. La cola
+anterior (JSON en el almacenamiento seguro + selfie en claro) se migra sola al primer arranque.
+
+- Se envía al recuperar señal, al volver a la app, cada 60 s mientras la app está abierta y hay
+  pendientes, y con "Enviar ahora" / deslizar para actualizar en Inicio, en lotes de 20 por
+  `POST /api/v1/attendances/sync-batch` (`punches[i][campo]`, con `offline_recorded_at`). Si el
+  backend no tiene el lote (otro 4xx) se envían una por una a las rutas de siempre.
+- `created` / `duplicate` → se quita y se borra la foto. `rejected` → se quita y aparece en
+  **Marcaciones no aceptadas** (`/attendance/rejected`, con el motivo; el colaborador las descarta).
+- Red caída, 5xx, 401, 408, 425, 426 o 429 → se conserva y se reintenta con espera exponencial
+  (30 s, 1 min, 2 min… hasta 30 min); las acciones manuales ignoran la espera.
+- Las que superan `offline_max_hours` se descartan con aviso y quedan en "no aceptadas".
+- La pantalla de marcación muestra cuántas faltan enviar y la última sincronización. Solo se
+  envían las del usuario con sesión iniciada.
+
+Sin el modo activo, sin red no se marca.
+
+## Notificaciones push (FCM)
+
+Firebase se inicializa **desde Dart con opciones de `--dart-define`**: no hay
+`google-services.json` ni `GoogleService-Info.plist` y Android **no** usa el plugin
+`com.google.gms.google-services`. Claves (vacías en `env/*.json`):
+
+| Clave | Uso |
+|---|---|
+| `FIREBASE_API_KEY`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_PROJECT_ID` | Comunes |
+| `FIREBASE_APP_ID` | App Android (`1:…:android:…`) |
+| `FIREBASE_IOS_APP_ID`, `FIREBASE_IOS_BUNDLE_ID` | App iOS |
+
+Si falta alguna obligatoria para la plataforma, el push queda **apagado sin errores**. Con sesión
+iniciada (y `fcm_enabled` de la empresa) la app pide permiso de notificaciones (Android 13+
+`POST_NOTIFICATIONS`, iOS), registra el token con `POST /api/auth/refresh-fcm` `{fcm_token}` al
+entrar y cada vez que rota, y lo borra al cerrar sesión. En primer plano Android muestra el aviso
+con `flutter_local_notifications` (canal `tunesa_default`); iOS usa las opciones de presentación de
+FCM. Al tocar un push se abre la pantalla de `data.screen` (o según `type`, como la bandeja in-app).
+
+- Local: `flutter run --dart-define-from-file=env/dev.json --dart-define=FIREBASE_API_KEY=...` (o
+  completar el JSON sin subirlo) o exportar las variables antes de `scripts/build_apk.sh`.
+- CI: secrets o variables de repositorio con los mismos nombres; solo los no vacíos se pasan como
+  `--dart-define`. Sin ellos el workflow compila igual.
+- **iOS** (en Xcode, target *Runner* → *Signing & Capabilities*): agregar **Push Notifications** y
+  **Background Modes → Remote notifications** (`UIBackgroundModes` ya está en `Info.plist`), y subir
+  la **llave APNs (.p8)** en Firebase → Configuración del proyecto → Cloud Messaging. Sin APNs, iOS
+  no entrega token y el push queda inactivo.
+- Android usa desugaring (`coreLibraryDesugaring`), requerido por `flutter_local_notifications`.
+
+> Nota de dependencias: `pubspec.yaml` fuerza `dbus ^0.8.0` (`dependency_overrides`) porque
+> `connectivity_plus` 7.3 y `flutter_local_notifications_linux` piden versiones distintas; dbus
+> solo se usa en Linux de escritorio, que esta app no compila.

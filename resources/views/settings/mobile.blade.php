@@ -70,7 +70,7 @@
 
                     <h2 class="h6 fw-semibold mt-4 mb-1">Marcación fuera de geocerca</h2>
                     <p class="small text-body-secondary mb-0">
-                        Ahora: <strong>{{ CompanyConfiguration::GEOFENCE_POLICIES[$config->geofence_policy][0] ?? $config->geofence_policy }}</strong>.
+                        Ahora: <strong>{{ CompanyConfiguration::GEOFENCE_POLICIES[$config->geofence_policy][0] ?? label('geofence_policy', $config->geofence_policy) }}</strong>.
                         Se cambia en <a href="{{ route('settings.branding', ['tab' => 'reglas']) }}">Marca y app › Reglas operativas</a>,
                         junto con la selfie, la marcación sin conexión y la precisión GPS.
                     </p>

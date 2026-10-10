@@ -75,7 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onRefresh: () async {
           _refreshBadges();
           // Envía marcaciones guardadas sin conexión antes de recargar el día
-          await ref.read(offlineSyncProvider.notifier).sync();
+          await ref.read(offlineSyncProvider.notifier).sync(force: true);
           return ref.refresh(todayStatusProvider.future);
         },
         child: ListView(

@@ -133,8 +133,8 @@ class IntegrationWebhooksTest extends TestCase
 
         Queue::assertPushed(SendTenantWebhook::class, function (SendTenantWebhook $job) {
             return $job->event === 'attendance.clock_in'
-                && $job->tries === 3
-                && $job->backoff() === [10, 60]
+                && $job->tries === 5
+                && $job->backoff() === [10, 60, 300, 900]
                 && ! str_contains(serialize($job), self::SECRET);
         });
     }
@@ -147,7 +147,8 @@ class IntegrationWebhooksTest extends TestCase
         $this->configure(null, ['webhook_url' => self::HOOK]); // no se hereda
 
         $this->actingIn($emp, $acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();
-        Http::assertNothingSent();
+        // (La única petición saliente es la geocodificación inversa de la marcación)
+        Http::assertNotSent(fn ($request) => $request->url() === self::HOOK);
     }
 
     public function test_leave_status_changes_and_notifications_go_to_their_endpoints(): void

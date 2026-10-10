@@ -10,7 +10,9 @@ Laravel atiende a muchas empresas y cada una solo ve sus propios datos. Tiene tr
 | **App móvil** (Flutter) | `mobile/lib/` | Colaboradores (y supervisores/RRHH para su equipo) |
 
 La lógica de negocio importante vive en servicios (`app/Services/`): `AttendanceService`
-(marcación), `GeofenceService` (distancia Haversine), `TenantSettingsService` (marca y app),
+(marcación + bitácora inmutable `attendance_punches`), `GeofenceService` (distancia Haversine),
+`Geocoding\GeocodingService` (Nominatim / Google), `Push\FcmSender` (push FCM),
+`TenantSettingsService` (marca y app),
 `LoginGuard` (bloqueo por fuerza bruta), `NotificationDispatcher`, `PayslipImportService`,
 `DocumentStorageService`, `SecureFileUrl`, `AuditLogger`, etc.
 
@@ -107,7 +109,7 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
 
 | Módulo | API (app) | Panel | Notas |
 |---|---|---|---|
-| **Asistencia** con GPS + selfie | `/api/attendance/*` | `/attendance`, dashboard en vivo | Geocerca por sucursal (Haversine, `GeofenceService`). Política `reject` o `flag` por empresa. Anti-fraude: GPS simulado, precisión mínima, rostro. Marcación sin conexión opcional. Ver [mobile-endpoints.md](../api/mobile-endpoints.md). |
+| **Asistencia** con GPS + selfie | `/api/attendance/*`, `/api/v1/attendances/sync-batch` | `/attendance`, dashboard en vivo | Geocerca por sucursal (Haversine, `GeofenceService`). Política `reject` o `flag` por empresa. Anti-fraude: GPS simulado (`reject`/`flag`), precisión mínima, rostro, desfase de reloj, fuera de horario. Bitácora inmutable `attendance_punches` con motivos de sospecha, idempotencia por `client_uuid`, sincronización offline en lote. Ver [attendance-integrity.md](attendance-integrity.md) y [mobile-endpoints.md](../api/mobile-endpoints.md). |
 | **Faltas** | — | `/attendance` | Comando `attendance:mark-absences`, programado a las 01:30 en `routes/console.php`; no marca nada en feriados y, si había una solicitud aprobada, registra el día como `excused` en vez de `absent`. |
 | **Turnos** fijos y rotativos | `/api/my-shifts`, `/api/schedule` | `/shifts` | Tolerancia y refrigerio se proponen desde "Marca y app" > Reglas. |
 | **Sucursales y geocercas** | `/api/my-branches` | `/branches` (mapa Leaflet) | El radio por defecto sale de "Marca y app" > Reglas. |
@@ -116,8 +118,11 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
 | **Legajo digital** | `/api/employee/documents`, `/api/employee/profile` | `/documents`, `/employees/{id}/file` | Archivos en disco `private`, URLs firmadas que vencen (`SIGNED_URL_MINUTES`). |
 | **Dotación** (uniformes) | `/api/employee/uniform-sizes` | `/uniforms` | Exportación para logística. |
 | **Planilla** | — | `/payroll` | Consolidado CSV. |
-| **Notificaciones in-app** | `/api/notifications` | campana + `/notifications` | Se disparan desde eventos de modelos en `AppServiceProvider` (sirven para API, panel y cargas masivas). Push FCM no implementado. |
+| **Notificaciones in-app + push** | `/api/notifications` | campana + `/notifications` | Se disparan desde eventos de modelos en `AppServiceProvider` (sirven para API, panel y cargas masivas) y desde la marcación (`attendance.outside_schedule`, `attendance.outside_geofence`). También salen por push FCM (`FcmChannel`) si la empresa tiene `fcm_enabled` y el usuario `fcm_token`. Ver [attendance-integrity.md](attendance-integrity.md#push-fcm). |
+| **Geocodificación** | `/api/geocode/reverse` | `/geocode/search`, `/geocode/reverse` | Nominatim (1 req/s, caché) o Google con la clave de Marca y app. Completa la dirección de cada marcación en segundo plano. |
 | **Feriados** | — | `/holidays` | Incluye carga de feriados de Perú. |
+| **Reportes** | — | `/reports`, `/reports/hours` | "Reporte de horas y faltas" (`App\Services\Reports\AttendanceReportService`): horas efectivas según `lunch_paid`, tardanzas, salidas anticipadas, horas extra diurnas/nocturnas (22:00–06:00, la extra es la cola de la jornada), faltas justificadas e injustificadas. Excel (PhpSpreadsheet: hojas "Resumen" y "Detalle diario") y PDF (Dompdf). `reports:send-monthly` (día 1, 07:00) guarda el Excel del mes anterior en el disco `private` y notifica a administradores y RRHH con enlace firmado. |
+| **Tablero en vivo** | — | `/live`, `/live/data` | Quién trabaja, está en descanso, no llegó, por llegar, salió o tiene permiso. Sondeo cada 10 s con `ETag` (304 si nada cambió), reintento exponencial y pausa con la pestaña oculta. |
 | **Auditoría** | — | `/audit` | `audit_logs` vía `AuditLogger`: revelado de cuentas, documentos vistos, marcaciones fuera de geocerca, sincronizaciones offline, cambios de "Marca y app". |
 | **Marca y app** | `/api/v1/app/config`, `/api/admin/app-config` | `/settings/branding`, `/settings/mobile` | Ver [white-label.md](white-label.md). |
 
@@ -128,12 +133,16 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
    Sanctum que vence a los `MOBILE_TOKEN_DAYS` días (30 por defecto).
 2. Para marcar, la app toma GPS y (si la empresa lo exige) la selfie, y envía un multipart a
    `POST /api/attendance/clock-in`. El backend:
-   valida (`ClockInRequest`) → rechaza GPS simulado / precisión baja / sin rostro →
-   resuelve la hora si es offline → busca la sucursal vigente del colaborador → calcula la
-   distancia → aplica la política de geocerca → guarda la selfie en el disco `private` →
-   calcula tardanza con el turno → crea el registro en `attendances`. Si la empresa configuró
-   un webhook, se encola un POST firmado `attendance.clock_in` (igual en descansos y salida).
-   Los errores de regla salen como `AttendanceException` con su `code` (ver la API).
+   valida (`ClockInRequest`) → `AttendanceService::punch()`: devuelve el resultado existente si
+   el `client_uuid` ya se usó → GPS simulado (rechaza o marca) / precisión baja / rostro →
+   resuelve la hora si es offline → mide el desfase del reloj → guarda la selfie en WebP en el
+   disco `private` → en una transacción: busca la sucursal vigente, calcula la distancia, aplica
+   la política de geocerca, revisa la ventana del turno, calcula la tardanza, crea el registro
+   en `attendances` y el evento inmutable en `attendance_punches` → después del commit:
+   dirección del punto (job), avisos y, si la empresa configuró un webhook, un POST firmado
+   `attendance.clock_in` (igual en descansos y salida). Los errores de regla salen como
+   `AttendanceException` con su `code` (ver la API). La cola offline de la app puede enviar
+   todo junto a `POST /api/v1/attendances/sync-batch`.
 3. El panel lo ve al instante: el dashboard refresca con `GET /dashboard/live-stream`
    (sondeo JSON) y el visor `/attendance/{id}` muestra selfie (URL firmada), mapa y distancia.
    Las marcaciones aceptadas fuera del radio quedan con `within_geofence = false` y en auditoría.
@@ -145,6 +154,99 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
 | Qué | Disco | Cómo se sirve |
 |---|---|---|
 | Logos, favicon, splash, avatares | `public` | `asset('storage/...')` → requiere `php artisan storage:link` |
-| Selfies (`ATTENDANCE_DISK`) | `private` (o S3) | URL firmada `/secure-files/selfie-in|selfie-out/{id}` o prefirmada de S3 |
+| Selfies (`ATTENDANCE_DISK`), WebP desde esta versión | `private` (o S3) | URL firmada `/secure-files/selfie-in|selfie-out/{id}` (jornada) o `/secure-files/punch-photo/{id}` (cualquier evento, incluidos descansos), o prefirmada de S3 |
 | Legajo (`DOCUMENTS_DISK`) | `private` (o S3) | URL firmada `/secure-files/document/{id}` |
 | Boletas, sustentos de solicitudes y justificaciones | `private` | Descarga autenticada (`/api/payslips/{id}/download`, panel) |
+
+## Escalabilidad
+
+**Índices compuestos** (todas las consultas filtran primero por `tenant_id`). Los de las
+migraciones originales más los de `2026_10_14_000001_add_composite_indexes_for_reports`, que
+solo crea un índice si la tabla y columnas existen y ningún índice existente lo cubre como
+prefijo:
+
+| Tabla | Índices | Para qué |
+|---|---|---|
+| `attendances` | `(tenant_id, user_id, work_date)`, `(tenant_id, work_date, user_id)`, `(tenant_id, branch_id, work_date)`, `(tenant_id, status, work_date)`; único `(user_id, branch_id, work_date)` | Reportes por colaborador y rango, tablero del día, filtros por sucursal/estado |
+| `leave_requests` | `(tenant_id, status, start_date)`, `(tenant_id, user_id, start_date)` | Solicitudes aprobadas que cruzan un rango |
+| `payslips` | `(tenant_id, user_id, period_year, period_month)` | Boletas por periodo |
+| `audit_logs` | `(tenant_id, created_at)`, `(tenant_id, action, created_at)` | Bitácora ordenada por fecha |
+| `notifications` | `(notifiable_type, notifiable_id, read_at)` | Campana (no leídas) |
+| `users` | `(tenant_id, status, role)` | Personal activo por rol |
+| `employee_shifts` | `(tenant_id, user_id, effective_from)` | Turno vigente en una fecha |
+| `employee_documents` | `(tenant_id, status)` | Documentos pendientes |
+| `holidays` | único `(tenant_id, date)` | Feriados |
+
+No hay un único `(tenant_id, user_id, work_date)` en `attendances`: el modelo usa borrado
+lógico y la regla de unicidad vigente incluye la sucursal.
+
+**Consultas.** Los reportes y el tablero cargan por bloque y sin N+1: primero los
+colaboradores, luego en una consulta cada uno de marcaciones, turnos vigentes, solicitudes
+aprobadas y feriados (`whereIn user_id`), y se cruzan en memoria. Los listados usan eager
+loading (`with([...])`) con columnas acotadas.
+
+**Exportaciones grandes.** `AttendanceReportService::each()` recorre a los colaboradores por
+bloques de 200 (paginación por id, equivalente a `chunkById`), así que la memoria crece con
+el tamaño del bloque y no con la empresa. La exportación CSV de marcaciones usa `chunk()`.
+El reporte mensual se genera fuera de la request (comando programado) y queda en disco.
+
+**Colas.** `QUEUE_CONNECTION=database` por defecto (Redis recomendado en producción). Hoy se
+encolan los webhooks (`SendTenantWebhook`). Las notificaciones extienden `AppNotification`
+(`Queueable`); para enviarlas en segundo plano basta con implementar `ShouldQueue`. En
+producción hace falta `php artisan queue:work` y el scheduler (`* * * * * php artisan schedule:run`).
+
+**Sondeo del tablero.** `/live/data` calcula un `ETag` del estado (sin las URLs firmadas,
+que cambian en cada llamada, y renovado cada 5 min para refrescarlas): si el navegador envía
+el mismo `If-None-Match` responde `304` sin cuerpo.
+
+## Presentación de datos
+
+Regla de producto: **la interfaz nunca muestra datos técnicos** — ni claves de base de
+datos (`snake_case`), ni valores de enum crudos (`hr_manager`, `pending`), ni JSON, ni
+textos de relleno ("no se usa", "próximamente"). Todo pasa por `App\Support\Labels`.
+
+| Necesito mostrar… | En Blade | En PHP |
+|---|---|---|
+| Un estado/tipo/rol como insignia | `<x-status-badge type="leave_status" :value="$x->status" />` | `Labels::enum()` + `Labels::tone()` |
+| Un estado/tipo/rol como texto | `{{ label('user_role', $u->role) }}` o `@label('user_role', $u->role)` | `Labels::enum('user_role', $v)` |
+| El nombre de un campo | `{{ field_label('default_grace_minutes') }}` o `@fieldLabel(...)` | `Labels::field($campo)` |
+| Un valor según su campo | `{{ field_value('lunch_paid', $v) }}` (Sí/No, min, m, colores, fechas) | `Labels::value($campo, $v, inherits: true)` |
+| Opciones de un `<select>` | `@foreach(\App\Support\Labels::options('geocoding_provider') as $k => $txt)` | `Labels::options($conjunto)` |
+| Un secreto (clave, token) | `{{ masked($row->webhook_secret) }}` → `••••••••1234` | `SensitiveFields::maskString()` |
+| Una acción de la bitácora | — | `Labels::actionBadge($accion)` → etiqueta, color, icono |
+
+Conjuntos disponibles (`Labels::ENUMS`): `attendance_status`, `justification_status`,
+`leave_status`, `leave_type`, `document_status`, `document_type`, `payslip_status`,
+`uniform_item`, `uniform_status`, `shoe_type`, `user_role`, `user_status`, `tenant_status`,
+`tenant_plan`, `branch_status` y `active_status` (booleanos `is_active`), `shift_type`,
+`holiday_type`, `notification_type`, `geofence_policy`, `mock_location_policy`,
+`geocoding_provider`, `id_document_type`, `gender`, `contract_type`, `bank_account_type`,
+`pension_system`, `health_insurance`, `labor_regime`, `payment_info_status`, `weekday`, `month`.
+
+Al agregar una columna, un ajuste, un estado o una acción de auditoría, agrega su etiqueta
+en `Labels` (`FIELDS`, `ENUMS`, `ACTIONS`): `LabelsCoverageTest` falla si falta, y
+`PanelRawValuesTest` falla si una vista imprime `{{ $x->status }}`, `str_replace('_', ...)`
+o `json_encode(...)`.
+
+### Bitácora de auditoría
+
+`AuditLogger` guarda `meta` estructurado:
+
+```json
+{"changes": [{"field": "lunch_paid", "old": false, "new": true}], "context": {"scope": "tenant"}}
+```
+
+- Cambios de un modelo: `$audit->updateWithAudit('branch.updated', $branch, $datos, ['name' => $branch->name])`
+  (reemplaza `$branch->update($datos)`), `saveWithAudit()` (reemplaza `save()`),
+  `logModelUpdate()` (antes de `save()` o con un `AuditLogger::snapshot()` previo),
+  `logCreated()` para altas y `logChanges($accion, $modelo, $antes, $despues, $contexto)` para
+  ajustes que viven en varias tablas (Marca y app).
+- Eventos sin cambios: `$audit->log($accion, $modelo, $contexto)` → `{"context": {...}}`.
+- Los campos de `App\Support\SensitiveFields` (`webhook_secret`, `maps_api_key`,
+  `fcm_service_account_json`, contraseñas, tokens, `two_factor_*`, cuentas bancarias) se guardan
+  enmascarados (`••••••••1234`) o como `(cambiado)`: nunca en claro.
+- `App\Presenters\AuditLogPresenter` arma lo que ve el usuario: insignia de la acción, resumen
+  ("Carlos Ramírez cambió 3 campos de Marca y app: Tolerancia por defecto, Almuerzo pagado y 1 más."),
+  cuadro Campo | Valor previo | Valor nuevo, IP completa solo para Super Admin y Administrador
+  (parcial `190.23.x.x` para el resto) y el dispositivo resumido ("Chrome en Android").
+  Las filas antiguas (meta plano) se muestran como lista de datos con etiquetas.

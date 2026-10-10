@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\GeocodeController;
 use App\Http\Controllers\SecureFileController;
 use App\Http\Controllers\Web\ApprovalWebController;
 use App\Http\Controllers\Web\BrandingWebController;
+use App\Http\Controllers\Web\IntegrationsWebController;
 use App\Http\Controllers\Web\CompanySettingsWebController;
 use App\Http\Controllers\Web\CompanyWebController;
 use App\Http\Controllers\Web\DocumentWebController;
@@ -15,6 +17,8 @@ use App\Http\Controllers\Web\BranchWebController;
 use App\Http\Controllers\Web\DashboardController;
 use App\Http\Controllers\Web\EmployeeController;
 use App\Http\Controllers\Web\HolidayWebController;
+use App\Http\Controllers\Web\HoursReportWebController;
+use App\Http\Controllers\Web\LiveBoardController;
 use App\Http\Controllers\Web\NotificationWebController;
 use App\Http\Controllers\Web\PasswordResetController;
 use App\Http\Controllers\Web\PayslipWebController;
@@ -41,7 +45,7 @@ Route::get('/secure-files/{kind}/{id}', [SecureFileController::class, 'show'])
     ->name('secure-files.show')
     ->whereIn('kind', \App\Services\SecureFileUrl::KINDS)
     ->whereNumber('id')
-    ->middleware(['signed', 'throttle:120,1']);
+    ->middleware(['signed', 'throttle:120,1,secure-files']);
 
 // Rutas públicas de autenticación
 Route::middleware('guest')->group(function () {
@@ -64,6 +68,12 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/live-stream', [DashboardController::class, 'liveStream'])->name('dashboard.live-stream');
     Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
+
+    // Geocodificación (buscar direcciones / dirección de un punto) con el proveedor de la empresa
+    Route::middleware('throttle:60,1,geocode')->prefix('geocode')->name('geocode.')->group(function () {
+        Route::get('/search', [GeocodeController::class, 'search'])->name('search');
+        Route::get('/reverse', [GeocodeController::class, 'reverse'])->name('reverse');
+    });
 
     // Notificaciones personales (campana del topbar)
     Route::get('/notifications', [NotificationWebController::class, 'index'])->name('notifications.index');
@@ -119,6 +129,14 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::prefix('settings/branding')->name('settings.branding')->middleware('can:company.configure')->group(function () {
         Route::get('/', [BrandingWebController::class, 'edit']);
         Route::put('/', [BrandingWebController::class, 'update'])->name('.update');
+
+        // Integraciones: pruebas en vivo e historial de envíos (webhook_deliveries)
+        Route::get('/deliveries', [IntegrationsWebController::class, 'deliveries'])->name('.deliveries');
+        Route::middleware('throttle:20,1,integration-tests')->group(function () {
+            Route::post('/test-webhook', [IntegrationsWebController::class, 'testWebhook'])->name('.test-webhook');
+            Route::post('/test-notification', [IntegrationsWebController::class, 'testNotification'])->name('.test-notification');
+            Route::post('/test-push', [IntegrationsWebController::class, 'testPush'])->name('.test-push');
+        });
     });
 
     // Turnos (fijos y rotativos), tolerancias y asignaciones
@@ -199,5 +217,19 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [ReportWebController::class, 'index'])->name('index');
         Route::get('/export/excel', [ReportWebController::class, 'exportExcel'])->name('export.excel')->middleware('can:reports.export');
         Route::get('/export/pdf', [ReportWebController::class, 'exportPdf'])->name('export.pdf')->middleware('can:reports.export');
+
+        // Reporte de horas y faltas (vista previa + Excel / PDF)
+        Route::get('/hours', [HoursReportWebController::class, 'index'])->name('hours');
+        Route::get('/hours/excel', [HoursReportWebController::class, 'excel'])->name('hours.excel')->middleware('can:reports.export');
+        Route::get('/hours/pdf', [HoursReportWebController::class, 'pdf'])->name('hours.pdf')->middleware('can:reports.export');
+
+        // Reporte mensual automático (enlace firmado de la notificación)
+        Route::get('/monthly/{tenant}/{period}', [HoursReportWebController::class, 'monthly'])->name('monthly.download')
+            ->whereNumber('tenant')->where('period', '\\d{4}-\\d{2}')
+            ->middleware(['signed', 'can:reports.export']);
     });
+
+    // Tablero en vivo (supervisores: solo su equipo)
+    Route::get('/live', [LiveBoardController::class, 'index'])->name('live.index');
+    Route::get('/live/data', [LiveBoardController::class, 'data'])->name('live.data');
 });

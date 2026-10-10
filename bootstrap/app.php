@@ -113,5 +113,29 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        // Errores inesperados (5xx) en la API: en producción nunca se exponen el
+        // mensaje de la excepción, SQL, rutas ni IPs internas. Va al final para
+        // que los renderers de arriba atiendan primero sus casos.
+        $exceptions->render(function (\Throwable $e, $request) {
+            if (! $request->is('api/*') || config('app.debug')) {
+                return null;
+            }
+            if ($e instanceof \Illuminate\Http\Exceptions\HttpResponseException
+                || $e instanceof \Illuminate\Auth\AuthenticationException
+                || $e instanceof \Illuminate\Validation\ValidationException) {
+                return null;
+            }
+            $status = $e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface ? $e->getStatusCode() : 500;
+            if ($status < 500) {
+                return null;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Ocurrió un error inesperado. Intenta de nuevo en unos minutos.',
+                'code'    => 'SERVER_ERROR',
+            ], $status);
+        });
+
     })
     ->create();

@@ -10,7 +10,6 @@
     use App\Models\UniformSize;
 
     $show = fn (?string $v) => $revealed ? $v : EmployeeProfile::mask($v);
-    $docTone = ['pending' => 'warning', 'approved' => 'success', 'rejected' => 'danger', 'superseded' => 'secondary'];
     $payTone = ['incomplete' => 'secondary', 'pending' => 'warning', 'verified' => 'success', 'rejected' => 'danger'];
     $payStatus = $profile->payment_info_status ?? 'incomplete';
     $approvedTypes = $documents->where('status', 'approved')->pluck('type')->all();
@@ -30,7 +29,7 @@
         <span class="avatar avatar-lg">{{ mb_substr($employee->first_name, 0, 1) }}{{ mb_substr($employee->last_name, 0, 1) }}</span>
         <div>
             <h1>{{ $employee->full_name }}</h1>
-            <p>{{ $employee->position ?: 'Sin cargo' }} · {{ $employee->employee_code }} · {{ strtoupper($employee->document_type) }} {{ $employee->document_number }}
+            <p>{{ $employee->position ?: 'Sin cargo' }} · {{ $employee->employee_code }} · {{ label('id_document_type', $employee->document_type) }} {{ $employee->document_number }}
                 · Ingreso {{ $employee->hire_date?->format('d/m/Y') ?? '—' }}</p>
         </div>
     </div>
@@ -198,11 +197,11 @@
                         @forelse($documents as $doc)
                             <tr>
                                 <td>
-                                    <div class="fw-semibold">{{ EmployeeDocument::TYPES[$doc->type] ?? $doc->type }}</div>
+                                    <div class="fw-semibold">{{ label('document_type', $doc->type) }}</div>
                                     <div class="small text-body-secondary text-break">{{ $doc->original_name }} · {{ $doc->created_at->format('d/m/Y') }}@if($doc->expires_at) · vence {{ $doc->expires_at->format('d/m/Y') }}@endif</div>
                                     @if($doc->rejection_reason)<div class="small text-danger">{{ $doc->rejection_reason }}</div>@endif
                                 </td>
-                                <td>@include('partials.badge', ['tone' => $docTone[$doc->status] ?? 'secondary', 'label' => EmployeeDocument::STATUSES[$doc->status]])</td>
+                                <td><x-status-badge type="document_status" :value="$doc->status" /></td>
                                 <td class="text-end text-nowrap">
                                     <a href="{{ route('documents.open', $doc->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" aria-label="Ver documento"><i class="bi bi-eye"></i></a>
                                     @if($doc->status === 'pending')
@@ -294,7 +293,7 @@
                 <ul class="list-group list-group-flush">
                     @forelse($deliveries as $d)
                         <li class="list-group-item px-0 d-flex justify-content-between small">
-                            <span>{{ $d->quantity }} × {{ UniformDelivery::ITEMS[$d->item] ?? $d->item }} {{ $d->size }}</span>
+                            <span>{{ $d->quantity }} × {{ label('uniform_item', $d->item) }} {{ $d->size }}</span>
                             <span class="text-body-secondary">{{ $d->delivered_at->format('d/m/Y') }} · {{ $d->deliverer?->first_name }}</span>
                         </li>
                     @empty

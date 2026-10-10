@@ -55,9 +55,7 @@
                         <td>{{ $shift->grace_period_minutes }} min</td>
                         <td>{{ $shift->employees_count }}</td>
                         <td>
-                            <span class="badge rounded-pill {{ $shift->is_active ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis' }}">
-                                {{ $shift->is_active ? 'Activo' : 'Inactivo' }}
-                            </span>
+                            <x-status-badge type="active_status" :value="$shift->is_active" />
                         </td>
                         <td class="text-end text-nowrap">
                             <a href="{{ route('shifts.edit', $shift->id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>

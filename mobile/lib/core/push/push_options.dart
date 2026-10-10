@@ -1,0 +1,84 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+
+import '../config/env.dart';
+import '../../features/notifications/domain/models.dart';
+
+/// Valores de Firebase recibidos por `--dart-define` (sin google-services.json
+/// ni GoogleService-Info.plist).
+class FirebaseDefines {
+  const FirebaseDefines({
+    this.apiKey = '',
+    this.androidAppId = '',
+    this.messagingSenderId = '',
+    this.projectId = '',
+    this.iosAppId = '',
+    this.iosBundleId = '',
+  });
+
+  /// Los compilados en la app (`env/<entorno>.json` o el workflow).
+  static const compiled = FirebaseDefines(
+    apiKey: Env.firebaseApiKey,
+    androidAppId: Env.firebaseAppId,
+    messagingSenderId: Env.firebaseMessagingSenderId,
+    projectId: Env.firebaseProjectId,
+    iosAppId: Env.firebaseIosAppId,
+    iosBundleId: Env.firebaseIosBundleId,
+  );
+
+  final String apiKey;
+  final String androidAppId;
+  final String messagingSenderId;
+  final String projectId;
+  final String iosAppId;
+  final String iosBundleId;
+}
+
+/// Opciones de Firebase para [platform], o null si falta algún valor
+/// obligatorio (el push queda desactivado sin romper la app).
+FirebaseOptions? firebaseOptionsFor(TargetPlatform platform, FirebaseDefines d) {
+  bool filled(Iterable<String> values) => values.every((v) => v.trim().isNotEmpty);
+  final common = [d.apiKey, d.messagingSenderId, d.projectId];
+
+  switch (platform) {
+    case TargetPlatform.android:
+      if (!filled([...common, d.androidAppId])) return null;
+      return FirebaseOptions(
+        apiKey: d.apiKey.trim(),
+        appId: d.androidAppId.trim(),
+        messagingSenderId: d.messagingSenderId.trim(),
+        projectId: d.projectId.trim(),
+      );
+    case TargetPlatform.iOS:
+      if (!filled([...common, d.iosAppId, d.iosBundleId])) return null;
+      return FirebaseOptions(
+        apiKey: d.apiKey.trim(),
+        appId: d.iosAppId.trim(),
+        messagingSenderId: d.messagingSenderId.trim(),
+        projectId: d.projectId.trim(),
+        iosBundleId: d.iosBundleId.trim(),
+      );
+    default:
+      return null;
+  }
+}
+
+/// Pantalla a la que lleva un push según `data.screen` (o, si no viene, el
+/// `type`, igual que la bandeja in-app). Sin destino conocido: la bandeja.
+String pushRouteFor(Map<String, dynamic> data) {
+  final screen = data['screen']?.toString().trim().toLowerCase() ?? '';
+  final byScreen = switch (screen) {
+    'leave_requests' || 'leave_request' || 'requests' => '/requests',
+    'approvals' || 'leave_approvals' => '/approvals',
+    'payslips' || 'payslip' => '/payslips',
+    'documents' || 'document' => '/profile/documents',
+    'attendance' || 'history' => '/history',
+    'notifications' => '/notifications',
+    'home' => '/home',
+    'profile' => '/profile',
+    _ => null,
+  };
+  if (byScreen != null) return byScreen;
+  final type = data['type']?.toString() ?? '';
+  return AppNotification.routeFor(type, data) ?? '/notifications';
+}

@@ -23,7 +23,11 @@ class LogoCache {
   static Future<Uint8List?> load(String url) {
     final hit = _memory[url];
     if (hit != null) return SynchronousFuture(hit);
-    return _pending[url] ??= _load(url).whenComplete(() => _pending.remove(url));
+    // Bloque sin valor: `remove` devuelve este mismo Future y whenComplete lo
+    // esperaría (nunca terminaría).
+    return _pending[url] ??= _load(url).whenComplete(() {
+      _pending.remove(url);
+    });
   }
 
   static Future<Uint8List?> _load(String url) async {

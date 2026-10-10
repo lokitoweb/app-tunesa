@@ -7,9 +7,12 @@
     // Pestaña a abrir: la pedida, o la del primer campo con error
     $fieldTabs = [
         'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters'],
-        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius', 'geofence_policy'],
-        'integraciones' => ['webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint'],
+        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds'],
+        'integraciones' => ['webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint', 'geocoding_provider', 'fcm_enabled', 'fcm_service_account_json'],
     ];
+    // Campos que dependen de columnas nuevas de tenant_settings: solo se muestran si existen
+    $has = fn (string $column) => in_array($column, $columns, true);
+    $stored = fn (string $key) => old($key, $row->{$key});
     if ($errors->any()) {
         $first = array_key_first($errors->messages());
         $tab = collect($fieldTabs)->search(fn ($fields) => in_array($first, $fields, true)) ?: 'marca';
@@ -330,54 +333,265 @@
                         </div>
                     </div>
                 </div>
+
+                @if($has('mock_location_policy') || $has('max_time_drift_seconds'))
+                <div class="col-12">
+                    <div class="card border-0">
+                        <div class="card-header border-0 pt-3">
+                            <h2 class="h6 fw-semibold mb-0">Antifraude en la marcación</h2>
+                            <small class="text-body-secondary">Ubicaciones simuladas (apps de GPS falso) y celulares con la hora cambiada.</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                @if($has('mock_location_policy'))
+                                    @php
+                                        $mockLabels = ['reject' => ['Bloquear', 'La marcación con ubicación simulada se rechaza y el colaborador ve el motivo.'],
+                                                       'flag'   => ['Marcar como sospechosa', 'Se guarda, pero queda marcada para que RRHH la revise.']];
+                                        $mockInherited = $inh('mock_location_policy') ?: 'reject';
+                                        $mockCurrent = (string) ($stored('mock_location_policy') ?? ($isGlobal ? $mockInherited : ''));
+                                    @endphp
+                                    <fieldset class="col-md-7">
+                                        <legend class="form-label fs-6 mb-2">Ubicación simulada detectada</legend>
+                                        @unless($isGlobal)
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="radio" name="mock_location_policy" value="" id="mock_inherit" @checked($mockCurrent === '')>
+                                                <label class="form-check-label" for="mock_inherit">
+                                                    <span class="d-block fw-semibold">Heredar de la plataforma</span>
+                                                    <span class="d-block small text-body-secondary">Actual: {{ $mockLabels[$mockInherited][0] ?? $mockInherited }}.</span>
+                                                </label>
+                                            </div>
+                                        @endunless
+                                        @foreach($mockLabels as $policy => [$label, $desc])
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input @error('mock_location_policy') is-invalid @enderror" type="radio" name="mock_location_policy" value="{{ $policy }}" id="mock_{{ $policy }}" @checked($mockCurrent === $policy)>
+                                                <label class="form-check-label" for="mock_{{ $policy }}">
+                                                    <span class="d-block fw-semibold">{{ $label }}</span>
+                                                    <span class="d-block small text-body-secondary">{{ $desc }}</span>
+                                                </label>
+                                            </div>
+                                        @endforeach
+                                        @error('mock_location_policy')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                    </fieldset>
+                                @endif
+                                @if($has('max_time_drift_seconds'))
+                                    <div class="col-md-5">
+                                        <label for="max_time_drift_seconds" class="form-label">Diferencia máxima de hora del celular</label>
+                                        <div class="input-group" style="max-width: 220px;">
+                                            <input type="number" id="max_time_drift_seconds" name="max_time_drift_seconds" min="0" max="86400" step="1"
+                                                   value="{{ $stored('max_time_drift_seconds') }}" placeholder="{{ $inh('max_time_drift_seconds') }}"
+                                                   class="form-control @error('max_time_drift_seconds') is-invalid @enderror">
+                                            <span class="input-group-text">s</span>
+                                        </div>
+                                        @error('max_time_drift_seconds')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                        <div class="form-text">Si la hora del teléfono difiere de la del servidor en más de estos segundos, se considera que la hora del celular fue cambiada. Vacío: {{ $isGlobal ? 'el valor de fábrica' : 'el de la plataforma' }}.</div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
 
         {{-- ============================ INTEGRACIONES ============================ --}}
         <div class="tab-pane fade {{ $tab === 'integraciones' ? 'show active' : '' }}" id="pane-integraciones" role="tabpanel" aria-labelledby="tab-integraciones" tabindex="0">
-            <div class="card border-0">
-                <div class="card-header border-0 pt-3">
-                    <h2 class="h6 fw-semibold mb-0">Integraciones</h2>
-                    <small class="text-body-secondary">Las claves se guardan cifradas y nunca se muestran completas ni se envían a la app.</small>
-                    @if($isGlobal)
-                        <small class="d-block text-body-secondary">El webhook y el endpoint de notificaciones son propios de cada empresa: los valores de la vista global no se heredan ni envían eventos.</small>
-                    @endif
+            <div class="row g-3">
+                {{-- Webhook y endpoint de notificaciones --}}
+                <div class="col-12">
+                    <div class="card border-0">
+                        <div class="card-header border-0 pt-3">
+                            <h2 class="h6 fw-semibold mb-0">Webhook y notificaciones</h2>
+                            <small class="text-body-secondary">Las claves se guardan cifradas y nunca se muestran completas ni se envían a la app.</small>
+                            @if($isGlobal)
+                                <small class="d-block text-body-secondary">El webhook y el endpoint de notificaciones son propios de cada empresa: en la vista global solo sirven para probar la conexión, no se heredan ni reciben eventos.</small>
+                            @endif
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="webhook_url" class="form-label">URL del webhook</label>
+                                    <input type="url" id="webhook_url" name="webhook_url" maxlength="255" value="{{ $val('webhook_url') }}" placeholder="https://erp.empresa.com/webhooks/asistencia" class="form-control @error('webhook_url') is-invalid @enderror">
+                                    <div class="form-text">Recibe un POST JSON por cada entrada, inicio y fin de descanso y salida, y por cada cambio de estado de un permiso (para ERP o planilla).</div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" data-integration-test="{{ route('settings.branding.test-webhook') }}" data-url-input="webhook_url" data-result="webhookResult">
+                                        <i class="bi bi-send me-1"></i>Probar Webhook Ahora
+                                    </button>
+                                    <div id="webhookResult" class="mt-2" aria-live="polite"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="webhook_secret" class="form-label">Secreto del webhook</label>
+                                    <input type="password" id="webhook_secret" name="webhook_secret" maxlength="255" autocomplete="new-password" value=""
+                                           placeholder="{{ $values['webhook_secret'] ?? 'Sin secreto' }}" class="form-control font-monospace @error('webhook_secret') is-invalid @enderror">
+                                    <div class="form-text">Firma cada envío en la cabecera <code>X-Tunesa-Signature: sha256=…</code> (HMAC-SHA256 del cuerpo). Dejar vacío para no cambiar.</div>
+                                    @if($values['has_webhook_secret'])
+                                        <div class="form-check mt-1">
+                                            <input class="form-check-input" type="checkbox" name="clear_webhook_secret" value="1" id="clear_webhook_secret">
+                                            <label class="form-check-label small" for="clear_webhook_secret">Borrar el secreto guardado</label>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="notification_endpoint" class="form-label">Endpoint de notificaciones</label>
+                                    <input type="url" id="notification_endpoint" name="notification_endpoint" maxlength="255" value="{{ $val('notification_endpoint') }}" placeholder="https://notificaciones.empresa.com/push" class="form-control @error('notification_endpoint') is-invalid @enderror">
+                                    <div class="form-text">Recibe un POST JSON por cada aviso in-app creado para un usuario de la empresa, con la misma firma que el webhook (opcional).</div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" data-integration-test="{{ route('settings.branding.test-notification') }}" data-url-input="notification_endpoint" data-result="notificationResult">
+                                        <i class="bi bi-bell me-1"></i>Enviar Notificación de Prueba
+                                    </button>
+                                    <div id="notificationResult" class="mt-2" aria-live="polite"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="small text-body-secondary mb-0 mt-md-4">
+                                        Las pruebas se envían al instante a la URL escrita arriba (aunque no la hayas guardado) con el evento
+                                        <code>ping</code> o <code>notification.test</code>, firmadas con el secreto escrito o el guardado.
+                                        Los eventos reales se envían en segundo plano y se reintentan hasta 5 veces si fallan.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="webhook_url" class="form-label">URL del webhook</label>
-                            <input type="url" id="webhook_url" name="webhook_url" maxlength="255" value="{{ $val('webhook_url') }}" placeholder="https://erp.empresa.com/webhooks/asistencia" class="form-control @error('webhook_url') is-invalid @enderror">
-                            <div class="form-text">Recibe un POST JSON por cada entrada, inicio y fin de descanso y salida, y por cada cambio de estado de un permiso (para ERP o planilla).</div>
+
+                {{-- Geocodificación --}}
+                <div class="col-12 col-xl-6">
+                    <div class="card border-0 h-100">
+                        <div class="card-header border-0 pt-3">
+                            <h2 class="h6 fw-semibold mb-0">Geocodificación</h2>
+                            <small class="text-body-secondary">Convierte coordenadas en direcciones (y al revés) en el formulario de sucursales.</small>
                         </div>
-                        <div class="col-md-6">
-                            <label for="webhook_secret" class="form-label">Secreto del webhook</label>
-                            <input type="password" id="webhook_secret" name="webhook_secret" maxlength="255" autocomplete="new-password" value=""
-                                   placeholder="{{ $values['webhook_secret'] ?? 'Sin secreto' }}" class="form-control font-monospace @error('webhook_secret') is-invalid @enderror">
-                            <div class="form-text">Firma cada envío en la cabecera <code>X-Tunesa-Signature: sha256=…</code> (HMAC-SHA256 del cuerpo). Dejar vacío para no cambiar.</div>
-                            @if($values['has_webhook_secret'])
-                                <div class="form-check mt-1">
-                                    <input class="form-check-input" type="checkbox" name="clear_webhook_secret" value="1" id="clear_webhook_secret">
-                                    <label class="form-check-label small" for="clear_webhook_secret">Borrar el secreto guardado</label>
+                        <div class="card-body">
+                            @if($has('geocoding_provider'))
+                                @php
+                                    $providers = ['nominatim' => 'OpenStreetMap / Nominatim — gratis', 'google' => 'Google Maps Geocoding'];
+                                    $providerInherited = $inh('geocoding_provider') ?: 'nominatim';
+                                    $providerCurrent = (string) ($stored('geocoding_provider') ?? ($isGlobal ? $providerInherited : ''));
+                                @endphp
+                                <div class="mb-3">
+                                    <label for="geocoding_provider" class="form-label">Proveedor</label>
+                                    <select id="geocoding_provider" name="geocoding_provider" class="form-select @error('geocoding_provider') is-invalid @enderror" data-inherited="{{ $providerInherited }}">
+                                        @unless($isGlobal)
+                                            <option value="" @selected($providerCurrent === '')>Heredar de la plataforma (actual: {{ $providers[$providerInherited] ?? $providerInherited }})</option>
+                                        @endunless
+                                        @foreach($providers as $key => $label)
+                                            <option value="{{ $key }}" @selected($providerCurrent === $key)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('geocoding_provider')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                             @endif
+                            <div class="mb-3">
+                                <label for="maps_api_key" class="form-label">Clave de API de Google Maps</label>
+                                <input type="password" id="maps_api_key" name="maps_api_key" maxlength="255" autocomplete="new-password" value=""
+                                       placeholder="{{ $values['maps_api_key'] ?? ($isGlobal ? 'Sin clave' : ($hasMapsKey ? 'Usa la clave de la plataforma' : 'Sin clave')) }}"
+                                       class="form-control font-monospace @error('maps_api_key') is-invalid @enderror" data-has-key="{{ $hasMapsKey ? '1' : '0' }}">
+                                <div class="form-text">Necesaria solo con Google (API "Geocoding" habilitada). Dejar vacío para no cambiar.</div>
+                                <div class="form-text text-warning-emphasis d-none" id="mapsKeyFallback">
+                                    <i class="bi bi-info-circle me-1"></i>Sin clave de Google se usará OpenStreetMap automáticamente.
+                                </div>
+                                @if($values['has_maps_api_key'])
+                                    <div class="form-check mt-1">
+                                        <input class="form-check-input" type="checkbox" name="clear_maps_api_key" value="1" id="clear_maps_api_key">
+                                        <label class="form-check-label small" for="clear_maps_api_key">Borrar la clave guardada</label>
+                                    </div>
+                                @endif
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="geocodeTest"
+                                    data-url="{{ url('/geocode/reverse') }}" data-lat="{{ $geoProbe['lat'] }}" data-lng="{{ $geoProbe['lng'] }}">
+                                <i class="bi bi-geo-alt me-1"></i>Probar geocodificación
+                            </button>
+                            <span class="small text-body-secondary ms-1">con {{ $geoProbe['label'] }} ({{ number_format($geoProbe['lat'], 5) }}, {{ number_format($geoProbe['lng'], 5) }})</span>
+                            <div id="geocodeResult" class="mt-2" aria-live="polite"></div>
+                            <p class="small text-body-secondary mt-2 mb-0">La prueba usa la configuración guardada: guarda antes si cambiaste el proveedor o la clave.</p>
                         </div>
-                        <div class="col-md-6">
-                            <label for="maps_api_key" class="form-label">Clave de mapas</label>
-                            <input type="password" id="maps_api_key" name="maps_api_key" maxlength="255" autocomplete="new-password" value=""
-                                   placeholder="{{ $values['maps_api_key'] ?? 'Sin clave' }}" class="form-control font-monospace @error('maps_api_key') is-invalid @enderror">
-                            <div class="form-text">Reservada para una futura geocodificación de direcciones: <strong>todavía no se usa</strong> en el panel ni en la app. Dejar vacío para no cambiar.</div>
-                            @if($values['has_maps_api_key'])
-                                <div class="form-check mt-1">
-                                    <input class="form-check-input" type="checkbox" name="clear_maps_api_key" value="1" id="clear_maps_api_key">
-                                    <label class="form-check-label small" for="clear_maps_api_key">Borrar la clave guardada</label>
+                    </div>
+                </div>
+
+                {{-- Notificaciones push (Firebase Cloud Messaging) --}}
+                @if($has('fcm_enabled') || $has('fcm_service_account_json'))
+                <div class="col-12 col-xl-6">
+                    <div class="card border-0 h-100">
+                        <div class="card-header border-0 pt-3">
+                            <h2 class="h6 fw-semibold mb-0">Notificaciones push</h2>
+                            <small class="text-body-secondary">Avisos al celular del colaborador con Firebase Cloud Messaging.</small>
+                        </div>
+                        <div class="card-body">
+                            @if($has('fcm_enabled'))
+                                @include('settings.partials.bool-setting', ['flag' => 'fcm_enabled', 'class' => 'mb-3',
+                                    'label' => 'Enviar notificaciones push',
+                                    'desc'  => 'Además del aviso dentro de la app, se envía una notificación al teléfono.'])
+                            @endif
+
+                            @if($has('fcm_service_account_json'))
+                                <div class="mb-3">
+                                    <span class="form-label d-block">Cuenta de servicio de Firebase</span>
+                                    @if($fcm['configured'])
+                                        <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Configurado{{ $isGlobal ? '' : ' por la plataforma' }}</span>
+                                        @if($isGlobal && $fcm['project_id'])
+                                            <span class="small text-body-secondary ms-1">Proyecto <code>{{ $fcm['project_id'] }}</code> · {{ $fcm['client_email'] }}</span>
+                                        @endif
+                                    @else
+                                        <span class="badge text-bg-secondary">No configurado</span>
+                                    @endif
+                                    @if($isGlobal)
+                                        <textarea id="fcm_service_account_json" name="fcm_service_account_json" rows="4" spellcheck="false" autocomplete="off"
+                                                  class="form-control font-monospace small mt-2 @error('fcm_service_account_json') is-invalid @enderror"
+                                                  placeholder='{"type": "service_account", "project_id": "…", "private_key": "…", "client_email": "…"}'></textarea>
+                                        @error('fcm_service_account_json')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        <input type="file" id="fcm_service_account_file" name="fcm_service_account_file" accept="application/json,.json" class="form-control form-control-sm mt-2" aria-label="Subir el archivo JSON de la cuenta de servicio">
+                                        <div class="form-text">Pega el JSON o sube el archivo que descargas en Firebase › Configuración del proyecto › Cuentas de servicio. Debe incluir <code>project_id</code>, <code>client_email</code> y <code>private_key</code>. Se guarda cifrado; dejar vacío para no cambiar.</div>
+                                        @if($fcm['configured'])
+                                            <div class="form-check mt-1">
+                                                <input class="form-check-input" type="checkbox" name="clear_fcm_service_account_json" value="1" id="clear_fcm_service_account_json">
+                                                <label class="form-check-label small" for="clear_fcm_service_account_json">Borrar la cuenta de servicio guardada</label>
+                                            </div>
+                                        @endif
+                                    @else
+                                        <div class="form-text">La cuenta de Firebase la administra la plataforma para todas las empresas.</div>
+                                    @endif
                                 </div>
                             @endif
+
+                            <label for="push_email" class="form-label">Probar push</label>
+                            <input type="email" id="push_email" maxlength="255" placeholder="{{ auth()->user()->email }}" class="form-control mb-1">
+                            <div class="form-text mb-2">Correo de un usuario que ya inició sesión en la app (vacío: tu propio celular). Se envía aunque el push esté desactivado.</div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-integration-test="{{ route('settings.branding.test-push') }}" data-email-input="push_email" data-result="pushResult">
+                                <i class="bi bi-phone-vibrate me-1"></i>Enviar push de prueba
+                            </button>
+                            <div id="pushResult" class="mt-2" aria-live="polite"></div>
                         </div>
-                        <div class="col-md-6">
-                            <label for="notification_endpoint" class="form-label">Endpoint de notificaciones</label>
-                            <input type="url" id="notification_endpoint" name="notification_endpoint" maxlength="255" value="{{ $val('notification_endpoint') }}" placeholder="https://notificaciones.empresa.com/push" class="form-control @error('notification_endpoint') is-invalid @enderror">
-                            <div class="form-text">Recibe un POST JSON por cada aviso in-app creado para un usuario de la empresa, con la misma firma que el webhook (opcional).</div>
+                    </div>
+                </div>
+                @endif
+
+                {{-- Historial de envíos --}}
+                <div class="col-12">
+                    <div class="card border-0">
+                        <div class="card-header border-0 pt-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div>
+                                <h2 class="h6 fw-semibold mb-0">Últimos 20 envíos</h2>
+                                <small class="text-body-secondary">{{ $isGlobal ? 'Pruebas hechas desde la vista global.' : 'Webhook y endpoint de notificaciones de ' . rtrim($tenant->company_name, '.') . '. Se guardan 30 días.' }}</small>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="deliveriesAuto">
+                                    <label class="form-check-label small" for="deliveriesAuto">Auto (10 s)</label>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="deliveriesRefresh" data-url="{{ route('settings.branding.deliveries') }}">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0 small" id="deliveriesTable">
+                                <thead>
+                                    <tr>
+                                        <th>Evento</th><th>Destino</th><th class="text-center">Intento</th><th class="text-center">HTTP</th>
+                                        <th class="text-end">Tiempo</th><th>Estado</th><th>Fecha</th><th class="text-end"><span class="visually-hidden">Detalle</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="8" class="text-center text-body-secondary py-3">Cargando…</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -404,6 +618,10 @@
     .brand-preview-btn { background: var(--p-primary); color: var(--p-primary-text, #fff); border: 0; }
     .brand-preview-accent { background: var(--p-accent); color: var(--p-accent-text, #fff); }
     .brand-preview-secondary { background: var(--p-secondary); color: var(--p-secondary-text, #fff); }
+    .integration-pre { max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+    /* El detalle de un envío ocupa toda la fila: en pantallas angostas queda fijo al borde
+       visible de la tabla con scroll, para leerlo sin desplazarse de lado */
+    .delivery-detail { position: sticky; left: .5rem; max-width: calc(100vw - 4rem); }
 </style>
 @endsection
 
@@ -471,6 +689,187 @@
     const syncOffline = () => hoursRow.classList.toggle('opacity-50', !offlineOn());
     offline.addEventListener('change', syncOffline);
     syncOffline();
+
+    // ===================== Integraciones: pruebas en vivo e historial =====================
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const httpBadge = (status) => {
+        if (!status) return '<span class="badge text-bg-secondary">Sin respuesta</span>';
+        const cls = status < 300 ? 'success' : status < 400 ? 'info' : status < 500 ? 'warning' : 'danger';
+        return '<span class="badge text-bg-' + cls + '">HTTP ' + esc(status) + '</span>';
+    };
+    const pretty = (text) => {
+        try { return JSON.stringify(JSON.parse(text), null, 2); } catch (e) { return text; }
+    };
+
+    // Respuesta {ok, status, ms, body|error} → badge + tiempo + cuerpo
+    function renderResult(box, data) {
+        const text = data.ok ? data.body : (data.body || '');
+        box.innerHTML =
+            '<div class="d-flex flex-wrap align-items-center gap-2">' +
+                (data.ok ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-x-circle-fill text-danger"></i>') +
+                httpBadge(data.status) +
+                (data.ms ? '<span class="small text-body-secondary">' + esc(data.ms) + ' ms</span>' : '') +
+                (data.signed === false ? '<span class="small text-body-secondary">(sin firma: no hay secreto)</span>' : '') +
+            '</div>' +
+            (data.error ? '<div class="small text-danger mt-1">' + esc(data.error) + '</div>' : '') +
+            (text ? '<pre class="small bg-body-tertiary rounded p-2 mt-1 mb-0 integration-pre">' + esc(pretty(text)) + '</pre>' : '');
+    }
+
+    async function requestJson(url, options) {
+        const res = await fetch(url, Object.assign({ headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' } }, options));
+        let data = null;
+        try { data = await res.json(); } catch (e) { /* respuesta no JSON */ }
+        if (res.status === 429) throw new Error('Demasiadas pruebas seguidas. Espera un minuto.');
+        if (res.status === 404 && !(data && 'ok' in data) && !(data && 'success' in data)) throw new Error('Esta función no está disponible en este servidor.');
+        if (!data) throw new Error('Respuesta inesperada del servidor (HTTP ' + res.status + ').');
+        if (res.status === 422 && data.errors) throw new Error(Object.values(data.errors).flat().join(' '));
+        return data;
+    }
+
+    function busy(btn, on) {
+        btn.disabled = on;
+        if (on) { btn.dataset.html = btn.innerHTML; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Enviando…'; }
+        else if (btn.dataset.html) { btn.innerHTML = btn.dataset.html; }
+    }
+
+    document.querySelectorAll('[data-integration-test]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const box = document.getElementById(btn.dataset.result);
+            const urlInput = btn.dataset.urlInput ? document.getElementById(btn.dataset.urlInput) : null;
+            const secret = document.getElementById('webhook_secret');
+            const payload = {};
+            if (urlInput && urlInput.value.trim()) payload.url = urlInput.value.trim();
+            if (secret && secret.value) payload.secret = secret.value;
+            const emailInput = btn.dataset.emailInput ? document.getElementById(btn.dataset.emailInput) : null;
+            if (emailInput && emailInput.value.trim()) payload.email = emailInput.value.trim();
+            busy(btn, true);
+            box.innerHTML = '';
+            try {
+                renderResult(box, await requestJson(btn.dataset.integrationTest, { method: 'POST', body: JSON.stringify(payload) }));
+            } catch (e) {
+                renderResult(box, { ok: false, status: null, ms: 0, error: e.message });
+            } finally {
+                busy(btn, false);
+                loadDeliveries();
+            }
+        });
+    });
+
+    // Geocodificación: aviso de respaldo a OpenStreetMap si Google no tiene clave
+    const provider = document.getElementById('geocoding_provider');
+    const mapsKey = document.getElementById('maps_api_key');
+    const fallback = document.getElementById('mapsKeyFallback');
+    function syncProvider() {
+        if (!provider || !fallback) return;
+        const chosen = provider.value || provider.dataset.inherited;
+        const cleared = document.getElementById('clear_maps_api_key')?.checked;
+        const hasKey = mapsKey.value.trim() !== '' || (mapsKey.dataset.hasKey === '1' && !cleared);
+        fallback.classList.toggle('d-none', !(chosen === 'google' && !hasKey));
+    }
+    provider?.addEventListener('change', syncProvider);
+    mapsKey?.addEventListener('input', syncProvider);
+    document.getElementById('clear_maps_api_key')?.addEventListener('change', syncProvider);
+    syncProvider();
+
+    const geoBtn = document.getElementById('geocodeTest');
+    geoBtn?.addEventListener('click', async () => {
+        const box = document.getElementById('geocodeResult');
+        const url = new URL(geoBtn.dataset.url, window.location.origin);
+        url.searchParams.set('lat', geoBtn.dataset.lat);
+        url.searchParams.set('lng', geoBtn.dataset.lng);
+        busy(geoBtn, true);
+        const t0 = performance.now();
+        try {
+            const data = await requestJson(url, { method: 'GET' });
+            const ms = Math.round(performance.now() - t0);
+            if (data.success && data.data && data.data.address) {
+                box.innerHTML = '<div class="d-flex flex-wrap align-items-center gap-2"><i class="bi bi-check-circle-fill text-success"></i>' +
+                    '<span class="badge text-bg-primary">' + esc(data.data.provider === 'google' ? 'Google Maps' : 'OpenStreetMap') + '</span>' +
+                    '<span class="small text-body-secondary">' + ms + ' ms</span></div>' +
+                    '<div class="small mt-1">' + esc(data.data.address) + '</div>';
+            } else {
+                box.innerHTML = '<div class="small text-danger"><i class="bi bi-x-circle-fill me-1"></i>' + esc(data.message || 'No se encontró una dirección para esas coordenadas.') + '</div>';
+            }
+        } catch (e) {
+            box.innerHTML = '<div class="small text-danger"><i class="bi bi-x-circle-fill me-1"></i>' + esc(e.message) + '</div>';
+        } finally {
+            busy(geoBtn, false);
+        }
+    });
+
+    // Historial de envíos (GET /settings/branding/deliveries)
+    const statusBadge = {
+        success: '<span class="badge text-bg-success">Entregado</span>',
+        pending: '<span class="badge text-bg-warning">Pendiente</span>',
+        failed:  '<span class="badge text-bg-danger">Fallido</span>',
+    };
+    const refreshBtn = document.getElementById('deliveriesRefresh');
+    const tbody = document.querySelector('#deliveriesTable tbody');
+    const opened = new Set();
+    let loading = false;
+
+    async function loadDeliveries() {
+        if (!refreshBtn || loading) return;
+        loading = true;
+        refreshBtn.disabled = true;
+        try {
+            const { data } = await requestJson(refreshBtn.dataset.url, { method: 'GET' });
+            if (!data.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-body-secondary py-3">Todavía no hay envíos.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map((d) => {
+                const detail = '<div class="delivery-detail">' + (d.error ? '<div class="text-danger mb-1">' + esc(d.error) + '</div>' : '') +
+                    (d.next_retry_at ? '<div class="text-body-secondary mb-1">Próximo reintento: ' + esc(d.next_retry_at) + '</div>' : '') +
+                    '<div class="text-body-secondary mb-1 text-break">' + esc(d.url) + '</div>' +
+                    (d.response_body ? '<pre class="bg-body-tertiary rounded p-2 mb-0 integration-pre">' + esc(pretty(d.response_body)) + '</pre>' : '<span class="text-body-secondary">Sin cuerpo de respuesta.</span>') + '</div>';
+                const open = opened.has(d.id);
+                return '<tr>' +
+                    '<td><div class="fw-medium">' + esc(d.event_label || d.event) + '</div><code class="small">' + esc(d.event) + '</code></td>' +
+                    '<td class="text-break">' + esc(d.host) + '</td>' +
+                    '<td class="text-center">' + esc(d.attempt) + '</td>' +
+                    '<td class="text-center">' + (d.http_status ? httpBadge(d.http_status) : '—') + '</td>' +
+                    '<td class="text-end text-nowrap">' + (d.response_ms != null ? esc(d.response_ms) + ' ms' : '—') + '</td>' +
+                    '<td>' + (statusBadge[d.status] || esc(d.status)) + '</td>' +
+                    '<td class="text-nowrap">' + esc(d.created_at) + '</td>' +
+                    '<td class="text-end"><button type="button" class="btn btn-link btn-sm p-0" data-delivery="' + d.id + '" aria-expanded="' + open + '">' +
+                        '<i class="bi bi-chevron-' + (open ? 'up' : 'down') + '"></i><span class="visually-hidden">Ver respuesta</span></button></td>' +
+                    '</tr>' +
+                    '<tr class="' + (open ? '' : 'd-none') + '" data-delivery-detail="' + d.id + '"><td colspan="8" class="bg-body-tertiary-subtle">' + detail + '</td></tr>';
+            }).join('');
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-3">' + esc(e.message) + '</td></tr>';
+        } finally {
+            loading = false;
+            refreshBtn.disabled = false;
+        }
+    }
+
+    tbody?.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-delivery]');
+        if (!btn) return;
+        const id = Number(btn.dataset.delivery);
+        const row = tbody.querySelector('[data-delivery-detail="' + id + '"]');
+        const open = row.classList.toggle('d-none') === false;
+        open ? opened.add(id) : opened.delete(id);
+        btn.setAttribute('aria-expanded', open);
+        btn.querySelector('i').className = 'bi bi-chevron-' + (open ? 'up' : 'down');
+    });
+    refreshBtn?.addEventListener('click', loadDeliveries);
+
+    let autoTimer = null;
+    document.getElementById('deliveriesAuto')?.addEventListener('change', (e) => {
+        clearInterval(autoTimer);
+        autoTimer = e.target.checked ? setInterval(() => { if (!document.hidden) loadDeliveries(); }, 10000) : null;
+    });
+
+    // Se carga al abrir la pestaña Integraciones (o de inmediato si ya está abierta)
+    let deliveriesLoaded = false;
+    const integrationsTab = document.getElementById('tab-integraciones');
+    const firstLoad = () => { if (!deliveriesLoaded) { deliveriesLoaded = true; loadDeliveries(); } };
+    integrationsTab?.addEventListener('shown.bs.tab', firstLoad);
+    if (integrationsTab?.classList.contains('active')) firstLoad();
 
     // Recordar la pestaña activa para volver a ella después de guardar
     document.querySelectorAll('[data-bs-toggle="tab"]').forEach((btn) => {

@@ -3,12 +3,23 @@ import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
+/// Selfie tomada y el instante (UTC) en que se disparó la cámara.
+class SelfieShot {
+  const SelfieShot(this.file, this.takenAt);
+
+  final XFile file;
+  final DateTime takenAt;
+}
+
 /// Captura obligatoria de selfie con la cámara FRONTAL.
 ///
 /// No hay opción de galería: la foto se toma en el momento de la marcación.
-/// Devuelve el [XFile] capturado con `Navigator.pop`.
+/// Devuelve un [SelfieShot] con `Navigator.pop`. [onShutter] se llama al
+/// disparar (para pedir el GPS en ese mismo momento).
 class SelfieScreen extends StatefulWidget {
-  const SelfieScreen({super.key});
+  const SelfieScreen({super.key, this.onShutter});
+
+  final VoidCallback? onShutter;
 
   @override
   State<SelfieScreen> createState() => _SelfieScreenState();
@@ -19,6 +30,7 @@ class _SelfieScreenState extends State<SelfieScreen> with WidgetsBindingObserver
   String? _error;
   bool _capturing = false;
   XFile? _shot;
+  DateTime? _takenAt;
   Uint8List? _shotBytes;
 
   @override
@@ -84,10 +96,13 @@ class _SelfieScreenState extends State<SelfieScreen> with WidgetsBindingObserver
     if (controller == null || _capturing) return;
     setState(() => _capturing = true);
     try {
+      final takenAt = DateTime.now().toUtc();
+      widget.onShutter?.call();
       final file = await controller.takePicture();
       final bytes = await file.readAsBytes();
       setState(() {
         _shot = file;
+        _takenAt = takenAt;
         _shotBytes = bytes;
       });
     } on CameraException catch (e) {
@@ -146,7 +161,7 @@ class _SelfieScreenState extends State<SelfieScreen> with WidgetsBindingObserver
             const SizedBox(width: 12),
             Expanded(
               child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).pop(_shot),
+                onPressed: () => Navigator.of(context).pop(SelfieShot(_shot!, _takenAt!)),
                 icon: const Icon(Icons.check),
                 label: const Text('Usar foto'),
               ),

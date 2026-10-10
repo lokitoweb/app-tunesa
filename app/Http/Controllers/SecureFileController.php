@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\AttendancePunch;
 use App\Models\EmployeeDocument;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,6 +21,7 @@ class SecureFileController extends Controller
         [$disk, $path, $name] = match ($kind) {
             'document' => $this->document($id),
             'selfie-in', 'selfie-out' => $this->selfie($id, $kind === 'selfie-in' ? 'in' : 'out'),
+            'punch-photo' => $this->punchPhoto($id),
             default => abort(404),
         };
 
@@ -46,11 +48,24 @@ class SecureFileController extends Controller
         return [$doc->disk, $doc->path, $doc->original_name];
     }
 
+    /** Foto de un evento de la bitácora (incluye las de descanso) */
+    private function punchPhoto(int $id): array
+    {
+        $punch = AttendancePunch::withoutGlobalScopes()->findOrFail($id);
+        $path  = $punch->photo_path;
+
+        return [config('filesystems.attendance_disk', 'private'), $path,
+            "punch_{$punch->type}_{$id}." . ($path ? (pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg') : 'jpg')];
+    }
+
     private function selfie(int $id, string $moment): array
     {
         $attendance = Attendance::withoutGlobalScopes()->findOrFail($id);
         $path       = $moment === 'in' ? $attendance->clock_in_photo : $attendance->clock_out_photo;
 
-        return [config('filesystems.attendance_disk', 'private'), $path, "selfie_{$moment}_{$id}.jpg"];
+        // Las selfies nuevas son .webp (SelfieStorage); las anteriores, .jpg
+        $extension = $path ? (pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg') : 'jpg';
+
+        return [config('filesystems.attendance_disk', 'private'), $path, "selfie_{$moment}_{$id}.{$extension}"];
     }
 }

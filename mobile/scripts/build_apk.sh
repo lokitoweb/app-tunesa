@@ -6,6 +6,7 @@
 #   scripts/build_apk.sh dev debug        # debug contra el backend local (http)
 #   API_BASE_URL=https://api.cliente.pe scripts/build_apk.sh prod   # otro dominio
 #   API_BASE_URL=https://xxxx.trycloudflare.com scripts/build_apk.sh tunnel   # túnel de pruebas
+#   FIREBASE_API_KEY=... FIREBASE_APP_ID=... scripts/build_apk.sh prod   # push (ver README)
 #
 # Firma: si existe android/key.properties usa la llave de producción. Sin ella,
 # un release de prod FALLA; staging/tunnel/dev se firman con la llave debug
@@ -42,6 +43,13 @@ EXTRA_DEFINES=()
 if [[ -n "${API_BASE_URL:-}" ]]; then
   EXTRA_DEFINES+=("--dart-define=API_BASE_URL=${API_BASE_URL}")
 fi
+# Push (Firebase sin google-services.json): solo los valores no vacíos del
+# entorno sobrescriben los del JSON. Sin ellos la app compila con el push apagado.
+for VAR in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_IOS_APP_ID FIREBASE_IOS_BUNDLE_ID; do
+  if [[ -n "${!VAR:-}" ]]; then
+    EXTRA_DEFINES+=("--dart-define=${VAR}=${!VAR}")
+  fi
+done
 if [[ ! -f android/key.properties && "$MODE" == "release" ]]; then
   if [[ "$ENV_NAME" == "prod" && "${ALLOW_DEBUG_SIGNING:-0}" != "1" ]]; then
     echo "Error: un release de producción exige android/key.properties (llave de firma de la empresa)." >&2

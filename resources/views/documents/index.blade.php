@@ -6,7 +6,6 @@
 @php
     use App\Models\EmployeeDocument;
     $tabs = ['pending' => 'Por revisar', 'approved' => 'Aprobados', 'rejected' => 'Rechazados', 'all' => 'Todos'];
-    $tone = ['pending' => 'warning', 'approved' => 'success', 'rejected' => 'danger', 'superseded' => 'secondary'];
 @endphp
 
 <div class="page-header">
@@ -85,7 +84,7 @@
                         <div class="small text-body-secondary">{{ $doc->user?->employee_code }} · {{ $doc->user?->document_number }}</div>
                      @include('partials.tenant-badge', ['tenantId' => $doc->tenant_id])</td>
                     <td>
-                        {{ EmployeeDocument::TYPES[$doc->type] ?? $doc->type }}
+                        {{ label('document_type', $doc->type) }}
                         @if($doc->expires_at)<div class="small text-body-secondary">Vence {{ $doc->expires_at->format('d/m/Y') }}</div>@endif
                     </td>
                     <td>
@@ -97,7 +96,7 @@
                     </td>
                     <td class="small text-body-secondary text-nowrap">{{ $doc->created_at->format('d/m/Y H:i') }}</td>
                     <td>
-                        @include('partials.badge', ['tone' => $tone[$doc->status] ?? 'secondary', 'label' => EmployeeDocument::STATUSES[$doc->status]])
+                        <x-status-badge type="document_status" :value="$doc->status" />
                         @if($doc->rejection_reason)<div class="small text-body-secondary" style="max-width: 220px;">{{ $doc->rejection_reason }}</div>@endif
                         @if($doc->reviewer)<div class="small text-body-secondary">por {{ $doc->reviewer->first_name }}</div>@endif
                     </td>
@@ -110,7 +109,7 @@
                                 @endif
                                 <button name="decision" value="approved" class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i> Aprobar</button>
                                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal"
-                                        data-action="{{ route('documents.review', $doc->id) }}" data-label="{{ EmployeeDocument::TYPES[$doc->type] ?? $doc->type }} de {{ $doc->user?->full_name }}">
+                                        data-action="{{ route('documents.review', $doc->id) }}" data-label="{{ label('document_type', $doc->type) }} de {{ $doc->user?->full_name }}">
                                     Rechazar
                                 </button>
                             </form>
@@ -137,7 +136,7 @@
             @foreach($expiring as $doc)
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     <div>
-                        <a href="{{ route('employees.file', $doc->user_id) }}" class="text-decoration-none">{{ $doc->user?->full_name }} · {{ EmployeeDocument::TYPES[$doc->type] }}</a>
+                        <a href="{{ route('employees.file', $doc->user_id) }}" class="text-decoration-none">{{ $doc->user?->full_name }} · {{ label('document_type', $doc->type) }}</a>
                         @include('partials.tenant-badge', ['tenantId' => $doc->tenant_id])
                     </div>
                     @include('partials.badge', ['tone' => $doc->expires_at->isPast() ? 'danger' : 'warning', 'label' => ($doc->expires_at->isPast() ? 'Vencido ' : 'Vence ') . $doc->expires_at->format('d/m/Y')])
