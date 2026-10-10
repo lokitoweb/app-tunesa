@@ -15,8 +15,9 @@
                 <div class="alert alert-danger small" role="alert">
                     <i class="bi bi-exclamation-octagon"></i>
                     <div>
+                        <strong class="toast-title">No pudimos iniciar tu sesión</strong>
                         @foreach($errors->all() as $error)
-                            <div>{{ $error }}</div>
+                            <span class="toast-text">{{ $error }}</span>
                         @endforeach
                     </div>
                 </div>

@@ -54,8 +54,8 @@
             toggle.addEventListener('click', () => applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
         }
 
-        // Los avisos de éxito se cierran solos a los 6 s (los de error se quedan hasta cerrarlos)
-        document.querySelectorAll('.panel-content > .alert-success.alert-dismissible').forEach((el) => {
+        // Toasts: los de éxito e información se cierran solos a los 6 s; los de error, al cerrarlos
+        document.querySelectorAll('.toast-stack > .alert-success, .toast-stack > .alert-info').forEach((el) => {
             setTimeout(() => {
                 el.classList.add('is-leaving');
                 setTimeout(() => el.remove(), 260);

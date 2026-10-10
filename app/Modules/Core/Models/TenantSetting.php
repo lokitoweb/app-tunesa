@@ -26,7 +26,7 @@ class TenantSetting extends Model
 {
     /** Valores de fábrica si ni la empresa ni la plataforma definieron nada */
     public const DEFAULTS = [
-        'trade_name'              => 'TuneSA',
+        'trade_name'              => 'Tunesa',
         'primary_color'           => '#1E40AF',
         'secondary_color'         => '#F59E0B',
         'accent_color'            => '#10B981',
@@ -349,6 +349,21 @@ class TenantSetting extends Model
     public function logoUrl(): ?string
     {
         return self::publicUrl($this->logoPath());
+    }
+
+    /** Logo incluido con la plataforma: se usa mientras nadie suba el suyo en "Marca y app" */
+    public const DEFAULT_LOGO = 'img/tunesa-logo.webp';
+
+    /** Logo a pintar en el panel: el subido (empresa o plataforma) o el de la plataforma por defecto */
+    public function displayLogoUrl(): string
+    {
+        return $this->logoUrl() ?? asset(self::DEFAULT_LOGO);
+    }
+
+    /** ¿Se está mostrando el logo por defecto? (en tema oscuro va sobre una pastilla clara) */
+    public function usesDefaultLogo(): bool
+    {
+        return $this->logoUrl() === null;
     }
 
     public function logoDarkUrl(): ?string

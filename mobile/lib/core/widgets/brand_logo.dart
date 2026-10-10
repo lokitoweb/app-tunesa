@@ -164,11 +164,17 @@ class _FallbackLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: size,
+    // Logo de la plataforma incluido en la app; el icono queda solo si faltara el archivo
+    return Image.asset(
+      'assets/branding/tunesa-logo.webp',
       height: size,
-      decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(size / 3)),
-      child: Icon(Icons.fingerprint_rounded, size: size * 0.66, color: scheme.onPrimaryContainer),
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(size / 3)),
+        child: Icon(Icons.fingerprint_rounded, size: size * 0.66, color: scheme.onPrimaryContainer),
+      ),
     );
   }
 }
