@@ -6,9 +6,9 @@ use App\Http\Requests\Api\Concerns\MarksWithTenantSettings;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * BreakRequest — Valida el registro de inicio o fin de descanso.
- * No requiere foto, pero sí GPS. Pasa por los mismos controles anti-fraude
- * que la entrada (GPS simulado y precisión máxima de "Marca y app").
+ * BreakRequest — Valida el inicio o fin de descanso.
+ * GPS obligatorio; foto siempre opcional; acepta offline_recorded_at,
+ * device_time y client_uuid como la entrada y la salida.
  */
 class BreakRequest extends FormRequest
 {
@@ -18,15 +18,7 @@ class BreakRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            'latitude'        => ['required', 'numeric', 'between:-90,90'],
-            'longitude'       => ['required', 'numeric', 'between:-180,180'],
-            'accuracy_meters' => ['sometimes', 'numeric', 'min:0', 'max:10000'],
-            'device_id'       => ['sometimes', 'nullable', 'string', 'max:255'],
-            'device_os'       => ['sometimes', 'nullable', 'string', 'in:android,ios'],
-            'is_mocked'       => ['sometimes', 'boolean'],
-            'app_version'     => ['sometimes', 'nullable', 'string', 'max:20'],
-        ];
+        return ['photo' => self::photoRulesFor(false)] + $this->offlineRules();
     }
 
     public function messages(): array
@@ -34,12 +26,6 @@ class BreakRequest extends FormRequest
         return [
             'latitude.required'  => 'La ubicación GPS es obligatoria.',
             'longitude.required' => 'La ubicación GPS es obligatoria.',
-        ];
-    }
-
-    /** Metadatos del dispositivo (precisión, GPS simulado, versión) para la auditoría */
-    public function deviceMeta(): array
-    {
-        return $this->baseDeviceMeta();
+        ] + $this->offlineMessages();
     }
 }

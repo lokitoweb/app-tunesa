@@ -22,7 +22,7 @@ class TenantSettingsService
 {
     private const HEX     = 'regex:/^#[0-9A-Fa-f]{6}$/';
     private const SEMVER  = 'regex:/^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/';
-    public const BOOLEANS = ['force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'lunch_paid'];
+    public const BOOLEANS = ['force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'lunch_paid', 'fcm_enabled'];
 
     public function __construct(private readonly AuditLogger $audit) {}
 
@@ -75,6 +75,8 @@ class TenantSettingsService
             'offline_mode_enabled'    => ['sometimes', 'nullable', 'boolean'],
             'offline_max_hours'       => ['sometimes', 'nullable', 'integer', 'between:1,72'],
             'max_gps_accuracy_meters' => ['sometimes', 'nullable', 'integer', 'between:10,1000'],
+            'mock_location_policy'    => ['sometimes', 'nullable', Rule::in(TenantSetting::MOCK_LOCATION_POLICIES)],
+            'max_time_drift_seconds'  => ['sometimes', 'nullable', 'integer', 'between:30,86400'],
 
             'default_grace_minutes'   => ['sometimes', 'nullable', 'integer', 'between:0,240'],
             'lunch_minutes'           => ['sometimes', 'nullable', 'integer', 'between:0,480'],
@@ -88,6 +90,21 @@ class TenantSettingsService
             'notification_endpoint' => ['sometimes', 'nullable', 'url:http,https', 'max:255'],
             'clear_webhook_secret'  => ['sometimes', 'boolean'],
             'clear_maps_api_key'    => ['sometimes', 'boolean'],
+
+            // Geocodificación: google_maps_api_key se guarda en la columna cifrada maps_api_key
+            'geocoding_provider'        => ['sometimes', 'nullable', Rule::in(TenantSetting::GEOCODING_PROVIDERS)],
+            'google_maps_api_key'       => ['sometimes', 'nullable', 'string', 'max:255'],
+            'clear_google_maps_api_key' => ['sometimes', 'boolean'],
+
+            // Push (FCM HTTP v1). La cuenta de servicio es de la plataforma (única app móvil)
+            'fcm_enabled'                    => ['sometimes', 'nullable', 'boolean'],
+            'fcm_service_account_json'       => $global
+                ? ['sometimes', 'nullable', 'string', 'max:20000', $this->serviceAccountRule()]
+                : ['prohibited'],
+            'fcm_service_account_file'       => $global
+                ? ['sometimes', 'nullable', 'file', 'extensions:json', 'max:64']
+                : ['prohibited'],
+            'clear_fcm_service_account_json' => $global ? ['sometimes', 'boolean'] : ['prohibited'],
         ];
     }
 
@@ -101,7 +118,39 @@ class TenantSettingsService
             '*.regex'                 => 'El color debe ser hexadecimal, por ejemplo #1E40AF.',
             'favicon.mimes'           => 'El favicon debe ser PNG o ICO.',
             'favicon.extensions'      => 'El favicon debe ser PNG o ICO.',
+            'fcm_service_account_json.prohibited' => 'La cuenta de servicio de Firebase solo se configura en la plataforma.',
+            'fcm_service_account_file.prohibited' => 'La cuenta de servicio de Firebase solo se configura en la plataforma.',
+            'fcm_service_account_file.extensions' => 'Sube el archivo .json de la cuenta de servicio de Firebase.',
+            'max_time_drift_seconds.between'      => 'La diferencia de hora permitida debe estar entre 30 y 86400 segundos.',
         ];
+    }
+
+    /** El JSON debe ser una cuenta de servicio de Google con project_id, client_email y private_key */
+    private function serviceAccountRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) {
+            if (filled($value) && TenantSetting::parseServiceAccount((string) $value) === null) {
+                $fail('El JSON de la cuenta de servicio de Firebase no es válido (faltan project_id, client_email o private_key).');
+            }
+        };
+    }
+
+    /** Lee el .json subido de la cuenta de servicio (o null). Lanza ValidationException si no sirve. */
+    private function uploadedServiceAccount(Request $request): ?string
+    {
+        $file = $request->file('fcm_service_account_file');
+        if (! $file instanceof UploadedFile) {
+            return null;
+        }
+
+        $json = (string) file_get_contents($file->getRealPath());
+        if (TenantSetting::parseServiceAccount($json) === null) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'fcm_service_account_file' => 'El archivo no es una cuenta de servicio de Firebase válida.',
+            ]);
+        }
+
+        return $json;
     }
 
     /**
@@ -129,9 +178,26 @@ class TenantSettingsService
                 }
             }
 
+            // Alias: la clave de Google Maps vive en maps_api_key
+            if (! empty($data['google_maps_api_key'])) {
+                $data['maps_api_key'] = $data['google_maps_api_key'];
+            }
+            if (! $tenant && ($uploaded = $this->uploadedServiceAccount($request))) {
+                $data['fcm_service_account_json'] = $uploaded;
+            }
+            if (! empty($data['fcm_service_account_json'])) {
+                $data['fcm_service_account_json'] = trim($data['fcm_service_account_json']);
+            }
+
             // Secretos: vacío = no cambiar; "borrar" los elimina
             foreach (TenantSetting::SECRET_FIELDS as $secret) {
-                if ($request->boolean("clear_{$secret}")) {
+                if ($secret === 'fcm_service_account_json' && $tenant) {
+                    continue; // solo la plataforma
+                }
+                $clear = $request->boolean("clear_{$secret}")
+                    || ($secret === 'maps_api_key' && $request->boolean('clear_google_maps_api_key'));
+
+                if ($clear) {
                     $row->{$secret} = null;
                     $secrets[] = $secret;
                 } elseif (! empty($data[$secret])) {
@@ -227,6 +293,12 @@ class TenantSettingsService
             'maps_api_key'    => self::mask($row->maps_api_key),
             'has_webhook_secret' => filled($row->webhook_secret),
             'has_maps_api_key'   => filled($row->maps_api_key),
+            'google_maps_api_key'     => self::mask($row->maps_api_key),
+            'has_google_maps_api_key' => filled($row->maps_api_key),
+            // La cuenta de servicio nunca se devuelve: solo datos para reconocerla
+            'has_fcm_service_account' => ! $tenant && filled($row->fcm_service_account_json),
+            'fcm_project_id'          => $tenant ? null : TenantSetting::parseServiceAccount($row->fcm_service_account_json)['project_id'] ?? null,
+            'fcm_client_email'        => $tenant ? null : TenantSetting::parseServiceAccount($row->fcm_service_account_json)['client_email'] ?? null,
         ];
     }
 

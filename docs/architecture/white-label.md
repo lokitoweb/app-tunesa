@@ -177,7 +177,7 @@ global prueban y listan las filas de la plataforma (`tenant_id NULL`). Límite: 
 |---|---|---|
 | Probar Webhook Ahora | `POST /settings/branding/test-webhook` | Envía al instante (sin cola) `{"event":"ping","occurred_at","tenant":{"slug"},"data":{"message":"Prueba desde TuneSA"}}` con `X-Tunesa-Event: ping` y la firma, a la URL escrita en el formulario (o la guardada) y con el secreto escrito (o el guardado). |
 | Enviar Notificación de Prueba | `POST /settings/branding/test-notification` | Igual, al endpoint de notificaciones, evento `notification.test`. |
-| Enviar push de prueba | `POST /settings/branding/test-push` | `App\Services\Push\FcmSender::test(usuario actual)`. Si el usuario no tiene `fcm_token` explica que debe iniciar sesión en la app con ese usuario. |
+| Enviar push de prueba | `POST /settings/branding/test-push` | `App\Services\Push\FcmSender::test(usuario)`: el del correo escrito en "Probar push" (solo usuarios de la empresa) o el actual si va vacío. Queda en auditoría como `push.tested`. Si el usuario no tiene `fcm_token` explica que debe iniciar sesión en la app con ese usuario. |
 | Probar geocodificación | `GET /geocode/reverse?lat=&lng=` | Dirección de la primera sucursal (o el centro de Lima) y el proveedor que respondió. |
 
 Las pruebas de webhook y notificaciones responden `{ok, status, ms, body|error, signed, delivery_id}`

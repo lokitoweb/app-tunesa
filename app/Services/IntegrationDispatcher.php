@@ -118,11 +118,21 @@ class IntegrationDispatcher
             $job = new SendTenantWebhook($tenant->id, $target, $event, $body);
             $url = $row->{$target};
 
-            // Fila "pending" en webhook_deliveries desde ya: si no hay worker de la cola,
-            // el historial del panel lo muestra en lugar de no mostrar nada
-            DB::afterCommit(fn () => app(WebhookSender::class)->open($tenant->id, $target, $event, $url, $body, $job->deliveryUuid));
-
-            dispatch($job)->afterCommit();
+            // Después del commit (la marcación se guarda en una transacción). Primero la fila
+            // "pending" en webhook_deliveries, para que el historial la muestre aunque no haya
+            // worker de la cola. Con la cola "sync" el job corre dentro de este callback: su
+            // fallo solo va al log y no tumba la marcación.
+            DB::afterCommit(function () use ($job, $tenant, $target, $event, $url, $body, $tenantId) {
+                try {
+                    app(WebhookSender::class)->open($tenant->id, $target, $event, $url, $body, $job->deliveryUuid);
+                    dispatch($job);
+                } catch (\Throwable $e) {
+                    Log::warning("No se pudo enviar el evento {$event} a la integración: " . $e->getMessage(), [
+                        'tenant_id' => $tenantId,
+                        'target'    => $target,
+                    ]);
+                }
+            });
         } catch (\Throwable $e) {
             // Con la cola "sync" el envío corre aquí mismo: su fallo no debe tumbar la marcación
             Log::warning("No se pudo enviar el evento {$event} a la integración: " . $e->getMessage(), [

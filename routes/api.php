@@ -26,6 +26,8 @@ use App\Http\Controllers\Api\Admin\EmployeeProfileController;
 use App\Http\Controllers\Api\Admin\PayrollController;
 use App\Http\Controllers\Api\Admin\UniformAdminController;
 use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\AttendanceSyncController;
+use App\Http\Controllers\GeocodeController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\Employee\DocumentController;
@@ -80,6 +82,15 @@ Route::middleware(['tenant', 'app.version', 'auth:sanctum', 'tenant.scope', 'pas
         Route::put('profile',         [AuthController::class, 'updateProfile']);
         Route::put('change-password', [AuthController::class, 'changePassword']);
         Route::post('refresh-fcm',    [AuthController::class, 'updateFcmToken']);
+    });
+
+    // --- GEOCODIFICACIÓN (dirección de un punto, proveedor de la empresa) ---
+    Route::get('geocode/reverse', [GeocodeController::class, 'reverse'])->middleware('throttle:60,1');
+
+    // --- SINCRONIZACIÓN OFFLINE EN LOTE (máx. 50 marcaciones) ---
+    Route::middleware(['permission:attendance.mark', 'throttle:30,1'])->group(function () {
+        Route::post('v1/attendances/sync-batch', [AttendanceSyncController::class, 'syncBatch']);
+        Route::post('attendances/sync-batch',    [AttendanceSyncController::class, 'syncBatch']);
     });
 
     // --- NOTIFICACIONES IN-APP (cualquier rol) ---

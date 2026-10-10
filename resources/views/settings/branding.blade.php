@@ -550,10 +550,12 @@
                                 </div>
                             @endif
 
-                            <button type="button" class="btn btn-sm btn-outline-primary" data-integration-test="{{ route('settings.branding.test-push') }}" data-result="pushResult">
+                            <label for="push_email" class="form-label">Probar push</label>
+                            <input type="email" id="push_email" maxlength="255" placeholder="{{ auth()->user()->email }}" class="form-control mb-1">
+                            <div class="form-text mb-2">Correo de un usuario que ya inició sesión en la app (vacío: tu propio celular). Se envía aunque el push esté desactivado.</div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-integration-test="{{ route('settings.branding.test-push') }}" data-email-input="push_email" data-result="pushResult">
                                 <i class="bi bi-phone-vibrate me-1"></i>Enviar push de prueba
                             </button>
-                            <span class="small text-body-secondary ms-1">a tu propio celular ({{ auth()->user()->email }})</span>
                             <div id="pushResult" class="mt-2" aria-live="polite"></div>
                         </div>
                     </div>
@@ -736,6 +738,8 @@
             const payload = {};
             if (urlInput && urlInput.value.trim()) payload.url = urlInput.value.trim();
             if (secret && secret.value) payload.secret = secret.value;
+            const emailInput = btn.dataset.emailInput ? document.getElementById(btn.dataset.emailInput) : null;
+            if (emailInput && emailInput.value.trim()) payload.email = emailInput.value.trim();
             busy(btn, true);
             box.innerHTML = '';
             try {

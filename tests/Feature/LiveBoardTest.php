@@ -11,9 +11,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\TenantContext;
 use Carbon\Carbon;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Schema;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
 
@@ -127,7 +125,7 @@ class LiveBoardTest extends TestCase
         $this->assertSame(1, $json['counters']['left']);
         $this->assertSame(1, $json['counters']['on_leave']);
         $this->assertSame(1, $json['counters']['upcoming']);
-        $this->assertArrayNotHasKey('suspicious', $json['counters'], 'Sin columna is_suspicious no hay contador');
+        $this->assertSame(0, $json['counters']['suspicious'], 'Ninguna marcación sospechosa todavía');
 
         $working = collect($json['rows'])->firstWhere('name', 'Working Test');
         $this->assertSame('08:00', $working['clock_in']);
@@ -213,9 +211,6 @@ class LiveBoardTest extends TestCase
 
     public function test_suspicious_counter_when_column_exists(): void
     {
-        if (! Schema::hasColumn('attendances', 'is_suspicious')) {
-            Schema::table('attendances', fn (Blueprint $t) => $t->boolean('is_suspicious')->default(false));
-        }
         Attendance::where('user_id', $this->people['working']->id)->update(['is_suspicious' => true]);
 
         $json = $this->actingAs($this->makeUser($this->tenant, 'company_admin'))->getJson('/live/data')->assertOk()->json();

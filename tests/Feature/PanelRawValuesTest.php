@@ -29,12 +29,6 @@ class PanelRawValuesTest extends TestCase
     /** Textos de relleno prohibidos por producto */
     private const FORBIDDEN_COPY = '/no se usa|próximamente|proximamente/iu';
 
-    /**
-     * Vistas que otra rama está rehaciendo (Integraciones de Marca y app):
-     * se quitan de esta lista al integrarla.
-     */
-    private const PENDING_MERGE = ['settings/branding.blade.php'];
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -51,7 +45,7 @@ class PanelRawValuesTest extends TestCase
                     $offenders[] = $file->getRelativePathname() . ': ' . $m[0];
                 }
             }
-            if (! in_array($file->getRelativePathname(), self::PENDING_MERGE, true) && preg_match(self::FORBIDDEN_COPY, $code, $m)) {
+            if (preg_match(self::FORBIDDEN_COPY, $code, $m)) {
                 $offenders[] = $file->getRelativePathname() . ': ' . $m[0];
             }
         }

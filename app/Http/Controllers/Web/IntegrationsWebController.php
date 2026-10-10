@@ -7,6 +7,7 @@ use App\Jobs\SendTenantWebhook;
 use App\Models\TenantSetting;
 use App\Models\User;
 use App\Models\WebhookDelivery;
+use App\Services\AuditLogger;
 use App\Services\Integrations\WebhookSender;
 use App\Services\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -46,19 +47,33 @@ class IntegrationsWebController extends Controller
         return $this->test($request, SendTenantWebhook::TARGET_NOTIFICATION, 'notification.test', 'Escribe la URL del endpoint de notificaciones para probarlo.');
     }
 
-    /** POST /settings/branding/test-push → push de prueba al teléfono del usuario actual */
-    public function testPush(): JsonResponse
+    /**
+     * POST /settings/branding/test-push → push de prueba al teléfono del usuario
+     * indicado por correo (o al propio si viene vacío). En una empresa solo se
+     * encuentran sus usuarios (scope del tenant). Cada prueba queda en auditoría.
+     */
+    public function testPush(Request $request, AuditLogger $audit): JsonResponse
     {
-        /** @var User $user */
-        $user = Auth::user();
+        $data = $request->validate(['email' => ['nullable', 'email', 'max:255']], [
+            'email.email' => 'Escribe un correo válido.',
+        ]);
 
+        /** @var User $user */
+        $user = filled($data['email'] ?? null)
+            ? User::where('email', $data['email'])->first()
+            : Auth::user();
+
+        if (! $user) {
+            return response()->json(['ok' => false, 'status' => null, 'ms' => 0,
+                'error' => 'No hay un usuario con ese correo en esta empresa.']);
+        }
         if (! class_exists(self::FCM_SENDER)) {
             return response()->json(['ok' => false, 'status' => null, 'ms' => 0,
                 'error' => 'El envío de notificaciones push no está disponible en este servidor.']);
         }
         if (blank($user->fcm_token)) {
             return response()->json(['ok' => false, 'status' => null, 'ms' => 0, 'no_device' => true,
-                'error' => 'Tu usuario no tiene un dispositivo registrado. Inicia sesión en la app con este usuario para registrar el dispositivo y vuelve a probar.']);
+                'error' => ($user->is(Auth::user()) ? 'Tu usuario' : "{$user->email}") . ' no tiene un dispositivo registrado. Inicia sesión en la app con este usuario para registrar el dispositivo y vuelve a probar.']);
         }
 
         try {
@@ -68,13 +83,30 @@ class IntegrationsWebController extends Controller
             $result = ['ok' => false, 'status' => null, 'ms' => 0, 'error' => 'No se pudo enviar el push: ' . Str::limit($e->getMessage(), 300)];
         }
 
+        $audit->log('push.tested', $user, [
+            'ok'     => (bool) ($result['ok'] ?? false),
+            'status' => $result['status'] ?? null,
+            'ms'     => (int) ($result['ms'] ?? 0),
+            'error'  => $result['error'] ?? null,
+        ]);
+
         return response()->json([
             'ok'     => (bool) ($result['ok'] ?? false),
             'status' => $result['status'] ?? null,
             'ms'     => (int) ($result['ms'] ?? 0),
         ] + (! empty($result['ok'])
-            ? ['body' => WebhookSender::truncate((string) ($result['response'] ?? ''), WebhookSender::RESPONSE_LIMIT)]
-            : ['error' => WebhookSender::truncate((string) ($result['error'] ?? $result['response'] ?? 'Error desconocido.'), WebhookSender::RESPONSE_LIMIT)]));
+            ? ['body' => WebhookSender::truncate($this->text($result['response'] ?? null) ?? 'Enviada a ' . $user->email . '.', WebhookSender::RESPONSE_LIMIT)]
+            : ['error' => WebhookSender::truncate($this->text($result['error'] ?? $result['response'] ?? null) ?? 'Error desconocido.', WebhookSender::RESPONSE_LIMIT)]));
+    }
+
+    /** La respuesta de FCM llega como arreglo: se muestra como JSON legible */
+    private function text(mixed $value): ?string
+    {
+        return match (true) {
+            $value === null || $value === '' => null,
+            is_array($value)                 => json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            default                          => (string) $value,
+        };
     }
 
     /** GET /settings/branding/deliveries → últimos 20 envíos de la empresa (o de la plataforma) */
