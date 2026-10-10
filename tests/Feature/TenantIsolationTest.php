@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\Branch;
-use App\Models\Scopes\TenantScope;
-use App\Services\TenantContext;
+use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\Scopes\TenantScope;
+use App\Modules\Core\Services\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;

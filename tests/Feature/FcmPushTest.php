@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
-use App\Notifications\Channels\FcmChannel;
-use App\Notifications\LeaveRequestReviewed;
-use App\Services\Push\FcmSender;
-use App\Services\Push\PushException;
-use App\Services\TenantContext;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
+use App\Modules\Integrations\Notifications\Channels\FcmChannel;
+use App\Modules\HR\Notifications\LeaveRequestReviewed;
+use App\Modules\Integrations\Services\Push\FcmSender;
+use App\Modules\Integrations\Services\Push\PushException;
+use App\Modules\Core\Services\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -282,7 +282,7 @@ class FcmPushTest extends TestCase
     public function test_settings_service_saves_fcm_only_on_the_platform(): void
     {
         $root = $this->makeUser(null, 'super_admin');
-        $svc  = app(\App\Services\TenantSettingsService::class);
+        $svc  = app(\App\Modules\Core\Services\TenantSettingsService::class);
 
         $this->assertSame(['prohibited'], $svc->rules(global: false)['fcm_service_account_json']);
 
@@ -338,28 +338,31 @@ class FcmPushTest extends TestCase
         $root = $this->makeUser(null, 'super_admin');
 
         // Vista global: campos nuevos visibles; la cuenta de servicio se sube como archivo
-        $this->actingAs($root)->get('/settings/branding?tab=integraciones')->assertOk()
-            ->assertSee('name="fcm_service_account_file"', false)->assertSee('name="geocoding_provider"', false)
-            ->assertSee('name="mock_location_policy"', false)->assertSee('name="max_time_drift_seconds"', false)
-            ->assertSee('Probar push');
+        $this->actingAs($root)->get('/settings/integrations')->assertOk()
+            ->assertInertia(fn ($page) => $page->where('isGlobal', true)
+                ->where('has.fcm_account', true)->where('has.fcm_enabled', true)->where('has.geocoding_provider', true));
+        $this->actingAs($root)->get('/settings/branding?tab=reglas')->assertOk()
+            ->assertSee('name="mock_location_policy"', false)->assertSee('name="max_time_drift_seconds"', false);
 
         $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('firebase.json', $this->serviceAccount());
-        $this->actingAs($root)->put('/settings/branding', [
-            'tab' => 'integraciones', 'fcm_enabled' => '1', 'fcm_service_account_file' => $file,
-            'geocoding_provider' => 'nominatim', 'mock_location_policy' => 'flag', 'max_time_drift_seconds' => 120,
-        ])->assertRedirect('/settings/branding?tab=integraciones')->assertSessionHasNoErrors();
+        $this->actingAs($root)->put('/settings/integrations', [
+            'fcm_enabled' => '1', 'fcm_service_account_file' => $file, 'geocoding_provider' => 'nominatim',
+        ])->assertRedirect('/settings/integrations')->assertSessionHasNoErrors();
+        $this->actingAs($root)->put('/settings/branding', ['tab' => 'reglas', 'mock_location_policy' => 'flag', 'max_time_drift_seconds' => 120])
+            ->assertRedirect('/settings/branding?tab=reglas')->assertSessionHasNoErrors();
 
         $platform = TenantSetting::rowFor(null);
         $this->assertTrue($platform->fcm_enabled);
         $this->assertSame('flag', $platform->mock_location_policy);
         $this->assertSame(120, $platform->max_time_drift_seconds);
         $this->assertTrue(TenantSetting::forTenant($this->acme)->fcmEnabled());
-        $this->actingAs($root)->get('/settings/branding?tab=integraciones')->assertSee('tunesa-app')->assertDontSee('PRIVATE KEY');
+        $this->actingAs($root)->get('/settings/integrations')->assertPageSees('tunesa-app')->assertPageMisses('PRIVATE KEY');
 
         // Empresa: selectores con "Heredar"; "" vuelve a NULL
         $admin = $this->makeUser($this->acme, 'company_admin');
-        $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertOk()
-            ->assertDontSee('name="fcm_service_account_json"', false)->assertSee('Heredar de la plataforma');
+        $this->actingAs($admin)->get('/settings/integrations')->assertOk()
+            ->assertInertia(fn ($page) => $page->where('isGlobal', false)->where('values.fcm_enabled', ''))
+            ->assertPageMisses('tunesa-app');
         $this->actingAs($admin)->put('/settings/branding', ['mock_location_policy' => 'reject', 'fcm_enabled' => '0'])
             ->assertSessionHasNoErrors();
         $this->assertSame('reject', TenantSetting::forTenant($this->acme)->mockLocationPolicy());
@@ -374,7 +377,7 @@ class FcmPushTest extends TestCase
             ->assertOk()->assertJson(['ok' => true, 'status' => 200]);
         Http::assertSent(fn (Request $r) => $r->url() === self::SEND_URL
             && $r['message']['token'] === 'device-token-123' && $r['message']['data']['type'] === 'push.test');
-        $this->assertTrue(\App\Models\AuditLog::withoutGlobalScopes()->where('action', 'push.tested')->where('subject_id', $this->emp->id)->exists());
+        $this->assertTrue(\App\Modules\Core\Models\AuditLog::withoutGlobalScopes()->where('action', 'push.tested')->where('subject_id', $this->emp->id)->exists());
 
         // Sin token propio: error explicado; usuario de otra empresa: no existe
         $this->actingAs($admin)->postJson('/settings/branding/test-push')->assertOk()->assertJson(['ok' => false, 'no_device' => true]);
@@ -395,9 +398,9 @@ class FcmPushTest extends TestCase
         $supervisor = $this->makeUser($this->acme, 'supervisor', ['fcm_token' => 'supervisor-token']);
         $branch     = $this->makeBranch($this->acme, ['supervisor_id' => $supervisor->id]);
         $this->emp->branches()->attach($branch->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
-        $shift = \App\Models\Shift::create(['tenant_id' => $this->acme->id, 'name' => 'Día', 'start_time' => '08:00', 'end_time' => '17:00',
+        $shift = \App\Modules\HR\Models\Shift::create(['tenant_id' => $this->acme->id, 'name' => 'Día', 'start_time' => '08:00', 'end_time' => '17:00',
             'grace_period_minutes' => 10, 'working_days' => [0, 1, 2, 3, 4, 5, 6]]);
-        \App\Models\EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'shift_id' => $shift->id,
+        \App\Modules\HR\Models\EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'shift_id' => $shift->id,
             'branch_id' => $branch->id, 'effective_from' => '2020-01-01', 'is_active' => true]);
         app(TenantContext::class)->clear();
 
@@ -413,9 +416,9 @@ class FcmPushTest extends TestCase
         $this->assertSame(['attendance.outside_schedule'], $supervisor->notifications()->pluck('type')->all());
     }
 
-    private function leaveRequest(): \App\Models\LeaveRequest
+    private function leaveRequest(): \App\Modules\HR\Models\LeaveRequest
     {
-        return \App\Models\LeaveRequest::withoutEvents(fn () => \App\Models\LeaveRequest::create([
+        return \App\Modules\HR\Models\LeaveRequest::withoutEvents(fn () => \App\Modules\HR\Models\LeaveRequest::create([
             'tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'type' => 'vacation',
             'start_date' => '2026-11-02', 'end_date' => '2026-11-06', 'days' => 5, 'reason' => 'Viaje', 'status' => 'approved',
         ]));

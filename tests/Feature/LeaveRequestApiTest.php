@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\LeaveRequest;
+use App\Modules\HR\Models\LeaveRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
+use App\Modules\Core\Models\AuditLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
@@ -40,16 +40,22 @@ class AuditLogWebTest extends TestCase
     {
         [, , $admin, $hr] = $this->seedLogs();
 
-        $this->actingAs($admin)->get('/audit')->assertOk()
-            ->assertSee('Planilla exportada')->assertSee('Cuenta bancaria revelada')
-            ->assertSee('Periodo')->assertSee('2026-09')->assertSee('Filas')
-            ->assertDontSee('Documento abierto')->assertDontSee('Zoe')
-            // Nada de claves técnicas en la página
-            ->assertDontSee('payroll.exported</code>', false)->assertDontSee('period</dt>', false);
+        // Acciones de las filas listadas (el filtro "Acción" siempre trae todas las etiquetas)
+        $rows = fn (string $url) => collect($this->get($url)->assertOk()->prop('logs.data'))->pluck('badge.label')->all();
 
-        $this->get('/audit?action=payroll.exported')->assertSee('Planilla exportada</span>', false)->assertDontSee('Cuenta bancaria revelada</span>', false);
-        $this->get("/audit?user_id={$admin->id}")->assertSee('Cuenta bancaria revelada</span>', false)->assertDontSee('10.0.0.1');
-        $this->get('/audit?from=2026-09-01&to=2026-09-30')->assertSee('10.0.0.1')->assertDontSee('Cuenta bancaria revelada</span>', false);
+        $this->actingAs($admin)->get('/audit')->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Core/Pages/Audit/Index')->has('logs.data', 2))
+            ->assertPageSees('Planilla exportada')->assertPageSees('Cuenta bancaria revelada')
+            ->assertPageSees('Periodo')->assertPageSees('2026-09')->assertPageSees('Filas')
+            ->assertPageMisses('Documento abierto')->assertPageMisses('Zoe')
+            // Nada de claves técnicas en el detalle
+            ->assertPageMisses('"label":"period"')->assertPageMisses('"label":"payroll.exported"');
+
+        $this->assertSame(['Planilla exportada'], $rows('/audit?action=payroll.exported'));
+        $this->assertSame(['Cuenta bancaria revelada'], $rows("/audit?user_id={$admin->id}"));
+        $this->get("/audit?user_id={$admin->id}")->assertPageMisses('10.0.0.1');
+        $this->assertSame(['Planilla exportada'], $rows('/audit?from=2026-09-01&to=2026-09-30'));
+        $this->get('/audit?from=2026-09-01&to=2026-09-30')->assertPageSees('10.0.0.1');
         $this->get('/audit?from=2026-10-05&to=2026-09-01')->assertSessionHasErrors('to');
 
         $this->get('/dashboard')->assertSee(route('audit.index'));
@@ -60,9 +66,14 @@ class AuditLogWebTest extends TestCase
         $this->seedLogs();
         $root = $this->makeUser(null, 'super_admin');
 
-        $this->actingAs($root)->get('/audit')->assertOk()
-            ->assertSee('Documento abierto</span>', false)->assertSee('Planilla exportada</span>', false)
-            ->assertSee('tenant-badge')->assertSee('Other');
+        $page = $this->actingAs($root)->get('/audit')->assertOk();
+        $this->assertEqualsCanonicalizing(
+            ['Documento abierto', 'Planilla exportada', 'Cuenta bancaria revelada'],
+            collect($page->prop('logs.data'))->pluck('badge.label')->all(),
+        );
+        // Vista global: cada fila lleva su empresa y el layout recibe los nombres para la insignia
+        $this->assertTrue($page->prop('globalView'));
+        $this->assertContains('Other', array_map(fn ($id) => $page->prop("tenantNames.{$id}"), collect($page->prop('logs.data'))->pluck('tenant_id')->all()));
     }
 
     public function test_roles_without_audit_view_are_forbidden(): void

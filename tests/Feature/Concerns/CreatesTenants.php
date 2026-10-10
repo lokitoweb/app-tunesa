@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Concerns;
 
-use App\Models\Branch;
-use App\Models\Tenant;
-use App\Models\User;
+use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Str;
 

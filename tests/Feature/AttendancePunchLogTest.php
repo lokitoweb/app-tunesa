@@ -2,16 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attendance;
-use App\Models\AttendancePunch;
-use App\Models\Branch;
-use App\Models\CompanyConfiguration;
-use App\Models\EmployeeShift;
-use App\Models\Shift;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
-use App\Services\Attendance\SelfieStorage;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Models\AttendancePunch;
+use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\Shift;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
+use App\Modules\Attendance\Services\Attendance\SelfieStorage;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -216,7 +216,7 @@ class AttendancePunchLogTest extends TestCase
             ->assertStatus(409)->assertJsonPath('code', 'CLIENT_UUID_CONFLICT');
 
         // En otra empresa el mismo uuid es independiente
-        app(\App\Services\TenantContext::class)->clear();
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
         $globex = $this->makeTenant('globex');
         $gEmp   = $this->makeUser($globex);
         $gEmp->branches()->attach($this->makeBranch($globex)->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);

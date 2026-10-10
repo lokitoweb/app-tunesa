@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Support\NetworkError;
+use App\Modules\Core\Support\NetworkError;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 

@@ -6,8 +6,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @php
         // Login por subdominio o dominio propio de una empresa: su marca; si no, la de la plataforma
-        $brandTenant = isset($tenant) && $tenant instanceof \App\Models\Tenant ? $tenant : \App\Models\Tenant::fromHost(request()->getHost());
-        $brandSettings = \App\Models\TenantSetting::forTenant($brandTenant);
+        $brandTenant = isset($tenant) && $tenant instanceof \App\Modules\Core\Models\Tenant ? $tenant : \App\Modules\Core\Models\Tenant::fromHost(request()->getHost());
+        $brandSettings = \App\Modules\Core\Models\TenantSetting::forTenant($brandTenant);
     @endphp
     <title>@yield('title', 'Acceso') — {{ $brandSettings->tradeName() }}</title>
 

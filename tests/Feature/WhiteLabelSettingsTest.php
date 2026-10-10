@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attendance;
-use App\Models\AuditLog;
-use App\Models\CompanyConfiguration;
-use App\Models\EmployeeShift;
-use App\Models\Shift;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\Shift;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -187,7 +187,8 @@ class WhiteLabelSettingsTest extends TestCase
 
         // Los formularios de alta proponen los valores por defecto
         $this->actingAs($admin)->get('/branches/create')->assertOk()->assertSee('value="80"', false);
-        $this->actingAs($admin)->get('/shifts/create')->assertOk()->assertSee('value="7"', false);
+        $this->actingAs($admin)->get('/shifts/create')->assertOk()
+            ->assertInertia(fn ($page) => $page->component('HR/Pages/Shifts/Form')->where('shift.grace_period_minutes', 7));
     }
 
     public function test_company_admin_only_edits_its_own_tenant(): void
@@ -348,10 +349,10 @@ class WhiteLabelSettingsTest extends TestCase
         $this->assertSame('whsec_1234567890', TenantSetting::rowFor($acme)->webhook_secret);
 
         // Panel: precargado en un campo de contraseña (oculto hasta "Mostrar"); API admin: enmascarado
-        $html = $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertOk()->getContent();
-        $this->assertMatchesRegularExpression('/<input type="password" id="webhook_secret"[^>]*value="whsec_1234567890"/s', $html);
-        $this->assertSame(1, substr_count($html, 'whsec_1234567890'));
-        $this->assertStringNotContainsString('AIzaSyClave9876', $html);
+        $page = $this->actingAs($admin)->get('/settings/integrations')->assertOk();
+        $this->assertSame('whsec_1234567890', $page->prop('values.webhook_secret'));
+        $this->assertSame(1, substr_count($page->getContent(), 'whsec_1234567890'));
+        $this->assertStringNotContainsString('AIzaSyClave9876', $page->getContent());
         $this->actingIn($admin, $acme)->getJson('/api/admin/app-config')->assertOk()
             ->assertJsonPath('data.settings.has_webhook_secret', true)
             ->assertJsonPath('data.settings.webhook_secret', '••••••••7890')

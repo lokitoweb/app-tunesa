@@ -3,13 +3,13 @@
 namespace App\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
-use App\Models\Attendance;
-use App\Models\EmployeeDocument;
-use App\Models\LeaveRequest;
-use App\Models\Payslip;
-use App\Models\User;
-use App\Services\IntegrationDispatcher;
-use App\Services\NotificationDispatcher;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\HR\Models\EmployeeDocument;
+use App\Modules\HR\Models\LeaveRequest;
+use App\Modules\Payroll\Models\Payslip;
+use App\Modules\Core\Models\User;
+use App\Modules\Integrations\Services\IntegrationDispatcher;
+use App\Modules\Core\Services\NotificationDispatcher;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;

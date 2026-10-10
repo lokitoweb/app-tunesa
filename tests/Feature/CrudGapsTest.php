@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
-use App\Models\Branch;
-use App\Models\Payslip;
-use App\Models\Tenant;
-use App\Models\User;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\Branch;
+use App\Modules\Payroll\Models\Payslip;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\CreatesTenants;

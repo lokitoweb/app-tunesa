@@ -28,3 +28,25 @@ jobs:
 
       - name: PHPUnit
         run: php artisan test
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Dependencias
+        run: npm ci
+
+      - name: Compilar pantallas Vue (un chunk por módulo)
+        run: npm run build
+
+      - name: Chunks por módulo y sin sourcemaps
+        run: |
+          ls public/build/assets
+          for chunk in core hr integrations; do ls public/build/assets/$chunk-*.js; done
+          ! ls public/build/assets/*.map 2>/dev/null

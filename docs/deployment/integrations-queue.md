@@ -1,7 +1,7 @@
 # Cola, reintentos e historial de las integraciones
 
 Los eventos del webhook (`attendance.*`, `leave_request.status_changed`) y del endpoint de
-notificaciones (`notification.created`) se envían con el job `App\Jobs\SendTenantWebhook`.
+notificaciones (`notification.created`) se envían con el job `App\Modules\Integrations\Jobs\SendTenantWebhook`.
 Detalle del formato y la firma en
 [architecture/white-label.md](../architecture/white-label.md#integraciones-webhook-y-endpoint-de-notificaciones).
 
@@ -24,7 +24,7 @@ Detalle del formato y la firma en
 
 2. **Scheduler.** `* * * * * cd /ruta/al/proyecto && php artisan schedule:run >> /dev/null 2>&1`.
    Además del control de faltas, corre a diario (03:15) `model:prune` para
-   `App\Models\WebhookDelivery`: borra el historial de más de 30 días.
+   `App\Modules\Integrations\Models\WebhookDelivery`: borra el historial de más de 30 días.
 
 3. **Salida a internet** del servidor hacia las URLs de las empresas (HTTPS saliente).
 

@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Web\IntegrationsWebController;
-use App\Jobs\SendTenantWebhook;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
-use App\Models\WebhookDelivery;
+use App\Modules\Integrations\Controllers\Web\IntegrationsWebController;
+use App\Modules\Integrations\Jobs\SendTenantWebhook;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
+use App\Modules\Integrations\Models\WebhookDelivery;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -154,7 +154,7 @@ class IntegrationDeliveriesTest extends TestCase
         $emp = $this->makeUser($acme);
         $this->configure($acme, ['notification_endpoint' => self::NOTIFY]);
 
-        \App\Models\LeaveRequest::create(['tenant_id' => $acme->id, 'user_id' => $emp->id, 'type' => 'vacation',
+        \App\Modules\HR\Models\LeaveRequest::create(['tenant_id' => $acme->id, 'user_id' => $emp->id, 'type' => 'vacation',
             'start_date' => '2026-11-02', 'end_date' => '2026-11-03', 'days' => 2, 'reason' => 'Viaje', 'status' => 'pending']);
 
         $delivery = WebhookDelivery::where('target', SendTenantWebhook::TARGET_NOTIFICATION)->sole();
@@ -177,7 +177,7 @@ class IntegrationDeliveriesTest extends TestCase
 
         foreach ([1 => 10, 2 => 60, 3 => 300, 4 => 900] as $attempt => $wait) {
             try {
-                $this->queuedJob($acme, $attempt)->handle(app(\App\Services\Integrations\WebhookSender::class));
+                $this->queuedJob($acme, $attempt)->handle(app(\App\Modules\Integrations\Services\WebhookSender::class));
                 $this->fail('El job debe lanzar una excepción para que la cola lo reintente');
             } catch (RuntimeException $e) {
                 $this->assertStringContainsString('HTTP 503', $e->getMessage());
@@ -191,7 +191,7 @@ class IntegrationDeliveriesTest extends TestCase
 
         // Último intento: fallo definitivo, sin próximo reintento
         try {
-            $this->queuedJob($acme, 5)->handle(app(\App\Services\Integrations\WebhookSender::class));
+            $this->queuedJob($acme, 5)->handle(app(\App\Modules\Integrations\Services\WebhookSender::class));
         } catch (RuntimeException) {
         }
         $delivery = WebhookDelivery::sole();
@@ -200,7 +200,7 @@ class IntegrationDeliveriesTest extends TestCase
         $this->assertNull($delivery->next_retry_at);
 
         // Si después responde bien, la misma fila queda como entregada
-        $this->queuedJob($acme, 2)->handle(app(\App\Services\Integrations\WebhookSender::class));
+        $this->queuedJob($acme, 2)->handle(app(\App\Modules\Integrations\Services\WebhookSender::class));
         $this->assertSame(WebhookDelivery::STATUS_SUCCESS, WebhookDelivery::sole()->status);
     }
 
@@ -384,7 +384,7 @@ class IntegrationDeliveriesTest extends TestCase
         $class = IntegrationsWebController::FCM_SENDER;
         if (! class_exists($class)) {
             // Rama sin el módulo push: stub mínimo con la misma firma, solo para poder simularlo
-            eval('namespace App\Services\Push; class FcmSender { public function test(\App\Models\User $to): array { return []; } }');
+            eval('namespace App\Modules\Integrations\Services\Push; class FcmSender { public function test(\App\Modules\Core\Models\User $to): array { return []; } }');
         }
         $mock = Mockery::mock($class);
         $this->app->instance($class, $mock);
@@ -424,14 +424,21 @@ class IntegrationDeliveriesTest extends TestCase
         $acme  = $this->makeTenant('acme');
         $admin = $this->makeUser($acme, 'company_admin');
 
-        $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertOk()
-            ->assertSee('Probar Webhook Ahora')
-            ->assertSee('Enviar Notificación de Prueba')
-            ->assertSee('Últimos 20 envíos')
-            ->assertSee('Probar geocodificación')
-            ->assertSee(route('settings.branding.deliveries'))
-            ->assertSee(route('settings.branding.test-webhook'))
-            ->assertDontSee('no se usa');
+        $this->actingAs($admin)->get('/settings/integrations')->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Integrations/Pages/Settings/Index')
+                ->where('isGlobal', false)
+                ->where('ownerName', rtrim($acme->company_name, '.'))
+                ->has('values.webhook_secret')
+                ->has('geoProbe.lat')
+                ->where('userEmail', $admin->email));
+
+        // Los botones de la pantalla llaman a estas rutas
+        $source = file_get_contents(resource_path('js/Modules/Integrations/Pages/Settings/Index.vue'))
+            . file_get_contents(resource_path('js/Modules/Integrations/Components/DeliveriesTable.vue'));
+        foreach (['settings.branding.deliveries', 'settings.branding.test-webhook', 'settings.branding.test-notification',
+            'settings.branding.test-push', 'settings.branding.regenerate-webhook-secret', 'settings.integrations.update'] as $name) {
+            $this->assertStringContainsString(route($name, [], false), $source, "La pantalla no usa {$name}");
+        }
     }
 
     public function test_branch_form_renders_the_address_search(): void
@@ -479,14 +486,18 @@ class IntegrationDeliveriesTest extends TestCase
         $this->requireColumns('geocoding_provider', 'mock_location_policy', 'max_time_drift_seconds', 'fcm_enabled', 'fcm_service_account_json');
         $root = $this->makeUser(null, 'super_admin');
 
-        $this->actingAs($root)->put('/settings/branding', [
-            'tab'                      => 'integraciones',
+        // Antifraude se guarda en "Marca y app"; geocodificación y push, en Integraciones
+        $this->actingAs($root)->put('/settings/branding', ['mock_location_policy' => 'flag', 'max_time_drift_seconds' => 120, 'selfie_required' => '1'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($root)->put('/settings/integrations', [
             'geocoding_provider'       => 'google',
-            'mock_location_policy'     => 'flag',
-            'max_time_drift_seconds'   => 120,
             'fcm_enabled'              => '1',
             'fcm_service_account_json' => $this->serviceAccount(),
-        ])->assertSessionHasNoErrors()->assertRedirect(route('settings.branding', ['tab' => 'integraciones']));
+            // Ajeno a esta pantalla: se ignora
+            'mock_location_policy'     => 'reject',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('settings.integrations'));
+        // Guardar Integraciones no apaga los interruptores de "Marca y app"
+        $this->assertTrue((bool) TenantSetting::rowFor(null)->selfie_required);
 
         $row = TenantSetting::rowFor(null);
         $this->assertSame('google', $row->geocoding_provider);
@@ -495,8 +506,8 @@ class IntegrationDeliveriesTest extends TestCase
         $this->assertTrue((bool) $row->fcm_enabled);
         $this->assertSame('tunesa-demo', json_decode($row->fcm_service_account_json, true)['project_id']);
 
-        $this->actingAs($root)->get('/settings/branding?tab=integraciones')->assertOk()
-            ->assertSee('tunesa-demo')->assertDontSee('MIIabc');
+        $this->actingAs($root)->get('/settings/integrations')->assertOk()
+            ->assertPageSees('tunesa-demo')->assertPageMisses('MIIabc');
     }
 
     public function test_service_account_json_is_validated_and_platform_only(): void
@@ -524,8 +535,10 @@ class IntegrationDeliveriesTest extends TestCase
         $this->assertNull(TenantSetting::rowFor($acme)?->fcm_service_account_json);
         $this->assertSame('tunesa-demo', json_decode(TenantSetting::rowFor(null)->fcm_service_account_json, true)['project_id']);
 
-        $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertOk()
-            ->assertSee('Configurado por la plataforma')->assertDontSee('tunesa-demo');
+        // La empresa ve que está configurado, sin datos del proyecto de Firebase
+        $this->actingAs($admin)->get('/settings/integrations')->assertOk()
+            ->assertInertia(fn ($page) => $page->where('fcm.configured', true)->where('isGlobal', false))
+            ->assertPageMisses('PRIVATE KEY')->assertPageMisses('tunesa-demo');
     }
 
     public function test_company_can_inherit_the_new_settings_with_null(): void

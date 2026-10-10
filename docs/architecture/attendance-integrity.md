@@ -9,16 +9,16 @@ Archivos clave:
 
 | Qué | Dónde |
 |---|---|
-| Punto de entrada único | `app/Services/AttendanceService.php` (`punch()`) |
-| Datos de una marcación / resultado | `app/Services/Attendance/PunchData.php`, `PunchResult.php` |
-| Selfies (WebP) | `app/Services/Attendance/SelfieStorage.php` |
-| Avisos fuera de horario / geocerca | `app/Services/Attendance/AttendanceAlertNotifier.php`, `app/Notifications/AttendanceOutside*.php` |
-| Bitácora | `app/Models/AttendancePunch.php`, migración `2026_10_14_000001_create_attendance_punches_table.php` |
+| Punto de entrada único | `app/Modules/Attendance/Services/AttendanceService.php` (`punch()`) |
+| Datos de una marcación / resultado | `app/Modules/Attendance/Services/Attendance/PunchData.php`, `PunchResult.php` |
+| Selfies (WebP) | `app/Modules/Attendance/Services/Attendance/SelfieStorage.php` |
+| Avisos fuera de horario / geocerca | `app/Modules/Attendance/Services/Attendance/AttendanceAlertNotifier.php`, `app/Modules/Attendance/Notifications/AttendanceOutside*.php` |
+| Bitácora | `app/Modules/Attendance/Models/AttendancePunch.php`, migración `2026_10_14_000001_create_attendance_punches_table.php` |
 | Resumen en la jornada | migración `2026_10_14_000002_add_integrity_columns_to_attendances_table.php` |
 | Políticas en Marca y app | migración `2026_10_14_000003_add_attendance_policies_to_tenant_settings_table.php`, `TenantSetting`, `TenantSettingsService` |
 | Rutas | `Api\AttendanceController` (4 rutas), `Api\AttendanceSyncController` (lote), `GeocodeController` |
-| Geocodificación | `app/Services/Geocoding/*`, job `app/Jobs/ReverseGeocodePunch.php` |
-| Push | `app/Services/Push/FcmSender.php`, `app/Notifications/Channels/FcmChannel.php`, job `app/Jobs/SendPushNotification.php` |
+| Geocodificación | `app/Modules/Integrations/Services/Geocoding/*`, job `app/Modules/Attendance/Jobs/ReverseGeocodePunch.php` |
+| Push | `app/Modules/Integrations/Services/Push/FcmSender.php`, `app/Modules/Integrations/Notifications/Channels/FcmChannel.php`, job `app/Modules/Integrations/Jobs/SendPushNotification.php` |
 | Pruebas | `tests/Feature/AttendancePunchLogTest.php`, `AttendanceSyncBatchTest.php`, `GeocodingTest.php`, `FcmPushTest.php`, `tests/Unit/HaversineEdgeCasesTest.php` |
 
 ## Flujo de una marcación
@@ -91,7 +91,7 @@ la lista `punches`.
 
 - Las columnas `*_at` de `attendances` siguen guardando la **hora de pared de la empresa**.
 - `device_time`, `server_time`, `offline_recorded_at` (bitácora) y `*_device_time` (jornada) se
-  guardan **en UTC** con el cast `App\Casts\UtcDateTime`, que también los lee en UTC aunque
+  guardan **en UTC** con el cast `App\Modules\Core\Casts\UtcDateTime`, que también los lee en UTC aunque
   `APP_TIMEZONE` sea otra.
 - **Desfase** (`time_drift_seconds`): en una marcación en línea, `device_time − server_time`.
   En una offline `device_time` es de horas atrás, así que se mide con `device_sent_at` (reloj del
@@ -131,7 +131,7 @@ validación o error inesperado) solo afecta a ese elemento. Respuesta en el orde
 
 ## Geocodificación
 
-`App\Services\Geocoding\GeocodingService`:
+`App\Modules\Integrations\Services\Geocoding\GeocodingService`:
 
 - `search(string $query, int $limit = 5)` → `[{label, lat, lng}]`.
 - `reverse(float $lat, float $lng)` → `{address, provider}` (`address` null si no hay resultado).
@@ -162,7 +162,7 @@ misma petición y un fallo solo queda en el log (nunca tumba la marcación).
 
 ## Push (FCM)
 
-`App\Services\Push\FcmSender` (API HTTP v1):
+`App\Modules\Integrations\Services\Push\FcmSender` (API HTTP v1):
 
 1. Lee la cuenta de servicio de la **fila global** (`fcm_service_account_json`, cifrada; la
    plataforma es dueña de la única app). Valida `project_id`, `client_email`, `private_key`.

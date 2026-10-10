@@ -62,7 +62,7 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', App\Models\User::class),
+            'model' => env('AUTH_MODEL', App\Modules\Core\Models\User::class),
         ],
 
         // 'users' => [
@@ -115,7 +115,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Login endurecido (App\Services\LoginGuard)
+    | Login endurecido (App\Modules\Core\Services\LoginGuard)
     |--------------------------------------------------------------------------
     |
     | max_attempts fallos seguidos bloquean la cuenta 'minutes' minutos.

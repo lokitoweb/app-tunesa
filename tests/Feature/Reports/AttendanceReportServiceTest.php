@@ -2,16 +2,16 @@
 
 namespace Tests\Feature\Reports;
 
-use App\Models\Attendance;
-use App\Models\EmployeeShift;
-use App\Models\Holiday;
-use App\Models\LeaveRequest;
-use App\Models\Shift;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
-use App\Services\Reports\AttendanceReportService;
-use App\Services\Reports\ReportFilters;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\Holiday;
+use App\Modules\HR\Models\LeaveRequest;
+use App\Modules\HR\Models\Shift;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
+use App\Modules\Attendance\Services\Reports\AttendanceReportService;
+use App\Modules\Attendance\Services\Reports\ReportFilters;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;

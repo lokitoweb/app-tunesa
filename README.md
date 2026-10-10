@@ -6,9 +6,12 @@ pago, legajo digital, dotación de uniformes y marca blanca por empresa.
 
 ## Arquitectura en corto
 
-- `app/`, `routes/`, `resources/views/`: backend **Laravel 11**. Expone la **API REST** para la
-  app (`routes/api.php`, tokens Sanctum) y el **panel web** de RRHH en Blade (`routes/web.php`,
-  sesión).
+- `app/Modules/<Módulo>/`: backend **Laravel 11** como **monolito modular** (`Core`, `Attendance`,
+  `HR`, `Integrations`, `Payroll`). Cada módulo trae sus rutas, controladores, modelos, servicios y
+  migraciones, y se puede apagar por empresa. Expone la **API REST** para la app
+  (`Routes/api.php`, tokens Sanctum) y el **panel web** de RRHH (`Routes/web.php`, sesión).
+- `resources/js/Modules/<Módulo>/`: pantallas del panel en **Vue 3 + Inertia**, compiladas con Vite
+  en un chunk por módulo. Las que aún no se migran siguen en Blade (`resources/views/`).
 - `mobile/`: app **Flutter** para colaboradores (y supervisores/RRHH para su equipo).
 - Multi-tenant: cada tabla tiene `tenant_id`; la empresa se resuelve por `X-Tenant-Slug`,
   subdominio o dominio propio y un global scope filtra todas las consultas.
@@ -16,6 +19,7 @@ pago, legajo digital, dotación de uniformes y marca blanca por empresa.
 Documentación completa en [`docs/`](docs/README.md):
 
 - [Arquitectura general](docs/architecture/overview.md): componentes, multi-tenant, roles, módulos.
+- [Monolito modular](docs/architecture/modules.md): estructura de un módulo, activación por empresa y frontend Vue.
 - [Marca blanca y configuración de la app](docs/architecture/white-label.md).
 - [API para la app móvil](docs/api/mobile-endpoints.md).
 - [Probar la app en un celular con Cloudflare Tunnel](docs/deployment/mobile-cloudflare-tunnel.md).
@@ -25,11 +29,12 @@ panel oficial es el de Laravel. Sigue en el historial de git si hace falta consu
 
 ## Arranque rápido (local)
 
-Requisitos: PHP 8.2+ (con `pdo_sqlite`) y Composer.
+Requisitos: PHP 8.3+ (con `pdo_sqlite`), Composer y Node 20+.
 
 ```bash
 composer install
 composer run setup   # crea .env, genera APP_KEY, crea database.sqlite, migra + seed y enlaza storage
+npm install && npm run build   # pantallas Vue del panel (o `npm run dev` mientras desarrollas)
 php artisan serve
 ```
 
@@ -66,7 +71,7 @@ cada PR que toca `mobile/`).
 ## Producción
 
 1. `.env` propio con `APP_ENV=production`, `APP_DEBUG=false`, un `APP_KEY` nuevo (`php artisan key:generate`) y credenciales nuevas de base de datos y correo. No reutilices ninguna clave de un `.env` que haya estado en el repositorio. Con HTTPS activa `SESSION_SECURE_COOKIE=true`, pon en `SANCTUM_STATEFUL_DOMAINS` los dominios del panel y configura `MAIL_MAILER` (SMTP u otro) para que lleguen los correos de recuperación de contraseña (ver `.env.example`). `APP_KEY` también cifra los secretos de "Marca y app" (webhook, clave de mapas): si la cambias, hay que volver a cargarlos.
-2. `php artisan migrate --force`
+2. `php artisan migrate --force`, `npm ci && npm run build` (compila las pantallas Vue en `public/build/`, que no se versiona) y `php artisan optimize:clear` (las vistas compiladas guardan nombres de clases).
 3. Super Admin inicial: define `SEED_SUPERADMIN_EMAIL` y `SEED_SUPERADMIN_PASSWORD` (12+ caracteres) y corre `php artisan db:seed --force`. En producción el seeder no crea la empresa demo ni usuarios con contraseñas conocidas; luego borra la contraseña del `.env`. Al entrar se pedirá cambiarla.
 4. Asigna el supervisor de cada sucursal (Sucursales → Editar): define a quién ve cada supervisor.
 5. `php artisan storage:link` para servir logos, favicon y splash (disco `public`).
@@ -81,7 +86,7 @@ los envíos quedan pendientes en la tabla `jobs` (ver `docs/deployment/integrati
 
 ## Multi-tenant, roles y permisos
 
-- **Aislamiento:** todo modelo con `tenant_id` usa el trait `App\Models\Concerns\BelongsToTenant`: un global scope filtra por la empresa resuelta en la request y `tenant_id` se completa solo al crear. `EnforceTenantScope` rechaza tokens de otra empresa.
+- **Aislamiento:** todo modelo con `tenant_id` usa el trait `App\Modules\Core\Models\Concerns\BelongsToTenant`: un global scope filtra por la empresa resuelta en la request y `tenant_id` se completa solo al crear. `EnforceTenantScope` rechaza tokens de otra empresa.
 - **Resolución de la empresa:** header `X-Tenant-Slug`, subdominio (`empresa.tunesa.app`, dominio base en `APP_DOMAIN`) o dominio propio (`tenants.custom_domain`).
 - **Roles:** `super_admin`, `company_admin`, `hr_manager`, `supervisor`, `employee`. La matriz de permisos está en `database/seeders/RolesAndPermissionsSeeder.php`; las rutas la exigen con `->middleware('permission:shifts.manage')` y en código se usa `$user->hasPermission(...)` o `$user->can(...)`.
 - **Super Admin:** entra por `POST /api/superadmin/auth/login` (sin `X-Tenant-Slug`) y administra empresas en `/api/superadmin/tenants`. En el panel, sin empresa elegida en el selector, trabaja en la "vista global".

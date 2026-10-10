@@ -6,12 +6,12 @@ tiene sus propios valores por defecto, y lo que la empresa no define lo hereda.
 
 Archivos clave:
 
-- Migración: `database/migrations/2026_10_13_000001_create_tenant_settings_table.php`
-- Modelo: `app/Models/TenantSetting.php`
-- Validación y guardado: `app/Services/TenantSettingsService.php`
-- Panel: `app/Http/Controllers/Web/BrandingWebController.php` + `resources/views/settings/branding.blade.php`
-- API: `app/Http/Controllers/Api/AppConfigController.php`
-- Versión mínima: `app/Http/Middleware/EnsureSupportedAppVersion.php`
+- Migración: `app/Modules/Core/Database/Migrations/2026_10_13_000001_create_tenant_settings_table.php`
+- Modelo: `app/Modules/Core/Models/TenantSetting.php`
+- Validación y guardado: `app/Modules/Core/Services/TenantSettingsService.php`
+- Panel: `app/Modules/Core/Controllers/Web/BrandingWebController.php` + `resources/views/settings/branding.blade.php`
+- API: `app/Modules/Core/Controllers/Api/AppConfigController.php`
+- Versión mínima: `app/Modules/Core/Middleware/EnsureSupportedAppVersion.php`
 - Pruebas: `tests/Feature/WhiteLabelSettingsTest.php`
 
 ## Dónde vive cada dato
@@ -79,7 +79,7 @@ Casos especiales del modelo:
 - **Precisión GPS** (`maxGpsAccuracy()`): empresa → plataforma → `ATTENDANCE_MAX_GPS_ACCURACY`
   de `.env` (`config/attendance.php`), no el `DEFAULTS`.
 - **`maps_api_key`**: clave de Google Maps Geocoding. Se hereda de la plataforma (no está en
-  `NOT_INHERITED`) y la usa `App\Services\Geocoding\GeocodingService` cuando el proveedor
+  `NOT_INHERITED`) y la usa `App\Modules\Integrations\Services\Geocoding\GeocodingService` cuando el proveedor
   efectivo (`geocoding_provider`) es `google`; sin clave vuelve solo a OpenStreetMap/Nominatim.
   Solo se ve (enmascarada) en el panel y en `GET /api/admin/app-config`, nunca en la API pública.
 - **`config_version`**: la fecha más reciente entre `tenants.updated_at`, la fila de la empresa,
@@ -125,8 +125,8 @@ En producción (php-fpm) no pasa.
 
 ### Integraciones: webhook y endpoint de notificaciones
 
-`App\Services\IntegrationDispatcher` (enganchado a los eventos de los modelos en
-`AppServiceProvider`) encola un `App\Jobs\SendTenantWebhook` (`ShouldQueue`) por evento, solo si
+`App\Modules\Integrations\Services\IntegrationDispatcher` (enganchado a los eventos de los modelos en
+`AppServiceProvider`) encola un `App\Modules\Integrations\Jobs\SendTenantWebhook` (`ShouldQueue`) por evento, solo si
 **la fila de la empresa** tiene la URL (no se heredan de la plataforma):
 
 | Destino | Eventos |
@@ -170,8 +170,8 @@ X-Tunesa-Signature: sha256=<hex de HMAC-SHA256(cuerpo, webhook_secret)>
 
 ### Historial de envíos (`webhook_deliveries`)
 
-`App\Services\Integrations\WebhookSender` hace cada envío y lo registra en
-`webhook_deliveries` (`App\Models\WebhookDelivery`): una fila por envío, que los reintentos
+`App\Modules\Integrations\Services\WebhookSender` hace cada envío y lo registra en
+`webhook_deliveries` (`App\Modules\Integrations\Models\WebhookDelivery`): una fila por envío, que los reintentos
 actualizan (la identifica `uuid`, que viaja en el job como `deliveryUuid`).
 
 | Columna | Contenido |
@@ -188,7 +188,7 @@ intento. Si falla el guardado del historial, el envío sigue igual. Las filas de
 borran con `model:prune` (`WebhookDelivery` es `Prunable`), programado a diario a las 03:15 en
 `routes/console.php`.
 
-### Botones de prueba (pestaña Integraciones)
+### Botones de prueba (pantalla Integraciones)
 
 Mismo permiso que la pantalla (`company.configure`); `IntegrationsWebController`. En la vista
 global prueban y listan las filas de la plataforma (`tenant_id NULL`). Límite: 20 pruebas por minuto.
@@ -197,7 +197,7 @@ global prueban y listan las filas de la plataforma (`tenant_id NULL`). Límite: 
 |---|---|---|
 | Probar Webhook Ahora | `POST /settings/branding/test-webhook` | Envía al instante (sin cola) `{"event":"ping","occurred_at","tenant":{"slug"},"data":{"message":"Prueba desde TuneSA"}}` con `X-Tunesa-Event: ping` y la firma, a la URL escrita en el formulario (o la guardada) y con el secreto escrito (o el guardado). |
 | Enviar Notificación de Prueba | `POST /settings/branding/test-notification` | Igual, al endpoint de notificaciones, evento `notification.test`. |
-| Enviar push de prueba | `POST /settings/branding/test-push` | `App\Services\Push\FcmSender::test(usuario)`: el del correo escrito en "Probar push" (solo usuarios de la empresa) o el actual si va vacío. Queda en auditoría como `push.tested`. Si el usuario no tiene `fcm_token` explica que debe iniciar sesión en la app con ese usuario. |
+| Enviar push de prueba | `POST /settings/branding/test-push` | `App\Modules\Integrations\Services\Push\FcmSender::test(usuario)`: el del correo escrito en "Probar push" (solo usuarios de la empresa) o el actual si va vacío. Queda en auditoría como `push.tested`. Si el usuario no tiene `fcm_token` explica que debe iniciar sesión en la app con ese usuario. |
 | Probar geocodificación | `GET /geocode/reverse?lat=&lng=` | Dirección de la primera sucursal (o el centro de Lima) y el proveedor que respondió. |
 
 Las pruebas de webhook y notificaciones responden `{ok, status, ms, body|error, signed, delivery_id}`
@@ -235,14 +235,16 @@ trabajadas salvo que el `lunch_paid` efectivo (empresa → plataforma → `false
 ## Panel: `/settings/branding`
 
 Ruta `settings.branding` (permiso `company.configure`, o sea Administrador de empresa y Super
-Admin). Un solo formulario con cuatro pestañas (`BrandingWebController::TABS`):
+Admin). Un solo formulario con tres pestañas (`BrandingWebController::TABS`); las integraciones
+tienen su propia pantalla Vue en `/settings/integrations` (`settings.integrations`, mismo permiso;
+`/settings/branding?tab=integraciones` redirige ahí):
 
 | Pestaña (`?tab=`) | Campos |
 |---|---|
 | `marca` | nombre comercial, contacto, logo claro/oscuro, favicon, splash, 4 colores con vista previa |
 | `app` | URL del servidor, versión mínima / última, forzar actualización, selfie, rostro, offline, horas offline, precisión GPS |
 | `reglas` | tolerancia, refrigerio, refrigerio pagado, radio de geocerca por defecto, política de geocerca (solo empresa), ubicación simulada (Bloquear / Marcar como sospechosa), diferencia máxima de hora |
-| `integraciones` | webhook, secreto, endpoint de notificaciones (con botones de prueba), geocodificación (proveedor, clave de Google, prueba), push (activar, cuenta de servicio de Firebase, prueba) e historial "Últimos 20 envíos" |
+| *(pantalla Integraciones)* | webhook, secreto, endpoint de notificaciones (con botones de prueba), geocodificación (proveedor, clave de Google, prueba), push (activar, cuenta de servicio de Firebase, prueba) e historial "Últimos 20 envíos" |
 
 - Con empresa en contexto edita su fila; en la **vista global** del Super Admin edita la fila de
   la plataforma (muestra un aviso y la ruta `settings.branding.update` está permitida en
@@ -298,7 +300,7 @@ reemplazarlo y deja la auditoría `tenant_settings.updated`.
 
 ### Login por subdominio o dominio propio
 
-`Tenant::fromHost($host)` (`app/Models/Tenant.php`) decide la marca del login y en qué empresa
+`Tenant::fromHost($host)` (`app/Modules/Core/Models/Tenant.php`) decide la marca del login y en qué empresa
 buscar al usuario:
 
 - `acme.<APP_DOMAIN>` → empresa con slug `acme` (excepto `www`, `api`, `admin`, `app`, `mail`, `cdn`).

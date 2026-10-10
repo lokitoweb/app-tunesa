@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\CompanyConfiguration;
-use App\Models\EmployeeDocument;
-use App\Models\EmployeeProfile;
-use App\Models\Tenant;
-use App\Models\User;
-use App\Services\TenantContext;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\HR\Models\EmployeeDocument;
+use App\Modules\HR\Models\EmployeeProfile;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\User;
+use App\Modules\Core\Services\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;

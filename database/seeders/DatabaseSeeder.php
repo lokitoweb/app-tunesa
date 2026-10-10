@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Models\Branch;
-use App\Models\Shift;
-use App\Models\Tenant;
-use App\Models\User;
+use App\Modules\Core\Models\Branch;
+use App\Modules\HR\Models\Shift;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use RuntimeException;
@@ -288,7 +288,7 @@ class DatabaseSeeder extends Seeder
             $shift  = $idx === 2 ? $shiftAfternoon : $shiftMorning;
             $branch = $idx < 2 ? $branch1 : $branch2;
 
-            \App\Models\EmployeeShift::create([
+            \App\Modules\HR\Models\EmployeeShift::create([
                 'tenant_id'      => $tenant->id,
                 'user_id'        => $emp->id,
                 'shift_id'       => $shift->id,
@@ -305,11 +305,11 @@ class DatabaseSeeder extends Seeder
         // =====================================================================
         // 6. LEGAJO, DATOS DE PAGO Y DOTACIÓN (Fase 3)
         // =====================================================================
-        \App\Models\CompanyConfiguration::create(['tenant_id' => $tenant->id]);
+        \App\Modules\Core\Models\CompanyConfiguration::create(['tenant_id' => $tenant->id]);
 
         [$ana, $luis] = [$employeeUsers[0], $employeeUsers[1]];
 
-        \App\Models\EmployeeProfile::create([
+        \App\Modules\HR\Models\EmployeeProfile::create([
             'tenant_id' => $tenant->id, 'user_id' => $ana->id,
             'address' => 'Av. Arequipa 1234', 'district' => 'Lince',
             'emergency_contact_name' => 'Carmen Torres', 'emergency_contact_phone' => '987654321',
@@ -321,16 +321,16 @@ class DatabaseSeeder extends Seeder
             'payment_info_status' => 'verified', 'payment_info_updated_at' => now(),
             'payment_verified_by' => $hrManager->id, 'payment_verified_at' => now(),
         ]);
-        \App\Models\EmployeeProfile::create([
+        \App\Modules\HR\Models\EmployeeProfile::create([
             'tenant_id' => $tenant->id, 'user_id' => $luis->id,
             'bank_name' => 'BBVA', 'bank_account_type' => 'savings', 'bank_account_currency' => 'PEN',
             'bank_account_number' => '001101230200123456', 'pension_system' => 'onp',
             'payment_info_status' => 'pending', 'payment_info_updated_at' => now(),
         ]);
 
-        \App\Models\UniformSize::create(['tenant_id' => $tenant->id, 'user_id' => $ana->id, 'shirt_size' => 'S', 'pants_size' => '28', 'shoe_size' => '37', 'shoe_type' => 'safety']);
-        \App\Models\UniformSize::create(['tenant_id' => $tenant->id, 'user_id' => $luis->id, 'shirt_size' => 'L', 'pants_size' => '34', 'shoe_size' => '42', 'shoe_type' => 'safety']);
-        \App\Models\UniformDelivery::create(['tenant_id' => $tenant->id, 'user_id' => $ana->id, 'item' => 'shirt', 'size' => 'S', 'quantity' => 2, 'delivered_at' => now()->subMonth(), 'delivered_by' => $hrManager->id]);
+        \App\Modules\HR\Models\UniformSize::create(['tenant_id' => $tenant->id, 'user_id' => $ana->id, 'shirt_size' => 'S', 'pants_size' => '28', 'shoe_size' => '37', 'shoe_type' => 'safety']);
+        \App\Modules\HR\Models\UniformSize::create(['tenant_id' => $tenant->id, 'user_id' => $luis->id, 'shirt_size' => 'L', 'pants_size' => '34', 'shoe_size' => '42', 'shoe_type' => 'safety']);
+        \App\Modules\HR\Models\UniformDelivery::create(['tenant_id' => $tenant->id, 'user_id' => $ana->id, 'item' => 'shirt', 'size' => 'S', 'quantity' => 2, 'delivered_at' => now()->subMonth(), 'delivered_by' => $hrManager->id]);
 
         $this->command->info("✅ Legajo demo: datos de pago, tallas y una entrega");
 

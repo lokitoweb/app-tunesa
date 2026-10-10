@@ -34,7 +34,7 @@ class CompositeIndexesMigrationTest extends TestCase
 
     public function test_down_and_up_are_idempotent(): void
     {
-        $migration = require database_path('migrations/2026_10_14_000001_add_composite_indexes_for_reports.php');
+        $migration = require app_path('Modules/Core/Database/Migrations/2026_10_14_000001_add_composite_indexes_for_reports.php');
 
         $migration->down();
         $this->assertNotContains('users_tenant_status_role_idx', $this->indexNames('users'));

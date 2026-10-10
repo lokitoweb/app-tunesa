@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
-use App\Models\Branch;
-use App\Models\CompanyConfiguration;
-use App\Models\EmployeeProfile;
-use App\Models\TenantSetting;
-use App\Presenters\AuditLogPresenter;
-use App\Services\AuditLogger;
-use App\Support\Labels;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\HR\Models\EmployeeProfile;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Presenters\AuditLogPresenter;
+use App\Modules\Core\Services\AuditLogger;
+use App\Modules\Core\Support\Labels;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
@@ -112,15 +112,16 @@ class AuditStructuredLogTest extends TestCase
         $this->assertArrayNotHasKey('mobile_payslips_enabled', $changes->all()); // no cambió
 
         $page = $this->get('/audit')->assertOk()
-            ->assertSee('Configuración actualizada')
-            ->assertSee('Carlos Ramírez cambió')
-            ->assertSee('Ver cambios')
-            ->assertSee('Política de geocerca')
-            ->assertSee('Registrar como incidencia')
-            ->assertSee('Rechazar')
-            ->assertSee('8 MB')
-            ->assertSee('Valor previo');
-        $page->assertDontSee('geofence_policy')->assertDontSee('max_upload_mb')->assertDontSee('company_configuration.updated</', false);
+            ->assertPageSees('Configuración actualizada')
+            ->assertPageSees('Carlos Ramírez cambió')
+            ->assertPageSees('Política de geocerca')
+            ->assertPageSees('Registrar como incidencia')
+            ->assertPageSees('Rechazar')
+            ->assertPageSees('8 MB');
+        // La fila trae el cuadro de cambios (botón "Ver cambios") con etiquetas, no claves técnicas
+        $this->assertTrue($page->prop('logs.data.0.structured'));
+        $this->assertNotEmpty($page->prop('logs.data.0.changes'));
+        $page->assertPageMisses('geofence_policy')->assertPageMisses('max_upload_mb')->assertPageMisses('"label":"company_configuration.updated"');
     }
 
     public function test_tenant_settings_panel_shows_labels_inherit_and_masked_secrets(): void
@@ -152,12 +153,12 @@ class AuditStructuredLogTest extends TestCase
         $this->assertMatchesRegularExpression('/^Carlos Ramírez cambió \d+ campos de Marca y app: .+ y \d+ más\.$/u', $presenter->summary());
 
         $this->get('/audit')->assertOk()
-            ->assertSee('Marca y app actualizada')
-            ->assertSee('Tolerancia por defecto (min)')
-            ->assertSee('Hereda de la plataforma')
-            ->assertDontSee('whsec_1234567890')
-            ->assertDontSee('default_grace_minutes')
-            ->assertDontSee('"changes"', false);
+            ->assertPageSees('Marca y app actualizada')
+            ->assertPageSees('Tolerancia por defecto (min)')
+            ->assertPageSees('Hereda de la plataforma')
+            ->assertPageMisses('whsec_1234567890')
+            ->assertPageMisses('default_grace_minutes')
+            ->assertPageMisses('"meta"');
     }
 
     public function test_bank_account_and_password_changes_are_never_stored_in_clear(): void
@@ -202,14 +203,14 @@ class AuditStructuredLogTest extends TestCase
             'meta' => ['mobile_payslips_enabled' => true, 'geofence_policy' => 'flag']]);
 
         $this->actingAs($admin)->get('/audit')->assertOk()
-            ->assertSee('Campos cambiados')
-            ->assertSee('Tolerancia por defecto (min) y Almuerzo pagado')
-            ->assertSee('Clave secreta del webhook')
-            ->assertSee('App: boletas de pago')
-            ->assertSee('Registrar como incidencia')
-            ->assertDontSee('mobile_payslips_enabled')
-            ->assertDontSee('secrets_changed')
-            ->assertDontSee('default_grace_minutes');
+            ->assertPageSees('Campos cambiados')
+            ->assertPageSees('Tolerancia por defecto (min) y Almuerzo pagado')
+            ->assertPageSees('Clave secreta del webhook')
+            ->assertPageSees('App: boletas de pago')
+            ->assertPageSees('Registrar como incidencia')
+            ->assertPageMisses('mobile_payslips_enabled')
+            ->assertPageMisses('secrets_changed')
+            ->assertPageMisses('default_grace_minutes');
     }
 
     public function test_ip_is_masked_for_other_roles_and_user_agent_is_summarized(): void
@@ -228,8 +229,8 @@ class AuditStructuredLogTest extends TestCase
         $this->assertSame('App móvil en Android', Labels::userAgent('okhttp/4.12.0 Android'));
 
         $this->actingAs($admin)->get('/audit')->assertOk()
-            ->assertSee('Chrome en Android')->assertSee('190.23.45.67')
-            ->assertDontSee('AppleWebKit');
+            ->assertPageSees('Chrome en Android')->assertPageSees('190.23.45.67')
+            ->assertPageMisses('AppleWebKit');
     }
 
     public function test_branch_update_from_panel_is_logged_with_labels(): void
@@ -249,7 +250,7 @@ class AuditStructuredLogTest extends TestCase
         $this->assertSame('100 m', $rows['allowed_radius_meters']['old']);
         $this->assertSame('300 m', $rows['allowed_radius_meters']['new']);
 
-        $this->get('/audit')->assertSee('Sucursal actualizada')->assertSee('Sucursal · Sede Centro')->assertDontSee('Branch #');
+        $this->get('/audit')->assertPageSees('Sucursal actualizada')->assertPageSees('Sucursal · Sede Centro')->assertPageMisses('Branch #');
     }
 
     public function test_summary_contracts_del_and_context_has_no_technical_keys(): void

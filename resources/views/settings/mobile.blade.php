@@ -4,8 +4,8 @@
 
 @section('content')
 @php
-    use App\Models\CompanyConfiguration;
-    use App\Models\EmployeeDocument;
+    use App\Modules\Core\Models\CompanyConfiguration;
+    use App\Modules\HR\Models\EmployeeDocument;
     $children = ['mobile_documents_upload' => 'mobile_documents_enabled', 'mobile_payment_info_edit' => 'mobile_payment_info_enabled', 'mobile_uniforms_edit' => 'mobile_uniforms_enabled'];
 @endphp
 

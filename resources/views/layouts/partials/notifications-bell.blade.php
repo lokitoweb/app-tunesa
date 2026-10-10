@@ -27,7 +27,7 @@
                 <form method="POST" action="{{ route('notifications.read', $n->id) }}" class="m-0">
                     @csrf
                     <button type="submit" class="dropdown-item d-flex gap-2 py-2 text-wrap {{ $n->read_at ? '' : 'notif-unread' }}">
-                        <i class="bi bi-{{ \App\Http\Controllers\Web\NotificationWebController::icon($n->data['type'] ?? null) }} text-body-secondary mt-1"></i>
+                        <i class="bi bi-{{ \App\Modules\Core\Controllers\Web\NotificationWebController::icon($n->data['type'] ?? null) }} text-body-secondary mt-1"></i>
                         <span class="min-w-0">
                             <span class="d-block small fw-semibold">{{ $n->data['title'] ?? 'Notificación' }}</span>
                             <span class="d-block small text-body-secondary">{{ \Illuminate\Support\Str::limit($n->data['body'] ?? '', 110) }}</span>

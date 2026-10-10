@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Models\CompanyConfiguration;
-use App\Models\EmployeeDocument;
-use App\Models\EmployeeProfile;
-use App\Models\Role;
-use App\Models\UniformDelivery;
-use App\Models\UniformSize;
-use App\Support\Labels;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\HR\Models\EmployeeDocument;
+use App\Modules\HR\Models\EmployeeProfile;
+use App\Modules\Core\Models\Role;
+use App\Modules\HR\Models\UniformDelivery;
+use App\Modules\HR\Models\UniformSize;
+use App\Modules\Core\Support\Labels;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Schema;
@@ -16,7 +16,7 @@ use Symfony\Component\Finder\Finder;
 use Tests\TestCase;
 
 /**
- * El diccionario App\Support\Labels cubre todo lo que puede llegar a la UI:
+ * El diccionario App\Modules\Core\Support\Labels cubre todo lo que puede llegar a la UI:
  * si alguien agrega una acción de auditoría o una columna sin etiqueta, falla.
  */
 class LabelsCoverageTest extends TestCase
@@ -63,7 +63,7 @@ class LabelsCoverageTest extends TestCase
             }
         }
 
-        $this->assertSame([], $missing, 'Acciones de auditoría sin etiqueta en App\Support\Labels::ACTIONS');
+        $this->assertSame([], $missing, 'Acciones de auditoría sin etiqueta en App\Modules\Core\Support\Labels::ACTIONS');
     }
 
     public function test_dynamic_action_variants_are_labeled(): void
@@ -103,7 +103,7 @@ class LabelsCoverageTest extends TestCase
             }
         }
 
-        $this->assertSame([], $missing, 'Columnas sin etiqueta en App\Support\Labels::FIELDS');
+        $this->assertSame([], $missing, 'Columnas sin etiqueta en App\Modules\Core\Support\Labels::FIELDS');
 
         foreach (Labels::FIELDS as $field => $label) {
             $this->assertDoesNotMatchRegularExpression('/[a-z]_[a-z]/', $label, $field);

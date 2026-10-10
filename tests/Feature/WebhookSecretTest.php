@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
-use App\Models\TenantSetting;
-use App\Services\Integrations\WebhookSender;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Integrations\Services\WebhookSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,15 +42,17 @@ class WebhookSecretTest extends TestCase
         $admin = $this->makeUser($acme, 'company_admin');
         DB::table('tenant_settings')->where('tenant_id', $acme->id)->update(['webhook_secret' => null]); // dato antiguo
 
-        $html = $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertOk()
-            ->assertDontSee('Sin secreto')->assertSee('Regenerar secreto')
-            ->assertSee('value="' . route('integrations.receiver', ['slug' => 'acme']) . '"', false)
-            ->assertSee('value="' . route('integrations.receiver', ['slug' => 'acme']) . '?canal=notificaciones"', false)
-            ->getContent();
+        // El enlace antiguo a la pestaña lleva a la pantalla de Integraciones
+        $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertRedirect(route('settings.integrations'));
+
+        $page = $this->get('/settings/integrations')->assertOk()
+            ->assertInertia(fn ($p) => $p->component('Integrations/Pages/Settings/Index')
+                ->where('values.webhook_url', route('api.integrations.receiver', ['slug' => 'acme']))
+                ->where('values.notification_endpoint', route('api.integrations.receiver', ['slug' => 'acme']) . '?canal=notificaciones'));
 
         $secret = TenantSetting::rowFor($acme)->webhook_secret;
         $this->assertStringStartsWith('whsec_', $secret);
-        $this->assertStringContainsString('value="' . $secret . '"', $html);
+        $this->assertSame($secret, $page->prop('values.webhook_secret'));
     }
 
     public function test_regenerate_returns_a_new_secret_and_audits_without_the_value(): void
@@ -94,7 +96,7 @@ class WebhookSecretTest extends TestCase
     {
         $acme     = $this->makeTenant('acme');
         $admin    = $this->makeUser($acme, 'company_admin');
-        $receiver = route('integrations.receiver', ['slug' => 'acme']);
+        $receiver = route('api.integrations.receiver', ['slug' => 'acme']);
         Http::fake([$receiver => Http::response(['ok' => true, 'signature_valid' => true], 200)]);
 
         // localhost (APP_URL) se permite solo para la ruta del receptor

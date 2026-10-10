@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Modules\Core\Models\Concerns;
+
+use App\Modules\Core\Models\Scopes\TenantScope;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+/**
+ * BelongsToTenant
+ *
+ * Trait para todo modelo con columna tenant_id:
+ *  - Registra el TenantScope global (aislamiento en lectura).
+ *  - Completa tenant_id al crear si no se indicó (aislamiento en escritura).
+ *  - Impide guardar un registro con un tenant_id distinto al de la request.
+ */
+trait BelongsToTenant
+{
+    public static function bootBelongsToTenant(): void
+    {
+        static::addGlobalScope(new TenantScope());
+
+        static::creating(function ($model) {
+            $context = app(TenantContext::class);
+
+            if ($context->resolved() && empty($model->tenant_id)) {
+                $model->tenant_id = $context->id();
+            }
+        });
+
+        static::saving(function ($model) {
+            $context = app(TenantContext::class);
+
+            if ($context->resolved()
+                && ! is_null($model->tenant_id)
+                && (int) $model->tenant_id !== $context->id()) {
+                throw new \DomainException('No se puede guardar un registro de otra empresa.');
+            }
+        });
+    }
+
+    /**
+     * Filtra por empresa; con null (vista global del Super Admin) no filtra.
+     * Las empresas siempre llegan con su id: SetWebTenant fija el contexto.
+     */
+    public function scopeForTenant(Builder $query, ?int $tenantId): Builder
+    {
+        return $tenantId === null ? $query : $query->where($this->qualifyColumn('tenant_id'), $tenantId);
+    }
+
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+}

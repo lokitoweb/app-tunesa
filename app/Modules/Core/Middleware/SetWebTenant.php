@@ -1,0 +1,148 @@
+<?php
+
+namespace App\Modules\Core\Middleware;
+
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Services\TenantContext;
+use App\Modules\ModuleRegistry;
+use Closure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Middleware: SetWebTenant
+ *
+ * Panel web (sesión): activa el TenantContext con la empresa del usuario
+ * logueado, para que los global scopes (TenantScope) apliquen igual que en
+ * la API. También cierra el panel a colaboradores y a empresas suspendidas.
+ *
+ * Super Admin: no pertenece a ninguna empresa. Con el selector del panel
+ * (sesión `admin_tenant_id`) entra a una empresa y todo queda con su scope.
+ * Sin empresa elegida está en la "vista global": puede abrir cualquier módulo
+ * y los listados muestran registros de todas las empresas (nunca se le
+ * redirige al dashboard). Lo único que exige elegir empresa es crear o
+ * editar, porque cada registro tiene que nacer con su tenant_id.
+ */
+class SetWebTenant
+{
+    public function __construct(
+        private readonly TenantContext $tenantContext
+    ) {}
+
+    public function handle(Request $request, Closure $next): Response
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return $next($request);
+        }
+
+        if ($user->isSuperAdmin()) {
+            return $this->handleSuperAdmin($request, $next);
+        }
+
+        $tenant = $user->tenant;
+
+        if (! $tenant || ! $tenant->isActive() || $user->status !== 'active' || ! $user->hasPermission('dashboard.view')) {
+            Auth::logout();
+            $request->session()->invalidate();
+
+            return redirect()->route('login')
+                ->withErrors(['email' => 'Tu cuenta no tiene acceso al panel o la empresa está suspendida.']);
+        }
+
+        $this->activate($tenant);
+        View::share('globalView', false);
+
+        return $next($request);
+    }
+
+    /** Rutas de escritura permitidas en la vista global (no crean registros de empresa) */
+    public const GLOBAL_WRITE_ROUTES = [
+        'logout', 'admin.tenant.switch', 'notifications.read', 'notifications.read-all',
+        // Sin empresa elegida edita los valores por defecto de la plataforma (tenant_settings global)
+        'settings.branding.update', 'settings.integrations.update',
+        // Pruebas de integraciones de la plataforma (no crean registros de empresa)
+        'settings.branding.test-webhook', 'settings.branding.test-notification', 'settings.branding.test-push',
+    ];
+
+    /**
+     * Rutas que eligen la empresa en el propio formulario (selector "Empresa"
+     * para crear, o la empresa del registro al editar): funcionan en la vista global.
+     */
+    public const GLOBAL_TENANT_PICKER_ROUTES = [
+        'branches.create', 'branches.store', 'branches.edit', 'branches.update', 'branches.destroy',
+        // Las empresas mismas (Super Admin): no pertenecen a ninguna empresa
+        'companies.create', 'companies.store', 'companies.edit', 'companies.update',
+    ];
+
+    /** Formularios GET que preparan una escritura y por eso necesitan empresa */
+    public const GLOBAL_FORM_ROUTES = ['*.create', '*.edit', 'payslips.bulk'];
+
+    private function handleSuperAdmin(Request $request, Closure $next): Response
+    {
+        $tenantId = $request->session()->get('admin_tenant_id');
+        $tenant   = $tenantId ? Tenant::find($tenantId) : null;
+
+        if ($tenant) {
+            $this->activate($tenant);
+            View::share('globalView', false);
+
+            return $next($request);
+        }
+
+        $request->session()->forget('admin_tenant_id');
+        View::share('globalView', true);
+        View::share('tenantNames', Tenant::orderBy('company_name')->pluck('company_name', 'id'));
+
+        if ($this->needsTenantToWrite($request)) {
+            $message = 'Para crear o editar, elige la empresa en el selector superior.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 409);
+            }
+
+            // Al listado del módulo, no a back(): la URL previa de la sesión puede ser
+            // un recurso (p. ej. la selfie firmada que pidió un <img>).
+            return redirect()->to($this->moduleIndex($request))->with('error', $message);
+        }
+
+        return $next($request);
+    }
+
+    /** Vuelve al listado del mismo módulo (employees.create → employees.index) */
+    private function moduleIndex(Request $request): string
+    {
+        $index = Str::before($request->route()?->getName() ?? '', '.') . '.index';
+
+        return Route::has($index) ? route($index) : route('dashboard');
+    }
+
+    private function needsTenantToWrite(Request $request): bool
+    {
+        $route = $request->route()?->getName() ?? '';
+
+        if (in_array($route, self::GLOBAL_WRITE_ROUTES, true) || in_array($route, self::GLOBAL_TENANT_PICKER_ROUTES, true)) {
+            return false;
+        }
+
+        if (! $request->isMethodSafe()) {
+            return true;
+        }
+
+        return Str::is(self::GLOBAL_FORM_ROUTES, $route);
+    }
+
+    private function activate(Tenant $tenant): void
+    {
+        abort_if(ModuleRegistry::blocks(request(), $tenant), 403, 'Este módulo no está activo para tu empresa.');
+
+        $this->tenantContext->set($tenant);
+        config(['app.timezone' => $tenant->timezone]);
+        date_default_timezone_set($tenant->timezone);
+    }
+}

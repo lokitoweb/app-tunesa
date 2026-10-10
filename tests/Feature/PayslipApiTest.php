@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Payslip;
+use App\Modules\Payroll\Models\Payslip;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\CreatesTenants;

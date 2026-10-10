@@ -10,13 +10,13 @@
  * =============================================================================
  */
 
-use App\Services\TenantContext;
+use App\Modules\Core\Services\TenantContext;
 
 if (! function_exists('current_tenant')) {
     /**
      * Retorna el tenant activo en la request actual.
      */
-    function current_tenant(): \App\Models\Tenant
+    function current_tenant(): \App\Modules\Core\Models\Tenant
     {
         return app(TenantContext::class)->get();
     }
@@ -61,26 +61,26 @@ if (! function_exists('attendance_photo_url')) {
     /**
      * URL temporal (firmada) de la selfie de entrada ('in') o salida ('out').
      */
-    function attendance_photo_url(\App\Models\Attendance $attendance, string $moment = 'in'): ?string
+    function attendance_photo_url(\App\Modules\Attendance\Models\Attendance $attendance, string $moment = 'in'): ?string
     {
-        return app(\App\Services\AttendanceEvidence::class)->photoUrl($attendance, $moment);
+        return app(\App\Modules\Attendance\Services\AttendanceEvidence::class)->photoUrl($attendance, $moment);
     }
 }
 
 // =============================================================================
-// Presentación de datos (App\Support\Labels): nada de claves ni enums crudos en la UI
+// Presentación de datos (App\Modules\Core\Support\Labels): nada de claves ni enums crudos en la UI
 // =============================================================================
 
 if (! function_exists('label')) {
     /**
      * Etiqueta en español de un valor de enum: label('leave_status', 'approved') → "Aprobada".
-     * Conjuntos en App\Support\Labels::ENUMS (attendance_status, leave_status, leave_type,
+     * Conjuntos en App\Modules\Core\Support\Labels::ENUMS (attendance_status, leave_status, leave_type,
      * document_status, document_type, payslip_status, user_role, user_status, tenant_status,
      * tenant_plan, shift_type, branch_status, notification_type, holiday_type, uniform_item...).
      */
     function label(string $set, mixed $value): string
     {
-        return \App\Support\Labels::enum($set, $value);
+        return \App\Modules\Core\Support\Labels::enum($set, $value);
     }
 }
 
@@ -88,7 +88,7 @@ if (! function_exists('field_label')) {
     /** Nombre en español de una columna: field_label('default_grace_minutes') → "Tolerancia por defecto (min)" */
     function field_label(string $field): string
     {
-        return \App\Support\Labels::field($field);
+        return \App\Modules\Core\Support\Labels::field($field);
     }
 }
 
@@ -99,7 +99,7 @@ if (! function_exists('field_value')) {
      */
     function field_value(string $field, mixed $value, bool $inherits = false): string|\Illuminate\Support\HtmlString
     {
-        return \App\Support\Labels::value($field, $value, null, $inherits);
+        return \App\Modules\Core\Support\Labels::value($field, $value, null, $inherits);
     }
 }
 
@@ -107,6 +107,6 @@ if (! function_exists('masked')) {
     /** Secreto para mostrar: "sk_live_abcdef1234" → "••••••••1234" */
     function masked(?string $secret): ?string
     {
-        return \App\Support\SensitiveFields::maskString($secret);
+        return \App\Modules\Core\Support\SensitiveFields::maskString($secret);
     }
 }

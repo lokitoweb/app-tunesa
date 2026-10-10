@@ -1,8 +1,8 @@
 # API para la app móvil
 
-Contrato entre la app Flutter (`mobile/`) y el backend. Fuente de verdad: `routes/api.php`, los
-controladores de `app/Http/Controllers/Api/`, los FormRequest de `app/Http/Requests/Api/` y los
-Resources de `app/Http/Resources/`. Los ejemplos están armados a partir de esos archivos y de
+Contrato entre la app Flutter (`mobile/`) y el backend. Fuente de verdad: `app/Modules/*/Routes/api.php`, los
+controladores de `app/Modules/*/Controllers/Api/`, los FormRequest de `app/Modules/Attendance/Requests/` y los
+Resources de `app/Modules/*/Resources/`. Los ejemplos están armados a partir de esos archivos y de
 los datos demo del seeder.
 
 ## Base URL y cabeceras
@@ -63,7 +63,7 @@ el texto.
 | 500 | `SERVER_ERROR` | Error inesperado al marcar (se registra en el log; el mensaje no expone detalles internos). |
 | 503 | `GEOCODING_UNAVAILABLE` | El proveedor de mapas (Nominatim/Google) no respondió (`/api/geocode/reverse`). |
 
-Los errores de la marcación salen de `App\Exceptions\AttendanceException` (código + HTTP
+Los errores de la marcación salen de `App\Modules\Attendance\Exceptions\AttendanceException` (código + HTTP
 status), que `AttendanceController::handleAttendanceException` devuelve tal cual.
 `GEOFENCE_VIOLATION` es **solo** distancia a la sucursal.
 
@@ -569,8 +569,8 @@ Cualquier rol autenticado.
 }
 ```
 
-(Ejemplo de `app/Notifications/LeaveRequestReviewed.php`; los demás avisos están en
-`app/Notifications/` y los dispara `app/Services/NotificationDispatcher.php`.) Si la empresa
+(Ejemplo de `app/Modules/HR/Notifications/LeaveRequestReviewed.php`; los demás avisos están en
+`app/Modules/*/Notifications/` y los dispara `app/Modules/Core/Services/NotificationDispatcher.php`.) Si la empresa
 configuró un "Endpoint de notificaciones" en Marca y app, cada aviso creado también se reenvía por
 POST firmado a ese endpoint (`notification.created`, ver
 [white-label.md](../architecture/white-label.md#integraciones-webhook-y-endpoint-de-notificaciones)).
@@ -587,7 +587,7 @@ El colaborador los recibe in-app **y por push**; el supervisor de la sucursal, s
 
 ### Push (FCM)
 
-El backend envía push con Firebase Cloud Messaging (API HTTP v1, `App\Services\Push\FcmSender`)
+El backend envía push con Firebase Cloud Messaging (API HTTP v1, `App\Modules\Integrations\Services\Push\FcmSender`)
 **cada vez que crea un aviso in-app** para un usuario que:
 
 1. tiene `users.fcm_token` (lo manda la app en el login o con `POST /api/auth/refresh-fcm`), y
