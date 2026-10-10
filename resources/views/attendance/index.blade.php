@@ -66,6 +66,7 @@
                     <option value="late" @selected(request('status') == 'late')>Tardanza</option>
                     <option value="absent" @selected(request('status') == 'absent')>Ausente</option>
                     <option value="excused" @selected(request('status') == 'excused')>Justificado</option>
+                    <option value="suspicious" @selected(request('status') == 'suspicious')>Solo sospechosas</option>
                 </select>
             </div>
             <div class="col-6 col-md-5 col-xl-2">
@@ -142,7 +143,12 @@
                             @endif
                         </td>
                         <td class="text-nowrap">{{ number_format((float) ($att->worked_hours ?? 0), 2) }} h</td>
-                        <td>@include('partials.attendance-status', ['status' => $att->status])</td>
+                        <td class="text-nowrap">
+                            @include('partials.attendance-status', ['status' => $att->status])
+                            @if($att->is_suspicious)
+                                <span class="badge rounded-pill text-bg-warning ms-1" title="Ubicación simulada, hora desfasada, rostro no verificado o fuera de la geocerca"><i class="bi bi-shield-exclamation"></i> Sospechosa</span>
+                            @endif
+                        </td>
                         <td class="text-end text-nowrap">
                             <button type="button" class="btn btn-sm btn-outline-primary" onclick="openEvidence({{ $att->id }})" title="Ver selfie y mapa" aria-label="Ver selfie y mapa">
                                 <i class="bi bi-geo-alt"></i>

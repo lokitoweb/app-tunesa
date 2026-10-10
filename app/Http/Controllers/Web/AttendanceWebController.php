@@ -46,7 +46,9 @@ class AttendanceWebController extends Controller
         }
 
         // Filtro por estado
-        if ($status = $request->input('status')) {
+        if ($request->input('status') === 'suspicious') {
+            $query->where('is_suspicious', true);
+        } elseif ($status = $request->input('status')) {
             $query->where('status', $status);
         }
 
@@ -92,7 +94,7 @@ class AttendanceWebController extends Controller
         $tenantId = current_tenant_id_or_null();
 
         $attendance = Attendance::forTenant($tenantId)
-            ->with(['user', 'branch', 'shift', 'reviewer'])
+            ->with(['user', 'branch', 'shift', 'reviewer', 'punches' => fn ($q) => $q->orderBy('server_time')->orderBy('id')])
             ->findOrFail($id);
 
         return view('attendance.show', compact('attendance'));

@@ -100,6 +100,9 @@
             ['Distancia', (p.distance_meters ?? '—') + ' m de ' + radius + ' m permitidos'],
             ['Precisión GPS', p.gps_accuracy ? '± ' + p.gps_accuracy + ' m' : '—'],
             ['Ubicación simulada', p.is_mocked ? 'Sí (sospechoso)' : 'No'],
+            ['Rostro detectado', p.face_detected === null || p.face_detected === undefined ? '—' : (p.face_detected ? 'Sí' : 'No')],
+            ['Hora del celular', p.time_drift_seconds == null ? '—' : (p.time_drift_seconds === 0 ? 'Sincronizada' : 'Desfase de ' + Math.abs(p.time_drift_seconds) + ' s')],
+            ['Motivos de sospecha', (p.suspicion_labels || []).length ? p.suspicion_labels.join(', ') : 'Ninguno'],
             ['Coordenadas', p.latitude != null ? Number(p.latitude).toFixed(6) + ', ' + Number(p.longitude).toFixed(6) : '—'],
             ['Dispositivo', p.device || '—'],
         ] : [];

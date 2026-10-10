@@ -52,6 +52,7 @@ class AttendanceEvidence
                 'device_time'     => $attendance->{"clock_{$moment}_device_time"}?->toIso8601String(),
                 'time_drift_seconds' => $attendance->{"clock_{$moment}_time_drift_seconds"},
                 'suspicion_reasons'  => $meta['suspicion_reasons'] ?? [],
+                'suspicion_labels'   => array_map(fn ($r) => \App\Support\Labels::enum('suspicion_reason', $r), $meta['suspicion_reasons'] ?? []),
                 'device'          => $attendance->{"clock_{$moment}_device_id"},
                 'photo_url'       => $this->photoUrl($attendance, $moment),
             ];

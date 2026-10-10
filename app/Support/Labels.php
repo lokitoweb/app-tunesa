@@ -644,6 +644,19 @@ final class Labels
             'verified'   => ['Verificado', 'success'],
             'rejected'   => ['Observado', 'danger'],
         ],
+        'punch_type' => [
+            'clock_in'    => ['Entrada', 'success'],
+            'break_start' => ['Inicio de descanso', 'secondary'],
+            'break_end'   => ['Fin de descanso', 'secondary'],
+            'clock_out'   => ['Salida', 'primary'],
+        ],
+        'suspicion_reason' => [
+            'MOCK_LOCATION'    => ['Ubicación simulada', 'danger'],
+            'TIME_DRIFT'       => ['Hora del celular desfasada', 'warning'],
+            'FACE_UNVERIFIED'  => ['Rostro no verificado', 'warning'],
+            'OUT_OF_GEOFENCE'  => ['Fuera de la geocerca', 'warning'],
+            'OUTSIDE_SCHEDULE' => ['Fuera del horario', 'warning'],
+        ],
         'audit_scope' => [
             'tenant'   => ['Empresa', 'secondary'],
             'platform' => ['Toda la plataforma', 'dark'],

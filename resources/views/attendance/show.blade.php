@@ -35,6 +35,9 @@
     </div>
     <div class="d-flex align-items-center gap-2">
         @include('partials.attendance-status', ['status' => $attendance->status])
+        @if($attendance->is_suspicious)
+            <span class="badge rounded-pill text-bg-warning"><i class="bi bi-shield-exclamation me-1"></i>Sospechosa</span>
+        @endif
         <button type="button" class="btn btn-primary" onclick="openEvidence({{ $attendance->id }})">
             <i class="bi bi-geo-alt me-1"></i> Ver selfie y mapa
         </button>
@@ -99,6 +102,69 @@
             </div>
         </div>
     @endforeach
+</div>
+
+<div class="card border-0 mb-4">
+    <div class="card-header border-0 pt-3">
+        <h2 class="h6 fw-semibold mb-0">Bitácora de marcaciones</h2>
+        <small class="text-body-secondary">Registro inmutable de cada evento tal como llegó del celular: no se puede editar ni borrar.</small>
+    </div>
+    @if($attendance->punches->isEmpty())
+        <div class="card-body pt-0 small text-body-secondary">Esta marcación es anterior a la bitácora: sus datos están en las tarjetas de arriba.</div>
+    @else
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0 small">
+                <thead>
+                    <tr>
+                        <th>Evento</th><th>Hora del servidor</th><th>Hora del celular</th><th class="text-end">Precisión</th>
+                        <th class="text-end">Distancia</th><th>Dirección</th><th>Verificación</th><th class="text-end"><span class="visually-hidden">Foto</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($attendance->punches as $punch)
+                        @php $tz = tenant_timezone(); @endphp
+                        <tr class="{{ $punch->suspicious ? 'table-warning' : '' }}">
+                            <td class="text-nowrap"><x-status-badge type="punch_type" :value="$punch->type" /></td>
+                            <td class="text-nowrap">{{ $punch->server_time?->copy()->setTimezone($tz)->format('d/m/Y H:i:s') ?? '—' }}</td>
+                            <td class="text-nowrap">
+                                {{ $punch->device_time?->copy()->setTimezone($tz)->format('H:i:s') ?? '—' }}
+                                @if($punch->time_drift_seconds)
+                                    <span class="text-body-secondary">({{ $punch->time_drift_seconds > 0 ? '+' : '−' }}{{ abs($punch->time_drift_seconds) }} s)</span>
+                                @endif
+                                @if($punch->offline)
+                                    <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis fw-normal"><i class="bi bi-wifi-off"></i> Sin conexión</span>
+                                @endif
+                            </td>
+                            <td class="text-end text-nowrap">{{ $punch->accuracy_meters !== null ? '± ' . round($punch->accuracy_meters) . ' m' : '—' }}</td>
+                            <td class="text-end text-nowrap {{ $punch->within_geofence === false ? 'text-danger' : '' }}">{{ $punch->distance_meters !== null ? $punch->distance_meters . ' m' : '—' }}</td>
+                            <td class="text-break" style="min-width: 12rem;">{{ $punch->address ?? ($punch->latitude !== null ? number_format($punch->latitude, 6) . ', ' . number_format($punch->longitude, 6) : '—') }}</td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    @if($punch->face_detected === true)
+                                        <span class="badge rounded-pill bg-success-subtle text-success-emphasis fw-normal"><i class="bi bi-person-check"></i> Rostro</span>
+                                    @endif
+                                    @forelse($punch->suspicion_reasons ?? [] as $reason)
+                                        <x-status-badge type="suspicion_reason" :value="$reason" />
+                                    @empty
+                                        <span class="badge rounded-pill bg-success-subtle text-success-emphasis fw-normal">Sin observaciones</span>
+                                    @endforelse
+                                </div>
+                            </td>
+                            <td class="text-end">
+                                @if($url = $punch->photoUrl())
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-photo="{{ $url }}"
+                                            data-photo-title="Foto: {{ label('punch_type', $punch->type) }}"
+                                            data-photo-meta="{{ $punch->server_time?->copy()->setTimezone($tz)->format('d/m/Y H:i:s') }}">
+                                        <i class="bi bi-image"></i><span class="visually-hidden">Ver foto</span>
+                                    </button>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
 </div>
 
 <div class="card border-0 mb-4">
