@@ -113,6 +113,21 @@ class ModularArchitectureTest extends TestCase
         $this->assertSame(User::class, DB::table('personal_access_tokens')->value('tokenable_type'));
     }
 
+    public function test_panel_responses_carry_security_headers(): void
+    {
+        $admin = $this->makeUser($this->makeTenant('acme'), 'company_admin');
+
+        foreach ([$this->get('/login'), $this->actingAs($admin)->get('/dashboard'), $this->get('/shifts')] as $response) {
+            $response->assertOk()
+                ->assertHeader('X-Frame-Options', 'SAMEORIGIN')
+                ->assertHeader('X-Content-Type-Options', 'nosniff')
+                ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+        }
+        // Con HTTPS se anuncia HSTS; sin HTTPS no (rompería el desarrollo local)
+        $this->assertFalse($this->get('/dashboard')->headers->has('Strict-Transport-Security'));
+        $this->get('https://localhost/dashboard')->assertHeader('Strict-Transport-Security');
+    }
+
     public function test_frontend_build_is_split_per_module_without_sourcemaps(): void
     {
         $config = file_get_contents(base_path('vite.config.js'));

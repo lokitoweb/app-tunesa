@@ -258,6 +258,23 @@ class OrgHierarchyTest extends TestCase
         $this->assertSame(['branch', $this->trujillo->id], [$created->scope_type, $created->scope_branch_id]);
     }
 
+    public function test_scoped_admin_editing_an_employee_keeps_assignments_outside_the_scope(): void
+    {
+        $agency = $this->scoped('hr_manager', ['scope_type' => 'branch', 'scope_branch_id' => $this->trujillo->id]);
+        // Ana también trabaja en Arequipa, que el administrador de Trujillo no ve
+        $this->ana->branches()->attach($this->arequipa->id, ['is_primary' => false, 'assigned_from' => '2020-01-01']);
+
+        $this->actingAs($agency)->put("/employees/{$this->ana->id}", [
+            'first_name' => 'Ana María', 'last_name' => 'Prueba', 'email' => $this->ana->email, 'role' => 'employee', 'status' => 'active',
+            'document_type' => 'dni', 'document_number' => '70000002',
+            'branch_ids' => [$this->trujillo->id], 'primary_branch_id' => $this->trujillo->id,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('Ana María', $this->ana->fresh()->first_name);
+        $this->assertDatabaseHas('employee_branch', ['user_id' => $this->ana->id, 'branch_id' => $this->arequipa->id]);
+        $this->assertDatabaseHas('employee_branch', ['user_id' => $this->ana->id, 'branch_id' => $this->trujillo->id, 'is_primary' => true]);
+    }
+
     // =========================================================================
     // MARCACIÓN ITINERANTE
     // =========================================================================

@@ -4,6 +4,7 @@ namespace App\Modules\HR\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Services\OrgScope;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Shift;
 use App\Modules\Core\Models\User;
@@ -267,7 +268,14 @@ class EmployeeController extends Controller
             foreach ($validated['branch_ids'] as $bId) {
                 $branchesToSync[$bId] = ['is_primary' => ($bId == $validated['primary_branch_id'])];
             }
-            $employee->branches()->sync($branchesToSync);
+            if (app(OrgScope::class)->restricted()) {
+                // Alcance de zona o sede: solo se tocan las sedes que el usuario ve. Las asignaciones
+                // del colaborador en otras sedes (fuera de su alcance) se conservan.
+                $employee->branches()->detach(array_diff(Branch::pluck('id')->all(), array_keys($branchesToSync)));
+                $employee->branches()->syncWithoutDetaching($branchesToSync);
+            } else {
+                $employee->branches()->sync($branchesToSync);
+            }
 
             // Cambiar de turno solo si es distinto al vigente
             $current = EmployeeShift::where('user_id', $employee->id)->current()->first();
