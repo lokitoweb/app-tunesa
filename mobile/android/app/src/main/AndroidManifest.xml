@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Notificaciones push (Android 13+ pide permiso en tiempo de ejecución) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- GPS de alta precisión para validar la geocerca al marcar -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -45,6 +48,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Canal para los push que muestra el sistema con la app en segundo plano
+             (la app lo crea al activar el push: PushService._channelId). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="tunesa_default" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

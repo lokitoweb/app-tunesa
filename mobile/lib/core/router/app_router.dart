@@ -7,6 +7,7 @@ import '../../features/attendance/domain/models.dart';
 import '../../features/attendance/presentation/clock_screen.dart';
 import '../../features/attendance/presentation/history_screen.dart';
 import '../../features/attendance/presentation/offline_sync.dart';
+import '../../features/attendance/presentation/rejected_punches_screen.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/change_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -31,6 +32,7 @@ import '../../features/team/presentation/team_live_screen.dart';
 import '../config/app_config_controller.dart';
 import '../config/version_gate.dart';
 import '../providers.dart';
+import '../push/push_controller.dart';
 import '../widgets/async_views.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
@@ -110,6 +112,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootKey,
+        path: '/attendance/rejected',
+        builder: (_, _) => const RejectedPunchesScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
         path: '/requests/new',
         builder: (_, _) => const NewRequestScreen(),
       ),
@@ -174,6 +181,7 @@ class _AppShell extends ConsumerWidget {
         if (!online) OfflineBanner(offlineClocking: offlineClocking),
         const UpdateBanner(),
         const OfflineSyncListener(),
+        const PushListener(),
         Expanded(child: shell),
       ]),
       bottomNavigationBar: NavigationBar(
