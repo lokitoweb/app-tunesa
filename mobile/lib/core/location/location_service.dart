@@ -1,8 +1,10 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../config/app_config.dart';
 import '../config/env.dart';
 
 /// Motivo por el que no se pudo obtener una ubicación confiable.
@@ -29,20 +31,83 @@ class LocationException implements Exception {
   String toString() => message;
 }
 
+/// Qué hacer con una lectura según `mock_location_policy`.
+enum MockDecision {
+  /// Ubicación real: se envía normal.
+  allow,
+
+  /// Simulada con política `flag`: se envía con `is_mocked=1` y se avisa.
+  flag,
+
+  /// Simulada con política `reject`: no se envía.
+  block,
+}
+
+MockDecision decideMock({required bool isMocked, required MockLocationPolicy policy}) {
+  if (!isMocked) return MockDecision.allow;
+  return policy == MockLocationPolicy.flag ? MockDecision.flag : MockDecision.block;
+}
+
+/// Mensaje para el colaborador cuando la marcación se envía con ubicación simulada.
+const mockFlagWarning =
+    'Detectamos una ubicación simulada. Tu marcación quedará en revisión.';
+
+/// Lectura GPS verificada (con el resultado de ubicación simulada combinado).
+class LocationFix {
+  const LocationFix(this.position, {required this.isMocked});
+
+  final Position position;
+
+  /// `Position.isMocked` (Android / iOS) o el chequeo nativo de iOS 15+.
+  final bool isMocked;
+
+  double get latitude => position.latitude;
+  double get longitude => position.longitude;
+  double get accuracy => position.accuracy;
+  DateTime get timestamp => position.timestamp;
+}
+
+/// iOS 15+: `CLLocation.sourceInformation` (isSimulatedBySoftware /
+/// isProducedByAccessory) con una lectura puntual de CLLocationManager
+/// (ios/Runner/AppDelegate.swift). En Android o si falla: false.
+class LocationIntegrityChannel {
+  const LocationIntegrityChannel([this._channel = const MethodChannel('tunesa/location_integrity')]);
+
+  final MethodChannel _channel;
+
+  Future<bool> isSimulated() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return false;
+    try {
+      final result = await _channel.invokeMapMethod<String, Object?>('checkSimulated').timeout(const Duration(seconds: 6));
+      return result?['simulated'] == true || result?['accessory'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
 /// Lectura GPS "estricta" para marcar asistencia.
 ///
 /// 1. Servicio de ubicación encendido.
 /// 2. Permiso concedido (lo solicita si hace falta).
 /// 3. Lectura fresca de alta precisión (no se usa la última posición cacheada).
-/// 4. Rechaza ubicaciones simuladas (mock GPS / apps de GPS falso).
+/// 4. Ubicaciones simuladas (mock GPS / apps de GPS falso) según la política
+///    de la empresa: `reject` las bloquea, `flag` las deja pasar marcadas.
 /// 5. Rechaza lecturas con precisión peor que `max_gps_accuracy_meters` de
 ///    la configuración de la empresa (respaldo: [Env.maxGpsAccuracyMeters]).
 ///
 /// El backend vuelve a validar mock, precisión y geocerca (Haversine).
 class LocationService {
+  LocationService({this._integrity = const LocationIntegrityChannel()});
+
   static const double _earthRadiusMeters = 6371000;
 
-  Future<Position> getVerifiedPosition({int? maxAccuracyMeters}) async {
+  final LocationIntegrityChannel _integrity;
+
+  Future<LocationFix> getVerifiedFix({
+    int? maxAccuracyMeters,
+    MockLocationPolicy mockPolicy = MockLocationPolicy.reject,
+  }) async {
     final maxAccuracy = maxAccuracyMeters ?? Env.maxGpsAccuracyMeters;
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw const LocationException(
@@ -69,6 +134,7 @@ class LocationService {
     }
 
     final Position position;
+    final simulated = _integrity.isSimulated();
     try {
       position = await Geolocator.getCurrentPosition(locationSettings: _settings());
     } on Exception catch (e) {
@@ -81,10 +147,12 @@ class LocationService {
       );
     }
 
-    if (position.isMocked) {
+    final isMocked = position.isMocked || await simulated;
+    if (decideMock(isMocked: isMocked, policy: mockPolicy) == MockDecision.block) {
       throw const LocationException(
         LocationFailure.mocked,
-        'Se detectó una ubicación simulada. Desactiva cualquier app de GPS falso o las opciones de desarrollador de ubicación.',
+        'Se detectó una ubicación simulada y tu empresa no permite marcar así. Desactiva cualquier app de '
+        'GPS falso o las opciones de desarrollador de ubicación y vuelve a intentarlo.',
       );
     }
 
@@ -95,7 +163,7 @@ class LocationService {
       );
     }
 
-    return position;
+    return LocationFix(position, isMocked: isMocked);
   }
 
   Future<void> openSettings(LocationFailure failure) => failure == LocationFailure.serviceDisabled

@@ -25,6 +25,15 @@ class Env {
   /// El backend aplica su propio límite (ATTENDANCE_MAX_GPS_ACCURACY).
   static const int maxGpsAccuracyMeters = int.fromEnvironment('MAX_GPS_ACCURACY', defaultValue: 100);
 
+  // Firebase (push). Sin google-services.json: las opciones llegan por
+  // --dart-define. Si falta alguna obligatoria, el push queda desactivado.
+  static const String firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
+  static const String firebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');
+  static const String firebaseMessagingSenderId = String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID');
+  static const String firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
+  static const String firebaseIosAppId = String.fromEnvironment('FIREBASE_IOS_APP_ID');
+  static const String firebaseIosBundleId = String.fromEnvironment('FIREBASE_IOS_BUNDLE_ID');
+
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 30);
   static const Duration gpsTimeout = Duration(seconds: 20);

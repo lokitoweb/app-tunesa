@@ -8,6 +8,10 @@
 	<string>TuneSA necesita la cámara frontal para tomar la selfie obligatoria de cada marcación.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>TuneSA te permite elegir fotos de tu galería para adjuntar sustentos y documentos de tu legajo.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<!-- Solo HTTPS hacia internet; http permitido únicamente en red local

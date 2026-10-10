@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tunesa_mobile/app.dart';
@@ -13,28 +12,24 @@ import 'package:tunesa_mobile/core/config/app_config_controller.dart';
 import 'package:tunesa_mobile/core/config/version_gate.dart';
 import 'package:tunesa_mobile/core/location/location_service.dart';
 import 'package:tunesa_mobile/core/providers.dart';
-import 'package:tunesa_mobile/features/attendance/data/offline_clock_queue.dart';
 import 'package:tunesa_mobile/features/attendance/domain/models.dart';
 import 'package:tunesa_mobile/features/attendance/presentation/clock_screen.dart';
 import 'package:tunesa_mobile/features/attendance/presentation/offline_sync.dart';
 
-class _MemoryStore implements SecureKeyValueStore {
-  final values = <String, String>{};
+/// Cola offline sin base de datos: solo el estado que dibuja la pantalla.
+class _FakeSync extends OfflineSyncController {
+  _FakeSync([this.initial = const OfflineSyncState()]);
+
+  final OfflineSyncState initial;
 
   @override
-  Future<String?> read(String key) async => values[key];
-
-  @override
-  Future<void> write(String key, String value) async => values[key] = value;
-
-  @override
-  Future<void> delete(String key) async => values.remove(key);
+  OfflineSyncState build() => initial;
 }
 
 /// Sin GPS en las pruebas: la pantalla muestra el error y sigue usable.
 class _NoGps extends LocationService {
   @override
-  Future<Position> getVerifiedPosition({int? maxAccuracyMeters}) async =>
+  Future<LocationFix> getVerifiedFix({int? maxAccuracyMeters, MockLocationPolicy mockPolicy = MockLocationPolicy.reject}) async =>
       throw const LocationException(LocationFailure.timeout, 'Sin GPS en pruebas');
 }
 
@@ -53,7 +48,12 @@ String _cache({String slug = '', Map<String, dynamic> mobile = const {}, Map<Str
 void main() {
   setUpAll(() => initializeDateFormatting('es'));
 
-  Future<void> pumpClock(WidgetTester tester, {Map<String, dynamic> mobile = const {}, SecureKeyValueStore? store}) async {
+  Future<void> pumpClock(
+    WidgetTester tester, {
+    Map<String, dynamic> mobile = const {},
+    OfflineSyncState sync = const OfflineSyncState(),
+    ClockAction action = ClockAction.clockIn,
+  }) async {
     SharedPreferences.setMockInitialValues({AppConfigRepository.cacheKey: _cache(mobile: mobile)});
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(ProviderScope(
@@ -61,13 +61,13 @@ void main() {
         sharedPreferencesProvider.overrideWithValue(prefs),
         locationServiceProvider.overrideWithValue(_NoGps()),
         connectivityProvider.overrideWith((ref) => Stream.value(true)),
-        offlineClockQueueProvider.overrideWithValue(OfflineClockQueue(store ?? _MemoryStore())),
+        offlineSyncProvider.overrideWith(() => _FakeSync(sync)),
       ],
       child: MaterialApp(
         locale: const Locale('es'),
         supportedLocales: const [Locale('es')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        home: const ClockScreen(action: ClockAction.clockIn),
+        home: ClockScreen(action: action),
       ),
     ));
     await tester.pumpAndSettle();
@@ -85,21 +85,21 @@ void main() {
     expect(find.text('Ubicación GPS'), findsOneWidget);
   });
 
-  testWidgets('muestra cuántas marcaciones sin conexión faltan enviar', (tester) async {
-    final store = _MemoryStore();
-    final queue = OfflineClockQueue(store);
-    for (final id in ['a', 'b']) {
-      await queue.add(PendingClock(
-        id: id,
-        action: ClockAction.clockIn,
-        latitude: 0,
-        longitude: 0,
-        accuracy: 5,
-        recordedAt: DateTime.now().toIso8601String(),
-      ));
-    }
-    await pumpClock(tester, mobile: {'offline_mode_enabled': true}, store: store);
+  testWidgets('muestra pendientes, última sincronización y no aceptadas', (tester) async {
+    await pumpClock(
+      tester,
+      mobile: {'offline_mode_enabled': true},
+      sync: OfflineSyncState(pending: 2, rejected: 1, lastSyncAt: DateTime(2026, 10, 9, 8, 30)),
+    );
     expect(find.text('2 marcaciones pendientes de envío'), findsOneWidget);
+    expect(find.textContaining('Última sincronización: 09/10/2026 08:30'), findsOneWidget);
+    expect(find.text('1 marcación no aceptada'), findsOneWidget);
+  });
+
+  testWidgets('el descanso ofrece la selfie como opcional', (tester) async {
+    await pumpClock(tester, action: ClockAction.breakStart);
+    expect(find.text('Selfie (opcional)'), findsOneWidget);
+    expect(find.text('Selfie (cámara frontal)'), findsNothing);
   });
 
   testWidgets('versión bajo el mínimo con force_update bloquea la app', (tester) async {
