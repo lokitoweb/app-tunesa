@@ -23,7 +23,7 @@
     <div class="list-group list-group-flush">
         @forelse($notifications as $n)
             <div class="list-group-item d-flex gap-3 align-items-start py-3 {{ $n->read_at ? '' : 'notif-unread' }}">
-                <span class="kpi-icon bg-primary-subtle text-primary-emphasis flex-shrink-0"><i class="bi bi-{{ \App\Http\Controllers\Web\NotificationWebController::icon($n->data['type'] ?? null) }}"></i></span>
+                <span class="kpi-icon bg-primary-subtle text-primary-emphasis flex-shrink-0"><i class="bi bi-{{ \App\Modules\Core\Controllers\Web\NotificationWebController::icon($n->data['type'] ?? null) }}"></i></span>
                 <div class="flex-grow-1 min-w-0">
                     <div class="d-flex flex-wrap justify-content-between gap-2">
                         <span class="fw-semibold">{{ $n->data['title'] ?? 'Notificación' }}</span>
@@ -31,11 +31,11 @@
                     </div>
                     <div class="small text-body-secondary">{{ $n->data['body'] ?? '' }}</div>
                 </div>
-                @if(! $n->read_at || \App\Http\Controllers\Web\NotificationWebController::targetUrl($n, Auth::user()))
+                @if(! $n->read_at || \App\Modules\Core\Controllers\Web\NotificationWebController::targetUrl($n, Auth::user()))
                     <form method="POST" action="{{ route('notifications.read', $n->id) }}" class="m-0 flex-shrink-0">
                         @csrf
                         <button type="submit" class="btn btn-sm btn-outline-secondary">
-                            {{ \App\Http\Controllers\Web\NotificationWebController::targetUrl($n, Auth::user()) ? 'Abrir' : 'Marcar leída' }}
+                            {{ \App\Modules\Core\Controllers\Web\NotificationWebController::targetUrl($n, Auth::user()) ? 'Abrir' : 'Marcar leída' }}
                         </button>
                     </form>
                 @endif

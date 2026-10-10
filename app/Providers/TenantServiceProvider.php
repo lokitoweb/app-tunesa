@@ -2,8 +2,8 @@
 
 namespace App\Providers;
 
-use App\Http\Middleware\ResolveTenant;
-use App\Services\TenantContext;
+use App\Modules\Core\Middleware\ResolveTenant;
+use App\Modules\Core\Services\TenantContext;
 use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -14,7 +14,7 @@ use Illuminate\Support\ServiceProvider;
  * Registra:
  * 1. TenantContext como singleton en el Service Container.
  * 2. Los helpers globales viven en app/helpers.php.
- * 3. El GlobalScope vive en el trait App\Models\Concerns\BelongsToTenant.
+ * 3. El GlobalScope vive en el trait App\Modules\Core\Models\Concerns\BelongsToTenant.
  */
 class TenantServiceProvider extends ServiceProvider
 {

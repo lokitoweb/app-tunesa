@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
-use App\Models\TenantSetting;
-use App\Services\Integrations\WebhookSender;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Integrations\Services\WebhookSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;

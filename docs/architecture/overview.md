@@ -55,7 +55,7 @@ Cada tabla de negocio tiene `tenant_id`. El aislamiento se hace en capas:
 2. **`TenantContext`** (`app/Services/TenantContext.php`): singleton con la empresa resuelta.
    Helpers: `current_tenant()`, `current_tenant_id()`, `tenant_timezone()`.
 3. **Global scope.** Los modelos con `tenant_id` usan el trait
-   `App\Models\Concerns\BelongsToTenant`, que registra `App\Models\Scopes\TenantScope`
+   `App\Modules\Core\Models\Concerns\BelongsToTenant`, que registra `App\Modules\Core\Models\Scopes\TenantScope`
    (filtra toda consulta por la empresa del contexto), completa `tenant_id` al crear e impide
    guardar un registro de otra empresa (`DomainException`). Sin contexto (consola, seeders,
    vista global) el scope no filtra.
@@ -121,7 +121,7 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
 | **Notificaciones in-app + push** | `/api/notifications` | campana + `/notifications` | Se disparan desde eventos de modelos en `AppServiceProvider` (sirven para API, panel y cargas masivas) y desde la marcación (`attendance.outside_schedule`, `attendance.outside_geofence`). También salen por push FCM (`FcmChannel`) si la empresa tiene `fcm_enabled` y el usuario `fcm_token`. Ver [attendance-integrity.md](attendance-integrity.md#push-fcm). |
 | **Geocodificación** | `/api/geocode/reverse` | `/geocode/search`, `/geocode/reverse` | Nominatim (1 req/s, caché) o Google con la clave de Marca y app. Completa la dirección de cada marcación en segundo plano. |
 | **Feriados** | — | `/holidays` | Incluye carga de feriados de Perú. |
-| **Reportes** | — | `/reports`, `/reports/hours` | "Reporte de horas y faltas" (`App\Services\Reports\AttendanceReportService`): horas efectivas según `lunch_paid`, tardanzas, salidas anticipadas, horas extra diurnas/nocturnas (22:00–06:00, la extra es la cola de la jornada), faltas justificadas e injustificadas. Excel (PhpSpreadsheet: hojas "Resumen" y "Detalle diario") y PDF (Dompdf). `reports:send-monthly` (día 1, 07:00) guarda el Excel del mes anterior en el disco `private` y notifica a administradores y RRHH con enlace firmado. |
+| **Reportes** | — | `/reports`, `/reports/hours` | "Reporte de horas y faltas" (`App\Modules\Attendance\Services\Reports\AttendanceReportService`): horas efectivas según `lunch_paid`, tardanzas, salidas anticipadas, horas extra diurnas/nocturnas (22:00–06:00, la extra es la cola de la jornada), faltas justificadas e injustificadas. Excel (PhpSpreadsheet: hojas "Resumen" y "Detalle diario") y PDF (Dompdf). `reports:send-monthly` (día 1, 07:00) guarda el Excel del mes anterior en el disco `private` y notifica a administradores y RRHH con enlace firmado. |
 | **Tablero en vivo** | — | `/live`, `/live/data` | Quién trabaja, está en descanso, no llegó, por llegar, salió o tiene permiso. Sondeo cada 10 s con `ETag` (304 si nada cambió), reintento exponencial y pausa con la pestaña oculta. |
 | **Auditoría** | — | `/audit` | `audit_logs` vía `AuditLogger`: revelado de cuentas, documentos vistos, marcaciones fuera de geocerca, sincronizaciones offline, cambios de "Marca y app". |
 | **Marca y app** | `/api/v1/app/config`, `/api/admin/app-config` | `/settings/branding`, `/settings/mobile` | Ver [white-label.md](white-label.md). |
@@ -203,7 +203,7 @@ el mismo `If-None-Match` responde `304` sin cuerpo.
 
 Regla de producto: **la interfaz nunca muestra datos técnicos** — ni claves de base de
 datos (`snake_case`), ni valores de enum crudos (`hr_manager`, `pending`), ni JSON, ni
-textos de relleno ("no se usa", "próximamente"). Todo pasa por `App\Support\Labels`.
+textos de relleno ("no se usa", "próximamente"). Todo pasa por `App\Modules\Core\Support\Labels`.
 
 | Necesito mostrar… | En Blade | En PHP |
 |---|---|---|
@@ -211,7 +211,7 @@ textos de relleno ("no se usa", "próximamente"). Todo pasa por `App\Support\Lab
 | Un estado/tipo/rol como texto | `{{ label('user_role', $u->role) }}` o `@label('user_role', $u->role)` | `Labels::enum('user_role', $v)` |
 | El nombre de un campo | `{{ field_label('default_grace_minutes') }}` o `@fieldLabel(...)` | `Labels::field($campo)` |
 | Un valor según su campo | `{{ field_value('lunch_paid', $v) }}` (Sí/No, min, m, colores, fechas) | `Labels::value($campo, $v, inherits: true)` |
-| Opciones de un `<select>` | `@foreach(\App\Support\Labels::options('geocoding_provider') as $k => $txt)` | `Labels::options($conjunto)` |
+| Opciones de un `<select>` | `@foreach(\App\Modules\Core\Support\Labels::options('geocoding_provider') as $k => $txt)` | `Labels::options($conjunto)` |
 | Un secreto (clave, token) | `{{ masked($row->webhook_secret) }}` → `••••••••1234` | `SensitiveFields::maskString()` |
 | Una acción de la bitácora | — | `Labels::actionBadge($accion)` → etiqueta, color, icono |
 
@@ -242,10 +242,10 @@ o `json_encode(...)`.
   `logCreated()` para altas y `logChanges($accion, $modelo, $antes, $despues, $contexto)` para
   ajustes que viven en varias tablas (Marca y app).
 - Eventos sin cambios: `$audit->log($accion, $modelo, $contexto)` → `{"context": {...}}`.
-- Los campos de `App\Support\SensitiveFields` (`webhook_secret`, `maps_api_key`,
+- Los campos de `App\Modules\Core\Support\SensitiveFields` (`webhook_secret`, `maps_api_key`,
   `fcm_service_account_json`, contraseñas, tokens, `two_factor_*`, cuentas bancarias) se guardan
   enmascarados (`••••••••1234`) o como `(cambiado)`: nunca en claro.
-- `App\Presenters\AuditLogPresenter` arma lo que ve el usuario: insignia de la acción, resumen
+- `App\Modules\Core\Presenters\AuditLogPresenter` arma lo que ve el usuario: insignia de la acción, resumen
   ("Carlos Ramírez cambió 3 campos de Marca y app: Tolerancia por defecto, Almuerzo pagado y 1 más."),
   cuadro Campo | Valor previo | Valor nuevo, IP completa solo para Super Admin y Administrador
   (parcial `190.23.x.x` para el resto) y el dispositivo resumido ("Chrome en Android").

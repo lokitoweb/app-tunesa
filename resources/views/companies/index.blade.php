@@ -3,7 +3,7 @@
 @section('title', 'Empresas')
 
 @section('content')
-@php use App\Http\Controllers\Web\CompanyWebController as C; @endphp
+@php use App\Modules\Core\Controllers\Web\CompanyWebController as C; @endphp
 <div class="page-header">
     <div>
         <h1>Empresas</h1>

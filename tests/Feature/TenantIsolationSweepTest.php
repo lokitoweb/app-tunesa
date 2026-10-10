@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
-use App\Models\Concerns\BelongsToTenant;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
-use App\Services\TenantContext;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\Concerns\BelongsToTenant;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
+use App\Modules\Core\Services\TenantContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +33,7 @@ class TenantIsolationSweepTest extends TestCase
      * explícitamente por empresa (ver test_tenant_settings_resolve_per_tenant).
      * WebhookDelivery: filas de plataforma con tenant_id NULL; se consulta con ofTenant() (ver IntegrationDeliveriesTest).
      */
-    private const UNSCOPED_BY_DESIGN = ['App\\Models\\Role', 'App\\Models\\Permission', 'App\\Models\\TenantSetting', 'App\\Models\\WebhookDelivery'];
+    private const UNSCOPED_BY_DESIGN = [\App\Modules\Core\Models\Role::class, \App\Modules\Core\Models\Permission::class, TenantSetting::class, \App\Modules\Integrations\Models\WebhookDelivery::class];
 
     /** Referencias dentro de la misma empresa que necesita cada fila */
     private array $refs = [];
@@ -48,8 +48,8 @@ class TenantIsolationSweepTest extends TestCase
     private function tenantModels(): array
     {
         $models = [];
-        foreach ((new Finder())->files()->in(app_path('Models'))->depth(0)->name('*.php') as $file) {
-            $class = 'App\\Models\\' . $file->getBasename('.php');
+        foreach (glob(app_path('Modules/*/Models/*.php')) as $file) {
+            $class = 'App\\Modules\\' . basename(dirname($file, 2)) . '\\Models\\' . basename($file, '.php');
             if (! class_exists($class)) {
                 continue;
             }
@@ -69,12 +69,12 @@ class TenantIsolationSweepTest extends TestCase
         $models = $this->tenantModels();
 
         foreach (['User', 'Branch', 'Shift', 'Attendance', 'LeaveRequest', 'Payslip', 'AuditLog', 'EmployeeDocument', 'CompanyConfiguration'] as $expected) {
-            $this->assertContains("App\\Models\\{$expected}", $models);
+            $this->assertContains($expected, array_map('class_basename', $models));
         }
 
         // Toda tabla con tenant_id de un modelo debe usar BelongsToTenant
-        foreach ((new Finder())->files()->in(app_path('Models'))->depth(0)->name('*.php') as $file) {
-            $class = 'App\\Models\\' . $file->getBasename('.php');
+        foreach (glob(app_path('Modules/*/Models/*.php')) as $file) {
+            $class = 'App\\Modules\\' . basename(dirname($file, 2)) . '\\Models\\' . basename($file, '.php');
             if (! is_subclass_of($class, Model::class) || $class === Tenant::class || in_array($class, self::UNSCOPED_BY_DESIGN, true)) {
                 continue;
             }
@@ -153,7 +153,7 @@ class TenantIsolationSweepTest extends TestCase
         // Notificaciones: cada quien solo las suyas
         $id = (string) Str::uuid();
         DB::table('notifications')->insert([
-            'id' => $id, 'type' => 'App\\Notifications\\PayslipPublished', 'notifiable_type' => User::class,
+            'id' => $id, 'type' => \App\Modules\Payroll\Notifications\PayslipPublished::class, 'notifiable_type' => User::class,
             'notifiable_id' => $adminB->id, 'data' => json_encode(['type' => 'payslip.published', 'title' => 'Boleta de Bruno', 'body' => 'x']),
             'created_at' => now(), 'updated_at' => now(),
         ]);

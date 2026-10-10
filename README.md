@@ -81,7 +81,7 @@ los envíos quedan pendientes en la tabla `jobs` (ver `docs/deployment/integrati
 
 ## Multi-tenant, roles y permisos
 
-- **Aislamiento:** todo modelo con `tenant_id` usa el trait `App\Models\Concerns\BelongsToTenant`: un global scope filtra por la empresa resuelta en la request y `tenant_id` se completa solo al crear. `EnforceTenantScope` rechaza tokens de otra empresa.
+- **Aislamiento:** todo modelo con `tenant_id` usa el trait `App\Modules\Core\Models\Concerns\BelongsToTenant`: un global scope filtra por la empresa resuelta en la request y `tenant_id` se completa solo al crear. `EnforceTenantScope` rechaza tokens de otra empresa.
 - **Resolución de la empresa:** header `X-Tenant-Slug`, subdominio (`empresa.tunesa.app`, dominio base en `APP_DOMAIN`) o dominio propio (`tenants.custom_domain`).
 - **Roles:** `super_admin`, `company_admin`, `hr_manager`, `supervisor`, `employee`. La matriz de permisos está en `database/seeders/RolesAndPermissionsSeeder.php`; las rutas la exigen con `->middleware('permission:shifts.manage')` y en código se usa `$user->hasPermission(...)` o `$user->can(...)`.
 - **Super Admin:** entra por `POST /api/superadmin/auth/login` (sin `X-Tenant-Slug`) y administra empresas en `/api/superadmin/tenants`. En el panel, sin empresa elegida en el selector, trabaja en la "vista global".

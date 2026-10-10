@@ -8,21 +8,20 @@
  * =============================================================================
  */
 
-use App\Http\Middleware\CheckPermission;
-use App\Http\Middleware\CheckRole;
-use App\Http\Middleware\EnforceTenantScope;
-use App\Http\Middleware\EnsurePasswordChanged;
-use App\Http\Middleware\EnsureSupportedAppVersion;
-use App\Http\Middleware\ResolveTenant;
-use App\Http\Middleware\SetWebTenant;
+use App\Modules\Core\Middleware\CheckPermission;
+use App\Modules\Core\Middleware\CheckRole;
+use App\Modules\Core\Middleware\EnforceTenantScope;
+use App\Modules\Core\Middleware\EnsurePasswordChanged;
+use App\Modules\Core\Middleware\EnsureSupportedAppVersion;
+use App\Modules\Core\Middleware\ResolveTenant;
+use App\Modules\Core\Middleware\SetWebTenant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
-        api: __DIR__ . '/../routes/api.php',
+        // Las rutas web y API viven en app/Modules/<Módulo>/Routes (ModuleServiceProvider)
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
@@ -54,6 +53,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // GRUPO DE MIDDLEWARE 'api'
         // Aplicado automáticamente a todas las rutas en routes/api.php
         // =====================================================================
+        // Cadena de toda ruta autenticada de la app móvil (ver Core/Routes/api.php)
+        $middleware->group('api.tenant', ['tenant', 'app.version', 'auth:sanctum', 'tenant.scope', 'password.fresh']);
+
         $middleware->group('api', [
             \Illuminate\Routing\Middleware\ThrottleRequests::class . ':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,

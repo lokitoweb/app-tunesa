@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
-use App\Models\Branch;
-use App\Models\CompanyConfiguration;
-use App\Models\EmployeeProfile;
-use App\Models\TenantSetting;
-use App\Presenters\AuditLogPresenter;
-use App\Services\AuditLogger;
-use App\Support\Labels;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\HR\Models\EmployeeProfile;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Presenters\AuditLogPresenter;
+use App\Modules\Core\Services\AuditLogger;
+use App\Modules\Core\Support\Labels;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;

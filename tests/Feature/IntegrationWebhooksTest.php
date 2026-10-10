@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\SendTenantWebhook;
-use App\Models\LeaveRequest;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
+use App\Modules\Integrations\Jobs\SendTenantWebhook;
+use App\Modules\HR\Models\LeaveRequest;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;

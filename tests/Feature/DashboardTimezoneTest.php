@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attendance;
+use App\Modules\Attendance\Models\Attendance;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;

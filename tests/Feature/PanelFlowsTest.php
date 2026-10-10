@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\CompanyConfiguration;
-use App\Models\EmployeeShift;
-use App\Models\Payslip;
-use App\Models\Shift;
-use App\Models\User;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\Payroll\Models\Payslip;
+use App\Modules\HR\Models\Shift;
+use App\Modules\Core\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -194,7 +194,7 @@ class PanelFlowsTest extends TestCase
         $ana->branches()->attach($mine->id, ['is_primary' => true]);
         $beto->branches()->attach($others->id, ['is_primary' => true]);
         foreach ([[$ana, $mine], [$beto, $others]] as [$emp, $branch]) {
-            \App\Models\Attendance::create([
+            \App\Modules\Attendance\Models\Attendance::create([
                 'tenant_id' => $acme->id, 'user_id' => $emp->id, 'branch_id' => $branch->id,
                 'work_date' => today()->toDateString(), 'clock_in_at' => now(), 'status' => 'present',
             ]);

@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
-use App\Notifications\Channels\FcmChannel;
-use App\Notifications\LeaveRequestReviewed;
-use App\Services\Push\FcmSender;
-use App\Services\Push\PushException;
-use App\Services\TenantContext;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
+use App\Modules\Integrations\Notifications\Channels\FcmChannel;
+use App\Modules\HR\Notifications\LeaveRequestReviewed;
+use App\Modules\Integrations\Services\Push\FcmSender;
+use App\Modules\Integrations\Services\Push\PushException;
+use App\Modules\Core\Services\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -282,7 +282,7 @@ class FcmPushTest extends TestCase
     public function test_settings_service_saves_fcm_only_on_the_platform(): void
     {
         $root = $this->makeUser(null, 'super_admin');
-        $svc  = app(\App\Services\TenantSettingsService::class);
+        $svc  = app(\App\Modules\Core\Services\TenantSettingsService::class);
 
         $this->assertSame(['prohibited'], $svc->rules(global: false)['fcm_service_account_json']);
 
@@ -374,7 +374,7 @@ class FcmPushTest extends TestCase
             ->assertOk()->assertJson(['ok' => true, 'status' => 200]);
         Http::assertSent(fn (Request $r) => $r->url() === self::SEND_URL
             && $r['message']['token'] === 'device-token-123' && $r['message']['data']['type'] === 'push.test');
-        $this->assertTrue(\App\Models\AuditLog::withoutGlobalScopes()->where('action', 'push.tested')->where('subject_id', $this->emp->id)->exists());
+        $this->assertTrue(\App\Modules\Core\Models\AuditLog::withoutGlobalScopes()->where('action', 'push.tested')->where('subject_id', $this->emp->id)->exists());
 
         // Sin token propio: error explicado; usuario de otra empresa: no existe
         $this->actingAs($admin)->postJson('/settings/branding/test-push')->assertOk()->assertJson(['ok' => false, 'no_device' => true]);
@@ -395,9 +395,9 @@ class FcmPushTest extends TestCase
         $supervisor = $this->makeUser($this->acme, 'supervisor', ['fcm_token' => 'supervisor-token']);
         $branch     = $this->makeBranch($this->acme, ['supervisor_id' => $supervisor->id]);
         $this->emp->branches()->attach($branch->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
-        $shift = \App\Models\Shift::create(['tenant_id' => $this->acme->id, 'name' => 'Día', 'start_time' => '08:00', 'end_time' => '17:00',
+        $shift = \App\Modules\HR\Models\Shift::create(['tenant_id' => $this->acme->id, 'name' => 'Día', 'start_time' => '08:00', 'end_time' => '17:00',
             'grace_period_minutes' => 10, 'working_days' => [0, 1, 2, 3, 4, 5, 6]]);
-        \App\Models\EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'shift_id' => $shift->id,
+        \App\Modules\HR\Models\EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'shift_id' => $shift->id,
             'branch_id' => $branch->id, 'effective_from' => '2020-01-01', 'is_active' => true]);
         app(TenantContext::class)->clear();
 
@@ -413,9 +413,9 @@ class FcmPushTest extends TestCase
         $this->assertSame(['attendance.outside_schedule'], $supervisor->notifications()->pluck('type')->all());
     }
 
-    private function leaveRequest(): \App\Models\LeaveRequest
+    private function leaveRequest(): \App\Modules\HR\Models\LeaveRequest
     {
-        return \App\Models\LeaveRequest::withoutEvents(fn () => \App\Models\LeaveRequest::create([
+        return \App\Modules\HR\Models\LeaveRequest::withoutEvents(fn () => \App\Modules\HR\Models\LeaveRequest::create([
             'tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'type' => 'vacation',
             'start_date' => '2026-11-02', 'end_date' => '2026-11-06', 'days' => 5, 'reason' => 'Viaje', 'status' => 'approved',
         ]));

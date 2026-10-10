@@ -1,0 +1,404 @@
+<?php
+
+namespace App\Modules\Core\Controllers\Api;
+
+use App\Modules\Core\Controllers\Controller;
+use App\Modules\Attendance\Requests\LoginRequest;
+use App\Modules\Core\Resources\UserResource;
+use App\Modules\Core\Models\Role;
+use App\Modules\Core\Models\User;
+use App\Modules\Core\Services\LoginGuard;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\Rules\Password as PasswordRule;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * AuthController
+ *
+ * Gestiona la autenticación de todos los usuarios mediante Laravel Sanctum.
+ * Los tokens de la app móvil vencen a los auth.mobile_token_days días (30 por defecto)
+ * y son revocables (logout, logout-all, /auth/sessions). Login con bloqueo por
+ * fuerza bruta (App\Modules\Core\Services\LoginGuard). No existe auto-registro público.
+ * Los tokens del panel web son de sesión (se destruyen al cerrar).
+ *
+ * Flujo de autenticación:
+ *   POST /api/auth/login  →  Recibe email + password
+ *                         →  Valida tenant (ya resuelto por middleware)
+ *                         →  Genera Bearer Token de Sanctum
+ *                         →  Devuelve token + datos del usuario
+ */
+class AuthController extends Controller
+{
+    public function __construct(private readonly LoginGuard $guard) {}
+
+    // =========================================================================
+    // LOGIN
+    // =========================================================================
+
+    /**
+     * @OA\Post(
+     *   path="/api/auth/login",
+     *   summary="Iniciar sesión",
+     *   tags={"Auth"},
+     *   @OA\RequestBody(required=true,
+     *     @OA\JsonContent(
+     *       required={"email","password"},
+     *       @OA\Property(property="email",    type="string", example="ana.torres@empresa-demo.com"),
+     *       @OA\Property(property="password", type="string", example="Employee2024!"),
+     *       @OA\Property(property="device_name", type="string", example="iPhone 15 de Ana"),
+     *       @OA\Property(property="fcm_token",   type="string")
+     *     )
+     *   ),
+     *   @OA\Header(header="X-Tenant-Slug", required=true, @OA\Schema(type="string", example="empresa-demo"))
+     * )
+     */
+    public function login(LoginRequest $request): JsonResponse
+    {
+        // El tenant ya está resuelto por el middleware ResolveTenant
+        $tenant = current_tenant();
+
+        // Buscar usuario en el tenant actual (aislamiento estricto)
+        $user = User::where('tenant_id', $tenant->id)
+            ->where('email', $request->email)
+            ->first();
+
+        // Credenciales + bloqueo por fuerza bruta (429 ráfaga / 423 cuenta bloqueada)
+        $user = $this->guard->attempt($request, $user, $tenant->id);
+
+        // Verificar que el usuario está activo
+        if ($user->status !== 'active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tu cuenta está ' . match ($user->status) {
+                    'inactive'  => 'desactivada',
+                    'suspended' => 'suspendida',
+                    default     => 'no disponible',
+                } . '. Contacta a tu administrador.',
+                'code'    => 'USER_INACTIVE',
+            ], 403);
+        }
+
+        $this->guard->registerSuccess($user, $request);
+
+        // Revocar tokens anteriores del mismo dispositivo (evitar sesiones huérfanas)
+        $deviceName = $request->input('device_name', 'mobile_app');
+        $user->tokens()->where('name', $deviceName)->delete();
+
+        // Crear nuevo token Sanctum (revocable, con expiración)
+        $token = $user->createToken(
+            name:       $deviceName,
+            abilities:  $this->getAbilitiesForRole($user->role),
+            expiresAt:  now()->addDays((int) config('auth.mobile_token_days', 30)),
+        );
+
+        $this->pruneDevices($user);
+
+        // Actualizar FCM token si se proporcionó
+        if ($fcmToken = $request->input('fcm_token')) {
+            $user->update(['fcm_token' => $fcmToken]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Bienvenido, {$user->first_name}.",
+            'data'    => [
+                'token'      => $token->plainTextToken,
+                'token_type' => 'Bearer',
+                'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
+                'must_change_password' => (bool) $user->must_change_password,
+                'user'       => new UserResource($user->load('tenant')),
+            ],
+        ]);
+    }
+
+    // =========================================================================
+    // LOGIN DE PLATAFORMA (Super Admin, sin tenant)
+    // =========================================================================
+
+    /**
+     * El super admin no pertenece a ninguna empresa, así que no pasa por
+     * ResolveTenant. Su token solo sirve para /api/superadmin/*.
+     *
+     * POST /api/superadmin/auth/login
+     */
+    public function superAdminLogin(LoginRequest $request): JsonResponse
+    {
+        $user = User::whereNull('tenant_id')
+            ->where('role', Role::SUPER_ADMIN)
+            ->where('email', $request->email)
+            ->first();
+
+        $user = $this->guard->attempt($request, $user, null);
+
+        if ($user->status !== 'active') {
+            throw ValidationException::withMessages([
+                'email' => ['Las credenciales proporcionadas son incorrectas.'],
+            ]);
+        }
+
+        $this->guard->registerSuccess($user, $request);
+
+        $token = $user->createToken(
+            name:      $request->input('device_name', 'superadmin'),
+            abilities: ['*'],
+            expiresAt: now()->addHours(12),
+        );
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'token'      => $token->plainTextToken,
+                'token_type' => 'Bearer',
+                'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
+                'user'       => new UserResource($user),
+            ],
+        ]);
+    }
+
+    // El auto-registro público quedó eliminado (Fase 3): solo Super Admin,
+    // Company Admin o RRHH dan de alta colaboradores (panel o /api/admin/employees).
+
+    // =========================================================================
+    // RECUPERACIÓN DE CONTRASEÑA
+    // =========================================================================
+
+    /**
+     * Envía el enlace de restablecimiento al correo (si existe en la empresa).
+     * Siempre responde igual para no revelar qué correos están registrados.
+     *
+     * POST /api/auth/forgot-password
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate(['email' => ['required', 'email']]);
+
+        // El broker consulta User con el TenantScope activo: solo encuentra
+        // usuarios de la empresa resuelta.
+        Password::sendResetLink($request->only('email'));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
+        ]);
+    }
+
+    /**
+     * Restablece la contraseña con el token recibido por correo.
+     *
+     * POST /api/auth/reset-password
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'token'    => ['required', 'string'],
+            'email'    => ['required', 'email'],
+            'password' => ['required', 'confirmed', User::resetPasswordRule()],
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            fn (User $user, string $password) => $user->completePasswordReset($password)
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'email' => ['El enlace de restablecimiento no es válido o expiró.'],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Contraseña restablecida. Ya puedes iniciar sesión.',
+        ]);
+    }
+
+    // =========================================================================
+    // LOGOUT
+    // =========================================================================
+
+    public function logout(Request $request): JsonResponse
+    {
+        // Revocar solo el token actual (no todos los dispositivos)
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Sesión cerrada correctamente.',
+        ]);
+    }
+
+    /**
+     * Cerrar sesión en todos los dispositivos.
+     * POST /api/auth/logout-all
+     */
+    public function logoutAll(Request $request): JsonResponse
+    {
+        $request->user()->tokens()->delete();
+
+        return response()->json(['success' => true, 'message' => 'Se cerró la sesión en todos tus dispositivos.']);
+    }
+
+    /**
+     * Dispositivos con sesión abierta (tokens vigentes).
+     * GET /api/auth/sessions
+     */
+    public function sessions(Request $request): JsonResponse
+    {
+        $current = $request->user()->currentAccessToken()?->id;
+
+        return response()->json([
+            'success' => true,
+            'data'    => $request->user()->tokens()
+                ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                ->latest('last_used_at')
+                ->get()
+                ->map(fn ($t) => [
+                    'id'           => $t->id,
+                    'device'       => $t->name,
+                    'last_used_at' => $t->last_used_at?->toIso8601String(),
+                    'expires_at'   => $t->expires_at?->toIso8601String(),
+                    'current'      => $t->id === $current,
+                ]),
+        ]);
+    }
+
+    /**
+     * Revocar la sesión de un dispositivo.
+     * DELETE /api/auth/sessions/{id}
+     */
+    public function revokeSession(Request $request, int $id): JsonResponse
+    {
+        $deleted = $request->user()->tokens()->where('id', $id)->delete();
+
+        abort_if($deleted === 0, 404);
+
+        return response()->json(['success' => true, 'message' => 'Sesión revocada.']);
+    }
+
+    // =========================================================================
+    // ME — Datos del usuario autenticado
+    // =========================================================================
+
+    public function me(Request $request): JsonResponse
+    {
+        $user = $request->user()->load('tenant', 'branches');
+
+        return response()->json([
+            'success' => true,
+            'data'    => new UserResource($user),
+        ]);
+    }
+
+    // =========================================================================
+    // ACTUALIZAR PERFIL
+    // =========================================================================
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'first_name' => ['sometimes', 'string', 'max:100'],
+            'last_name'  => ['sometimes', 'string', 'max:100'],
+            'phone'      => ['sometimes', 'nullable', 'string', 'max:20'],
+            'avatar'     => ['sometimes', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+        ]);
+
+        // Procesar avatar si se subió uno nuevo
+        if ($request->hasFile('avatar')) {
+            $validated['avatar_path'] = $request->file('avatar')
+                ->store("avatars/{$user->tenant_id}", 'public');
+            unset($validated['avatar']);
+        }
+
+        $user->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Perfil actualizado correctamente.',
+            'data'    => new UserResource($user->fresh()->load('tenant')),
+        ]);
+    }
+
+    // =========================================================================
+    // CAMBIAR CONTRASEÑA
+    // =========================================================================
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password'     => ['required', 'string', 'confirmed', 'different:current_password', PasswordRule::min(8)->letters()->mixedCase()->numbers()],
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['La contraseña actual es incorrecta.'],
+            ]);
+        }
+
+        $user->forceFill([
+            'password'             => $request->new_password,
+            'must_change_password' => false,
+        ])->save();
+
+        // Revocar todos los otros tokens (forzar re-login en otros dispositivos)
+        $user->tokens()->where('id', '!=', $user->currentAccessToken()->id)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Contraseña actualizada. Los otros dispositivos han sido desconectados.',
+        ]);
+    }
+
+    // =========================================================================
+    // ACTUALIZAR FCM TOKEN (push notifications)
+    // =========================================================================
+
+    public function updateFcmToken(Request $request): JsonResponse
+    {
+        $request->validate([
+            'fcm_token' => ['required', 'string'],
+        ]);
+
+        $request->user()->update(['fcm_token' => $request->fcm_token]);
+
+        return response()->json(['success' => true]);
+    }
+
+    // =========================================================================
+    // HELPERS PRIVADOS
+    // =========================================================================
+
+    /**
+     * Mantiene como máximo N dispositivos con sesión abierta (los más antiguos se revocan).
+     */
+    private function pruneDevices(User $user): void
+    {
+        $max = (int) config('auth.max_devices', 3);
+
+        $keep = $user->tokens()->latest('id')->limit($max)->pluck('id');
+        $user->tokens()->whereNotIn('id', $keep)->delete();
+    }
+
+    /**
+     * Define las abilities del token según el rol.
+     * (Por defecto Sanctum acepta todas, pero esto permite granularidad futura)
+     */
+    private function getAbilitiesForRole(string $role): array
+    {
+        return match ($role) {
+            'super_admin'   => ['*'],
+            'company_admin' => ['*'],
+            'hr_manager'    => ['attendance:read', 'attendance:write', 'employee:read', 'employee:write', 'payslip:write'],
+            'supervisor'    => ['attendance:read', 'employee:read'],
+            'employee'      => ['attendance:write', 'attendance:read', 'payslip:read'],
+            default         => ['attendance:read'],
+        };
+    }
+}

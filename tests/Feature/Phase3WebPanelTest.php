@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attendance;
-use App\Models\CompanyConfiguration;
-use App\Models\EmployeeDocument;
-use App\Models\EmployeeProfile;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\HR\Models\EmployeeDocument;
+use App\Modules\HR\Models\EmployeeProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;

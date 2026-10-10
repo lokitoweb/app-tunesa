@@ -2,12 +2,12 @@
 
 namespace Tests\Feature\Reports;
 
-use App\Models\Attendance;
-use App\Models\EmployeeShift;
-use App\Models\Shift;
-use App\Models\Tenant;
-use App\Models\User;
-use App\Notifications\MonthlyReportReady;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\Shift;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\User;
+use App\Modules\Attendance\Notifications\MonthlyReportReady;
 use Carbon\Carbon;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;

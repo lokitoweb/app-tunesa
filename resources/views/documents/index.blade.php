@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    use App\Models\EmployeeDocument;
+    use App\Modules\HR\Models\EmployeeDocument;
     $tabs = ['pending' => 'Por revisar', 'approved' => 'Aprobados', 'rejected' => 'Rechazados', 'all' => 'Todos'];
 @endphp
 

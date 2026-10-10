@@ -1,6 +1,6 @@
 {{-- Logo y nombre de la empresa (marca blanca) o de la plataforma ($brandSettings lo arma layouts.guest) --}}
     @php
-        $authBrand = $brandSettings ?? \App\Models\TenantSetting::forTenant(isset($tenant) && $tenant ? $tenant : null);
+        $authBrand = $brandSettings ?? \App\Modules\Core\Models\TenantSetting::forTenant(isset($tenant) && $tenant ? $tenant : null);
         $authLogo = $authBrand->logoUrl();
         $authLogoDark = $authBrand->logoDarkUrl();
     @endphp

@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attendance;
-use App\Models\AuditLog;
-use App\Models\Branch;
-use App\Models\CompanyConfiguration;
-use App\Services\GeofenceService;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\Attendance\Services\GeofenceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;

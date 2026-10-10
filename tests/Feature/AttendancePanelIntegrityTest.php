@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attendance;
-use App\Models\AttendancePunch;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Models\AttendancePunch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\Feature\Concerns\CreatesTenants;

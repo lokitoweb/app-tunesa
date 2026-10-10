@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Services\GeofenceService;
+use App\Modules\Attendance\Services\GeofenceService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -168,7 +168,7 @@ class GeofenceServiceTest extends TestCase
     /** @test */
     public function it_returns_correct_message_when_inside(): void
     {
-        $result = new \App\Services\GeofenceResult(
+        $result = new \App\Modules\Attendance\Services\GeofenceResult(
             isWithinGeofence: true,
             distanceMeters:   35,
             allowedRadius:    100,
@@ -184,7 +184,7 @@ class GeofenceServiceTest extends TestCase
     /** @test */
     public function it_returns_correct_message_when_outside(): void
     {
-        $result = new \App\Services\GeofenceResult(
+        $result = new \App\Modules\Attendance\Services\GeofenceResult(
             isWithinGeofence: false,
             distanceMeters:   250,
             allowedRadius:    50,

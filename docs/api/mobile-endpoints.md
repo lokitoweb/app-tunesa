@@ -63,7 +63,7 @@ el texto.
 | 500 | `SERVER_ERROR` | Error inesperado al marcar (se registra en el log; el mensaje no expone detalles internos). |
 | 503 | `GEOCODING_UNAVAILABLE` | El proveedor de mapas (Nominatim/Google) no respondió (`/api/geocode/reverse`). |
 
-Los errores de la marcación salen de `App\Exceptions\AttendanceException` (código + HTTP
+Los errores de la marcación salen de `App\Modules\Attendance\Exceptions\AttendanceException` (código + HTTP
 status), que `AttendanceController::handleAttendanceException` devuelve tal cual.
 `GEOFENCE_VIOLATION` es **solo** distancia a la sucursal.
 
@@ -587,7 +587,7 @@ El colaborador los recibe in-app **y por push**; el supervisor de la sucursal, s
 
 ### Push (FCM)
 
-El backend envía push con Firebase Cloud Messaging (API HTTP v1, `App\Services\Push\FcmSender`)
+El backend envía push con Firebase Cloud Messaging (API HTTP v1, `App\Modules\Integrations\Services\Push\FcmSender`)
 **cada vez que crea un aviso in-app** para un usuario que:
 
 1. tiene `users.fcm_token` (lo manda la app en el login o con `POST /api/auth/refresh-fcm`), y

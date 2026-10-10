@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\EmployeeShift;
-use App\Models\Shift;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\Shift;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;

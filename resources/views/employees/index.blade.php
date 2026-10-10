@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    $roleLabels = \App\Support\Labels::options('user_role');
+    $roleLabels = \App\Modules\Core\Support\Labels::options('user_role');
 @endphp
 <div class="page-header">
     <div>

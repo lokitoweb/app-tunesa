@@ -6,8 +6,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @php
         // Empresa activa (la del usuario, o la que eligió el Super Admin); sin empresa = plataforma
-        $brand = app(\App\Services\TenantContext::class)->getOrNull() ?? Auth::user()?->tenant;
-        $brandSettings = \App\Models\TenantSetting::forTenant($brand);
+        $brand = app(\App\Modules\Core\Services\TenantContext::class)->getOrNull() ?? Auth::user()?->tenant;
+        $brandSettings = \App\Modules\Core\Models\TenantSetting::forTenant($brand);
     @endphp
     <title>@yield('title', 'Panel') — {{ $brandSettings->tradeName() }}</title>
 
@@ -38,15 +38,15 @@
 @php
     $navUser = Auth::user();
     // Sin empresa activa (Super Admin en el consolidado) no hay contadores por empresa
-    $hasTenant = app(\App\Services\TenantContext::class)->resolved();
+    $hasTenant = app(\App\Modules\Core\Services\TenantContext::class)->resolved();
     $pendingApprovals = ! $hasTenant ? 0 : ($navUser->can('leave.approve_all')
-        ? \App\Models\LeaveRequest::where('status', 'pending')->count()
-            + ($navUser->can('attendance.review') ? \App\Models\Attendance::where('justification_status', 'pending')->count() : 0)
+        ? \App\Modules\HR\Models\LeaveRequest::where('status', 'pending')->count()
+            + ($navUser->can('attendance.review') ? \App\Modules\Attendance\Models\Attendance::where('justification_status', 'pending')->count() : 0)
         : ($navUser->can('leave.approve_team')
-            ? \App\Models\LeaveRequest::where('status', 'pending')->whereHas('employee.branches', fn ($q) => $q->where('branches.supervisor_id', $navUser->id))->count()
+            ? \App\Modules\HR\Models\LeaveRequest::where('status', 'pending')->whereHas('employee.branches', fn ($q) => $q->where('branches.supervisor_id', $navUser->id))->count()
             : 0));
     $pendingDocs = $hasTenant && $navUser->can('documents.review')
-        ? \App\Models\EmployeeDocument::where('status', 'pending')->count()
+        ? \App\Modules\HR\Models\EmployeeDocument::where('status', 'pending')->count()
         : 0;
     $nav = function (string $route, array $params, string $icon, string $label, bool $active, int $badge = 0) {
         return view('layouts.partials.nav-link', compact('route', 'params', 'icon', 'label', 'active', 'badge'));
@@ -165,7 +165,7 @@
                         @csrf
                         <select name="tenant_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="Empresa a administrar" style="max-width: 240px;">
                             <option value="">Vista global (todas las empresas)</option>
-                            @foreach(\App\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
+                            @foreach(\App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
                                 <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
                             @endforeach
                         </select>

@@ -79,7 +79,7 @@ Casos especiales del modelo:
 - **Precisión GPS** (`maxGpsAccuracy()`): empresa → plataforma → `ATTENDANCE_MAX_GPS_ACCURACY`
   de `.env` (`config/attendance.php`), no el `DEFAULTS`.
 - **`maps_api_key`**: clave de Google Maps Geocoding. Se hereda de la plataforma (no está en
-  `NOT_INHERITED`) y la usa `App\Services\Geocoding\GeocodingService` cuando el proveedor
+  `NOT_INHERITED`) y la usa `App\Modules\Integrations\Services\Geocoding\GeocodingService` cuando el proveedor
   efectivo (`geocoding_provider`) es `google`; sin clave vuelve solo a OpenStreetMap/Nominatim.
   Solo se ve (enmascarada) en el panel y en `GET /api/admin/app-config`, nunca en la API pública.
 - **`config_version`**: la fecha más reciente entre `tenants.updated_at`, la fila de la empresa,
@@ -125,8 +125,8 @@ En producción (php-fpm) no pasa.
 
 ### Integraciones: webhook y endpoint de notificaciones
 
-`App\Services\IntegrationDispatcher` (enganchado a los eventos de los modelos en
-`AppServiceProvider`) encola un `App\Jobs\SendTenantWebhook` (`ShouldQueue`) por evento, solo si
+`App\Modules\Integrations\Services\IntegrationDispatcher` (enganchado a los eventos de los modelos en
+`AppServiceProvider`) encola un `App\Modules\Integrations\Jobs\SendTenantWebhook` (`ShouldQueue`) por evento, solo si
 **la fila de la empresa** tiene la URL (no se heredan de la plataforma):
 
 | Destino | Eventos |
@@ -170,8 +170,8 @@ X-Tunesa-Signature: sha256=<hex de HMAC-SHA256(cuerpo, webhook_secret)>
 
 ### Historial de envíos (`webhook_deliveries`)
 
-`App\Services\Integrations\WebhookSender` hace cada envío y lo registra en
-`webhook_deliveries` (`App\Models\WebhookDelivery`): una fila por envío, que los reintentos
+`App\Modules\Integrations\Services\WebhookSender` hace cada envío y lo registra en
+`webhook_deliveries` (`App\Modules\Integrations\Models\WebhookDelivery`): una fila por envío, que los reintentos
 actualizan (la identifica `uuid`, que viaja en el job como `deliveryUuid`).
 
 | Columna | Contenido |
@@ -197,7 +197,7 @@ global prueban y listan las filas de la plataforma (`tenant_id NULL`). Límite: 
 |---|---|---|
 | Probar Webhook Ahora | `POST /settings/branding/test-webhook` | Envía al instante (sin cola) `{"event":"ping","occurred_at","tenant":{"slug"},"data":{"message":"Prueba desde TuneSA"}}` con `X-Tunesa-Event: ping` y la firma, a la URL escrita en el formulario (o la guardada) y con el secreto escrito (o el guardado). |
 | Enviar Notificación de Prueba | `POST /settings/branding/test-notification` | Igual, al endpoint de notificaciones, evento `notification.test`. |
-| Enviar push de prueba | `POST /settings/branding/test-push` | `App\Services\Push\FcmSender::test(usuario)`: el del correo escrito en "Probar push" (solo usuarios de la empresa) o el actual si va vacío. Queda en auditoría como `push.tested`. Si el usuario no tiene `fcm_token` explica que debe iniciar sesión en la app con ese usuario. |
+| Enviar push de prueba | `POST /settings/branding/test-push` | `App\Modules\Integrations\Services\Push\FcmSender::test(usuario)`: el del correo escrito en "Probar push" (solo usuarios de la empresa) o el actual si va vacío. Queda en auditoría como `push.tested`. Si el usuario no tiene `fcm_token` explica que debe iniciar sesión en la app con ese usuario. |
 | Probar geocodificación | `GET /geocode/reverse?lat=&lng=` | Dirección de la primera sucursal (o el centro de Lima) y el proveedor que respondió. |
 
 Las pruebas de webhook y notificaciones responden `{ok, status, ms, body|error, signed, delivery_id}`

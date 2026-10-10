@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\LeaveRequest;
+use App\Modules\HR\Models\LeaveRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Symfony\Component\Finder\Finder;
 use Tests\Feature\Concerns\CreatesTenants;
@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 /**
  * El panel nunca muestra claves técnicas (snake_case, enums crudos, JSON):
- * los valores pasan por App\Support\Labels (label(), <x-status-badge>).
+ * los valores pasan por App\Modules\Core\Support\Labels (label(), <x-status-badge>).
  */
 class PanelRawValuesTest extends TestCase
 {
@@ -50,7 +50,7 @@ class PanelRawValuesTest extends TestCase
             }
         }
 
-        $this->assertSame([], $offenders, 'Usa label()/<x-status-badge> (App\Support\Labels) en lugar de valores crudos');
+        $this->assertSame([], $offenders, 'Usa label()/<x-status-badge> (App\Modules\Core\Support\Labels) en lugar de valores crudos');
     }
 
     public function test_employee_list_shows_role_status_and_document_labels(): void

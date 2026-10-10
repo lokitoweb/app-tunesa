@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;

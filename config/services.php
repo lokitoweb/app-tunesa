@@ -50,7 +50,7 @@ return [
         'timeout' => (int) env('GOOGLE_GEOCODING_TIMEOUT', 8),
     ],
 
-    // Push FCM (App\Services\Push\FcmSender). La cuenta de servicio se carga en Marca y app.
+    // Push FCM (App\Modules\Integrations\Services\Push\FcmSender). La cuenta de servicio se carga en Marca y app.
     'fcm' => [
         'android_channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'tunesa_default'),
     ],

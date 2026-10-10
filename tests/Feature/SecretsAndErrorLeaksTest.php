@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\AuditLog;
-use App\Models\EmployeeProfile;
-use App\Models\TenantSetting;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\HR\Models\EmployeeProfile;
+use App\Modules\Core\Models\TenantSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -77,7 +77,7 @@ class SecretsAndErrorLeaksTest extends TestCase
     public function test_audit_logger_scrubs_secrets_from_free_form_context(): void
     {
         $acme = $this->makeTenant('acme');
-        app(\App\Services\AuditLogger::class)->log('tenant.updated', $acme, [
+        app(\App\Modules\Core\Services\AuditLogger::class)->log('tenant.updated', $acme, [
             'webhook_secret' => self::WEBHOOK, 'nested' => ['maps_api_key' => self::MAPS, 'password' => 'Secret123'],
             'fcm_service_account_json' => '{"private_key":"x"}', 'api_token' => 'tok_123456789',
         ]);

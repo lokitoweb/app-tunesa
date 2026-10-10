@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attendance;
-use App\Models\AuditLog;
-use App\Models\CompanyConfiguration;
-use App\Models\EmployeeShift;
-use App\Models\Shift;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Core\Models\AuditLog;
+use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\Shift;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;

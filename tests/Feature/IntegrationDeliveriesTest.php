@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Http\Controllers\Web\IntegrationsWebController;
-use App\Jobs\SendTenantWebhook;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Models\User;
-use App\Models\WebhookDelivery;
+use App\Modules\Integrations\Controllers\Web\IntegrationsWebController;
+use App\Modules\Integrations\Jobs\SendTenantWebhook;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
+use App\Modules\Integrations\Models\WebhookDelivery;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -154,7 +154,7 @@ class IntegrationDeliveriesTest extends TestCase
         $emp = $this->makeUser($acme);
         $this->configure($acme, ['notification_endpoint' => self::NOTIFY]);
 
-        \App\Models\LeaveRequest::create(['tenant_id' => $acme->id, 'user_id' => $emp->id, 'type' => 'vacation',
+        \App\Modules\HR\Models\LeaveRequest::create(['tenant_id' => $acme->id, 'user_id' => $emp->id, 'type' => 'vacation',
             'start_date' => '2026-11-02', 'end_date' => '2026-11-03', 'days' => 2, 'reason' => 'Viaje', 'status' => 'pending']);
 
         $delivery = WebhookDelivery::where('target', SendTenantWebhook::TARGET_NOTIFICATION)->sole();
@@ -177,7 +177,7 @@ class IntegrationDeliveriesTest extends TestCase
 
         foreach ([1 => 10, 2 => 60, 3 => 300, 4 => 900] as $attempt => $wait) {
             try {
-                $this->queuedJob($acme, $attempt)->handle(app(\App\Services\Integrations\WebhookSender::class));
+                $this->queuedJob($acme, $attempt)->handle(app(\App\Modules\Integrations\Services\WebhookSender::class));
                 $this->fail('El job debe lanzar una excepción para que la cola lo reintente');
             } catch (RuntimeException $e) {
                 $this->assertStringContainsString('HTTP 503', $e->getMessage());
@@ -191,7 +191,7 @@ class IntegrationDeliveriesTest extends TestCase
 
         // Último intento: fallo definitivo, sin próximo reintento
         try {
-            $this->queuedJob($acme, 5)->handle(app(\App\Services\Integrations\WebhookSender::class));
+            $this->queuedJob($acme, 5)->handle(app(\App\Modules\Integrations\Services\WebhookSender::class));
         } catch (RuntimeException) {
         }
         $delivery = WebhookDelivery::sole();
@@ -200,7 +200,7 @@ class IntegrationDeliveriesTest extends TestCase
         $this->assertNull($delivery->next_retry_at);
 
         // Si después responde bien, la misma fila queda como entregada
-        $this->queuedJob($acme, 2)->handle(app(\App\Services\Integrations\WebhookSender::class));
+        $this->queuedJob($acme, 2)->handle(app(\App\Modules\Integrations\Services\WebhookSender::class));
         $this->assertSame(WebhookDelivery::STATUS_SUCCESS, WebhookDelivery::sole()->status);
     }
 
@@ -384,7 +384,7 @@ class IntegrationDeliveriesTest extends TestCase
         $class = IntegrationsWebController::FCM_SENDER;
         if (! class_exists($class)) {
             // Rama sin el módulo push: stub mínimo con la misma firma, solo para poder simularlo
-            eval('namespace App\Services\Push; class FcmSender { public function test(\App\Models\User $to): array { return []; } }');
+            eval('namespace App\Modules\Integrations\Services\Push; class FcmSender { public function test(\App\Modules\Core\Models\User $to): array { return []; } }');
         }
         $mock = Mockery::mock($class);
         $this->app->instance($class, $mock);

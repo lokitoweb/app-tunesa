@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Permission;
-use App\Models\Role;
+use App\Modules\Core\Models\Permission;
+use App\Modules\Core\Models\Role;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;

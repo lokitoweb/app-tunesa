@@ -4,7 +4,7 @@
 
 @section('content')
 @php
-    use App\Http\Controllers\Web\CompanyWebController as C;
+    use App\Modules\Core\Controllers\Web\CompanyWebController as C;
     $timezones = \DateTimeZone::listIdentifiers();
 @endphp
 

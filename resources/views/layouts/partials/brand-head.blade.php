@@ -7,7 +7,7 @@
     $bsSecondary = $brandSettings->secondaryColor();
     $bsAccent    = $brandSettings->accentColor();
     $bsNavbar    = $brandSettings->navbarColor();
-    $bsNavText   = \App\Models\TenantSetting::contrastText($bsNavbar);
+    $bsNavText   = \App\Modules\Core\Models\TenantSetting::contrastText($bsNavbar);
 @endphp
 @if($favicon = $brandSettings->faviconUrl())
     <link rel="icon" href="{{ $favicon }}">
@@ -17,12 +17,12 @@
     /* Marca blanca: colores de la empresa (o de la plataforma) */
     :root {
         --brand: {{ $bsPrimary }};
-        --brand-rgb: {{ \App\Models\TenantSetting::rgbList($bsPrimary) }};
-        --brand-text: {{ \App\Models\TenantSetting::contrastText($bsPrimary) }};
+        --brand-rgb: {{ \App\Modules\Core\Models\TenantSetting::rgbList($bsPrimary) }};
+        --brand-text: {{ \App\Modules\Core\Models\TenantSetting::contrastText($bsPrimary) }};
         --brand-secondary: {{ $bsSecondary }};
-        --brand-secondary-rgb: {{ \App\Models\TenantSetting::rgbList($bsSecondary) }};
+        --brand-secondary-rgb: {{ \App\Modules\Core\Models\TenantSetting::rgbList($bsSecondary) }};
         --brand-accent: {{ $bsAccent }};
-        --brand-accent-rgb: {{ \App\Models\TenantSetting::rgbList($bsAccent) }};
+        --brand-accent-rgb: {{ \App\Modules\Core\Models\TenantSetting::rgbList($bsAccent) }};
         --brand-navbar: {{ $bsNavbar }};
         --brand-navbar-text: {{ $bsNavText }};
     }

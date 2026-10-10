@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Services\GeofenceService;
+use App\Modules\Attendance\Services\GeofenceService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

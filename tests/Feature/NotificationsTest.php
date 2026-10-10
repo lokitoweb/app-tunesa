@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attendance;
-use App\Models\EmployeeDocument;
-use App\Models\LeaveRequest;
-use App\Models\Payslip;
-use App\Models\Tenant;
-use App\Models\User;
-use App\Notifications\LeaveRequestReviewed;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\HR\Models\EmployeeDocument;
+use App\Modules\HR\Models\LeaveRequest;
+use App\Modules\Payroll\Models\Payslip;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\User;
+use App\Modules\HR\Notifications\LeaveRequestReviewed;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;

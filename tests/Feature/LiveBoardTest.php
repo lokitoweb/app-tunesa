@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\Attendance;
-use App\Models\Branch;
-use App\Models\EmployeeShift;
-use App\Models\LeaveRequest;
-use App\Models\Shift;
-use App\Models\Tenant;
-use App\Models\User;
-use App\Services\TenantContext;
+use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Core\Models\Branch;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\LeaveRequest;
+use App\Modules\HR\Models\Shift;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\User;
+use App\Modules\Core\Services\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;

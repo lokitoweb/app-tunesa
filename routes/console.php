@@ -16,7 +16,7 @@ Schedule::command('attendance:mark-absences')->dailyAt('01:30')->withoutOverlapp
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
 
 // Historial de envíos a integraciones (webhook / notificaciones): borra lo de más de 30 días
-Schedule::command('model:prune', ['--model' => [\App\Models\WebhookDelivery::class]])->dailyAt('03:15');
+Schedule::command('model:prune', ['--model' => [\App\Modules\Integrations\Models\WebhookDelivery::class]])->dailyAt('03:15');
 
 // Reporte mensual de horas y faltas: el día 1 a las 07:00 genera el Excel del
 // mes anterior de cada empresa (disco privado) y notifica a administradores y RRHH

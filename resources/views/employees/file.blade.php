@@ -4,10 +4,10 @@
 
 @section('content')
 @php
-    use App\Models\EmployeeDocument;
-    use App\Models\EmployeeProfile;
-    use App\Models\UniformDelivery;
-    use App\Models\UniformSize;
+    use App\Modules\HR\Models\EmployeeDocument;
+    use App\Modules\HR\Models\EmployeeProfile;
+    use App\Modules\HR\Models\UniformDelivery;
+    use App\Modules\HR\Models\UniformSize;
 
     $show = fn (?string $v) => $revealed ? $v : EmployeeProfile::mask($v);
     $payTone = ['incomplete' => 'secondary', 'pending' => 'warning', 'verified' => 'success', 'rejected' => 'danger'];

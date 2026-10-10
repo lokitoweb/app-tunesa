@@ -3,7 +3,7 @@
 @section('title', 'Dotación y tallas')
 
 @section('content')
-@php use App\Models\UniformDelivery; @endphp
+@php use App\Modules\HR\Models\UniformDelivery; @endphp
 
 <div class="page-header">
     <div>

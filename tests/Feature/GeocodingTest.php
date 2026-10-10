@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\ReverseGeocodePunch;
-use App\Models\Tenant;
-use App\Models\TenantSetting;
-use App\Services\Geocoding\GeocodingException;
-use App\Services\Geocoding\GeocodingService;
-use App\Services\Geocoding\NominatimGeocoder;
-use App\Services\TenantContext;
+use App\Modules\Attendance\Jobs\ReverseGeocodePunch;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Integrations\Services\Geocoding\GeocodingException;
+use App\Modules\Integrations\Services\Geocoding\GeocodingService;
+use App\Modules\Integrations\Services\Geocoding\NominatimGeocoder;
+use App\Modules\Core\Services\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
