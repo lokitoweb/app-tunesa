@@ -98,10 +98,30 @@ la escriben ahí (`TenantSettingsService::update`). La app la recibe como boolea
 ### Secretos
 
 `webhook_secret` y `maps_api_key` usan el cast `encrypted` (se cifran con `APP_KEY`; si cambias
-`APP_KEY` dejan de poder leerse). Están en `$hidden`, nunca salen en `GET /api/v1/app/config`,
-y al editar se muestran enmascarados (`••••••••1234`). En el formulario, vacío = no cambiar;
-las casillas `clear_webhook_secret` / `clear_maps_api_key` los borran. La auditoría registra
-qué secretos cambiaron, no su valor.
+`APP_KEY` dejan de poder leerse). Están en `$hidden`, nunca salen en `GET /api/v1/app/config`
+ni en la API admin (enmascarados, `••••••••1234`). La auditoría registra qué secretos
+cambiaron, no su valor.
+
+**El secreto del webhook nunca está vacío.** Cada empresa recibe uno al crearse
+(`Tenant::created` → `TenantSetting::ensureWebhookSecret()`, formato `whsec_` + 32 caracteres
+aleatorios); la migración `backfill_webhook_secrets` lo genera para las empresas existentes y la
+pantalla de Integraciones lo genera si aún falta (o si no se puede descifrar). En el panel va
+precargado en un campo de contraseña con botones Mostrar/Ocultar y Copiar, y "Regenerar secreto"
+(`POST /settings/branding/regenerate-webhook-secret` → `{"success":true,"secret":"whsec_…"}`,
+auditado como `integration.webhook_secret_regenerated` sin el valor). Si se escribe uno propio
+debe tener al menos 16 caracteres; `clear_webhook_secret` genera uno nuevo en lugar de borrarlo.
+`clear_maps_api_key` sí borra la clave de mapas.
+
+**Receptor de la plataforma.** `POST /api/v1/webhooks/receiver/{slug?}`
+(`WebhookReceiverController`, 60/min) verifica `X-Tunesa-Signature` con el secreto de la empresa y
+responde `{"ok":true,"signature_valid":true,"event":…}` o 401. Mientras la empresa no tenga su
+URL, "URL del webhook" y "Endpoint de notificaciones" se precargan con esta dirección
+(`?canal=notificaciones` para el segundo), así las pruebas funcionan desde el primer momento. Es la
+única ruta del propio host (`APP_URL`) a la que se permite enviar aunque sea una red privada. En
+desarrollo, el servidor de PHP atiende una petición a la vez y la prueba contra el receptor local
+se queda esperando: arráncalo con varios procesos (desde `public/`:
+`PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8000 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php`).
+En producción (php-fpm) no pasa.
 
 ### Integraciones: webhook y endpoint de notificaciones
 

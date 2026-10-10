@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ShiftController;
 use App\Http\Controllers\Api\TenantController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WebhookReceiverController;
 use Illuminate\Support\Facades\Route;
 
 // =============================================================================
@@ -50,6 +51,11 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('v1/app/config', [AppConfigController::class, 'show']);
     Route::get('app/config',    [AppConfigController::class, 'show']);
 });
+
+// Receptor de webhooks de la plataforma (verifica X-Tunesa-Signature): URL
+// precargada en Integraciones mientras la empresa no tenga la de su sistema
+Route::post('v1/webhooks/receiver/{slug?}', [WebhookReceiverController::class, 'receive'])
+    ->middleware('throttle:60,1')->where('slug', '[a-z0-9-]+')->name('integrations.receiver');
 
 // =============================================================================
 // RUTAS PÚBLICAS CON TENANT (requieren identificar la empresa)

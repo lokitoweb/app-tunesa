@@ -123,9 +123,12 @@ class TenantIsolationSweepTest extends TestCase
     {
         $a = $this->makeTenant('acme');
         $b = $this->makeTenant('other');
-        TenantSetting::create(['tenant_id' => $b->id, 'trade_name' => 'Marca de Other', 'webhook_url' => 'https://other.test/hook']);
+        TenantSetting::updateOrCreate(['tenant_id' => $b->id], ['trade_name' => 'Marca de Other', 'webhook_url' => 'https://other.test/hook']);
 
-        $this->assertNull(TenantSetting::rowFor($a));
+        // Acme solo tiene su secreto de webhook (generado al crearse), nada de Other
+        $this->assertNull(TenantSetting::rowFor($a)->trade_name);
+        $this->assertNull(TenantSetting::rowFor($a)->webhook_url);
+        $this->assertNotSame(TenantSetting::rowFor($a)->webhook_secret, TenantSetting::rowFor($b)->webhook_secret);
         $this->assertNotSame('Marca de Other', TenantSetting::forTenant($a)->trade_name);
         $this->assertNotSame('https://other.test/hook', TenantSetting::forTenant($a)->webhook_url);
 

@@ -237,9 +237,10 @@ class WhiteLabelSettingsTest extends TestCase
         $this->assertNull($global->tenant_id);
         $this->assertSame('Plataforma RRHH', $global->trade_name);
         $this->assertStringStartsWith('platform/branding/', $global->logo_path);
-        $this->assertSame(0, TenantSetting::whereNotNull('tenant_id')->count());
+        // Acme solo tiene su secreto de webhook (generado al crearse): todo lo demás lo hereda
+        $this->assertSame(0, TenantSetting::whereNotNull('tenant_id')->whereNotNull('trade_name')->count());
 
-        // Acme no tiene fila: hereda de la plataforma (pero conserva su nombre y su color)
+        // Acme hereda de la plataforma (pero conserva su nombre y su color)
         $this->getJson('/api/v1/app/config?tenant_slug=acme')->assertOk()
             ->assertJsonPath('data.tenant.trade_name', 'Acme')
             ->assertJsonPath('data.mobile.offline_mode_enabled', true)
@@ -346,9 +347,11 @@ class WhiteLabelSettingsTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->assertSame('whsec_1234567890', TenantSetting::rowFor($acme)->webhook_secret);
 
-        // Panel y API admin: enmascarados
-        $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertOk()
-            ->assertDontSee('whsec_1234567890')->assertSee('••••••••7890')->assertSee('Dejar vacío para no cambiar.');
+        // Panel: precargado en un campo de contraseña (oculto hasta "Mostrar"); API admin: enmascarado
+        $html = $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('/<input type="password" id="webhook_secret"[^>]*value="whsec_1234567890"/s', $html);
+        $this->assertSame(1, substr_count($html, 'whsec_1234567890'));
+        $this->assertStringNotContainsString('AIzaSyClave9876', $html);
         $this->actingIn($admin, $acme)->getJson('/api/admin/app-config')->assertOk()
             ->assertJsonPath('data.settings.has_webhook_secret', true)
             ->assertJsonPath('data.settings.webhook_secret', '••••••••7890')
@@ -358,9 +361,10 @@ class WhiteLabelSettingsTest extends TestCase
         $audit = AuditLog::where('action', 'tenant_settings.updated')->latest('id')->first();
         $this->assertStringNotContainsString('whsec_', json_encode($audit->meta));
 
-        // Borrar el secreto
+        // "Borrar" el secreto genera uno nuevo: el webhook nunca queda sin firma
         $this->actingAs($admin)->put('/settings/branding', ['primary_color' => '#1E40AF', 'secondary_color' => '#F59E0B', 'clear_webhook_secret' => '1']);
-        $this->assertNull(TenantSetting::rowFor($acme)->webhook_secret);
+        $this->assertStringStartsWith('whsec_', TenantSetting::rowFor($acme)->webhook_secret);
+        $this->assertNotSame('whsec_1234567890', TenantSetting::rowFor($acme)->webhook_secret);
     }
 
     // =========================================================================

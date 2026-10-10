@@ -130,7 +130,8 @@ class WebhookSender
 
     /**
      * Motivo para no enviar a la URL, o null si se permite. Se rechazan las
-     * direcciones privadas, locales o reservadas (salvo INTEGRATIONS_ALLOW_PRIVATE_URLS).
+     * direcciones privadas, locales o reservadas (salvo INTEGRATIONS_ALLOW_PRIVATE_URLS
+     * o el host de la propia plataforma, APP_URL).
      */
     public function blockedReason(string $url): ?string
     {
@@ -141,6 +142,13 @@ class WebhookSender
             return 'La URL debe empezar con http:// o https://.';
         }
         if (config('integrations.allow_private_urls')) {
+            return null;
+        }
+        // El receptor de la propia plataforma (URL precargada) siempre se permite:
+        // mismo host que APP_URL y solo la ruta del receptor
+        $receiverPath = (string) parse_url(route('integrations.receiver'), PHP_URL_PATH);
+        if (strcasecmp($host, (string) parse_url((string) config('app.url'), PHP_URL_HOST)) === 0
+            && str_starts_with((string) parse_url($url, PHP_URL_PATH), $receiverPath)) {
             return null;
         }
 

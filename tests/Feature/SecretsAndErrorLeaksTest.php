@@ -49,6 +49,12 @@ class SecretsAndErrorLeaksTest extends TestCase
             '/settings/mobile', '/audit', '/employees', "/employees/{$emp->id}/file", '/branches', '/payroll'];
         foreach ($pages as $page) {
             $html = $this->actingAs($admin)->get($page)->assertOk()->getContent();
+            // El secreto del webhook solo va precargado en su campo de contraseña de Integraciones
+            if (str_starts_with($page, '/settings/branding')) {
+                $this->assertSame(1, substr_count($html, self::WEBHOOK), "{$page} repite el secreto del webhook");
+                $this->assertMatchesRegularExpression('/<input type="password" id="webhook_secret"[^>]*value="' . preg_quote(self::WEBHOOK, '/') . '"/s', $html);
+                $html = str_replace(self::WEBHOOK, '', $html);
+            }
             foreach ([self::WEBHOOK, self::MAPS, self::ACCOUNT, 'LiveSecret', 'FakeKey'] as $secret) {
                 $this->assertStringNotContainsString($secret, $html, "{$page} muestra un secreto en claro");
             }

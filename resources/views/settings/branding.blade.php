@@ -402,7 +402,7 @@
                     <div class="card border-0">
                         <div class="card-header border-0 pt-3">
                             <h2 class="h6 fw-semibold mb-0">Webhook y notificaciones</h2>
-                            <small class="text-body-secondary">Las claves se guardan cifradas y nunca se muestran completas ni se envían a la app.</small>
+                            <small class="text-body-secondary">Se guardan cifradas. El secreto solo lo ven quienes administran {{ $isGlobal ? 'la plataforma' : 'la empresa' }} y nunca se envía a la app.</small>
                             @if($isGlobal)
                                 <small class="d-block text-body-secondary">El webhook y el endpoint de notificaciones son propios de cada empresa: en la vista global solo sirven para probar la conexión, no se heredan ni reciben eventos.</small>
                             @endif
@@ -411,8 +411,13 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="webhook_url" class="form-label">URL del webhook</label>
-                                    <input type="url" id="webhook_url" name="webhook_url" maxlength="255" value="{{ $val('webhook_url') }}" placeholder="https://erp.empresa.com/webhooks/asistencia" class="form-control @error('webhook_url') is-invalid @enderror">
+                                    @php $webhookUrl = $val('webhook_url') ?: $receiverUrls['webhook_url']; @endphp
+                                    <input type="url" id="webhook_url" name="webhook_url" maxlength="255" value="{{ $webhookUrl }}" placeholder="https://erp.empresa.com/webhooks/asistencia" class="form-control @error('webhook_url') is-invalid @enderror">
+                                    @error('webhook_url')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                     <div class="form-text">Recibe un POST JSON por cada entrada, inicio y fin de descanso y salida, y por cada cambio de estado de un permiso (para ERP o planilla).</div>
+                                    @if($webhookUrl === $receiverUrls['webhook_url'])
+                                        <div class="form-text text-info-emphasis"><i class="bi bi-info-circle me-1"></i>Precargada con el receptor de la plataforma, que verifica la firma. Reemplázala por la URL de tu sistema cuando la tengas.</div>
+                                    @endif
                                     <button type="button" class="btn btn-sm btn-outline-primary mt-2" data-integration-test="{{ route('settings.branding.test-webhook') }}" data-url-input="webhook_url" data-result="webhookResult">
                                         <i class="bi bi-send me-1"></i>Probar Webhook Ahora
                                     </button>
@@ -420,20 +425,32 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label for="webhook_secret" class="form-label">Secreto del webhook</label>
-                                    <input type="password" id="webhook_secret" name="webhook_secret" maxlength="255" autocomplete="new-password" value=""
-                                           placeholder="{{ $values['webhook_secret'] ?? 'Sin secreto' }}" class="form-control font-monospace @error('webhook_secret') is-invalid @enderror">
-                                    <div class="form-text">Firma cada envío en la cabecera <code>X-Tunesa-Signature: sha256=…</code> (HMAC-SHA256 del cuerpo). Dejar vacío para no cambiar.</div>
-                                    @if($values['has_webhook_secret'])
-                                        <div class="form-check mt-1">
-                                            <input class="form-check-input" type="checkbox" name="clear_webhook_secret" value="1" id="clear_webhook_secret">
-                                            <label class="form-check-label small" for="clear_webhook_secret">Borrar el secreto guardado</label>
-                                        </div>
-                                    @endif
+                                    <div class="input-group">
+                                        <input type="password" id="webhook_secret" name="webhook_secret" maxlength="255" minlength="16" autocomplete="off" spellcheck="false" required
+                                               value="{{ old('webhook_secret', $webhookSecret) }}" class="form-control font-monospace @error('webhook_secret') is-invalid @enderror">
+                                        <button type="button" class="btn btn-outline-secondary" id="webhookSecretToggle" aria-pressed="false" title="Mostrar el secreto" aria-label="Mostrar el secreto">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary" id="webhookSecretCopy" title="Copiar el secreto" aria-label="Copiar el secreto">
+                                            <i class="bi bi-clipboard"></i>
+                                        </button>
+                                        @error('webhook_secret')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                    </div>
+                                    <div class="form-text">Firma cada envío en la cabecera <code>X-Tunesa-Signature: sha256=…</code> (HMAC-SHA256 del cuerpo). Configura este mismo valor en tu sistema para validar la firma.</div>
+                                    <button type="button" class="btn btn-sm btn-outline-warning mt-2" id="webhookSecretRegenerate" data-url="{{ route('settings.branding.regenerate-webhook-secret') }}">
+                                        <i class="bi bi-arrow-repeat me-1"></i>Regenerar secreto
+                                    </button>
+                                    <div id="webhookSecretResult" class="mt-2 small" aria-live="polite"></div>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="notification_endpoint" class="form-label">Endpoint de notificaciones</label>
-                                    <input type="url" id="notification_endpoint" name="notification_endpoint" maxlength="255" value="{{ $val('notification_endpoint') }}" placeholder="https://notificaciones.empresa.com/push" class="form-control @error('notification_endpoint') is-invalid @enderror">
-                                    <div class="form-text">Recibe un POST JSON por cada aviso in-app creado para un usuario de la empresa, con la misma firma que el webhook (opcional).</div>
+                                    @php $notificationUrl = $val('notification_endpoint') ?: $receiverUrls['notification_endpoint']; @endphp
+                                    <input type="url" id="notification_endpoint" name="notification_endpoint" maxlength="255" value="{{ $notificationUrl }}" placeholder="https://notificaciones.empresa.com/push" class="form-control @error('notification_endpoint') is-invalid @enderror">
+                                    @error('notification_endpoint')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                    <div class="form-text">Recibe un POST JSON por cada aviso in-app creado para un usuario de la empresa, con la misma firma que el webhook.</div>
+                                    @if($notificationUrl === $receiverUrls['notification_endpoint'])
+                                        <div class="form-text text-info-emphasis"><i class="bi bi-info-circle me-1"></i>Precargada con el receptor de la plataforma. Reemplázala por la URL de tu sistema cuando la tengas.</div>
+                                    @endif
                                     <button type="button" class="btn btn-sm btn-outline-primary mt-2" data-integration-test="{{ route('settings.branding.test-notification') }}" data-url-input="notification_endpoint" data-result="notificationResult">
                                         <i class="bi bi-bell me-1"></i>Enviar Notificación de Prueba
                                     </button>
@@ -442,7 +459,7 @@
                                 <div class="col-md-6">
                                     <p class="small text-body-secondary mb-0 mt-md-4">
                                         Las pruebas se envían al instante a la URL escrita arriba (aunque no la hayas guardado) con el evento
-                                        <code>ping</code> o <code>notification.test</code>, firmadas con el secreto escrito o el guardado.
+                                        <code>ping</code> o <code>notification.test</code>, firmadas con el secreto del webhook.
                                         Los eventos reales se envían en segundo plano y se reintentan hasta 5 veces si fallan.
                                     </p>
                                 </div>
@@ -715,6 +732,49 @@
             (data.error ? '<div class="small text-danger mt-1">' + esc(data.error) + '</div>' : '') +
             (text ? '<pre class="small bg-body-tertiary rounded p-2 mt-1 mb-0 integration-pre">' + esc(pretty(text)) + '</pre>' : '');
     }
+
+    // Secreto del webhook: mostrar/ocultar, copiar y regenerar
+    const secretInput = document.getElementById('webhook_secret');
+    const secretToggle = document.getElementById('webhookSecretToggle');
+    const secretBox = document.getElementById('webhookSecretResult');
+    secretToggle?.addEventListener('click', () => {
+        const show = secretInput.type === 'password';
+        secretInput.type = show ? 'text' : 'password';
+        secretToggle.setAttribute('aria-pressed', show ? 'true' : 'false');
+        secretToggle.title = show ? 'Ocultar el secreto' : 'Mostrar el secreto';
+        secretToggle.setAttribute('aria-label', secretToggle.title);
+        secretToggle.innerHTML = show ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+    });
+    document.getElementById('webhookSecretCopy')?.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        try {
+            await navigator.clipboard.writeText(secretInput.value);
+        } catch (_) {
+            // Sin permiso de portapapeles (http): copia con la selección
+            const type = secretInput.type;
+            secretInput.type = 'text';
+            secretInput.select();
+            document.execCommand('copy');
+            secretInput.type = type;
+        }
+        btn.innerHTML = '<i class="bi bi-clipboard-check text-success"></i>';
+        secretBox.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Secreto copiado.</span>';
+        setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i>'; }, 1500);
+    });
+    const regenBtn = document.getElementById('webhookSecretRegenerate');
+    regenBtn?.addEventListener('click', async () => {
+        if (!confirm('¿Generar un secreto nuevo? Las firmas con el actual dejarán de ser válidas en tu sistema.')) return;
+        busy(regenBtn, true);
+        try {
+            const data = await requestJson(regenBtn.dataset.url, { method: 'POST', body: '{}' });
+            secretInput.value = data.secret;
+            secretBox.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>' + esc(data.message) + '</span>';
+        } catch (e) {
+            secretBox.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i>' + esc(e.message) + '</span>';
+        } finally {
+            busy(regenBtn, false);
+        }
+    });
 
     async function requestJson(url, options) {
         const res = await fetch(url, Object.assign({ headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json' } }, options));
