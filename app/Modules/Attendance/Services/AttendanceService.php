@@ -226,9 +226,14 @@ class AttendanceService
             );
         }
 
-        $branch = $this->getEmployeeBranchForToday($employee, $today);
+        // Itinerantes (choferes, relevos, técnicos): marcan en la sede donde estén o en ruta
+        $branch = $employee->roaming_attendance_enabled
+            ? $this->roamingBranch($employee, $today, $data)
+            : $this->getEmployeeBranchForToday($employee, $today);
         $geo    = $this->geofence->check($data->latitude, $data->longitude, $branch);
-        $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
+        if (! $employee->roaming_attendance_enabled) {
+            $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
+        }
 
         [$assignment, $hasAssignments] = $this->getCurrentShift($employee, $today);
         $shift = $assignment?->shift;
@@ -378,7 +383,9 @@ class AttendanceService
 
         $branch  = $attendance->branch;
         $geo     = $this->geofence->check($data->latitude, $data->longitude, $branch);
-        $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
+        if (! $employee->roaming_attendance_enabled) {
+            $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
+        }
 
         $shift = $attendance->shift;
         if ($shift && $this->isOutsideShiftWindow($shift, $attendance->work_date->toDateString(), $clockOutTime, $c['tenant']->timezone)) {
@@ -700,6 +707,32 @@ class AttendanceService
         }
 
         return $attendance;
+    }
+
+    /**
+     * Sede de la marcación de un itinerante: la sede activa de la empresa cuya
+     * geocerca contiene el punto (la más cercana si hay varias). En ruta, fuera
+     * de toda geocerca, queda en su sede base (o la más cercana si no tiene) y
+     * la marcación guarda igual sus coordenadas y dirección.
+     */
+    private function roamingBranch(User $employee, string $date, PunchData $data): Branch
+    {
+        // ponytail: recorre las sedes de la empresa en PHP (decenas o cientos); índice espacial si fueran miles
+        $nearest = Branch::where('is_active', true)->get()
+            ->map(fn (Branch $b) => [$b, $this->geofence->check($data->latitude, $data->longitude, $b)])
+            ->sortBy(fn (array $pair) => $pair[1]->distanceMeters)
+            ->values();
+
+        $inside = $nearest->first(fn (array $pair) => $pair[1]->isWithinGeofence);
+        if ($inside) {
+            return $inside[0];
+        }
+
+        try {
+            return $this->getEmployeeBranchForToday($employee, $date);
+        } catch (AttendanceException $e) {
+            return $nearest->first()[0] ?? throw $e;
+        }
     }
 
     /** Sucursal vigente del empleado para la fecha (principal primero). */

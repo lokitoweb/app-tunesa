@@ -3,6 +3,7 @@
 namespace App\Modules\HR\Models;
 
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class EmployeeProfile extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, BelongsToBranchScope;
+
+    /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
+    public const BRANCH_SCOPE = [null, 'user_id'];
 
     public const BANK_ACCOUNT_TYPES = ['savings' => 'Ahorros', 'checking' => 'Corriente', 'payroll' => 'Cuenta sueldo'];
     public const PENSION_SYSTEMS    = ['afp' => 'AFP (privado)', 'onp' => 'ONP (estatal)', 'social_security' => 'Seguridad Social', 'none' => 'Sin régimen'];

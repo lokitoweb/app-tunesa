@@ -5,6 +5,7 @@ namespace App\Modules\Attendance\Models;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Casts\UtcDateTime;
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,7 +26,10 @@ use LogicException;
  */
 class AttendancePunch extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, BelongsToBranchScope;
+
+    /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
+    public const BRANCH_SCOPE = ['branch_id', 'user_id'];
 
     public const TYPES = ['clock_in', 'break_start', 'break_end', 'clock_out'];
 

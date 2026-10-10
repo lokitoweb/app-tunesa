@@ -9,6 +9,7 @@ use App\Modules\Core\Controllers\Web\CompanySettingsWebController;
 use App\Modules\Core\Controllers\Web\CompanyWebController;
 use App\Modules\Core\Controllers\Web\DashboardController;
 use App\Modules\Core\Controllers\Web\NotificationWebController;
+use App\Modules\Core\Controllers\Web\OrganizationWebController;
 use App\Modules\Core\Controllers\Web\PasswordResetController;
 use App\Modules\Core\Services\SecureFileUrl;
 use Illuminate\Support\Facades\Route;
@@ -78,6 +79,15 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/{id}/edit', [BranchWebController::class, 'edit'])->name('edit')->whereNumber('id');
         Route::put('/{id}', [BranchWebController::class, 'update'])->name('update')->whereNumber('id');
         Route::delete('/{id}', [BranchWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
+    });
+
+    // Jerarquía organizacional: zonas, sedes y áreas (pantalla Vue)
+    Route::prefix('organization')->name('organization.')->middleware('can:branches.manage')->group(function () {
+        Route::get('/', [OrganizationWebController::class, 'index'])->name('index');
+        Route::patch('/branches/{id}', [OrganizationWebController::class, 'updateBranch'])->name('branches.update')->whereNumber('id');
+        Route::post('/{catalog}', [OrganizationWebController::class, 'store'])->name('store')->whereIn('catalog', ['zones', 'departments']);
+        Route::put('/{catalog}/{id}', [OrganizationWebController::class, 'update'])->name('update')->whereIn('catalog', ['zones', 'departments'])->whereNumber('id');
+        Route::delete('/{catalog}/{id}', [OrganizationWebController::class, 'destroy'])->name('destroy')->whereIn('catalog', ['zones', 'departments'])->whereNumber('id');
     });
 
     // Plataforma (Super Admin): empresas, su primer administrador y marca blanca

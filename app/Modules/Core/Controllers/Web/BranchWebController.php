@@ -168,6 +168,8 @@ class BranchWebController extends Controller
             'latitude'              => ['required', 'numeric', 'between:-90,90'],
             'longitude'             => ['required', 'numeric', 'between:-180,180'],
             'allowed_radius_meters' => ['required', 'integer', 'min:10', 'max:5000'],
+            'zone_id'               => ['sometimes', 'nullable', 'integer', Rule::exists('zones', 'id')->where('tenant_id', $tenantId)],
+            'branch_type'           => ['sometimes', Rule::in(array_keys(Branch::TYPES))],
             'supervisor_id'         => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $tenantId)->whereIn('role', self::SUPERVISOR_ROLES)],
             'is_active'             => ['nullable', 'boolean'],
             'notes'                 => ['nullable', 'string', 'max:500'],

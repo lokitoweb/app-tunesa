@@ -42,6 +42,7 @@ class PanelNavigation
                 ['HR', 'users.manage', 'employees.index', [], 'people', 'Colaboradores', $request->routeIs('employees.index', 'employees.create', 'employees.edit')],
                 ['HR', 'shifts.manage', 'shifts.index', [], 'calendar-week', 'Turnos y horarios', $request->routeIs('shifts*'), null, true],
                 ['HR', 'shifts.manage', 'holidays.index', [], 'calendar-heart', 'Feriados', $request->routeIs('holidays*')],
+                ['Core', 'branches.manage', 'organization.index', [], 'diagram-3', 'Organización', $request->routeIs('organization*'), null, true],
                 ['Core', 'branches.manage', 'branches.index', [], 'pin-map', 'Sucursales y geocercas', $request->routeIs('branches*')],
                 ['Payroll', 'payslips.manage', 'payslips.index', [], 'file-earmark-text', 'Boletas de pago', $request->routeIs('payslips*')],
             ],
@@ -96,7 +97,7 @@ class PanelNavigation
         }
 
         return LeaveRequest::where('status', 'pending')
-            ->whereHas('employee.branches', fn ($q) => $q->where('branches.supervisor_id', $user->id))
+            ->whereHas('employee.branches', fn ($q) => $q->visibleTo($user))
             ->count();
     }
 }

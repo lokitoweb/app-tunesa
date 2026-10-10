@@ -3,6 +3,7 @@
 namespace App\Modules\Payroll\Models;
 
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -19,7 +20,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Payslip extends Model
 {
-    use BelongsToTenant, SoftDeletes;
+    use BelongsToTenant, SoftDeletes, BelongsToBranchScope;
+
+    /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
+    public const BRANCH_SCOPE = [null, 'user_id'];
 
     protected $fillable = [
         'tenant_id',
