@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\TenantSetting;
+use App\Services\Integrations\WebhookSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
@@ -103,5 +104,25 @@ class WebhookSecretTest extends TestCase
         $secret = TenantSetting::rowFor($acme)->webhook_secret;
         Http::assertSent(fn (Request $r) => $r->url() === $receiver
             && $r->header('X-Tunesa-Signature')[0] === 'sha256=' . hash_hmac('sha256', $r->body(), $secret));
+    }
+
+    public function test_ssl_is_verified_only_in_production_and_tests_time_out_quickly(): void
+    {
+        // Local / pruebas: sin verificar el certificado (túneles de Cloudflare, certificados propios)
+        $this->assertFalse(WebhookSender::verifiesSsl());
+        $this->assertFalse(WebhookSender::requestOptions()['verify']);
+        $this->assertFalse(WebhookSender::requestOptions()['allow_redirects']);
+        config(['integrations.verify_ssl' => true]);
+        $this->assertTrue(WebhookSender::verifiesSsl());
+
+        // Producción: verificación estricta aunque INTEGRATIONS_VERIFY_SSL diga lo contrario
+        $this->app['env'] = 'production';
+        config(['integrations.verify_ssl' => false]);
+        $this->assertTrue(WebhookSender::requestOptions()['verify']);
+        $this->app['env'] = 'testing';
+
+        // Los botones de prueba esperan 5 s como máximo (los envíos reales, 10 s)
+        $this->assertSame(5, config('integrations.test_timeout'));
+        $this->assertSame(10, config('integrations.timeout'));
     }
 }

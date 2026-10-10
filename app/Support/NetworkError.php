@@ -43,7 +43,7 @@ final class NetworkError
             str_contains($m, 'could not resolve host')        => 'No se encontró el servidor (revisa el dominio de la URL).',
             str_contains($m, 'connection refused')            => 'El servidor rechazó la conexión.',
             str_contains($m, 'connect tunnel'), str_contains($m, 'proxy') => 'La red del servidor bloqueó la conexión (proxy o firewall). Pide a soporte que habilite la salida a ese dominio.',
-            str_contains($m, 'ssl'), str_contains($m, 'certificate') => 'No se pudo verificar el certificado de seguridad (HTTPS) del destino.',
+            str_contains($m, 'ssl'), str_contains($m, 'certificate') => 'No se pudo verificar el certificado de seguridad (HTTPS) del destino. Si el certificado es válido, actualiza los certificados raíz del servidor (curl.cainfo en php.ini).',
             str_contains($m, 'connection reset'), str_contains($m, 'empty reply') => 'El servidor cortó la conexión antes de responder.',
             default                                           => 'No se pudo conectar con el servidor de destino.',
         };
