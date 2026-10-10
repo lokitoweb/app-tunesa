@@ -329,6 +329,7 @@ class IntegrationDeliveriesTest extends TestCase
         $this->actingAs($root)->getJson('/settings/branding/deliveries')
             ->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.event', 'ping')
+            ->assertJsonPath('data.0.event_label', 'Prueba del webhook')
             ->assertJsonPath('data.0.host', 'plataforma.example.test');
         $this->assertNull(WebhookDelivery::where('event', 'ping')->sole()->tenant_id);
     }
@@ -350,6 +351,7 @@ class IntegrationDeliveriesTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.event', 'attendance.clock_in')
+            ->assertJsonPath('data.0.event_label', 'Marcación de entrada')
             ->assertJsonPath('data.0.host', 'erp.example.test')
             ->assertJsonPath('data.0.http_status', 500)
             ->assertJsonPath('data.0.attempt', 2)

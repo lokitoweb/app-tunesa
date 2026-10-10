@@ -69,7 +69,7 @@
             return;
         }
         const d = evidenceData;
-        el('evidenceTitle').textContent = (d.employee?.name || 'Colaborador') + ' · ' + (d.work_date || '');
+        el('evidenceTitle').textContent = (d.employee?.name || 'Colaborador') + ' · ' + (d.work_date_label || d.work_date || '');
         el('evidenceSubtitle').textContent = (d.branch?.name || 'Sin sucursal') + (d.shift ? ' · ' + d.shift : '');
         el('evidenceFullLink').href = base + '/' + d.id;
         showMoment(d.clock_in ? 'in' : 'out');

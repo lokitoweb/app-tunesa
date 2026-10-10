@@ -2,6 +2,7 @@
 
 namespace App\Services\Geocoding;
 
+use GuzzleHttp\Exception\TransferException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -44,7 +45,8 @@ class GoogleGeocoder implements Geocoder
             $response = Http::acceptJson()
                 ->timeout((int) config('services.google_geocoding.timeout', 8))
                 ->get((string) config('services.google_geocoding.url'), $params + ['key' => $this->apiKey, 'language' => 'es']);
-        } catch (ConnectionException $e) {
+        } catch (ConnectionException|TransferException $e) {
+            // TransferException: errores de red que Laravel no envuelve (proxy, TLS)
             throw new GeocodingException('No se pudo conectar con Google Geocoding: ' . $e->getMessage(), 0, $e);
         }
 

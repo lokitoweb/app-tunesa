@@ -85,7 +85,11 @@
                             <dl class="kv small">
                                 <dt>Hora</dt><dd class="fw-semibold">{{ $m['at']?->format('H:i:s') ?? '--:--:--' }}</dd>
                                 <dt>Distancia</dt>
-                                <dd class="{{ $m['within'] ? 'text-success' : 'text-danger' }}">{{ $m['distance'] ?? '—' }} m <span class="text-body-secondary">de {{ $branch->allowed_radius_meters ?? 50 }} m</span></dd>
+                                @if($m['distance'] !== null)
+                                    <dd class="{{ $m['within'] ? 'text-success' : 'text-danger' }}">{{ $m['distance'] }} m <span class="text-body-secondary">de {{ $branch->allowed_radius_meters ?? 50 }} m</span></dd>
+                                @else
+                                    <dd class="text-body-secondary">—</dd>
+                                @endif
                                 <dt>Coordenadas</dt><dd class="font-monospace">{{ $m['lat'] !== null ? $m['lat'] . ', ' . $m['lng'] : '—' }}</dd>
                                 @if($key === 'in')
                                     <dt>Tardanza</dt><dd class="{{ $attendance->late_minutes > 0 ? 'text-warning-emphasis' : '' }}">{{ $attendance->late_minutes ?? 0 }} min</dd>

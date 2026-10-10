@@ -3,6 +3,7 @@
 namespace App\Services\Integrations;
 
 use App\Models\WebhookDelivery;
+use App\Support\NetworkError;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -166,14 +167,9 @@ class WebhookSender
 
     private static function connectionError(Throwable $e): string
     {
-        $message = $e->getMessage();
+        Log::info('Error de red al enviar a la integración: ' . $e->getMessage());
 
-        return match (true) {
-            str_contains($message, 'timed out'), str_contains($message, 'Operation timed out') => 'Sin respuesta dentro del tiempo límite.',
-            str_contains($message, 'Could not resolve host') => 'No se encontró el servidor (revisa el dominio de la URL).',
-            str_contains($message, 'Connection refused') => 'El servidor rechazó la conexión.',
-            default => Str::limit('No se pudo conectar: ' . $message, 500),
-        };
+        return NetworkError::describe($e);
     }
 
     private function record(WebhookDelivery $delivery, array $values): void

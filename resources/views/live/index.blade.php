@@ -22,7 +22,7 @@
 <div class="page-header">
     <div>
         <h1>Tablero en vivo</h1>
-        <p>Quién está trabajando ahora, en descanso, por llegar o ausente@if($globalView ?? false) en todas las empresas@endif.</p>
+        <p>Quién está trabajando ahora, en descanso, por llegar o ausente{{ ($globalView ?? false) ? ' en todas las empresas' : '' }}.</p>
     </div>
     <div class="d-flex align-items-center gap-2 small fw-semibold" aria-live="polite">
         <span class="live-dot" id="liveDot"></span>

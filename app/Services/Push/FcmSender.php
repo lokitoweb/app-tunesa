@@ -6,6 +6,8 @@ use App\Models\Scopes\TenantScope;
 use App\Models\Tenant;
 use App\Models\TenantSetting;
 use App\Models\User;
+use App\Support\NetworkError;
+use GuzzleHttp\Exception\TransferException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
@@ -73,7 +75,7 @@ class FcmSender
         $token   = $to->fcm_token;
 
         if (blank($token)) {
-            return PushResult::failure('El usuario no tiene un dispositivo registrado para push (fcm_token vacío).', null, $started, code: 'NO_DEVICE_TOKEN');
+            return PushResult::failure('El usuario no tiene un dispositivo registrado para notificaciones push.', null, $started, code: 'NO_DEVICE_TOKEN');
         }
 
         $account = $this->credentials();
@@ -105,8 +107,12 @@ class FcmSender
                 $this->forgetAccessToken($account);
                 $response = $this->post($account, $message);
             }
-        } catch (PushException|ConnectionException $e) {
+        } catch (PushException $e) {
             return PushResult::failure($e->getMessage(), null, $started, transient: true);
+        } catch (ConnectionException|TransferException $e) {
+            Log::warning('Error de red al enviar push: ' . $e->getMessage());
+
+            return PushResult::failure('No se pudo conectar con Firebase: ' . NetworkError::describe($e), null, $started, transient: true);
         }
 
         if ($response->successful()) {
@@ -120,7 +126,7 @@ class FcmSender
         if (self::isUnregistered($response)) {
             $this->clearToken($to, $token);
 
-            return PushResult::failure("El token del dispositivo ya no es válido (UNREGISTERED); se borró. {$message}", $response->status(), $started, $json, tokenCleared: true, code: 'UNREGISTERED');
+            return PushResult::failure("El celular ya no está registrado para notificaciones (se desinstaló la app o se cerró la sesión); se borró el registro. Pide al colaborador que vuelva a iniciar sesión en la app.", $response->status(), $started, $json, tokenCleared: true, code: 'UNREGISTERED');
         }
 
         return PushResult::failure(
@@ -167,8 +173,10 @@ class FcmSender
                 'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
                 'assertion'  => $this->buildJwt($account),
             ]);
-        } catch (ConnectionException $e) {
-            throw new PushException('No se pudo conectar con Google OAuth: ' . $e->getMessage(), 0, $e);
+        } catch (ConnectionException|TransferException $e) {
+            Log::warning('Error de red al pedir el token de Firebase: ' . $e->getMessage());
+
+            throw new PushException('No se pudo conectar con Google para autorizar Firebase: ' . NetworkError::describe($e), 0, $e);
         }
 
         $accessToken = $response->json('access_token');

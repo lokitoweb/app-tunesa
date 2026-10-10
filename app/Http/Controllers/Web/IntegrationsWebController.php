@@ -9,7 +9,10 @@ use App\Models\User;
 use App\Models\WebhookDelivery;
 use App\Services\AuditLogger;
 use App\Services\Integrations\WebhookSender;
+use App\Services\Push\PushException;
 use App\Services\TenantContext;
+use App\Support\Labels;
+use App\Support\NetworkError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -80,15 +83,17 @@ class IntegrationsWebController extends Controller
             $result = (array) app(self::FCM_SENDER)->test($user);
         } catch (Throwable $e) {
             Log::warning('Falló el push de prueba: ' . $e->getMessage(), ['user_id' => $user->id]);
-            $result = ['ok' => false, 'status' => null, 'ms' => 0, 'error' => 'No se pudo enviar el push: ' . Str::limit($e->getMessage(), 300)];
+            $detail = $e instanceof PushException ? $e->getMessage() : NetworkError::humanize($e->getMessage());
+            $result = ['ok' => false, 'status' => null, 'ms' => 0, 'error' => 'No se pudo enviar el push: '
+                . ($detail !== $e->getMessage() || $e instanceof PushException ? Str::limit($detail, 300) : 'ocurrió un error inesperado. Revisa la credencial de Firebase y vuelve a intentarlo.')];
         }
 
-        $audit->log('push.tested', $user, [
-            'ok'     => (bool) ($result['ok'] ?? false),
-            'status' => $result['status'] ?? null,
-            'ms'     => (int) ($result['ms'] ?? 0),
-            'error'  => $result['error'] ?? null,
-        ]);
+        $audit->log('push.tested', $user, array_filter([
+            'sent'        => (bool) ($result['ok'] ?? false),
+            'http_status' => $result['status'] ?? null,
+            'response_ms' => (int) ($result['ms'] ?? 0),
+            'error'       => $result['error'] ?? null,
+        ], fn ($v) => $v !== null));
 
         return response()->json([
             'ok'     => (bool) ($result['ok'] ?? false),
@@ -120,6 +125,7 @@ class IntegrationsWebController extends Controller
             ->map(fn (WebhookDelivery $d) => [
                 'id'            => $d->id,
                 'event'         => $d->event,
+                'event_label'   => Labels::enum('webhook_event', $d->event),
                 'target'        => $d->target,
                 'url'           => $d->url,
                 'host'          => $d->host(),
@@ -128,7 +134,7 @@ class IntegrationsWebController extends Controller
                 'http_status'   => $d->http_status,
                 'response_ms'   => $d->response_ms,
                 'response_body' => $d->response_body,
-                'error'         => $d->error,
+                'error'         => NetworkError::humanize($d->error),
                 'created_at'    => $date($d->created_at),
                 'updated_at'    => $date($d->updated_at),
                 'next_retry_at' => $date($d->next_retry_at),

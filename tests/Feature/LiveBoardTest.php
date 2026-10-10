@@ -98,7 +98,8 @@ class LiveBoardTest extends TestCase
         $this->assertNotSame(200, $this->actingAs($this->people['working'])->getJson('/live/data')->status());
 
         $this->actingAs($this->makeUser($this->tenant, 'hr_manager'))->get(route('live.index'))
-            ->assertOk()->assertSee('Tablero en vivo')->assertSee('No ha llegado')->assertSee('\/live\/data', false);
+            ->assertOk()->assertSee('Tablero en vivo')->assertSee('No ha llegado')->assertSee('\/live\/data', false)
+            ->assertSee('por llegar o ausente.')->assertDontSee('@if', false)->assertDontSee('$globalView', false);
     }
 
     public function test_data_classifies_each_person(): void

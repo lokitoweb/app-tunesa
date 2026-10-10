@@ -45,7 +45,7 @@ Route::get('/secure-files/{kind}/{id}', [SecureFileController::class, 'show'])
     ->name('secure-files.show')
     ->whereIn('kind', \App\Services\SecureFileUrl::KINDS)
     ->whereNumber('id')
-    ->middleware(['signed', 'throttle:120,1']);
+    ->middleware(['signed', 'throttle:120,1,secure-files']);
 
 // Rutas públicas de autenticación
 Route::middleware('guest')->group(function () {
@@ -70,7 +70,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
 
     // Geocodificación (buscar direcciones / dirección de un punto) con el proveedor de la empresa
-    Route::middleware('throttle:60,1')->prefix('geocode')->name('geocode.')->group(function () {
+    Route::middleware('throttle:60,1,geocode')->prefix('geocode')->name('geocode.')->group(function () {
         Route::get('/search', [GeocodeController::class, 'search'])->name('search');
         Route::get('/reverse', [GeocodeController::class, 'reverse'])->name('reverse');
     });
@@ -132,7 +132,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
 
         // Integraciones: pruebas en vivo e historial de envíos (webhook_deliveries)
         Route::get('/deliveries', [IntegrationsWebController::class, 'deliveries'])->name('.deliveries');
-        Route::middleware('throttle:20,1')->group(function () {
+        Route::middleware('throttle:20,1,integration-tests')->group(function () {
             Route::post('/test-webhook', [IntegrationsWebController::class, 'testWebhook'])->name('.test-webhook');
             Route::post('/test-notification', [IntegrationsWebController::class, 'testNotification'])->name('.test-notification');
             Route::post('/test-push', [IntegrationsWebController::class, 'testPush'])->name('.test-push');

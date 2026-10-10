@@ -251,4 +251,26 @@ class AuditStructuredLogTest extends TestCase
 
         $this->get('/audit')->assertSee('Sucursal actualizada')->assertSee('Sucursal · Sede Centro')->assertDontSee('Branch #');
     }
+
+    public function test_summary_contracts_del_and_context_has_no_technical_keys(): void
+    {
+        $acme   = $this->makeTenant('acme');
+        $admin  = $this->makeUser($acme, 'company_admin', ['first_name' => 'Carlos', 'last_name' => 'Ramírez']);
+        $this->actingAs($admin);
+
+        $log = AuditLog::create(['tenant_id' => $acme->id, 'user_id' => $admin->id, 'action' => 'shift.updated',
+            'meta' => ['changes' => [['field' => 'grace_period_minutes', 'old' => 10, 'new' => 12]]]]);
+        $this->assertStringEndsWith('cambió 1 campo del turno: Tolerancia.', AuditLogPresenter::make($log, $admin)->summary());
+
+        app(AuditLogger::class)->log('push.tested', $admin, ['sent' => false, 'response_ms' => 0, 'error' => 'Sin dispositivo.']);
+        app(AuditLogger::class)->log('payslip.deleted', null, ['employee_id' => $admin->id, 'punch_id' => 9]);
+        foreach (AuditLog::whereIn('action', ['push.tested', 'payslip.deleted'])->get() as $row) {
+            foreach (AuditLogPresenter::make($row, $admin)->contextPairs() as $label => $value) {
+                $this->assertDoesNotMatchRegularExpression('/_| id$|^Ok$|^Ms$/', $label);
+            }
+        }
+        $pairs = AuditLogPresenter::make(AuditLog::where('action', 'payslip.deleted')->first(), $admin)->contextPairs();
+        $this->assertSame('Carlos Ramírez', (string) $pairs['Colaborador']);
+        $this->assertArrayNotHasKey('Registro de la bitácora de marcaciones', $pairs);
+    }
 }

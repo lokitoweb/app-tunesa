@@ -29,6 +29,7 @@ class AuditLogPresenter
     private const REFERENCES = [
         'supervisor_id'       => [User::class, 'full_name'],
         'user_id'             => [User::class, 'full_name'],
+        'employee_id'         => [User::class, 'full_name'],
         'reviewed_by'         => [User::class, 'full_name'],
         'uploaded_by'         => [User::class, 'full_name'],
         'payment_verified_by' => [User::class, 'full_name'],
@@ -179,9 +180,12 @@ class AuditLogPresenter
         $names = array_map(fn ($c) => self::shortLabel($c['label']), $changes);
         $list  = Labels::join($names, 2);
 
+        // "de el turno" → "del turno"
+        $of = str_starts_with($area, 'el ') ? 'del ' . substr($area, 3) : "de {$area}";
+
         return $count === 1
-            ? "{$actor} cambió 1 campo de {$area}: {$list}."
-            : "{$actor} cambió {$count} campos de {$area}: {$list}.";
+            ? "{$actor} cambió 1 campo {$of}: {$list}."
+            : "{$actor} cambió {$count} campos {$of}: {$list}.";
     }
 
     /** IP completa para Super Admin y Administrador; parcial para el resto */

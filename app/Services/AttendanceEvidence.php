@@ -61,6 +61,7 @@ class AttendanceEvidence
         return [
             'id'        => $attendance->id,
             'work_date' => $attendance->work_date?->toDateString(),
+            'work_date_label' => $attendance->work_date?->format('d/m/Y'),
             'status'    => $attendance->status,
             'late_minutes'  => $attendance->late_minutes,
             'worked_hours'  => $attendance->worked_hours,

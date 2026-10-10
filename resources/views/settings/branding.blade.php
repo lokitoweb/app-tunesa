@@ -568,7 +568,7 @@
                         <div class="card-header border-0 pt-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
                             <div>
                                 <h2 class="h6 fw-semibold mb-0">Últimos 20 envíos</h2>
-                                <small class="text-body-secondary">{{ $isGlobal ? 'Pruebas hechas desde la vista global.' : 'Webhook y endpoint de notificaciones de ' . $tenant->company_name . '. Se guardan 30 días.' }}</small>
+                                <small class="text-body-secondary">{{ $isGlobal ? 'Pruebas hechas desde la vista global.' : 'Webhook y endpoint de notificaciones de ' . rtrim($tenant->company_name, '.') . '. Se guardan 30 días.' }}</small>
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <div class="form-check form-switch mb-0">
@@ -585,7 +585,7 @@
                                 <thead>
                                     <tr>
                                         <th>Evento</th><th>Destino</th><th class="text-center">Intento</th><th class="text-center">HTTP</th>
-                                        <th class="text-end">ms</th><th>Estado</th><th>Fecha</th><th class="text-end"><span class="visually-hidden">Detalle</span></th>
+                                        <th class="text-end">Tiempo</th><th>Estado</th><th>Fecha</th><th class="text-end"><span class="visually-hidden">Detalle</span></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -619,6 +619,9 @@
     .brand-preview-accent { background: var(--p-accent); color: var(--p-accent-text, #fff); }
     .brand-preview-secondary { background: var(--p-secondary); color: var(--p-secondary-text, #fff); }
     .integration-pre { max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+    /* El detalle de un envío ocupa toda la fila: en pantallas angostas queda fijo al borde
+       visible de la tabla con scroll, para leerlo sin desplazarse de lado */
+    .delivery-detail { position: sticky; left: .5rem; max-width: calc(100vw - 4rem); }
 </style>
 @endsection
 
@@ -817,17 +820,17 @@
                 return;
             }
             tbody.innerHTML = data.map((d) => {
-                const detail = (d.error ? '<div class="text-danger mb-1">' + esc(d.error) + '</div>' : '') +
+                const detail = '<div class="delivery-detail">' + (d.error ? '<div class="text-danger mb-1">' + esc(d.error) + '</div>' : '') +
                     (d.next_retry_at ? '<div class="text-body-secondary mb-1">Próximo reintento: ' + esc(d.next_retry_at) + '</div>' : '') +
                     '<div class="text-body-secondary mb-1 text-break">' + esc(d.url) + '</div>' +
-                    (d.response_body ? '<pre class="bg-body-tertiary rounded p-2 mb-0 integration-pre">' + esc(pretty(d.response_body)) + '</pre>' : '<span class="text-body-secondary">Sin cuerpo de respuesta.</span>');
+                    (d.response_body ? '<pre class="bg-body-tertiary rounded p-2 mb-0 integration-pre">' + esc(pretty(d.response_body)) + '</pre>' : '<span class="text-body-secondary">Sin cuerpo de respuesta.</span>') + '</div>';
                 const open = opened.has(d.id);
                 return '<tr>' +
-                    '<td><code>' + esc(d.event) + '</code></td>' +
+                    '<td><div class="fw-medium">' + esc(d.event_label || d.event) + '</div><code class="small">' + esc(d.event) + '</code></td>' +
                     '<td class="text-break">' + esc(d.host) + '</td>' +
                     '<td class="text-center">' + esc(d.attempt) + '</td>' +
                     '<td class="text-center">' + (d.http_status ? httpBadge(d.http_status) : '—') + '</td>' +
-                    '<td class="text-end">' + (d.response_ms ?? '—') + '</td>' +
+                    '<td class="text-end text-nowrap">' + (d.response_ms != null ? esc(d.response_ms) + ' ms' : '—') + '</td>' +
                     '<td>' + (statusBadge[d.status] || esc(d.status)) + '</td>' +
                     '<td class="text-nowrap">' + esc(d.created_at) + '</td>' +
                     '<td class="text-end"><button type="button" class="btn btn-link btn-sm p-0" data-delivery="' + d.id + '" aria-expanded="' + open + '">' +

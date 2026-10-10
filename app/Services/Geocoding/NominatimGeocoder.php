@@ -3,6 +3,7 @@
 namespace App\Services\Geocoding;
 
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use GuzzleHttp\Exception\TransferException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
@@ -86,7 +87,8 @@ class NominatimGeocoder implements Geocoder
 
         try {
             $response = $this->client()->get(rtrim((string) config('services.nominatim.url'), '/') . $path, $params);
-        } catch (ConnectionException $e) {
+        } catch (ConnectionException|TransferException $e) {
+            // TransferException: errores de red que Laravel no envuelve (proxy, TLS)
             throw new GeocodingException('No se pudo conectar con Nominatim: ' . $e->getMessage(), 0, $e);
         }
 
