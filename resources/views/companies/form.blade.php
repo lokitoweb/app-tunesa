@@ -84,6 +84,22 @@
                             </select>
                             <div class="form-text">Suspendida: nadie de la empresa entra al panel ni a la app.</div>
                         </div>
+                        @if($company->exists)
+                            <div class="col-12">
+                                <span class="form-label d-block">Módulos activos</span>
+                                <input type="hidden" name="modules_submitted" value="1">
+                                <div class="d-flex flex-wrap gap-3">
+                                    @foreach(\App\Modules\ModuleRegistry::optional() as $module)
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="modules[]" value="{{ $module }}" id="module{{ $module }}"
+                                                   @checked(in_array($module, old('modules', array_filter(\App\Modules\ModuleRegistry::optional(), fn ($m) => \App\Modules\ModuleRegistry::enabledFor($company, $m)))))>
+                                            <label class="form-check-label" for="module{{ $module }}">{{ \App\Modules\ModuleRegistry::LABELS[$module] ?? $module }}</label>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <div class="form-text">Un módulo apagado desaparece del menú y sus pantallas y su API responden "módulo no activo" para esta empresa.</div>
+                            </div>
+                        @endif
                         <div class="col-sm-4">
                             <label for="timezone" class="form-label">Zona horaria</label>
                             <select id="timezone" name="timezone" class="form-select @error('timezone') is-invalid @enderror">

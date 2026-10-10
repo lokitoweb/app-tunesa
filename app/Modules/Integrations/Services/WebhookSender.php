@@ -145,7 +145,7 @@ class WebhookSender
         }
         // El receptor de la propia plataforma (URL precargada) siempre se permite:
         // mismo host que APP_URL y solo la ruta del receptor
-        $receiverPath = (string) parse_url(route('integrations.receiver'), PHP_URL_PATH);
+        $receiverPath = (string) parse_url(route('api.integrations.receiver'), PHP_URL_PATH);
         if (strcasecmp($host, (string) parse_url((string) config('app.url'), PHP_URL_HOST)) === 0
             && str_starts_with((string) parse_url($url, PHP_URL_PATH), $receiverPath)) {
             return null;

@@ -6,12 +6,12 @@ tiene sus propios valores por defecto, y lo que la empresa no define lo hereda.
 
 Archivos clave:
 
-- Migración: `database/migrations/2026_10_13_000001_create_tenant_settings_table.php`
-- Modelo: `app/Models/TenantSetting.php`
-- Validación y guardado: `app/Services/TenantSettingsService.php`
-- Panel: `app/Http/Controllers/Web/BrandingWebController.php` + `resources/views/settings/branding.blade.php`
-- API: `app/Http/Controllers/Api/AppConfigController.php`
-- Versión mínima: `app/Http/Middleware/EnsureSupportedAppVersion.php`
+- Migración: `app/Modules/Core/Database/Migrations/2026_10_13_000001_create_tenant_settings_table.php`
+- Modelo: `app/Modules/Core/Models/TenantSetting.php`
+- Validación y guardado: `app/Modules/Core/Services/TenantSettingsService.php`
+- Panel: `app/Modules/Core/Controllers/Web/BrandingWebController.php` + `resources/views/settings/branding.blade.php`
+- API: `app/Modules/Core/Controllers/Api/AppConfigController.php`
+- Versión mínima: `app/Modules/Core/Middleware/EnsureSupportedAppVersion.php`
 - Pruebas: `tests/Feature/WhiteLabelSettingsTest.php`
 
 ## Dónde vive cada dato
@@ -188,7 +188,7 @@ intento. Si falla el guardado del historial, el envío sigue igual. Las filas de
 borran con `model:prune` (`WebhookDelivery` es `Prunable`), programado a diario a las 03:15 en
 `routes/console.php`.
 
-### Botones de prueba (pestaña Integraciones)
+### Botones de prueba (pantalla Integraciones)
 
 Mismo permiso que la pantalla (`company.configure`); `IntegrationsWebController`. En la vista
 global prueban y listan las filas de la plataforma (`tenant_id NULL`). Límite: 20 pruebas por minuto.
@@ -235,14 +235,16 @@ trabajadas salvo que el `lunch_paid` efectivo (empresa → plataforma → `false
 ## Panel: `/settings/branding`
 
 Ruta `settings.branding` (permiso `company.configure`, o sea Administrador de empresa y Super
-Admin). Un solo formulario con cuatro pestañas (`BrandingWebController::TABS`):
+Admin). Un solo formulario con tres pestañas (`BrandingWebController::TABS`); las integraciones
+tienen su propia pantalla Vue en `/settings/integrations` (`settings.integrations`, mismo permiso;
+`/settings/branding?tab=integraciones` redirige ahí):
 
 | Pestaña (`?tab=`) | Campos |
 |---|---|
 | `marca` | nombre comercial, contacto, logo claro/oscuro, favicon, splash, 4 colores con vista previa |
 | `app` | URL del servidor, versión mínima / última, forzar actualización, selfie, rostro, offline, horas offline, precisión GPS |
 | `reglas` | tolerancia, refrigerio, refrigerio pagado, radio de geocerca por defecto, política de geocerca (solo empresa), ubicación simulada (Bloquear / Marcar como sospechosa), diferencia máxima de hora |
-| `integraciones` | webhook, secreto, endpoint de notificaciones (con botones de prueba), geocodificación (proveedor, clave de Google, prueba), push (activar, cuenta de servicio de Firebase, prueba) e historial "Últimos 20 envíos" |
+| *(pantalla Integraciones)* | webhook, secreto, endpoint de notificaciones (con botones de prueba), geocodificación (proveedor, clave de Google, prueba), push (activar, cuenta de servicio de Firebase, prueba) e historial "Últimos 20 envíos" |
 
 - Con empresa en contexto edita su fila; en la **vista global** del Super Admin edita la fila de
   la plataforma (muestra un aviso y la ruta `settings.branding.update` está permitida en
@@ -298,7 +300,7 @@ reemplazarlo y deja la auditoría `tenant_settings.updated`.
 
 ### Login por subdominio o dominio propio
 
-`Tenant::fromHost($host)` (`app/Models/Tenant.php`) decide la marca del login y en qué empresa
+`Tenant::fromHost($host)` (`app/Modules/Core/Models/Tenant.php`) decide la marca del login y en qué empresa
 buscar al usuario:
 
 - `acme.<APP_DOMAIN>` → empresa con slug `acme` (excepto `www`, `api`, `admin`, `app`, `mail`, `cdn`).

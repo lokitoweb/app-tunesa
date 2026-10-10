@@ -9,6 +9,8 @@ use App\Modules\Core\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -37,6 +39,107 @@ class TenantSettingsService
         }
 
         return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $value;
+    }
+
+    /** Columnas de tenant_settings (los campos nuevos solo se usan si existen) */
+    public static function columns(): array
+    {
+        static $columns = null;
+
+        return $columns ??= Schema::getColumnListing('tenant_settings');
+    }
+
+    /**
+     * Guardado desde un formulario del panel ("Marca y app", "Integraciones").
+     *
+     * $booleans = opciones Sí/No que ESE formulario contiene. En la plataforma
+     * son interruptores (uno desmarcado no se envía: ausente = false); en una
+     * empresa, selectores Heredar ("" → NULL) / Sí / No (ausente = no cambiar).
+     */
+    public function updateFromPanel(?Tenant $tenant, Request $request, ?User $actor, ?array $booleans = null): TenantSetting
+    {
+        $booleans ??= self::BOOLEANS;
+        if (! in_array('fcm_enabled', self::columns(), true)) {
+            $booleans = array_diff($booleans, ['fcm_enabled']);
+        }
+
+        $request->merge($tenant === null
+            ? collect($booleans)->mapWithKeys(fn ($f) => [$f => $request->boolean($f)])->all()
+            : collect($booleans)->filter(fn ($f) => $request->exists($f))
+                ->mapWithKeys(fn ($f) => [$f => self::triState($request->input($f))])->all());
+
+        $fcmJson   = $this->fcmServiceAccountInput($request, $tenant);
+        $validated = $request->validate($this->rules(global: $tenant === null), $this->messages());
+
+        $row = $this->update($tenant, $validated, $request, $actor);
+        $this->saveFcmServiceAccount($request, $tenant, $fcmJson, $actor);
+
+        return $row;
+    }
+
+    /**
+     * Cuenta de servicio de Firebase (solo la fila de la plataforma): pegada en
+     * el textarea o subida como archivo .json. Valida que sea un JSON con
+     * project_id, client_email y private_key. Devuelve el JSON normalizado,
+     * o null si no se envió nada.
+     */
+    private function fcmServiceAccountInput(Request $request, ?Tenant $tenant): ?string
+    {
+        if ($tenant !== null || ! in_array('fcm_service_account_json', self::columns(), true)) {
+            // Una empresa nunca la cambia: se ignora lo que llegue
+            $request->request->remove('fcm_service_account_json');
+            $request->files->remove('fcm_service_account_file');
+
+            return null;
+        }
+
+        $file = $request->file('fcm_service_account_file');
+        $raw  = $file instanceof UploadedFile && $file->isValid() && $file->getSize() <= 64 * 1024
+            ? (string) file_get_contents($file->getRealPath())
+            : trim((string) $request->input('fcm_service_account_json'));
+
+        $request->request->remove('fcm_service_account_json');
+
+        if ($file instanceof UploadedFile && $raw === '') {
+            throw ValidationException::withMessages(['fcm_service_account_json' => 'No se pudo leer el archivo (máximo 64 KB).']);
+        }
+        if ($raw === '') {
+            return null;
+        }
+
+        $data    = json_decode($raw, true);
+        $missing = is_array($data)
+            ? array_values(array_filter(['project_id', 'client_email', 'private_key'], fn ($k) => blank($data[$k] ?? null)))
+            : null;
+
+        if ($missing === null || $missing) {
+            throw ValidationException::withMessages(['fcm_service_account_json' => $missing === null
+                ? 'La cuenta de servicio debe ser el archivo JSON que descargas de Firebase (Configuración del proyecto › Cuentas de servicio).'
+                : 'Al JSON de la cuenta de servicio le falta: ' . implode(', ', $missing) . '.']);
+        }
+        if (! str_contains($data['private_key'], 'PRIVATE KEY')) {
+            throw ValidationException::withMessages(['fcm_service_account_json' => 'El campo private_key no parece una clave privada válida.']);
+        }
+
+        return json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /** Guarda (o borra) la cuenta de servicio en la fila de la plataforma */
+    private function saveFcmServiceAccount(Request $request, ?Tenant $tenant, ?string $json, ?User $actor): void
+    {
+        if ($tenant !== null || ! in_array('fcm_service_account_json', self::columns(), true)) {
+            return;
+        }
+
+        $clear = $request->boolean('clear_fcm_service_account_json');
+        if ($json === null && ! $clear) {
+            return;
+        }
+
+        $row = TenantSetting::platform();
+        $row->fcm_service_account_json = $clear && $json === null ? null : $json;
+        $row->updated_by = $actor?->id;
+        $row->save();
     }
 
     /** Reglas comunes: todo es opcional (ausente = no cambiar; null = heredar) */

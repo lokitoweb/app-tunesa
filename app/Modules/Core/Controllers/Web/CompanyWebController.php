@@ -10,7 +10,9 @@ use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\TenantContext;
+use App\Modules\ModuleRegistry;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -131,6 +133,11 @@ class CompanyWebController extends Controller
 
         $data = $this->tenantData($validated);
 
+        if ($request->boolean('modules_submitted')) {
+            $data['settings'] = ['disabled_modules' => array_values(array_diff(ModuleRegistry::optional(), $validated['modules'] ?? []))]
+                + (array) $tenant->settings;
+        }
+
         if ($request->hasFile('logo')) {
             if ($tenant->logo_path) {
                 Storage::disk('public')->delete($tenant->logo_path);
@@ -165,6 +172,11 @@ class CompanyWebController extends Controller
             'primary_color'   => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'logo'            => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
+            // Módulos activos de la empresa (ModuleRegistry). modules_submitted marca que el
+            // formulario los trae: sin casillas marcadas el navegador no envía "modules".
+            'modules_submitted' => ['nullable', 'boolean'],
+            'modules'           => ['nullable', 'array'],
+            'modules.*'         => ['string', Rule::in(ModuleRegistry::optional())],
         ];
     }
 

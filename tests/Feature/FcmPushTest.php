@@ -338,28 +338,31 @@ class FcmPushTest extends TestCase
         $root = $this->makeUser(null, 'super_admin');
 
         // Vista global: campos nuevos visibles; la cuenta de servicio se sube como archivo
-        $this->actingAs($root)->get('/settings/branding?tab=integraciones')->assertOk()
-            ->assertSee('name="fcm_service_account_file"', false)->assertSee('name="geocoding_provider"', false)
-            ->assertSee('name="mock_location_policy"', false)->assertSee('name="max_time_drift_seconds"', false)
-            ->assertSee('Probar push');
+        $this->actingAs($root)->get('/settings/integrations')->assertOk()
+            ->assertInertia(fn ($page) => $page->where('isGlobal', true)
+                ->where('has.fcm_account', true)->where('has.fcm_enabled', true)->where('has.geocoding_provider', true));
+        $this->actingAs($root)->get('/settings/branding?tab=reglas')->assertOk()
+            ->assertSee('name="mock_location_policy"', false)->assertSee('name="max_time_drift_seconds"', false);
 
         $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('firebase.json', $this->serviceAccount());
-        $this->actingAs($root)->put('/settings/branding', [
-            'tab' => 'integraciones', 'fcm_enabled' => '1', 'fcm_service_account_file' => $file,
-            'geocoding_provider' => 'nominatim', 'mock_location_policy' => 'flag', 'max_time_drift_seconds' => 120,
-        ])->assertRedirect('/settings/branding?tab=integraciones')->assertSessionHasNoErrors();
+        $this->actingAs($root)->put('/settings/integrations', [
+            'fcm_enabled' => '1', 'fcm_service_account_file' => $file, 'geocoding_provider' => 'nominatim',
+        ])->assertRedirect('/settings/integrations')->assertSessionHasNoErrors();
+        $this->actingAs($root)->put('/settings/branding', ['tab' => 'reglas', 'mock_location_policy' => 'flag', 'max_time_drift_seconds' => 120])
+            ->assertRedirect('/settings/branding?tab=reglas')->assertSessionHasNoErrors();
 
         $platform = TenantSetting::rowFor(null);
         $this->assertTrue($platform->fcm_enabled);
         $this->assertSame('flag', $platform->mock_location_policy);
         $this->assertSame(120, $platform->max_time_drift_seconds);
         $this->assertTrue(TenantSetting::forTenant($this->acme)->fcmEnabled());
-        $this->actingAs($root)->get('/settings/branding?tab=integraciones')->assertSee('tunesa-app')->assertDontSee('PRIVATE KEY');
+        $this->actingAs($root)->get('/settings/integrations')->assertPageSees('tunesa-app')->assertPageMisses('PRIVATE KEY');
 
         // Empresa: selectores con "Heredar"; "" vuelve a NULL
         $admin = $this->makeUser($this->acme, 'company_admin');
-        $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertOk()
-            ->assertDontSee('name="fcm_service_account_json"', false)->assertSee('Heredar de la plataforma');
+        $this->actingAs($admin)->get('/settings/integrations')->assertOk()
+            ->assertInertia(fn ($page) => $page->where('isGlobal', false)->where('values.fcm_enabled', ''))
+            ->assertPageMisses('tunesa-app');
         $this->actingAs($admin)->put('/settings/branding', ['mock_location_policy' => 'reject', 'fcm_enabled' => '0'])
             ->assertSessionHasNoErrors();
         $this->assertSame('reject', TenantSetting::forTenant($this->acme)->mockLocationPolicy());

@@ -218,9 +218,11 @@ class WebPanelTest extends TestCase
         $this->actingAs($root);
 
         // Lo que pide la directiva: 200 y nunca 302 al dashboard
-        foreach (['/attendance', '/employees', '/shifts', '/branches', '/payslips'] as $url) {
+        foreach (['/attendance', '/employees', '/branches', '/payslips'] as $url) {
             $this->get($url)->assertOk()->assertSee('Vista global: mostrando registros de todas las empresas');
         }
+        // Turnos es una pantalla Vue: el aviso lo pinta el layout con la prop globalView
+        $this->assertTrue($this->get('/shifts')->assertOk()->prop('globalView'));
 
         // El resto de módulos tampoco redirige
         foreach (['/dashboard', '/approvals', '/approvals?tab=justifications', '/documents', '/uniforms', '/payroll',
@@ -233,7 +235,7 @@ class WebPanelTest extends TestCase
         $this->get('/employees')->assertSee('Lucia')->assertSee('Mateo')->assertSee('Acme SAC')->assertSee('Other SRL');
         $this->get('/attendance')->assertSee('Lucia')->assertSee('Mateo');
         $this->get('/branches')->assertSee('Sede Acme')->assertSee('Sede Other');
-        $this->get('/shifts')->assertSee('Turno acme')->assertSee('Turno other');
+        $this->get('/shifts')->assertPageSees('Turno acme')->assertPageSees('Turno other')->assertPageSees('Other SRL');
 
         // Crear o editar sí necesita empresa: vuelve al listado del módulo, no al dashboard
         $this->from('/secure-files/selfie-in/1')->get('/employees/create')->assertRedirect(route('employees.index'))->assertSessionHas('error');

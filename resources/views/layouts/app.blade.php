@@ -37,20 +37,6 @@
 <body>
 @php
     $navUser = Auth::user();
-    // Sin empresa activa (Super Admin en el consolidado) no hay contadores por empresa
-    $hasTenant = app(\App\Modules\Core\Services\TenantContext::class)->resolved();
-    $pendingApprovals = ! $hasTenant ? 0 : ($navUser->can('leave.approve_all')
-        ? \App\Modules\HR\Models\LeaveRequest::where('status', 'pending')->count()
-            + ($navUser->can('attendance.review') ? \App\Modules\Attendance\Models\Attendance::where('justification_status', 'pending')->count() : 0)
-        : ($navUser->can('leave.approve_team')
-            ? \App\Modules\HR\Models\LeaveRequest::where('status', 'pending')->whereHas('employee.branches', fn ($q) => $q->where('branches.supervisor_id', $navUser->id))->count()
-            : 0));
-    $pendingDocs = $hasTenant && $navUser->can('documents.review')
-        ? \App\Modules\HR\Models\EmployeeDocument::where('status', 'pending')->count()
-        : 0;
-    $nav = function (string $route, array $params, string $icon, string $label, bool $active, int $badge = 0) {
-        return view('layouts.partials.nav-link', compact('route', 'params', 'icon', 'label', 'active', 'badge'));
-    };
 @endphp
 
 <div class="panel-shell">
@@ -76,65 +62,12 @@
         </div>
 
         <nav class="sidebar-nav" aria-label="Menú principal">
-            @if($navUser->isSuperAdmin())
-                <div class="nav-heading">Plataforma</div>
-                {!! $nav('companies.index', [], 'buildings', 'Empresas', request()->routeIs('companies*')) !!}
-            @endif
-
-            <div class="nav-heading">Monitoreo</div>
-            {!! $nav('dashboard', [], 'speedometer2', 'Dashboard', request()->routeIs('dashboard*')) !!}
-            @if($navUser->can('attendance.view_team') || $navUser->can('attendance.view_all'))
-                {!! $nav('live.index', [], 'broadcast', 'Tablero en vivo', request()->routeIs('live.*')) !!}
-            @endif
-
-            @can('attendance.view_all')
-                {!! $nav('attendance.index', [], 'clock-history', 'Marcaciones y GPS', request()->routeIs('attendance*') && request('status') !== 'absent') !!}
-                {!! $nav('attendance.index', ['status' => 'absent', 'start_date' => now()->startOfMonth()->toDateString(), 'end_date' => now()->toDateString()], 'person-x', 'Control de faltas', request()->routeIs('attendance*') && request('status') === 'absent') !!}
-            @endcan
-
-            @can('leave.approve_team')
-                {!! $nav('approvals.index', [], 'check2-square', 'Aprobaciones', request()->routeIs('approvals*'), $pendingApprovals) !!}
-            @endcan
-
-            @if($navUser->can('users.manage') || $navUser->can('shifts.manage') || $navUser->can('branches.manage') || $navUser->can('payslips.manage'))
-                <div class="nav-heading">Administración</div>
-            @endif
-            @can('users.manage')
-                {!! $nav('employees.index', [], 'people', 'Colaboradores', request()->routeIs('employees.index', 'employees.create', 'employees.edit')) !!}
-            @endcan
-            @can('shifts.manage')
-                {!! $nav('shifts.index', [], 'calendar-week', 'Turnos y horarios', request()->routeIs('shifts*')) !!}
-                {!! $nav('holidays.index', [], 'calendar-heart', 'Feriados', request()->routeIs('holidays*')) !!}
-            @endcan
-            @can('branches.manage')
-                {!! $nav('branches.index', [], 'pin-map', 'Sucursales y geocercas', request()->routeIs('branches*')) !!}
-            @endcan
-            @can('payslips.manage')
-                {!! $nav('payslips.index', [], 'file-earmark-text', 'Boletas de pago', request()->routeIs('payslips*')) !!}
-            @endcan
-
-            @if($navUser->can('documents.review') || $navUser->can('uniforms.manage') || $navUser->can('payroll.export') || $navUser->can('company.configure') || $navUser->can('reports.view') || $navUser->can('audit.view'))
-                <div class="nav-heading">Legajo y planilla</div>
-            @endif
-            @can('documents.review')
-                {!! $nav('documents.index', [], 'folder-check', 'Legajos digitales', request()->routeIs('documents*', 'employees.file*'), $pendingDocs) !!}
-            @endcan
-            @can('uniforms.manage')
-                {!! $nav('uniforms.index', [], 'bag', 'Dotación y tallas', request()->routeIs('uniforms*')) !!}
-            @endcan
-            @can('payroll.export')
-                {!! $nav('payroll.index', [], 'cash-stack', 'Cruce con planilla', request()->routeIs('payroll*')) !!}
-            @endcan
-            @can('reports.view')
-                {!! $nav('reports.index', [], 'bar-chart-line', 'Reportes', request()->routeIs('reports*')) !!}
-            @endcan
-            @can('company.configure')
-                {!! $nav('settings.mobile', [], 'phone', 'Configuración de la app', request()->routeIs('settings.mobile*')) !!}
-                {!! $nav('settings.branding', [], 'palette', 'Marca y app', request()->routeIs('settings.branding*')) !!}
-            @endcan
-            @can('audit.view')
-                {!! $nav('audit.index', [], 'journal-text', 'Bitácora de auditoría', request()->routeIs('audit*')) !!}
-            @endcan
+            @foreach(\App\Modules\Core\Support\PanelNavigation::for($navUser, request()) as $section)
+                <div class="nav-heading">{{ $section['heading'] }}</div>
+                @foreach($section['items'] as $item)
+                    @include('layouts.partials.nav-link', $item)
+                @endforeach
+            @endforeach
         </nav>
 
         <div class="sidebar-footer">

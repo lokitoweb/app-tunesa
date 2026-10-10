@@ -14,6 +14,14 @@ final class ModuleRegistry
 {
     public const ALWAYS_ON = ['Core'];
 
+    /** Nombre comercial de cada módulo (formulario de empresas) */
+    public const LABELS = [
+        'Attendance'   => 'Asistencia',
+        'HR'           => 'Recursos humanos',
+        'Integrations' => 'Integraciones',
+        'Payroll'      => 'Nómina y boletas',
+    ];
+
     /** @return list<string> Core primero: los demás dependen de él */
     public static function names(): array
     {

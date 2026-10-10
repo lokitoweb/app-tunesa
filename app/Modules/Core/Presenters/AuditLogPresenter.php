@@ -215,6 +215,33 @@ class AuditLogPresenter
         return $this->log->created_at ? Labels::datetime($this->log->created_at) : '—';
     }
 
+    /**
+     * Fila lista para la pantalla Vue (Core/Pages/Audit/Index). Los valores son
+     * {text} o {html}: html solo lo genera Labels (muestra de color), nunca el usuario.
+     */
+    public function toArray(): array
+    {
+        $cell = fn (string|HtmlString $v) => $v instanceof HtmlString ? ['html' => (string) $v] : ['text' => $v];
+
+        return [
+            'id'            => $this->log->id,
+            'tenant_id'     => $this->log->tenant_id,
+            'date'          => $this->date(),
+            'actor_name'    => $this->actorName(),
+            'actor_role'    => $this->actorRole(),
+            'badge'         => $this->badge(),
+            'action_label'  => $this->actionLabel(),
+            'subject_label' => $this->subjectLabel(),
+            'structured'    => $this->isStructured(),
+            'summary'       => $this->isStructured() ? $this->summary() : null,
+            'changes'       => array_map(fn (array $c) => ['label' => $c['label'], 'old' => $cell($c['old']), 'new' => $cell($c['new'])], $this->changes()),
+            'pairs'         => collect($this->contextPairs())->map(fn ($v, $label) => ['label' => $label] + $cell($v))->values()->all(),
+            'device'        => $this->device(),
+            'ip'            => $this->ip(),
+            'full_ip'       => $this->canSeeIp(),
+        ];
+    }
+
     public function formatValue(string $field, mixed $value): string|HtmlString
     {
         if (is_string($value) && SensitiveFields::isMasked($value)) {

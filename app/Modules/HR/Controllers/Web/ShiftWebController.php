@@ -13,7 +13,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /**
  * ShiftWebController (Web)
@@ -23,7 +24,7 @@ use Illuminate\View\View;
  */
 class ShiftWebController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): Response
     {
         $shifts = Shift::withCount(['employeeShifts as employees_count' => fn ($q) => $q->current()])
             ->orderBy('start_time')
@@ -34,25 +35,65 @@ class ShiftWebController extends Controller
             ->when($request->shift_id, fn ($q) => $q->where('shift_id', $request->shift_id))
             ->orderByDesc('effective_from')
             ->paginate(25)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn (EmployeeShift $a) => [
+                'id'        => $a->id,
+                'tenant_id' => $a->tenant_id,
+                'employee'  => $a->user?->full_name,
+                'shift'     => $a->shift?->name,
+                'color'     => $a->shift?->color,
+                'branch'    => $a->branch?->name,
+                'from'      => $a->effective_from?->format('d/m/Y'),
+                'until'     => $a->effective_until?->format('d/m/Y'),
+            ]);
 
-        $employees = User::whereIn('role', ['employee', 'supervisor'])->where('status', 'active')
-            ->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'employee_code']);
-        $branches = Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']);
-
-        return view('shifts.index', compact('shifts', 'assignments', 'employees', 'branches'));
+        return Inertia::render('HR/Pages/Shifts/Index', [
+            'shifts'      => $shifts->map(fn (Shift $s) => self::present($s) + ['employees_count' => $s->employees_count]),
+            'assignments' => $assignments,
+            'employees'   => User::whereIn('role', ['employee', 'supervisor'])->where('status', 'active')
+                ->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'employee_code']),
+            'branches'    => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'today'       => now()->toDateString(),
+            'canAssign'   => $request->user()->can('shifts.assign'),
+        ]);
     }
 
-    public function create(): View
+    public function create(): Response
     {
         // Tolerancia y refrigerio por defecto de "Marca y app › Reglas operativas"
         $rules = TenantSetting::forTenant(app(TenantContext::class)->getOrNull());
 
-        return view('shifts.form', ['shift' => new Shift([
+        return Inertia::render('HR/Pages/Shifts/Form', ['shift' => self::present(new Shift([
             'type' => 'fixed', 'grace_period_minutes' => $rules->default_grace_minutes, 'working_days' => [1, 2, 3, 4, 5],
             'color' => '#3B82F6', 'is_active' => true, 'break_allowed' => true,
             'break_duration_minutes' => $rules->lunch_minutes, 'daily_hours' => 8,
-        ])]);
+            'start_time' => '08:00', 'end_time' => '17:00',
+        ]))]);
+    }
+
+    /** Turno tal como lo consume el panel (listado y formulario) */
+    private static function present(Shift $shift): array
+    {
+        return [
+            'id'                     => $shift->id,
+            'tenant_id'              => $shift->tenant_id,
+            'name'                   => $shift->name,
+            'code'                   => $shift->code,
+            'type'                   => $shift->type,
+            'start_time'             => substr((string) $shift->start_time, 0, 5),
+            'end_time'               => substr((string) $shift->end_time, 0, 5),
+            'crosses_midnight'       => (bool) $shift->crosses_midnight,
+            'grace_period_minutes'   => $shift->grace_period_minutes,
+            'daily_hours'            => $shift->daily_hours,
+            'break_allowed'          => (bool) $shift->break_allowed,
+            'break_duration_minutes' => $shift->break_duration_minutes,
+            'working_days'           => $shift->working_days ?? [],
+            'rotation_work_days'     => $shift->rotation_work_days,
+            'rotation_rest_days'     => $shift->rotation_rest_days,
+            'color'                  => $shift->color,
+            'description'            => $shift->description,
+            'is_active'              => (bool) $shift->is_active,
+        ];
     }
 
     public function store(Request $request): RedirectResponse
@@ -63,9 +104,9 @@ class ShiftWebController extends Controller
         return redirect()->route('shifts.index')->with('success', 'Turno creado correctamente.');
     }
 
-    public function edit(int $id): View
+    public function edit(int $id): Response
     {
-        return view('shifts.form', ['shift' => Shift::findOrFail($id)]);
+        return Inertia::render('HR/Pages/Shifts/Form', ['shift' => self::present(Shift::findOrFail($id))]);
     }
 
     public function update(Request $request, int $id): RedirectResponse

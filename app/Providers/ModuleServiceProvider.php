@@ -40,7 +40,8 @@ class ModuleServiceProvider extends ServiceProvider
                     Route::group(['middleware' => 'web', 'module' => $module], $web);
                 }
                 if (is_file($api = "{$path}/Routes/api.php")) {
-                    Route::group(['middleware' => 'api', 'prefix' => 'api', 'module' => $module], $api);
+                    // Nombres con prefijo api.: un apiResource('shifts') no debe pisar el shifts.index del panel
+                    Route::group(['middleware' => 'api', 'prefix' => 'api', 'as' => 'api.', 'module' => $module], $api);
                 }
             }
             if (is_dir($migrations = "{$path}/Database/Migrations")) {

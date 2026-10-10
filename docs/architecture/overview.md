@@ -1,15 +1,17 @@
 # Arquitectura general
 
 TuneSA es un SaaS de RRHH **multi-empresa** (multi-tenant): una sola instalación de
-Laravel atiende a muchas empresas y cada una solo ve sus propios datos. Tiene tres piezas:
+Laravel atiende a muchas empresas y cada una solo ve sus propios datos. El código está
+organizado como **monolito modular** (`app/Modules/<Módulo>`, ver [modules.md](modules.md)).
+Tiene tres piezas:
 
 | Pieza | Dónde está | Para quién |
 |---|---|---|
-| **API REST** (Laravel 11 + Sanctum) | `routes/api.php`, `app/Http/Controllers/Api/` | La app móvil (y Super Admin por API) |
-| **Panel web** (Blade + Bootstrap, sesión) | `routes/web.php`, `app/Http/Controllers/Web/`, `resources/views/` | Super Admin, administradores, RRHH y supervisores |
+| **API REST** (Laravel 11 + Sanctum) | `app/Modules/*/Routes/api.php`, `app/Modules/*/Controllers/Api/` | La app móvil (y Super Admin por API) |
+| **Panel web** (Vue 3 + Inertia y Blade, Bootstrap, sesión) | `app/Modules/*/Routes/web.php`, `app/Modules/*/Controllers/Web/`, `resources/views/` (Blade) y `resources/js/Modules/` (Vue) | Super Admin, administradores, RRHH y supervisores |
 | **App móvil** (Flutter) | `mobile/lib/` | Colaboradores (y supervisores/RRHH para su equipo) |
 
-La lógica de negocio importante vive en servicios (`app/Services/`): `AttendanceService`
+La lógica de negocio importante vive en los servicios de cada módulo (`app/Modules/*/Services/`): `AttendanceService`
 (marcación + bitácora inmutable `attendance_punches`), `GeofenceService` (distancia Haversine),
 `Geocoding\GeocodingService` (Nominatim / Google), `Push\FcmSender` (push FCM),
 `TenantSettingsService` (marca y app),
@@ -44,7 +46,7 @@ flowchart LR
 Cada tabla de negocio tiene `tenant_id`. El aislamiento se hace en capas:
 
 1. **Resolver la empresa de la request.**
-   - API: middleware `ResolveTenant` (alias `tenant`, `app/Http/Middleware/ResolveTenant.php`).
+   - API: middleware `ResolveTenant` (alias `tenant`, `app/Modules/Core/Middleware/ResolveTenant.php`).
      Orden: cabecera `X-Tenant-Slug` → subdominio `empresa.<APP_DOMAIN>` (excepto `www`, `api`,
      `admin`, `app`, `mail`, `cdn`) → dominio propio (`tenants.custom_domain`) → `?tenant=` solo
      en entorno local. Si no encuentra empresa responde `404 TENANT_NOT_FOUND`; si está
@@ -52,7 +54,7 @@ Cada tabla de negocio tiene `tenant_id`. El aislamiento se hace en capas:
      El tenant se cachea 5 minutos por slug/dominio.
    - Panel web: middleware `SetWebTenant` (alias `web.tenant`) activa la empresa del usuario
      logueado. Cierra el panel a quien no tenga `dashboard.view` o cuya empresa esté suspendida.
-2. **`TenantContext`** (`app/Services/TenantContext.php`): singleton con la empresa resuelta.
+2. **`TenantContext`** (`app/Modules/Core/Services/TenantContext.php`): singleton con la empresa resuelta.
    Helpers: `current_tenant()`, `current_tenant_id()`, `tenant_timezone()`.
 3. **Global scope.** Los modelos con `tenant_id` usan el trait
    `App\Modules\Core\Models\Concerns\BelongsToTenant`, que registra `App\Modules\Core\Models\Scopes\TenantScope`

@@ -65,7 +65,7 @@ class SetWebTenant
     public const GLOBAL_WRITE_ROUTES = [
         'logout', 'admin.tenant.switch', 'notifications.read', 'notifications.read-all',
         // Sin empresa elegida edita los valores por defecto de la plataforma (tenant_settings global)
-        'settings.branding.update',
+        'settings.branding.update', 'settings.integrations.update',
         // Pruebas de integraciones de la plataforma (no crean registros de empresa)
         'settings.branding.test-webhook', 'settings.branding.test-notification', 'settings.branding.test-push',
     ];

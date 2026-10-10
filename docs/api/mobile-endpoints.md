@@ -1,8 +1,8 @@
 # API para la app móvil
 
-Contrato entre la app Flutter (`mobile/`) y el backend. Fuente de verdad: `routes/api.php`, los
-controladores de `app/Http/Controllers/Api/`, los FormRequest de `app/Http/Requests/Api/` y los
-Resources de `app/Http/Resources/`. Los ejemplos están armados a partir de esos archivos y de
+Contrato entre la app Flutter (`mobile/`) y el backend. Fuente de verdad: `app/Modules/*/Routes/api.php`, los
+controladores de `app/Modules/*/Controllers/Api/`, los FormRequest de `app/Modules/Attendance/Requests/` y los
+Resources de `app/Modules/*/Resources/`. Los ejemplos están armados a partir de esos archivos y de
 los datos demo del seeder.
 
 ## Base URL y cabeceras
@@ -569,8 +569,8 @@ Cualquier rol autenticado.
 }
 ```
 
-(Ejemplo de `app/Notifications/LeaveRequestReviewed.php`; los demás avisos están en
-`app/Notifications/` y los dispara `app/Services/NotificationDispatcher.php`.) Si la empresa
+(Ejemplo de `app/Modules/HR/Notifications/LeaveRequestReviewed.php`; los demás avisos están en
+`app/Modules/*/Notifications/` y los dispara `app/Modules/Core/Services/NotificationDispatcher.php`.) Si la empresa
 configuró un "Endpoint de notificaciones" en Marca y app, cada aviso creado también se reenvía por
 POST firmado a ese endpoint (`notification.created`, ver
 [white-label.md](../architecture/white-label.md#integraciones-webhook-y-endpoint-de-notificaciones)).

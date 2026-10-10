@@ -9,16 +9,16 @@ Archivos clave:
 
 | Qué | Dónde |
 |---|---|
-| Punto de entrada único | `app/Services/AttendanceService.php` (`punch()`) |
-| Datos de una marcación / resultado | `app/Services/Attendance/PunchData.php`, `PunchResult.php` |
-| Selfies (WebP) | `app/Services/Attendance/SelfieStorage.php` |
-| Avisos fuera de horario / geocerca | `app/Services/Attendance/AttendanceAlertNotifier.php`, `app/Notifications/AttendanceOutside*.php` |
-| Bitácora | `app/Models/AttendancePunch.php`, migración `2026_10_14_000001_create_attendance_punches_table.php` |
+| Punto de entrada único | `app/Modules/Attendance/Services/AttendanceService.php` (`punch()`) |
+| Datos de una marcación / resultado | `app/Modules/Attendance/Services/Attendance/PunchData.php`, `PunchResult.php` |
+| Selfies (WebP) | `app/Modules/Attendance/Services/Attendance/SelfieStorage.php` |
+| Avisos fuera de horario / geocerca | `app/Modules/Attendance/Services/Attendance/AttendanceAlertNotifier.php`, `app/Modules/Attendance/Notifications/AttendanceOutside*.php` |
+| Bitácora | `app/Modules/Attendance/Models/AttendancePunch.php`, migración `2026_10_14_000001_create_attendance_punches_table.php` |
 | Resumen en la jornada | migración `2026_10_14_000002_add_integrity_columns_to_attendances_table.php` |
 | Políticas en Marca y app | migración `2026_10_14_000003_add_attendance_policies_to_tenant_settings_table.php`, `TenantSetting`, `TenantSettingsService` |
 | Rutas | `Api\AttendanceController` (4 rutas), `Api\AttendanceSyncController` (lote), `GeocodeController` |
-| Geocodificación | `app/Services/Geocoding/*`, job `app/Jobs/ReverseGeocodePunch.php` |
-| Push | `app/Services/Push/FcmSender.php`, `app/Notifications/Channels/FcmChannel.php`, job `app/Jobs/SendPushNotification.php` |
+| Geocodificación | `app/Modules/Integrations/Services/Geocoding/*`, job `app/Modules/Attendance/Jobs/ReverseGeocodePunch.php` |
+| Push | `app/Modules/Integrations/Services/Push/FcmSender.php`, `app/Modules/Integrations/Notifications/Channels/FcmChannel.php`, job `app/Modules/Integrations/Jobs/SendPushNotification.php` |
 | Pruebas | `tests/Feature/AttendancePunchLogTest.php`, `AttendanceSyncBatchTest.php`, `GeocodingTest.php`, `FcmPushTest.php`, `tests/Unit/HaversineEdgeCasesTest.php` |
 
 ## Flujo de una marcación

@@ -3,6 +3,10 @@
 namespace App\Modules\Integrations\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
+use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Services\TenantSettingsService;
+use App\Modules\Integrations\Controllers\Api\WebhookReceiverController;
 use App\Modules\Integrations\Jobs\SendTenantWebhook;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Models\User;
@@ -14,15 +18,19 @@ use App\Modules\Core\Services\TenantContext;
 use App\Modules\Core\Support\Labels;
 use App\Modules\Core\Support\NetworkError;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
+use Inertia\Response;
 use Throwable;
 
 /**
- * Botones de prueba e historial de envíos de "Marca y app › Integraciones".
+ * Pantalla de Integraciones (Vue): webhook, geocodificación y push, con sus
+ * botones de prueba y el historial de envíos.
  *
  * Mismo permiso que la pantalla (company.configure). La empresa sale SIEMPRE
  * del TenantContext; en la vista global del Super Admin las pruebas y el
@@ -37,6 +45,114 @@ class IntegrationsWebController extends Controller
         private readonly TenantContext $tenantContext,
         private readonly WebhookSender $sender,
     ) {}
+
+    /** Campos de "Marca y app" que edita esta pantalla (el resto no se toca) */
+    private const FIELDS = [
+        'webhook_url', 'webhook_secret', 'notification_endpoint', 'geocoding_provider', 'maps_api_key', 'clear_maps_api_key',
+        'fcm_enabled', 'fcm_service_account_json', 'clear_fcm_service_account_json',
+    ];
+
+    /** GET /settings/integrations → webhook, geocodificación, push e historial de envíos */
+    public function index(Request $request, TenantSettingsService $settings): Response
+    {
+        $tenant = $this->tenantContext->getOrNull();
+        // El secreto del webhook nunca se muestra vacío: si falta, se genera y se guarda
+        $row       = TenantSetting::ensureWebhookSecret($tenant);
+        $values    = $settings->editablePayload($tenant);
+        $inherited = TenantSetting::forTenant(null);
+        $columns   = TenantSettingsService::columns();
+        $isGlobal  = $tenant === null;
+        // Receptor de la plataforma: URL precargada mientras la empresa no ponga la suya
+        $receivers = [
+            'webhook_url'           => WebhookReceiverController::urlFor($tenant, SendTenantWebhook::TARGET_WEBHOOK),
+            'notification_endpoint' => WebhookReceiverController::urlFor($tenant, SendTenantWebhook::TARGET_NOTIFICATION),
+        ];
+        $provider = $inherited->geocoding_provider ?: 'nominatim';
+        $hasFcm   = in_array('fcm_enabled', $columns, true);
+
+        return Inertia::render('Integrations/Pages/Settings/Index', [
+            'isGlobal'  => $isGlobal,
+            'ownerName' => $tenant ? rtrim($tenant->company_name, '.') : null,
+            // El secreto va una sola vez, precargado en su campo: es de quien administra la empresa
+            'values'    => [
+                'webhook_url'           => $values['webhook_url'] ?: $receivers['webhook_url'],
+                'webhook_secret'        => $row->readableWebhookSecret(),
+                'notification_endpoint' => $values['notification_endpoint'] ?: $receivers['notification_endpoint'],
+                'geocoding_provider'    => (string) ($row->geocoding_provider ?? ($isGlobal ? $provider : '')),
+                // Plataforma: interruptor. Empresa: '' (heredar) / '1' / '0'
+                'fcm_enabled'           => ! $hasFcm ? null : ($isGlobal ? (bool) $inherited->fcm_enabled : ($row->fcm_enabled === null ? '' : ($row->fcm_enabled ? '1' : '0'))),
+            ],
+            'receivers' => $receivers,
+            'inherited' => ['geocoding_provider' => $provider, 'fcm_enabled' => $hasFcm && (bool) $inherited->fcm_enabled],
+            'has'       => [
+                'geocoding_provider' => in_array('geocoding_provider', $columns, true),
+                'fcm_enabled'        => $hasFcm,
+                'fcm_account'        => in_array('fcm_service_account_json', $columns, true),
+            ],
+            'maps' => [
+                'mask' => $values['maps_api_key'] ?? null,
+                'own'  => (bool) $values['has_maps_api_key'],
+                // Clave de Google efectiva: la propia o la heredada de la plataforma
+                'any'  => ! empty($values['has_maps_api_key']) || filled(self::secret(TenantSetting::rowFor(null), 'maps_api_key')),
+            ],
+            // El proyecto de Firebase es de la plataforma: una empresa solo sabe si está configurado
+            'fcm'       => $isGlobal ? self::fcmStatus() : ['configured' => self::fcmStatus()['configured']],
+            'geoProbe'  => $this->geoProbe($tenant),
+            'userEmail' => $request->user()->email,
+            'updatedAt' => $row->updated_at?->setTimezone(tenant_timezone())->format('d/m/Y H:i'),
+        ]);
+    }
+
+    /** PUT /settings/integrations → guarda solo los campos de esta pantalla */
+    public function update(Request $request, TenantSettingsService $settings): RedirectResponse
+    {
+        $tenant = $this->tenantContext->getOrNull();
+        $request->replace($request->only(self::FIELDS));
+        $settings->updateFromPanel($tenant, $request, $request->user(), ['fcm_enabled']);
+
+        return redirect()->route('settings.integrations')->with('success', $tenant
+            ? 'Integraciones guardadas.'
+            : 'Integraciones de la plataforma guardadas. Aplican a las empresas que no definieron las suyas.');
+    }
+
+    /** Estado de la cuenta de servicio de Firebase (sin exponer la clave) */
+    public static function fcmStatus(): array
+    {
+        if (! in_array('fcm_service_account_json', TenantSettingsService::columns(), true)) {
+            return ['available' => false, 'configured' => false, 'project_id' => null, 'client_email' => null];
+        }
+
+        $data = json_decode((string) self::secret(TenantSetting::rowFor(null), 'fcm_service_account_json'), true);
+
+        return [
+            'available'    => true,
+            'configured'   => is_array($data) && filled($data['private_key'] ?? null),
+            'project_id'   => $data['project_id'] ?? null,
+            'client_email' => $data['client_email'] ?? null,
+        ];
+    }
+
+    /** Lee un campo cifrado; null si no existe o no se puede descifrar (APP_KEY cambiada) */
+    private static function secret(?TenantSetting $row, string $field): ?string
+    {
+        try {
+            return $row?->{$field};
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** Coordenadas para "Probar geocodificación": la primera sucursal, o el centro de Lima */
+    private function geoProbe(?Tenant $tenant): array
+    {
+        $branch = $tenant
+            ? Branch::forTenant($tenant->id)->whereNotNull('latitude')->whereNotNull('longitude')->orderBy('id')->first()
+            : null;
+
+        return $branch
+            ? ['lat' => (float) $branch->latitude, 'lng' => (float) $branch->longitude, 'label' => $branch->name]
+            : ['lat' => -12.046374, 'lng' => -77.042793, 'label' => 'Centro de Lima'];
+    }
 
     /** POST /settings/branding/test-webhook → evento "ping" firmado, síncrono */
     public function testWebhook(Request $request): JsonResponse

@@ -13,6 +13,7 @@ use App\Modules\Core\Middleware\CheckRole;
 use App\Modules\Core\Middleware\EnforceTenantScope;
 use App\Modules\Core\Middleware\EnsurePasswordChanged;
 use App\Modules\Core\Middleware\EnsureSupportedAppVersion;
+use App\Modules\Core\Middleware\HandleInertiaRequests;
 use App\Modules\Core\Middleware\ResolveTenant;
 use App\Modules\Core\Middleware\SetWebTenant;
 use Illuminate\Foundation\Application;
@@ -53,6 +54,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // GRUPO DE MIDDLEWARE 'api'
         // Aplicado automáticamente a todas las rutas en routes/api.php
         // =====================================================================
+        // Panel web: datos compartidos y protocolo de las pantallas Vue (Inertia)
+        $middleware->web(append: [HandleInertiaRequests::class]);
+
         // Cadena de toda ruta autenticada de la app móvil (ver Core/Routes/api.php)
         $middleware->group('api.tenant', ['tenant', 'app.version', 'auth:sanctum', 'tenant.scope', 'password.fresh']);
 

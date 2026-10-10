@@ -45,14 +45,13 @@ class SecretsAndErrorLeaksTest extends TestCase
         $this->assertSame(self::WEBHOOK, TenantSetting::rowFor($acme)->webhook_secret);
         $this->assertSame(self::ACCOUNT, EmployeeProfile::where('user_id', $emp->id)->first()->bank_account_number);
 
-        $pages = ['/dashboard', '/settings/branding', '/settings/branding?tab=integraciones', '/settings/branding?tab=app',
+        $pages = ['/dashboard', '/settings/branding', '/settings/integrations', '/settings/branding?tab=app', '/shifts',
             '/settings/mobile', '/audit', '/employees', "/employees/{$emp->id}/file", '/branches', '/payroll'];
         foreach ($pages as $page) {
             $html = $this->actingAs($admin)->get($page)->assertOk()->getContent();
-            // El secreto del webhook solo va precargado en su campo de contraseña de Integraciones
-            if (str_starts_with($page, '/settings/branding')) {
+            // El secreto del webhook solo va (una vez) en la pantalla de Integraciones, para su campo de contraseña
+            if ($page === '/settings/integrations') {
                 $this->assertSame(1, substr_count($html, self::WEBHOOK), "{$page} repite el secreto del webhook");
-                $this->assertMatchesRegularExpression('/<input type="password" id="webhook_secret"[^>]*value="' . preg_quote(self::WEBHOOK, '/') . '"/s', $html);
                 $html = str_replace(self::WEBHOOK, '', $html);
             }
             foreach ([self::WEBHOOK, self::MAPS, self::ACCOUNT, 'LiveSecret', 'FakeKey'] as $secret) {

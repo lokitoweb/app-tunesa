@@ -10,7 +10,8 @@ use App\Modules\Core\Presenters\AuditLogPresenter;
 use App\Modules\Core\Support\Labels;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /**
  * Bitácora de auditoría (audit_logs): quién hizo qué y cuándo.
@@ -19,7 +20,7 @@ use Illuminate\View\View;
  */
 class AuditLogWebController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): Response
     {
         $validated = $request->validate([
             'from'    => ['nullable', 'date'],
@@ -51,10 +52,19 @@ class AuditLogWebController extends Controller
             ->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name', 'tenant_id']);
 
-        $viewer     = $request->user();
-        $presenters = $logs->getCollection()->map(fn (AuditLog $log) => AuditLogPresenter::make($log, $viewer));
+        $viewer = $request->user();
 
-        return view('audit.index', compact('logs', 'presenters', 'actions', 'users'));
+        return Inertia::render('Core/Pages/Audit/Index', [
+            'logs'    => $logs->through(fn (AuditLog $log) => AuditLogPresenter::make($log, $viewer)->toArray()),
+            'actions' => $actions->map(fn ($label, $action) => ['value' => $action, 'label' => $label])->values(),
+            'users'   => $users->map(fn (User $u) => ['id' => $u->id, 'name' => trim("{$u->first_name} {$u->last_name}")]),
+            'filters' => [
+                'from'    => $validated['from'] ?? '',
+                'to'      => $validated['to'] ?? '',
+                'action'  => $validated['action'] ?? '',
+                'user_id' => $validated['user_id'] ?? '',
+            ],
+        ]);
     }
 
     /** @deprecated Usa App\Modules\Core\Support\Labels::action() */

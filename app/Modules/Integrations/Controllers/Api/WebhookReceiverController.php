@@ -52,7 +52,7 @@ class WebhookReceiverController extends Controller
     /** URL del receptor para la empresa (o la plataforma) */
     public static function urlFor(?Tenant $tenant, string $target = SendTenantWebhook::TARGET_WEBHOOK): string
     {
-        $url = route('integrations.receiver', array_filter(['slug' => $tenant?->slug]));
+        $url = route('api.integrations.receiver', array_filter(['slug' => $tenant?->slug]));
 
         return $target === SendTenantWebhook::TARGET_NOTIFICATION ? $url . '?canal=notificaciones' : $url;
     }
