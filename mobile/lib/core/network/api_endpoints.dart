@@ -15,6 +15,7 @@ class ApiEndpoints {
   static const forgotPassword = '/auth/forgot-password';
   static const changePassword = '/auth/change-password';
   static const logoutAll = '/auth/logout-all';
+  static const refreshFcm = '/auth/refresh-fcm';
 
   // Asistencia
   static const attendanceToday = '/attendance/today';
@@ -23,6 +24,12 @@ class ApiEndpoints {
   static const breakStart = '/attendance/break-start';
   static const breakEnd = '/attendance/break-end';
   static const clockOut = '/attendance/clock-out';
+
+  /// Envío en lote de la cola sin conexión (máx. 50; la app manda 20).
+  static const syncBatch = '/v1/attendances/sync-batch';
+
+  // Dirección legible de una coordenada (con token)
+  static const geocodeReverse = '/geocode/reverse';
   static String justification(int attendanceId) => '/attendance/$attendanceId/justification';
 
   // Turnos y sucursales

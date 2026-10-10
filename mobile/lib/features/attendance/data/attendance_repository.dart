@@ -1,11 +1,5 @@
-import 'dart:io';
-import 'dart:math';
-
-import 'package:camera/camera.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -13,9 +7,11 @@ import '../../../core/storage/session_storage.dart';
 import '../../../core/utils/attachment_picker.dart';
 import '../../../core/utils/formatters.dart';
 import '../domain/models.dart';
-import 'offline_clock_queue.dart';
+import '../domain/punch.dart';
+import 'offline_sync_engine.dart';
+import 'photo_vault.dart';
 
-class AttendanceRepository {
+class AttendanceRepository implements PunchTransport {
   AttendanceRepository(this._api, this._storage, {this.appVersion = '0.0.0'});
 
   final ApiClient _api;
@@ -37,6 +33,7 @@ class AttendanceRepository {
       attendance: today['data'] is Map ? Attendance.fromJson(Map<String, dynamic>.from(today['data'] as Map)) : null,
       actions: TodayStatus.parseActions(today['next_action'] as Map?),
       schedule: days.isEmpty ? null : DaySchedule.fromJson(Map<String, dynamic>.from(days.first as Map)),
+      clockSkew: TodayStatus.skewFrom(today['server_time'], DateTime.now()),
     );
   }
 
@@ -62,6 +59,13 @@ class AttendanceRepository {
         .toList();
   }
 
+  /// Dirección legible (`GET /geocode/reverse`), o null si no hay.
+  Future<String?> reverseGeocode(double lat, double lng) async {
+    final json = await _api.get(ApiEndpoints.geocodeReverse, query: {'lat': lat, 'lng': lng});
+    final data = json['data'];
+    return data is Map ? data['address']?.toString() : null;
+  }
+
   static String _pathFor(ClockAction action) => switch (action) {
         ClockAction.clockIn => ApiEndpoints.clockIn,
         ClockAction.breakStart => ApiEndpoints.breakStart,
@@ -69,123 +73,81 @@ class AttendanceRepository {
         ClockAction.clockOut => ApiEndpoints.clockOut,
       };
 
-  static String get _deviceOs => defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
+  static String get deviceOs => defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
 
-  /// Envía la marcación. Devuelve el mensaje del servidor.
-  ///
-  /// [selfie] es opcional si la empresa desactivó `selfie_required`;
-  /// [faceDetected] solo se envía si se pudo analizar la foto.
-  Future<String> clock(ClockAction action, Position position, {XFile? selfie, bool? faceDetected}) async {
-    return _post(
-      action,
-      latitude: position.latitude,
-      longitude: position.longitude,
-      accuracy: position.accuracy,
-      isMocked: position.isMocked,
-      deviceId: await _storage.installationId(),
-      photo: selfie == null ? null : await selfie.readAsBytes(),
-      faceDetected: faceDetected,
-    );
+  static MultipartFile _photoFile(PunchPhoto photo) {
+    final [type, subtype] = photo.mimeType.split('/');
+    return MultipartFile.fromBytes(photo.bytes, filename: 'selfie.${photo.extension}', contentType: DioMediaType(type, subtype));
   }
 
-  /// Marcación tomada sin conexión: copia la selfie a los documentos de la
-  /// app (la cámara la deja en caché, que el sistema puede borrar).
-  Future<PendingClock> buildPending(
-    ClockAction action,
-    Position position, {
-    int? userId,
-    XFile? selfie,
-    bool? faceDetected,
-  }) async {
-    final now = DateTime.now();
-    final id = '${now.microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
-    String? photoPath;
-    if (selfie != null) {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/offline_clocks/$id.jpg');
-      await file.parent.create(recursive: true);
-      await file.writeAsBytes(await selfie.readAsBytes(), flush: true);
-      photoPath = file.path;
-    }
-    return PendingClock(
-      id: id,
-      action: action,
-      latitude: position.latitude,
-      longitude: position.longitude,
-      accuracy: position.accuracy,
-      isMocked: position.isMocked,
-      recordedAt: Fmt.isoWithOffset(now),
+  /// Envía la marcación capturada (selfie opcional en todas). Un reenvío con
+  /// el mismo `client_uuid` responde 200 `duplicate: true`: también es éxito.
+  Future<PunchOutcome> sendPunch(PunchCapture capture) async {
+    final fields = punchFields(
+      clientUuid: capture.clientUuid,
+      deviceTime: capture.deviceTime,
+      latitude: capture.latitude,
+      longitude: capture.longitude,
+      accuracy: capture.accuracy,
+      isMocked: capture.isMocked,
+      faceDetected: capture.faceDetected,
+      deviceId: await _storage.installationId(),
+      deviceOs: deviceOs,
+      appVersion: appVersion,
+    );
+    final photo = capture.photo;
+    final json = await _api.postMultipart(
+      _pathFor(capture.action),
+      FormData.fromMap({...fields, 'photo': ?(photo == null ? null : _photoFile(photo))}),
+    );
+    return PunchOutcome.fromJson(json);
+  }
+
+  /// Copia de la marcación para la cola offline: la selfie (ya comprimida)
+  /// se guarda cifrada en los documentos privados de la app.
+  Future<QueuedPunch> toQueued(PunchCapture capture, PhotoVault vault, {int? userId}) async {
+    final photo = capture.photo;
+    final path = photo == null ? null : await vault.save(capture.clientUuid, photo.bytes);
+    return QueuedPunch.fromCapture(
+      capture,
       userId: userId,
       deviceId: await _storage.installationId(),
-      deviceOs: _deviceOs,
+      deviceOs: deviceOs,
       appVersion: appVersion,
-      photoPath: photoPath,
-      faceDetected: faceDetected,
+      photoPath: path,
     );
   }
 
-  /// Envía una marcación de la cola offline con su hora real (`offline_recorded_at`).
-  Future<String> sendPending(PendingClock item) async {
-    List<int>? photo;
-    final path = item.photoPath;
-    if (path != null) {
-      final file = File(path);
-      if (await file.exists()) photo = await file.readAsBytes();
+  Future<Map<String, String>> _queuedFields(QueuedPunch p) async => p.fields(
+        fallbackDeviceId: await _storage.installationId(),
+        fallbackOs: deviceOs,
+        fallbackVersion: appVersion,
+      );
+
+  @override
+  Future<Map<String, BatchItemResult>> sendBatch(List<OutgoingPunch> punches) async {
+    final map = <String, dynamic>{};
+    for (var i = 0; i < punches.length; i++) {
+      final out = punches[i];
+      (await _queuedFields(out.punch)).forEach((k, v) => map['punches[$i][$k]'] = v);
+      // Tipo de marcación: el contrato no fija el nombre del campo, se envía
+      // como `type` y `action` (clock_in | break_start | break_end | clock_out).
+      map['punches[$i][type]'] = out.punch.action.apiName;
+      map['punches[$i][action]'] = out.punch.action.apiName;
+      final photo = out.photo;
+      if (photo != null) map['punches[$i][photo]'] = _photoFile(photo);
     }
-    return _post(
-      item.action,
-      latitude: item.latitude,
-      longitude: item.longitude,
-      accuracy: item.accuracy,
-      isMocked: item.isMocked,
-      deviceId: item.deviceId ?? await _storage.installationId(),
-      deviceOs: item.deviceOs,
-      version: item.appVersion,
-      photo: photo,
-      faceDetected: item.faceDetected,
-      offlineRecordedAt: item.recordedAt,
-    );
+    final json = await _api.postMultipart(ApiEndpoints.syncBatch, FormData.fromMap(map, ListFormat.multiCompatible));
+    return parseBatchResults(json);
   }
 
-  Future<String> _post(
-    ClockAction action, {
-    required double latitude,
-    required double longitude,
-    required double accuracy,
-    required bool isMocked,
-    required String deviceId,
-    String? deviceOs,
-    String? version,
-    List<int>? photo,
-    bool? faceDetected,
-    String? offlineRecordedAt,
-  }) async {
-    final fields = <String, dynamic>{
-      'latitude': latitude,
-      'longitude': longitude,
-      'accuracy_meters': accuracy,
-      'is_mocked': isMocked ? 1 : 0,
-      'offline_recorded_at': ?offlineRecordedAt,
-    };
-
-    final Map<String, dynamic> json;
-    if (action.requiresSelfie) {
-      // Entrada y salida: multipart con datos del equipo; la foto es opcional
-      // si la empresa no exige selfie (el backend valida).
-      final form = FormData.fromMap({
-        ...fields,
-        'device_id': deviceId,
-        'device_os': deviceOs ?? _deviceOs,
-        'app_version': version ?? appVersion,
-        if (faceDetected != null) 'face_detected': faceDetected ? 1 : 0,
-        if (photo != null)
-          'photo': MultipartFile.fromBytes(photo, filename: 'selfie.jpg', contentType: DioMediaType('image', 'jpeg')),
-      });
-      json = await _api.postMultipart(_pathFor(action), form);
-    } else {
-      json = await _api.post(_pathFor(action), data: fields);
-    }
-    return json['message']?.toString() ?? 'Marcación registrada.';
+  @override
+  Future<void> sendOne(OutgoingPunch punch) async {
+    final photo = punch.photo;
+    await _api.postMultipart(
+      _pathFor(punch.punch.action),
+      FormData.fromMap({...await _queuedFields(punch.punch), 'photo': ?(photo == null ? null : _photoFile(photo))}),
+    );
   }
 
   Future<void> submitJustification(int attendanceId, String notes, {PlatformAttachment? file}) async {
@@ -194,5 +156,24 @@ class AttendanceRepository {
       if (file != null) 'file': file.toMultipart(),
     });
     await _api.postMultipart(ApiEndpoints.justification(attendanceId), form);
+  }
+}
+
+/// Respuesta de una marcación individual.
+class PunchOutcome {
+  const PunchOutcome({required this.message, this.duplicate = false});
+
+  final String message;
+
+  /// El servidor ya tenía esta marcación (mismo `client_uuid`).
+  final bool duplicate;
+
+  factory PunchOutcome.fromJson(Map<String, dynamic> json) {
+    final data = json['data'];
+    final duplicate = json['duplicate'] == true || (data is Map && data['duplicate'] == true);
+    return PunchOutcome(
+      message: json['message']?.toString() ?? (duplicate ? 'Tu marcación ya estaba registrada.' : 'Marcación registrada.'),
+      duplicate: duplicate,
+    );
   }
 }

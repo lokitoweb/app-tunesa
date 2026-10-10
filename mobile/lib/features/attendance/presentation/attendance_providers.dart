@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/version_gate.dart';
 import '../../../core/providers.dart';
 import '../data/attendance_repository.dart';
+import '../data/reverse_geocoder.dart';
 import '../domain/models.dart';
 
 final attendanceRepositoryProvider = Provider<AttendanceRepository>(
@@ -33,3 +34,9 @@ final weekScheduleProvider = FutureProvider.autoDispose<List<DaySchedule>>((ref)
 final myBranchesProvider = FutureProvider.autoDispose<List<BranchGeofence>>(
   (ref) => ref.watch(attendanceRepositoryProvider).myBranches(),
 );
+
+/// Direcciones de la pantalla de marcación (caché por ~50 m durante la sesión).
+final reverseGeocoderProvider = Provider<ReverseGeocoder>((ref) {
+  final repo = ref.watch(attendanceRepositoryProvider);
+  return ReverseGeocoder(repo.reverseGeocode);
+});

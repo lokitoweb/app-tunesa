@@ -21,5 +21,9 @@
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.**
 
+# SQLCipher (cola offline cifrada, sqflite_sqlcipher): clases llamadas por JNI
+-keep class net.zetetic.database.** { *; }
+-dontwarn net.zetetic.database.**
+
 # Conservar información para trazas de errores legibles
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile,LineNumberTable

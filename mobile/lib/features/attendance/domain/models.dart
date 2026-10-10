@@ -115,11 +115,28 @@ class DaySchedule {
 
 /// Estado del día: registro + acciones disponibles según el backend.
 class TodayStatus {
-  const TodayStatus({this.attendance, required this.actions, this.schedule});
+  const TodayStatus({this.attendance, required this.actions, this.schedule, this.clockSkew});
 
   final Attendance? attendance;
   final List<ClockAction> actions;
   final DaySchedule? schedule;
+
+  /// Hora del teléfono menos la del servidor (`server_time`) al recibir la
+  /// respuesta. null si el backend no la envía.
+  final Duration? clockSkew;
+
+  /// Desfase en segundos si supera [maxSeconds] (`max_time_drift_seconds`).
+  int? driftBeyond(int? maxSeconds) {
+    final skew = clockSkew;
+    if (maxSeconds == null || skew == null) return null;
+    final seconds = skew.inSeconds.abs();
+    return seconds > maxSeconds ? seconds : null;
+  }
+
+  static Duration? skewFrom(Object? serverTime, DateTime deviceNow) {
+    final server = DateTime.tryParse(serverTime?.toString() ?? '');
+    return server == null ? null : deviceNow.toUtc().difference(server.toUtc());
+  }
 
   bool get isDayComplete => attendance?.clockOut != null;
 
