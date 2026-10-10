@@ -10,6 +10,7 @@ use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\HR\Models\UniformDelivery;
 use App\Modules\HR\Models\UniformSize;
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,7 +37,10 @@ use Laravel\Sanctum\HasApiTokens;
  */
 class User extends Authenticatable
 {
-    use BelongsToTenant, HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use BelongsToTenant, HasApiTokens, HasFactory, Notifiable, SoftDeletes, BelongsToBranchScope;
+
+    /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
+    public const BRANCH_SCOPE = [null, 'id'];
 
     protected $fillable = [
         'tenant_id',
@@ -61,6 +65,21 @@ class User extends Authenticatable
         'department',
         'fcm_token',
         'must_change_password',
+        'department_id',
+        'scope_type',
+        'scope_zone_id',
+        'scope_branch_id',
+        'roaming_attendance_enabled',
+    ];
+
+    /** Alcance territorial (users.scope_type). Ver App\Modules\Core\Services\OrgScope */
+    public const SCOPE_GLOBAL = 'global';
+    public const SCOPE_ZONE   = 'zone';
+    public const SCOPE_BRANCH = 'branch';
+    public const SCOPES = [
+        self::SCOPE_GLOBAL => 'Toda la empresa',
+        self::SCOPE_ZONE   => 'Una zona',
+        self::SCOPE_BRANCH => 'Una sede',
     ];
 
     /**
@@ -95,6 +114,7 @@ class User extends Authenticatable
         'locked_until'         => 'datetime',
         'last_login_at'        => 'datetime',
         'must_change_password' => 'boolean',
+        'roaming_attendance_enabled' => 'boolean',
         'failed_login_attempts' => 'integer',
     ];
 
@@ -118,6 +138,7 @@ class User extends Authenticatable
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(Branch::class, 'employee_branch')
+            ->using(EmployeeBranch::class)
             ->withPivot(['is_primary', 'assigned_from', 'assigned_until'])
             ->withTimestamps();
     }
@@ -307,6 +328,37 @@ class User extends Authenticatable
     // =========================================================================
 
     /** Filtra empleados activos del tenant actual */
+    /** Limitado a una zona o a una sede (supervisor zonal, administrador de agencia) */
+    public function isOrgScoped(): bool
+    {
+        return in_array($this->scope_type, [self::SCOPE_ZONE, self::SCOPE_BRANCH], true);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function assignedZone(): BelongsTo
+    {
+        return $this->belongsTo(Zone::class, 'scope_zone_id');
+    }
+
+    public function assignedBranch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'scope_branch_id');
+    }
+
+    /** "Zona Norte", "Sede Laredo" o "Toda la empresa" */
+    public function scopeLabel(): string
+    {
+        return match ($this->scope_type) {
+            self::SCOPE_ZONE   => 'Zona: ' . ($this->assignedZone?->name ?? 'sin asignar'),
+            self::SCOPE_BRANCH => 'Sede: ' . (Branch::withoutGlobalScopes()->find($this->scope_branch_id)?->name ?? 'sin asignar'),
+            default            => self::SCOPES[self::SCOPE_GLOBAL],
+        };
+    }
+
     /** Ve la asistencia de toda la empresa (RRHH, admin) o solo la de su equipo (supervisor) */
     public function seesAllAttendance(): bool
     {
@@ -326,7 +378,8 @@ class User extends Authenticatable
     /** Usuarios cuya asistencia puede ver $viewer: todos o solo su equipo */
     public function scopeVisibleTo($query, User $viewer)
     {
-        return $viewer->seesAllAttendance() ? $query : $query->supervisedBy($viewer);
+        // Con alcance de zona o sede, BranchScope ya dejó solo a los colaboradores de su territorio
+        return $viewer->seesAllAttendance() || $viewer->isOrgScoped() ? $query : $query->supervisedBy($viewer);
     }
 
     /** Roles que marcan asistencia desde la app (colaboradores y supervisores) */

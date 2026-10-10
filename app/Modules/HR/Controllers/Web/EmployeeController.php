@@ -113,7 +113,7 @@ class EmployeeController extends Controller
             'primary_branch_id' => ['required', 'integer', 'in_array:branch_ids.*'],
             'shift_id'        => ['nullable', 'integer', Rule::exists('shifts', 'id')->where('tenant_id', $tenantId)],
             'avatar'          => ['nullable', 'image', 'max:2048'],
-        ]);
+        ] + $this->orgRules($tenantId));
 
         abort_unless(Auth::user()->canAssignRole($validated['role']), 403, 'No puedes crear usuarios con un rol igual o superior al tuyo.');
 
@@ -143,7 +143,7 @@ class EmployeeController extends Controller
                 'avatar_path'     => $avatarPath,
                 // Contraseña temporal: se exige cambiarla en el primer ingreso
                 'must_change_password' => true,
-            ]);
+            ] + $this->orgData($validated, $request));
 
             // Asignar sucursales (con bandera de sucursal principal)
             $branchesToSync = [];
@@ -220,7 +220,7 @@ class EmployeeController extends Controller
             'primary_branch_id' => ['required', 'integer', 'in_array:branch_ids.*'],
             'shift_id'        => ['nullable', 'integer', Rule::exists('shifts', 'id')->where('tenant_id', $tenantId)],
             'avatar'          => ['nullable', 'image', 'max:2048'],
-        ]);
+        ] + $this->orgRules($tenantId));
 
         $actor = Auth::user();
         abort_unless($actor->canManage($employee), 403, 'No puedes editar a un usuario de rango igual o superior.');
@@ -245,7 +245,7 @@ class EmployeeController extends Controller
                 'department'      => $validated['department'] ?? null,
                 'base_salary'     => $validated['base_salary'] ?? 0,
                 'hire_date'       => $validated['hire_date'] ?? $employee->hire_date,
-            ];
+            ] + $this->orgData($validated, $request);
 
             if (!empty($validated['password'])) {
                 $dataToUpdate['password'] = Hash::make($validated['password']);
@@ -320,5 +320,46 @@ class EmployeeController extends Controller
 
         $statusMsg = $newStatus === 'active' ? 'activado' : 'desactivado';
         return back()->with('success', "Colaborador {$employee->first_name} ha sido {$statusMsg}.");
+    }
+    /** Área, marcación itinerante y alcance territorial (zona / sede) */
+    private function orgRules(int $tenantId): array
+    {
+        return [
+            'department_id'              => ['nullable', 'integer', Rule::exists('departments', 'id')->where('tenant_id', $tenantId)],
+            'roaming_attendance_enabled' => ['nullable', 'boolean'],
+            'scope_type'                 => ['nullable', Rule::in(array_keys(User::SCOPES))],
+            'scope_zone_id'              => ['nullable', 'required_if:scope_type,zone', 'integer', Rule::exists('zones', 'id')->where('tenant_id', $tenantId)],
+            'scope_branch_id'            => ['nullable', 'required_if:scope_type,branch', 'integer', Rule::exists('branches', 'id')->where('tenant_id', $tenantId)],
+        ];
+    }
+
+    /**
+     * Quien tiene alcance de toda la empresa lo asigna libremente. Quien está
+     * limitado a una zona o sede no puede dar más alcance que el suyo: los
+     * mandos que crea o edita heredan su mismo alcance. Los colaboradores no
+     * llevan alcance (marcan y ven solo lo propio).
+     */
+    private function orgData(array $validated, Request $request): array
+    {
+        $actor = $request->user();
+        $data  = [
+            'department_id'              => $validated['department_id'] ?? null,
+            'roaming_attendance_enabled' => $request->boolean('roaming_attendance_enabled'),
+        ];
+
+        if ($validated['role'] === 'employee') {
+            return $data + ['scope_type' => User::SCOPE_GLOBAL, 'scope_zone_id' => null, 'scope_branch_id' => null];
+        }
+        if ($actor->isOrgScoped()) {
+            return $data + $actor->only(['scope_type', 'scope_zone_id', 'scope_branch_id']);
+        }
+
+        $type = $validated['scope_type'] ?? User::SCOPE_GLOBAL;
+
+        return $data + [
+            'scope_type'      => $type,
+            'scope_zone_id'   => $type === User::SCOPE_ZONE ? $validated['scope_zone_id'] : null,
+            'scope_branch_id' => $type === User::SCOPE_BRANCH ? $validated['scope_branch_id'] : null,
+        ];
     }
 }

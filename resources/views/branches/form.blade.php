@@ -50,6 +50,30 @@
                             <label for="code" class="form-label">Código interno</label>
                             <input type="text" id="code" name="code" value="{{ old('code', $branch->code) }}" placeholder="SUC-01" class="form-control">
                         </div>
+                        @php
+                            // Zonas de la empresa de la sede (en la vista global aún no hay empresa: se asigna luego en Organización)
+                            $zones = $branch->tenant_id ? \App\Modules\Core\Models\Zone::where('tenant_id', $branch->tenant_id)->orderBy('name')->get(['id', 'name']) : collect();
+                            $structureLocked = app(\App\Modules\Core\Services\OrgScope::class)->restricted();
+                        @endphp
+                        <div class="col-sm-6">
+                            <label for="branch_type" class="form-label">Tipo de sede</label>
+                            <select id="branch_type" name="branch_type" class="form-select @error('branch_type') is-invalid @enderror">
+                                @foreach(\App\Modules\Core\Models\Branch::TYPES as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('branch_type', $branch->branch_type ?? 'agency') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @if($zones->isNotEmpty() && ! $structureLocked)
+                            <div class="col-sm-6">
+                                <label for="zone_id" class="form-label">Zona</label>
+                                <select id="zone_id" name="zone_id" class="form-select @error('zone_id') is-invalid @enderror">
+                                    <option value="">Sin zona</option>
+                                    @foreach($zones as $zone)
+                                        <option value="{{ $zone->id }}" @selected(old('zone_id', $branch->zone_id) == $zone->id)>{{ $zone->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
                         <div class="col-sm-7">
                             <label for="supervisor_id" class="form-label">Supervisor a cargo</label>
                             <select id="supervisor_id" name="supervisor_id" class="form-select @error('supervisor_id') is-invalid @enderror">

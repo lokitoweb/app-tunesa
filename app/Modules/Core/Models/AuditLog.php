@@ -2,6 +2,7 @@
 
 namespace App\Modules\Core\Models;
 
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use App\Modules\Core\Models\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class AuditLog extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, BelongsToBranchScope;
+
+    /** Alcance por sede: un usuario de zona o sede solo ve lo que hicieron sus colaboradores */
+    public const BRANCH_SCOPE = [null, 'user_id'];
 
     public const UPDATED_AT = null;
 

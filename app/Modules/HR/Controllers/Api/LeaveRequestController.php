@@ -216,7 +216,7 @@ class LeaveRequestController extends Controller
             return $query;
         }
 
-        return $query->whereHas('employee.branches', fn ($q) => $q->where('branches.supervisor_id', $user->id));
+        return $query->whereHas('employee.branches', fn ($q) => $q->visibleTo($user));
     }
 
     private function format(LeaveRequest $leave, bool $withEmployee = false): array
