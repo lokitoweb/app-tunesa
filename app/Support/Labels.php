@@ -40,6 +40,7 @@ final class Labels
         'tenant_settings.updated'            => ['Marca y app actualizada', 'primary', 'palette'],
         'integration.webhook_failed'         => ['Fallo al enviar a la integración', 'danger', 'plug'],
         'integration.webhook_tested'         => ['Prueba de integración enviada', 'info', 'plug'],
+        'integration.webhook_secret_regenerated' => ['Secreto del webhook regenerado', 'warning', 'key'],
         'push.tested'                        => ['Notificación push de prueba', 'info', 'phone-vibrate'],
 
         // Empresas (Super Admin)

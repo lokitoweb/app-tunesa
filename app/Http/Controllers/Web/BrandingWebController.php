@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Http\Controllers\Api\WebhookReceiverController;
 use App\Http\Controllers\Controller;
+use App\Jobs\SendTenantWebhook;
 use App\Models\Branch;
 use App\Models\CompanyConfiguration;
 use App\Models\Tenant;
@@ -37,7 +39,8 @@ class BrandingWebController extends Controller
     public function edit(Request $request): View
     {
         $tenant = $this->tenantContext->getOrNull();
-        $row    = TenantSetting::rowFor($tenant) ?? new TenantSetting();
+        // El secreto del webhook nunca se muestra vacío: si falta, se genera y se guarda
+        $row    = TenantSetting::ensureWebhookSecret($tenant);
         $values = $this->settings->editablePayload($tenant);
 
         return view('settings.branding', [
@@ -54,6 +57,12 @@ class BrandingWebController extends Controller
             'hasMapsKey' => ! empty($values['has_maps_api_key']) || filled(self::secret(TenantSetting::rowFor(null), 'maps_api_key')),
             'fcm'       => self::fcmStatus(),
             'geoProbe'  => $this->geoProbe($tenant),
+            'webhookSecret' => $row->readableWebhookSecret(),
+            // Receptor de la plataforma: URL precargada mientras la empresa no ponga la suya
+            'receiverUrls'  => [
+                'webhook_url'           => WebhookReceiverController::urlFor($tenant, SendTenantWebhook::TARGET_WEBHOOK),
+                'notification_endpoint' => WebhookReceiverController::urlFor($tenant, SendTenantWebhook::TARGET_NOTIFICATION),
+            ],
             'tab'       => in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'marca',
         ]);
     }

@@ -33,7 +33,7 @@ class AuditStructuredLogTest extends TestCase
     public function test_log_changes_stores_only_changed_fields_and_masks_secrets(): void
     {
         $acme = $this->makeTenant('acme');
-        $row  = TenantSetting::create(['tenant_id' => $acme->id]);
+        $row  = TenantSetting::rowFor($acme);
 
         app(AuditLogger::class)->logChanges('tenant_settings.updated', $row, [
             'default_grace_minutes' => 5,
@@ -127,7 +127,7 @@ class AuditStructuredLogTest extends TestCase
     {
         $acme  = $this->makeTenant('acme');
         $admin = $this->makeUser($acme, 'company_admin', ['first_name' => 'Carlos', 'last_name' => 'Ramírez']);
-        TenantSetting::create(['tenant_id' => $acme->id, 'default_grace_minutes' => 5, 'lunch_paid' => false]);
+        TenantSetting::rowFor($acme)->update(['default_grace_minutes' => 5, 'lunch_paid' => false]);
 
         $this->actingAs($admin)->put('/settings/branding', self::COLORS + [
             'default_grace_minutes' => 15, 'lunch_paid' => '', 'webhook_secret' => 'whsec_1234567890', 'accent_color' => '#10B981',

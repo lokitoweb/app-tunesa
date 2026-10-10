@@ -104,6 +104,26 @@ class IntegrationsWebController extends Controller
             : ['error' => WebhookSender::truncate($this->text($result['error'] ?? $result['response'] ?? null) ?? 'Error desconocido.', WebhookSender::RESPONSE_LIMIT)]));
     }
 
+    /**
+     * POST /settings/branding/regenerate-webhook-secret → secreto nuevo para la
+     * empresa (o la plataforma en la vista global). Queda en auditoría sin el valor.
+     */
+    public function regenerateWebhookSecret(AuditLogger $audit): JsonResponse
+    {
+        $tenant = $this->tenantContext->getOrNull();
+        $secret = TenantSetting::regenerateWebhookSecret($tenant);
+
+        $audit->log('integration.webhook_secret_regenerated', TenantSetting::rowFor($tenant), [
+            'scope' => $tenant ? 'tenant' : 'platform',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'secret'  => $secret,
+            'message' => 'Secreto regenerado. Actualízalo en tu sistema: las firmas con el anterior ya no son válidas.',
+        ]);
+    }
+
     /** La respuesta de FCM llega como arreglo: se muestra como JSON legible */
     private function text(mixed $value): ?string
     {

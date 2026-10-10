@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use LogicException;
 
 /**
@@ -165,6 +166,58 @@ class TenantSetting extends Model
             }
 
             return $row;
+        });
+    }
+
+    /** Prefijo de los secretos de webhook generados por la plataforma */
+    public const WEBHOOK_SECRET_PREFIX = 'whsec_';
+
+    /** Secreto nuevo y aleatorio para firmar los webhooks (HMAC-SHA256) */
+    public static function generateWebhookSecret(): string
+    {
+        return self::WEBHOOK_SECRET_PREFIX . Str::random(32);
+    }
+
+    /**
+     * Secreto del webhook en claro; null si no hay o no se puede descifrar
+     * (APP_KEY cambiada: se trata como vacío y se genera otro).
+     */
+    public function readableWebhookSecret(): ?string
+    {
+        try {
+            return filled($this->webhook_secret) ? $this->webhook_secret : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Fila de la empresa (o de la plataforma) con secreto de webhook garantizado:
+     * si está vacío se genera y se guarda. Las integraciones nunca quedan sin firma.
+     */
+    public static function ensureWebhookSecret(?Tenant $tenant): self
+    {
+        return DB::transaction(function () use ($tenant) {
+            $row = static::editableRowFor($tenant);
+
+            if ($row->readableWebhookSecret() === null) {
+                $row->webhook_secret = static::generateWebhookSecret();
+                $row->save();
+            }
+
+            return $row;
+        });
+    }
+
+    /** Cambia el secreto por uno nuevo y lo devuelve */
+    public static function regenerateWebhookSecret(?Tenant $tenant): string
+    {
+        return DB::transaction(function () use ($tenant) {
+            $row = static::editableRowFor($tenant);
+            $row->webhook_secret = $secret = static::generateWebhookSecret();
+            $row->save();
+
+            return $secret;
         });
     }
 

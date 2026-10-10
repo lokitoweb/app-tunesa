@@ -114,7 +114,8 @@ class IntegrationDeliveriesTest extends TestCase
         $this->assertSame(500, $delivery->http_status);
         $this->assertSame('caído', $delivery->response_body);
         $this->assertStringContainsString('HTTP 500', $delivery->error);
-        $this->assertNull($delivery->signature); // sin secreto, sin firma
+        // Toda empresa nace con secreto: hasta los envíos fallidos van firmados
+        $this->assertStringStartsWith('sha256=', $delivery->signature);
     }
 
     public function test_connection_errors_are_recorded(): void
@@ -278,7 +279,7 @@ class IntegrationDeliveriesTest extends TestCase
         $this->configure($acme, ['webhook_url' => self::HOOK]);
         $this->actingAs($admin)->postJson('/settings/branding/test-webhook', ['url' => ''])
             ->assertOk()
-            ->assertJson(['ok' => false, 'status' => 503, 'signed' => false, 'body' => 'mantenimiento'])
+            ->assertJson(['ok' => false, 'status' => 503, 'signed' => true, 'body' => 'mantenimiento'])
             ->assertJsonPath('error', 'El destino respondió HTTP 503.');
 
         $this->actingAs($admin)->postJson('/settings/branding/test-webhook', ['url' => 'ftp://x.test'])->assertStatus(422);

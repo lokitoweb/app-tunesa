@@ -85,7 +85,7 @@ class TenantSettingsService
             'geofence_policy'         => ['sometimes', Rule::in(array_keys(CompanyConfiguration::GEOFENCE_POLICIES))],
 
             'webhook_url'           => ['sometimes', 'nullable', 'url:http,https', 'max:255'],
-            'webhook_secret'        => ['sometimes', 'nullable', 'string', 'max:255'],
+            'webhook_secret'        => ['sometimes', 'nullable', 'string', 'min:16', 'max:255'],
             'maps_api_key'          => ['sometimes', 'nullable', 'string', 'max:255'],
             'notification_endpoint' => ['sometimes', 'nullable', 'url:http,https', 'max:255'],
             'clear_webhook_secret'  => ['sometimes', 'boolean'],
@@ -112,6 +112,7 @@ class TenantSettingsService
     {
         return [
             'api_base_url.url'        => 'La URL de la API debe empezar con https://.',
+            'webhook_secret.min'      => 'El secreto del webhook debe tener al menos 16 caracteres. Usa "Regenerar secreto" para crear uno seguro.',
             'api_base_url.not_regex'  => 'Escribe la URL sin /api al final (la app la agrega).',
             'min_supported_version.regex' => 'Usa el formato de versión 1.2.3.',
             'latest_version.regex'    => 'Usa el formato de versión 1.2.3.',
@@ -197,9 +198,15 @@ class TenantSettingsService
                 $clear = $request->boolean("clear_{$secret}")
                     || ($secret === 'maps_api_key' && $request->boolean('clear_google_maps_api_key'));
 
-                if ($clear) {
+                if ($clear && $secret === 'webhook_secret') {
+                    // El webhook nunca queda sin firma: "borrar" genera uno nuevo
+                    $row->webhook_secret = TenantSetting::generateWebhookSecret();
+                    $secrets[] = $secret;
+                } elseif ($clear) {
                     $row->{$secret} = null;
                     $secrets[] = $secret;
+                } elseif ($secret === 'webhook_secret' && ! empty($data[$secret]) && $data[$secret] === $row->readableWebhookSecret()) {
+                    continue; // el formulario reenvía el secreto precargado: no es un cambio
                 } elseif (! empty($data[$secret])) {
                     $row->{$secret} = $data[$secret];
                     $secrets[] = $secret;

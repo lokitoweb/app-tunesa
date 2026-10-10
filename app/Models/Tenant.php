@@ -68,6 +68,9 @@ class Tenant extends Model
 
         static::saved($forget);
         static::deleted($forget);
+
+        // Toda empresa nace con su secreto de webhook: las integraciones siempre firman
+        static::created(fn (Tenant $tenant) => TenantSetting::ensureWebhookSecret($tenant));
     }
 
     // =========================================================================
