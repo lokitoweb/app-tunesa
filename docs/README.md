@@ -10,6 +10,7 @@ workflows). Si algo no coincide con el código, manda el código: avisa y se cor
 |---|---|
 | [architecture/overview.md](architecture/overview.md) | Componentes del sistema, multi-tenant, roles y permisos, módulos y cómo viajan los datos de la app al panel. |
 | [architecture/white-label.md](architecture/white-label.md) | Marca blanca y configuración de la app por empresa (`tenant_settings`): herencia, pestañas del panel, colores en el panel y cómo la consume la app. |
+| [architecture/attendance-integrity.md](architecture/attendance-integrity.md) | Integridad de la marcación: bitácora inmutable `attendance_punches`, idempotencia, sincronización en lote, banderas de sospecha, geocodificación y push FCM (puesta en marcha). |
 
 ## API
 

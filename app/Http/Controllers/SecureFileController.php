@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\AttendancePunch;
 use App\Models\EmployeeDocument;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,6 +21,7 @@ class SecureFileController extends Controller
         [$disk, $path, $name] = match ($kind) {
             'document' => $this->document($id),
             'selfie-in', 'selfie-out' => $this->selfie($id, $kind === 'selfie-in' ? 'in' : 'out'),
+            'punch-photo' => $this->punchPhoto($id),
             default => abort(404),
         };
 
@@ -44,6 +46,16 @@ class SecureFileController extends Controller
         $doc = EmployeeDocument::withoutGlobalScopes()->whereNull('deleted_at')->findOrFail($id);
 
         return [$doc->disk, $doc->path, $doc->original_name];
+    }
+
+    /** Foto de un evento de la bitácora (incluye las de descanso) */
+    private function punchPhoto(int $id): array
+    {
+        $punch = AttendancePunch::withoutGlobalScopes()->findOrFail($id);
+        $path  = $punch->photo_path;
+
+        return [config('filesystems.attendance_disk', 'private'), $path,
+            "punch_{$punch->type}_{$id}." . ($path ? (pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg') : 'jpg')];
     }
 
     private function selfie(int $id, string $moment): array

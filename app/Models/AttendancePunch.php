@@ -118,6 +118,15 @@ class AttendancePunch extends Model
             'mock_location_detected' => $this->mock_location_detected,
             'suspicious'             => $this->suspicious,
             'suspicion_reasons'      => $this->suspicion_reasons ?? [],
+            'photo_url'              => $this->photoUrl(),
         ];
+    }
+
+    /** URL firmada y temporal de la foto (o null) */
+    public function photoUrl(int $minutes = 15): ?string
+    {
+        return $this->photo_path
+            ? app(\App\Services\SecureFileUrl::class)->make(config('filesystems.attendance_disk', 'private'), $this->photo_path, 'punch-photo', $this->id, $minutes)
+            : null;
     }
 }

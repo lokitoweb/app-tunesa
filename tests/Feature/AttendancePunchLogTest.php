@@ -140,6 +140,8 @@ class AttendancePunchLogTest extends TestCase
         $this->assertFalse($attendance->is_suspicious);
         $this->assertSame(45, (int) $attendance->break_minutes);
         $this->assertNotNull($punches[2]->photo_path, 'el descanso acepta foto');
+        $this->get($punches[2]->photoUrl())->assertOk();
+        $this->get(str_replace('punch-photo', 'selfie-in', $punches[2]->photoUrl()))->assertForbidden();
         $this->assertNull($punches[1]->photo_path);
     }
 

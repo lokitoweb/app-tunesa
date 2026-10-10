@@ -10,7 +10,9 @@ Laravel atiende a muchas empresas y cada una solo ve sus propios datos. Tiene tr
 | **App móvil** (Flutter) | `mobile/lib/` | Colaboradores (y supervisores/RRHH para su equipo) |
 
 La lógica de negocio importante vive en servicios (`app/Services/`): `AttendanceService`
-(marcación), `GeofenceService` (distancia Haversine), `TenantSettingsService` (marca y app),
+(marcación + bitácora inmutable `attendance_punches`), `GeofenceService` (distancia Haversine),
+`Geocoding\GeocodingService` (Nominatim / Google), `Push\FcmSender` (push FCM),
+`TenantSettingsService` (marca y app),
 `LoginGuard` (bloqueo por fuerza bruta), `NotificationDispatcher`, `PayslipImportService`,
 `DocumentStorageService`, `SecureFileUrl`, `AuditLogger`, etc.
 
@@ -107,7 +109,7 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
 
 | Módulo | API (app) | Panel | Notas |
 |---|---|---|---|
-| **Asistencia** con GPS + selfie | `/api/attendance/*` | `/attendance`, dashboard en vivo | Geocerca por sucursal (Haversine, `GeofenceService`). Política `reject` o `flag` por empresa. Anti-fraude: GPS simulado, precisión mínima, rostro. Marcación sin conexión opcional. Ver [mobile-endpoints.md](../api/mobile-endpoints.md). |
+| **Asistencia** con GPS + selfie | `/api/attendance/*`, `/api/v1/attendances/sync-batch` | `/attendance`, dashboard en vivo | Geocerca por sucursal (Haversine, `GeofenceService`). Política `reject` o `flag` por empresa. Anti-fraude: GPS simulado (`reject`/`flag`), precisión mínima, rostro, desfase de reloj, fuera de horario. Bitácora inmutable `attendance_punches` con motivos de sospecha, idempotencia por `client_uuid`, sincronización offline en lote. Ver [attendance-integrity.md](attendance-integrity.md) y [mobile-endpoints.md](../api/mobile-endpoints.md). |
 | **Faltas** | — | `/attendance` | Comando `attendance:mark-absences`, programado a las 01:30 en `routes/console.php`; no marca nada en feriados y, si había una solicitud aprobada, registra el día como `excused` en vez de `absent`. |
 | **Turnos** fijos y rotativos | `/api/my-shifts`, `/api/schedule` | `/shifts` | Tolerancia y refrigerio se proponen desde "Marca y app" > Reglas. |
 | **Sucursales y geocercas** | `/api/my-branches` | `/branches` (mapa Leaflet) | El radio por defecto sale de "Marca y app" > Reglas. |
@@ -116,7 +118,8 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
 | **Legajo digital** | `/api/employee/documents`, `/api/employee/profile` | `/documents`, `/employees/{id}/file` | Archivos en disco `private`, URLs firmadas que vencen (`SIGNED_URL_MINUTES`). |
 | **Dotación** (uniformes) | `/api/employee/uniform-sizes` | `/uniforms` | Exportación para logística. |
 | **Planilla** | — | `/payroll` | Consolidado CSV. |
-| **Notificaciones in-app** | `/api/notifications` | campana + `/notifications` | Se disparan desde eventos de modelos en `AppServiceProvider` (sirven para API, panel y cargas masivas). Push FCM no implementado. |
+| **Notificaciones in-app + push** | `/api/notifications` | campana + `/notifications` | Se disparan desde eventos de modelos en `AppServiceProvider` (sirven para API, panel y cargas masivas) y desde la marcación (`attendance.outside_schedule`, `attendance.outside_geofence`). También salen por push FCM (`FcmChannel`) si la empresa tiene `fcm_enabled` y el usuario `fcm_token`. Ver [attendance-integrity.md](attendance-integrity.md#push-fcm). |
+| **Geocodificación** | `/api/geocode/reverse` | `/geocode/search`, `/geocode/reverse` | Nominatim (1 req/s, caché) o Google con la clave de Marca y app. Completa la dirección de cada marcación en segundo plano. |
 | **Feriados** | — | `/holidays` | Incluye carga de feriados de Perú. |
 | **Auditoría** | — | `/audit` | `audit_logs` vía `AuditLogger`: revelado de cuentas, documentos vistos, marcaciones fuera de geocerca, sincronizaciones offline, cambios de "Marca y app". |
 | **Marca y app** | `/api/v1/app/config`, `/api/admin/app-config` | `/settings/branding`, `/settings/mobile` | Ver [white-label.md](white-label.md). |
@@ -128,12 +131,16 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
    Sanctum que vence a los `MOBILE_TOKEN_DAYS` días (30 por defecto).
 2. Para marcar, la app toma GPS y (si la empresa lo exige) la selfie, y envía un multipart a
    `POST /api/attendance/clock-in`. El backend:
-   valida (`ClockInRequest`) → rechaza GPS simulado / precisión baja / sin rostro →
-   resuelve la hora si es offline → busca la sucursal vigente del colaborador → calcula la
-   distancia → aplica la política de geocerca → guarda la selfie en el disco `private` →
-   calcula tardanza con el turno → crea el registro en `attendances`. Si la empresa configuró
-   un webhook, se encola un POST firmado `attendance.clock_in` (igual en descansos y salida).
-   Los errores de regla salen como `AttendanceException` con su `code` (ver la API).
+   valida (`ClockInRequest`) → `AttendanceService::punch()`: devuelve el resultado existente si
+   el `client_uuid` ya se usó → GPS simulado (rechaza o marca) / precisión baja / rostro →
+   resuelve la hora si es offline → mide el desfase del reloj → guarda la selfie en WebP en el
+   disco `private` → en una transacción: busca la sucursal vigente, calcula la distancia, aplica
+   la política de geocerca, revisa la ventana del turno, calcula la tardanza, crea el registro
+   en `attendances` y el evento inmutable en `attendance_punches` → después del commit:
+   dirección del punto (job), avisos y, si la empresa configuró un webhook, un POST firmado
+   `attendance.clock_in` (igual en descansos y salida). Los errores de regla salen como
+   `AttendanceException` con su `code` (ver la API). La cola offline de la app puede enviar
+   todo junto a `POST /api/v1/attendances/sync-batch`.
 3. El panel lo ve al instante: el dashboard refresca con `GET /dashboard/live-stream`
    (sondeo JSON) y el visor `/attendance/{id}` muestra selfie (URL firmada), mapa y distancia.
    Las marcaciones aceptadas fuera del radio quedan con `within_geofence = false` y en auditoría.
@@ -145,6 +152,6 @@ Tras cambiar la matriz hay que re-sembrar: `php artisan db:seed --class=RolesAnd
 | Qué | Disco | Cómo se sirve |
 |---|---|---|
 | Logos, favicon, splash, avatares | `public` | `asset('storage/...')` → requiere `php artisan storage:link` |
-| Selfies (`ATTENDANCE_DISK`) | `private` (o S3) | URL firmada `/secure-files/selfie-in|selfie-out/{id}` o prefirmada de S3 |
+| Selfies (`ATTENDANCE_DISK`), WebP desde esta versión | `private` (o S3) | URL firmada `/secure-files/selfie-in|selfie-out/{id}` (jornada) o `/secure-files/punch-photo/{id}` (cualquier evento, incluidos descansos), o prefirmada de S3 |
 | Legajo (`DOCUMENTS_DISK`) | `private` (o S3) | URL firmada `/secure-files/document/{id}` |
 | Boletas, sustentos de solicitudes y justificaciones | `private` | Descarga autenticada (`/api/payslips/{id}/download`, panel) |
