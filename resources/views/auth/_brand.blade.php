@@ -4,7 +4,7 @@
         $authLogo = $authBrand->logoUrl();
         $authLogoDark = $authBrand->logoDarkUrl();
     @endphp
-    <div class="text-center mb-4">
+    <div class="text-center mb-4 auth-brand">
         @if($authLogo)
             <img src="{{ $authLogo }}" alt="{{ $authBrand->tradeName() }}" class="mb-2 brand-logo-light {{ $authLogoDark !== $authLogo ? 'has-dark' : '' }}" style="max-height: 56px; max-width: 220px;">
             @if($authLogoDark && $authLogoDark !== $authLogo)

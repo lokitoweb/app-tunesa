@@ -11,7 +11,6 @@ import '../../features/attendance/presentation/rejected_punches_screen.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/change_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
-import '../../features/auth/presentation/tenant_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/payslips/presentation/payslip_viewer_screen.dart';
@@ -39,7 +38,7 @@ final _rootKey = GlobalKey<NavigatorState>();
 
 /// Rutas de la app. Redirige según el estado de sesión:
 /// sin configuración → /splash, versión no soportada → /update,
-/// sin empresa → /tenant, sin sesión → /login, con sesión → /home.
+/// sin sesión (con o sin empresa conocida) → /login, con sesión → /home.
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
   ref.listen(authControllerProvider, (_, _) => refresh.value++);
@@ -67,15 +66,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       return switch (auth.status) {
-        AuthStatus.needsTenant => loc == '/tenant' ? null : '/tenant',
-        AuthStatus.unauthenticated => loc == '/login' ? null : '/login',
-        AuthStatus.authenticated => const {'/login', '/tenant', '/splash', '/update'}.contains(loc) ? '/home' : null,
+        // Sin empresa conocida también va al login: el servidor la reconoce por el correo
+        AuthStatus.needsTenant || AuthStatus.unauthenticated => loc == '/login' ? null : '/login',
+        AuthStatus.authenticated => const {'/login', '/splash', '/update'}.contains(loc) ? '/home' : null,
       };
     },
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/update', builder: (_, _) => const UpdateScreen()),
-      GoRoute(path: '/tenant', builder: (_, _) => const TenantScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => _AppShell(shell: shell),

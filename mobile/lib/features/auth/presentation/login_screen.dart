@@ -152,12 +152,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
                         : const Text('Ingresar'),
                   ),
-                  if (!controller.hasFixedTenant) ...[
+                  // Solo si la app ya recuerda una empresa (otra persona quiere entrar con la suya)
+                  if (!controller.hasFixedTenant && auth.status == AuthStatus.unauthenticated) ...[
                     const SizedBox(height: 16),
                     TextButton.icon(
                       onPressed: _loading ? null : controller.changeTenant,
                       icon: const Icon(Icons.swap_horiz),
-                      label: const Text('Cambiar de empresa'),
+                      label: const Text('Entrar con otra empresa'),
                     ),
                   ],
                 ],

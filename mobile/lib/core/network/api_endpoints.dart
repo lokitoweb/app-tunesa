@@ -10,6 +10,10 @@ class ApiEndpoints {
 
   // Autenticación
   static const login = '/auth/login';
+
+  /// Sin código de empresa: el servidor la reconoce por el correo.
+  static const loginByEmail = '/v1/auth/login';
+  static const forgotPasswordByEmail = '/v1/auth/forgot-password';
   static const logout = '/auth/logout';
   static const me = '/auth/me';
   static const forgotPassword = '/auth/forgot-password';

@@ -333,3 +333,80 @@ body { background: var(--bs-body-bg); font-size: .925rem; }
 .notif-list { max-height: 420px; overflow-y: auto; }
 .notif-unread { background: rgba(var(--brand-rgb), .07); }
 .notif-count { font-size: .62rem; }
+
+/* ---------- Avisos (todas las .alert del panel, Blade y Vue) ----------
+ * Fondo suave del color del aviso, barra lateral, icono en una pastilla y
+ * entrada animada. El primer hijo .bi del aviso es su icono. */
+.alert {
+    --alert-accent: var(--bs-secondary-color);
+    position: relative;
+    padding: .8rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--alert-accent) 22%, var(--bs-border-color));
+    border-left: 4px solid var(--alert-accent);
+    border-radius: .75rem;
+    background: color-mix(in srgb, var(--alert-accent) 7%, var(--panel-surface, var(--bs-body-bg)));
+    color: var(--bs-body-color);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    animation: alert-in .28s ease-out;
+}
+/* Con icono: icono a la izquierda y el texto en su columna */
+.alert:has(> .bi:first-child) { display: flex; align-items: flex-start; gap: .75rem; }
+.alert-primary { --alert-accent: var(--brand); }
+.alert-info { --alert-accent: #0891b2; }
+.alert-success { --alert-accent: #16a34a; }
+.alert-warning { --alert-accent: #d97706; }
+.alert-danger { --alert-accent: #dc2626; }
+.alert > .bi:first-child {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    margin: -.1rem 0;
+    border-radius: .6rem;
+    font-size: 1rem;
+    color: var(--alert-accent);
+    background: color-mix(in srgb, var(--alert-accent) 15%, transparent);
+}
+.alert > div { flex: 1; min-width: 0; align-self: center; }
+.alert a:not(.btn) { color: var(--alert-accent); font-weight: 600; }
+.alert ul { padding-left: 1.1rem; }
+.alert.small { padding: .6rem .8rem; }
+.alert-dismissible { padding-right: 2.75rem; }
+.alert-dismissible .btn-close { padding: .95rem 1rem; }
+.alert.is-leaving { opacity: 0; transform: translateY(-4px); transition: opacity .25s ease, transform .25s ease; }
+[data-bs-theme="dark"] .alert { background: color-mix(in srgb, var(--alert-accent) 14%, var(--bs-tertiary-bg)); box-shadow: none; }
+[data-bs-theme="dark"] .alert-primary { --alert-accent: color-mix(in srgb, var(--brand) 55%, #fff); }
+@keyframes alert-in { from { opacity: 0; transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .alert { animation: none; } .alert.is-leaving { transition: none; } }
+
+/* Selector de empresa del Super Admin: que se lea completo */
+.tenant-switch { width: clamp(200px, 30vw, 340px); text-overflow: ellipsis; }
+
+/* ---------- Acceso (login, recuperar y restablecer contraseña) ---------- */
+.auth-shell { padding: 0; align-items: stretch; }
+.auth-hero {
+    display: none;
+    flex: 1 1 46%;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 3rem;
+    color: var(--brand-text, #fff);
+    background:
+        radial-gradient(900px 500px at 110% -10%, color-mix(in srgb, var(--brand-accent, #fff) 35%, transparent), transparent 60%),
+        linear-gradient(150deg, var(--brand) 0%, color-mix(in srgb, var(--brand) 62%, #020617) 100%);
+}
+.auth-hero h2 { font-size: clamp(1.6rem, 2.4vw, 2.3rem); font-weight: 700; line-height: 1.2; }
+.auth-hero .hero-logo { max-height: 48px; max-width: 200px; padding: .4rem .6rem; border-radius: .6rem; background: rgba(255, 255, 255, .92); }
+.auth-hero .hero-mark { display: grid; place-items: center; width: 44px; height: 44px; border-radius: .75rem; background: rgba(255, 255, 255, .16); font-size: 1.3rem; }
+.auth-hero li { display: flex; align-items: flex-start; gap: .75rem; margin-bottom: 1rem; }
+.auth-hero li .bi { display: grid; place-items: center; flex-shrink: 0; width: 2.25rem; height: 2.25rem; border-radius: .7rem; background: rgba(255, 255, 255, .14); }
+.auth-hero small { opacity: .8; }
+.auth-panel { flex: 1 1 54%; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.auth-card .card { border-radius: 1rem; }
+.auth-card .input-group-text { background: transparent; color: var(--bs-secondary-color); }
+.auth-card .form-control:focus, .auth-card .btn-outline-secondary:focus { z-index: 3; }
+@media (min-width: 992px) {
+    .auth-hero { display: flex; }
+    .auth-brand { display: none; }
+}

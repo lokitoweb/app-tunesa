@@ -139,6 +139,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Actualiza la app'), findsNothing);
-    expect(find.text('Código de empresa'), findsOneWidget);
+    expect(find.text('Ingresar'), findsOneWidget);
   });
 }

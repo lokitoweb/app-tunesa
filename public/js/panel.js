@@ -54,6 +54,14 @@
             toggle.addEventListener('click', () => applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
         }
 
+        // Los avisos de éxito se cierran solos a los 6 s (los de error se quedan hasta cerrarlos)
+        document.querySelectorAll('.panel-content > .alert-success.alert-dismissible').forEach((el) => {
+            setTimeout(() => {
+                el.classList.add('is-leaving');
+                setTimeout(() => el.remove(), 260);
+            }, 6000);
+        });
+
         // Miniaturas con data-photo abren el modal de selfie
         document.addEventListener('click', (e) => {
             const el = e.target.closest('[data-photo]');

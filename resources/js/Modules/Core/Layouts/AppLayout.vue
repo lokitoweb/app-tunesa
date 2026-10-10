@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 
 defineProps({ title: { type: String, default: 'Panel' } });
@@ -9,6 +9,14 @@ const auth = computed(() => page.props.auth);
 const brand = computed(() => page.props.brand);
 const bell = computed(() => page.props.notifications);
 const errors = computed(() => Object.values(page.props.errors ?? {}));
+
+// Avisos cerrados por el usuario; los de éxito se cierran solos a los 6 s
+const dismissed = reactive(new Set());
+watch(() => page.props.flash, (flash) => {
+    dismissed.clear();
+    const text = flash?.success;
+    if (text) setTimeout(() => dismissed.add('success' + text), 6000);
+}, { immediate: true });
 
 const FLASH = {
     success: ['success', 'bi-check-circle'],
@@ -84,8 +92,8 @@ function toggleTheme() {
                     <span class="badge text-bg-light border text-truncate d-none d-sm-inline-block">{{ brand.company_name }}</span>
                     <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0">
                         <input type="hidden" name="_token" :value="page.props.csrf">
-                        <select name="tenant_id" class="form-select form-select-sm" aria-label="Empresa a administrar" style="max-width: 240px;" @change="$event.target.form.submit()">
-                            <option value="">Vista global (todas las empresas)</option>
+                        <select name="tenant_id" class="form-select form-select-sm tenant-switch" aria-label="Empresa a administrar" @change="$event.target.form.submit()">
+                            <option value="">Vista global · todas las empresas</option>
                             <option v-for="t in page.props.tenants" :key="t.id" :value="t.id" :selected="t.id === brand.tenant_id">{{ t.company_name }}</option>
                         </select>
                     </form>
@@ -140,9 +148,10 @@ function toggleTheme() {
                 </div>
 
                 <template v-for="(text, key) in page.props.flash" :key="key + text">
-                    <div class="alert d-flex align-items-start gap-2" :class="`alert-${FLASH[key][0]}`" role="alert">
+                    <div v-if="!dismissed.has(key + text)" class="alert alert-dismissible" :class="`alert-${FLASH[key][0]}`" role="alert">
                         <i class="bi" :class="FLASH[key][1]"></i>
                         <div>{{ text }}</div>
+                        <button type="button" class="btn-close" aria-label="Cerrar" @click="dismissed.add(key + text)"></button>
                     </div>
                 </template>
 

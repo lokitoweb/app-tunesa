@@ -11,6 +11,7 @@ final authRepositoryProvider = Provider<AuthRepository>(
   (ref) => AuthRepository(ref.watch(apiClientProvider), ref.watch(sessionStorageProvider)),
 );
 
+/// needsTenant: la app aún no conoce la empresa; la sabrá al iniciar sesión.
 enum AuthStatus { needsTenant, unauthenticated, authenticated }
 
 class AuthState {
@@ -49,18 +50,25 @@ class AuthController extends Notifier<AuthState> {
   /// Empresa fija por build (DEFAULT_TENANT): se resuelve sin pantalla de código.
   bool get hasFixedTenant => Env.defaultTenant.isNotEmpty;
 
-  /// Valida el código de empresa con `/v1/app/config` y aplica su marca.
-  Future<void> selectTenant(String slug) async {
-    final clean = slug.trim().toLowerCase();
-    final config = await ref.read(appConfigProvider.notifier).loadForTenant(clean);
-    final branding = Branding.fromConfig(clean, config);
-    await _repo.saveTenant(clean, branding);
-    state = AuthState(status: AuthStatus.unauthenticated, branding: branding);
-  }
-
+  /// Solo correo y contraseña. En el primer ingreso el servidor reconoce la
+  /// empresa del usuario: se guarda su código y se aplica su marca.
   Future<void> login(String email, String password) async {
-    final user = await _repo.login(email: email, password: password);
-    state = AuthState(status: AuthStatus.authenticated, branding: state.branding, user: user);
+    final result = await _repo.login(email: email, password: password);
+    var branding = state.branding;
+
+    if (ref.read(sessionStorageProvider).tenantSlug == null || branding == null) {
+      try {
+        final config = await ref.read(appConfigProvider.notifier).loadForTenant(result.tenantSlug);
+        branding = Branding.fromConfig(result.tenantSlug, config);
+        await _repo.saveTenant(result.tenantSlug, branding);
+      } catch (_) {
+        // Sin la marca no hay sesión a medias: se vuelve a pedir el ingreso
+        await ref.read(sessionStorageProvider).clearSession();
+        rethrow;
+      }
+    }
+
+    state = AuthState(status: AuthStatus.authenticated, branding: branding, user: result.user);
   }
 
   /// Cambia la contraseña (obligatorio si RRHH entregó una temporal).

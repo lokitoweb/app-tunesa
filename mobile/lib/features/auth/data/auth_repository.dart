@@ -15,10 +15,14 @@ class AuthRepository {
   /// contra `/v1/app/config`).
   Future<void> saveTenant(String slug, Branding branding) => _storage.saveTenant(slug, branding.toJson());
 
-  Future<AppUser> login({required String email, required String password}) async {
+  /// Inicia sesión. Si la app aún no conoce la empresa (primer ingreso) usa el
+  /// login por correo y devuelve también el código de la empresa del usuario.
+  Future<({AppUser user, String tenantSlug})> login({required String email, required String password}) async {
+    final knownTenant = _storage.tenantSlug;
     final json = await _api.post(
-      ApiEndpoints.login,
+      knownTenant == null ? ApiEndpoints.loginByEmail : ApiEndpoints.login,
       auth: false,
+      tenant: knownTenant ?? '',
       data: {
         'email': email.trim(),
         'password': password,
@@ -28,9 +32,11 @@ class AuthRepository {
     final data = Map<String, dynamic>.from(json['data'] as Map);
     await _storage.saveToken(data['token'] as String);
 
-    final user = AppUser.fromJson(Map<String, dynamic>.from(data['user'] as Map));
+    final userJson = Map<String, dynamic>.from(data['user'] as Map);
+    final user = AppUser.fromJson(userJson);
     await _storage.saveUser(user.toJson());
-    return user;
+    final slug = (userJson['company'] as Map?)?['slug']?.toString() ?? knownTenant ?? '';
+    return (user: user, tenantSlug: slug);
   }
 
   /// Refresca los datos del usuario; lanza ApiException 401 si el token caducó.
@@ -46,7 +52,12 @@ class AuthRepository {
         data: {'current_password': current, 'new_password': next, 'new_password_confirmation': next},
       );
 
-  Future<void> forgotPassword(String email) => _api.post(ApiEndpoints.forgotPassword, auth: false, data: {'email': email.trim()});
+  Future<void> forgotPassword(String email) => _api.post(
+        _storage.tenantSlug == null ? ApiEndpoints.forgotPasswordByEmail : ApiEndpoints.forgotPassword,
+        auth: false,
+        tenant: _storage.tenantSlug ?? '',
+        data: {'email': email.trim()},
+      );
 
   Future<void> logout() async {
     try {

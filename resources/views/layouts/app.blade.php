@@ -96,8 +96,8 @@
                 @if($navUser->isSuperAdmin())
                     <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0">
                         @csrf
-                        <select name="tenant_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="Empresa a administrar" style="max-width: 240px;">
-                            <option value="">Vista global (todas las empresas)</option>
+                        <select name="tenant_id" class="form-select form-select-sm tenant-switch" onchange="this.form.submit()" aria-label="Empresa a administrar">
+                            <option value="">Vista global · todas las empresas</option>
                             @foreach(\App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
                                 <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
                             @endforeach
@@ -115,7 +115,8 @@
         </header>
 
         <main id="main-content" class="panel-content">
-            @if($globalView ?? false)
+            {{-- En el dashboard el aviso "Plataforma" ya lo dice --}}
+            @if(($globalView ?? false) && ! request()->routeIs('dashboard'))
                 <div class="alert alert-primary d-flex align-items-start gap-2 global-view-banner" role="status">
                     <i class="bi bi-globe2"></i>
                     <div>Vista global: mostrando registros de todas las empresas. Para crear o editar, elige una empresa en el selector superior.</div>

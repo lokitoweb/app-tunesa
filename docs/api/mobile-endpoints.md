@@ -169,6 +169,14 @@ existiendo y es la que usa hoy la app (`ApiEndpoints.branding`).
 Rutas públicas (con `X-Tenant-Slug`): `login` (`throttle:10,1`), `forgot-password` y
 `reset-password` (`throttle:5,1`).
 
+### `POST /api/v1/auth/login` (sin código de empresa)
+
+Es el login que usa la app: solo `email` y `password`, **sin** `X-Tenant-Slug`. El correo es
+único en toda la plataforma, así que el servidor reconoce la empresa del usuario. Responde lo
+mismo que `POST /api/auth/login`; la app guarda `data.user.company.slug` y lo envía como
+`X-Tenant-Slug` en las demás llamadas. Errores: `422` credenciales, `423` / `429` bloqueo,
+`403 USER_INACTIVE`, `403 TENANT_INACTIVE`. `POST /api/v1/auth/forgot-password` funciona igual.
+
 ### `POST /api/auth/login`
 
 Body (`LoginRequest`): `email` (obligatorio), `password` (obligatorio, mín. 6), `device_name`
