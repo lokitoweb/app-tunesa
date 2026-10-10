@@ -16,7 +16,7 @@ class NetworkErrorTest extends TestCase
             'cURL error 6: Could not resolve host: erp.invalid'           => 'No se encontró el servidor (revisa el dominio de la URL).',
             'cURL error 7: Failed to connect: Connection refused'         => 'El servidor rechazó la conexión.',
             'cURL error 56: CONNECT tunnel failed, response 403'          => 'La red del servidor bloqueó la conexión (proxy o firewall). Pide a soporte que habilite la salida a ese dominio.',
-            'cURL error 60: SSL certificate problem: self-signed'         => 'No se pudo verificar el certificado de seguridad (HTTPS) del destino.',
+            'cURL error 60: SSL certificate problem: self-signed'         => 'No se pudo verificar el certificado de seguridad (HTTPS) del destino. Si el certificado es válido, actualiza los certificados raíz del servidor (curl.cainfo en php.ini).',
             'cURL error 35: unknown'                                       => 'No se pudo conectar con el servidor de destino.',
         ];
 

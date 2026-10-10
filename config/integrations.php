@@ -18,4 +18,16 @@ return [
 
     // Tiempo máximo de cada envío (segundos)
     'timeout' => (int) env('INTEGRATIONS_TIMEOUT', 10),
+
+    // Tiempo máximo de los botones "Probar Webhook Ahora" / "Enviar Notificación de Prueba"
+    'test_timeout' => (int) env('INTEGRATIONS_TEST_TIMEOUT', 5),
+
+    /*
+    | verify_ssl: en producción el certificado HTTPS del destino SIEMPRE se
+    | verifica (este valor se ignora). Fuera de producción (local, testing,
+    | staging) no se verifica por defecto, para probar contra túneles de
+    | Cloudflare o certificados propios desde equipos sin certificados raíz al
+    | día; INTEGRATIONS_VERIFY_SSL=true lo vuelve a activar.
+    */
+    'verify_ssl' => (bool) env('INTEGRATIONS_VERIFY_SSL', false),
 ];

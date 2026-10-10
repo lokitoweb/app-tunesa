@@ -84,8 +84,7 @@ class WebhookSender
             } else {
                 $response = Http::timeout($timeout)
                     ->connectTimeout(min($timeout, 5))
-                    // Una redirección podría llevar a una red interna: no se siguen
-                    ->withOptions(['allow_redirects' => false])
+                    ->withOptions(self::requestOptions())
                     ->withHeaders($headers)
                     ->withBody($body, 'application/json')
                     ->post($url);
@@ -160,6 +159,24 @@ class WebhookSender
         }
 
         return null;
+    }
+
+    /**
+     * ¿Se verifica el certificado HTTPS del destino? Siempre en producción;
+     * fuera de ella solo si INTEGRATIONS_VERIFY_SSL=true (config/integrations.php).
+     */
+    public static function verifiesSsl(): bool
+    {
+        return app()->isProduction() || (bool) config('integrations.verify_ssl', false);
+    }
+
+    /**
+     * Opciones de Guzzle de cada envío. Una redirección podría llevar a una red
+     * interna: no se siguen. Certificado HTTPS: ver verifiesSsl().
+     */
+    public static function requestOptions(): array
+    {
+        return ['allow_redirects' => false, 'verify' => self::verifiesSsl()];
     }
 
     public static function truncate(?string $text, int $bytes): ?string

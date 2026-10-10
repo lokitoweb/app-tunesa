@@ -52,6 +52,8 @@ Detalle del formato y la firma en
 | Variable | Defecto | Uso |
 |---|---|---|
 | `INTEGRATIONS_TIMEOUT` | `10` | Segundos máximos de cada envío. |
+| `INTEGRATIONS_TEST_TIMEOUT` | `5` | Segundos máximos de los botones "Probar Webhook Ahora" y "Enviar Notificación de Prueba". |
+| `INTEGRATIONS_VERIFY_SSL` | `false` | Fuera de producción no se verifica el certificado HTTPS del destino (túneles de Cloudflare, certificados propios, equipos sin certificados raíz al día); `true` lo activa. **En producción (`APP_ENV=production`) siempre se verifica**, sin importar este valor. Si en producción falla con un certificado válido, actualiza los certificados raíz del servidor (`curl.cainfo` en `php.ini`). |
 | `INTEGRATIONS_ALLOW_PRIVATE_URLS` | `false` | Permite enviar a IP privadas, locales o reservadas (`127.0.0.1`, `10.x`, `192.168.x`, `169.254.x`). Déjalo en `false` en producción: el historial muestra la respuesta del destino. |
 
 ## Diagnóstico rápido

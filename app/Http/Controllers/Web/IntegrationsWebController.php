@@ -191,7 +191,7 @@ class IntegrationsWebController extends Controller
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
         $delivery = $this->sender->open($tenant?->id, $target, $event, $url, $body);
-        $result   = $this->sender->send($url, $event, $body, $secret, $delivery, timeout: 10);
+        $result   = $this->sender->send($url, $event, $body, $secret, $delivery, timeout: (int) config('integrations.test_timeout', 5));
 
         return response()->json([
             'ok'          => $result['ok'],
