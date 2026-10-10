@@ -3,6 +3,7 @@
 namespace App\Modules\HR\Models;
 
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use App\Modules\Core\Models\Concerns\HasDateOnlyColumns;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class UniformDelivery extends Model
 {
-    use BelongsToTenant, HasDateOnlyColumns;
+    use BelongsToTenant, HasDateOnlyColumns, BelongsToBranchScope;
+
+    /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
+    public const BRANCH_SCOPE = [null, 'user_id'];
 
     protected array $dateOnly = ['delivered_at'];
 

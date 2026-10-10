@@ -4,6 +4,7 @@ namespace App\Modules\HR\Models;
 
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use App\Modules\Core\Models\Concerns\HasDateOnlyColumns;
 use Carbon\CarbonInterface;
@@ -17,7 +18,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class EmployeeShift extends Model
 {
-    use BelongsToTenant, HasDateOnlyColumns, SoftDeletes;
+    use BelongsToTenant, HasDateOnlyColumns, SoftDeletes, BelongsToBranchScope;
+
+    /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
+    public const BRANCH_SCOPE = ['branch_id', 'user_id'];
 
     protected $table = 'employee_shifts';
 

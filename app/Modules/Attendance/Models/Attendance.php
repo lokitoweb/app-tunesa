@@ -5,6 +5,7 @@ namespace App\Modules\Attendance\Models;
 use App\Modules\Core\Models\Branch;
 use App\Modules\HR\Models\Shift;
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use App\Modules\Core\Models\Concerns\HasDateOnlyColumns;
 use Illuminate\Database\Eloquent\Model;
@@ -25,7 +26,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Attendance extends Model
 {
-    use BelongsToTenant, HasDateOnlyColumns, SoftDeletes;
+    use BelongsToTenant, HasDateOnlyColumns, SoftDeletes, BelongsToBranchScope;
+
+    /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
+    public const BRANCH_SCOPE = ['branch_id', 'user_id'];
 
     /** Columnas DATE guardadas como Y-m-d (ver HasDateOnlyColumns) */
     protected array $dateOnly = ['work_date'];
@@ -189,7 +193,7 @@ class Attendance extends Model
     /** Marcaciones que puede ver $viewer: toda la empresa o solo su equipo */
     public function scopeVisibleTo($query, User $viewer)
     {
-        if ($viewer->seesAllAttendance()) {
+        if ($viewer->seesAllAttendance() || $viewer->isOrgScoped()) {
             return $query;
         }
 

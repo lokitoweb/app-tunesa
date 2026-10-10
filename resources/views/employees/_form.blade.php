@@ -100,6 +100,67 @@
                         <label for="base_salary" class="form-label">Sueldo base mensual</label>
                         <input type="number" step="0.01" min="0" id="base_salary" name="base_salary" value="{{ $val('base_salary') }}" placeholder="0.00" class="form-control">
                     </div>
+                    @php
+                        $departments = \App\Modules\Core\Models\Department::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+                        $scopeActor  = Auth::user();
+                    @endphp
+                    @if($departments->isNotEmpty())
+                        <div class="col-md-6">
+                            <label for="department_id" class="form-label">Área de la organización</label>
+                            <select id="department_id" name="department_id" class="form-select @error('department_id') is-invalid @enderror">
+                                <option value="">Sin área</option>
+                                @foreach($departments as $d)
+                                    <option value="{{ $d->id }}" @selected($val('department_id') == $d->id)>{{ $d->name }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Catálogo de Organización: agrupa la dotación por sede y área.</div>
+                        </div>
+                    @endif
+                    <div class="col-md-6">
+                        <div class="form-check form-switch mt-md-4">
+                            <input type="hidden" name="roaming_attendance_enabled" value="0">
+                            <input class="form-check-input" type="checkbox" role="switch" id="roaming_attendance_enabled" name="roaming_attendance_enabled" value="1" @checked($val('roaming_attendance_enabled'))>
+                            <label class="form-check-label" for="roaming_attendance_enabled">Marcación itinerante</label>
+                        </div>
+                        <div class="form-text">Choferes, relevos y técnicos: marcan en cualquier sede de la empresa o en ruta, sin exigir la geocerca de su sede.</div>
+                    </div>
+                    @if($scopeActor->isOrgScoped())
+                        <div class="col-12">
+                            <div class="alert alert-info small mb-0">Tu alcance es <strong>{{ $scopeActor->scopeLabel() }}</strong>: los supervisores y mandos que registres quedan con ese mismo alcance.</div>
+                        </div>
+                    @else
+                        @php
+                            $scopeZones    = \App\Modules\Core\Models\Zone::orderBy('name')->get(['id', 'name']);
+                            $scopeBranches = \App\Modules\Core\Models\Branch::orderBy('name')->get(['id', 'name']);
+                        @endphp
+                        <div class="col-md-4">
+                            <label for="scope_type" class="form-label">Alcance en el panel</label>
+                            <select id="scope_type" name="scope_type" class="form-select @error('scope_type') is-invalid @enderror">
+                                @foreach(\App\Modules\Core\Models\User::SCOPES as $value => $label)
+                                    <option value="{{ $value }}" @selected($val('scope_type', 'global') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Para supervisores zonales y administradores de agencia. No aplica al rol Colaborador.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="scope_zone_id" class="form-label">Zona asignada</label>
+                            <select id="scope_zone_id" name="scope_zone_id" class="form-select @error('scope_zone_id') is-invalid @enderror">
+                                <option value="">—</option>
+                                @foreach($scopeZones as $z)
+                                    <option value="{{ $z->id }}" @selected($val('scope_zone_id') == $z->id)>{{ $z->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="scope_branch_id" class="form-label">Sede asignada</label>
+                            <select id="scope_branch_id" name="scope_branch_id" class="form-select @error('scope_branch_id') is-invalid @enderror">
+                                <option value="">—</option>
+                                @foreach($scopeBranches as $b)
+                                    <option value="{{ $b->id }}" @selected($val('scope_branch_id') == $b->id)>{{ $b->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
                     <div class="col-md-6">
                         <label for="hire_date" class="form-label">Fecha de ingreso</label>
                         <input type="date" id="hire_date" name="hire_date" value="{{ old('hire_date', $employee?->hire_date?->format('Y-m-d') ?? ($editing ? '' : date('Y-m-d'))) }}" class="form-control">

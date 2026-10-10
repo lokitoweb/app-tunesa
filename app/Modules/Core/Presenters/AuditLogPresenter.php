@@ -36,6 +36,10 @@ class AuditLogPresenter
         'assigned_by'         => [User::class, 'full_name'],
         'delivered_by'        => [User::class, 'full_name'],
         'branch_id'           => [\App\Modules\Core\Models\Branch::class, 'name'],
+        'scope_branch_id'     => [\App\Modules\Core\Models\Branch::class, 'name'],
+        'zone_id'             => [\App\Modules\Core\Models\Zone::class, 'name'],
+        'scope_zone_id'       => [\App\Modules\Core\Models\Zone::class, 'name'],
+        'department_id'       => [\App\Modules\Core\Models\Department::class, 'name'],
         'shift_id'            => [\App\Modules\HR\Models\Shift::class, 'name'],
         'tenant_id'           => [\App\Modules\Core\Models\Tenant::class, 'company_name'],
     ];

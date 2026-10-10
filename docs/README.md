@@ -10,6 +10,7 @@ workflows). Si algo no coincide con el código, manda el código: avisa y se cor
 |---|---|
 | [architecture/overview.md](architecture/overview.md) | Componentes del sistema, multi-tenant, roles y permisos, módulos y cómo viajan los datos de la app al panel. |
 | [architecture/modules.md](architecture/modules.md) | Monolito modular: módulos, estructura de carpetas, activación por empresa y frontend Vue 3 + Inertia con un chunk por módulo. |
+| [architecture/organization.md](architecture/organization.md) | Jerarquía Zona → Sede → Área, alcance de los usuarios por territorio (global / zona / sede) y marcación itinerante. |
 | [architecture/white-label.md](architecture/white-label.md) | Marca blanca y configuración de la app por empresa (`tenant_settings`): herencia, pestañas del panel, colores en el panel y cómo la consume la app. |
 | [architecture/attendance-integrity.md](architecture/attendance-integrity.md) | Integridad de la marcación: bitácora inmutable `attendance_punches`, idempotencia, sincronización en lote, banderas de sospecha, geocodificación y push FCM (puesta en marcha). |
 

@@ -3,6 +3,7 @@
 namespace App\Modules\HR\Models;
 
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use App\Modules\Core\Models\Concerns\HasDateOnlyColumns;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +22,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class LeaveRequest extends Model
 {
-    use BelongsToTenant, HasDateOnlyColumns, SoftDeletes;
+    use BelongsToTenant, HasDateOnlyColumns, SoftDeletes, BelongsToBranchScope;
+
+    /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
+    public const BRANCH_SCOPE = [null, 'user_id'];
 
     public const TYPES = ['vacation', 'permission', 'medical_leave'];
 

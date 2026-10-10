@@ -3,6 +3,7 @@
 namespace App\Modules\HR\Models;
 
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class UniformSize extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, BelongsToBranchScope;
+
+    /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
+    public const BRANCH_SCOPE = [null, 'user_id'];
 
     public const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
     public const PANTS_SIZES = ['26', '28', '30', '32', '34', '36', '38', '40', '42', '44', '46', '48'];

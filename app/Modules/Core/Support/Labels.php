@@ -54,6 +54,13 @@ final class Labels
         'branch.created'                     => ['Sucursal creada', 'success', 'geo-alt'],
         'branch.updated'                     => ['Sucursal actualizada', 'primary', 'geo-alt'],
         'branch.deleted'                     => ['Sucursal eliminada', 'danger', 'geo-alt'],
+        // Jerarquía organizacional
+        'zone.created'                       => ['Zona creada', 'success', 'diagram-3'],
+        'zone.updated'                       => ['Zona actualizada', 'primary', 'diagram-3'],
+        'zone.deleted'                       => ['Zona eliminada', 'danger', 'diagram-3'],
+        'department.created'                 => ['Área creada', 'success', 'diagram-2'],
+        'department.updated'                 => ['Área actualizada', 'primary', 'diagram-2'],
+        'department.deleted'                 => ['Área eliminada', 'danger', 'diagram-2'],
         'shift.created'                      => ['Turno creado', 'success', 'calendar-week'],
         'shift.updated'                      => ['Turno actualizado', 'primary', 'calendar-week'],
         'shift.deleted'                      => ['Turno eliminado', 'danger', 'calendar-week'],
@@ -132,6 +139,8 @@ final class Labels
         'Attendance'           => 'Marcación',
         'AuditLog'             => 'Registro de auditoría',
         'Branch'               => 'Sucursal',
+        'Zone'                 => 'Zona',
+        'Department'           => 'Área',
         'CompanyConfiguration' => 'Configuración de la app',
         'EmployeeDocument'     => 'Documento',
         'EmployeeProfile'      => 'Ficha laboral',
@@ -242,6 +251,13 @@ final class Labels
         'longitude'               => 'Longitud',
         'allowed_radius_meters'   => 'Radio de la geocerca (m)',
         'supervisor_id'           => 'Supervisor',
+        'zone_id'                 => 'Zona',
+        'branch_type'             => 'Tipo de sede',
+        'department_id'           => 'Área',
+        'scope_type'              => 'Alcance',
+        'scope_zone_id'           => 'Zona asignada',
+        'scope_branch_id'         => 'Sede asignada',
+        'roaming_attendance_enabled' => 'Marcación itinerante',
 
         // Colaboradores (users)
         'first_name'              => 'Nombres',
@@ -435,6 +451,8 @@ final class Labels
     /** Columnas cuyo valor es un enum: field → conjunto de ENUMS */
     public const FIELD_ENUMS = [
         'geofence_policy'      => 'geofence_policy',
+        'scope_type'           => 'scope_type',
+        'branch_type'          => 'branch_type',
         'mock_location_policy' => 'mock_location_policy',
         'geocoding_provider'   => 'geocoding_provider',
         'role'                 => 'user_role',
@@ -569,6 +587,18 @@ final class Labels
         'active_status' => [
             '1' => ['Activo', 'success'],
             '0' => ['Inactivo', 'secondary'],
+        ],
+        'scope_type' => [
+            'global' => ['Toda la empresa', 'secondary'],
+            'zone'   => ['Una zona', 'info'],
+            'branch' => ['Una sede', 'primary'],
+        ],
+        'branch_type' => [
+            'agency'    => ['Agencia', 'primary'],
+            'terminal'  => ['Terminal', 'info'],
+            'warehouse' => ['Almacén', 'warning'],
+            'workshop'  => ['Taller', 'secondary'],
+            'corporate' => ['Corporativo', 'dark'],
         ],
         'shift_type' => [
             'fixed'    => ['Fijo', 'primary'],
@@ -708,6 +738,10 @@ final class Labels
     public const FIELD_TYPES = [
         'working_days'       => 'weekdays',
         'supervisor_id'      => 'reference',
+        'zone_id'            => 'reference',
+        'department_id'      => 'reference',
+        'scope_zone_id'      => 'reference',
+        'scope_branch_id'    => 'reference',
         'user_id'            => 'reference',
         'employee_id'        => 'reference',
         'punch_id'           => 'hidden',
