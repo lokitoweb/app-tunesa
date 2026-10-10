@@ -113,6 +113,10 @@ class MobileConfig {
     this.offlineMaxHours = 24,
     this.maxGpsAccuracyMeters,
     this.geofenceStrictMode = true,
+    this.mockLocationPolicy = MockLocationPolicy.reject,
+    this.maxTimeDriftSeconds,
+    this.geocodingProvider,
+    this.fcmEnabled = true,
   });
 
   final String? apiBaseUrl;
@@ -128,10 +132,23 @@ class MobileConfig {
   final int? maxGpsAccuracyMeters;
   final bool geofenceStrictMode;
 
+  /// Ubicación simulada: `reject` (no se envía) o `flag` (se envía y queda en revisión).
+  final MockLocationPolicy mockLocationPolicy;
+
+  /// Desfase máximo tolerado entre la hora del teléfono y la del servidor (null = sin límite).
+  final int? maxTimeDriftSeconds;
+
+  /// Proveedor de direcciones del backend (solo informativo).
+  final String? geocodingProvider;
+
+  /// La empresa envía notificaciones push (si es false no se registra el token).
+  final bool fcmEnabled;
+
   factory MobileConfig.fromJson(Object? raw) {
     final json = _map(raw);
     final hours = _int(json['offline_max_hours']);
     final accuracy = _int(json['max_gps_accuracy_meters']);
+    final drift = _int(json['max_time_drift_seconds']);
     return MobileConfig(
       apiBaseUrl: _str(json['api_base_url']),
       minSupportedVersion: _str(json['min_supported_version']),
@@ -143,6 +160,10 @@ class MobileConfig {
       offlineMaxHours: hours != null && hours > 0 ? hours : 24,
       maxGpsAccuracyMeters: accuracy != null && accuracy > 0 ? accuracy : null,
       geofenceStrictMode: _bool(json['geofence_strict_mode'], true),
+      mockLocationPolicy: MockLocationPolicy.fromApi(json['mock_location_policy']),
+      maxTimeDriftSeconds: drift != null && drift > 0 ? drift : null,
+      geocodingProvider: _str(json['geocoding_provider']),
+      fcmEnabled: _bool(json['fcm_enabled'], true),
     );
   }
 
@@ -157,7 +178,28 @@ class MobileConfig {
         'offline_max_hours': offlineMaxHours,
         'max_gps_accuracy_meters': maxGpsAccuracyMeters,
         'geofence_strict_mode': geofenceStrictMode,
+        'mock_location_policy': mockLocationPolicy.apiName,
+        'max_time_drift_seconds': maxTimeDriftSeconds,
+        'geocoding_provider': geocodingProvider,
+        'fcm_enabled': fcmEnabled,
       };
+}
+
+/// Qué hacer con una ubicación simulada (`mobile.mock_location_policy`).
+enum MockLocationPolicy {
+  /// No se envía: se bloquea en el teléfono con una explicación.
+  reject('reject'),
+
+  /// Se envía con `is_mocked=1` y RRHH la revisa.
+  flag('flag');
+
+  const MockLocationPolicy(this.apiName);
+
+  final String apiName;
+
+  /// Valor desconocido o ausente = `reject` (lo más seguro).
+  static MockLocationPolicy fromApi(Object? raw) =>
+      _str(raw)?.toLowerCase() == 'flag' ? MockLocationPolicy.flag : MockLocationPolicy.reject;
 }
 
 class RulesConfig {
