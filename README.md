@@ -20,7 +20,6 @@ Documentación completa en [`docs/`](docs/README.md):
 
 - [Arquitectura general](docs/architecture/overview.md): componentes, multi-tenant, roles, módulos.
 - [Monolito modular](docs/architecture/modules.md): estructura de un módulo, activación por empresa y frontend Vue.
-- [Monolito modular](docs/architecture/modules.md): estructura de un módulo, activación por empresa y frontend Vue.
 - [Marca blanca y configuración de la app](docs/architecture/white-label.md).
 - [API para la app móvil](docs/api/mobile-endpoints.md).
 - [Probar la app en un celular con Cloudflare Tunnel](docs/deployment/mobile-cloudflare-tunnel.md).
@@ -35,7 +34,6 @@ Requisitos: PHP 8.3+ (con `pdo_sqlite`), Composer y Node 20+.
 ```bash
 composer install
 composer run setup   # crea .env, genera APP_KEY, crea database.sqlite, migra + seed y enlaza storage
-npm install && npm run build   # pantallas Vue del panel (o `npm run dev` mientras desarrollas)
 npm install && npm run build   # pantallas Vue del panel (o `npm run dev` mientras desarrollas)
 php artisan serve
 ```
