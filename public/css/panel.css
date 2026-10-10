@@ -722,3 +722,30 @@ ul.toast-text { padding-left: 1.1rem; }
 .user-menu .avatar { width: 34px; height: 34px; border-radius: var(--r-md); font-size: .75rem; font-weight: 700; }
 .user-menu:hover .fw-semibold { color: var(--brand); }
 .user-menu .bi-chevron-down { font-size: .7rem; }
+
+/* Filtro de empresa de la barra superior: un solo control, con icono */
+.tenant-filter {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    height: 2.5rem;
+    padding: 0 .35rem 0 .85rem;
+    border-radius: var(--r-md);
+    background: var(--field-bg);
+    transition: background-color .15s ease;
+}
+.tenant-filter:hover, .tenant-filter:focus-within { background: var(--field-bg-focus); }
+.tenant-filter > .bi { color: var(--brand); font-size: 1rem; }
+.tenant-filter .tenant-switch,
+.tenant-filter .tenant-switch:focus {
+    width: auto;
+    min-width: 190px;
+    max-width: min(46vw, 320px);
+    padding: .3rem 2rem .3rem 0;
+    background-color: transparent;
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--bs-body-color);
+}
+.tenant-filter .tenant-switch:hover { color: var(--bs-body-color); }
+.topbar-company { font-size: .95rem; font-weight: 700; max-width: 40vw; }

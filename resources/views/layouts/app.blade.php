@@ -72,12 +72,16 @@
                 <button class="btn btn-light border d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Abrir menú">
                     <i class="bi bi-list"></i>
                 </button>
-                <span class="badge text-bg-light border text-truncate d-none d-sm-inline-block">{{ $brand->company_name ?? 'Plataforma' }}</span>
+                {{-- El Super Admin elige la empresa en el filtro; el resto ve el nombre de la suya --}}
+                @unless($navUser->isSuperAdmin())
+                    <span class="topbar-company text-truncate d-none d-sm-inline-block">{{ $brand->company_name ?? '' }}</span>
+                @endunless
                 @if($navUser->isSuperAdmin())
-                    <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0">
+                    <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0 tenant-filter">
+                        <i class="bi bi-buildings" aria-hidden="true"></i>
                         @csrf
                         <select name="tenant_id" class="form-select form-select-sm tenant-switch" onchange="this.form.submit()" aria-label="Empresa a administrar">
-                            <option value="">Vista global · todas las empresas</option>
+                            <option value="">Todas las empresas</option>
                             @foreach(\App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
                                 <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
                             @endforeach

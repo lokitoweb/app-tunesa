@@ -72,11 +72,13 @@ function toggleTheme() {
                     <button class="btn btn-light border d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Abrir menú">
                         <i class="bi bi-list"></i>
                     </button>
-                    <span class="badge text-bg-light border text-truncate d-none d-sm-inline-block">{{ brand.company_name }}</span>
-                    <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0">
+                    <!-- El Super Admin elige la empresa en el filtro; el resto ve el nombre de la suya -->
+                    <span v-if="!auth.is_super_admin" class="topbar-company text-truncate d-none d-sm-inline-block">{{ brand.company_name }}</span>
+                    <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0 tenant-filter">
+                        <i class="bi bi-buildings" aria-hidden="true"></i>
                         <input type="hidden" name="_token" :value="page.props.csrf">
                         <select name="tenant_id" class="form-select form-select-sm tenant-switch" aria-label="Empresa a administrar" @change="$event.target.form.submit()">
-                            <option value="">Vista global · todas las empresas</option>
+                            <option value="">Todas las empresas</option>
                             <option v-for="t in page.props.tenants" :key="t.id" :value="t.id" :selected="t.id === brand.tenant_id">{{ t.company_name }}</option>
                         </select>
                     </form>
