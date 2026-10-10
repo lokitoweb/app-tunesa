@@ -332,6 +332,58 @@ class FcmPushTest extends TestCase
         $this->assertNull(TenantSetting::rowFor($this->acme)->maps_api_key);
     }
 
+    public function test_panel_edits_push_and_policies_and_sends_a_test_push(): void
+    {
+        $this->fakeGoogle();
+        $root = $this->makeUser(null, 'super_admin');
+
+        // Vista global: campos nuevos visibles; la cuenta de servicio se sube como archivo
+        $this->actingAs($root)->get('/settings/branding?tab=integraciones')->assertOk()
+            ->assertSee('name="fcm_service_account_file"', false)->assertSee('name="geocoding_provider"', false)
+            ->assertSee('name="mock_location_policy"', false)->assertSee('name="max_time_drift_seconds"', false)
+            ->assertSee('Probar push');
+
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('firebase.json', $this->serviceAccount());
+        $this->actingAs($root)->put('/settings/branding', [
+            'tab' => 'integraciones', 'fcm_enabled' => '1', 'fcm_service_account_file' => $file,
+            'geocoding_provider' => 'nominatim', 'mock_location_policy' => 'flag', 'max_time_drift_seconds' => 120,
+        ])->assertRedirect('/settings/branding?tab=integraciones')->assertSessionHasNoErrors();
+
+        $platform = TenantSetting::rowFor(null);
+        $this->assertTrue($platform->fcm_enabled);
+        $this->assertSame('flag', $platform->mock_location_policy);
+        $this->assertSame(120, $platform->max_time_drift_seconds);
+        $this->assertTrue(TenantSetting::forTenant($this->acme)->fcmEnabled());
+        $this->actingAs($root)->get('/settings/branding?tab=integraciones')->assertSee('tunesa-app')->assertDontSee('PRIVATE KEY');
+
+        // Empresa: selectores con "Heredar"; "" vuelve a NULL
+        $admin = $this->makeUser($this->acme, 'company_admin');
+        $this->actingAs($admin)->get('/settings/branding?tab=integraciones')->assertOk()
+            ->assertDontSee('name="fcm_service_account_json"', false)->assertSee('Heredar de la plataforma');
+        $this->actingAs($admin)->put('/settings/branding', ['mock_location_policy' => 'reject', 'fcm_enabled' => '0'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('reject', TenantSetting::forTenant($this->acme)->mockLocationPolicy());
+        $this->assertFalse(TenantSetting::forTenant($this->acme)->fcmEnabled());
+        $this->actingAs($admin)->put('/settings/branding', ['mock_location_policy' => '', 'fcm_enabled' => ''])
+            ->assertSessionHasNoErrors();
+        $this->assertNull(TenantSetting::rowFor($this->acme)->mock_location_policy);
+        $this->assertSame('flag', TenantSetting::forTenant($this->acme)->mockLocationPolicy());
+
+        // Probar push: a un colaborador de la empresa (aunque la empresa lo tenga apagado)
+        $this->actingAs($admin)->post('/settings/branding/push-test', ['push_email' => $this->emp->email])
+            ->assertRedirect('/settings/branding?tab=integraciones')->assertSessionHas('success');
+        Http::assertSent(fn (Request $r) => $r->url() === self::SEND_URL
+            && $r['message']['token'] === 'device-token-123' && $r['message']['data']['type'] === 'push.test');
+        $this->assertTrue(\App\Models\AuditLog::withoutGlobalScopes()->where('action', 'push.tested')->where('subject_id', $this->emp->id)->exists());
+
+        // Sin token propio: error explicado; usuario de otra empresa: no existe
+        $this->actingAs($admin)->post('/settings/branding/push-test')->assertSessionHas('error');
+        app(TenantContext::class)->clear();
+        $other = $this->makeUser($this->makeTenant('globex'), 'employee', ['fcm_token' => 'x']);
+        $this->actingAs($admin)->post('/settings/branding/push-test', ['push_email' => $other->email])
+            ->assertSessionHasErrors('push_email');
+    }
+
     public function test_attendance_alerts_push_to_the_employee_and_only_in_app_to_the_supervisor(): void
     {
         \Illuminate\Support\Facades\Storage::fake('private');

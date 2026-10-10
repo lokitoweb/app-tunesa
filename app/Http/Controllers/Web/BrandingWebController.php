@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\CompanyConfiguration;
 use App\Models\TenantSetting;
+use App\Models\User;
+use App\Services\AuditLogger;
+use App\Services\Push\FcmSender;
 use App\Services\TenantContext;
 use App\Services\TenantSettingsService;
 use Illuminate\Http\RedirectResponse;
@@ -69,5 +72,39 @@ class BrandingWebController extends Controller
         return redirect()->route('settings.branding', ['tab' => $tab])->with('success', $tenant
             ? 'Marca y configuración de la app guardadas. La app las aplica la próxima vez que se abra.'
             : 'Valores por defecto de la plataforma guardados. Aplican a las empresas que no definieron los suyos.');
+    }
+
+    /**
+     * "Probar push": envía una notificación de prueba al usuario indicado (o a
+     * quien la pide). En una empresa solo se buscan sus usuarios (scope del tenant).
+     */
+    public function pushTest(Request $request, FcmSender $fcm, AuditLogger $audit): RedirectResponse
+    {
+        $data = $request->validate(['push_email' => ['nullable', 'email', 'max:255']]);
+
+        /** @var User $actor */
+        $actor = Auth::user();
+        $to    = filled($data['push_email'] ?? null)
+            ? User::where('email', $data['push_email'])->first()
+            : $actor;
+
+        if (! $to) {
+            return back()->withInput()->withErrors(['push_email' => 'No hay un usuario con ese correo en esta empresa.']);
+        }
+
+        $result = $fcm->test($to);
+
+        $audit->log('push.tested', $to, [
+            'ok'     => $result['ok'],
+            'status' => $result['status'],
+            'ms'     => $result['ms'],
+            'error'  => $result['error'] ?? null,
+        ]);
+
+        $redirect = redirect()->route('settings.branding', ['tab' => 'integraciones'])->withInput();
+
+        return $result['ok']
+            ? $redirect->with('success', "Notificación de prueba enviada a {$to->email} ({$result['ms']} ms).")
+            : $redirect->with('error', "No se pudo enviar la prueba a {$to->email}: " . ($result['error'] ?? 'error desconocido') . '.');
     }
 }

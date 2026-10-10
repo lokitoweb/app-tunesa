@@ -126,6 +126,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::prefix('settings/branding')->name('settings.branding')->middleware('can:company.configure')->group(function () {
         Route::get('/', [BrandingWebController::class, 'edit']);
         Route::put('/', [BrandingWebController::class, 'update'])->name('.update');
+        Route::post('/push-test', [BrandingWebController::class, 'pushTest'])->middleware('throttle:10,1')->name('.push-test');
     });
 
     // Turnos (fijos y rotativos), tolerancias y asignaciones

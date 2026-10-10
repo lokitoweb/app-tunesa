@@ -6,9 +6,9 @@
 @php
     // Pestaña a abrir: la pedida, o la del primer campo con error
     $fieldTabs = [
-        'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters'],
+        'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'mock_location_policy', 'max_time_drift_seconds'],
         'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius', 'geofence_policy'],
-        'integraciones' => ['webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint'],
+        'integraciones' => ['webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint', 'geocoding_provider', 'google_maps_api_key', 'fcm_enabled', 'fcm_service_account_json', 'fcm_service_account_file', 'push_email'],
     ];
     if ($errors->any()) {
         $first = array_key_first($errors->messages());
@@ -259,6 +259,23 @@
                                 </div>
                                 <div class="form-text">Si el GPS del celular tiene un error mayor, la marcación se rechaza.</div>
                             </li>
+                            <li class="list-group-item py-3">
+                                <label for="mock_location_policy" class="form-label">GPS simulado (ubicación falsa)</label>
+                                <select id="mock_location_policy" name="mock_location_policy" class="form-select @error('mock_location_policy') is-invalid @enderror" style="max-width: 360px;">
+                                    <option value="" @selected(($val('mock_location_policy') ?? '') === '')>{{ $isGlobal ? 'Por defecto' : 'Heredar de la plataforma' }} (actual: {{ $inherited->mockLocationPolicy() === 'flag' ? 'aceptar y marcar como sospechosa' : 'rechazar' }})</option>
+                                    <option value="reject" @selected($val('mock_location_policy') === 'reject')>Rechazar la marcación</option>
+                                    <option value="flag" @selected($val('mock_location_policy') === 'flag')>Aceptar y marcar como sospechosa</option>
+                                </select>
+                                <div class="form-text">Qué hacer si el celular informa una ubicación simulada.</div>
+                            </li>
+                            <li class="list-group-item py-3">
+                                <label for="max_time_drift_seconds" class="form-label">Diferencia máxima con la hora del servidor</label>
+                                <div class="input-group" style="max-width: 200px;">
+                                    <input type="number" id="max_time_drift_seconds" name="max_time_drift_seconds" min="30" max="86400" value="{{ $val('max_time_drift_seconds') }}" placeholder="{{ $inherited->maxTimeDriftSeconds() }}" class="form-control @error('max_time_drift_seconds') is-invalid @enderror">
+                                    <span class="input-group-text">s</span>
+                                </div>
+                                <div class="form-text">Si el reloj del celular difiere más, la marcación se acepta pero queda como sospechosa.</div>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -366,7 +383,7 @@
                             <label for="maps_api_key" class="form-label">Clave de mapas</label>
                             <input type="password" id="maps_api_key" name="maps_api_key" maxlength="255" autocomplete="new-password" value=""
                                    placeholder="{{ $values['maps_api_key'] ?? 'Sin clave' }}" class="form-control font-monospace @error('maps_api_key') is-invalid @enderror">
-                            <div class="form-text">Reservada para una futura geocodificación de direcciones: <strong>todavía no se usa</strong> en el panel ni en la app. Dejar vacío para no cambiar.</div>
+                            <div class="form-text">Clave de Google Maps (Geocoding API). Se usa para obtener la dirección de cada marcación si el proveedor es Google. Dejar vacío para no cambiar.</div>
                             @if($values['has_maps_api_key'])
                                 <div class="form-check mt-1">
                                     <input class="form-check-input" type="checkbox" name="clear_maps_api_key" value="1" id="clear_maps_api_key">
@@ -379,6 +396,67 @@
                             <input type="url" id="notification_endpoint" name="notification_endpoint" maxlength="255" value="{{ $val('notification_endpoint') }}" placeholder="https://notificaciones.empresa.com/push" class="form-control @error('notification_endpoint') is-invalid @enderror">
                             <div class="form-text">Recibe un POST JSON por cada aviso in-app creado para un usuario de la empresa, con la misma firma que el webhook (opcional).</div>
                         </div>
+                        <div class="col-md-6">
+                            <label for="geocoding_provider" class="form-label">Proveedor de direcciones</label>
+                            <select id="geocoding_provider" name="geocoding_provider" class="form-select @error('geocoding_provider') is-invalid @enderror">
+                                <option value="" @selected(($val('geocoding_provider') ?? '') === '')>{{ $isGlobal ? 'Por defecto' : 'Heredar de la plataforma' }} (actual: {{ $inherited->configuredGeocodingProvider() === 'google' ? 'Google' : 'OpenStreetMap (Nominatim)' }})</option>
+                                <option value="nominatim" @selected($val('geocoding_provider') === 'nominatim')>OpenStreetMap (Nominatim, gratuito)</option>
+                                <option value="google" @selected($val('geocoding_provider') === 'google')>Google Maps (requiere la clave de mapas)</option>
+                            </select>
+                            <div class="form-text">Convierte las coordenadas de cada marcación en una dirección. Si eliges Google sin clave se usa OpenStreetMap. En uso ahora: {{ $effective->geocodingProvider() === 'google' ? 'Google' : 'OpenStreetMap' }}.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 mt-3">
+                <div class="card-header border-0 pt-3">
+                    <h2 class="h6 fw-semibold mb-0">Notificaciones push (Firebase)</h2>
+                    <small class="text-body-secondary">Los avisos in-app también llegan al celular si el push está activo y el usuario inició sesión en la app.</small>
+                </div>
+                <div class="card-body">
+                    @include('settings.partials.bool-setting', ['flag' => 'fcm_enabled',
+                        'label' => 'Enviar notificaciones push',
+                        'desc'  => 'Requiere la cuenta de servicio de Firebase de la plataforma.'])
+                    @if($isGlobal)
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-6">
+                                <label for="fcm_service_account_json" class="form-label">Cuenta de servicio (JSON)</label>
+                                <textarea id="fcm_service_account_json" name="fcm_service_account_json" rows="4" autocomplete="off"
+                                          placeholder="{{ $values['has_fcm_service_account'] ? 'Configurada. Pega otra para reemplazarla.' : '{ &quot;type&quot;: &quot;service_account&quot;, … }' }}"
+                                          class="form-control font-monospace small @error('fcm_service_account_json') is-invalid @enderror"></textarea>
+                                <div class="form-text">Firebase → Configuración del proyecto → Cuentas de servicio → Generar nueva clave privada. Se guarda cifrada. Dejar vacío para no cambiar.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="fcm_service_account_file" class="form-label">O sube el archivo .json</label>
+                                <input type="file" id="fcm_service_account_file" name="fcm_service_account_file" accept=".json,application/json" class="form-control @error('fcm_service_account_file') is-invalid @enderror">
+                                @if($values['has_fcm_service_account'])
+                                    <div class="small mt-2">
+                                        Proyecto: <code>{{ $values['fcm_project_id'] }}</code><br>
+                                        Cuenta: <code>{{ $values['fcm_client_email'] }}</code>
+                                    </div>
+                                    <div class="form-check mt-1">
+                                        <input class="form-check-input" type="checkbox" name="clear_fcm_service_account_json" value="1" id="clear_fcm_service_account_json">
+                                        <label class="form-check-label small" for="clear_fcm_service_account_json">Borrar la cuenta de servicio guardada</label>
+                                    </div>
+                                @else
+                                    <div class="form-text">Aún no hay una cuenta de servicio: el push no se envía.</div>
+                                @endif
+                            </div>
+                        </div>
+                    @else
+                        <p class="small text-body-secondary mt-3 mb-0">La cuenta de servicio de Firebase la configura la plataforma ({{ $effective->fcmServiceAccount() ? 'configurada' : 'aún no configurada' }}).</p>
+                    @endif
+
+                    <hr>
+                    <div class="d-flex flex-column flex-sm-row align-items-sm-end gap-2">
+                        <div class="flex-grow-1">
+                            <label for="push_email" class="form-label">Probar push</label>
+                            <input type="email" id="push_email" name="push_email" form="pushTestForm" maxlength="255" value="{{ old('push_email') }}" placeholder="{{ auth()->user()->email }}" class="form-control @error('push_email') is-invalid @enderror">
+                            <div class="form-text">Correo de un usuario que ya inició sesión en la app (vacío: tú). Se envía aunque el push esté desactivado.</div>
+                            @error('push_email')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        </div>
+                        <button type="submit" form="pushTestForm" class="btn btn-outline-primary mb-sm-4"><i class="bi bi-send me-1"></i>Enviar prueba</button>
                     </div>
                 </div>
             </div>
@@ -393,6 +471,11 @@
         </span>
         <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Guardar cambios</button>
     </div>
+</form>
+
+<form method="POST" action="{{ route('settings.branding.push-test') }}" id="pushTestForm" class="d-none">
+    @csrf
+    <input type="hidden" name="tab" value="integraciones">
 </form>
 @endsection
 
