@@ -21,6 +21,9 @@ jobs:
       - name: Dependencias
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Avisos de seguridad de dependencias
+        run: composer audit
+
       - name: Preparar .env
         run: |
           cp .env.example .env
