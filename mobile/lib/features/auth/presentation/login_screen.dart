@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/brand_logo.dart';
-import '../../server/server_connection_dialog.dart';
 import '../../../core/widgets/async_views.dart';
 import 'auth_controller.dart';
 
@@ -103,8 +102,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Mantener presionado: conexión del servidor (testers)
-                  BrandLogo(height: 104, onLongPress: () => showServerConnectionDialog(context)),
+                  const BrandLogo(height: 104),
                   const SizedBox(height: 28),
                   Text('Iniciar sesión',
                       textAlign: TextAlign.center,
