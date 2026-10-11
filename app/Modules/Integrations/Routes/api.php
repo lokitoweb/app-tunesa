@@ -10,6 +10,12 @@ use Illuminate\Support\Facades\Route;
 Route::post('v1/webhooks/receiver/{slug?}', [WebhookReceiverController::class, 'receive'])
     ->middleware('throttle:60,1')->where('slug', '[a-z0-9-]+')->name('integrations.receiver');
 
+// Abrir el receptor en el navegador (GET) confirma que está activo; los eventos llegan por POST
+Route::get('v1/webhooks/receiver/{slug?}', fn () => response()->json([
+    'success' => true,
+    'message' => 'Receptor de webhooks activo. Envía los eventos por POST.',
+]))->middleware('throttle:60,1')->where('slug', '[a-z0-9-]+');
+
 Route::middleware('api.tenant')->group(function () {
     Route::get('geocode/reverse', [GeocodeController::class, 'reverse'])->middleware('throttle:60,1');
 });
