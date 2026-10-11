@@ -12,6 +12,7 @@ import '../../../core/config/app_config_controller.dart';
 import '../../../core/location/location_service.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../data/offline_sync_engine.dart';
@@ -290,7 +291,11 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     final faceBlocked = hasShot && mobile.faceDetectionRequired && (_detectingFace || _faceDetected == false);
     final busy = _sending || _locating || _shotLocating;
     final located = needsSelfie ? hasShot && _shotFix != null : (_preview != null || _capture != null);
-    final canSend = located && !faceBlocked && !busy;
+    // Fuera del radio de la sede (y con geocerca estricta) no se ofrece la selfie ni el envío
+    final here = (_shotFix ?? _preview)?.position;
+    final near = here == null ? null : nearestBranch(ref.watch(myBranchesProvider).value ?? const [], here);
+    final outside = mobile.geofenceStrictMode && near != null && !near.inside;
+    final canSend = located && !faceBlocked && !busy && !outside;
     final mocked = (_shotFix ?? _preview)?.isMocked ?? false;
 
     return Scaffold(
@@ -326,7 +331,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
               number: 2,
               title: needsSelfie ? 'Selfie (cámara frontal)' : 'Selfie (opcional)',
               done: hasShot,
-              child: _selfieStep(),
+              child: _selfieStep(locked: outside),
             ),
             const SizedBox(height: 12),
           ],
@@ -377,11 +382,11 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     if (fix == null) return const SizedBox.shrink();
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Precisión: ±${fix.accuracy.round()} m'),
-      const SizedBox(height: 4),
+      _GeofenceHint(position: fix.position),
+      const SizedBox(height: 10),
       _AddressLine(lat: fix.latitude, lng: fix.longitude),
       const SizedBox(height: 4),
-      _GeofenceHint(position: fix.position),
+      Text('Precisión del GPS: ±${fix.accuracy.round()} m', style: Theme.of(context).textTheme.bodySmall),
       if (_shotFix == null)
         TextButton.icon(
           onPressed: _locating ? null : _locate,
@@ -396,15 +401,22 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     ]);
   }
 
-  Widget _selfieStep() {
-    if (_selfieBytes == null) {
-      return OutlinedButton.icon(
-        onPressed: _takeSelfie,
-        icon: const Icon(Icons.camera_front_outlined),
-        label: const Text('Tomar selfie'),
-      );
-    }
+  Widget _selfieStep({required bool locked}) {
     final scheme = Theme.of(context).colorScheme;
+    if (_selfieBytes == null) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (locked)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('Se activa cuando estés en la agencia.', style: TextStyle(color: scheme.onSurfaceVariant)),
+          ),
+        OutlinedButton.icon(
+          onPressed: locked ? null : _takeSelfie,
+          icon: const Icon(Icons.camera_front_outlined),
+          label: const Text('Tomar selfie'),
+        ),
+      ]);
+    }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         ClipRRect(
@@ -517,6 +529,23 @@ class _NoticeCard extends StatelessWidget {
   }
 }
 
+/// Sede asignada más cercana a [position] y si la persona está dentro de su radio.
+({BranchGeofence branch, double distance, bool inside})? nearestBranch(List<BranchGeofence> branches, Position position) {
+  ({BranchGeofence branch, double distance, bool inside})? best;
+  for (final b in branches) {
+    final d = LocationService.haversineMeters(position.latitude, position.longitude, b.lat, b.lng);
+    if (best == null || d < best.distance) best = (branch: b, distance: d, inside: d <= b.radius);
+  }
+  return best;
+}
+
+/// 85 → "85 m" · 1530 → "1,5 km" · 493532 → "494 km".
+String formatDistance(double meters) {
+  if (meters < 1000) return '${meters.round()} m';
+  final km = meters / 1000;
+  return km < 10 ? '${km.toStringAsFixed(1).replaceFirst('.', ',')} km' : '${km.round()} km';
+}
+
 /// Validación previa de geocerca en el teléfono (el backend decide al final).
 class _GeofenceHint extends ConsumerWidget {
   const _GeofenceHint({required this.position});
@@ -534,28 +563,35 @@ class _GeofenceHint extends ConsumerWidget {
       data: (list) {
         if (list.isEmpty) return const Text('No tienes sucursales asignadas. Consulta con RRHH.');
 
-        BranchGeofence? nearest;
-        var nearestDistance = double.infinity;
-        for (final b in list) {
-          final d = LocationService.haversineMeters(position.latitude, position.longitude, b.lat, b.lng);
-          if (d < nearestDistance) {
-            nearest = b;
-            nearestDistance = d;
-          }
-        }
-        final inside = nearestDistance <= nearest!.radius;
+        final near = nearestBranch(list, position)!;
+        final color = near.inside ? Colors.green.shade700 : scheme.error;
 
-        return Row(children: [
-          Icon(inside ? Icons.check_circle : Icons.warning_amber_rounded,
-              color: inside ? Colors.green : scheme.error, size: 20),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(inside
-                ? 'Estás en ${nearest.name} (${nearestDistance.round()} m).'
-                : 'Estás a ${nearestDistance.round()} m de ${nearest.name} (radio permitido ${nearest.radius.round()} m). '
-                    'Acércate a la sucursal para marcar.'),
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
           ),
-        ]);
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(near.inside ? Icons.check_circle_rounded : Icons.near_me_disabled_rounded, color: color, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  near.inside ? 'Estás en ${near.branch.name}' : 'Acércate a la agencia para poder realizar tu marcación',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  near.inside
+                      ? 'Ya puedes marcar.'
+                      : '${near.branch.name} está a ${formatDistance(near.distance)} de ti.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ]),
+            ),
+          ]),
+        );
       },
     );
   }

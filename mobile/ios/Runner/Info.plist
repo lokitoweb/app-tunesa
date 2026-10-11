@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>TuneSA usa tu ubicación para verificar que estás dentro de la sucursal al marcar asistencia.</string>
+	<string>Tunesa usa tu ubicación para verificar que estás dentro de la sucursal al marcar asistencia.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>TuneSA necesita la cámara frontal para tomar la selfie obligatoria de cada marcación.</string>
+	<string>Tunesa necesita la cámara frontal para tomar la selfie obligatoria de cada marcación.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>TuneSA te permite elegir fotos de tu galería para adjuntar sustentos y documentos de tu legajo.</string>
+	<string>Tunesa te permite elegir fotos de tu galería para adjuntar sustentos y documentos de tu legajo.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
@@ -24,7 +24,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>TuneSA</string>
+	<string>Tunesa</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -32,7 +32,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>TuneSA</string>
+	<string>Tunesa</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

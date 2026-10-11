@@ -98,20 +98,20 @@ class UpdateBanner extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Material(
-      color: scheme.tertiaryContainer,
+      color: scheme.primaryContainer,
       child: SafeArea(
         bottom: false,
         child: ListTile(
           dense: true,
-          leading: Icon(Icons.system_update_rounded, color: scheme.onTertiaryContainer),
+          leading: Icon(Icons.system_update_rounded, color: scheme.onPrimaryContainer),
           title: Text(
             latest == null ? 'Hay una nueva versión de la app.' : 'Hay una nueva versión de la app ($latest).',
-            style: TextStyle(color: scheme.onTertiaryContainer),
+            style: TextStyle(color: scheme.onPrimaryContainer),
           ),
-          subtitle: Text('Actualízala cuando puedas.', style: TextStyle(color: scheme.onTertiaryContainer)),
+          subtitle: Text('Actualízala cuando puedas.', style: TextStyle(color: scheme.onPrimaryContainer)),
           trailing: IconButton(
             tooltip: 'Cerrar',
-            icon: Icon(Icons.close, color: scheme.onTertiaryContainer),
+            icon: Icon(Icons.close, color: scheme.onPrimaryContainer),
             onPressed: () => ref.read(updateBannerDismissedProvider.notifier).dismiss(),
           ),
         ),

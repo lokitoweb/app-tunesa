@@ -34,8 +34,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Mi asistencia')),
       body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        Material(
+          color: Theme.of(context).colorScheme.surface,
           child: Row(children: [
             IconButton(onPressed: () => _shift(-1), icon: const Icon(Icons.chevron_left)),
             Expanded(
@@ -89,27 +89,30 @@ class _SummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     Widget cell(String label, String value, Color color) => Expanded(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(children: [
-                Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-                Text(label, style: Theme.of(context).textTheme.labelSmall),
-              ]),
-            ),
-          ),
+          child: Column(children: [
+            Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: color)),
+            const SizedBox(height: 2),
+            Text(label, style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ]),
         );
+    const divider = SizedBox(height: 32, child: VerticalDivider(width: 1));
 
-    return Row(children: [
-      cell('Puntual', '${summary.present}', Colors.green),
-      const SizedBox(width: 8),
-      cell('Tardanzas', '${summary.late}', Colors.orange),
-      const SizedBox(width: 8),
-      cell('Faltas', '${summary.absent}', Colors.red),
-      const SizedBox(width: 8),
-      cell('Horas', summary.totalHours.toStringAsFixed(1), Theme.of(context).colorScheme.primary),
-    ]);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(children: [
+          cell('Puntual', '${summary.present}', Colors.green.shade700),
+          divider,
+          cell('Tardanzas', '${summary.late}', Colors.orange.shade800),
+          divider,
+          cell('Faltas', '${summary.absent}', theme.colorScheme.error),
+          divider,
+          cell('Horas', summary.totalHours.toStringAsFixed(1), theme.colorScheme.primary),
+        ]),
+      ),
+    );
   }
 }
 

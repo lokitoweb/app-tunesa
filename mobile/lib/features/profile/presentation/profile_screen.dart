@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../core/widgets/async_views.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -122,9 +123,9 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         gradient: LinearGradient(
-          colors: [scheme.primary, Color.lerp(scheme.primary, scheme.tertiary, 0.55)!],
+          colors: [scheme.primary, Color.lerp(scheme.primary, scheme.secondary, 0.7)!],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -227,9 +228,20 @@ class _AccountSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(themeModeProvider);
+    final auth = ref.watch(authControllerProvider);
+    final company = auth.user?.companyName ?? auth.branding?.companyName;
+    final scheme = Theme.of(context).colorScheme;
 
     return Card(
       child: Column(children: [
+        if (company != null && company.isNotEmpty) ...[
+          ListTile(
+            leading: const Icon(Icons.apartment_rounded),
+            title: const Text('Empresa'),
+            subtitle: Text(company),
+          ),
+          const Divider(),
+        ],
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Row(children: [
@@ -262,11 +274,35 @@ class _AccountSection extends ConsumerWidget {
             final ok = await showDialog<bool>(
               context: context,
               builder: (c) => AlertDialog(
-                title: const Text('Cerrar sesión'),
-                content: const Text('¿Seguro que quieres salir?'),
+                icon: CircleAvatar(
+                  radius: 26,
+                  backgroundColor: scheme.errorContainer,
+                  child: Icon(Icons.logout_rounded, color: scheme.onErrorContainer),
+                ),
+                title: const Text('¿Cerrar sesión?'),
+                content: const Text(
+                  'Tendrás que ingresar tu correo y contraseña para volver a entrar.',
+                  textAlign: TextAlign.center,
+                ),
+                actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
-                  FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Salir')),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(minimumSize: const Size(64, 50)),
+                        onPressed: () => Navigator.pop(c, false),
+                        child: const Text('Cancelar'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError),
+                        onPressed: () => Navigator.pop(c, true),
+                        child: const Text('Cerrar sesión'),
+                      ),
+                    ),
+                  ]),
                 ],
               ),
             );

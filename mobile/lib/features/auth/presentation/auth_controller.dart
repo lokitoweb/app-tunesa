@@ -50,13 +50,13 @@ class AuthController extends Notifier<AuthState> {
   /// Empresa fija por build (DEFAULT_TENANT): se resuelve sin pantalla de código.
   bool get hasFixedTenant => Env.defaultTenant.isNotEmpty;
 
-  /// Solo correo y contraseña. En el primer ingreso el servidor reconoce la
-  /// empresa del usuario: se guarda su código y se aplica su marca.
+  /// Solo correo y contraseña. El servidor reconoce la empresa del usuario;
+  /// si es otra que la recordada, se guarda su código y se aplica su marca.
   Future<void> login(String email, String password) async {
     final result = await _repo.login(email: email, password: password);
     var branding = state.branding;
 
-    if (ref.read(sessionStorageProvider).tenantSlug == null || branding == null) {
+    if (ref.read(sessionStorageProvider).tenantSlug != result.tenantSlug || branding == null) {
       try {
         final config = await ref.read(appConfigProvider.notifier).loadForTenant(result.tenantSlug);
         branding = Branding.fromConfig(result.tenantSlug, config);

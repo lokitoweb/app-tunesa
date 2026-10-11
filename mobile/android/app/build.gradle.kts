@@ -40,7 +40,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["appLabel"] = "TuneSA"
+        manifestPlaceholders["appLabel"] = "Tunesa"
         manifestPlaceholders["usesCleartextTraffic"] = "false"
     }
 

@@ -28,9 +28,11 @@ void main() {
       'tenant_slug': 'empresa-demo',
       'tenant_branding': '{"slug":"empresa-demo","company_name":"Empresa Demo SAC","primary_color":"#0F766E"}',
     });
-    expect(find.text('Empresa Demo SAC'), findsOneWidget);
+    // Solo el acceso: el logo ya identifica a la empresa y el servidor la reconoce por el correo
+    expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.text('Ingresar'), findsOneWidget);
-    expect(find.text('Entrar con otra empresa'), findsOneWidget);
+    expect(find.text('Empresa Demo SAC'), findsNothing);
+    expect(find.text('Entrar con otra empresa'), findsNothing);
   });
 
   testWidgets('el login valida el formulario antes de llamar a la API', (tester) async {

@@ -278,7 +278,7 @@ class _StatusBanner extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
       child: Row(children: [
         Icon(icon, color: fg),
         const SizedBox(width: 10),

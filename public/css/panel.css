@@ -752,3 +752,30 @@ ul.toast-text { padding-left: 1.1rem; }
 
 /* Tablas: relleno contenido para que no desborden en 1366 px */
 .table > :not(caption) > * > * { padding: .7rem .7rem; }
+
+/* =============================================================================
+ * Tema 5: acceso en una sola columna sobre el cielo (igual que la app móvil)
+ * ============================================================================= */
+.auth-shell {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 2rem 1.25rem;
+    background:
+        radial-gradient(640px 240px at 16% 70%, rgba(255, 255, 255, .8), transparent 70%),
+        radial-gradient(520px 200px at 86% 84%, rgba(255, 255, 255, .6), transparent 70%),
+        linear-gradient(180deg, #ffffff 0%, #eaf6ff 34%, #c6e6fb 72%, #a5d8f8 100%);
+}
+.auth-panel { flex: 0 0 auto; width: 100%; padding: 0; background: transparent; }
+.auth-card { max-width: 400px; margin: 0 auto; }
+.auth-brand { display: block !important; margin-bottom: 1.75rem !important; }
+.auth-brand img { max-height: 104px !important; max-width: 300px !important; margin: 0 !important; }
+.auth-card .card { border: 0; box-shadow: 0 28px 60px -30px rgba(0, 80, 160, .5) !important; }
+.auth-card .card-body { padding: 2rem 1.75rem !important; }
+.auth-card .form-label { font-weight: 600; font-size: .85rem; }
+.auth-card .form-control, .auth-card .input-group-text, .auth-card .input-group .btn { min-height: 46px; }
+.auth-submit { min-height: 48px; font-size: 1rem; }
+.auth-foot { color: #1d4f7a; opacity: .8; }
+[data-bs-theme="dark"] .auth-shell { background: var(--bs-body-bg); }
+[data-bs-theme="dark"] .auth-foot { color: var(--bs-secondary-color); }

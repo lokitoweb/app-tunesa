@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/config/app_config_controller.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../core/widgets/brand_logo.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_views.dart';
-import '../../../core/widgets/status_chip.dart';
 import '../../attendance/domain/models.dart';
 import '../../attendance/presentation/attendance_providers.dart';
 import '../../attendance/presentation/offline_sync.dart';
+import '../../attendance/presentation/punch_board.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../notifications/presentation/notifications_providers.dart';
 import '../../notifications/presentation/notifications_screen.dart';
@@ -51,26 +50,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final auth = ref.watch(authControllerProvider);
     final today = ref.watch(todayStatusProvider);
     final user = auth.user;
-    final appName = ref.watch(appConfigProvider.select((s) => s.config.tenant?.displayName)) ??
-        auth.branding?.companyName ??
-        'Tunesa';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(children: [
-          const BrandLogo(height: 32),
-          const SizedBox(width: 10),
-          Flexible(child: Text(appName, overflow: TextOverflow.ellipsis)),
-        ]),
-        actions: [
-          const NotificationBell(),
-          IconButton(
-            tooltip: 'Mi perfil',
-            icon: const Icon(Icons.account_circle_outlined),
-            onPressed: () => context.go('/profile'),
-          ),
-        ],
-      ),
+      // La empresa y la sede se ven en "Mi perfil": aquí solo el título y los avisos
+      appBar: AppBar(title: const Text('Inicio'), actions: const [NotificationBell(), SizedBox(width: 4)]),
       body: RefreshIndicator(
         onRefresh: () async {
           _refreshBadges();
@@ -96,9 +79,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _ShiftCard(schedule: status.schedule),
                   const SizedBox(height: 12),
-                  _AttendanceCard(attendance: status.attendance),
-                  const SizedBox(height: 16),
-                  ..._actionButtons(context, status),
+                  PunchBoard(status: status, onPunch: (action) => context.push('/clock/${action.apiName}')),
                 ],
               ),
             ),
@@ -106,26 +87,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
     );
-  }
-
-  List<Widget> _actionButtons(BuildContext context, TodayStatus status) {
-    if (status.isDayComplete) {
-      return const [
-        Card(
-          child: ListTile(
-            leading: Icon(Icons.task_alt, color: Colors.green),
-            title: Text('Jornada completa'),
-            subtitle: Text('Ya registraste tu salida de hoy.'),
-          ),
-        ),
-      ];
-    }
-    return [
-      for (final action in status.actions) ...[
-        _ClockButton(action: action, onTap: () => context.push('/clock/${action.apiName}')),
-        const SizedBox(height: 12),
-      ],
-    ];
   }
 }
 
@@ -143,9 +104,9 @@ class _Greeting extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         gradient: LinearGradient(
-          colors: [scheme.primary, Color.lerp(scheme.primary, scheme.tertiary, 0.55)!],
+          colors: [scheme.primary, Color.lerp(scheme.primary, scheme.secondary, 0.7)!],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -228,33 +189,6 @@ class _OnboardingBanner extends ConsumerWidget {
   }
 }
 
-class _ClockButton extends StatelessWidget {
-  const _ClockButton({required this.action, required this.onTap});
-
-  final ClockAction action;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = switch (action) {
-      ClockAction.clockIn => Icons.login,
-      ClockAction.breakStart => Icons.free_breakfast_outlined,
-      ClockAction.breakEnd => Icons.play_arrow_rounded,
-      ClockAction.clockOut => Icons.logout,
-    };
-    final secondary = action == ClockAction.breakStart || action == ClockAction.breakEnd;
-
-    return secondary
-        ? OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-            onPressed: onTap,
-            icon: Icon(icon),
-            label: Text(action.label),
-          )
-        : FilledButton.icon(onPressed: onTap, icon: Icon(icon), label: Text(action.label));
-  }
-}
-
 class _ShiftCard extends StatelessWidget {
   const _ShiftCard({required this.schedule});
 
@@ -275,60 +209,3 @@ class _ShiftCard extends StatelessWidget {
   }
 }
 
-class _AttendanceCard extends StatelessWidget {
-  const _AttendanceCard({required this.attendance});
-
-  final Attendance? attendance;
-
-  @override
-  Widget build(BuildContext context) {
-    final a = attendance;
-    if (a == null) {
-      return const Card(
-        child: ListTile(
-          leading: Icon(Icons.hourglass_empty, size: 32),
-          title: Text('Aún no marcas tu entrada'),
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Text('Tu jornada', style: Theme.of(context).textTheme.titleMedium),
-            const Spacer(),
-            StatusChip(status: a.status, label: a.isOnBreak ? 'En descanso' : a.statusLabel),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            _TimeCell(label: 'Entrada', value: Fmt.time(a.clockIn)),
-            _TimeCell(label: 'Descanso', value: a.breakStart == null ? '--:--' : '${a.breakStart}–${a.breakEnd ?? '…'}'),
-            _TimeCell(label: 'Salida', value: Fmt.time(a.clockOut)),
-          ]),
-          if (a.lateMinutes > 0) ...[
-            const SizedBox(height: 8),
-            Text('Tardanza: ${a.lateMinutes} min', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ],
-        ]),
-      ),
-    );
-  }
-}
-
-class _TimeCell extends StatelessWidget {
-  const _TimeCell({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Expanded(
-        child: Column(children: [
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.titleMedium),
-        ]),
-      );
-}
