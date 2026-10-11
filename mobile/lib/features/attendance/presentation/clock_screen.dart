@@ -12,7 +12,6 @@ import '../../../core/config/app_config_controller.dart';
 import '../../../core/location/location_service.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../data/offline_sync_engine.dart';
@@ -22,7 +21,13 @@ import 'attendance_providers.dart';
 import 'offline_sync.dart';
 import 'selfie_screen.dart';
 
-/// Flujo de marcación: GPS estricto → validación de geocerca → selfie → envío.
+/// Flujo de marcación directo: GPS → geocerca → cámara → envío automático.
+///
+/// Al abrir la pantalla se lee el GPS y se valida la geocerca. Si la persona
+/// está en su agencia (o la empresa no exige geocerca estricta) la cámara
+/// frontal se abre sola; al aceptar la foto la marcación se envía sin más
+/// pasos. Fuera del perímetro no se abre la cámara y se explica por qué.
+/// Sin selfie (empresa que no la usa) queda un único botón de confirmar.
 ///
 /// Las reglas salen de la configuración de la empresa (`/v1/app/config`):
 /// selfie obligatoria o no, detección de rostro, precisión GPS máxima,
@@ -63,6 +68,10 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   bool? _faceDetected;
   bool _detectingFace = false;
 
+  /// La cámara ya se abrió sola una vez (no se reabre al cancelarla).
+  bool _autoOpened = false;
+  bool _cameraOpen = false;
+
   /// Captura lista para enviar: se conserva entre reintentos (mismo client_uuid).
   PunchCapture? _capture;
 
@@ -70,6 +79,11 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   ApiException? _sendError;
 
   MobileConfig get _mobile => ref.read(appConfigProvider).config.mobile;
+
+  bool get _needsSelfie => widget.action.requiresSelfie && _mobile.selfieRequired;
+
+  /// Descansos: selfie opcional (si la empresa usa selfie).
+  bool get _optionalSelfie => !widget.action.requiresSelfie && _mobile.selfieRequired;
 
   @override
   void initState() {
@@ -80,10 +94,9 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   /// Lectura verificada que nunca lanza (se pide al disparar y se espera después).
   Future<(LocationFix?, LocationException?)> _safeFix() async {
     try {
-      final fix = await ref.read(locationServiceProvider).getVerifiedFix(
-            maxAccuracyMeters: _mobile.maxGpsAccuracyMeters,
-            mockPolicy: _mobile.mockLocationPolicy,
-          );
+      final fix = await ref
+          .read(locationServiceProvider)
+          .getVerifiedFix(maxAccuracyMeters: _mobile.maxGpsAccuracyMeters, mockPolicy: _mobile.mockLocationPolicy);
       return (fix, null);
     } on LocationException catch (e) {
       return (null, e);
@@ -104,15 +117,31 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     });
   }
 
-  Future<void> _takeSelfie() async {
+  /// Con geocerca estricta: [fix] cae fuera del radio de la sede más cercana.
+  /// Sin sedes cargadas no se bloquea (el servidor valida al final).
+  bool _isOutside(LocationFix fix) {
+    if (!_mobile.geofenceStrictMode) return false;
+    final near = nearestBranch(ref.read(myBranchesProvider).value ?? const [], fix.position);
+    return near != null && !near.inside;
+  }
+
+  /// Abre la cámara. [auto]: apertura automática al entrar; si se cancela y
+  /// la selfie es obligatoria, se cancela la marcación (vuelve al inicio).
+  Future<void> _takeSelfie({bool auto = false}) async {
     Future<(LocationFix?, LocationException?)>? shotFix;
+    setState(() => _cameraOpen = true);
     final shot = await Navigator.of(context).push<SelfieShot>(
       MaterialPageRoute(
-        builder: (_) => SelfieScreen(onShutter: () => shotFix = _safeFix()),
+        builder: (_) => SelfieScreen(actionLabel: widget.action.label, onShutter: () => shotFix = _safeFix()),
         fullscreenDialog: true,
       ),
     );
-    if (shot == null || !mounted) return;
+    if (!mounted) return;
+    setState(() => _cameraOpen = false);
+    if (shot == null) {
+      if (auto && _needsSelfie && _selfie == null) Navigator.of(context).pop();
+      return;
+    }
     final bytes = await shot.file.readAsBytes();
     final detect = _mobile.faceDetectionRequired;
     setState(() {
@@ -136,20 +165,19 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       if (fix != null) _preview = fix;
       _locationError = error;
     });
-    if (!detect) return;
-    final detected = await face;
-    if (mounted && _selfie == shot.file) {
+    if (detect) {
+      final detected = await face;
+      if (!mounted || _selfie != shot.file) return;
       setState(() {
         _faceDetected = detected;
         _detectingFace = false;
       });
     }
+
+    // Todo en orden: se envía sin pedir otra confirmación (la foto aceptada lo es)
+    if (fix == null || _isOutside(fix) || (detect && _faceDetected == false)) return;
+    await _send();
   }
-
-  bool get _needsSelfie => widget.action.requiresSelfie && _mobile.selfieRequired;
-
-  /// Descansos: selfie opcional (si la empresa usa selfie).
-  bool get _optionalSelfie => !widget.action.requiresSelfie && _mobile.selfieRequired;
 
   /// Arma (una sola vez) lo que se envía. Con selfie usa el GPS y la hora del
   /// disparo; sin selfie lee el GPS en este momento.
@@ -270,13 +298,16 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     }
   }
 
-  /// "Volver a leer el GPS": con selfie, el GPS va con la foto (se repite).
+  /// "Volver a verificar": con selfie, el GPS va con la foto (se repite) y la
+  /// cámara vuelve a abrirse sola al confirmar que está en la agencia.
   void _relocate() {
     setState(() {
       _sendError = null;
       _capture = null;
+      _autoOpened = false;
       if (_selfie != null) _clearShot();
     });
+    ref.invalidate(myBranchesProvider);
     _locate();
   }
 
@@ -285,158 +316,459 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     final mobile = ref.watch(appConfigProvider.select((s) => s.config.mobile));
     final sync = ref.watch(offlineSyncProvider);
     final drift = ref.watch(todayStatusProvider).value?.driftBeyond(mobile.maxTimeDriftSeconds);
+    final branches = ref.watch(myBranchesProvider);
     final needsSelfie = widget.action.requiresSelfie && mobile.selfieRequired;
     final optionalSelfie = !widget.action.requiresSelfie && mobile.selfieRequired;
+    final usesSelfie = needsSelfie || optionalSelfie;
     final hasShot = _selfie != null;
-    final faceBlocked = hasShot && mobile.faceDetectionRequired && (_detectingFace || _faceDetected == false);
-    final busy = _sending || _locating || _shotLocating;
-    final located = needsSelfie ? hasShot && _shotFix != null : (_preview != null || _capture != null);
-    // Fuera del radio de la sede (y con geocerca estricta) no se ofrece la selfie ni el envío
-    final here = (_shotFix ?? _preview)?.position;
-    final near = here == null ? null : nearestBranch(ref.watch(myBranchesProvider).value ?? const [], here);
+    final fix = _shotFix ?? _preview;
+    final near = fix == null ? null : nearestBranch(branches.value ?? const [], fix.position);
     final outside = mobile.geofenceStrictMode && near != null && !near.inside;
-    final canSend = located && !faceBlocked && !busy && !outside;
-    final mocked = (_shotFix ?? _preview)?.isMocked ?? false;
+    final mocked = fix?.isMocked ?? false;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.action.label)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (sync.pending > 0 || sync.lastSyncAt != null) ...[
-            _PendingCard(count: sync.pending, lastSyncAt: sync.lastSyncAt, syncing: sync.syncing),
-            const SizedBox(height: 12),
-          ],
-          if (sync.rejected > 0) ...[
-            _RejectedCard(count: sync.rejected),
-            const SizedBox(height: 12),
-          ],
-          if (drift != null) ...[
-            _NoticeCard(
-              icon: Icons.schedule,
-              text: 'La hora de tu teléfono difiere ${(drift / 60).ceil()} min de la hora oficial. '
-                  'Activa "Fecha y hora automáticas" en Ajustes.',
-            ),
-            const SizedBox(height: 12),
-          ],
-          _StepCard(
-            number: 1,
-            title: 'Ubicación GPS',
-            done: (_shotFix ?? _preview) != null,
-            child: _locationStep(),
+    // En la agencia: la cámara se abre sola (una vez) sin pasos intermedios
+    final cameraReady =
+        usesSelfie &&
+        !_autoOpened &&
+        !_cameraOpen &&
+        !hasShot &&
+        _preview != null &&
+        !_locating &&
+        !branches.isLoading &&
+        !outside &&
+        _sendError == null;
+    if (cameraReady) {
+      _autoOpened = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _takeSelfie(auto: true);
+      });
+    }
+
+    final status = _status(
+      needsSelfie: needsSelfie,
+      usesSelfie: usesSelfie,
+      fix: fix,
+      near: near,
+      outside: outside,
+      branchesLoading: branches.isLoading,
+    );
+
+    return PopScope(
+      canPop: !_sending,
+      child: Scaffold(
+        appBar: AppBar(title: Text(widget.action.label)),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                  children: [
+                    _StatusHero(status: status, photo: _selfieBytes),
+                    if (fix != null) ...[
+                      const SizedBox(height: 24),
+                      _LocationCard(
+                        fix: fix,
+                        near: near,
+                        strict: mobile.geofenceStrictMode,
+                        branchesLoading: branches.isLoading,
+                        branchesFailed: branches.hasError,
+                        takenWithShot: _shotFix != null,
+                      ),
+                    ],
+                    if (mocked) ...[
+                      const SizedBox(height: 12),
+                      const _NoticeCard(icon: Icons.report_gmailerrorred_outlined, text: mockFlagWarning),
+                    ],
+                    if (drift != null) ...[
+                      const SizedBox(height: 12),
+                      _NoticeCard(
+                        icon: Icons.schedule,
+                        text:
+                            'La hora de tu teléfono difiere ${(drift / 60).ceil()} min de la hora oficial. '
+                            'Activa "Fecha y hora automáticas" en Ajustes.',
+                      ),
+                    ],
+                    if (sync.pending > 0 || sync.lastSyncAt != null) ...[
+                      const SizedBox(height: 12),
+                      _PendingCard(count: sync.pending, lastSyncAt: sync.lastSyncAt, syncing: sync.syncing),
+                    ],
+                    if (sync.rejected > 0) ...[const SizedBox(height: 12), _RejectedCard(count: sync.rejected)],
+                  ],
+                ),
+              ),
+              if (status.primary != null || status.secondary != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (status.primary case final a?)
+                        FilledButton.icon(
+                          key: const Key('clock-primary'),
+                          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                          onPressed: a.onPressed,
+                          icon: Icon(a.icon),
+                          label: Text(a.label),
+                        ),
+                      if (status.secondary case final a?) ...[
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          key: const Key('clock-secondary'),
+                          style: TextButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                          onPressed: a.onPressed,
+                          icon: Icon(a.icon),
+                          label: Text(a.label),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 12),
-          if (needsSelfie || optionalSelfie) ...[
-            _StepCard(
-              number: 2,
-              title: needsSelfie ? 'Selfie (cámara frontal)' : 'Selfie (opcional)',
-              done: hasShot,
-              child: _selfieStep(locked: outside),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (mocked) ...[
-            const _NoticeCard(icon: Icons.report_gmailerrorred_outlined, text: mockFlagWarning),
-            const SizedBox(height: 12),
-          ],
-          if (_sendError != null) _SendErrorCard(error: _sendError!, onRelocate: _relocate),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: canSend ? _send : null,
-            icon: _sending
-                ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.5))
-                : const Icon(Icons.fingerprint),
-            label: Text(_sending ? 'Enviando…' : 'Confirmar ${widget.action.label.toLowerCase()}'),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _locationStep() {
-    final fix = _shotFix ?? _preview;
-    if (_locating && fix == null) {
-      return const Row(children: [
-        SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.5)),
-        SizedBox(width: 12),
-        Expanded(child: Text('Obteniendo tu ubicación precisa…')),
-      ]);
+  /// Qué ve la persona en cada momento del flujo (un solo estado a la vez).
+  _Status _status({
+    required bool needsSelfie,
+    required bool usesSelfie,
+    required LocationFix? fix,
+    required ({BranchGeofence branch, double distance, bool inside})? near,
+    required bool outside,
+    required bool branchesLoading,
+  }) {
+    final hasShot = _selfie != null;
+    final label = widget.action.label.toLowerCase();
+    final retake = _Action('Repetir selfie', Icons.camera_front_outlined, _takeSelfie);
+
+    if (_sending) {
+      return const _Status(
+        _Tone.busy,
+        Icons.cloud_upload_outlined,
+        'Registrando tu marcación…',
+        'No cierres la app, solo toma unos segundos.',
+      );
     }
 
-    final error = _locationError;
-    if (error != null) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(error.message, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-        const SizedBox(height: 8),
-        Wrap(spacing: 8, children: [
-          OutlinedButton(onPressed: _locating ? null : _relocate, child: const Text('Reintentar')),
-          if (error.canOpenSettings)
-            TextButton(
-              onPressed: () => ref.read(locationServiceProvider).openSettings(error.failure),
-              child: const Text('Abrir ajustes'),
-            ),
-        ]),
-      ]);
+    final sendError = _sendError;
+    if (sendError != null) {
+      final gpsIssue = const {
+        'GEOFENCE_VIOLATION',
+        'MOCK_LOCATION_DETECTED',
+        'GPS_ACCURACY_TOO_LOW',
+      }.contains(sendError.code);
+      final faceIssue = sendError.code == 'FACE_NOT_DETECTED';
+      final message = faceIssue
+          ? '${sendError.message}\nRepite la selfie con tu rostro centrado y buena luz.'
+          : sendError.message;
+      return _Status(
+        _Tone.error,
+        gpsIssue ? Icons.wrong_location_outlined : Icons.error_outline_rounded,
+        'No se pudo registrar',
+        message,
+        primary: gpsIssue
+            ? _Action('Volver a verificar', Icons.my_location_rounded, _relocate)
+            : faceIssue || (_capture == null && hasShot)
+            ? retake
+            : _Action('Reintentar', Icons.refresh_rounded, _send),
+      );
     }
 
-    if (fix == null) return const SizedBox.shrink();
+    if (fix == null && _locating) {
+      return _Status(
+        _Tone.busy,
+        Icons.my_location_rounded,
+        'Verificando tu ubicación',
+        usesSelfie
+            ? 'Confirmamos que estás en tu agencia y abrimos la cámara.'
+            : 'Confirmamos que estás en tu agencia.',
+      );
+    }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _GeofenceHint(position: fix.position),
-      const SizedBox(height: 10),
-      _AddressLine(lat: fix.latitude, lng: fix.longitude),
-      const SizedBox(height: 4),
-      Text('Precisión del GPS: ±${fix.accuracy.round()} m', style: Theme.of(context).textTheme.bodySmall),
-      if (_shotFix == null)
-        TextButton.icon(
-          onPressed: _locating ? null : _locate,
-          icon: const Icon(Icons.my_location, size: 18),
-          label: const Text('Actualizar'),
-        )
-      else
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text('Ubicación tomada al momento de la selfie.', style: Theme.of(context).textTheme.bodySmall),
-        ),
-    ]);
+    final locationError = _locationError;
+    if (locationError != null && (hasShot ? _shotFix == null : _preview == null)) {
+      return _Status(
+        _Tone.error,
+        Icons.location_off_outlined,
+        'No pudimos ubicarte',
+        locationError.message,
+        primary: hasShot ? retake : _Action('Reintentar', Icons.refresh_rounded, _relocate),
+        secondary: locationError.canOpenSettings
+            ? _Action(
+                'Abrir ajustes',
+                Icons.settings_outlined,
+                () => ref.read(locationServiceProvider).openSettings(locationError.failure),
+              )
+            : null,
+      );
+    }
+
+    if (outside) {
+      return _Status(
+        _Tone.error,
+        Icons.wrong_location_outlined,
+        'Estás fuera del perímetro',
+        'Acércate a ${near!.branch.name} para marcar. Estás a ${formatDistance(near.distance)} '
+            'y el radio permitido es de ${formatDistance(near.branch.radius)}.',
+        primary: _Action('Volver a verificar', Icons.my_location_rounded, _relocate),
+      );
+    }
+
+    if (!hasShot && branchesLoading) {
+      return const _Status(_Tone.busy, Icons.storefront_outlined, 'Verificando tu agencia', 'Un momento…');
+    }
+
+    if (hasShot && (_shotLocating || _detectingFace)) {
+      return const _Status(_Tone.busy, Icons.face_retouching_natural, 'Validando tu selfie', 'Un momento…');
+    }
+
+    if (hasShot && _mobile.faceDetectionRequired && _faceDetected == false) {
+      return _Status(
+        _Tone.error,
+        Icons.face_retouching_off,
+        'No detectamos tu rostro',
+        'Repite la selfie con tu cara centrada dentro del óvalo y buena luz.',
+        primary: retake,
+      );
+    }
+
+    if (usesSelfie && !hasShot) {
+      if (_cameraOpen || !_autoOpened) {
+        return const _Status(
+          _Tone.busy,
+          Icons.photo_camera_front_outlined,
+          'Abriendo la cámara',
+          'Prepárate para tu selfie.',
+        );
+      }
+      if (needsSelfie) {
+        return _Status(
+          _Tone.info,
+          Icons.photo_camera_front_outlined,
+          'Tómate la selfie',
+          'Tu marcación se registra con una foto tomada en este momento.',
+          primary: _Action('Abrir cámara', Icons.photo_camera_front_outlined, _takeSelfie),
+        );
+      }
+      return _Status(
+        _Tone.info,
+        Icons.fingerprint,
+        widget.action.label,
+        'La selfie es opcional en esta marcación.',
+        primary: _Action('Marcar sin selfie', Icons.fingerprint, _send),
+        secondary: _Action('Tomar selfie', Icons.photo_camera_front_outlined, _takeSelfie),
+      );
+    }
+
+    // Listo para enviar: sin selfie, o con la foto tomada (p. ej. tras un aviso de conexión)
+    return _Status(
+      hasShot ? _Tone.success : _Tone.info,
+      Icons.fingerprint,
+      hasShot ? 'Selfie lista' : widget.action.label,
+      near != null && near.inside ? 'Estás en ${near.branch.name}.' : 'Confirma para registrar tu marcación.',
+      primary: _Action('Confirmar $label', Icons.check_rounded, _send),
+      secondary: hasShot ? retake : null,
+    );
   }
+}
 
-  Widget _selfieStep({required bool locked}) {
-    final scheme = Theme.of(context).colorScheme;
-    if (_selfieBytes == null) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (locked)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text('Se activa cuando estés en la agencia.', style: TextStyle(color: scheme.onSurfaceVariant)),
+enum _Tone { busy, info, success, error }
+
+class _Action {
+  const _Action(this.label, this.icon, this.onPressed);
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+}
+
+class _Status {
+  const _Status(this.tone, this.icon, this.title, this.message, {this.primary, this.secondary});
+
+  final _Tone tone;
+  final IconData icon;
+  final String title;
+  final String message;
+  final _Action? primary;
+  final _Action? secondary;
+}
+
+/// Estado actual en grande: ícono (o la selfie) con el color del estado,
+/// título y explicación.
+class _StatusHero extends StatelessWidget {
+  const _StatusHero({required this.status, this.photo});
+
+  final _Status status;
+  final Uint8List? photo;
+
+  static const _size = 120.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final color = switch (status.tone) {
+      _Tone.busy || _Tone.info => scheme.primary,
+      _Tone.success => Colors.green.shade600,
+      _Tone.error => scheme.error,
+    };
+    final busy = status.tone == _Tone.busy;
+    final image = photo;
+
+    return Column(
+      children: [
+        SizedBox.square(
+          dimension: _size + 16,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (busy)
+                SizedBox.square(
+                  dimension: _size + 12,
+                  child: CircularProgressIndicator(strokeWidth: 3, color: color, strokeCap: StrokeCap.round),
+                ),
+              Container(
+                width: _size,
+                height: _size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.1),
+                  border: busy ? null : Border.all(color: color, width: 3),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: image != null
+                    ? Image.memory(image, fit: BoxFit.cover, gaplessPlayback: true)
+                    : Icon(status.icon, color: color, size: 52),
+              ),
+              if (image != null && !busy)
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: color,
+                    child: Icon(
+                      status.tone == _Tone.error ? Icons.priority_high_rounded : Icons.check_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
           ),
-        OutlinedButton.icon(
-          onPressed: locked ? null : _takeSelfie,
-          icon: const Icon(Icons.camera_front_outlined),
-          label: const Text('Tomar selfie'),
         ),
-      ]);
-    }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.memory(_selfieBytes!, width: 72, height: 96, fit: BoxFit.cover),
+        const SizedBox(height: 20),
+        Text(
+          status.title,
+          key: const Key('clock-title'),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: status.tone == _Tone.error ? scheme.error : scheme.onSurface,
+          ),
         ),
-        const SizedBox(width: 12),
-        TextButton.icon(onPressed: _takeSelfie, icon: const Icon(Icons.refresh), label: const Text('Repetir')),
-      ]),
-      if (_shotLocating)
-        const Padding(padding: EdgeInsets.only(top: 8), child: Text('Leyendo tu ubicación al momento de la foto…')),
-      if (_detectingFace)
-        const Padding(padding: EdgeInsets.only(top: 8), child: Text('Verificando tu rostro…'))
-      else if (_faceDetected == false)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text('No detectamos un rostro en la foto. Repítela con tu cara centrada y buena luz.',
-              style: TextStyle(color: scheme.error)),
+        const SizedBox(height: 8),
+        Text(
+          status.message,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
         ),
-    ]);
+      ],
+    );
+  }
+}
+
+/// Dónde está la persona: sede más cercana, dirección y precisión del GPS.
+class _LocationCard extends StatelessWidget {
+  const _LocationCard({
+    required this.fix,
+    required this.near,
+    required this.strict,
+    required this.branchesLoading,
+    required this.branchesFailed,
+    required this.takenWithShot,
+  });
+
+  final LocationFix fix;
+  final ({BranchGeofence branch, double distance, bool inside})? near;
+  final bool strict;
+  final bool branchesLoading;
+  final bool branchesFailed;
+  final bool takenWithShot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final near = this.near;
+    final (IconData icon, Color color, String text) = switch (near) {
+      _ when branchesLoading => (Icons.storefront_outlined, scheme.onSurfaceVariant, 'Verificando sucursales…'),
+      _ when branchesFailed => (
+        Icons.storefront_outlined,
+        scheme.onSurfaceVariant,
+        'No se pudo verificar la sucursal; el servidor la validará.',
+      ),
+      null => (
+        Icons.storefront_outlined,
+        scheme.onSurfaceVariant,
+        'No tienes sucursales asignadas. Consulta con RRHH.',
+      ),
+      (inside: true, :final branch, distance: _) => (
+        Icons.check_circle_rounded,
+        Colors.green.shade600,
+        'Estás en ${branch.name}',
+      ),
+      (inside: false, :final branch, :final distance) => (
+        Icons.near_me_disabled_rounded,
+        strict ? scheme.error : scheme.tertiary,
+        '${branch.name} está a ${formatDistance(distance)} de ti',
+      ),
+    };
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: theme.textTheme.titleSmall?.copyWith(color: color, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _AddressLine(lat: fix.latitude, lng: fix.longitude),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.gps_fixed_rounded, size: 18, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    takenWithShot
+                        ? 'Precisión ±${fix.accuracy.round()} m · tomada con tu selfie'
+                        : 'Precisión del GPS: ±${fix.accuracy.round()} m',
+                    style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -502,11 +834,14 @@ class _AddressLineState extends ConsumerState<_AddressLine> {
   @override
   Widget build(BuildContext context) {
     if (_address == null && !_loading) return const SizedBox.shrink();
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Icon(Icons.place_outlined, size: 18),
-      const SizedBox(width: 6),
-      Expanded(child: Text(_address ?? 'Buscando dirección…')),
-    ]);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.place_outlined, size: 18),
+        const SizedBox(width: 6),
+        Expanded(child: Text(_address ?? 'Buscando dirección…')),
+      ],
+    );
   }
 }
 
@@ -530,7 +865,10 @@ class _NoticeCard extends StatelessWidget {
 }
 
 /// Sede asignada más cercana a [position] y si la persona está dentro de su radio.
-({BranchGeofence branch, double distance, bool inside})? nearestBranch(List<BranchGeofence> branches, Position position) {
+({BranchGeofence branch, double distance, bool inside})? nearestBranch(
+  List<BranchGeofence> branches,
+  Position position,
+) {
   ({BranchGeofence branch, double distance, bool inside})? best;
   for (final b in branches) {
     final d = LocationService.haversineMeters(position.latitude, position.longitude, b.lat, b.lng);
@@ -544,57 +882,6 @@ String formatDistance(double meters) {
   if (meters < 1000) return '${meters.round()} m';
   final km = meters / 1000;
   return km < 10 ? '${km.toStringAsFixed(1).replaceFirst('.', ',')} km' : '${km.round()} km';
-}
-
-/// Validación previa de geocerca en el teléfono (el backend decide al final).
-class _GeofenceHint extends ConsumerWidget {
-  const _GeofenceHint({required this.position});
-
-  final Position position;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final branches = ref.watch(myBranchesProvider);
-    final scheme = Theme.of(context).colorScheme;
-
-    return branches.when(
-      loading: () => const Text('Verificando sucursales…'),
-      error: (_, _) => const Text('No se pudo verificar la sucursal; el servidor la validará.'),
-      data: (list) {
-        if (list.isEmpty) return const Text('No tienes sucursales asignadas. Consulta con RRHH.');
-
-        final near = nearestBranch(list, position)!;
-        final color = near.inside ? Colors.green.shade700 : scheme.error;
-
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(AppTheme.radius),
-          ),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(near.inside ? Icons.check_circle_rounded : Icons.near_me_disabled_rounded, color: color, size: 22),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  near.inside ? 'Estás en ${near.branch.name}' : 'Acércate a la agencia para poder realizar tu marcación',
-                  style: TextStyle(fontWeight: FontWeight.w600, color: color),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  near.inside
-                      ? 'Ya puedes marcar.'
-                      : '${near.branch.name} está a ${formatDistance(near.distance)} de ti.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ]),
-            ),
-          ]),
-        );
-      },
-    );
-  }
 }
 
 /// Marcaciones sin conexión que aún no se envían y la última sincronización.
@@ -617,21 +904,19 @@ class _PendingCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final last = lastSyncAt;
-    final lastLabel =
-        last == null ? 'Aún no se sincroniza.' : 'Última sincronización: ${Fmt.date(last)} ${Fmt.time(last)}';
+    final lastLabel = last == null
+        ? 'Aún no se sincroniza.'
+        : 'Última sincronización: ${Fmt.date(last)} ${Fmt.time(last)}';
     final color = count > 0 ? scheme.onTertiaryContainer : scheme.onSurfaceVariant;
     return Card(
       color: count > 0 ? scheme.tertiaryContainer : null,
       child: ListTile(
         leading: Icon(count > 0 ? Icons.cloud_upload_outlined : Icons.cloud_done_outlined, color: color),
-        title: Text(
-          switch (count) {
-            0 => 'Sin marcaciones pendientes',
-            1 => '1 marcación pendiente de envío',
-            _ => '$count marcaciones pendientes de envío',
-          },
-          style: TextStyle(color: color),
-        ),
+        title: Text(switch (count) {
+          0 => 'Sin marcaciones pendientes',
+          1 => '1 marcación pendiente de envío',
+          _ => '$count marcaciones pendientes de envío',
+        }, style: TextStyle(color: color)),
         subtitle: Text(
           count > 0 ? 'Guardadas sin conexión; se envían al recuperar señal.\n$lastLabel' : lastLabel,
           style: TextStyle(color: color),
@@ -640,12 +925,8 @@ class _PendingCard extends ConsumerWidget {
         trailing: count == 0
             ? null
             : syncing
-                ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.5))
-                : IconButton(
-                    tooltip: 'Enviar ahora',
-                    icon: const Icon(Icons.sync),
-                    onPressed: () => _sync(context, ref),
-                  ),
+            ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2.5))
+            : IconButton(tooltip: 'Enviar ahora', icon: const Icon(Icons.sync), onPressed: () => _sync(context, ref)),
       ),
     );
   }
@@ -671,68 +952,6 @@ class _RejectedCard extends StatelessWidget {
         subtitle: Text('Toca para ver el motivo.', style: TextStyle(color: scheme.onErrorContainer)),
         trailing: Icon(Icons.chevron_right, color: scheme.onErrorContainer),
         onTap: () => GoRouter.of(context).push('/attendance/rejected'),
-      ),
-    );
-  }
-}
-
-class _SendErrorCard extends StatelessWidget {
-  const _SendErrorCard({required this.error, required this.onRelocate});
-
-  final ApiException error;
-  final VoidCallback onRelocate;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final gpsIssue = const {'GEOFENCE_VIOLATION', 'MOCK_LOCATION_DETECTED', 'GPS_ACCURACY_TOO_LOW'}.contains(error.code);
-    final faceIssue = error.code == 'FACE_NOT_DETECTED';
-
-    return Card(
-      color: scheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(error.message, style: TextStyle(color: scheme.onErrorContainer)),
-          if (gpsIssue)
-            TextButton(onPressed: onRelocate, child: const Text('Volver a leer el GPS')),
-          if (faceIssue)
-            Text('Repite la selfie con tu rostro centrado y buena luz.', style: TextStyle(color: scheme.onErrorContainer)),
-        ]),
-      ),
-    );
-  }
-}
-
-class _StepCard extends StatelessWidget {
-  const _StepCard({required this.number, required this.title, required this.done, required this.child});
-
-  final int number;
-  final String title;
-  final bool done;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: done ? Colors.green : scheme.primary,
-              child: done
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
-                  : Text('$number', style: TextStyle(color: scheme.onPrimary, fontSize: 13)),
-            ),
-            const SizedBox(width: 10),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-          ]),
-          const SizedBox(height: 12),
-          child,
-        ]),
       ),
     );
   }
