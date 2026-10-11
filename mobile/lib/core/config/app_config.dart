@@ -295,7 +295,7 @@ class AppConfig {
   final ModulesConfig modules;
   final String? configVersion;
 
-  String get displayName => tenant?.displayName ?? 'TuneSA';
+  String get displayName => tenant?.displayName ?? 'Tunesa';
 
   /// Acepta la respuesta completa (`{success, data, meta}`) o solo `data`.
   factory AppConfig.fromJson(Map<String, dynamic> json) {

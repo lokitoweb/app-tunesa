@@ -186,7 +186,9 @@ class WebPanelTest extends TestCase
 
         $this->get('/dashboard')
             ->assertOk()
-            ->assertSee('Vista global: mostrando registros de todas las empresas')
+            // En el dashboard basta el aviso "Plataforma" (el genérico de vista global sería repetirlo)
+            ->assertSee('Las cifras, el mapa y las marcaciones suman todas las empresas')
+            ->assertDontSee('Vista global: mostrando registros de todas las empresas')
             ->assertViewHas('kpis', fn ($kpis) => $kpis['total_employees'] === 2)
             ->assertViewHas('branches', fn ($branches) => $branches->count() === 2)
             ->assertSee('Sede Acme')

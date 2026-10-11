@@ -53,7 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final user = auth.user;
     final appName = ref.watch(appConfigProvider.select((s) => s.config.tenant?.displayName)) ??
         auth.branding?.companyName ??
-        'TuneSA';
+        'Tunesa';
 
     return Scaffold(
       appBar: AppBar(

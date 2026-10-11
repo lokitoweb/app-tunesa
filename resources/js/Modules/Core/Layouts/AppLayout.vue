@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 
 defineProps({ title: { type: String, default: 'Panel' } });
@@ -10,10 +10,20 @@ const brand = computed(() => page.props.brand);
 const bell = computed(() => page.props.notifications);
 const errors = computed(() => Object.values(page.props.errors ?? {}));
 
+// Toasts cerrados; los de éxito e información se cierran solos a los 6 s
+const dismissed = reactive(new Set());
+watch(() => page.props.flash, (flash) => {
+    dismissed.clear();
+    for (const key of ['success', 'info']) {
+        if (flash?.[key]) setTimeout(() => dismissed.add(key + flash[key]), 6000);
+    }
+}, { immediate: true });
+watch(() => page.props.errors, () => dismissed.delete('errors'));
+
 const FLASH = {
-    success: ['success', 'bi-check-circle'],
-    info: ['info', 'bi-info-circle'],
-    error: ['danger', 'bi-exclamation-octagon'],
+    success: ['success', 'bi-check-circle', 'Listo'],
+    info: ['info', 'bi-info-circle', 'Aviso'],
+    error: ['danger', 'bi-exclamation-octagon', 'No se pudo completar'],
 };
 
 // Tema claro / oscuro guardado en el navegador (misma clave que el layout Blade)
@@ -33,16 +43,10 @@ function toggleTheme() {
         <!-- SIDEBAR: fijo en escritorio (lg+), offcanvas en móvil -->
         <aside id="sidebar" class="offcanvas-lg offcanvas-start panel-sidebar" tabindex="-1" aria-labelledby="sidebarLabel">
             <div class="sidebar-brand">
-                <a href="/dashboard" class="d-flex align-items-center gap-2 text-decoration-none">
-                    <template v-if="brand.logo_url">
-                        <img :src="brand.logo_url" alt="" class="brand-logo brand-logo-light" :class="{ 'has-dark': brand.logo_dark_url }">
-                        <img v-if="brand.logo_dark_url" :src="brand.logo_dark_url" alt="" class="brand-logo brand-logo-dark">
-                    </template>
-                    <span v-else class="brand-mark"><i class="bi bi-geo-alt-fill"></i></span>
-                    <span class="lh-sm">
-                        <span id="sidebarLabel" class="d-block fw-semibold text-body text-truncate" style="max-width: 160px;">{{ brand.trade_name }}</span>
-                        <small class="text-body-secondary">Asistencia y RRHH</small>
-                    </span>
+                <a href="/dashboard" class="sidebar-logo" :aria-label="`${brand.trade_name}: ir al inicio`">
+                    <img :src="brand.logo_url" :alt="brand.trade_name" class="brand-logo brand-logo-light" :class="{ 'has-dark': brand.logo_dark_url, 'is-default': brand.default_logo }">
+                    <img v-if="brand.logo_dark_url" :src="brand.logo_dark_url" :alt="brand.trade_name" class="brand-logo brand-logo-dark">
+                    <span id="sidebarLabel" class="visually-hidden">{{ brand.trade_name }}</span>
                 </a>
                 <button type="button" class="btn-close d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Cerrar menú"></button>
             </div>
@@ -60,19 +64,6 @@ function toggleTheme() {
                 </template>
             </nav>
 
-            <div class="sidebar-footer">
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <span class="avatar avatar-sm">{{ auth.initials }}</span>
-                    <div class="overflow-hidden">
-                        <div class="small fw-semibold text-truncate">{{ auth.name }}</div>
-                        <div class="small text-body-secondary">{{ auth.role_label }}</div>
-                    </div>
-                </div>
-                <form method="POST" action="/logout">
-                    <input type="hidden" name="_token" :value="page.props.csrf">
-                    <button type="submit" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión</button>
-                </form>
-            </div>
         </aside>
 
         <div class="panel-main">
@@ -81,11 +72,13 @@ function toggleTheme() {
                     <button class="btn btn-light border d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Abrir menú">
                         <i class="bi bi-list"></i>
                     </button>
-                    <span class="badge text-bg-light border text-truncate d-none d-sm-inline-block">{{ brand.company_name }}</span>
-                    <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0">
+                    <!-- El Super Admin elige la empresa en el filtro; el resto ve el nombre de la suya -->
+                    <span v-if="!auth.is_super_admin" class="topbar-company text-truncate d-none d-sm-inline-block">{{ brand.company_name }}</span>
+                    <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0 tenant-filter">
+                        <i class="bi bi-buildings" aria-hidden="true"></i>
                         <input type="hidden" name="_token" :value="page.props.csrf">
-                        <select name="tenant_id" class="form-select form-select-sm" aria-label="Empresa a administrar" style="max-width: 240px;" @change="$event.target.form.submit()">
-                            <option value="">Vista global (todas las empresas)</option>
+                        <select name="tenant_id" class="form-select form-select-sm tenant-switch" aria-label="Empresa a administrar" @change="$event.target.form.submit()">
+                            <option value="">Todas las empresas</option>
                             <option v-for="t in page.props.tenants" :key="t.id" :value="t.id" :selected="t.id === brand.tenant_id">{{ t.company_name }}</option>
                         </select>
                     </form>
@@ -130,6 +123,28 @@ function toggleTheme() {
                     <button type="button" class="btn btn-light border btn-sm" aria-label="Cambiar tema claro u oscuro" title="Tema claro / oscuro" @click="toggleTheme">
                         <i class="bi" :class="theme === 'dark' ? 'bi-sun' : 'bi-moon-stars'"></i>
                     </button>
+                    <div class="dropdown">
+                        <button type="button" class="user-menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Tu cuenta">
+                            <span class="avatar avatar-sm">{{ auth.initials }}</span>
+                            <span class="d-none d-md-block text-start lh-sm">
+                                <span class="d-block fw-semibold small">{{ auth.name }}</span>
+                                <span class="d-block user-role">{{ auth.role_label }}</span>
+                            </span>
+                            <i class="bi bi-chevron-down small text-body-secondary d-none d-md-inline"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end user-dropdown">
+                            <div class="px-3 py-2">
+                                <div class="fw-semibold">{{ auth.name }}</div>
+                                <div class="small text-body-secondary text-truncate">{{ auth.email }}</div>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="/notifications"><i class="bi bi-bell me-2"></i>Notificaciones</a>
+                            <form method="POST" action="/logout" class="m-0">
+                                <input type="hidden" name="_token" :value="page.props.csrf">
+                                <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -139,18 +154,29 @@ function toggleTheme() {
                     <div>Vista global: mostrando registros de todas las empresas. Para crear o editar, elige una empresa en el selector superior.</div>
                 </div>
 
+                <!-- Avisos flotantes (toasts): arriba a la derecha, no empujan el contenido -->
+                <div class="toast-stack" aria-live="polite">
                 <template v-for="(text, key) in page.props.flash" :key="key + text">
-                    <div class="alert d-flex align-items-start gap-2" :class="`alert-${FLASH[key][0]}`" role="alert">
+                    <div v-if="!dismissed.has(key + text)" class="alert alert-dismissible" :class="`alert-${FLASH[key][0]}`" role="alert">
                         <i class="bi" :class="FLASH[key][1]"></i>
-                        <div>{{ text }}</div>
+                        <div>
+                            <strong class="toast-title">{{ FLASH[key][2] }}</strong>
+                            <span class="toast-text">{{ text }}</span>
+                        </div>
+                        <button type="button" class="btn-close" aria-label="Cerrar" @click="dismissed.add(key + text)"></button>
                     </div>
                 </template>
 
-                <div v-if="errors.length" class="alert alert-danger" role="alert">
-                    <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-1"></i> Revisa los datos del formulario</div>
-                    <ul class="mb-0 small">
-                        <li v-for="error in errors" :key="error">{{ error }}</li>
-                    </ul>
+                <div v-if="errors.length && !dismissed.has('errors')" class="alert alert-danger alert-dismissible" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <div>
+                        <strong class="toast-title">Revisa los datos del formulario</strong>
+                        <ul class="mb-0 toast-text">
+                            <li v-for="error in errors" :key="error">{{ error }}</li>
+                        </ul>
+                    </div>
+                    <button type="button" class="btn-close" aria-label="Cerrar" @click="dismissed.add('errors')"></button>
+                </div>
                 </div>
 
                 <slot />

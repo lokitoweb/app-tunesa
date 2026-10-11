@@ -32,11 +32,4 @@
     .brand-logo-dark { display: none !important; }
     [data-bs-theme="dark"] .brand-logo-light.has-dark { display: none !important; }
     [data-bs-theme="dark"] .brand-logo-dark { display: inline-block !important; }
-@if($brandSettings->hasCustomNavbar())
-    /* Barra superior con el color de navegación elegido */
-    .panel-topbar { background: var(--brand-navbar); color: var(--brand-navbar-text); border-bottom-color: transparent; }
-    .panel-topbar .text-body-secondary { color: color-mix(in srgb, var(--brand-navbar-text) 75%, transparent) !important; }
-    .sidebar-link.active { box-shadow: inset 3px 0 0 var(--brand-navbar); }
-    [data-bs-theme="dark"] .sidebar-link.active { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--brand-navbar) 50%, #fff); }
-@endif
 </style>

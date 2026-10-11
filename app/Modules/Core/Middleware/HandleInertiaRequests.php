@@ -45,7 +45,7 @@ class HandleInertiaRequests extends Middleware
                 // Empresa activa (la del usuario, o la que eligió el Super Admin); sin empresa = plataforma
                 $tenant   = app(TenantContext::class)->getOrNull() ?? $user?->tenant;
                 $settings = TenantSetting::forTenant($tenant);
-                $logo     = $settings->logoUrl();
+                $logo     = $settings->displayLogoUrl();
                 $logoDark = $settings->logoDarkUrl();
 
                 return [
@@ -53,6 +53,7 @@ class HandleInertiaRequests extends Middleware
                     'company_name'  => $tenant->company_name ?? 'Plataforma',
                     'tenant_id'     => $tenant?->id,
                     'logo_url'      => $logo,
+                    'default_logo'  => $settings->usesDefaultLogo(),
                     'logo_dark_url' => $logoDark && $logoDark !== $logo ? $logoDark : null,
                 ];
             },

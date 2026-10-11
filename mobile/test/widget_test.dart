@@ -16,10 +16,11 @@ Future<void> _pumpApp(WidgetTester tester, Map<String, Object> prefsValues) asyn
 }
 
 void main() {
-  testWidgets('sin empresa elegida muestra la pantalla de código de empresa', (tester) async {
+  testWidgets('sin empresa conocida muestra el login directo, sin pedir código de empresa', (tester) async {
     await _pumpApp(tester, {});
-    expect(find.text('Código de empresa'), findsOneWidget);
-    expect(find.text('Continuar'), findsOneWidget);
+    expect(find.text('Ingresar'), findsOneWidget);
+    expect(find.text('Código de empresa'), findsNothing);
+    expect(find.text('Entrar con otra empresa'), findsNothing);
   });
 
   testWidgets('con empresa y sin sesión muestra el login con su marca', (tester) async {
@@ -29,7 +30,7 @@ void main() {
     });
     expect(find.text('Empresa Demo SAC'), findsOneWidget);
     expect(find.text('Ingresar'), findsOneWidget);
-    expect(find.text('Cambiar de empresa'), findsOneWidget);
+    expect(find.text('Entrar con otra empresa'), findsOneWidget);
   });
 
   testWidgets('el login valida el formulario antes de llamar a la API', (tester) async {

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Core\Controllers\Api;
 
+use App\Modules\Core\Services\TenantContext;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Attendance\Requests\LoginRequest;
 use App\Modules\Core\Resources\UserResource;
@@ -68,6 +69,44 @@ class AuthController extends Controller
         // Credenciales + bloqueo por fuerza bruta (429 ráfaga / 423 cuenta bloqueada)
         $user = $this->guard->attempt($request, $user, $tenant->id);
 
+        return $this->openSession($user, $request);
+    }
+
+    /**
+     * Login sin código de empresa: la app solo pide correo y contraseña y el
+     * servidor reconoce la empresa del usuario (y con ella su rol y su sede).
+     *
+     * POST /api/v1/auth/login
+     *
+     * El correo es único en toda la plataforma (índice users.email), así que
+     * identifica una sola cuenta. La respuesta trae user.company.slug, que la
+     * app guarda para enviar X-Tenant-Slug en el resto de llamadas.
+     */
+    public function loginByEmail(LoginRequest $request, TenantContext $context): JsonResponse
+    {
+        // El Super Admin (sin empresa) entra por /api/superadmin/auth/login
+        $user = User::whereNotNull('tenant_id')->where('email', $request->email)->with('tenant')->first();
+
+        // Credenciales + bloqueo por fuerza bruta (429 ráfaga / 423 cuenta bloqueada)
+        $user = $this->guard->attempt($request, $user, $user?->tenant_id);
+
+        if (! $user->tenant?->isActive()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La cuenta de la empresa está suspendida o cancelada.',
+                'code'    => 'TENANT_INACTIVE',
+            ], 403);
+        }
+
+        // Desde aquí la petición es de esa empresa (global scopes y zona horaria)
+        $context->set($user->tenant);
+
+        return $this->openSession($user, $request);
+    }
+
+    /** Cuenta activa → token Sanctum del dispositivo y datos del usuario */
+    private function openSession(User $user, LoginRequest $request): JsonResponse
+    {
         // Verificar que el usuario está activo
         if ($user->status !== 'active') {
             return response()->json([

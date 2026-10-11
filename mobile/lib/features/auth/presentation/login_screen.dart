@@ -83,8 +83,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final config = ref.watch(appConfigProvider.select((s) => s.config));
     final theme = Theme.of(context);
 
+    // Fondo cielo (blanco → celeste), igual que el acceso del panel: el logo conserva sus colores
+    const sky = BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFFFFFFF), Color(0xFFEAF6FF), Color(0xFFC6E6FB)],
+        stops: [0, 0.35, 1],
+      ),
+    );
+
     return Scaffold(
-      body: SafeArea(
+      body: DecoratedBox(
+        decoration: theme.brightness == Brightness.dark ? const BoxDecoration() : sky,
+        child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -94,7 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Mantener presionado: conexión del servidor (testers)
-                  BrandLogo(height: 72, onLongPress: () => showServerConnectionDialog(context)),
+                  BrandLogo(height: 104, onLongPress: () => showServerConnectionDialog(context)),
                   const SizedBox(height: 16),
                   Text(config.tenant?.displayName ?? auth.branding?.companyName ?? config.displayName,
                       textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
@@ -152,12 +164,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
                         : const Text('Ingresar'),
                   ),
-                  if (!controller.hasFixedTenant) ...[
+                  // Solo si la app ya recuerda una empresa (otra persona quiere entrar con la suya)
+                  if (!controller.hasFixedTenant && auth.status == AuthStatus.unauthenticated) ...[
                     const SizedBox(height: 16),
                     TextButton.icon(
                       onPressed: _loading ? null : controller.changeTenant,
                       icon: const Icon(Icons.swap_horiz),
-                      label: const Text('Cambiar de empresa'),
+                      label: const Text('Entrar con otra empresa'),
                     ),
                   ],
                 ],
@@ -165,7 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ),
-      ),
+      )),
     );
   }
 }
@@ -178,8 +191,8 @@ class _Banner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
         child: Text(text),
       );
 }
