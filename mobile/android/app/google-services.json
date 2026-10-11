@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "745966192292",
+    "project_id": "app-tunesa",
+    "storage_bucket": "app-tunesa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:745966192292:android:da77ce95e64f95eb814831",
+        "android_client_info": {
+          "package_name": "com.tunesa.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4WTYMG02Fm_TKXf5Jsqo0Zg-8xBZ8V2s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

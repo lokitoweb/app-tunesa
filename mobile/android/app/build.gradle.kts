@@ -84,8 +84,9 @@ android {
 }
 
 // Firebase (push) se inicializa desde Dart con las opciones de --dart-define
-// (FIREBASE_*): NO se usa el plugin com.google.gms.google-services ni
-// google-services.json. Sin esos valores el push queda apagado.
+// (FIREBASE_*); NO se usa el plugin com.google.gms.google-services.
+// scripts/build_apk.sh lee google-services.json (esta carpeta) y pasa sus
+// valores como FIREBASE_* cuando faltan. Sin esos valores el push queda apagado.
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")

@@ -7,6 +7,7 @@
 #   API_BASE_URL=https://api.cliente.pe scripts/build_apk.sh prod   # otro dominio
 #   API_BASE_URL=https://xxxx.trycloudflare.com scripts/build_apk.sh tunnel   # túnel de pruebas
 #   FIREBASE_API_KEY=... FIREBASE_APP_ID=... scripts/build_apk.sh prod   # push (ver README)
+#   (en Android, los FIREBASE_* vacíos se toman de android/app/google-services.json)
 #
 # Firma: si existe android/key.properties usa la llave de producción. Sin ella,
 # un release de prod FALLA; staging/tunnel/dev se firman con la llave debug
@@ -50,6 +51,34 @@ for VAR in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBAS
     EXTRA_DEFINES+=("--dart-define=${VAR}=${!VAR}")
   fi
 done
+# Si android/app/google-services.json existe, completa los FIREBASE_* de Android
+# que sigan vacíos (ni en el entorno ni en el JSON del entorno).
+GS_JSON="android/app/google-services.json"
+if [[ -f "$GS_JSON" ]] && command -v python3 >/dev/null 2>&1; then
+  while IFS='=' read -r VAR VALUE; do
+    if [[ -n "$VALUE" && -z "${!VAR:-}" ]] && grep -q "\"${VAR}\": *\"\"" "$ENV_FILE"; then
+      EXTRA_DEFINES+=("--dart-define=${VAR}=${VALUE}")
+    fi
+  done < <(python3 - "$GS_JSON" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+project = data.get("project_info", {})
+for client in data.get("client", []):
+    info = client.get("client_info", {})
+    if info.get("android_client_info", {}).get("package_name") != "com.tunesa.mobile":
+        continue
+    keys = client.get("api_key") or [{}]
+    print("FIREBASE_API_KEY=" + keys[0].get("current_key", ""))
+    print("FIREBASE_APP_ID=" + info.get("mobilesdk_app_id", ""))
+    print("FIREBASE_MESSAGING_SENDER_ID=" + str(project.get("project_number", "")))
+    print("FIREBASE_PROJECT_ID=" + project.get("project_id", ""))
+    break
+PY
+)
+  echo "Firebase (Android): valores tomados de $GS_JSON cuando faltaban."
+elif [[ -f "$GS_JSON" ]]; then
+  echo "Aviso: hay $GS_JSON pero no python3; el push usa solo FIREBASE_* del entorno." >&2
+fi
 if [[ ! -f android/key.properties && "$MODE" == "release" ]]; then
   if [[ "$ENV_NAME" == "prod" && "${ALLOW_DEBUG_SIGNING:-0}" != "1" ]]; then
     echo "Error: un release de producción exige android/key.properties (llave de firma de la empresa)." >&2

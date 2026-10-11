@@ -207,9 +207,11 @@ Sin el modo activo, sin red no se marca.
 
 ## Notificaciones push (FCM)
 
-Firebase se inicializa **desde Dart con opciones de `--dart-define`**: no hay
-`google-services.json` ni `GoogleService-Info.plist` y Android **no** usa el plugin
-`com.google.gms.google-services`. Claves (vacías en `env/*.json`):
+Firebase se inicializa **desde Dart con opciones de `--dart-define`** y Android **no** usa el
+plugin `com.google.gms.google-services`. `android/app/google-services.json` (proyecto Firebase
+`app-tunesa`, app `com.tunesa.mobile`) está versionado: `scripts/build_apk.sh` (local y CI) toma
+de ahí los `FIREBASE_*` de Android que sigan vacíos. No hay `GoogleService-Info.plist`.
+Claves (vacías en `env/*.json`):
 
 | Clave | Uso |
 |---|---|
