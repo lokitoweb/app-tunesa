@@ -55,6 +55,7 @@ Route::middleware('api.tenant')->group(function () {
         Route::delete('sessions/{id}', [AuthController::class, 'revokeSession'])->whereNumber('id');
         Route::get('me',               [AuthController::class, 'me']);
         Route::put('profile',          [AuthController::class, 'updateProfile']);
+        Route::post('profile',         [AuthController::class, 'updateProfile']); // multipart (foto de perfil)
         Route::put('change-password',  [AuthController::class, 'changePassword']);
         Route::post('refresh-fcm',     [AuthController::class, 'updateFcmToken']);
     });

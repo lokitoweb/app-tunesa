@@ -55,7 +55,7 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
     final file = ref.watch(employeeFileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Contacto y emergencia')),
+      appBar: AppBar(title: const Text('Contacto de emergencia')),
       body: file.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),

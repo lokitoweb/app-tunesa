@@ -11,6 +11,7 @@ use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\LoginGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -344,16 +345,21 @@ class AuthController extends Controller
             'last_name'  => ['sometimes', 'string', 'max:100'],
             'phone'      => ['sometimes', 'nullable', 'string', 'max:20'],
             'avatar'     => ['sometimes', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
-        ]);
+        ], ['avatar.max' => 'La foto no puede pesar más de 2 MB.', 'avatar.image' => 'La foto debe ser una imagen JPG o PNG.']);
 
-        // Procesar avatar si se subió uno nuevo
+        // Procesar avatar si se subió uno nuevo (y borrar el anterior)
+        $previous = null;
         if ($request->hasFile('avatar')) {
+            $previous = $user->avatar_path;
             $validated['avatar_path'] = $request->file('avatar')
                 ->store("avatars/{$user->tenant_id}", 'public');
             unset($validated['avatar']);
         }
 
         $user->update($validated);
+        if ($previous) {
+            Storage::disk('public')->delete($previous);
+        }
 
         return response()->json([
             'success' => true,

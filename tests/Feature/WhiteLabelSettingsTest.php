@@ -282,11 +282,16 @@ class WhiteLabelSettingsTest extends TestCase
         $acme = $this->makeTenant('acme', ['phone' => '014445555']);
         $this->setRow($acme, ['accent_color' => '#22c55e', 'webhook_secret' => 'whsec_super_secreto', 'maps_api_key' => 'AIzaClaveMapas']);
 
+        $this->setRow($this->makeTenant('navy'), ['navbar_color' => '#0b1f3a']);
+        $this->getJson('/api/v1/app/config?tenant_slug=navy')->assertOk()->assertJsonPath('data.branding.navbar_color', '#0B1F3A');
+
         $res = $this->getJson('/api/v1/app/config?tenant_slug=acme')->assertOk()
             ->assertJsonStructure(self::APP_CONFIG_STRUCTURE)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.tenant.slug', 'acme')
             ->assertJsonPath('data.branding.accent_color', '#22C55E')
+            // Sin color de barra elegido la app usa su barra clara
+            ->assertJsonPath('data.branding.navbar_color', null)
             ->assertJsonPath('data.mobile.min_supported_version', '1.0.0')
             ->assertJsonPath('data.mobile.selfie_required', true)
             ->assertJsonPath('data.mobile.geofence_strict_mode', true)
@@ -310,7 +315,8 @@ class WhiteLabelSettingsTest extends TestCase
         $structure = self::APP_CONFIG_STRUCTURE;
         unset($structure['data']['tenant']);
         $platform->assertJsonStructure($structure);
-        foreach (['primary_color', 'secondary_color', 'accent_color', 'navbar_color'] as $color) {
+        $platform->assertJsonPath('data.branding.navbar_color', null);
+        foreach (['primary_color', 'secondary_color', 'accent_color'] as $color) {
             $this->assertMatchesRegularExpression('/^#[0-9A-F]{6}$/', $platform->json("data.branding.{$color}"));
         }
 

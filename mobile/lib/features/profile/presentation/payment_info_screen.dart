@@ -17,7 +17,7 @@ class PaymentInfoScreen extends ConsumerWidget {
     final file = ref.watch(employeeFileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Datos de Pago y Previsión')),
+      appBar: AppBar(title: const Text('Información de pago')),
       body: file.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),

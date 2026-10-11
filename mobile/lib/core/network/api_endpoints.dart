@@ -16,6 +16,7 @@ class ApiEndpoints {
   static const forgotPasswordByEmail = '/v1/auth/forgot-password';
   static const logout = '/auth/logout';
   static const me = '/auth/me';
+  static const profile = '/auth/profile';
   static const forgotPassword = '/auth/forgot-password';
   static const changePassword = '/auth/change-password';
   static const logoutAll = '/auth/logout-all';
