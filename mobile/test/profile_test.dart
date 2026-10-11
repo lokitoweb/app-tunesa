@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -123,7 +124,69 @@ void main() {
       await _pump(tester, ProfileBody(file: EmployeeFile.fromJson(_profileJson())), theme: AppTheme.dark());
       final context = tester.element(find.byType(ProfileBody));
       expect(Theme.of(context).brightness, Brightness.dark);
-      expect(find.text('Mi Legajo'), findsOneWidget);
+      expect(find.text('Mis documentos'), findsOneWidget);
+    });
+  });
+
+  group('Cerrar sesión', () {
+    // Pantalla angosta (320 dp) y letra grande del sistema: el caso donde se partía
+    for (final scale in [1.0, 1.3]) {
+      testWidgets('el botón del diálogo queda en una sola línea (texto x$scale)', (tester) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(MaterialApp(
+          theme: AppTheme.light(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(onPressed: () => confirmLogout(context), child: const Text('abrir')),
+            ),
+          ),
+        ));
+        await tester.tap(find.text('abrir'));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        for (final label in ['Cerrar sesión', 'Cancelar']) {
+          final text = find.descendant(of: find.byWidgetPredicate((w) => w is ButtonStyleButton), matching: find.text(label));
+          expect(text, findsOneWidget);
+          final paragraph = tester.renderObject<RenderParagraph>(text);
+          // Alto de una sola línea con el mismo estilo y escala
+          final oneLine = TextPainter(text: paragraph.text, textDirection: TextDirection.ltr, textScaler: paragraph.textScaler)
+            ..layout();
+          addTearDown(oneLine.dispose);
+          expect(paragraph.size.height, moreOrLessEquals(oneLine.height), reason: '"$label" se partió en varias líneas');
+          expect(paragraph.didExceedMaxLines, isFalse);
+        }
+      });
+    }
+
+    testWidgets('Cancelar devuelve false y Cerrar sesión devuelve true', (tester) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.light(),
+        home: Builder(builder: (context) {
+          ctx = context;
+          return const Scaffold();
+        }),
+      ));
+
+      var result = confirmLogout(ctx);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(await result, isFalse);
+
+      result = confirmLogout(ctx);
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(of: find.byType(FilledButton), matching: find.text('Cerrar sesión')));
+      await tester.pumpAndSettle();
+      expect(await result, isTrue);
     });
   });
 

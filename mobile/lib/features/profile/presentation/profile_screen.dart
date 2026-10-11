@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../core/widgets/async_views.dart';
+import 'profile_avatar.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
@@ -63,7 +64,7 @@ class ProfileBody extends StatelessWidget {
           _SectionTile(
             key: const Key('section-documents'),
             icon: Icons.folder_shared_outlined,
-            title: 'Mi Legajo',
+            title: 'Mis documentos',
             subtitle: file.missingDocuments.isEmpty
                 ? 'Documentos completos'
                 : 'Falta: ${file.missingDocuments.map((t) => file.catalogs.documentTypes[t] ?? t).join(', ')}',
@@ -74,7 +75,7 @@ class ProfileBody extends StatelessWidget {
           _SectionTile(
             key: const Key('section-payment'),
             icon: Icons.account_balance_outlined,
-            title: 'Datos de Pago y Previsión',
+            title: 'Información de pago',
             subtitle: file.payment.isComplete
                 ? '${file.payment.bankName} ${file.payment.accountNumberMasked ?? ''} · ${file.payment.statusLabel}'
                 : 'Registra tu cuenta y tu AFP / ONP',
@@ -85,7 +86,7 @@ class ProfileBody extends StatelessWidget {
           _SectionTile(
             key: const Key('section-uniforms'),
             icon: Icons.checkroom_outlined,
-            title: 'Dotación',
+            title: 'Uniforme y tallas',
             subtitle: file.sizes?.isComplete == true
                 ? 'Polo ${file.sizes!.shirt} · Pantalón ${file.sizes!.pants} · Calzado ${file.sizes!.shoes}'
                 : 'Elige tus tallas de uniforme',
@@ -94,7 +95,7 @@ class ProfileBody extends StatelessWidget {
           ),
         _SectionTile(
           icon: Icons.contact_emergency_outlined,
-          title: 'Contacto y emergencia',
+          title: 'Contacto de emergencia',
           subtitle: file.emergencyContactPhone != null
               ? '${file.emergencyContactName ?? ''} · ${file.emergencyContactPhone}'
               : 'Agrega tu dirección y un contacto de emergencia',
@@ -131,11 +132,7 @@ class _Header extends StatelessWidget {
         ),
       ),
       child: Row(children: [
-        CircleAvatar(
-          radius: 30,
-          backgroundColor: scheme.onPrimary.withValues(alpha: 0.2),
-          child: Text(initials, style: TextStyle(color: scheme.onPrimary, fontSize: 22, fontWeight: FontWeight.w700)),
-        ),
+        ProfileAvatar(initials: initials),
         const SizedBox(width: 16),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -208,8 +205,8 @@ class _SectionTile extends StatelessWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           leading: Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: scheme.onPrimaryContainer),
+            decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, color: scheme.primary),
           ),
           title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
           subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -230,7 +227,6 @@ class _AccountSection extends ConsumerWidget {
     final mode = ref.watch(themeModeProvider);
     final auth = ref.watch(authControllerProvider);
     final company = auth.user?.companyName ?? auth.branding?.companyName;
-    final scheme = Theme.of(context).colorScheme;
 
     return Card(
       child: Column(children: [
@@ -269,47 +265,80 @@ class _AccountSection extends ConsumerWidget {
         const Divider(),
         ListTile(
           leading: Icon(Icons.logout_rounded, color: Theme.of(context).colorScheme.error),
-          title: Text('Cerrar sesión', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          title: Text(
+            'Cerrar sesión',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
           onTap: () async {
-            final ok = await showDialog<bool>(
-              context: context,
-              builder: (c) => AlertDialog(
-                icon: CircleAvatar(
-                  radius: 26,
-                  backgroundColor: scheme.errorContainer,
-                  child: Icon(Icons.logout_rounded, color: scheme.onErrorContainer),
-                ),
-                title: const Text('¿Cerrar sesión?'),
-                content: const Text(
-                  'Tendrás que ingresar tu correo y contraseña para volver a entrar.',
-                  textAlign: TextAlign.center,
-                ),
-                actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                actions: [
-                  Row(children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(minimumSize: const Size(64, 50)),
-                        onPressed: () => Navigator.pop(c, false),
-                        child: const Text('Cancelar'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError),
-                        onPressed: () => Navigator.pop(c, true),
-                        child: const Text('Cerrar sesión'),
-                      ),
-                    ),
-                  ]),
-                ],
-              ),
-            );
+            final ok = await confirmLogout(context);
             if (ok == true) await ref.read(authControllerProvider.notifier).logout();
           },
         ),
       ]),
     );
   }
+}
+
+/// Confirmación de cierre de sesión. Devuelve true si el usuario confirma.
+Future<bool?> confirmLogout(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  return showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      icon: CircleAvatar(
+        radius: 26,
+        backgroundColor: scheme.errorContainer,
+        child: Icon(Icons.logout_rounded, color: scheme.onErrorContainer),
+      ),
+      title: const Text('¿Cerrar sesión?'),
+      content: const Text(
+        'Tendrás que ingresar tu correo y contraseña para volver a entrar.',
+        textAlign: TextAlign.center,
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      actions: [
+        Row(children: [
+          Expanded(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 50),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              onPressed: () => Navigator.pop(c, false),
+              child: const _OneLine('Cancelar'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+                minimumSize: const Size(0, 50),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              onPressed: () => Navigator.pop(c, true),
+              child: const _OneLine('Cerrar sesión'),
+            ),
+          ),
+        ]),
+      ],
+    ),
+  );
+}
+
+/// Texto de botón en una sola línea: si no cabe (pantalla angosta o letra
+/// grande del sistema) se achica en vez de partirse en dos.
+class _OneLine extends StatelessWidget {
+  const _OneLine(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(text, maxLines: 1, softWrap: false),
+      );
 }

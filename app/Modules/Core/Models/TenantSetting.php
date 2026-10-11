@@ -324,7 +324,10 @@ class TenantSetting extends Model
     /** true si la empresa o la plataforma eligió un color de barra (el panel solo lo aplica entonces) */
     public function hasCustomNavbar(): bool
     {
-        return self::isHex($this->navbar_color);
+        // La instancia efectiva siempre trae el color de fábrica: se miran las filas guardadas
+        return $this->isEffective
+            ? self::isHex($this->tenantRow?->navbar_color) || self::isHex($this->globalRow?->navbar_color)
+            : self::isHex($this->navbar_color);
     }
 
     /** Logo claro: el de la empresa (tenants.logo_path) o el de la plataforma */

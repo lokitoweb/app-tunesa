@@ -57,6 +57,7 @@ class AppUser {
     this.employeeCode,
     this.position,
     this.companyName,
+    this.avatarUrl,
     this.mustChangePassword = false,
     this.permissions = const {},
   });
@@ -68,6 +69,9 @@ class AppUser {
   final String role;
   final String? employeeCode;
   final String? position;
+
+  /// Foto de perfil (null: se muestran las iniciales).
+  final String? avatarUrl;
   final String? companyName;
 
   /// Cuenta creada por RRHH con contraseña temporal: debe cambiarla primero.
@@ -115,6 +119,7 @@ class AppUser {
         role: json['role']?.toString() ?? 'employee',
         employeeCode: json['employee_code'] as String?,
         position: json['position'] as String?,
+        avatarUrl: json['avatar_url'] as String?,
         companyName: (json['company'] as Map?)?['name'] as String? ?? json['company_name'] as String?,
         mustChangePassword: json['must_change_password'] == true,
         permissions: parsePermissions(json['permissions']),
@@ -129,6 +134,7 @@ class AppUser {
         employeeCode: employeeCode,
         position: position,
         companyName: companyName,
+        avatarUrl: avatarUrl,
         mustChangePassword: mustChangePassword ?? this.mustChangePassword,
         permissions: permissions,
       );
@@ -142,6 +148,7 @@ class AppUser {
         'employee_code': employeeCode,
         'position': position,
         'company_name': companyName,
+        'avatar_url': avatarUrl,
         'must_change_password': mustChangePassword,
         'permissions': permissions,
       };

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_client.dart';
@@ -42,6 +43,17 @@ class AuthRepository {
   /// Refresca los datos del usuario; lanza ApiException 401 si el token caducó.
   Future<AppUser> me() async {
     final json = await _api.get(ApiEndpoints.me);
+    final user = AppUser.fromJson(Map<String, dynamic>.from(json['data'] as Map));
+    await _storage.saveUser(user.toJson());
+    return user;
+  }
+
+  /// Sube la foto de perfil (multipart por POST) y devuelve el usuario actualizado.
+  Future<AppUser> uploadAvatar(List<int> bytes) async {
+    final json = await _api.postMultipart(
+      ApiEndpoints.profile,
+      FormData.fromMap({'avatar': MultipartFile.fromBytes(bytes, filename: 'avatar.jpg')}),
+    );
     final user = AppUser.fromJson(Map<String, dynamic>.from(json['data'] as Map));
     await _storage.saveUser(user.toJson());
     return user;

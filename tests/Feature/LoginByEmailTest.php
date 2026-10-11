@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
 
@@ -72,6 +74,26 @@ class LoginByEmailTest extends TestCase
         $acme->update(['status' => 'suspended']);
         $this->postJson('/api/v1/auth/login', ['email' => 'ana@acme.test', 'password' => 'Secret123'])
             ->assertStatus(403)->assertJsonPath('code', 'TENANT_INACTIVE');
+    }
+
+    public function test_user_changes_profile_photo_and_the_old_file_is_removed(): void
+    {
+        Storage::fake('public');
+        $acme = $this->makeTenant('acme');
+        $ana  = $this->makeUser($acme, 'employee', ['email' => 'ana@acme.test']);
+
+        $first = $this->actingIn($ana, $acme)
+            ->post('/api/auth/profile', ['avatar' => UploadedFile::fake()->image('yo.jpg', 400, 400)], ['Accept' => 'application/json'])
+            ->assertOk()->json('data.avatar_url');
+        $this->assertNotNull($first);
+        $old = $ana->fresh()->avatar_path;
+        Storage::disk('public')->assertExists($old);
+
+        $this->post('/api/auth/profile', ['avatar' => UploadedFile::fake()->image('otra.png')], ['Accept' => 'application/json'])->assertOk();
+        Storage::disk('public')->assertMissing($old);
+        Storage::disk('public')->assertExists($ana->fresh()->avatar_path);
+
+        $this->post('/api/auth/profile', ['avatar' => UploadedFile::fake()->create('cv.pdf', 10)], ['Accept' => 'application/json'])->assertStatus(422);
     }
 
     public function test_forgot_password_works_without_company_code(): void
