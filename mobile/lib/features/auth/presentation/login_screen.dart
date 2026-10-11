@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/config/app_config_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/brand_logo.dart';
 import '../../server/server_connection_dialog.dart';
 import '../../../core/widgets/async_views.dart';
 import 'auth_controller.dart';
 
-/// Paso 2: correo y contraseña dentro de la empresa elegida.
+/// Acceso: solo correo y contraseña; la empresa y la sede las reconoce el servidor.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -79,9 +78,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
-    final controller = ref.read(authControllerProvider.notifier);
-    final config = ref.watch(appConfigProvider.select((s) => s.config));
     final theme = Theme.of(context);
+    final fieldFill = theme.brightness == Brightness.dark ? null : Colors.white;
 
     // Fondo cielo (blanco → celeste), igual que el acceso del panel: el logo conserva sus colores
     const sky = BoxDecoration(
@@ -107,13 +105,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   // Mantener presionado: conexión del servidor (testers)
                   BrandLogo(height: 104, onLongPress: () => showServerConnectionDialog(context)),
-                  const SizedBox(height: 16),
-                  Text(config.tenant?.displayName ?? auth.branding?.companyName ?? config.displayName,
-                      textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
-                  const SizedBox(height: 4),
-                  Text('Inicia sesión con la cuenta que te entregó RRHH',
-                      textAlign: TextAlign.center, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
+                  Text('Iniciar sesión',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 20),
                   if (auth.notice != null && _error == null) ...[
                     _Banner(text: auth.notice!, color: theme.colorScheme.tertiaryContainer),
                     const SizedBox(height: 16),
@@ -129,6 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     autofillHints: const [AutofillHints.username],
                     textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
+                      fillColor: fieldFill,
                       labelText: 'Correo',
                       prefixIcon: const Icon(Icons.mail_outline),
                       errorText: _error?.fieldError('email'),
@@ -143,6 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _submit(),
                     decoration: InputDecoration(
+                      fillColor: fieldFill,
                       labelText: 'Contraseña',
                       prefixIcon: const Icon(Icons.lock_outline),
                       errorText: _error?.fieldError('password'),
@@ -164,15 +162,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
                         : const Text('Ingresar'),
                   ),
-                  // Solo si la app ya recuerda una empresa (otra persona quiere entrar con la suya)
-                  if (!controller.hasFixedTenant && auth.status == AuthStatus.unauthenticated) ...[
-                    const SizedBox(height: 16),
-                    TextButton.icon(
-                      onPressed: _loading ? null : controller.changeTenant,
-                      icon: const Icon(Icons.swap_horiz),
-                      label: const Text('Entrar con otra empresa'),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -192,7 +181,7 @@ class _Banner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
         child: Text(text),
       );
 }

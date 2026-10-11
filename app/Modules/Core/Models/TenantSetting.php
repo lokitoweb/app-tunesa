@@ -509,7 +509,8 @@ class TenantSetting extends Model
             'primary_color'   => $this->primaryColor(),
             'secondary_color' => $this->secondaryColor(),
             'accent_color'    => $this->accentColor(),
-            'navbar_color'    => $this->navbarColor(),
+            // null si nadie eligió color de barra: la app usa su barra clara (igual que el panel)
+            'navbar_color'    => $this->hasCustomNavbar() ? $this->navbarColor() : null,
         ];
     }
 

@@ -5,6 +5,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/utils/attachment_picker.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
+import '../../../core/widgets/picker_field.dart';
 import '../domain/models.dart';
 import 'requests_screen.dart';
 
@@ -115,16 +116,19 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            SegmentedButton<LeaveType>(
-              segments: [for (final t in LeaveType.values) ButtonSegment(value: t, label: Text(t.label))],
-              selected: {_type},
-              onSelectionChanged: (s) => setState(() => _type = s.first),
+            DropdownButtonFormField<LeaveType>(
+              initialValue: _type,
+              decoration: const InputDecoration(labelText: 'Tipo de solicitud', prefixIcon: Icon(Icons.category_outlined)),
+              items: [for (final t in LeaveType.values) DropdownMenuItem(value: t, child: Text(t.label))],
+              onChanged: (t) => setState(() => _type = t ?? _type),
             ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _pickRange,
-              icon: const Icon(Icons.date_range),
-              label: Text(range == null ? 'Elegir fechas' : '${Fmt.date(range.start)} al ${Fmt.date(range.end)}'),
+            const SizedBox(height: 12),
+            PickerField(
+              label: 'Fechas',
+              icon: Icons.date_range_outlined,
+              value: range == null ? null : '${Fmt.date(range.start)} al ${Fmt.date(range.end)}',
+              placeholder: 'Elegir fechas',
+              onTap: _pickRange,
             ),
             if (_error?.fieldError('start_date') != null || _error?.fieldError('end_date') != null)
               Text(_error!.fieldError('start_date') ?? _error!.fieldError('end_date')!,
@@ -139,33 +143,44 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
               if (_byHours)
                 Row(children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _pickTime(true),
-                      child: Text(_startTime == null ? 'Desde' : _hhmm(_startTime!)),
+                    child: PickerField(
+                      label: 'Desde',
+                      icon: Icons.schedule,
+                      value: _startTime == null ? null : _hhmm(_startTime!),
+                      placeholder: '--:--',
+                      onTap: () => _pickTime(true),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _pickTime(false),
-                      child: Text(_endTime == null ? 'Hasta' : _hhmm(_endTime!)),
+                    child: PickerField(
+                      label: 'Hasta',
+                      icon: Icons.schedule,
+                      value: _endTime == null ? null : _hhmm(_endTime!),
+                      placeholder: '--:--',
+                      onTap: () => _pickTime(false),
                     ),
                   ),
                 ]),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _reason,
               maxLines: 4,
               maxLength: 1000,
-              decoration: InputDecoration(labelText: 'Motivo', errorText: _error?.fieldError('reason')),
+              decoration: InputDecoration(
+                labelText: 'Motivo',
+                alignLabelWithHint: true,
+                errorText: _error?.fieldError('reason'),
+              ),
               validator: (v) => (v == null || v.trim().length < 5) ? 'Describe el motivo (mínimo 5 caracteres)' : null,
             ),
-            OutlinedButton.icon(
-              onPressed: _pickAttachment,
-              icon: const Icon(Icons.attach_file),
-              label: Text(_attachment?.name ??
-                  (_type.requiresAttachment ? 'Adjuntar certificado médico (obligatorio)' : 'Adjuntar sustento (opcional)')),
+            PickerField(
+              label: _type.requiresAttachment ? 'Certificado médico (obligatorio)' : 'Sustento (opcional)',
+              icon: Icons.attach_file,
+              value: _attachment?.name,
+              placeholder: 'Adjuntar archivo',
+              onTap: _pickAttachment,
             ),
             if (_error?.fieldError('attachment') != null)
               Text(_error!.fieldError('attachment')!, style: TextStyle(color: Theme.of(context).colorScheme.error)),

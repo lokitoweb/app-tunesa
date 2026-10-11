@@ -20,9 +20,9 @@ class AuthRepository {
   Future<({AppUser user, String tenantSlug})> login({required String email, required String password}) async {
     final knownTenant = _storage.tenantSlug;
     final json = await _api.post(
-      knownTenant == null ? ApiEndpoints.loginByEmail : ApiEndpoints.login,
+      ApiEndpoints.loginByEmail,
       auth: false,
-      tenant: knownTenant ?? '',
+      tenant: '',
       data: {
         'email': email.trim(),
         'password': password,
@@ -53,9 +53,9 @@ class AuthRepository {
       );
 
   Future<void> forgotPassword(String email) => _api.post(
-        _storage.tenantSlug == null ? ApiEndpoints.forgotPasswordByEmail : ApiEndpoints.forgotPassword,
+        ApiEndpoints.forgotPasswordByEmail,
         auth: false,
-        tenant: _storage.tenantSlug ?? '',
+        tenant: '',
         data: {'email': email.trim()},
       );
 

@@ -8,8 +8,7 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-4">
-            <h1 class="h4 fw-bold mb-1">Ingresa al panel</h1>
-            <p class="text-body-secondary small mb-4">Usa el correo y la contraseña que te dio tu empresa.</p>
+            <h1 class="h4 fw-bold mb-4 text-center">Iniciar sesión</h1>
 
             @if($errors->any())
                 <div class="alert alert-danger small" role="alert">
@@ -58,15 +57,11 @@
                     <input class="form-check-input" type="checkbox" name="remember" value="1" id="remember">
                     <label class="form-check-label small" for="remember">Recordar mi sesión</label>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="loginSubmit">Ingresar</button>
+                <button type="submit" class="btn btn-primary w-100 fw-semibold auth-submit" id="loginSubmit">Ingresar</button>
             </form>
         </div>
     </div>
 
-    <p class="text-center small text-body-secondary mt-3 mb-0">
-        Acceso para administradores, RRHH y supervisores.<br>
-        Los colaboradores marcan desde la app móvil.
-    </p>
 </div>
 
 <script>

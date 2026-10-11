@@ -372,10 +372,15 @@ void main() {
       expect(AppTheme.foregroundOn(const Color(0xFFFDE68A)), isNot(Colors.white));
     });
 
-    test('sin navbar_color se mantiene el AppBar transparente', () {
-      final theme = AppTheme.fromBranding(const BrandingConfig(), Brightness.dark);
-      expect(theme.appBarTheme.backgroundColor, Colors.transparent);
-      expect(theme.brightness, Brightness.dark);
+    test('sin navbar_color las barras son claras con el acento de la marca', () {
+      final dark = AppTheme.fromBranding(const BrandingConfig(), Brightness.dark);
+      expect(dark.appBarTheme.backgroundColor, dark.colorScheme.surface);
+      expect(dark.brightness, Brightness.dark);
+
+      final light = AppTheme.fromBranding(const BrandingConfig(primaryColor: '#0050A0'), Brightness.light);
+      expect(light.appBarTheme.backgroundColor, light.colorScheme.surface);
+      expect(light.navigationBarTheme.backgroundColor, light.colorScheme.surface);
+      expect(light.colorScheme.primary, const Color(0xFF0050A0));
     });
   });
 

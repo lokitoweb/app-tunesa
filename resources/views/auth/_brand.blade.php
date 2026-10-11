@@ -1,4 +1,4 @@
-{{-- Logo y nombre de la empresa (marca blanca) o de la plataforma ($brandSettings lo arma layouts.guest) --}}
+{{-- Logo de la empresa (marca blanca) o de la plataforma ($brandSettings lo arma layouts.guest) --}}
     @php
         $authBrand = $brandSettings ?? \App\Modules\Core\Models\TenantSetting::forTenant(isset($tenant) && $tenant ? $tenant : null);
         $authLogo = $authBrand->displayLogoUrl();
@@ -15,6 +15,4 @@
                 <i class="bi bi-shield-check fs-4"></i>
             </span>
         @endif
-        <div class="h5 fw-bold mb-0">{{ $authBrand->tradeName() }}</div>
-        <div class="small text-body-secondary">Asistencia, geocercas y planilla</div>
     </div>
