@@ -120,6 +120,31 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
+        // Resto de errores HTTP 4xx en la API (ruta inexistente, método no
+        // permitido, límite de peticiones...): siempre JSON limpio, también con
+        // APP_DEBUG=true, en vez de la página de excepción de Laravel.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, $request) {
+            $status = $e->getStatusCode();
+            if (! $request->is('api', 'api/*') || $status >= 500) {
+                return null;
+            }
+
+            [$code, $message] = match ($status) {
+                404     => ['NOT_FOUND', 'La ruta solicitada no existe.'],
+                405     => ['METHOD_NOT_ALLOWED', 'Método no permitido para esta ruta.'],
+                429     => ['TOO_MANY_REQUESTS', 'Demasiadas solicitudes. Intenta de nuevo en un momento.'],
+                403     => ['FORBIDDEN', 'No tienes permiso para esta acción.'],
+                default => ['HTTP_ERROR', 'No se pudo procesar la solicitud.'],
+            };
+
+            return response()->json([
+                'success' => false,
+                // abort(403, 'mensaje') conserva su texto; el genérico cubre el resto
+                'message' => $e->getMessage() !== '' && ! in_array($status, [404, 405, 429], true) ? $e->getMessage() : $message,
+                'code'    => $code,
+            ], $status, $e->getHeaders());
+        });
+
         // Errores inesperados (5xx) en la API: en producción nunca se exponen el
         // mensaje de la excepción, SQL, rutas ni IPs internas. Va al final para
         // que los renderers de arriba atiendan primero sus casos.
