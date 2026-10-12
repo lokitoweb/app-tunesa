@@ -3,6 +3,7 @@
 namespace App\Modules\Integrations\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
+use App\Modules\Core\Support\PlatformUrl;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Services\TenantSettingsService;
@@ -75,9 +76,10 @@ class IntegrationsWebController extends Controller
             'ownerName' => $tenant ? rtrim($tenant->company_name, '.') : null,
             // El secreto va una sola vez, precargado en su campo: es de quien administra la empresa
             'values'    => [
-                'webhook_url'           => $values['webhook_url'] ?: $receivers['webhook_url'],
+                // El receptor propio guardado con un dominio viejo se muestra con el actual
+                'webhook_url'           => $values['webhook_url'] ? PlatformUrl::webhookTarget($values['webhook_url']) : $receivers['webhook_url'],
                 'webhook_secret'        => $row->readableWebhookSecret(),
-                'notification_endpoint' => $values['notification_endpoint'] ?: $receivers['notification_endpoint'],
+                'notification_endpoint' => $values['notification_endpoint'] ? PlatformUrl::webhookTarget($values['notification_endpoint']) : $receivers['notification_endpoint'],
                 'geocoding_provider'    => (string) ($row->geocoding_provider ?? ($isGlobal ? $provider : '')),
                 // Plataforma: interruptor. Empresa: '' (heredar) / '1' / '0'
                 'fcm_enabled'           => ! $hasFcm ? null : ($isGlobal ? (bool) $inherited->fcm_enabled : ($row->fcm_enabled === null ? '' : ($row->fcm_enabled ? '1' : '0'))),

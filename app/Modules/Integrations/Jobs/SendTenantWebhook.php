@@ -70,6 +70,9 @@ class SendTenantWebhook implements ShouldQueue
             return; // Se quitó la integración después de encolar
         }
 
+        // El receptor propio guardado con un dominio viejo (túnel) va al de APP_URL
+        $url = \App\Modules\Core\Support\PlatformUrl::webhookTarget($url);
+
         $delivery = $sender->open($this->tenantId, $this->target, $this->event, $url, $this->body, $this->deliveryUuid);
         $attempt  = $this->attempts();
 

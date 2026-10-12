@@ -81,6 +81,19 @@ TRUSTED_PROXIES=127.0.0.1,::1                         # valor por defecto, déja
 
 Luego `php artisan config:clear` (o reinicia `php artisan serve`).
 
+**Cada vez que el túnel cambie de dominio**, en lugar de editar a mano usa:
+
+```bash
+php artisan app:use-url https://palabras-nuevas.trycloudflare.com --dry-run   # ver qué cambia
+php artisan app:use-url https://palabras-nuevas.trycloudflare.com
+```
+
+Escribe `APP_URL` en `.env`, corrige en todas las empresas la "Dirección del servidor para la
+app" y los webhooks de Integraciones que quedaron con el túnel anterior, limpia la caché de
+configuración y reinicia la cola. Aunque no lo corras, el servidor ya no anuncia a la app un
+túnel viejo guardado (anuncia `APP_URL`) y el receptor propio de webhooks siempre se arma con
+`APP_URL`. Reinicia `php artisan serve` después.
+
 - **`APP_URL`**: Laravel la usa cuando no hay una request de la que sacar el dominio, por
   ejemplo el enlace del correo de recuperación de contraseña (`AppServiceProvider` arma
   `APP_URL/reset-password?...`).

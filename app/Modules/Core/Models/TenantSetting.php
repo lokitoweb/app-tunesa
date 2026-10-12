@@ -531,7 +531,8 @@ class TenantSetting extends Model
     public function mobile(): array
     {
         return [
-            'api_base_url'            => $this->api_base_url ?: null,
+            // Un túnel viejo guardado se reemplaza por APP_URL (ver PlatformUrl)
+            'api_base_url'            => \App\Modules\Core\Support\PlatformUrl::apiBaseUrl($this->api_base_url),
             'min_supported_version'   => $this->min_supported_version ?: self::DEFAULTS['min_supported_version'],
             'latest_version'          => $this->latest_version ?: null,
             'force_update'            => (bool) $this->force_update,
