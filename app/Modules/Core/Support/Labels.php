@@ -703,6 +703,18 @@ final class Labels
             'break_end'   => ['Fin de descanso', 'secondary'],
             'clock_out'   => ['Salida', 'primary'],
         ],
+        'punch_attempt_code' => [
+            'GEOFENCE_VIOLATION'      => ['Fuera de la geocerca', 'danger'],
+            'MOCK_LOCATION_DETECTED'  => ['Ubicación simulada', 'danger'],
+            'GPS_ACCURACY_TOO_LOW'    => ['GPS impreciso', 'warning'],
+            'FACE_NOT_DETECTED'       => ['Sin rostro en la selfie', 'warning'],
+            'NO_BRANCH_ASSIGNED'      => ['Sin sucursal asignada', 'secondary'],
+            'BREAK_NOT_ALLOWED'       => ['Turno sin descanso', 'secondary'],
+            'OFFLINE_NOT_ALLOWED'     => ['Sin conexión no permitido', 'warning'],
+            'OFFLINE_TOO_OLD'         => ['Sin conexión demasiado antigua', 'warning'],
+            'OFFLINE_BEFORE_CLOCK_IN' => ['Sin conexión antes de la entrada', 'warning'],
+            'OFFLINE_OUT_OF_ORDER'    => ['Sin conexión fuera de orden', 'warning'],
+        ],
         'suspicion_reason' => [
             'MOCK_LOCATION'    => ['Ubicación simulada', 'danger'],
             'TIME_DRIFT'       => ['Hora del celular desfasada', 'warning'],
