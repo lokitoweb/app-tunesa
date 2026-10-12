@@ -89,6 +89,8 @@ trait MarksWithTenantSettings
             $this->file('photo'),
             $this->ip(),
             $this->userAgent(),
+            null,
+            $this->header('X-Device-Integrity'),
         );
     }
 }

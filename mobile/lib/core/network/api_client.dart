@@ -73,6 +73,15 @@ class ApiClient {
     ));
   }
 
+  /// Señales de integridad del teléfono (cabecera X-Device-Integrity).
+  set deviceFlags(List<String> flags) {
+    if (flags.isEmpty) {
+      _dio.options.headers.remove('X-Device-Integrity');
+    } else {
+      _dio.options.headers['X-Device-Integrity'] = flags.join(',');
+    }
+  }
+
   /// Cambia el dominio del backend sin recrear el cliente.
   set baseUrl(String base) => _dio.options.baseUrl = Env.apiUrlFor(base);
 

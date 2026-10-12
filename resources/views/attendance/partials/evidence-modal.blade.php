@@ -103,6 +103,7 @@
             ['Rostro detectado', p.face_detected === null || p.face_detected === undefined ? '—' : (p.face_detected ? 'Sí' : 'No')],
             ['Hora del celular', p.time_drift_seconds == null ? '—' : (p.time_drift_seconds === 0 ? 'Sincronizada' : 'Desfase de ' + Math.abs(p.time_drift_seconds) + ' s')],
             ['Motivos de sospecha', (p.suspicion_labels || []).length ? p.suspicion_labels.join(', ') : 'Ninguno'],
+            ['Seguridad del teléfono', (p.device_flags || []).length ? p.device_flags.join(', ') : 'Sin alertas'],
             ['Coordenadas', p.latitude != null ? Number(p.latitude).toFixed(6) + ', ' + Number(p.longitude).toFixed(6) : '—'],
             ['Dispositivo', p.device || '—'],
         ] : [];

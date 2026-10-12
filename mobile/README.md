@@ -151,6 +151,22 @@ Estado con **Riverpod**; navegación con **go_router** (redirige según la sesi�
 - La pantalla muestra la **dirección legible** de la posición (`GET /api/geocode/reverse`, con
   espera de 600 ms y caché por ~50 m); es informativa y nunca bloquea la marcación.
 
+## Protección de la app
+
+- **Código ofuscado:** los release salen con `--obfuscate --split-debug-info` (APK y iOS). R8 ya
+  minimiza y ofusca la parte Java/Kotlin. Los símbolos quedan en `build/debug-info/<versión>` (y como
+  artefacto `tunesa-symbols-*` en Actions): guárdalos para leer trazas con `flutter symbolize`.
+- **Sin copias de seguridad:** `allowBackup=false` y `data_extraction_rules.xml`, así la sesión, la cola
+  offline cifrada y las selfies no se pueden sacar con `adb backup` ni restaurar en otro teléfono.
+- **Teléfono manipulado:** el canal nativo `tunesa/device_integrity` (`MainActivity.kt`, `AppDelegate.swift`)
+  detecta root/jailbreak, emulador, depurador en release, Frida/Xposed/Substrate y, si la build trae
+  `APP_CERT_SHA256`, un APK re-firmado por otra llave. La app manda las señales en `X-Device-Integrity`;
+  el servidor acepta la marcación pero la deja como sospechosa (`UNSAFE_DEVICE`) y RRHH ve el detalle
+  en la evidencia. No bloquea: un falso positivo no deja a nadie sin marcar.
+- `APP_CERT_SHA256`: huella SHA-256 del certificado de firma (`keytool -list -v -keystore upload-keystore.jks`).
+  Si publicas en Google Play con *App Signing*, agrega también la huella de la llave de Google Play
+  (Play Console › Integridad de la app), separadas por coma. En Actions: variable de repositorio `APP_CERT_SHA256`.
+
 ## Configuración dinámica (`GET /api/v1/app/config`)
 
 Al abrir la app (y al volver a ella) se descarga la configuración pública de la empresa

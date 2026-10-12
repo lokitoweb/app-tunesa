@@ -702,6 +702,14 @@ final class Labels
             'FACE_UNVERIFIED'  => ['Rostro no verificado', 'warning'],
             'OUT_OF_GEOFENCE'  => ['Fuera de la geocerca', 'warning'],
             'OUTSIDE_SCHEDULE' => ['Fuera del horario', 'warning'],
+            'UNSAFE_DEVICE'    => ['Teléfono con root o app modificada', 'danger'],
+        ],
+        'device_flag' => [
+            'rooted'   => ['Root / jailbreak', 'danger'],
+            'emulator' => ['Emulador', 'danger'],
+            'debugger' => ['Depurador conectado', 'warning'],
+            'hooked'   => ['Herramienta de manipulación (Frida/Xposed)', 'danger'],
+            'tampered' => ['App modificada (firma distinta)', 'danger'],
         ],
         'webhook_event' => [
             'ping'                         => ['Prueba del webhook', 'info'],

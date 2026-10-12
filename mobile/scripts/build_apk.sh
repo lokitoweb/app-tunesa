@@ -8,6 +8,7 @@
 #   API_BASE_URL=https://xxxx.trycloudflare.com scripts/build_apk.sh tunnel   # túnel de pruebas
 #   FIREBASE_API_KEY=... FIREBASE_APP_ID=... scripts/build_apk.sh prod   # push (ver README)
 #   (en Android, los FIREBASE_* vacíos se toman de android/app/google-services.json)
+#   APP_CERT_SHA256=AA:BB:... scripts/build_apk.sh prod   # huella de la llave: detecta APK re-firmados
 #
 # Firma: si existe android/key.properties usa la llave de producción. Sin ella,
 # un release de prod FALLA; staging/tunnel/dev se firman con la llave debug
@@ -46,7 +47,7 @@ if [[ -n "${API_BASE_URL:-}" ]]; then
 fi
 # Push (Firebase sin google-services.json): solo los valores no vacíos del
 # entorno sobrescriben los del JSON. Sin ellos la app compila con el push apagado.
-for VAR in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_IOS_APP_ID FIREBASE_IOS_BUNDLE_ID; do
+for VAR in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_IOS_APP_ID FIREBASE_IOS_BUNDLE_ID APP_CERT_SHA256; do
   if [[ -n "${!VAR:-}" ]]; then
     EXTRA_DEFINES+=("--dart-define=${VAR}=${!VAR}")
   fi
@@ -93,9 +94,18 @@ flutter pub get
 flutter analyze
 flutter test
 
-flutter build apk "--${MODE}" --dart-define-from-file="$ENV_FILE" ${EXTRA_DEFINES[@]+"${EXTRA_DEFINES[@]}"}
-
 VERSION="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+
+# Release: el código Dart sale ofuscado (nombres de clases y funciones ilegibles
+# al descompilar). Los símbolos para leer trazas de errores quedan en
+# build/debug-info/<versión> (no van dentro del APK; guárdalos con cada versión):
+#   flutter symbolize -i traza.txt -d build/debug-info/<versión>/app.android-arm64.symbols
+OBFUSCATE=()
+if [[ "$MODE" == "release" ]]; then
+  OBFUSCATE=(--obfuscate "--split-debug-info=build/debug-info/${VERSION}")
+fi
+
+flutter build apk "--${MODE}" --dart-define-from-file="$ENV_FILE" ${OBFUSCATE[@]+"${OBFUSCATE[@]}"} ${EXTRA_DEFINES[@]+"${EXTRA_DEFINES[@]}"}
 OUT_DIR="$ROOT/build/dist"
 OUT="$OUT_DIR/tunesa-${VERSION%%+*}-${ENV_NAME}-${MODE}.apk"
 mkdir -p "$OUT_DIR"
