@@ -29,7 +29,7 @@ Schedule::command('attendance:purge-photos')->dailyAt('03:45')->withoutOverlappi
 Schedule::command('reports:send-monthly')->monthlyOn(1, '07:00')->withoutOverlapping()->onOneServer();
 
 // Recordatorio push de entrada: a quien empezó su turno (más la tolerancia) y no marcó
-Schedule::command('attendance:remind-entry')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
+Schedule::command('attendance:remind-entry')->everyMinute()->withoutOverlapping()->onOneServer();
 
 // Cola (push, webhooks, avisos de nueva versión): con solo el cron del scheduler
 // se procesa cada minuto, sin un `queue:work` aparte. Si ya tienes un worker

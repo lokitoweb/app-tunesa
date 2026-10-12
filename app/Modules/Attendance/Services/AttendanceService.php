@@ -45,6 +45,13 @@ use Illuminate\Support\Facades\Log;
  */
 class AttendanceService
 {
+    /** Jornada base sin turno asignado (horas) */
+    public const FULL_TIME_HOURS = 8.0;
+    public const PART_TIME_HOURS = 4.0;
+
+    /** El descanso fijo se descuenta solo en jornadas de más de 5 horas */
+    public const FIXED_BREAK_MIN_SPAN_MINUTES = 300;
+
     private const TYPE_ORDER = ['clock_in' => 0, 'break_start' => 1, 'break_end' => 2, 'clock_out' => 3];
 
     /** Velocidad máxima creíble entre dos marcaciones (km/h) y distancia mínima para medirla (m) */
@@ -427,13 +434,14 @@ class AttendanceService
 
         $reasons = $this->faceReasons($data, $c['settings'], $reasons);
 
-        // Horas trabajadas. Con "Refrigerio pagado" (lunch_paid efectivo) el descanso no se descuenta.
+        // Horas trabajadas (proporcionales a lo marcado). El descanso fijo del turno se
+        // descuenta aunque no se marque; con "Refrigerio pagado" no se descuenta nada.
         $clockInTime  = $this->localTime($attendance->clock_in_at);
-        $breakMinutes = $c['settings']->lunch_paid ? 0 : ($attendance->break_minutes ?? 0);
-        $totalMinutes = $clockInTime->diffInMinutes($clockOutTime);
+        $totalMinutes = (int) $clockInTime->diffInMinutes($clockOutTime);
+        $breakMinutes = $c['settings']->lunch_paid ? 0 : $this->breakToDeduct($totalMinutes, (int) ($attendance->break_minutes ?? 0), $shift, $c['settings']);
         $workedHours  = round(max(0, $totalMinutes - $breakMinutes) / 60, 2);
 
-        $dailyHours    = $shift ? (float) $shift->daily_hours : 8.0;
+        $dailyHours    = self::baseDailyHours($shift, $employee);
         $overtimeHours = max(0, round($workedHours - $dailyHours, 2));
 
         $attendance->update([
@@ -921,6 +929,30 @@ class AttendanceService
         $scheduledEntry = Carbon::parse("{$date} {$shift->start_time}", $timezone);
 
         return (int) $scheduledEntry->diffInMinutes($now);
+    }
+
+    /**
+     * Minutos de descanso a descontar: el mayor entre lo marcado y el descanso fijo
+     * (el del turno, o el de la empresa si no hay turno). El fijo solo aplica si la
+     * jornada pasó de FIXED_BREAK_MIN_SPAN_MINUTES: un medio turno no lo tiene.
+     */
+    private function breakToDeduct(int $totalMinutes, int $markedMinutes, ?Shift $shift, TenantSetting $settings): int
+    {
+        $fixed = $shift
+            ? ($shift->break_allowed ? (int) $shift->break_duration_minutes : 0)
+            : (int) $settings->lunch_minutes;
+
+        return max($markedMinutes, $totalMinutes > self::FIXED_BREAK_MIN_SPAN_MINUTES ? $fixed : 0);
+    }
+
+    /** Jornada base: la del turno; sin turno, 8 h (tiempo completo) o 4 h (medio tiempo) */
+    public static function baseDailyHours(?Shift $shift, User $employee): float
+    {
+        if ($shift && (float) $shift->daily_hours > 0) {
+            return (float) $shift->daily_hours;
+        }
+
+        return $employee->contract_type === 'part_time' ? self::PART_TIME_HOURS : self::FULL_TIME_HOURS;
     }
 
     private function determineFinalStatus(Attendance $attendance, float $workedHours, float $dailyHours): string

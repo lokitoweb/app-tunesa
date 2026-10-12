@@ -53,14 +53,14 @@ class OvertimeApprovalTest extends TestCase
         return $user;
     }
 
-    /** Jornada real por la API: entrada 08:00 y salida tras $minutes (sin turno: 8 h diarias) */
+    /** Jornada real por la API: entrada 08:00 y $minutes trabajados más el descanso fijo de 45 min (sin turno: 8 h diarias) */
     private function workDay(User $user, string $date, int $minutes): Attendance
     {
         $gps = ['latitude' => -12.09418, 'longitude' => -77.03560, 'accuracy_meters' => 12, 'device_id' => 'test-device', 'device_os' => 'android'];
 
         $this->travelTo(Carbon::parse("{$date} 08:00:00", 'America/Lima'));
         $this->actingIn($user, $this->acme)->post('/api/attendance/clock-in', $gps + ['photo' => UploadedFile::fake()->image('in.jpg')])->assertCreated();
-        $this->travel($minutes)->minutes();
+        $this->travel($minutes + 45)->minutes();
         $this->actingIn($user, $this->acme)->post('/api/attendance/clock-out', $gps + ['photo' => UploadedFile::fake()->image('out.jpg')])->assertOk();
         $this->flushHeaders();
         $this->app['auth']->forgetGuards();
@@ -109,6 +109,8 @@ class OvertimeApprovalTest extends TestCase
         // Planilla: 2 h aprobadas; 1.5 h por aprobar aparte
         $row = app(PayrollExportService::class)->rows(2026, 10)->firstWhere('full_name', $this->emp->full_name);
         $this->assertSame([2.0, 1.5], [$row['overtime_hours'], $row['overtime_pending_hours']]);
+        // A pagar: 8 h base por día + solo las 2 h aprobadas (las 0.5 rechazadas y las 1.5 pendientes no)
+        $this->assertSame(18.0, $row['payable_hours']);
 
         // Calendario: la marca y los totales
         $cells = collect(app(AttendanceCalendarService::class)->paginate(new CalendarFilters($this->acme->id, '2026-10'))->items())

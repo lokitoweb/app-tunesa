@@ -4,7 +4,10 @@ namespace App\Modules\Attendance\Console;
 
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Notifications\EntryReminder;
+use App\Modules\Attendance\Notifications\ExitReminder;
+use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\TenantContext;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Holiday;
@@ -15,23 +18,31 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Recordatorio push de entrada.
+ * Recordatorios push de entrada y de salida. Corre cada minuto.
  *
- * Cada 5 minutos: a quien tenía turno hoy, ya pasó su hora de entrada más la
- * tolerancia (hasta WINDOW_MINUTES después) y no marcó, le llega un push.
- * Sin feriados ni licencias aprobadas; un solo aviso por persona y día.
- * Solo a colaboradores con teléfono registrado (fcm_token).
+ *  - Entrada: LEAD_MINUTES antes de la hora de entrada del turno (y hasta
+ *    WINDOW_MINUTES pasada la tolerancia, por si el programador se atrasó), a
+ *    quien tiene turno ese día y no marcó. Sin feriados ni licencias aprobadas.
+ *  - Salida: LEAD_MINUTES después de la hora de salida esperada (la del turno,
+ *    o entrada + jornada base + descanso si no tiene turno), a quien marcó
+ *    entrada y no salida. Turnos nocturnos: la salida cae al día siguiente.
+ *
+ * Un aviso de cada tipo por persona y jornada. Solo a colaboradores con
+ * teléfono registrado (fcm_token).
  *
  *   php artisan attendance:remind-entry
  */
 class SendEntryReminders extends Command
 {
-    /** Minutos después de la tolerancia en los que todavía se recuerda */
+    /** Minutos antes de la entrada y después de la salida en que se avisa */
+    public const LEAD_MINUTES = 5;
+
+    /** Minutos durante los que todavía se recuerda si el aviso no salió a tiempo */
     public const WINDOW_MINUTES = 60;
 
     protected $signature = 'attendance:remind-entry {--tenant= : Slug de una empresa concreta}';
 
-    protected $description = 'Envía un push a quien empezó su turno y no marcó entrada';
+    protected $description = 'Push 5 min antes del turno a quien no marcó entrada y 5 min después a quien no marcó salida';
 
     public function handle(TenantContext $context): int
     {
@@ -43,7 +54,8 @@ class SendEntryReminders extends Command
         foreach ($tenants as $tenant) {
             $context->set($tenant);
             try {
-                $sent += $this->processTenant(Carbon::now($tenant->timezone ?: config('app.timezone')));
+                $now = Carbon::now($tenant->timezone ?: config('app.timezone'));
+                $sent += $this->entryReminders($now) + $this->exitReminders($now);
             } catch (\Throwable $e) {
                 Log::warning("Recordatorio de entrada ({$tenant->slug}): " . $e->getMessage());
             }
@@ -55,26 +67,38 @@ class SendEntryReminders extends Command
         return self::SUCCESS;
     }
 
-    private function processTenant(Carbon $now): int
+    private function entryReminders(Carbon $now): int
     {
-        $day = $now->toDateString();
+        // Un turno que empieza a las 00:02 se avisa a las 23:57 del día anterior
+        $days = [$now->toDateString(), $now->copy()->addMinutes(self::LEAD_MINUTES)->toDateString()];
 
+        $sent = 0;
+        foreach (array_unique($days) as $day) {
+            $sent += $this->entryRemindersFor($now, $day);
+        }
+
+        return $sent;
+    }
+
+    private function entryRemindersFor(Carbon $now, string $day): int
+    {
         if (Holiday::where('date', $day)->exists()) {
             return 0;
         }
+        $date = Carbon::parse($day, $now->getTimezone());
 
         $due = EmployeeShift::current($day)
             ->with(['shift', 'user'])
             ->whereHas('user', fn ($q) => $q->where('status', 'active')->whereNotNull('fcm_token'))
             ->get()
-            ->filter(function (EmployeeShift $a) use ($now, $day) {
-                if (! $a->shift?->start_time || ! $a->worksOn($now)) {
+            ->filter(function (EmployeeShift $a) use ($now, $day, $date) {
+                if (! $a->shift?->start_time || ! $a->worksOn($date)) {
                     return false;
                 }
-                $late = Carbon::parse("{$day} {$a->shift->start_time}", $now->getTimezone())
-                    ->addMinutes((int) $a->shift->grace_period_minutes);
+                $start = Carbon::parse("{$day} {$a->shift->start_time}", $now->getTimezone());
+                $until = $start->copy()->addMinutes((int) $a->shift->grace_period_minutes + self::WINDOW_MINUTES);
 
-                return $now->gte($late) && $now->lt($late->copy()->addMinutes(self::WINDOW_MINUTES));
+                return $now->gte($start->copy()->subMinutes(self::LEAD_MINUTES)) && $now->lt($until);
             })
             ->unique('user_id');
 
@@ -96,10 +120,61 @@ class SendEntryReminders extends Command
             if (! Cache::add("entry-reminder:{$user->id}:{$day}", true, now()->addDay())) {
                 continue;
             }
-            $user->notify(new EntryReminder($assignment->shift, $day));
+            $start = Carbon::parse("{$day} {$assignment->shift->start_time}", $now->getTimezone());
+            $user->notify(new EntryReminder($assignment->shift, $day, $now->lt($start)));
             $sent++;
         }
 
         return $sent;
+    }
+
+    private function exitReminders(Carbon $now): int
+    {
+        $tz = $now->getTimezone();
+        $open = Attendance::query()
+            ->whereNotNull('clock_in_at')->whereNull('clock_out_at')
+            ->whereBetween('work_date', [$now->copy()->subDay()->toDateString(), $now->toDateString()])
+            ->whereHas('user', fn ($q) => $q->where('status', 'active')->whereNotNull('fcm_token'))
+            ->with(['shift', 'user'])
+            ->get();
+
+        $lunch = (int) TenantSetting::forTenant(app(TenantContext::class)->get())->lunch_minutes;
+
+        $sent = 0;
+        foreach ($open as $attendance) {
+            $end = $this->expectedEnd($attendance, $tz, $lunch);
+            $from = $end->copy()->addMinutes(self::LEAD_MINUTES);
+            if ($now->lt($from) || $now->gte($from->copy()->addMinutes(self::WINDOW_MINUTES))) {
+                continue;
+            }
+            if (! Cache::add("exit-reminder:{$attendance->id}", true, now()->addDays(2))) {
+                continue;
+            }
+            $attendance->user->notify(new ExitReminder($end, $attendance->work_date->toDateString()));
+            $sent++;
+        }
+
+        return $sent;
+    }
+
+    /** Hora de salida esperada de una jornada abierta, en la zona de la empresa */
+    private function expectedEnd(Attendance $attendance, \DateTimeZone $tz, int $lunchMinutes): Carbon
+    {
+        $shift = $attendance->shift;
+        $day   = $attendance->work_date->toDateString();
+
+        if ($shift?->start_time && $shift->end_time) {
+            $start = Carbon::parse("{$day} {$shift->start_time}", $tz);
+            $end   = Carbon::parse("{$day} {$shift->end_time}", $tz);
+
+            return $shift->crosses_midnight || $end->lte($start) ? $end->addDay() : $end;
+        }
+
+        // Sin turno: entrada + jornada base + descanso fijo
+        $hours = AttendanceService::baseDailyHours($shift, $attendance->user);
+        $break = $hours * 60 > AttendanceService::FIXED_BREAK_MIN_SPAN_MINUTES ? $lunchMinutes : 0;
+
+        // La hora se guarda en hora local de la empresa
+        return Carbon::createFromFormat('Y-m-d H:i:s', $attendance->clock_in_at->format('Y-m-d H:i:s'), $tz)->addMinutes((int) round($hours * 60) + $break);
     }
 }
