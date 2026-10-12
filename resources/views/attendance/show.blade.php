@@ -108,7 +108,14 @@
                                     <dt>Dispositivo</dt><dd class="font-monospace text-break">{{ $attendance->clock_in_device_id ?? '—' }}</dd>
                                 @else
                                     <dt>Horas trabajadas</dt><dd>{{ number_format((float) ($attendance->worked_hours ?? 0), 2) }} h</dd>
-                                    <dt>Horas extra</dt><dd>{{ number_format((float) ($attendance->overtime_hours ?? 0), 2) }} h</dd>
+                                    <dt>Horas extra</dt><dd>{{ number_format((float) ($attendance->overtime_hours ?? 0), 2) }} h
+                                        @if($attendance->overtime_status)
+                                            <x-status-badge type="overtime_status" :value="$attendance->overtime_status" />
+                                            @if($attendance->overtime_status === 'approved' && (float) $attendance->overtime_approved_hours < (float) $attendance->overtime_hours)
+                                                <span class="small text-body-secondary">({{ number_format((float) $attendance->overtime_approved_hours, 2) }} h aprobadas)</span>
+                                            @endif
+                                        @endif
+                                    </dd>
                                     <dt>Descanso</dt><dd>{{ $attendance->break_minutes ?? 0 }} min</dd>
                                 @endif
                             </dl>

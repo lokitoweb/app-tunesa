@@ -98,12 +98,14 @@ class PanelNavigation
     /** Solicitudes (y justificaciones) pendientes que este usuario puede resolver */
     private static function pendingApprovals(User $user): int
     {
+        $overtime = app(\App\Modules\Attendance\Services\OvertimeApproval::class)->pendingCount($user);
+
         if ($user->can('leave.approve_all')) {
-            return LeaveRequest::where('status', 'pending')->count()
+            return LeaveRequest::where('status', 'pending')->count() + $overtime
                 + ($user->can('attendance.review') ? Attendance::where('justification_status', 'pending')->count() : 0);
         }
 
-        return LeaveRequest::where('status', 'pending')
+        return $overtime + LeaveRequest::where('status', 'pending')
             ->whereHas('employee.branches', fn ($q) => $q->visibleTo($user))
             ->count();
     }

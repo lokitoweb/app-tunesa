@@ -71,7 +71,7 @@
         <table class="table table-hover align-middle mb-0 small" style="min-width: 1100px;">
             <thead>
                 <tr>
-                    <th>Colaborador</th><th>Régimen</th><th class="text-end">Días</th><th class="text-end">Horas</th><th class="text-end">Extra</th>
+                    <th>Colaborador</th><th>Régimen</th><th class="text-end">Días</th><th class="text-end">Horas</th><th class="text-end" title="Horas extra aprobadas por jefatura">Extra</th>
                     <th>Tardanzas</th><th>Faltas</th><th>Licencias</th><th>Banco / cuenta</th><th>Previsión</th><th>Pago</th>
                 </tr>
             </thead>
@@ -82,7 +82,11 @@
                     <td>{{ $r['labor_regime'] ?? '—' }}</td>
                     <td class="text-end">{{ $r['days_worked'] }}</td>
                     <td class="text-end">{{ number_format($r['worked_hours'], 2) }}</td>
-                    <td class="text-end">{{ number_format($r['overtime_hours'], 2) }}</td>
+                    <td class="text-end">{{ number_format($r['overtime_hours'], 2) }}
+                        @if($r['overtime_pending_hours'] > 0)
+                            <a href="{{ route('approvals.index', ['tab' => 'overtime']) }}" class="d-block text-warning-emphasis text-decoration-none" title="Horas extra por aprobar: no entran en la planilla">+{{ number_format($r['overtime_pending_hours'], 2) }} por aprobar</a>
+                        @endif
+                    </td>
                     <td>{{ $r['late_count'] }} <span class="text-body-secondary">({{ $r['late_minutes'] }} min)</span></td>
                     <td>{{ $r['absences'] }} @if($r['excused'])<span class="text-body-secondary">+{{ $r['excused'] }} just.</span>@endif</td>
                     <td class="text-body-secondary text-nowrap">V {{ $r['vacation_days'] }} · M {{ $r['medical_leave_days'] }} · P {{ $r['permission_days'] }}</td>

@@ -31,6 +31,16 @@ class Attendance extends Model
     /** Alcance por sede: [columna de sede, columna de colaborador] (BelongsToBranchScope) */
     public const BRANCH_SCOPE = ['branch_id', 'user_id'];
 
+    /** Horas extra: estados de aprobación por jefatura */
+    public const OVERTIME_PENDING = 'pending';
+
+    public const OVERTIME_APPROVED = 'approved';
+
+    public const OVERTIME_REJECTED = 'rejected';
+
+    /** Desde cuántas horas extra en el día se piden a aprobación (15 min) */
+    public const OVERTIME_MIN_HOURS = 0.25;
+
     /** Columnas DATE guardadas como Y-m-d (ver HasDateOnlyColumns) */
     protected array $dateOnly = ['work_date'];
 
@@ -89,6 +99,13 @@ class Attendance extends Model
         'worked_hours',
         'overtime_hours',
 
+        // Aprobación de horas extra
+        'overtime_status',
+        'overtime_approved_hours',
+        'overtime_reviewed_by',
+        'overtime_reviewed_at',
+        'overtime_review_notes',
+
         // Justificación
         'notes',
         'justification_file',
@@ -113,6 +130,8 @@ class Attendance extends Model
         'clock_out_meta'            => 'array',
         'worked_hours'              => 'decimal:2',
         'overtime_hours'            => 'decimal:2',
+        'overtime_approved_hours'   => 'decimal:2',
+        'overtime_reviewed_at'      => 'datetime',
         'reviewed_at'               => 'datetime',
         'clock_in_accuracy_meters'  => 'float',
         'clock_out_accuracy_meters' => 'float',
@@ -155,6 +174,32 @@ class Attendance extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function overtimeReviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'overtime_reviewed_by');
+    }
+
+    /**
+     * Estado inicial de las horas extra al cerrar la jornada: por aprobar desde
+     * OVERTIME_MIN_HOURS; por debajo no se piden (unos minutos de más al salir).
+     */
+    public static function overtimeStatusFor(float $overtimeHours): ?string
+    {
+        return $overtimeHours >= self::OVERTIME_MIN_HOURS ? self::OVERTIME_PENDING : null;
+    }
+
+    /** Horas extra que van a planilla: solo las aprobadas */
+    public function payableOvertimeHours(): float
+    {
+        return $this->overtime_status === self::OVERTIME_APPROVED ? (float) $this->overtime_approved_hours : 0.0;
+    }
+
+    /** Lo mismo en SQL, para sumas por colaborador (planilla, reportes) */
+    public static function payableOvertimeSql(string $table = 'attendances'): string
+    {
+        return "CASE WHEN {$table}.overtime_status = 'approved' THEN COALESCE({$table}.overtime_approved_hours, 0) ELSE 0 END";
     }
 
     // =========================================================================

@@ -32,7 +32,8 @@ class PayrollExportService
         'base_salary'        => 'Sueldo base',
         'days_worked'        => 'Días trabajados',
         'worked_hours'       => 'Horas trabajadas',
-        'overtime_hours'     => 'Horas extra',
+        'overtime_hours'     => 'Horas extra aprobadas',
+        'overtime_pending_hours' => 'Horas extra por aprobar',
         'late_count'         => 'Tardanzas',
         'late_minutes'       => 'Minutos de tardanza',
         'absences'           => 'Faltas injustificadas',
@@ -73,13 +74,16 @@ class PayrollExportService
 
         $ids = $employees->pluck('id');
 
+        $payableOvertime = Attendance::payableOvertimeSql();
+
         $attendance = Attendance::query()
             ->whereIn('user_id', $ids)
             ->whereBetween('work_date', [$from->toDateString(), $to->toDateString()])
             ->selectRaw("user_id,
                 SUM(CASE WHEN clock_in_at IS NOT NULL THEN 1 ELSE 0 END) AS days_worked,
                 COALESCE(SUM(worked_hours), 0) AS worked_hours,
-                COALESCE(SUM(overtime_hours), 0) AS overtime_hours,
+                COALESCE(SUM({$payableOvertime}), 0) AS overtime_hours,
+                COALESCE(SUM(CASE WHEN overtime_status = 'pending' THEN overtime_hours ELSE 0 END), 0) AS overtime_pending_hours,
                 SUM(CASE WHEN late_minutes > 0 THEN 1 ELSE 0 END) AS late_count,
                 COALESCE(SUM(late_minutes), 0) AS late_minutes,
                 SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absences,
@@ -119,6 +123,7 @@ class PayrollExportService
                 'days_worked'        => (int) ($a->days_worked ?? 0),
                 'worked_hours'       => round((float) ($a->worked_hours ?? 0), 2),
                 'overtime_hours'     => round((float) ($a->overtime_hours ?? 0), 2),
+                'overtime_pending_hours' => round((float) ($a->overtime_pending_hours ?? 0), 2),
                 'late_count'         => (int) ($a->late_count ?? 0),
                 'late_minutes'       => (int) ($a->late_minutes ?? 0),
                 'absences'           => (int) ($a->absences ?? 0),

@@ -60,6 +60,9 @@ class AttendanceResource extends JsonResource
                 'break_minutes'   => $this->break_minutes,
                 'worked_hours'    => (float) $this->worked_hours,
                 'overtime_hours'  => (float) $this->overtime_hours,
+                // Aprobación por jefatura: null (no aplica) | pending | approved | rejected
+                'overtime_status'         => $this->overtime_status,
+                'overtime_approved_hours' => $this->overtime_approved_hours !== null ? (float) $this->overtime_approved_hours : null,
             ],
 
             // Justificación

@@ -183,7 +183,8 @@ class AttendanceCalendarService
             ->whereBetween('work_date', [$from, $to])
             ->orderBy('work_date')->orderBy('clock_in_at')->orderBy('id')
             ->get(['id', 'tenant_id', 'user_id', 'branch_id', 'work_date', 'status', 'clock_in_at', 'clock_out_at',
-                'late_minutes', 'worked_hours', 'is_suspicious', 'justification_status'])
+                'late_minutes', 'worked_hours', 'is_suspicious', 'justification_status',
+                'overtime_hours', 'overtime_status', 'overtime_approved_hours'])
             ->groupBy(fn (Attendance $a) => $a->user_id . '|' . $a->work_date->toDateString());
 
         $assignments = EmployeeShift::forTenant($f->tenantId)
@@ -231,7 +232,8 @@ class AttendanceCalendarService
 
     private function row(User $user, CalendarFilters $f, Collection $attendances, Collection $assignments, Collection $leaves, array $holidays, string $today): array
     {
-        $totals = ['absent' => 0, 'late' => 0, 'late_minutes' => 0, 'excused' => 0, 'worked_hours' => 0.0, 'suspicious' => 0];
+        $totals = ['absent' => 0, 'late' => 0, 'late_minutes' => 0, 'excused' => 0, 'worked_hours' => 0.0, 'suspicious' => 0,
+            'overtime_approved' => 0.0, 'overtime_pending' => 0.0];
         $cells = [];
 
         foreach ($this->days($f) as $day => $meta) {
@@ -248,9 +250,13 @@ class AttendanceCalendarService
             $totals['suspicious']   += $cell['suspicious'] ? 1 : 0;
             $totals['late_minutes'] += $cell['late_minutes'];
             $totals['worked_hours'] += $cell['worked_hours'];
+            $totals['overtime_approved'] += $cell['overtime_status'] === Attendance::OVERTIME_APPROVED ? $cell['overtime_hours'] : 0;
+            $totals['overtime_pending']  += $cell['overtime_status'] === Attendance::OVERTIME_PENDING ? $cell['overtime_hours'] : 0;
         }
 
-        $totals['worked_hours'] = round($totals['worked_hours'], 2);
+        foreach (['worked_hours', 'overtime_approved', 'overtime_pending'] as $key) {
+            $totals[$key] = round($totals[$key], 2);
+        }
 
         return [
             'user_id'       => $user->id,
@@ -310,6 +316,20 @@ class AttendanceCalendarService
 
             $lateMinutes = (int) $records->sum(fn (Attendance $a) => max(0, (int) $a->late_minutes));
 
+            // Horas extra del día: por aprobar manda (hay algo que hacer); si no, las aprobadas
+            $overtime = $records->filter(fn (Attendance $a) => $a->overtime_status !== null);
+            $overtimeStatus = match (true) {
+                $overtime->contains('overtime_status', Attendance::OVERTIME_PENDING)  => Attendance::OVERTIME_PENDING,
+                $overtime->contains('overtime_status', Attendance::OVERTIME_APPROVED) => Attendance::OVERTIME_APPROVED,
+                $overtime->isNotEmpty()                                               => Attendance::OVERTIME_REJECTED,
+                default                                                               => null,
+            };
+            $overtimeHours = (float) $overtime->sum(fn (Attendance $a) => match ($a->overtime_status) {
+                Attendance::OVERTIME_APPROVED => $overtimeStatus === Attendance::OVERTIME_APPROVED ? (float) $a->overtime_approved_hours : 0,
+                Attendance::OVERTIME_PENDING  => (float) $a->overtime_hours,
+                default                       => 0,
+            });
+
             return $this->make($state, $shift + [
                 'attendance_id' => $record->id,
                 'suspicious'    => $records->contains(fn (Attendance $a) => $a->is_suspicious),
@@ -318,6 +338,8 @@ class AttendanceCalendarService
                 'late_minutes'  => $lateMinutes,
                 'worked_hours'  => (float) $records->sum(fn (Attendance $a) => (float) $a->worked_hours),
                 'note'          => $leave && $state === 'excused' ? $leave->type_label : null,
+                'overtime_status' => $overtimeStatus,
+                'overtime_hours'  => round($overtimeHours, 2),
             ]);
         }
 
@@ -363,6 +385,8 @@ class AttendanceCalendarService
             'shift'         => null,
             'shift_start'   => null,
             'shift_grace'   => 0,
+            'overtime_status' => null,
+            'overtime_hours'  => 0.0,
         ], $extra);
     }
 

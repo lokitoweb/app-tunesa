@@ -15,6 +15,7 @@ use App\Modules\HR\Notifications\ShiftAssigned;
 use App\Modules\Core\Models\User;
 use App\Modules\HR\Notifications\DocumentReviewed;
 use App\Modules\Attendance\Notifications\JustificationReviewed;
+use App\Modules\Attendance\Notifications\OvertimeReviewed;
 use App\Modules\HR\Notifications\LeaveRequestReviewed;
 use App\Modules\HR\Notifications\LeaveRequestSubmitted;
 use App\Modules\Payroll\Notifications\PayslipPublished;
@@ -76,6 +77,11 @@ class NotificationDispatcher
         if ($attendance->wasChanged('justification_status')
             && in_array($attendance->justification_status, ['approved', 'rejected'], true)) {
             $this->safely(fn () => $this->employee($attendance->user_id)?->notify(new JustificationReviewed($attendance)));
+        }
+
+        if ($attendance->wasChanged('overtime_status') && $attendance->overtime_reviewed_by
+            && in_array($attendance->overtime_status, [Attendance::OVERTIME_APPROVED, Attendance::OVERTIME_REJECTED], true)) {
+            $this->safely(fn () => $this->employee($attendance->user_id)?->notify(new OvertimeReviewed($attendance)));
         }
     }
 
