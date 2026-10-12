@@ -85,6 +85,13 @@ jobs:
           flutter-version: 3.47.7
           cache: true
 
+      # APK y AAB en release ocupan varios GB; el runner a veces se queda sin disco
+      - name: Liberar espacio en disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            /usr/share/swift /usr/local/share/powershell /opt/az /opt/microsoft /usr/lib/google-cloud-sdk
+          df -h /
+
       - name: Llave de firma (si hay secrets)
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
