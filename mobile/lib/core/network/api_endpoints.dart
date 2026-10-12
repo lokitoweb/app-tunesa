@@ -25,6 +25,7 @@ class ApiEndpoints {
   static String session(int id) => '/auth/sessions/$id';
   static const notificationPreferences = '/auth/notification-preferences';
   static const refreshFcm = '/auth/refresh-fcm';
+  static const testPush = '/auth/test-push';
 
   // Asistencia
   static const attendanceToday = '/attendance/today';

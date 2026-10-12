@@ -1,11 +1,14 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:tunesa_mobile/core/push/push_controller.dart';
 import 'package:tunesa_mobile/core/push/push_options.dart';
 import 'package:tunesa_mobile/core/theme/app_theme.dart';
 import 'package:tunesa_mobile/features/account/domain/models.dart';
 import 'package:tunesa_mobile/features/account/presentation/devices_screen.dart';
 import 'package:tunesa_mobile/features/account/presentation/notification_settings_screen.dart';
+import 'package:tunesa_mobile/features/account/presentation/push_status_card.dart';
 import 'package:tunesa_mobile/features/notifications/domain/models.dart';
 
 Future<void> _pump(WidgetTester tester, Widget child) =>
@@ -84,5 +87,58 @@ void main() {
   test('los avisos de seguridad llevan a Mis dispositivos', () {
     expect(AppNotification.routeFor('security.new_device'), '/profile/devices');
     expect(pushRouteFor({'type': 'security.password_changed', 'screen': 'devices'}), '/profile/devices');
+  });
+
+  test('permiso de notificaciones: Android "denegado para siempre" también cuenta como bloqueado', () {
+    expect(pushPermissionFrom(AuthorizationStatus.authorized), PushPermission.granted);
+    expect(pushPermissionFrom(AuthorizationStatus.provisional), PushPermission.granted);
+    expect(pushPermissionFrom(AuthorizationStatus.denied), PushPermission.denied);
+    expect(pushPermissionFrom(AuthorizationStatus.deniedPermanently), PushPermission.denied);
+    expect(pushPermissionFrom(AuthorizationStatus.notDetermined), PushPermission.notDetermined);
+  });
+
+  testWidgets('estado de avisos: bloqueados ofrece permitir, permitidos ofrece una prueba', (tester) async {
+    var allowed = 0;
+    var tested = 0;
+    Widget card(PushStatus status, PushPermission? permission) => PushStatusView(
+          status: status,
+          permission: permission,
+          onAllow: () => allowed++,
+          onTest: () => tested++,
+        );
+
+    await _pump(tester, card(PushStatus.enabled, PushPermission.denied));
+    expect(find.text('Tu teléfono bloquea los avisos'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('push-allow')));
+    expect(allowed, 1);
+
+    await _pump(tester, card(PushStatus.enabled, PushPermission.granted));
+    expect(find.text('Este teléfono recibe avisos'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('push-test')));
+    expect(tested, 1);
+
+    // Consultando el permiso: el botón espera
+    await _pump(tester, card(PushStatus.enabled, null));
+    await tester.tap(find.byKey(const Key('push-test')));
+    expect(tested, 1);
+
+    await _pump(tester, card(PushStatus.disabledByCompany, PushPermission.granted));
+    expect(find.text('Avisos desactivados por tu empresa'), findsOneWidget);
+    expect(find.byType(OutlinedButton), findsNothing);
+
+    await _pump(tester, card(PushStatus.unavailable, PushPermission.unknown));
+    expect(find.text('Avisos no disponibles'), findsOneWidget);
+  });
+
+  testWidgets('Notificaciones muestra el estado del teléfono arriba de la lista', (tester) async {
+    await _pump(
+      tester,
+      NotificationPreferencesList(
+        preferences: const [],
+        onChanged: (_, _) {},
+        header: const Text('estado-del-telefono'),
+      ),
+    );
+    expect(find.text('estado-del-telefono'), findsOneWidget);
   });
 }

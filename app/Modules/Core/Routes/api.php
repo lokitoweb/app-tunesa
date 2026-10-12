@@ -62,6 +62,7 @@ Route::middleware('api.tenant')->group(function () {
         Route::post('profile',         [AuthController::class, 'updateProfile']); // multipart (foto de perfil)
         Route::put('change-password',  [AuthController::class, 'changePassword']);
         Route::post('refresh-fcm',     [AuthController::class, 'updateFcmToken']);
+        Route::post('test-push',       [AuthController::class, 'testPush'])->middleware('throttle:5,1');
     });
 
     Route::prefix('notifications')->group(function () {

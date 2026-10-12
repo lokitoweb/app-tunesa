@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/env.dart';
@@ -88,3 +89,21 @@ String pushRouteFor(Map<String, dynamic> data) {
   final type = data['type']?.toString() ?? '';
   return AppNotification.routeFor(type, data) ?? '/notifications';
 }
+
+/// Si el teléfono deja mostrar los avisos de la app.
+enum PushPermission {
+  granted,
+  denied,
+
+  /// Todavía no se preguntó (o se cerró el diálogo sin elegir).
+  notDetermined,
+
+  /// Push apagado o no se pudo consultar.
+  unknown,
+}
+
+PushPermission pushPermissionFrom(AuthorizationStatus status) => switch (status) {
+      AuthorizationStatus.authorized || AuthorizationStatus.provisional => PushPermission.granted,
+      AuthorizationStatus.denied || AuthorizationStatus.deniedPermanently => PushPermission.denied,
+      AuthorizationStatus.notDetermined => PushPermission.notDetermined,
+    };
