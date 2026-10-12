@@ -26,6 +26,9 @@ class ApiEndpoints {
   static const notificationPreferences = '/auth/notification-preferences';
   static const refreshFcm = '/auth/refresh-fcm';
 
+  /// Pedido de eliminación de la cuenta y sus datos.
+  static const accountDeletion = '/auth/account-deletion';
+
   // Asistencia
   static const attendanceToday = '/attendance/today';
   static const attendanceHistory = '/attendance/history';

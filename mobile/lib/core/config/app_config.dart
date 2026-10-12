@@ -18,6 +18,13 @@ String? _httpsUrl(Object? v) {
   return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty ? s : null;
 }
 
+/// Enlaces http(s) del propio backend (http solo en desarrollo).
+String? _httpUrl(Object? v) {
+  final s = _str(v);
+  final uri = s == null ? null : Uri.tryParse(s);
+  return uri != null && (uri.scheme == 'https' || uri.scheme == 'http') && uri.host.isNotEmpty ? s : null;
+}
+
 bool _bool(Object? v, bool fallback) {
   if (v is bool) return v;
   if (v is num) return v != 0;
@@ -296,6 +303,24 @@ class ModulesConfig {
       {'payslips': payslips, 'documents': documents, 'payment_info': paymentInfo, 'uniforms': uniforms, 'trainings': trainings};
 }
 
+/// Páginas públicas que piden Google Play y App Store (`legal`).
+class LegalConfig {
+  const LegalConfig({this.privacyPolicyUrl, this.accountDeletionUrl});
+
+  final String? privacyPolicyUrl;
+  final String? accountDeletionUrl;
+
+  factory LegalConfig.fromJson(Object? raw) {
+    final json = _map(raw);
+    return LegalConfig(
+      privacyPolicyUrl: _httpUrl(json['privacy_policy_url']),
+      accountDeletionUrl: _httpUrl(json['account_deletion_url']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'privacy_policy_url': privacyPolicyUrl, 'account_deletion_url': accountDeletionUrl};
+}
+
 class AppConfig {
   const AppConfig({
     this.tenant,
@@ -304,6 +329,7 @@ class AppConfig {
     this.rules = const RulesConfig(),
     this.contact = const ContactConfig(),
     this.modules = const ModulesConfig(),
+    this.legal = const LegalConfig(),
     this.configVersion,
   });
 
@@ -316,6 +342,7 @@ class AppConfig {
   final RulesConfig rules;
   final ContactConfig contact;
   final ModulesConfig modules;
+  final LegalConfig legal;
   final String? configVersion;
 
   String get displayName => tenant?.displayName ?? 'Tunesa';
@@ -331,6 +358,7 @@ class AppConfig {
       rules: RulesConfig.fromJson(data['rules']),
       contact: ContactConfig.fromJson(data['contact']),
       modules: ModulesConfig.fromJson(data['modules']),
+      legal: LegalConfig.fromJson(data['legal']),
       configVersion: _str(meta['config_version']) ?? _str(data['config_version']),
     );
   }
@@ -349,6 +377,7 @@ class AppConfig {
           'rules': rules.toJson(),
           'contact': contact.toJson(),
           'modules': modules.toJson(),
+          'legal': legal.toJson(),
         },
         'meta': {'config_version': configVersion},
       };

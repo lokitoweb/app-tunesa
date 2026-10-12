@@ -18,6 +18,7 @@
  */
 
 use App\Modules\Core\Controllers\Api\Admin\CompanyConfigurationController;
+use App\Modules\Core\Controllers\Api\AccountDeletionController;
 use App\Modules\Core\Controllers\Api\AppConfigController;
 use App\Modules\Core\Controllers\Api\AuthController;
 use App\Modules\Core\Controllers\Api\BranchController;
@@ -62,6 +63,7 @@ Route::middleware('api.tenant')->group(function () {
         Route::post('profile',         [AuthController::class, 'updateProfile']); // multipart (foto de perfil)
         Route::put('change-password',  [AuthController::class, 'changePassword']);
         Route::post('refresh-fcm',     [AuthController::class, 'updateFcmToken']);
+        Route::post('account-deletion', [AccountDeletionController::class, 'store'])->middleware('throttle:5,1');
     });
 
     Route::prefix('notifications')->group(function () {

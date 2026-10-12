@@ -583,6 +583,11 @@ class TenantSetting extends Model
             'rules'    => $this->rules(),
             'contact'  => $this->contact(),
             'modules'  => $modules,
+            // Páginas públicas que exigen Google Play y App Store (LegalController)
+            'legal'    => [
+                'privacy_policy_url'   => route('legal.privacy'),
+                'account_deletion_url' => route('legal.account-deletion'),
+            ],
         ];
     }
 

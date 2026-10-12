@@ -16,6 +16,7 @@ import 'package:tunesa_mobile/core/providers.dart';
 import 'package:tunesa_mobile/features/attendance/domain/models.dart';
 import 'package:tunesa_mobile/features/attendance/presentation/attendance_providers.dart';
 import 'package:tunesa_mobile/features/attendance/presentation/clock_screen.dart';
+import 'package:tunesa_mobile/features/attendance/presentation/punch_disclosure.dart';
 import 'package:tunesa_mobile/features/attendance/presentation/offline_sync.dart';
 import 'package:tunesa_mobile/features/attendance/presentation/selfie_screen.dart';
 
@@ -36,6 +37,20 @@ class _NoGps extends LocationService {
     int? maxAccuracyMeters,
     MockLocationPolicy mockPolicy = MockLocationPolicy.reject,
   }) async => throw const LocationException(LocationFailure.timeout, 'Sin GPS en pruebas');
+}
+
+/// Sin GPS, contando cuántas veces se pidió.
+class _CountingGps extends LocationService {
+  int calls = 0;
+
+  @override
+  Future<LocationFix> getVerifiedFix({
+    int? maxAccuracyMeters,
+    MockLocationPolicy mockPolicy = MockLocationPolicy.reject,
+  }) async {
+    calls++;
+    throw const LocationException(LocationFailure.timeout, 'Sin GPS en pruebas');
+  }
 }
 
 /// GPS fijo en (lat, lng) con buena precisión.
@@ -91,8 +106,12 @@ void main() {
     ClockAction action = ClockAction.clockIn,
     LocationService? gps,
     bool settle = true,
+    bool disclosed = true,
   }) async {
-    SharedPreferences.setMockInitialValues({AppConfigRepository.cacheKey: _cache(mobile: mobile)});
+    SharedPreferences.setMockInitialValues({
+      AppConfigRepository.cacheKey: _cache(mobile: mobile),
+      if (disclosed) PunchDisclosure.prefsKey: true,
+    });
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
       ProviderScope(
@@ -120,6 +139,35 @@ void main() {
       }
     }
   }
+
+  testWidgets('primera marcación: aviso de ubicación y cámara antes de pedir el GPS, una sola vez', (tester) async {
+    final gps = _CountingGps();
+    await pumpClock(tester, gps: gps, disclosed: false, settle: false);
+
+    expect(find.byKey(const Key('punch-disclosure')), findsOneWidget);
+    expect(find.textContaining('No la usa en segundo plano'), findsOneWidget);
+    expect(gps.calls, 0);
+
+    await tester.tap(find.byKey(const Key('punch-disclosure-accept')));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byKey(const Key('punch-disclosure')), findsNothing);
+    expect(gps.calls, 1);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(PunchDisclosure.prefsKey), isTrue);
+  });
+
+  testWidgets('"Ahora no" en el aviso no pide el GPS', (tester) async {
+    final gps = _CountingGps();
+    await pumpClock(tester, gps: gps, disclosed: false, settle: false);
+    await tester.tap(find.text('Ahora no'));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byKey(const Key('punch-disclosure')), findsNothing);
+    expect(gps.calls, 0);
+  });
 
   testWidgets('en la agencia la entrada abre la cámara sin pasos previos', (tester) async {
     await pumpClock(tester, gps: _FixedGps(_agency.lat, _agency.lng), settle: false);

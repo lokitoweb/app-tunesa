@@ -51,6 +51,24 @@ y lo publica como artefacto (pestaña Actions → la ejecución → *Artifacts*)
 entorno y modo: Actions → **App móvil: APK** → *Run workflow*. Al crear un tag `v*` el APK
 se adjunta al GitHub Release.
 
+### Google Play
+
+`BUILD_AAB=1 scripts/build_apk.sh prod` genera además el `.aab` que pide Google Play, y todo
+release pasa por `scripts/check_play_requirements.py` (targetSdk 36, permisos permitidos y
+librerías alineadas a 16 KB). Pasos en Play Console y respuestas de *Seguridad de los datos*:
+[docs/deployment/play-store.md](../docs/deployment/play-store.md).
+
+### Pruebas de punta a punta
+
+Con el backend sembrado (`php artisan migrate:fresh --seed`) y corriendo:
+
+```bash
+flutter test test/e2e --dart-define=E2E=true --dart-define=API_BASE_URL=http://127.0.0.1:8000   # API
+flutter test integration_test --dart-define-from-file=env/dev.json                             # emulador
+```
+
+El workflow **App ↔ API: pruebas de punta a punta** las corre en cada PR (emuladores Android 10 y 15).
+
 ### Firma de release
 
 Un release de **prod** exige `android/key.properties`: sin él `scripts/build_apk.sh prod` falla.
