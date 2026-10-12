@@ -55,9 +55,8 @@ Future<void> login(WidgetTester tester, String email, String password) async {
   await waitFor(tester, find.widgetWithText(TextFormField, 'Correo'), timeout: const Duration(seconds: 60));
   await tester.enterText(find.widgetWithText(TextFormField, 'Correo'), email);
   await tester.enterText(find.widgetWithText(TextFormField, 'Contraseña'), password);
+  // "Listo" en el teclado ya envía el formulario (onFieldSubmitted)
   await tester.testTextInput.receiveAction(TextInputAction.done);
-  await tester.pump();
-  await tapText(tester, 'Ingresar');
   await waitFor(tester, find.widgetWithText(AppBar, 'Inicio'));
   await settleScreen(tester, 'Inicio');
 }
