@@ -116,7 +116,9 @@ class CompanyConfiguration extends Model
                 'uniforms'     => $this->allows('mobile_uniforms_enabled'),
                 // Capacitaciones: módulo del ERP (se apaga por empresa en Empresas)
                 'trainings'    => \App\Modules\ModuleRegistry::enabledFor(
-                    $this->tenant_id ? \App\Modules\Core\Models\Tenant::find($this->tenant_id) : null, 'Training'),
+                    $tenant = ($this->tenant_id ? \App\Modules\Core\Models\Tenant::find($this->tenant_id) : null), 'Training'),
+                // Canal ético: módulo del ERP (se apaga por empresa en Empresas)
+                'ethics'       => \App\Modules\ModuleRegistry::enabledFor($tenant, 'Ethics'),
             ],
             'permissions' => [
                 'upload_documents'  => $this->allows('mobile_documents_upload'),

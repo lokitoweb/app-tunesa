@@ -140,6 +140,34 @@ class FcmSender
     }
 
     /**
+     * Push a un tema de FCM (sin token de usuario). Lo usa el canal ético: la app
+     * se suscribe a un tema aleatorio por denuncia y el servidor nunca sabe qué
+     * teléfono lo escucha. No reintenta: si falla, la app lo ve al abrir el caso.
+     */
+    public function sendToTopic(?Tenant $tenant, string $topic, string $title, string $body, array $data = []): bool
+    {
+        $account = $this->credentials();
+        if (! $account || ! preg_match('/^[a-zA-Z0-9_-]{8,100}$/', $topic) || ! TenantSetting::forTenant($tenant)->fcmEnabled()) {
+            return false;
+        }
+
+        $message = ['message' => [
+            'topic'        => $topic,
+            'notification' => ['title' => $title, 'body' => $body],
+            'data'         => self::stringData($data),
+            'android'      => ['priority' => 'high', 'notification' => ['channel_id' => (string) config('services.fcm.android_channel_id', 'tunesa_default')]],
+        ]];
+
+        try {
+            return $this->post($account, $message)->successful();
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo enviar el push del canal ético: ' . $e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
      * Push de prueba para el botón "Probar push" del panel.
      * No mira fcm_enabled (sirve para probar antes de activarlo).
      *

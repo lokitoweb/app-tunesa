@@ -271,6 +271,7 @@ class ModulesConfig {
     this.paymentInfo = true,
     this.uniforms = true,
     this.trainings = true,
+    this.ethics = true,
   });
 
   final bool payslips;
@@ -281,6 +282,9 @@ class ModulesConfig {
   /// Capacitaciones (módulo Training de la empresa).
   final bool trainings;
 
+  /// Canal ético (módulo Ethics de la empresa).
+  final bool ethics;
+
   factory ModulesConfig.fromJson(Object? raw) {
     final json = _map(raw);
     return ModulesConfig(
@@ -289,11 +293,12 @@ class ModulesConfig {
       paymentInfo: _bool(json['payment_info'], true),
       uniforms: _bool(json['uniforms'], true),
       trainings: _bool(json['trainings'], true),
+      ethics: _bool(json['ethics'], true),
     );
   }
 
   Map<String, dynamic> toJson() =>
-      {'payslips': payslips, 'documents': documents, 'payment_info': paymentInfo, 'uniforms': uniforms, 'trainings': trainings};
+      {'payslips': payslips, 'documents': documents, 'payment_info': paymentInfo, 'uniforms': uniforms, 'trainings': trainings, 'ethics': ethics};
 }
 
 class AppConfig {

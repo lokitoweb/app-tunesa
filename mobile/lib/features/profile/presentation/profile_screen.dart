@@ -10,6 +10,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../ethics/presentation/ethics_providers.dart';
 import '../../training/presentation/training_providers.dart';
 
 /// "Mi perfil": foto, avance de la ficha y acceso a Mis documentos,
@@ -106,6 +107,7 @@ class ProfileBody extends StatelessWidget {
           onTap: () => context.push('/profile/contact'),
         ),
         const _TrainingsTile(),
+        const _EthicsTile(),
         const SizedBox(height: 10),
         const _GroupTitle('Cuenta y ajustes'),
         const _AccountSection(),
@@ -213,6 +215,22 @@ class _TrainingsTile extends ConsumerWidget {
                   : 'Todas completadas',
       done: list != null && list.isNotEmpty && pending == 0,
       onTap: () => context.push('/trainings'),
+    );
+  }
+}
+
+class _EthicsTile extends ConsumerWidget {
+  const _EthicsTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(ethicsEnabledProvider)) return const SizedBox.shrink();
+    return _SectionTile(
+      key: const Key('section-ethics'),
+      icon: Icons.shield_outlined,
+      title: 'Canal ético',
+      subtitle: 'Denuncia de forma anónima acoso, fraude u otras faltas',
+      onTap: () => context.push('/ethics'),
     );
   }
 }

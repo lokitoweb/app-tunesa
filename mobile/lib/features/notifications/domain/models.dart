@@ -39,6 +39,8 @@ class AppNotification {
       // onboarding.submitted es para RRHH (se revisa en el panel)
       'onboarding' => type == 'onboarding.submitted' ? null : '/onboarding',
       'security' => '/profile/devices',
+      // ethics.case_received es para quien investiga (en el panel); ethics.update, para el denunciante
+      'ethics' => type == 'ethics.case_received' ? null : '/ethics',
       _ => null,
     };
   }

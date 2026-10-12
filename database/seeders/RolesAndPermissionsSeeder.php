@@ -74,6 +74,9 @@ class RolesAndPermissionsSeeder extends Seeder
         // Incorporación (onboarding)
         'onboarding.review'       => ['Revisar y aprobar la incorporación de colaboradores', 'onboarding'],
         'onboarding.manage'       => ['Configurar las etapas de incorporación', 'onboarding'],
+
+        // Canal ético
+        'ethics.investigate'      => ['Ver e investigar las denuncias del canal ético', 'ethics'],
     ];
 
     /** slug del rol => [nombre, descripción, permisos ('*' = todos)] */
