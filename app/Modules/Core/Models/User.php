@@ -64,6 +64,7 @@ class User extends Authenticatable
         'position',
         'department',
         'fcm_token',
+        'notification_preferences',
         'must_change_password',
         'department_id',
         'scope_type',
@@ -116,6 +117,7 @@ class User extends Authenticatable
         'must_change_password' => 'boolean',
         'roaming_attendance_enabled' => 'boolean',
         'failed_login_attempts' => 'integer',
+        'notification_preferences' => 'array',
     ];
 
     /**

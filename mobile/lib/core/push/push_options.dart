@@ -81,6 +81,7 @@ String pushRouteFor(Map<String, dynamic> data) {
     'home' || 'app_update' => '/home',
     'profile' => '/profile',
     'trainings' || 'training' => '/trainings',
+    'devices' => '/profile/devices',
     _ => null,
   };
   if (byScreen != null) return byScreen;

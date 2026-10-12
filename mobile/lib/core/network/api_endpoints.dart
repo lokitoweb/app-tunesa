@@ -20,6 +20,10 @@ class ApiEndpoints {
   static const forgotPassword = '/auth/forgot-password';
   static const changePassword = '/auth/change-password';
   static const logoutAll = '/auth/logout-all';
+  static const logoutOthers = '/auth/logout-others';
+  static const sessions = '/auth/sessions';
+  static String session(int id) => '/auth/sessions/$id';
+  static const notificationPreferences = '/auth/notification-preferences';
   static const refreshFcm = '/auth/refresh-fcm';
 
   // Asistencia

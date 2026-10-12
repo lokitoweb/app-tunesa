@@ -164,6 +164,16 @@ Avisos que llegan al teléfono:
 "Nueva versión" y el recordatorio de entrada son solo push (no llenan la bandeja). El enlace del botón
 "Actualizar" es el campo "Enlace para descargar la app" (tienda o APK, solo `https://`).
 
+### Control de la cuenta (app › Mi perfil)
+
+- **Notificaciones:** cada persona apaga por categoría los avisos que le llegan al teléfono (boletas, solicitudes,
+  recordatorio de entrada, turnos, capacitaciones, legajo, versiones, reportes). Lo apagado sigue en la bandeja.
+  API: `GET/PUT /api/auth/notification-preferences`.
+- **Alertas de seguridad** (no se pueden apagar): inicio de sesión desde un dispositivo nuevo y cambio de contraseña
+  (no el cambio obligatorio de la contraseña temporal). Llevan a "Mis dispositivos".
+- **Mis dispositivos:** sesiones abiertas con su último uso; cerrar una (`DELETE /api/auth/sessions/{id}`) o todas
+  menos la actual (`POST /api/auth/logout-others`).
+
 ## App móvil
 
 Ver [`mobile/README.md`](mobile/README.md): entornos y URL del backend, compilación del APK (`mobile/scripts/build_apk.sh`) y firma. El workflow **App móvil: APK** de GitHub Actions compila el APK en cada PR que toca `mobile/`. Para probar en un celular contra tu PC, ver [docs/deployment/mobile-cloudflare-tunnel.md](docs/deployment/mobile-cloudflare-tunnel.md). El contrato de la API está en [docs/api/mobile-endpoints.md](docs/api/mobile-endpoints.md).
