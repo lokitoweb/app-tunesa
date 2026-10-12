@@ -49,7 +49,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final summary = ref.watch(onboardingProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mi incorporación')),
+      appBar: AppBar(
+        title: const Text('Mi incorporación'),
+        // Se llega aquí directo tras el primer ingreso: sin pantalla anterior
+        actions: [
+          if (!Navigator.of(context).canPop())
+            TextButton(onPressed: () => context.go('/home'), child: const Text('Inicio')),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(onboardingProvider.future),
         child: summary.when(

@@ -23,6 +23,16 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   bool _saving = false;
   ApiException? _error;
 
+  /// Cada campo con su "ojito" para ver u ocultar lo escrito
+  final _hidden = [true, true, true];
+
+  Widget _eye(int i) => IconButton(
+        key: Key('toggle-password-$i'),
+        tooltip: _hidden[i] ? 'Mostrar contraseña' : 'Ocultar contraseña',
+        icon: Icon(_hidden[i] ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+        onPressed: () => setState(() => _hidden[i] = !_hidden[i]),
+      );
+
   @override
   void dispose() {
     for (final c in [_current, _next, _confirm]) {
@@ -37,11 +47,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       _saving = true;
       _error = null;
     });
+    final forcedBefore = ref.read(authControllerProvider).user?.mustChangePassword ?? false;
     try {
       await ref.read(authControllerProvider.notifier).changePassword(_current.text, _next.text);
       if (mounted) {
         showSnack(context, 'Contraseña actualizada.');
-        if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+        // Contraseña temporal: el router lleva a la incorporación o al inicio
+        if (!forcedBefore && Navigator.of(context).canPop()) Navigator.of(context).pop();
       }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e);
@@ -88,16 +100,21 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               ),
             TextFormField(
               controller: _current,
-              obscureText: true,
-              decoration: InputDecoration(labelText: forced ? 'Contraseña temporal' : 'Contraseña actual', errorText: _error?.fieldError('current_password')),
+              obscureText: _hidden[0],
+              decoration: InputDecoration(
+                labelText: forced ? 'Contraseña temporal' : 'Contraseña actual',
+                errorText: _error?.fieldError('current_password'),
+                suffixIcon: _eye(0),
+              ),
               validator: (v) => (v == null || v.isEmpty) ? 'Requerida' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _next,
-              obscureText: true,
+              obscureText: _hidden[1],
               decoration: InputDecoration(
                 labelText: 'Nueva contraseña',
+                suffixIcon: _eye(1),
                 helperText: '8+ caracteres, mayúsculas, minúsculas y números',
                 errorText: _error?.fieldError('new_password'),
               ),
@@ -106,8 +123,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _confirm,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Repite la nueva contraseña'),
+              obscureText: _hidden[2],
+              decoration: InputDecoration(labelText: 'Repite la nueva contraseña', suffixIcon: _eye(2)),
               validator: (v) => v != _next.text ? 'No coincide' : null,
             ),
             const SizedBox(height: 24),

@@ -77,13 +77,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.status == AuthStatus.authenticated && (auth.user?.mustChangePassword ?? false)) {
         return loc == '/change-password' ? null : '/change-password';
       }
-      // Fuera de ese caso la app no cambia contraseñas: lo hace RRHH desde el panel
-      if (loc == '/change-password') return '/profile';
+      // Primer ingreso: quien aún no está aprobado por RRHH va a su incorporación
+      // (documentos, datos y cursos), no al inicio de marcación
+      final landing = (auth.user?.onboardingStatus ?? 'approved') == 'approved' ? '/home' : '/onboarding';
+
+      // Fuera de ese caso la app no cambia contraseñas: lo hace RRHH desde el panel.
+      // Recién cambiada la temporal, sigue el primer ingreso.
+      if (loc == '/change-password') return auth.status == AuthStatus.authenticated ? landing : '/login';
 
       return switch (auth.status) {
         // Sin empresa conocida también va al login: el servidor la reconoce por el correo
         AuthStatus.needsTenant || AuthStatus.unauthenticated => loc == '/login' ? null : '/login',
-        AuthStatus.authenticated => const {'/login', '/splash', '/update'}.contains(loc) ? '/home' : null,
+        AuthStatus.authenticated => const {'/login', '/splash', '/update'}.contains(loc) ? landing : null,
       };
     },
     routes: [

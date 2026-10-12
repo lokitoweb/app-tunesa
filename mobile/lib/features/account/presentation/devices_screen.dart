@@ -120,9 +120,10 @@ class DevicesList extends StatelessWidget {
           for (final s in sessions)
             Card(
               key: Key('session-${s.id}'),
-              margin: const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.only(bottom: 14),
               child: ListTile(
-                contentPadding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+                contentPadding: const EdgeInsets.fromLTRB(18, 10, 10, 10),
+                minVerticalPadding: 10,
                 leading: Icon(s.label.contains('iPhone') ? Icons.phone_iphone_rounded : Icons.phone_android_rounded),
                 title: Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis),
                 subtitle: Text(s.current
@@ -137,7 +138,7 @@ class DevicesList extends StatelessWidget {
                       ),
               ),
             ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           if (others > 0)
             OutlinedButton.icon(
               key: const Key('logout-others'),

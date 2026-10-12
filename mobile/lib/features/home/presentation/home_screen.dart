@@ -73,7 +73,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: ListView(
           padding: pagePadding(context),
           children: [
-            _Greeting(name: auth.user?.firstName ?? ''),
+            _Greeting(name: auth.user?.firstName ?? '', initials: auth.user?.initials ?? '?', avatarUrl: auth.user?.avatarUrl),
             const SizedBox(height: 16),
             if (canPunch) const _OnboardingBanner(),
             const TrainingHomeCard(),
@@ -104,9 +104,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _Greeting extends StatelessWidget {
-  const _Greeting({required this.name});
+  const _Greeting({required this.name, required this.initials, this.avatarUrl});
 
   final String name;
+  final String initials;
+
+  /// Foto de perfil; sin foto se muestran las iniciales en el avatar.
+  final String? avatarUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -124,10 +128,24 @@ class _Greeting extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('$greeting, $name', style: TextStyle(color: scheme.onPrimary, fontSize: 22, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4),
-        Text(Fmt.dayLong(DateTime.now()), style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85))),
+      child: Row(children: [
+        CircleAvatar(
+          key: const Key('greeting-avatar'),
+          radius: 28,
+          backgroundColor: scheme.onPrimary.withValues(alpha: 0.2),
+          foregroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl!),
+          // Si la foto no carga, quedan las iniciales debajo
+          onForegroundImageError: avatarUrl == null ? null : (_, _) {},
+          child: Text(initials, style: TextStyle(color: scheme.onPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('$greeting, $name', style: TextStyle(color: scheme.onPrimary, fontSize: 22, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(Fmt.dayLong(DateTime.now()), style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85))),
+          ]),
+        ),
       ]),
     );
   }
