@@ -4,6 +4,7 @@ namespace App\Modules\HR\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\Position;
 use App\Modules\Core\Services\OrgScope;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Shift;
@@ -67,10 +68,16 @@ class EmployeeController extends Controller
             });
         }
 
+        // Filtro por cargo del catálogo
+        if ($positionId = $request->integer('position_id')) {
+            $query->where('position_id', $positionId);
+        }
+
         $employees = $query->paginate(15)->withQueryString();
         $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
+        $positions = Position::forTenant($tenantId)->orderBy('name')->get(['id', 'name']);
 
-        return view('employees.index', compact('employees', 'branches'));
+        return view('employees.index', compact('employees', 'branches', 'positions'));
     }
 
     /**
@@ -125,7 +132,7 @@ class EmployeeController extends Controller
             }
 
             // Crear usuario
-            $user = User::create([
+            $user = User::create(array_merge([
                 'tenant_id'       => $tenantId,
                 'first_name'      => $validated['first_name'],
                 'last_name'       => $validated['last_name'],
@@ -144,7 +151,7 @@ class EmployeeController extends Controller
                 'avatar_path'     => $avatarPath,
                 // Contraseña temporal: se exige cambiarla en el primer ingreso
                 'must_change_password' => true,
-            ] + $this->orgData($validated, $request));
+            ], $this->orgData($validated, $request)));
 
             // Asignar sucursales (con bandera de sucursal principal)
             $branchesToSync = [];
@@ -232,7 +239,7 @@ class EmployeeController extends Controller
         );
 
         DB::transaction(function () use ($validated, $tenantId, $employee, $request) {
-            $dataToUpdate = [
+            $dataToUpdate = array_merge([
                 'first_name'      => $validated['first_name'],
                 'last_name'       => $validated['last_name'],
                 'email'           => $validated['email'],
@@ -246,7 +253,7 @@ class EmployeeController extends Controller
                 'department'      => $validated['department'] ?? null,
                 'base_salary'     => $validated['base_salary'] ?? 0,
                 'hire_date'       => $validated['hire_date'] ?? $employee->hire_date,
-            ] + $this->orgData($validated, $request);
+            ], $this->orgData($validated, $request));
 
             if (!empty($validated['password'])) {
                 $dataToUpdate['password'] = Hash::make($validated['password']);
@@ -334,6 +341,7 @@ class EmployeeController extends Controller
     {
         return [
             'department_id'              => ['nullable', 'integer', Rule::exists('departments', 'id')->where('tenant_id', $tenantId)],
+            'position_id'                => ['nullable', 'integer', Rule::exists('positions', 'id')->where('tenant_id', $tenantId)],
             'roaming_attendance_enabled' => ['nullable', 'boolean'],
             'scope_type'                 => ['nullable', Rule::in(array_keys(User::SCOPES))],
             'scope_zone_id'              => ['nullable', 'required_if:scope_type,zone', 'integer', Rule::exists('zones', 'id')->where('tenant_id', $tenantId)],
@@ -354,6 +362,13 @@ class EmployeeController extends Controller
             'department_id'              => $validated['department_id'] ?? null,
             'roaming_attendance_enabled' => $request->boolean('roaming_attendance_enabled'),
         ];
+
+        // Con catálogo de cargos el formulario envía position_id; el nombre se copia del cargo
+        if ($request->exists('position_id')) {
+            $positionId = $validated['position_id'] ?? null;
+            $data['position_id'] = $positionId;
+            $data['position']    = $positionId ? Position::whereKey($positionId)->value('name') : null;
+        }
 
         if ($validated['role'] === 'employee') {
             return $data + ['scope_type' => User::SCOPE_GLOBAL, 'scope_zone_id' => null, 'scope_branch_id' => null];

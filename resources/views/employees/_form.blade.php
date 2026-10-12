@@ -88,9 +88,35 @@
                         <label for="employee_code" class="form-label">Código de empleado</label>
                         <input type="text" id="employee_code" name="employee_code" value="{{ $val('employee_code') }}" placeholder="Se genera si lo dejas vacío" class="form-control">
                     </div>
+                    @php
+                        $positionOptions = \App\Modules\Core\Models\Position::with('department:id,name')
+                            ->where(fn ($q) => $q->where('is_active', true)->orWhere('id', $employee?->position_id))
+                            ->orderBy('name')->get(['id', 'name', 'department_id', 'is_roaming'])
+                            ->groupBy(fn ($p) => $p->department?->name ?? 'Sin área');
+                    @endphp
                     <div class="col-md-4">
-                        <label for="position" class="form-label">Cargo</label>
-                        <input type="text" id="position" name="position" value="{{ $val('position') }}" placeholder="Ej.: Operador de obra" class="form-control">
+                        <label for="{{ $positionOptions->isNotEmpty() ? 'position_id' : 'position' }}" class="form-label">Cargo</label>
+                        @if($positionOptions->isNotEmpty())
+                            <select id="position_id" name="position_id" class="form-select @error('position_id') is-invalid @enderror">
+                                <option value="">Sin cargo</option>
+                                @foreach($positionOptions as $group => $items)
+                                    <optgroup label="{{ $group }}">
+                                        @foreach($items as $p)
+                                            <option value="{{ $p->id }}" data-department="{{ $p->department_id }}" data-roaming="{{ $p->is_roaming ? 1 : 0 }}" @selected($val('position_id') == $p->id)>{{ $p->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
+                            @error('position_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            @if($employee?->position && ! $employee->position_id)
+                                <div class="form-text">Antes: «{{ $employee->position }}». Elige su cargo del catálogo.</div>
+                            @else
+                                <div class="form-text">Los cargos se administran en <a href="{{ route('organization.index') }}">Organización</a>.</div>
+                            @endif
+                        @else
+                            <input type="text" id="position" name="position" value="{{ $val('position') }}" placeholder="Ej.: Almacenero" class="form-control">
+                            <div class="form-text">Crea el catálogo de cargos en <a href="{{ route('organization.index') }}">Organización</a>.</div>
+                        @endif
                     </div>
                     <div class="col-md-4">
                         <label for="department" class="form-label">Área</label>
@@ -224,3 +250,13 @@
         </div>
     </div>
 </div>
+
+{{-- Al elegir un cargo del catálogo se completa su área y, si es itinerante, la marcación en ruta --}}
+<script>
+document.getElementById('position_id')?.addEventListener('change', (event) => {
+    const option = event.target.selectedOptions[0];
+    const department = document.getElementById('department_id');
+    if (department && !department.value && option?.dataset.department) department.value = option.dataset.department;
+    if (option?.dataset.roaming === '1') document.getElementById('roaming_attendance_enabled').checked = true;
+});
+</script>

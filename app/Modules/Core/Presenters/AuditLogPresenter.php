@@ -40,6 +40,7 @@ class AuditLogPresenter
         'zone_id'             => [\App\Modules\Core\Models\Zone::class, 'name'],
         'scope_zone_id'       => [\App\Modules\Core\Models\Zone::class, 'name'],
         'department_id'       => [\App\Modules\Core\Models\Department::class, 'name'],
+        'position_id'         => [\App\Modules\Core\Models\Position::class, 'name'],
         'shift_id'            => [\App\Modules\HR\Models\Shift::class, 'name'],
         'tenant_id'           => [\App\Modules\Core\Models\Tenant::class, 'company_name'],
     ];
