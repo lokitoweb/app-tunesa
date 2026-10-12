@@ -11,6 +11,8 @@ import '../../attendance/presentation/offline_sync.dart';
 import '../../attendance/presentation/punch_board.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../notifications/presentation/notifications_providers.dart';
+import '../../onboarding/presentation/onboarding_gate_card.dart';
+import '../../onboarding/presentation/onboarding_providers.dart';
 import '../../notifications/presentation/notifications_screen.dart';
 import '../../profile/presentation/profile_providers.dart';
 import '../../team/presentation/team_providers.dart';
@@ -47,6 +49,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.invalidate(unreadCountProvider);
     ref.invalidate(pendingApprovalsCountProvider);
     ref.invalidate(trainingsProvider);
+    ref.invalidate(onboardingProvider);
   }
 
   @override
@@ -54,6 +57,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final auth = ref.watch(authControllerProvider);
     final today = ref.watch(todayStatusProvider);
     final user = auth.user;
+    // Incorporación sin aprobar: en lugar de los botones de marcar, el asistente
+    final canPunch = ref.watch(canPunchProvider);
 
     return Scaffold(
       // La empresa y la sede se ven en "Mi perfil": aquí solo el título y los avisos
@@ -70,7 +75,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             _Greeting(name: auth.user?.firstName ?? ''),
             const SizedBox(height: 16),
-            const _OnboardingBanner(),
+            if (canPunch) const _OnboardingBanner(),
             const TrainingHomeCard(),
             if (user != null && user.hasTeamArea) ...[
               _TeamSection(canApprove: user.canApproveRequests, canViewTeam: user.canViewTeam),
@@ -84,7 +89,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _ShiftCard(schedule: status.schedule),
                   const SizedBox(height: 12),
-                  PunchBoard(status: status, onPunch: (action) => context.push('/clock/${action.apiName}')),
+                  if (canPunch)
+                    PunchBoard(status: status, onPunch: (action) => context.push('/clock/${action.apiName}'))
+                  else
+                    const OnboardingGateCard(),
                 ],
               ),
             ),

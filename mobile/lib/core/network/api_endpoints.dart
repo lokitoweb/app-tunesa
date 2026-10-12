@@ -24,6 +24,10 @@ class ApiEndpoints {
   static const notificationPreferences = '/auth/notification-preferences';
   static const refreshFcm = '/auth/refresh-fcm';
 
+  // Incorporación: etapas y envío a RRHH (candado de la marcación)
+  static const onboarding = '/onboarding';
+  static const onboardingSubmit = '/onboarding/submit';
+
   // Asistencia
   static const attendanceToday = '/attendance/today';
   static const attendanceHistory = '/attendance/history';
