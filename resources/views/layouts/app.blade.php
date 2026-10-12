@@ -11,15 +11,7 @@
     @endphp
     <title>@yield('title', 'Panel') — {{ $brandSettings->tradeName() }}</title>
 
-    {{-- Aplica el tema guardado antes de pintar para evitar parpadeo --}}
-    <script>
-        (function () {
-            try {
-                var t = localStorage.getItem('panel-theme');
-                if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-bs-theme', t);
-            } catch (e) {}
-        })();
-    </script>
+    @include('layouts.partials.theme-boot')
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -90,6 +82,12 @@
                 @endif
             </div>
             <div class="d-flex align-items-center gap-2">
+                @can('users.manage')
+                    <form method="GET" action="{{ route('employees.index') }}" class="topbar-search d-none d-xl-flex" role="search">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input type="search" name="search" class="form-control form-control-sm" placeholder="Buscar colaborador…" aria-label="Buscar colaborador" value="{{ request()->routeIs('employees.index') ? request('search') : '' }}">
+                    </form>
+                @endcan
                 <span class="small text-body-secondary d-none d-md-inline">{{ now()->isoFormat('dddd D [de] MMMM') }}</span>
                 @include('layouts.partials.notifications-bell')
                 <button type="button" class="btn btn-light border btn-sm" id="themeToggle" aria-label="Cambiar tema claro u oscuro" title="Tema claro / oscuro">
@@ -110,6 +108,7 @@
                             <div class="small text-body-secondary text-truncate">{{ $navUser->email }}</div>
                         </div>
                         <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="{{ route('account.edit') }}"><i class="bi bi-person-gear me-2"></i>Mi cuenta</a>
                         <a class="dropdown-item" href="{{ route('notifications.index') }}"><i class="bi bi-bell me-2"></i>Notificaciones</a>
                         <form method="POST" action="{{ route('logout') }}" class="m-0">
                             @csrf

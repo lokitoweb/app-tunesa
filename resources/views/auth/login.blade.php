@@ -4,10 +4,9 @@
 
 @section('content')
 <div class="auth-card">
-    @include('auth._brand')
-
     <div class="card border-0 shadow-sm">
         <div class="card-body p-4">
+            @include('auth._brand')
             <h1 class="h4 fw-bold mb-4 text-center">Iniciar sesión</h1>
 
             @if($errors->any())

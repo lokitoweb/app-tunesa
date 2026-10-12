@@ -4,10 +4,9 @@
 
 @section('content')
 <div class="auth-card">
-    @include('auth._brand')
-
     <div class="card border-0 shadow-sm">
         <div class="card-body p-4">
+            @include('auth._brand')
             <h1 class="h5 fw-semibold mb-1">¿Olvidaste tu contraseña?</h1>
             <p class="small text-body-secondary mb-3">Escribe el correo con el que ingresas al panel o a la app. Te enviaremos un enlace para crear una nueva contraseña.</p>
 

@@ -40,6 +40,8 @@ class HandleInertiaRequests extends Middleware
                 'email'          => $user->email,
                 'role_label'     => Labels::enum('user_role', $user->role),
                 'is_super_admin' => $user->isSuperAdmin(),
+                // Buscador de colaboradores de la barra superior
+                'can_search'     => $user->can('users.manage'),
             ] : null,
             'brand' => function () use ($user) {
                 // Empresa activa (la del usuario, o la que eligió el Super Admin); sin empresa = plataforma
