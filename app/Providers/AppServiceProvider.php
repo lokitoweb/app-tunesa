@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Services\AttendanceCalendarService;
 use App\Modules\HR\Models\EmployeeDocument;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\Core\Models\TenantSetting;
@@ -95,6 +96,25 @@ class AppServiceProvider extends ServiceProvider
                 $integrations()->notificationCreated($event->notifiable, $event->response);
             }
         });
+
+        // Calendario con semáforo: un cambio en una jornada o un permiso invalida la caché de ese mes
+        $bumpAttendance = function (Attendance $m) {
+            foreach (array_filter([$m->work_date?->toDateString(), $m->getOriginal('work_date') ? \Carbon\Carbon::parse($m->getOriginal('work_date'))->toDateString() : null]) as $day) {
+                AttendanceCalendarService::bump($m->tenant_id, $day);
+            }
+        };
+        Attendance::saved($bumpAttendance);
+        Attendance::deleted($bumpAttendance);
+        $bumpLeave = function (LeaveRequest $m) {
+            if (! $m->start_date || ! $m->end_date) {
+                return;
+            }
+            for ($d = $m->start_date->copy()->startOfMonth(); $d->lte($m->end_date); $d->addMonthNoOverflow()) {
+                AttendanceCalendarService::bump($m->tenant_id, $d->toDateString());
+            }
+        };
+        LeaveRequest::saved($bumpLeave);
+        LeaveRequest::deleted($bumpLeave);
 
         // Los permisos sembrados (RolesAndPermissionsSeeder) funcionan como
         // abilities de Gate: $user->can('shifts.manage'), @can en Blade, etc.
