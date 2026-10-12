@@ -253,3 +253,31 @@ por geocerca se avisan como máximo una vez cada 10 minutos por persona y tipo d
 
 Las pruebas nunca salen a internet: `tests/TestCase.php` activa `Http::preventStrayRequests()` y
 cada prueba simula Nominatim, Google y FCM con `Http::fake()`.
+
+## Calendario con semáforo
+
+Asistencia > Calendario (`/attendance-calendar`, `CalendarWebController`) muestra la matriz mensual:
+una fila por colaborador, una celda por día y los totales del mes (faltas, tardanzas, minutos tarde,
+horas). La ven RRHH (`attendance.view_all`, toda la empresa) y supervisores (`attendance.view_team`,
+su equipo vía `User::visibleTo`). Filtros: mes, sede, zona, área, cargo y búsqueda; 50 por página.
+
+`AttendanceCalendarService` arma cada página con un número fijo de consultas (asistencias, turnos
+asignados y sus turnos, permisos aprobados, feriados) y decide el estado de cada día:
+
+| Estado | Letra | De dónde sale |
+|---|---|---|
+| Puntual | P | jornada con entrada, sin tardanza |
+| Tardanza | T | `late` o `late_minutes > 0` |
+| Sin salida | I | `incomplete`, o entrada sin salida en un día ya cerrado |
+| Falta | F | `absent`, o día laborable pasado sin marcación |
+| Justificado | J | `excused`, falta con justificación aprobada o permiso aprobado |
+| Medio día | M | `half_day` |
+| Descanso o feriado | D | `day_off`, `holiday`, feriado de la empresa o día sin turno |
+| Programado | – | hoy o un día futuro con turno |
+| Observada | punto morado | la jornada tiene `is_suspicious` |
+
+Sin turno asignado ni marcación, o fuera de `hire_date` / `termination_date`, la celda queda vacía.
+Un mes cerrado se guarda en caché 10 min; guardar o borrar una asistencia o un permiso de ese mes
+sube la versión (`AttendanceCalendarService::bump`, en `AppServiceProvider`). La exportación a Excel
+(`CalendarExporter`) repite letras, colores y una hoja de leyenda; cada celda lleva un comentario con
+la entrada, la salida y los minutos tarde.
