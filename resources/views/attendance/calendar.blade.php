@@ -30,9 +30,14 @@
         <h1>Calendario de asistencia</h1>
         <p>Quién vino, quién llegó tarde y quién faltó, día por día.</p>
     </div>
-    <a href="{{ route('attendance.calendar.excel', $filters->toQuery()) }}" class="btn btn-outline-success">
-        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('attendance.calendar.day', array_filter(['branch_id' => $filters->branchId])) }}" class="btn btn-outline-primary">
+            <i class="bi bi-calendar-day me-1"></i> Hoy
+        </a>
+        <a href="{{ route('attendance.calendar.excel', $filters->toQuery()) }}" class="btn btn-outline-success">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel
+        </a>
+    </div>
 </div>
 
 <div class="card border-0 mb-3">
@@ -122,8 +127,10 @@
                 <tr>
                     <th class="cal-name">Colaborador</th>
                     @foreach($days as $date => $d)
-                        <th class="{{ $d['weekend'] ? 'cal-weekend' : '' }} {{ $date === $today ? 'cal-today' : '' }}" title="{{ $date }}">
-                            <div class="text-body-secondary fw-normal">{{ $d['weekday'] }}</div>{{ $d['day'] }}
+                        <th class="{{ $d['weekend'] ? 'cal-weekend' : '' }} {{ $date === $today ? 'cal-today' : '' }}" title="Ver el {{ $date }} por turno">
+                            <a href="{{ route('attendance.calendar.day', array_filter(['date' => $date, 'branch_id' => $filters->branchId])) }}" class="text-reset text-decoration-none">
+                                <div class="text-body-secondary fw-normal">{{ $d['weekday'] }}</div>{{ $d['day'] }}
+                            </a>
                         </th>
                     @endforeach
                     <th title="Faltas">F</th>
@@ -136,7 +143,7 @@
                 @forelse($rows as $r)
                     <tr>
                         <td class="cal-name">
-                            <div class="fw-semibold text-truncate">{{ $r['last_name'] }}, {{ $r['first_name'] }}</div>
+                            <a href="{{ route('attendance.calendar.person', ['id' => $r['user_id'], 'month' => $filters->month]) }}" class="d-block fw-semibold text-truncate text-decoration-none" title="Ver su calendario">{{ $r['last_name'] }}, {{ $r['first_name'] }}</a>
                             <div class="text-body-secondary text-truncate">{{ $r['employee_code'] ?? '—' }}{{ $r['position'] ? ' · ' . $r['position'] : '' }}</div>
                         </td>
                         @foreach($days as $date => $d)

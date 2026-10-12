@@ -203,4 +203,42 @@ class SelfieEvidenceTest extends TestCase
         // Repetirlo no vuelve a contar las ya borradas
         $this->artisan('attendance:purge-photos')->expectsOutputToContain('Se borraron 0')->assertSuccessful();
     }
+
+    public function test_altered_or_missing_selfie_is_flagged_and_audited(): void
+    {
+        $this->clockIn()->assertCreated();
+        $attendance = Attendance::withoutGlobalScopes()->sole();
+        $punch = AttendancePunch::withoutGlobalScopes()->sole();
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $this->flushHeaders();
+        $this->app['auth']->forgetGuards();
+
+        // Intacta: sin aviso
+        $this->actingAs($hr)->getJson(route('attendance.evidence', $attendance->id))->assertOk()
+            ->assertJsonPath('clock_in.photo_integrity', 'ok')->assertJsonPath('evidence_altered', false);
+
+        // Alguien reemplaza el archivo en el disco
+        Storage::disk('private')->put($punch->photo_path, 'otra imagen');
+        $this->actingAs($hr)->getJson(route('attendance.evidence', $attendance->id))->assertOk()
+            ->assertJsonPath('clock_in.photo_integrity', 'altered')
+            ->assertJsonPath('punches.0.photo_integrity', 'altered')
+            ->assertJsonPath('evidence_altered', true);
+        $this->actingAs($hr)->get(route('attendance.show', $attendance->id))->assertOk()
+            ->assertSee('Evidencia alterada.')->assertSee('Alterada');
+
+        // Se audita una vez (no en cada vista)
+        $logs = AuditLog::withoutGlobalScopes()->where('action', 'attendance.evidence_altered')->get();
+        $this->assertCount(1, $logs);
+        $this->assertSame('altered', $logs[0]->meta['context']['problem']);
+
+        // Si falta el archivo también se avisa
+        Storage::disk('private')->delete($punch->photo_path);
+        $this->actingAs($hr)->getJson(route('attendance.evidence', $attendance->id))
+            ->assertJsonPath('clock_in.photo_integrity', 'missing')->assertJsonPath('evidence_altered', true);
+
+        // Borrada por retención: no es una alteración
+        AttendancePunch::markPhotoPurged([$punch->id]);
+        $this->actingAs($hr)->getJson(route('attendance.evidence', $attendance->id))
+            ->assertJsonPath('evidence_altered', false);
+    }
 }

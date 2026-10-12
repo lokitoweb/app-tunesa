@@ -44,6 +44,18 @@
     </div>
 </div>
 
+@php $altered = array_filter($integrity ?? [], fn ($state) => $state && $state !== 'ok'); @endphp
+@if($altered)
+    <div class="alert alert-danger d-flex gap-2" role="alert">
+        <i class="bi bi-shield-exclamation fs-5"></i>
+        <div>
+            <strong>Evidencia alterada.</strong>
+            {{ count($altered) === 1 ? 'Una selfie de esta jornada' : count($altered) . ' selfies de esta jornada' }}
+            ya no coincide con la huella SHA-256 que se guardó al recibirla (el archivo cambió o falta). Quedó registrado en la auditoría.
+        </div>
+    </div>
+@endif
+
 <div class="row g-3 mb-4">
     @foreach($moments as $key => $m)
         <div class="col-12 col-lg-6">
@@ -163,6 +175,11 @@
                                     </button>
                                 @elseif($punch->photo_purged_at)
                                     <span class="small text-body-secondary" title="Borrada por retención el {{ $punch->photo_purged_at->copy()->setTimezone($tz)->format('d/m/Y') }}"><i class="bi bi-image-alt"></i> Foto borrada</span>
+                                @endif
+                                @if(($integrity[$punch->id] ?? null) === 'altered')
+                                    <div class="small text-danger fw-semibold mt-1"><i class="bi bi-shield-exclamation"></i> Alterada</div>
+                                @elseif(($integrity[$punch->id] ?? null) === 'missing')
+                                    <div class="small text-danger fw-semibold mt-1"><i class="bi bi-shield-exclamation"></i> Falta el archivo</div>
                                 @endif
                                 @if($punch->photo_sha256)
                                     <div class="small text-body-secondary font-monospace mt-1" title="Huella SHA-256 de la foto guardada: {{ $punch->photo_sha256 }}">{{ substr($punch->photo_sha256, 0, 12) }}…</div>

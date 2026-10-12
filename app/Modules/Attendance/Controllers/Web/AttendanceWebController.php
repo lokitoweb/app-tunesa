@@ -98,8 +98,9 @@ class AttendanceWebController extends Controller
             ->findOrFail($id);
 
         $evidence->recordView($attendance);
+        $integrity = $evidence->integrity($attendance->punches);
 
-        return view('attendance.show', compact('attendance'));
+        return view('attendance.show', compact('attendance', 'integrity'));
     }
 
     /**

@@ -195,4 +195,57 @@ class AttendanceCalendarTest extends TestCase
         $this->assertSame(AttendanceCalendarService::FILLS['late'], $sheet->getStyle('E2')->getFill()->getStartColor()->getRGB());
         $this->assertSame('F', $sheet->getCell('D2')->getValue(), 'el martes 1 sin marcación es falta');
     }
+
+    public function test_day_view_lists_expected_and_marked_people_by_shift(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-16 09:00:00', 'America/Lima'));
+        $tarde = Shift::create(['tenant_id' => $this->acme->id, 'name' => 'Tarde', 'start_time' => '14:00', 'end_time' => '22:00',
+            'grace_period_minutes' => 10, 'working_days' => [1, 2, 3, 4, 5]]);
+        $late = $this->employee('Luis', 'Alva', $this->branch);
+        $missing = $this->employee('Ana', 'Bravo', $this->branch);
+        $afternoon = $this->makeUser($this->acme, 'employee', ['first_name' => 'Eva', 'last_name' => 'Cano']);
+        $afternoon->branches()->attach($this->branch->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $afternoon->id, 'shift_id' => $tarde->id,
+            'branch_id' => $this->branch->id, 'effective_from' => '2026-01-01', 'is_active' => true]);
+        $onLeave = $this->employee('Iris', 'Diaz', $this->branch);
+        LeaveRequest::create(['tenant_id' => $this->acme->id, 'user_id' => $onLeave->id, 'type' => 'vacation',
+            'start_date' => '2026-09-16', 'end_date' => '2026-09-16', 'days' => 1, 'status' => 'approved']);
+
+        $this->day($this->emp, '2026-09-16', ['clock_in_at' => '2026-09-16 07:58:00', 'clock_in_distance_meters' => 14, 'clock_in_within_geofence' => true]);
+        $this->day($late, '2026-09-16', ['status' => 'late', 'late_minutes' => 20, 'clock_in_at' => '2026-09-16 08:30:00',
+            'clock_in_distance_meters' => 140, 'clock_in_within_geofence' => false]);
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+
+        $response = $this->actingAs($hr)->get(route('attendance.calendar.day', ['date' => '2026-09-16']))->assertOk();
+        $counters = $response->viewData('counters');
+        $this->assertSame(['expected' => 5, 'marked' => 2, 'late' => 1, 'missing' => 1, 'upcoming' => 1, 'excused' => 1], $counters);
+        $this->assertSame(['Mañana', 'Tarde'], $response->viewData('groups')->keys()->all());
+        $response->assertSeeInOrder(['Mañana', 'Alva, Luis', '08:30', '140 m', 'Fuera del radio', 'Bravo, Ana', 'No ha llegado'])
+            ->assertSee('Por llegar')->assertSee('Vacaciones')
+            ->assertSee('location.reload', false);
+
+        // Filtro por turno y un día pasado (sin recarga; quien no marcó es "No marcó")
+        $this->actingAs($hr)->get(route('attendance.calendar.day', ['date' => '2026-09-16', 'shift_id' => $tarde->id]))
+            ->assertOk()->assertSee('Cano, Eva')->assertDontSee('Alva, Luis');
+        $this->actingAs($hr)->get(route('attendance.calendar.day', ['date' => '2026-09-15']))
+            ->assertOk()->assertSee('No marcó')->assertDontSee('location.reload', false);
+    }
+
+    public function test_person_calendar_shows_the_month_and_respects_scope(): void
+    {
+        $this->day($this->emp, '2026-09-02', ['status' => 'late', 'late_minutes' => 12, 'clock_in_at' => '2026-09-02 08:22:00', 'clock_out_at' => '2026-09-02 17:00:00']);
+        $other = $this->employee('Ajeno', 'Lima', $this->makeBranch($this->acme, ['name' => 'Lima']));
+
+        $response = $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', ['id' => $this->emp->id, 'month' => '2026-09']))
+            ->assertOk()->assertSee('Rosa Quispe')->assertSee('08:22 – 17:00')->assertSee('12 min tarde');
+        $weeks = $response->viewData('weeks');
+        $this->assertSame([null, '2026-09-01'], array_slice($weeks[0], 0, 2), 'septiembre 2026 empieza en martes');
+        $this->assertSame('2026-09-30', last(last($weeks)));
+
+        $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', $other->id))->assertNotFound();
+
+        // El nombre en la matriz lleva a su calendario
+        $this->actingAs($this->supervisor)->get(route('attendance.calendar', ['month' => '2026-09']))
+            ->assertSee(route('attendance.calendar.person', ['id' => $this->emp->id, 'month' => '2026-09']), false);
+    }
 }

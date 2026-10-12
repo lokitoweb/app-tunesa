@@ -133,6 +133,11 @@ que GD no puede leer se rechaza con `PHOTO_UNREADABLE`.
 - **Quién la ve:** abrir la evidencia o el detalle de la jornada de otra persona deja
   `attendance.photo_viewed` en auditoría (una vez por hora y persona). Las miniaturas de los
   listados no cuentan.
+- **Evidencia alterada:** al abrir la evidencia o el detalle, `AttendanceEvidence::photoIntegrity()`
+  vuelve a calcular el SHA-256 del archivo y lo compara con `photo_sha256`. Si no coincide
+  (`altered`) o falta el archivo (`missing`), el panel muestra «Evidencia alterada» y se audita
+  `attendance.evidence_altered` (una vez al día por marcación). Las fotos anteriores a la Fase 2
+  (sin huella) y las borradas por retención no se evalúan.
 - **Retención:** `attendance:purge-photos` (diario 03:45, `--months=12`, `--dry-run`) borra foto y
   miniatura, marca `photo_purged_at` en la bitácora (ruta y huella se conservan como constancia),
   vacía `clock_in_photo` / `clock_out_photo` en `attendances` y audita `attendance.photos_purged`
@@ -281,3 +286,16 @@ Un mes cerrado se guarda en caché 10 min; guardar o borrar una asistencia o un 
 sube la versión (`AttendanceCalendarService::bump`, en `AppServiceProvider`). La exportación a Excel
 (`CalendarExporter`) repite letras, colores y una hoja de leyenda; cada celda lleva un comentario con
 la entrada, la salida y los minutos tarde.
+
+### Vista del día y calendario de una persona
+
+- **Vista del día** (`/attendance-calendar/day?date=&branch_id=&shift_id=`): las mismas celdas del
+  calendario reducidas a un día (`CalendarFilters::day`), agrupadas por turno. Muestra a quienes
+  tenían turno, permiso o marcación: entrada, salida, miniatura de la selfie, distancia al punto de
+  la sede y si quedó fuera del radio. Contadores: esperados, marcaron, tardanzas, no marcaron, por
+  llegar (hoy, hasta la hora de entrada más la tolerancia) y con permiso. Hoy se recarga cada minuto
+  (no mientras el visor está abierto). Se entra desde «Hoy» o desde el número de cada día de la matriz.
+- **Calendario de una persona** (`/attendance-calendar/person/{id}?month=`): su mes en cuadrícula
+  con el estado, horas y notas de cada día, y los totales. Se entra desde el nombre en la matriz o
+  la vista del día y desde «Calendario» en la ficha del colaborador. Un supervisor solo abre los de
+  su equipo (404 si no).

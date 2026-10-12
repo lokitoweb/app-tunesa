@@ -75,6 +75,13 @@ class AttendanceCalendarService
             ->when($f->zoneId, fn ($q, $id) => $q->whereHas('branches', fn ($b) => $b->where('branches.zone_id', $id)))
             ->when($f->departmentId, fn ($q, $id) => $q->where('users.department_id', $id))
             ->when($f->positionId, fn ($q, $id) => $q->where('users.position_id', $id))
+            ->when($f->userId, fn ($q, $id) => $q->where('users.id', $id))
+            ->when($f->shiftId, fn ($q, $id) => $q->whereExists(fn ($e) => $e->from('employee_shifts')
+                ->whereColumn('employee_shifts.user_id', 'users.id')
+                ->where('employee_shifts.shift_id', $id)
+                ->where('employee_shifts.is_active', true)
+                ->where('employee_shifts.effective_from', '<=', $to)
+                ->where(fn ($w) => $w->whereNull('employee_shifts.effective_until')->orWhere('employee_shifts.effective_until', '>=', $from))))
             ->when($f->search, function ($q, $term) {
                 $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $term) . '%';
                 $q->where(fn ($w) => $w->where('first_name', 'like', $like)
@@ -272,6 +279,14 @@ class AttendanceCalendarService
         }
 
         $leave = $leaves->first(fn (LeaveRequest $l) => $l->start_date->toDateString() <= $day && $l->end_date->toDateString() >= $day);
+        $assignment = $assignments->first(fn (EmployeeShift $a) => $a->effective_from->toDateString() <= $day
+            && (! $a->effective_until || $a->effective_until->toDateString() >= $day));
+        $shift = $assignment?->shift ? [
+            'shift_id'    => $assignment->shift->id,
+            'shift'       => $assignment->shift->name,
+            'shift_start' => $assignment->shift->start_time ? substr($assignment->shift->start_time, 0, 5) : null,
+            'shift_grace' => (int) ($assignment->shift->grace_period_minutes ?? 0),
+        ] : [];
 
         // Con marcación: manda el estado guardado (el mismo que usan los reportes)
         $worked = $records->first(fn (Attendance $a) => $a->clock_in_at !== null);
@@ -295,7 +310,7 @@ class AttendanceCalendarService
 
             $lateMinutes = (int) $records->sum(fn (Attendance $a) => max(0, (int) $a->late_minutes));
 
-            return $this->make($state, [
+            return $this->make($state, $shift + [
                 'attendance_id' => $record->id,
                 'suspicious'    => $records->contains(fn (Attendance $a) => $a->is_suspicious),
                 'clock_in'      => $worked?->clock_in_at?->format('H:i'),
@@ -307,27 +322,25 @@ class AttendanceCalendarService
         }
 
         if ($leave) {
-            return $this->make('excused', ['note' => $leave->type_label]);
+            return $this->make('excused', $shift + ['note' => $leave->type_label]);
         }
         if (isset($holidays[$day])) {
-            return $this->make('rest', ['note' => $holidays[$day]]);
+            return $this->make('rest', $shift + ['note' => $holidays[$day]]);
         }
 
-        $assignment = $assignments->first(fn (EmployeeShift $a) => $a->effective_from->toDateString() <= $day
-            && (! $a->effective_until || $a->effective_until->toDateString() >= $day));
         if (! $assignment) {
             return null;
         }
 
         $scheduled = $assignment->worksOn(CarbonImmutable::parse($day));
         if (! $scheduled) {
-            return $this->make('rest', ['note' => 'Sin turno ese día']);
+            return $this->make('rest', $shift + ['note' => 'Sin turno ese día']);
         }
 
         // Hoy aún puede marcar; días futuros solo muestran el turno
         return $day >= $today
-            ? $this->make('scheduled', ['note' => $assignment->shift?->name])
-            : $this->make('absent', ['note' => 'Sin marcación']);
+            ? $this->make('scheduled', $shift + ['note' => $assignment->shift?->name])
+            : $this->make('absent', $shift + ['note' => 'Sin marcación']);
     }
 
     private function make(string $state, array $extra = []): array
@@ -346,6 +359,10 @@ class AttendanceCalendarService
             'late_minutes'  => 0,
             'worked_hours'  => 0.0,
             'note'          => null,
+            'shift_id'      => null,
+            'shift'         => null,
+            'shift_start'   => null,
+            'shift_grace'   => 0,
         ], $extra);
     }
 
@@ -369,7 +386,7 @@ class AttendanceCalendarService
         }
 
         $version = (int) Cache::get(self::versionKey($f->tenantId, $f->month), 0);
-        $key = 'attendance-calendar:' . sha1(json_encode([$f->toQuery(), $f->tenantId, $f->viewer?->id, $part, $version]));
+        $key = 'attendance-calendar:' . sha1(json_encode([$f->toQuery(), $f->tenantId, $f->viewer?->id, $f->userId, $part, $version]));
 
         return Cache::remember($key, now()->addMinutes(self::CACHE_MINUTES), $build);
     }

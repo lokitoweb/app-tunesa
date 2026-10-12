@@ -14,9 +14,14 @@
         <h1>Editar a {{ $employee->first_name }} {{ $employee->last_name }}</h1>
         <p>Datos laborales, sucursales de marcación y credenciales.</p>
     </div>
-    @can('profiles.manage')
-        <a href="{{ route('employees.file', $employee->id) }}" class="btn btn-outline-primary"><i class="bi bi-folder2-open me-1"></i>Ver legajo</a>
-    @endcan
+    <div class="d-flex gap-2">
+        @if(auth()->user()->can('attendance.view_all') || auth()->user()->can('attendance.view_team'))
+            <a href="{{ route('attendance.calendar.person', $employee->id) }}" class="btn btn-outline-secondary"><i class="bi bi-calendar3 me-1"></i>Calendario</a>
+        @endif
+        @can('profiles.manage')
+            <a href="{{ route('employees.file', $employee->id) }}" class="btn btn-outline-primary"><i class="bi bi-folder2-open me-1"></i>Ver legajo</a>
+        @endcan
+    </div>
 </div>
 
 @include('employees._credentials')
