@@ -20,6 +20,10 @@ import '../../features/auth/presentation/change_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/ethics/domain/models.dart';
+import '../../features/ethics/presentation/ethics_case_screen.dart';
+import '../../features/ethics/presentation/ethics_home_screen.dart';
+import '../../features/ethics/presentation/ethics_report_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/payslips/presentation/payslip_viewer_screen.dart';
 import '../../features/profile/domain/models.dart';
@@ -132,6 +136,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(parentNavigatorKey: _rootKey, path: '/notifications', builder: (_, _) => const NotificationsScreen()),
       GoRoute(parentNavigatorKey: _rootKey, path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/ethics', builder: (_, _) => const EthicsHomeScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/ethics/new', builder: (_, _) => const EthicsReportScreen()),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/ethics/created',
+        redirect: (_, state) => state.extra is ({SavedEthicsCase saved, bool kept}) ? null : '/ethics',
+        builder: (_, state) {
+          final args = state.extra! as ({SavedEthicsCase saved, bool kept});
+          return EthicsCreatedScreen(saved: args.saved, kept: args.kept);
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/ethics/case',
+        redirect: (_, state) => state.extra is SavedEthicsCase ? null : '/ethics',
+        builder: (_, state) => EthicsCaseScreen(saved: state.extra! as SavedEthicsCase),
+      ),
       // Área de supervisor / RRHH: solo con permiso (el backend igual responde 403)
       GoRoute(
         parentNavigatorKey: _rootKey,

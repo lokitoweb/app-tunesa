@@ -131,6 +131,11 @@ final class Labels
         'onboarding.rejected'                => ['Incorporación observada', 'danger', 'person-exclamation'],
         'onboarding.stages_updated'          => ['Etapas de incorporación actualizadas', 'primary', 'list-check'],
 
+        // Canal ético (solo acciones de quien investiga: el denunciante no deja rastro)
+        'ethics.viewed'                      => ['Denuncia consultada', 'secondary', 'eye'],
+        'ethics.replied'                     => ['Respuesta al denunciante', 'info', 'chat-left-text'],
+        'ethics.status_changed'              => ['Estado de denuncia cambiado', 'primary', 'shield-check'],
+
         // Dotación
         'uniform.delivered'                  => ['Uniforme entregado', 'info', 'bag-check'],
     ];
@@ -151,6 +156,7 @@ final class Labels
         'leave_request'         => 'la solicitud',
         'payslip'               => 'la boleta',
         'onboarding'            => 'la incorporación',
+        'ethics'                => 'la denuncia',
     ];
 
     /** Nombre de los registros (subject_type de la bitácora) */
@@ -162,6 +168,7 @@ final class Labels
         'Department'           => 'Área',
         'CompanyConfiguration' => 'Configuración de la app',
         'EmployeeDocument'     => 'Documento',
+        'EthicsCase'           => 'Denuncia',
         'EmployeeProfile'      => 'Ficha laboral',
         'EmployeeShift'        => 'Asignación de turno',
         'Holiday'              => 'Feriado',
@@ -726,6 +733,12 @@ final class Labels
             'completed'      => ['Completa', 'success'],
             'pending'        => ['Pendiente', 'warning'],
             'not_applicable' => ['No aplica', 'secondary'],
+        ],
+        'ethics_status' => [
+            'received'   => ['Recibida', 'warning'],
+            'in_review'  => ['En investigación', 'primary'],
+            'needs_info' => ['Necesita información', 'info'],
+            'closed'     => ['Cerrada', 'secondary'],
         ],
         'punch_attempt_code' => [
             'ONBOARDING_PENDING'      => ['Incorporación sin aprobar', 'secondary'],

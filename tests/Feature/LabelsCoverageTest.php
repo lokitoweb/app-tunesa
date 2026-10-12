@@ -123,6 +123,7 @@ class LabelsCoverageTest extends TestCase
             'uniform_item'        => array_keys(UniformDelivery::ITEMS),
             'shoe_type'           => array_keys(UniformSize::SHOE_TYPES),
             'geofence_policy'     => array_keys(CompanyConfiguration::GEOFENCE_POLICIES),
+            'ethics_status'       => array_keys(\App\Modules\Ethics\Models\EthicsCase::STATUSES),
             'user_role'           => Role::ALL,
             'attendance_status'   => ['present', 'late', 'absent', 'excused', 'half_day', 'holiday', 'day_off', 'incomplete'],
             'leave_status'        => ['pending', 'approved', 'rejected', 'cancelled'],

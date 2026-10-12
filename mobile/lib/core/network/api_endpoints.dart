@@ -28,6 +28,12 @@ class ApiEndpoints {
   static const onboarding = '/onboarding';
   static const onboardingSubmit = '/onboarding/submit';
 
+  // Canal ético: sin token de sesión (la denuncia no se asocia al usuario)
+  static const ethicsCategories = '/ethics/categories';
+  static const ethicsCases = '/ethics/cases';
+  static String ethicsCase(String code) => '/ethics/cases/${Uri.encodeComponent(code)}';
+  static String ethicsMessages(String code) => '${ethicsCase(code)}/messages';
+
   // Asistencia
   static const attendanceToday = '/attendance/today';
   static const attendanceHistory = '/attendance/history';

@@ -59,6 +59,7 @@ el texto.
 | 422 | `VALIDATION_ERROR` | Validación de campos. |
 | 422 | `GEOFENCE_VIOLATION`, `NO_BRANCH_ASSIGNED`, `BREAK_NOT_ALLOWED`, `MOCK_LOCATION_DETECTED`, `GPS_ACCURACY_TOO_LOW`, `FACE_NOT_DETECTED`, `OFFLINE_NOT_ALLOWED`, `OFFLINE_TOO_OLD`, `OFFLINE_BEFORE_CLOCK_IN`, `OFFLINE_OUT_OF_ORDER` | Reglas de marcación, ver [Marcación](#marcación). |
 | 423 | `ACCOUNT_LOCKED` | Demasiados intentos fallidos (`LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCK_MINUTES`). |
+| 404 | `ETHICS_CASE_NOT_FOUND` | Código o token del canal ético incorrectos (misma respuesta para ambos). |
 | 426 | `APP_UPDATE_REQUIRED` | Versión de la app por debajo de la mínima con `force_update`. |
 | 423 | `TRAINING_LOCKED` | Agotó los intentos del cuestionario (`POST /api/trainings/{id}/quiz`); RRHH debe dar intentos extra desde el panel. `GET /api/trainings/{id}` trae `max_attempts`, `attempts_left` y `locked`. |
 | 429 | `TOO_MANY_ATTEMPTS` | Ráfaga de intentos de login (`LoginGuard`). Los límites `throttle:` de las rutas devuelven el 429 estándar de Laravel, sin `code`. |
@@ -584,6 +585,25 @@ Onboarding, no hay candado.
 Cada etapa se completa con las rutas de [Legajo, datos de pago y dotación](#legajo-datos-de-pago-y-dotación)
 y de capacitaciones; los documentos exigidos son `required_documents` de `GET /api/employee/config`.
 Avisos: `onboarding.approved` y `onboarding.rejected` al colaborador (`data.screen = onboarding`).
+
+## Canal ético
+
+Denuncias anónimas. Estas rutas **no usan Sanctum**: la app las llama sin `Authorization`
+aunque tenga sesión, y el servidor descarta IP, user agent y encabezados del teléfono antes
+del controlador (`StripIdentity`). La empresa sale de `X-Tenant-Slug`. Límite por minuto
+(por hash de IP en caché): 5 denuncias, 20 consultas, 10 mensajes → `429 TOO_MANY_ATTEMPTS`.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/ethics/categories` | Tipos de denuncia (`key`, `label`). |
+| POST | `/api/ethics/cases` | `category`, `subject` (5–150), `body` (20–5000), `push_channel?` (16–64, `[a-zA-Z0-9_-]`), `photos[]?` (máx. 3 imágenes de 5 MB). `201` con `data.code` (`ET-XXXXXX`) y `data.token` (6 grupos de 4), que **no se vuelve a mostrar**. |
+| GET | `/api/ethics/cases/{code}` | Cabecera `X-Ethics-Token`. Estado, conversación y conclusión (si está cerrada). `404 ETHICS_CASE_NOT_FOUND` si el código o el token no coinciden. |
+| POST | `/api/ethics/cases/{code}/messages` | Cabecera `X-Ethics-Token`. `body`, `photos[]?`. `422` si la denuncia está cerrada. |
+
+Avisos: si la denuncia lleva `push_channel`, la app se suscribe al tema FCM `ethics_<push_channel>`
+y el servidor publica ahí `{type: ethics.update}` cuando quien investiga responde o cambia el estado.
+Las fotos se re-codifican a JPEG en el servidor (sin EXIF). El token solo se guarda como SHA-256;
+asunto, detalle y mensajes van cifrados con la `APP_KEY`.
 
 ## Notificaciones in-app
 
