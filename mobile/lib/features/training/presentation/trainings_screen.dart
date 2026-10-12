@@ -76,6 +76,7 @@ class TrainingCard extends StatelessWidget {
     final (Color tone, IconData icon) = switch (t.status) {
       TrainingStatus.completed => (Colors.green.shade700, Icons.verified_rounded),
       TrainingStatus.overdue => (scheme.error, Icons.alarm_rounded),
+      TrainingStatus.locked => (scheme.error, Icons.lock_rounded),
       TrainingStatus.inProgress => (scheme.primary, Icons.play_circle_rounded),
       TrainingStatus.pending => (scheme.primary, Icons.school_rounded),
     };

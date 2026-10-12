@@ -13,6 +13,7 @@ use App\Modules\Training\Models\TrainingLesson;
 use App\Modules\Training\Models\TrainingTarget;
 use App\Modules\Training\Services\TrainingCertificate;
 use App\Modules\Training\Services\TrainingCourseService;
+use App\Modules\Training\Services\TrainingProgressService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class TrainingWebController extends Controller
 {
-    public function __construct(private readonly TrainingCourseService $courses, private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly TrainingCourseService $courses,
+        private readonly AuditLogger $audit,
+        private readonly TrainingProgressService $progress,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -79,7 +84,7 @@ class TrainingWebController extends Controller
         }
 
         return $this->form(new TrainingCourse([
-            'category' => 'general', 'is_mandatory' => true, 'passing_score' => 70, 'status' => 'draft', 'due_days' => 15,
+            'category' => 'general', 'is_mandatory' => true, 'passing_score' => 70, 'max_attempts' => 3, 'status' => 'draft', 'due_days' => 15,
         ]));
     }
 
@@ -156,6 +161,8 @@ class TrainingWebController extends Controller
             ->when($status === 'completed', fn ($q) => $q->whereNotNull('completed_at'))
             ->when($status === 'overdue', fn ($q) => $q->whereNull('completed_at')->whereDate('due_date', '<', now()->toDateString()))
             ->when($status === 'pending', fn ($q) => $q->whereNull('completed_at'))
+            ->when($status === 'locked', fn ($q) => $q->whereNull('completed_at')->whereNotNull('locked_at'))
+            ->with(['quizAttempts' => fn ($q) => $q->select('id', 'enrollment_id', 'score', 'passed', 'created_at')])
             ->orderByRaw('completed_at IS NOT NULL')->orderBy('due_date')
             ->paginate(25)->withQueryString()
             ->through(fn (TrainingEnrollment $e) => [
@@ -170,6 +177,11 @@ class TrainingWebController extends Controller
                 'progress'     => $e->progress,
                 'score'        => $e->score,
                 'attempts'     => $e->attempts,
+                'max_attempts' => $e->setRelation('course', $course)->allowedAttempts(),
+                'locked'       => $e->isLocked(),
+                'history'      => $e->quizAttempts->take(10)->map(fn ($a) => [
+                    'score' => $a->score, 'passed' => $a->passed, 'at' => $a->created_at?->format('d/m/Y H:i'),
+                ])->values(),
                 'due_date'     => $e->due_date?->format('d/m/Y'),
                 'completed_at' => $e->completed_at?->format('d/m/Y H:i'),
             ]);
@@ -187,6 +199,7 @@ class TrainingWebController extends Controller
                 'lessons'     => $course->lessons_count,
                 'questions'   => $course->questions_count,
                 'passing_score' => $course->passing_score,
+                'max_attempts' => $course->max_attempts,
                 'due_days'    => $course->due_days,
                 'audience'    => $this->describeTargets($course->targets),
             ],
@@ -195,10 +208,24 @@ class TrainingWebController extends Controller
                 'completed' => (clone $all)->whereNotNull('completed_at')->count(),
                 'overdue'   => (clone $all)->whereNull('completed_at')->whereDate('due_date', '<', now()->toDateString())->count(),
                 'avg_score' => (int) round((float) (clone $all)->whereNotNull('score')->avg('score')),
+                'locked'    => (clone $all)->whereNull('completed_at')->whereNotNull('locked_at')->count(),
             ],
+            'canUnlock'   => $request->user()->can('training.unlock'),
             'enrollments' => $enrollments,
             'filters'     => ['status' => $status, 'search' => $request->query('search')],
         ]);
+    }
+
+    /** Intentos extra para quien agotó el cuestionario (desbloquea y le avisa) */
+    public function unlock(Request $request, int $id, int $enrollment): RedirectResponse
+    {
+        $data  = $request->validate(['extra' => ['required', 'integer', 'between:1,5']]);
+        $model = TrainingEnrollment::where('course_id', $id)->with(['course', 'user'])->findOrFail($enrollment);
+        abort_if($model->completed_at, 422, 'Esta persona ya aprobó la capacitación.');
+
+        $this->progress->unlock($model, $request->user(), (int) $data['extra']);
+
+        return back()->with('success', "Le diste {$data['extra']} intento(s) más a {$model->user->full_name}. Le avisamos en la app.");
     }
 
     /** CSV con el avance de cada persona (para RRHH o auditorías de SST) */
@@ -210,11 +237,11 @@ class TrainingWebController extends Controller
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Código', 'Documento', 'Colaborador', 'Cargo', 'Estado', 'Avance %', 'Nota', 'Intentos', 'Fecha límite', 'Completado']);
+            fputcsv($out, ['Código', 'Documento', 'Colaborador', 'Cargo', 'Estado', 'Avance %', 'Nota', 'Intentos', 'Intentos permitidos', 'Fecha límite', 'Completado']);
             foreach ($rows as $e) {
                 fputcsv($out, [
                     $e->user?->employee_code, $e->user?->document_number, $e->user?->full_name, $e->user?->position,
-                    TrainingEnrollment::STATUS_LABELS[$e->status()], $e->progress, $e->score, $e->attempts,
+                    TrainingEnrollment::STATUS_LABELS[$e->status()], $e->progress, $e->score, $e->attempts, $e->setRelation('course', $course)->allowedAttempts(),
                     $e->due_date?->format('d/m/Y'), $e->completed_at?->format('d/m/Y H:i'),
                 ]);
             }
@@ -256,6 +283,7 @@ class TrainingWebController extends Controller
                 'is_mandatory'      => (bool) $course->is_mandatory,
                 'due_days'          => $course->due_days,
                 'passing_score'     => $course->passing_score,
+                'max_attempts'      => $course->max_attempts ?? 3,
                 'status'            => $course->status,
                 'lessons'           => $course->exists ? $course->lessons->map(fn (TrainingLesson $l) => [
                     'id' => $l->id, 'title' => $l->title, 'type' => $l->type, 'content' => $l->content ?? '', 'url' => $l->url ?? '',
@@ -291,6 +319,7 @@ class TrainingWebController extends Controller
             'is_mandatory'                => ['boolean'],
             'due_days'                    => ['nullable', 'integer', 'between:1,365'],
             'passing_score'               => ['required', 'integer', 'between:1,100'],
+            'max_attempts'                => ['sometimes', 'required', 'integer', 'between:1,10'],
             'status'                      => ['required', Rule::in(array_keys(TrainingCourse::STATUSES))],
             'lessons'                     => [Rule::requiredIf($request->input('status') === 'published'), 'array', 'max:60'],
             'lessons.*.id'                => ['nullable', 'integer'],

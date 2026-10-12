@@ -16,4 +16,5 @@ Route::middleware(['auth', 'web.tenant', 'can:training.manage'])->prefix('traini
     Route::get('/{id}/export', [TrainingWebController::class, 'export'])->name('export')->whereNumber('id');
     Route::get('/{id}/lessons/{lesson}/file', [TrainingWebController::class, 'lessonFile'])->name('lesson-file')->whereNumber(['id', 'lesson']);
     Route::get('/{id}/certificates/{enrollment}', [TrainingWebController::class, 'certificate'])->name('certificate')->whereNumber(['id', 'enrollment']);
+    Route::post('/{id}/enrollments/{enrollment}/unlock', [TrainingWebController::class, 'unlock'])->name('unlock')->whereNumber(['id', 'enrollment'])->middleware('can:training.unlock');
 });

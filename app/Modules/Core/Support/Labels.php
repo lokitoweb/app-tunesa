@@ -74,6 +74,8 @@ final class Labels
         'training.published'                 => ['Capacitación publicada', 'success', 'mortarboard'],
         'training.archived'                  => ['Capacitación archivada', 'secondary', 'mortarboard'],
         'training.deleted'                   => ['Capacitación eliminada', 'danger', 'mortarboard'],
+        'training.locked'                    => ['Cuestionario bloqueado por intentos', 'warning', 'lock'],
+        'training.unlocked'                  => ['Intentos extra en cuestionario', 'primary', 'unlock'],
         'holiday.created'                    => ['Feriado creado', 'success', 'calendar-heart'],
         'holiday.deleted'                    => ['Feriado eliminado', 'danger', 'calendar-x'],
 
