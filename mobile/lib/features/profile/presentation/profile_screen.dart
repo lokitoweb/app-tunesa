@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config_controller.dart';
+import '../../../core/config/version_gate.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../app_update/presentation/update_screen.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../core/widgets/async_views.dart';
 import 'profile_avatar.dart';
@@ -350,6 +353,8 @@ class _AccountSection extends ConsumerWidget {
           onTap: () => context.push('/profile/notifications'),
         ),
         const Divider(),
+        const _AppVersionTile(),
+        const Divider(),
         ListTile(
           leading: Icon(Icons.logout_rounded, color: Theme.of(context).colorScheme.error),
           title: Text(
@@ -364,6 +369,31 @@ class _AccountSection extends ConsumerWidget {
           },
         ),
       ]),
+    );
+  }
+}
+
+/// Versión instalada de la app. Si el panel publicó una más nueva
+/// (`latest_version`), lo avisa y abre el enlace de descarga configurado.
+class _AppVersionTile extends ConsumerWidget {
+  const _AppVersionTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final version = ref.watch(appVersionProvider);
+    final mobile = ref.watch(appConfigProvider.select((s) => s.config.mobile));
+    final outdated = ref.watch(updateLevelProvider) != UpdateLevel.none;
+    final latest = mobile.latestVersion;
+    final url = mobile.updateUrl;
+
+    return ListTile(
+      key: const Key('account-version'),
+      leading: const Icon(Icons.info_outline_rounded),
+      title: const Text('Versión de la app'),
+      subtitle: Text(outdated && latest != null ? '$version · disponible $latest' : version),
+      trailing: outdated && url != null
+          ? TextButton(onPressed: () => openUpdateLink(context, url), child: const Text('Actualizar'))
+          : null,
     );
   }
 }

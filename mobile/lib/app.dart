@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/app_config_controller.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/system_bars_inset.dart';
 import 'core/theme/theme_mode_controller.dart';
 
 class TunesaApp extends ConsumerWidget {
@@ -23,6 +24,7 @@ class TunesaApp extends ConsumerWidget {
       darkTheme: AppTheme.fromBranding(config.branding, Brightness.dark),
       themeMode: ref.watch(themeModeProvider),
       routerConfig: router,
+      builder: (context, child) => SystemBarsInset(child: child ?? const SizedBox.shrink()),
       locale: const Locale('es'),
       supportedLocales: const [Locale('es'), Locale('en')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
