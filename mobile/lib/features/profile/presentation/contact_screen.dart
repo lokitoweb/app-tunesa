@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_views.dart';
 import 'profile_providers.dart';
+import '../../../core/widgets/page_padding.dart';
 
 /// Dirección y contacto de emergencia.
 class ContactScreen extends ConsumerStatefulWidget {
@@ -55,7 +56,7 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
     final file = ref.watch(employeeFileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Contacto de emergencia')),
+      appBar: AppBar(title: const Text('Datos de contacto')),
       body: file.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),
@@ -68,7 +69,7 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
           }
           return Form(
             key: _formKey,
-            child: ListView(padding: const EdgeInsets.all(16), children: [
+            child: ListView(padding: pagePadding(context), children: [
               TextFormField(
                 controller: _address,
                 decoration: const InputDecoration(labelText: 'Dirección de domicilio', prefixIcon: Icon(Icons.home_outlined)),

@@ -9,6 +9,7 @@ import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/models.dart';
 import 'attendance_providers.dart';
+import '../../../core/widgets/page_padding.dart';
 
 /// Historial mensual de asistencia con opción de justificar tardanzas y faltas.
 class HistoryScreen extends ConsumerStatefulWidget {
@@ -52,7 +53,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             data: (data) => RefreshIndicator(
               onRefresh: () => ref.refresh(attendanceHistoryProvider(_period).future),
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: pagePadding(context),
                 children: [
                   _SummaryRow(summary: data.summary),
                   const SizedBox(height: 12),

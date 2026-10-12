@@ -345,6 +345,7 @@ class AuthController extends Controller
             'last_name'  => ['sometimes', 'string', 'max:100'],
             'phone'      => ['sometimes', 'nullable', 'string', 'max:20'],
             'avatar'     => ['sometimes', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+            'remove_avatar' => ['sometimes', 'boolean'],
         ], ['avatar.max' => 'La foto no puede pesar más de 2 MB.', 'avatar.image' => 'La foto debe ser una imagen JPG o PNG.']);
 
         // Procesar avatar si se subió uno nuevo (y borrar el anterior)
@@ -354,7 +355,12 @@ class AuthController extends Controller
             $validated['avatar_path'] = $request->file('avatar')
                 ->store("avatars/{$user->tenant_id}", 'public');
             unset($validated['avatar']);
+        } elseif ($request->boolean('remove_avatar') && $user->avatar_path) {
+            // Quitar la foto: vuelven las iniciales
+            $previous = $user->avatar_path;
+            $validated['avatar_path'] = null;
         }
+        unset($validated['remove_avatar']);
 
         $user->update($validated);
         if ($previous) {

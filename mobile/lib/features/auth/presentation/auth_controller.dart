@@ -84,6 +84,11 @@ class AuthController extends Notifier<AuthState> {
     state = AuthState(status: AuthStatus.authenticated, branding: state.branding, user: user);
   }
 
+  Future<void> removeAvatar() async {
+    final user = await _repo.removeAvatar();
+    state = AuthState(status: AuthStatus.authenticated, branding: state.branding, user: user);
+  }
+
   Future<void> logout() async {
     await _repo.logout();
     state = AuthState(status: AuthStatus.unauthenticated, branding: state.branding);

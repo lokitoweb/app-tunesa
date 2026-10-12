@@ -59,6 +59,14 @@ class AuthRepository {
     return user;
   }
 
+  /// Quita la foto de perfil (vuelven las iniciales) y devuelve el usuario actualizado.
+  Future<AppUser> removeAvatar() async {
+    final json = await _api.put(ApiEndpoints.profile, data: {'remove_avatar': true});
+    final user = AppUser.fromJson(Map<String, dynamic>.from(json['data'] as Map));
+    await _storage.saveUser(user.toJson());
+    return user;
+  }
+
   Future<void> changePassword({required String current, required String next}) => _api.put(
         ApiEndpoints.changePassword,
         data: {'current_password': current, 'new_password': next, 'new_password_confirmation': next},

@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
+import '../../../core/widgets/page_padding.dart';
 
 /// "Datos de Pago y Previsión": cuenta de abono (banco, tipo, número, CCI /
 /// CLABE / CBU) y fondo de retiro / seguro (AFP, ONP, seguro estatal).
@@ -17,7 +18,7 @@ class PaymentInfoScreen extends ConsumerWidget {
     final file = ref.watch(employeeFileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Información de pago')),
+      appBar: AppBar(title: const Text('Información de pagos')),
       body: file.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),
@@ -101,7 +102,7 @@ class _PaymentInfoFormState extends ConsumerState<PaymentInfoForm> {
     final scheme = Theme.of(context).colorScheme;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: pagePadding(context),
       children: [
         _StatusBanner(payment: _p),
         const SizedBox(height: 16),
@@ -130,7 +131,7 @@ class _PaymentInfoFormState extends ConsumerState<PaymentInfoForm> {
                 Text(_error!.message, style: TextStyle(color: scheme.error)),
                 const SizedBox(height: 12),
               ],
-              _sectionTitle(context, 'Cuenta de abono'),
+              _sectionTitle(context, 'Cuenta bancaria para tu sueldo'),
               Autocomplete<String>(
                 initialValue: TextEditingValue(text: _bank.text),
                 optionsBuilder: (v) => _cat.banks.where((b) => b.toLowerCase().contains(v.text.toLowerCase())),
@@ -195,7 +196,7 @@ class _PaymentInfoFormState extends ConsumerState<PaymentInfoForm> {
                 validator: (v) => (v == null || v.trim().isEmpty || RegExp(r'^[0-9\- ]{10,30}$').hasMatch(v.trim())) ? null : 'Solo dígitos (10 a 30)',
               ),
               const SizedBox(height: 24),
-              _sectionTitle(context, 'Fondo de retiro y seguro'),
+              _sectionTitle(context, 'Pensión (AFP / ONP) y seguro de salud'),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final e in (_cat.pensionSystems.isEmpty ? const {'afp': 'AFP (privado)', 'onp': 'ONP (estatal)'} : _cat.pensionSystems).entries)
                   ChoiceChip(
@@ -310,7 +311,7 @@ class _ReadOnly extends StatelessWidget {
         row('N° de cuenta', payment.accountNumberMasked),
         row('CCI / CLABE / CBU', payment.interbankMasked),
         const Divider(),
-        row('Sistema previsional', catalogs.pensionSystems[payment.pensionSystem] ?? payment.pensionSystem),
+        row('Sistema de pensiones', catalogs.pensionSystems[payment.pensionSystem] ?? payment.pensionSystem),
         if (payment.pensionSystem == 'afp') row('AFP', payment.pensionFund),
         row('Seguro de salud', catalogs.healthInsurances[payment.healthInsurance] ?? payment.healthInsurance),
         const Divider(),

@@ -6,6 +6,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'team_providers.dart';
+import '../../../core/widgets/page_padding.dart';
 
 /// Bandeja del supervisor / RRHH: solicitudes pendientes con aprobar y rechazar.
 class ApprovalsScreen extends ConsumerWidget {
@@ -33,7 +34,7 @@ class ApprovalsScreen extends ConsumerWidget {
                 : NotificationListener<ScrollNotification>(
                     onNotification: (n) => loadMoreOnScroll(n, controller.loadMore),
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                      padding: pagePadding(context),
                       itemCount: list.length + 2,
                       itemBuilder: (_, i) {
                         if (i == 0) {

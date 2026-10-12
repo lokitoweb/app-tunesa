@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/attachment_picker.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_views.dart';
+import '../../../core/widgets/page_padding.dart';
 import '../../../core/widgets/picker_field.dart';
 import '../domain/models.dart';
 import 'requests_screen.dart';
@@ -114,15 +116,28 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: pagePadding(context),
           children: [
-            DropdownButtonFormField<LeaveType>(
-              initialValue: _type,
-              decoration: const InputDecoration(labelText: 'Tipo de solicitud', prefixIcon: Icon(Icons.category_outlined)),
-              items: [for (final t in LeaveType.values) DropdownMenuItem(value: t, child: Text(t.label))],
-              onChanged: (t) => setState(() => _type = t ?? _type),
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Text('Tipo de solicitud',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
-            const SizedBox(height: 12),
+            // Opciones a la vista (sin menú desplegable que se sale de los márgenes)
+            Row(children: [
+              for (final t in LeaveType.values) ...[
+                if (t != LeaveType.values.first) const SizedBox(width: 8),
+                Expanded(
+                  child: _TypeOption(
+                    key: Key('leave-type-${t.apiName}'),
+                    type: t,
+                    selected: _type == t,
+                    onTap: () => setState(() => _type = t),
+                  ),
+                ),
+              ],
+            ]),
+            const SizedBox(height: 16),
             PickerField(
               label: 'Fechas',
               icon: Icons.date_range_outlined,
@@ -175,6 +190,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
               ),
               validator: (v) => (v == null || v.trim().length < 5) ? 'Describe el motivo (mínimo 5 caracteres)' : null,
             ),
+            const SizedBox(height: 4),
             PickerField(
               label: _type.requiresAttachment ? 'Certificado médico (obligatorio)' : 'Sustento (opcional)',
               icon: Icons.attach_file,
@@ -196,6 +212,62 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
                   : const Text('Enviar solicitud'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tarjeta de un tipo de solicitud (ícono y nombre); la elegida va rellena.
+class _TypeOption extends StatelessWidget {
+  const _TypeOption({super.key, required this.type, required this.selected, required this.onTap});
+
+  final LeaveType type;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const _icons = {
+    LeaveType.vacation: Icons.beach_access_outlined,
+    LeaveType.permission: Icons.event_available_outlined,
+    LeaveType.medicalLeave: Icons.medical_services_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fg = selected ? scheme.onPrimary : scheme.primary;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? scheme.primary : scheme.primary.withValues(alpha: 0.07),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          side: BorderSide(color: selected ? scheme.primary : scheme.primary.withValues(alpha: 0.18)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+            child: Column(children: [
+              Icon(_icons[type], color: fg),
+              const SizedBox(height: 6),
+              // Alto fijo de dos líneas: las tres tarjetas miden lo mismo
+              SizedBox(
+                height: 30,
+                child: Center(
+                  child: Text(
+                    type.label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 12.5, height: 1.15),
+                  ),
+                ),
+              ),
+            ]),
+          ),
         ),
       ),
     );

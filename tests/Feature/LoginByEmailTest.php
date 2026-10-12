@@ -94,6 +94,12 @@ class LoginByEmailTest extends TestCase
         Storage::disk('public')->assertExists($ana->fresh()->avatar_path);
 
         $this->post('/api/auth/profile', ['avatar' => UploadedFile::fake()->create('cv.pdf', 10)], ['Accept' => 'application/json'])->assertStatus(422);
+
+        // Quitar la foto borra el archivo y vuelven las iniciales
+        $current = $ana->fresh()->avatar_path;
+        $this->putJson('/api/auth/profile', ['remove_avatar' => true])->assertOk()->assertJsonPath('data.avatar_url', null);
+        $this->assertNull($ana->fresh()->avatar_path);
+        Storage::disk('public')->assertMissing($current);
     }
 
     public function test_forgot_password_works_without_company_code(): void

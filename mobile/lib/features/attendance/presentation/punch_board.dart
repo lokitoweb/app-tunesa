@@ -62,55 +62,73 @@ class PunchBoard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     final started = status.attendance?.clockIn != null;
 
-    // Completa: color primario · incompleta: secundario · sin marcar: neutro
+    // Completa: celeste intenso · incompleta: celeste · sin marcar: neutro
     final (label, color, icon) = status.isDayComplete
-        ? ('Marcación completa', scheme.primary, Icons.task_alt_rounded)
+        ? ('Marcación completa', dark ? AppTheme.sky : AppTheme.skyDeep, Icons.task_alt_rounded)
         : started
-            ? ('Marcación incompleta', scheme.secondary, Icons.timelapse_rounded)
+            ? ('Marcación incompleta', AppTheme.sky, Icons.timelapse_rounded)
             : ('Sin marcaciones', scheme.outline, Icons.radio_button_unchecked_rounded);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 4)),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Marcaciones de hoy', style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant)),
-                Text(label, style: theme.textTheme.titleMedium?.copyWith(color: color, fontWeight: FontWeight.w700)),
-              ]),
-            ),
-            if (status.attendance != null && status.attendance!.lateMinutes > 0)
-              Text('${status.attendance!.lateMinutes} min tarde',
-                  style: theme.textTheme.labelMedium?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
-          ]),
-          const SizedBox(height: 16),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            for (final action in ClockAction.values) ...[
-              if (action != ClockAction.clockIn) const SizedBox(width: 8),
-              Expanded(
-                child: _PunchTile(
-                  key: Key('punch-${action.apiName}'),
-                  label: _labels[action]!,
-                  icon: _icons[action]!,
-                  time: timeOf(action, status.attendance),
-                  available: status.actions.contains(action),
-                  onTap: () => _tap(context, action),
-                ),
-              ),
-            ],
-          ]),
-        ]),
+    // Tarjeta azul cielo con blanco
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radius + 4),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: dark
+              ? [AppTheme.sky.withValues(alpha: 0.22), scheme.surfaceContainerHigh]
+              : const [AppTheme.skySoft, Colors.white],
+        ),
+        border: Border.all(color: AppTheme.sky.withValues(alpha: dark ? 0.35 : 0.3)),
+        boxShadow: dark
+            ? null
+            : [BoxShadow(color: AppTheme.sky.withValues(alpha: 0.14), blurRadius: 14, offset: const Offset(0, 6))],
       ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: dark ? scheme.surface : Colors.white,
+              border: Border.all(color: color, width: 3),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Marcaciones de hoy', style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant)),
+              Text(label, style: theme.textTheme.titleMedium?.copyWith(color: color, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+          if (status.attendance != null && status.attendance!.lateMinutes > 0)
+            Text('${status.attendance!.lateMinutes} min tarde',
+                style: theme.textTheme.labelMedium?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
+        ]),
+        const SizedBox(height: 16),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (final action in ClockAction.values) ...[
+            if (action != ClockAction.clockIn) const SizedBox(width: 8),
+            Expanded(
+              child: _PunchTile(
+                key: Key('punch-${action.apiName}'),
+                label: _labels[action]!,
+                icon: _icons[action]!,
+                time: timeOf(action, status.attendance),
+                available: status.actions.contains(action),
+                onTap: () => _tap(context, action),
+              ),
+            ),
+          ],
+        ]),
+      ]),
     );
   }
 }
@@ -133,35 +151,55 @@ class _PunchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     final done = time != null;
-    // Hecha: relleno de marca · disponible: borde de marca · bloqueada: gris
-    final background = done
-        ? scheme.primary
-        : available
-            ? scheme.primary.withValues(alpha: 0.08)
-            : scheme.surfaceContainerHighest.withValues(alpha: 0.5);
+    final white = dark ? scheme.surface : Colors.white;
+    // Hecha: celeste relleno · disponible: blanco con borde celeste · bloqueada: blanco apagado
     final foreground = done
-        ? scheme.onPrimary
+        ? Colors.white
         : available
-            ? scheme.primary
-            : scheme.onSurfaceVariant.withValues(alpha: 0.55);
+            ? AppTheme.sky
+            : scheme.onSurfaceVariant.withValues(alpha: 0.45);
+    final timeColor = done ? (dark ? AppTheme.sky : AppTheme.skyDeep) : scheme.onSurfaceVariant.withValues(alpha: 0.6);
 
     return Semantics(
       button: true,
       enabled: available,
       label: done ? '$label, $time' : label,
       child: Column(children: [
-        Material(
-          color: background,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radius),
-            side: available && !done ? BorderSide(color: scheme.primary, width: 1.5) : BorderSide.none,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: AspectRatio(aspectRatio: 1, child: Icon(done ? Icons.check_rounded : icon, color: foreground, size: 28)),
+        AspectRatio(
+          aspectRatio: 1,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radius + 2),
+              color: done ? null : (available ? white : white.withValues(alpha: dark ? 0.5 : 0.7)),
+              gradient: done
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppTheme.sky, AppTheme.skyDeep],
+                    )
+                  : null,
+              border: done
+                  ? null
+                  : Border.all(
+                      color: available ? AppTheme.sky : AppTheme.sky.withValues(alpha: 0.2),
+                      width: available ? 2 : 1,
+                    ),
+              boxShadow: available || done
+                  ? [BoxShadow(color: AppTheme.sky.withValues(alpha: 0.22), blurRadius: 8, offset: const Offset(0, 3))]
+                  : null,
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppTheme.radius + 2),
+                onTap: onTap,
+                child: Icon(done ? Icons.check_rounded : icon, color: foreground, size: 28),
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 6),
@@ -176,12 +214,7 @@ class _PunchTile extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        Text(time ?? '--:--',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: done ? scheme.primary : scheme.onSurfaceVariant.withValues(alpha: 0.6),
-            )),
+        Text(time ?? '--:--', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: timeColor)),
       ]),
     );
   }

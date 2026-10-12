@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_views.dart';
 import 'auth_controller.dart';
+import '../../../core/widgets/page_padding.dart';
 
 /// Cambio de contraseña. Si la cuenta tiene una contraseña temporal
 /// (creada por RRHH) es obligatorio y no se puede salir de esta pantalla.
@@ -69,7 +70,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         ),
         body: Form(
           key: _formKey,
-          child: ListView(padding: const EdgeInsets.all(16), children: [
+          child: ListView(padding: pagePadding(context), children: [
             if (forced)
               Card(
                 color: Theme.of(context).colorScheme.primaryContainer,

@@ -14,6 +14,11 @@ class AppTheme {
   static const Color defaultPrimary = Color(0xFF0050A0);
   static const Color defaultSecondary = Color(0xFF00A0D0);
 
+  /// Celeste (azul cielo) de las marcaciones: tablero del día y sus botones.
+  static const Color sky = Color(0xFF0EA5E9);
+  static const Color skyDeep = Color(0xFF0369A1);
+  static const Color skySoft = Color(0xFFE0F2FE);
+
   /// Esquinas de tarjetas, campos y botones.
   static const double radius = 10;
 

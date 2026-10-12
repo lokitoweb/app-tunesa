@@ -6,6 +6,7 @@ import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/models.dart';
 import 'team_providers.dart';
+import '../../../core/widgets/page_padding.dart';
 
 /// Mi equipo hoy: quién marcó, tardanzas, descansos y marcaciones fuera de
 /// la geocerca. Se actualiza deslizando hacia abajo.
@@ -65,7 +66,7 @@ class _TeamBody extends StatelessWidget {
     final matched = data.canMatchMembers;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      padding: pagePadding(context),
       children: [
         if (data.serverTime != null)
           Padding(
