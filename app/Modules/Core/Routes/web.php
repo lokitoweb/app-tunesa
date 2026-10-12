@@ -9,6 +9,7 @@ use App\Modules\Core\Controllers\Web\BrandingWebController;
 use App\Modules\Core\Controllers\Web\CompanySettingsWebController;
 use App\Modules\Core\Controllers\Web\CompanyWebController;
 use App\Modules\Core\Controllers\Web\DashboardController;
+use App\Modules\Core\Controllers\Web\LegalController;
 use App\Modules\Core\Controllers\Web\NotificationWebController;
 use App\Modules\Core\Controllers\Web\OrganizationWebController;
 use App\Modules\Core\Controllers\Web\PasswordResetController;
@@ -32,6 +33,11 @@ Route::get('/secure-files/{kind}/{id}', [SecureFileController::class, 'show'])
     ->whereIn('kind', SecureFileUrl::KINDS)
     ->whereNumber('id')
     ->middleware(['signed', 'throttle:120,1,secure-files']);
+
+// Páginas públicas para Google Play / App Store (con o sin sesión)
+Route::get('/privacidad', [LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('/eliminar-cuenta', [LegalController::class, 'deletionForm'])->name('legal.account-deletion');
+Route::post('/eliminar-cuenta', [LegalController::class, 'deletionStore'])->name('legal.account-deletion.store')->middleware('throttle:5,1');
 
 // Rutas públicas de autenticación
 Route::middleware('guest')->group(function () {

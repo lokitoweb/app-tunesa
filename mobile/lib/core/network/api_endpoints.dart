@@ -35,6 +35,9 @@ class ApiEndpoints {
   static String ethicsCase(String code) => '/ethics/cases/${Uri.encodeComponent(code)}';
   static String ethicsMessages(String code) => '${ethicsCase(code)}/messages';
 
+  /// Pedido de eliminación de la cuenta y sus datos.
+  static const accountDeletion = '/auth/account-deletion';
+
   // Asistencia
   static const attendanceToday = '/attendance/today';
   static const attendanceHistory = '/attendance/history';

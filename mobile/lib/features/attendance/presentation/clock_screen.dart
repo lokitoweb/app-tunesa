@@ -20,6 +20,7 @@ import '../domain/models.dart';
 import '../domain/punch.dart';
 import 'attendance_providers.dart';
 import 'offline_sync.dart';
+import 'punch_disclosure.dart';
 import 'selfie_screen.dart';
 
 /// Flujo de marcación directo: GPS → geocerca → cámara → envío automático.
@@ -89,7 +90,25 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   @override
   void initState() {
     super.initState();
-    _locate();
+    if (ref.read(sharedPreferencesProvider).getBool(PunchDisclosure.prefsKey) == true) {
+      _locate();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _discloseThenLocate());
+    }
+  }
+
+  /// Primera marcación: aviso de ubicación y cámara antes de pedir los permisos.
+  Future<void> _discloseThenLocate() async {
+    if (!mounted) return;
+    final ok = await PunchDisclosure.ensureAccepted(context, ref.read(sharedPreferencesProvider), selfie: _mobile.selfieRequired);
+    if (!mounted) return;
+    if (ok) return _locate();
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      GoRouter.maybeOf(context)?.go('/home');
+    }
   }
 
   /// Lectura verificada que nunca lanza (se pide al disparar y se espera después).

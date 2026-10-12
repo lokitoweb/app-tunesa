@@ -9,6 +9,10 @@
 #   FIREBASE_API_KEY=... FIREBASE_APP_ID=... scripts/build_apk.sh prod   # push (ver README)
 #   (en Android, los FIREBASE_* vacíos se toman de android/app/google-services.json)
 #   APP_CERT_SHA256=AA:BB:... scripts/build_apk.sh prod   # huella de la llave: detecta APK re-firmados
+#   BUILD_AAB=1 scripts/build_apk.sh prod   # además el .aab que se sube a Google Play
+#
+# En release revisa el APK con scripts/check_play_requirements.py (targetSdk,
+# permisos y páginas de 16 KB) y falla si no cumple lo que exige Google Play.
 #
 # Firma: si existe android/key.properties usa la llave de producción. Sin ella,
 # un release de prod FALLA; staging/tunnel/dev se firman con la llave debug
@@ -112,3 +116,15 @@ mkdir -p "$OUT_DIR"
 cp "build/app/outputs/flutter-apk/app-${MODE}.apk" "$OUT"
 echo
 echo "APK listo: $OUT"
+
+if [[ "$MODE" == "release" ]]; then
+  python3 scripts/check_play_requirements.py "$OUT"
+fi
+
+# Google Play solo acepta Android App Bundle (.aab) para apps nuevas
+if [[ "${BUILD_AAB:-0}" == "1" && "$MODE" == "release" ]]; then
+  flutter build appbundle --release --dart-define-from-file="$ENV_FILE" ${OBFUSCATE[@]+"${OBFUSCATE[@]}"} ${EXTRA_DEFINES[@]+"${EXTRA_DEFINES[@]}"}
+  AAB="$OUT_DIR/tunesa-${VERSION%%+*}-${ENV_NAME}-release.aab"
+  cp build/app/outputs/bundle/release/app-release.aab "$AAB"
+  echo "AAB para Google Play: $AAB"
+fi

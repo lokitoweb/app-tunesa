@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/account/presentation/devices_screen.dart';
 import '../../features/account/presentation/notification_settings_screen.dart';
+import '../../features/account/presentation/privacy_screen.dart';
 import '../../features/app_update/presentation/update_screen.dart';
 import '../../features/training/presentation/certificate_screen.dart';
 import '../../features/training/presentation/lesson_screen.dart';
@@ -118,6 +119,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(parentNavigatorKey: _rootKey, path: '/profile/contact', builder: (_, _) => const ContactScreen()),
       GoRoute(parentNavigatorKey: _rootKey, path: '/profile/devices', builder: (_, _) => const DevicesScreen()),
       GoRoute(parentNavigatorKey: _rootKey, path: '/profile/notifications', builder: (_, _) => const NotificationSettingsScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/profile/privacy', builder: (_, _) => const PrivacyScreen()),
       GoRoute(
         parentNavigatorKey: _rootKey,
         path: '/clock/:action',

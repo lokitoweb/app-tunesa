@@ -368,6 +368,15 @@ class _AccountSection extends ConsumerWidget {
         const _AppVersionTile(),
         const Divider(),
         ListTile(
+          key: const Key('account-privacy'),
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: const Text('Privacidad y datos'),
+          subtitle: const Text('Política y eliminación de tu cuenta'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/profile/privacy'),
+        ),
+        const Divider(),
+        ListTile(
           leading: Icon(Icons.logout_rounded, color: Theme.of(context).colorScheme.error),
           title: Text(
             'Cerrar sesión',

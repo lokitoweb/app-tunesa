@@ -23,6 +23,15 @@ class AccountRepository {
     return ((json['data'] as Map?)?['closed'] as num?)?.toInt() ?? 0;
   }
 
+  /// Pide a RRHH que elimine la cuenta y los datos (Google Play). Devuelve el mensaje del servidor.
+  Future<String> requestDeletion({String? reason}) async {
+    final json = await _api.post(
+      ApiEndpoints.accountDeletion,
+      data: {if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim()},
+    );
+    return json['message']?.toString() ?? 'Recibimos tu pedido.';
+  }
+
   Future<List<NotificationPreference>> preferences() async => _parse(await _api.get(ApiEndpoints.notificationPreferences));
 
   Future<List<NotificationPreference>> setPreference(String key, bool enabled) async =>

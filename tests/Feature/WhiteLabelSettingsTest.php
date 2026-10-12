@@ -300,7 +300,7 @@ class WhiteLabelSettingsTest extends TestCase
             ->assertJsonPath('data.contact.phone', '014445555');
 
         // Exactamente estas secciones, sin datos de integraciones
-        $this->assertSame(['tenant', 'branding', 'mobile', 'rules', 'contact', 'modules'], array_keys($res->json('data')));
+        $this->assertSame(['tenant', 'branding', 'mobile', 'rules', 'contact', 'modules', 'legal'], array_keys($res->json('data')));
         $this->assertSame(['config_version'], array_keys($res->json('meta')));
         $this->assertCount(15, $res->json('data.mobile'));
         $res->assertDontSee('whsec_super_secreto')->assertDontSee('AIzaClaveMapas')->assertDontSee('webhook');
