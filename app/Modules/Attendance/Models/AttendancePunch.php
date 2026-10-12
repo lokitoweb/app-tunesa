@@ -46,6 +46,10 @@ class AttendancePunch extends Model
     public const REASON_IMPOSSIBLE_TRAVEL     = 'IMPOSSIBLE_TRAVEL';
     /** Mismas coordenadas exactas que una marcación de otro día: típico de una ubicación inventada */
     public const REASON_REPEATED_COORDINATES  = 'REPEATED_COORDINATES';
+    /** Selfie tomada más de STALE_PHOTO_SECONDS antes de enviar (reloj del teléfono en ambos extremos) */
+    public const REASON_STALE_PHOTO           = 'STALE_PHOTO';
+
+    public const STALE_PHOTO_SECONDS = 120;
 
     public const UPDATED_AT = null;
 
@@ -69,6 +73,7 @@ class AttendancePunch extends Model
         'suspicious'             => 'boolean',
         'suspicion_reasons'      => 'array',
         'created_at'             => 'datetime',
+        'photo_purged_at'        => 'datetime',
     ];
 
     protected static function booted(): void
@@ -80,6 +85,18 @@ class AttendancePunch extends Model
         static::deleting(function () {
             throw new LogicException('Las marcaciones son inmutables: no se pueden borrar.');
         });
+    }
+
+    /**
+     * Marca la foto como borrada por retención (attendance:purge-photos). Como
+     * fillAddress(), va por el query builder: photo_purged_at no es inmutable.
+     */
+    public static function markPhotoPurged(array $ids): int
+    {
+        return DB::table('attendance_punches')
+            ->whereIn('id', $ids)
+            ->whereNull('photo_purged_at')
+            ->update(['photo_purged_at' => now()]);
     }
 
     /**
@@ -132,13 +149,15 @@ class AttendancePunch extends Model
             'suspicious'             => $this->suspicious,
             'suspicion_reasons'      => $this->suspicion_reasons ?? [],
             'photo_url'              => $this->photoUrl(),
+            'photo_sha256'           => $this->photo_sha256,
+            'photo_purged'           => $this->photo_purged_at !== null,
         ];
     }
 
     /** URL firmada y temporal de la foto (o null) */
     public function photoUrl(int $minutes = 15): ?string
     {
-        return $this->photo_path
+        return $this->photo_path && ! $this->photo_purged_at
             ? app(\App\Modules\Core\Services\SecureFileUrl::class)->make(config('filesystems.attendance_disk', 'private'), $this->photo_path, 'punch-photo', $this->id, $minutes)
             : null;
     }

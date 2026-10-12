@@ -11,7 +11,7 @@ Archivos clave:
 |---|---|
 | Punto de entrada único | `app/Modules/Attendance/Services/AttendanceService.php` (`punch()`) |
 | Datos de una marcación / resultado | `app/Modules/Attendance/Services/Attendance/PunchData.php`, `PunchResult.php` |
-| Selfies (WebP) | `app/Modules/Attendance/Services/Attendance/SelfieStorage.php` |
+| Selfies (WebP sin EXIF, miniatura, huella) | `app/Modules/Attendance/Services/Attendance/SelfieStorage.php` |
 | Avisos fuera de horario / geocerca | `app/Modules/Attendance/Services/Attendance/AttendanceAlertNotifier.php`, `app/Modules/Attendance/Notifications/AttendanceOutside*.php` |
 | Bitácora | `app/Modules/Attendance/Models/AttendancePunch.php`, migración `2026_10_14_000001_create_attendance_punches_table.php` |
 | Resumen en la jornada | migración `2026_10_14_000002_add_integrity_columns_to_attendances_table.php` |
@@ -63,7 +63,7 @@ Una fila por evento, **nunca se edita ni se borra**:
 | `photo_path` | disco `ATTENDANCE_DISK` (privado); URL firmada `/secure-files/punch-photo/{id}` |
 | `face_detected` | lo que informó la app (nullable) |
 | `mock_location_detected` | `is_mocked` del teléfono |
-| `suspicious`, `suspicion_reasons` | motivos: `MOCK_LOCATION`, `TIME_DRIFT`, `FACE_UNVERIFIED`, `OUT_OF_GEOFENCE`, `GEOFENCE_EDGE`, `OUTSIDE_SCHEDULE`, `UNSAFE_DEVICE`, `IMPOSSIBLE_TRAVEL`, `REPEATED_COORDINATES` |
+| `suspicious`, `suspicion_reasons` | motivos: `MOCK_LOCATION`, `TIME_DRIFT`, `FACE_UNVERIFIED`, `OUT_OF_GEOFENCE`, `GEOFENCE_EDGE`, `OUTSIDE_SCHEDULE`, `UNSAFE_DEVICE`, `IMPOSSIBLE_TRAVEL`, `REPEATED_COORDINATES`, `STALE_PHOTO` |
 | `device_id`, `device_os`, `app_version`, `ip` | metadatos |
 | `created_at` | solo creación (`UPDATED_AT = null`) |
 
@@ -93,7 +93,8 @@ la lista `punches`.
 - `device_time`, `server_time`, `offline_recorded_at` (bitácora) y `*_device_time` (jornada) se
   guardan **en UTC** con el cast `App\Modules\Core\Casts\UtcDateTime`, que también los lee en UTC aunque
   `APP_TIMEZONE` sea otra.
-- **Desfase** (`time_drift_seconds`): en una marcación en línea, `device_time − server_time`.
+- **Desfase** (`time_drift_seconds`): en una marcación en línea, `device_sent_at − server_time`
+  (`device_time − server_time` con apps que no mandan `device_sent_at`).
   En una offline `device_time` es de horas atrás, así que se mide con `device_sent_at` (reloj del
   teléfono al enviar, raíz de `sync-batch` o campo de la ruta individual); sin él queda `null`.
   Más de `max_time_drift_seconds` → motivo `TIME_DRIFT`. Nunca se rechaza por desfase.
@@ -115,13 +116,27 @@ Fuera de horario: ventana `[inicio − tolerancia, fin + tolerancia]` del turno 
 siguiente). Tener turnos asignados pero ninguno ese día (descanso) también cuenta. Se evalúa en
 entrada y salida; la salida usa el turno guardado en la jornada.
 
-## Selfies en WebP
+## Selfies: recodificadas, con huella y retención
 
-`SelfieStorage::store()` convierte JPEG/PNG a WebP con GD (`imagewebp`): calidad 80, lado mayor
-máximo 1280 px (no agranda), respeta la orientación EXIF si existe `exif_read_data`. Ruta:
-`photos/{tenant}/{user}/{tipo}/{YYYY}/{MM}/{YmdHis}_{user}_{aleatorio}.webp`. Un WebP subido se
-guarda tal cual. Si el PHP del servidor no tiene WebP en GD se guarda el original (`.jpg`/`.png`) y
-se escribe **un** aviso en el log por día. Las selfies anteriores (`.jpg`) siguen funcionando.
+`SelfieStorage::store()` **siempre** vuelve a codificar la foto con GD, así nunca se guardan los
+metadatos del teléfono (EXIF con GPS, modelo, hora): WebP calidad 80 si GD trae `imagewebp`, si no
+JPEG (y un aviso en el log por día). Lado mayor máximo 1280 px (no agranda), respeta la orientación
+EXIF. Ruta: `photos/{tenant}/{user}/{tipo}/{YYYY}/{MM}/{YmdHis}_{user}_{aleatorio}.webp`, con una
+miniatura de 160 px al lado (`…_t.webp`) que usan los listados (`attendance_photo_thumb_url()`,
+ruta firmada `selfie-in-thumb` / `selfie-out-thumb`; si falta, se sirve la foto completa). Una foto
+que GD no puede leer se rechaza con `PHOTO_UNREADABLE`.
+
+- **Huella:** `attendance_punches.photo_sha256` (SHA-256 del archivo guardado). El trigger de
+  inmutabilidad la protege igual que `photo_path`.
+- **Foto vieja:** `STALE_PHOTO` si en línea pasaron más de 2 min entre la selfie (`device_time`) y el
+  envío (`device_sent_at`).
+- **Quién la ve:** abrir la evidencia o el detalle de la jornada de otra persona deja
+  `attendance.photo_viewed` en auditoría (una vez por hora y persona). Las miniaturas de los
+  listados no cuentan.
+- **Retención:** `attendance:purge-photos` (diario 03:45, `--months=12`, `--dry-run`) borra foto y
+  miniatura, marca `photo_purged_at` en la bitácora (ruta y huella se conservan como constancia),
+  vacía `clock_in_photo` / `clock_out_photo` en `attendances` y audita `attendance.photos_purged`
+  por empresa.
 
 ## Sincronización en lote
 

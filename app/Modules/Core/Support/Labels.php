@@ -109,6 +109,8 @@ final class Labels
         'attendance.mock_location_detected'  => ['Ubicación simulada detectada', 'danger', 'phone-vibrate'],
         'attendance.time_drift_detected'     => ['Hora del celular desfasada', 'warning', 'clock'],
         'attendance.reviewed'                => ['Marcación revisada', 'primary', 'clipboard-check'],
+        'attendance.photo_viewed'            => ['Selfie de marcación consultada', 'secondary', 'eye'],
+        'attendance.photos_purged'           => ['Selfies borradas por retención', 'secondary', 'trash'],
         'justification.approved'             => ['Justificación aprobada', 'success', 'clipboard-check'],
         'justification.rejected'             => ['Justificación rechazada', 'danger', 'clipboard-x'],
 
@@ -754,6 +756,7 @@ final class Labels
             'OFFLINE_TOO_OLD'         => ['Sin conexión demasiado antigua', 'warning'],
             'OFFLINE_BEFORE_CLOCK_IN' => ['Sin conexión antes de la entrada', 'warning'],
             'OFFLINE_OUT_OF_ORDER'    => ['Sin conexión fuera de orden', 'warning'],
+            'PHOTO_UNREADABLE'        => ['Foto ilegible', 'warning'],
         ],
         'suspicion_reason' => [
             'MOCK_LOCATION'    => ['Ubicación simulada', 'danger'],
@@ -765,6 +768,7 @@ final class Labels
             'GEOFENCE_EDGE'        => ['En el borde de la geocerca', 'warning'],
             'IMPOSSIBLE_TRAVEL'    => ['Viaje imposible desde la marcación anterior', 'danger'],
             'REPEATED_COORDINATES' => ['Coordenadas idénticas a otro día', 'danger'],
+            'STALE_PHOTO'          => ['Selfie tomada mucho antes de enviar', 'warning'],
         ],
         'device_flag' => [
             'rooted'   => ['Root / jailbreak', 'danger'],

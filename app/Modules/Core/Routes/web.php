@@ -30,7 +30,7 @@ Route::get('/', fn () => redirect()->route('dashboard'));
 // Archivos privados (legajo, selfies) con URL firmada y temporal
 Route::get('/secure-files/{kind}/{id}', [SecureFileController::class, 'show'])
     ->name('secure-files.show')
-    ->whereIn('kind', SecureFileUrl::KINDS)
+    ->whereIn('kind', [...SecureFileUrl::KINDS, ...SecureFileUrl::THUMB_KINDS])
     ->whereNumber('id')
     ->middleware(['signed', 'throttle:120,1,secure-files']);
 

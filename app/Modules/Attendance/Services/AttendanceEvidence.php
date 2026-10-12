@@ -2,8 +2,10 @@
 
 namespace App\Modules\Attendance\Services;
 
+use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\SecureFileUrl;
 use App\Modules\Attendance\Models\Attendance;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Evidencia de una marcación para el visor de auditoría (panel y API):
@@ -12,7 +14,43 @@ use App\Modules\Attendance\Models\Attendance;
  */
 class AttendanceEvidence
 {
-    public function __construct(private readonly SecureFileUrl $urls) {}
+    /** Una vista de las selfies de una jornada se audita como máximo una vez por hora y persona */
+    public const VIEW_AUDIT_MINUTES = 60;
+
+    public function __construct(
+        private readonly SecureFileUrl $urls,
+        private readonly AuditLogger $audit,
+    ) {}
+
+    /** Miniatura de 160 px para listados (null si no hay foto) */
+    public function thumbUrl(Attendance $attendance, string $moment): ?string
+    {
+        $path = $moment === 'in' ? $attendance->clock_in_photo : $attendance->clock_out_photo;
+
+        return $path ? $this->urls->thumb("selfie-{$moment}", $attendance->id, 15) : null;
+    }
+
+    /**
+     * Audita (attendance.photo_viewed) que alguien abrió las selfies de la
+     * jornada de otra persona. Las miniaturas de los listados no cuentan.
+     */
+    public function recordView(Attendance $attendance): void
+    {
+        $viewer = auth()->user();
+        $hasPhotos = $attendance->clock_in_photo || $attendance->clock_out_photo
+            || $attendance->punches()->withoutGlobalScopes()->whereNotNull('photo_path')->whereNull('photo_purged_at')->exists();
+
+        if (! $viewer || ! $hasPhotos || (int) $viewer->id === (int) $attendance->user_id) {
+            return;
+        }
+
+        if (Cache::add("attendance-photo-viewed:{$viewer->id}:{$attendance->id}", true, now()->addMinutes(self::VIEW_AUDIT_MINUTES))) {
+            $this->audit->log('attendance.photo_viewed', $attendance, [
+                'employee_id' => $attendance->user_id,
+                'work_date'   => $attendance->work_date?->toDateString(),
+            ]);
+        }
+    }
 
     public function photoUrl(Attendance $attendance, string $moment): ?string
     {
@@ -25,6 +63,8 @@ class AttendanceEvidence
 
     public function detail(Attendance $attendance): array
     {
+        $this->recordView($attendance);
+
         $branch = $attendance->branch;
         $radius = (int) ($branch->allowed_radius_meters ?? 0);
 

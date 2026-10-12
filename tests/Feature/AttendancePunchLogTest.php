@@ -428,17 +428,18 @@ class AttendancePunchLogTest extends TestCase
         $this->assertSame([200, 100], array_slice(getimagesizefromstring($png), 0, 2));
     }
 
-    public function test_storage_keeps_the_original_format_when_gd_has_no_webp(): void
+    public function test_storage_reencodes_every_format_and_falls_back_to_jpeg(): void
     {
-        // Sin conversión posible: se guarda el original con su extensión
-        $webp = UploadedFile::fake()->image('ya.webp', 100, 100);
-        $path = (new SelfieStorage())->store($webp, $this->acme->id, $this->emp->id, 'clock_in');
-        $this->assertStringEndsWith('.webp', $path);
-        Storage::disk('private')->assertExists($path);
+        // Sin WebP en GD: JPEG recodificado (nunca el original), con miniatura
+        $stored = (new SelfieStorage(webp: false))->store(UploadedFile::fake()->image('ya.png', 300, 200), $this->acme->id, $this->emp->id, 'clock_in');
+        $this->assertStringEndsWith('.jpg', $stored->path);
+        $bytes = Storage::disk('private')->get($stored->path);
+        $this->assertSame("\xFF\xD8", substr($bytes, 0, 2));
+        $this->assertSame(hash('sha256', $bytes), $stored->sha256);
+        $this->assertSame([160, 107], array_slice(getimagesizefromstring(Storage::disk('private')->get($stored->thumbPath())), 0, 2));
 
-        if (SelfieStorage::webpSupported()) {
-            $this->assertNull((new SelfieStorage())->toWebp(__FILE__, 'image/jpeg'), 'un archivo que no es imagen no se convierte');
-        }
+        // Un archivo que no es imagen no se convierte
+        $this->assertNull((new SelfieStorage())->encode(__FILE__, 'image/jpeg'));
     }
 
     public function test_app_config_exposes_the_new_policies(): void

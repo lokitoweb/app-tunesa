@@ -89,13 +89,15 @@ class AttendanceWebController extends Controller
     /**
      * Vista de detalle y auditoría individual de la marcación.
      */
-    public function show(int $id): View
+    public function show(int $id, AttendanceEvidence $evidence): View
     {
         $tenantId = current_tenant_id_or_null();
 
         $attendance = Attendance::forTenant($tenantId)
             ->with(['user', 'branch', 'shift', 'reviewer', 'punches' => fn ($q) => $q->orderBy('server_time')->orderBy('id')])
             ->findOrFail($id);
+
+        $evidence->recordView($attendance);
 
         return view('attendance.show', compact('attendance'));
     }

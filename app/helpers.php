@@ -67,6 +67,16 @@ if (! function_exists('attendance_photo_url')) {
     }
 }
 
+if (! function_exists('attendance_photo_thumb_url')) {
+    /**
+     * Miniatura de 160 px (firmada) de la selfie de entrada ('in') o salida ('out'), para listados.
+     */
+    function attendance_photo_thumb_url(\App\Modules\Attendance\Models\Attendance $attendance, string $moment = 'in'): ?string
+    {
+        return app(\App\Modules\Attendance\Services\AttendanceEvidence::class)->thumbUrl($attendance, $moment);
+    }
+}
+
 // =============================================================================
 // Presentación de datos (App\Modules\Core\Support\Labels): nada de claves ni enums crudos en la UI
 // =============================================================================

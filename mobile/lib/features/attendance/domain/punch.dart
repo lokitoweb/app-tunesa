@@ -79,6 +79,7 @@ Map<String, String> punchFields({
   required String deviceOs,
   required String appVersion,
   String? offlineRecordedAt,
+  DateTime? deviceSentAt,
 }) =>
     {
       'client_uuid': clientUuid,
@@ -92,6 +93,9 @@ Map<String, String> punchFields({
       'device_os': deviceOs,
       'app_version': appVersion,
       'offline_recorded_at': ?offlineRecordedAt,
+      // En línea: hora de envío. Con device_time (la selfie) el servidor mide
+      // la antigüedad de la foto (STALE_PHOTO) sin depender del reloj.
+      if (deviceSentAt != null) 'device_sent_at': isoUtc(deviceSentAt),
     };
 
 /// Marcación guardada en la cola cifrada.

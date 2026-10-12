@@ -19,6 +19,9 @@ class SecureFileUrl
 {
     public const KINDS = ['document', 'selfie-in', 'selfie-out', 'punch-photo'];
 
+    /** Miniaturas de selfie: siempre por la ruta firmada (si falta, sirve la foto completa) */
+    public const THUMB_KINDS = ['selfie-in-thumb', 'selfie-out-thumb', 'punch-photo-thumb'];
+
     public function make(string $disk, string $path, string $kind, int $id, ?int $minutes = null): string
     {
         $expires = now()->addMinutes($minutes ?? (int) config('filesystems.signed_url_minutes', 5));
@@ -28,5 +31,13 @@ class SecureFileUrl
         }
 
         return URL::temporarySignedRoute('secure-files.show', $expires, ['kind' => $kind, 'id' => $id]);
+    }
+
+    /** Miniatura de 160 px de una selfie ('selfie-in', 'selfie-out' o 'punch-photo') */
+    public function thumb(string $kind, int $id, ?int $minutes = null): string
+    {
+        $expires = now()->addMinutes($minutes ?? (int) config('filesystems.signed_url_minutes', 5));
+
+        return URL::temporarySignedRoute('secure-files.show', $expires, ['kind' => "{$kind}-thumb", 'id' => $id]);
     }
 }
