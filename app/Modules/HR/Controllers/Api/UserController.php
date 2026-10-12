@@ -98,6 +98,7 @@ class UserController extends Controller
             'status'               => 'active',
             'must_change_password' => true,
         ]));
+        app(\App\Modules\Onboarding\Services\OnboardingService::class)->startFor($user);
 
         return response()->json([
             'success' => true,

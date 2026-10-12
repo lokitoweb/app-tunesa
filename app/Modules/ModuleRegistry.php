@@ -19,6 +19,7 @@ final class ModuleRegistry
         'Attendance'   => 'Asistencia',
         'HR'           => 'Recursos humanos',
         'Integrations' => 'Integraciones',
+        'Onboarding'   => 'Incorporación',
         'Payroll'      => 'Nómina y boletas',
         'Training'     => 'Capacitaciones',
     ];
