@@ -119,9 +119,13 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Dependencias
+      # Compila antes de arrancar el emulador: Gradle y la descarga del NDK
+      # compitiendo con el emulador dejaban al runner sin recursos
+      - name: Compilar la app de prueba
         working-directory: mobile
-        run: flutter pub get
+        run: |
+          flutter pub get
+          flutter build apk --debug --dart-define-from-file=env/dev.json
 
       - name: Recorrido de la app en el emulador (Android API ${{ matrix.api-level }})
         uses: reactivecircus/android-emulator-runner@v2
@@ -130,8 +134,8 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          cores: 4
-          ram-size: 4096M
+          cores: 2
+          ram-size: 3072M
           disk-size: 4096M
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
