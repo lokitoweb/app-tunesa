@@ -111,6 +111,7 @@ final class Labels
         'attendance.reviewed'                => ['Marcación revisada', 'primary', 'clipboard-check'],
         'attendance.photo_viewed'            => ['Selfie de marcación consultada', 'secondary', 'eye'],
         'attendance.photos_purged'           => ['Selfies borradas por retención', 'secondary', 'trash'],
+        'attendance.evidence_altered'        => ['Evidencia alterada (la selfie no coincide con su huella)', 'danger', 'shield-exclamation'],
         'justification.approved'             => ['Justificación aprobada', 'success', 'clipboard-check'],
         'justification.rejected'             => ['Justificación rechazada', 'danger', 'clipboard-x'],
 

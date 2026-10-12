@@ -23,6 +23,9 @@
                             <button type="button" class="btn btn-outline-primary active" data-moment="in">Entrada</button>
                             <button type="button" class="btn btn-outline-primary" data-moment="out">Salida</button>
                         </div>
+                        <div id="evidenceAltered" class="alert alert-danger py-2 small d-none" role="alert">
+                            <i class="bi bi-shield-exclamation me-1"></i><strong>Evidencia alterada:</strong> <span id="evidenceAlteredText"></span>
+                        </div>
                         <div class="ratio ratio-4x3 bg-body-tertiary rounded overflow-hidden mb-3">
                             <img id="evidencePhoto" alt="Selfie de la marcación" class="w-100 h-100 object-fit-contain d-none" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
                             <div id="evidenceNoPhoto" class="d-flex align-items-center justify-content-center text-body-secondary">
@@ -91,6 +94,12 @@
             el('evidenceNoPhoto').classList.remove('d-none');
             el('evidenceNoPhotoText').textContent = p ? 'Sin selfie' : 'Aún no marca ' + (moment === 'in' ? 'entrada' : 'salida');
         }
+
+        const integrity = p?.photo_integrity;
+        el('evidenceAltered').classList.toggle('d-none', integrity !== 'altered' && integrity !== 'missing');
+        el('evidenceAlteredText').textContent = integrity === 'missing'
+            ? 'falta el archivo de la selfie que se guardó al marcar.'
+            : 'la selfie no coincide con la huella que se guardó al recibirla.';
 
         const radius = d.branch?.radius || 0;
         const facts = p ? [

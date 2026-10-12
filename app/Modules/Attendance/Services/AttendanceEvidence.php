@@ -5,7 +5,10 @@ namespace App\Modules\Attendance\Services;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\SecureFileUrl;
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Models\AttendancePunch;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Evidencia de una marcación para el visor de auditoría (panel y API):
@@ -16,6 +19,13 @@ class AttendanceEvidence
 {
     /** Una vista de las selfies de una jornada se audita como máximo una vez por hora y persona */
     public const VIEW_AUDIT_MINUTES = 60;
+
+    /** Integridad de la selfie guardada contra su huella SHA-256 */
+    public const PHOTO_OK = 'ok';
+
+    public const PHOTO_ALTERED = 'altered';
+
+    public const PHOTO_MISSING = 'missing';
 
     public function __construct(
         private readonly SecureFileUrl $urls,
@@ -52,6 +62,52 @@ class AttendanceEvidence
         }
     }
 
+    /**
+     * Compara la foto guardada con la huella que se tomó al recibirla.
+     * null = no aplica (sin foto, sin huella porque es anterior a la Fase 2,
+     * o borrada por retención). Si no coincide o falta el archivo se audita
+     * (attendance.evidence_altered) una vez al día por marcación.
+     */
+    public function photoIntegrity(AttendancePunch $punch): ?string
+    {
+        if (! $punch->photo_path || ! $punch->photo_sha256 || $punch->photo_purged_at) {
+            return null;
+        }
+
+        $disk = Storage::disk(config('filesystems.attendance_disk', 'private'));
+        $stream = $disk->exists($punch->photo_path) ? $disk->readStream($punch->photo_path) : null;
+
+        if (! $stream) {
+            $state = self::PHOTO_MISSING;
+        } else {
+            $ctx = hash_init('sha256');
+            hash_update_stream($ctx, $stream);
+            fclose($stream);
+            $state = hash_equals($punch->photo_sha256, hash_final($ctx)) ? self::PHOTO_OK : self::PHOTO_ALTERED;
+        }
+
+        if ($state !== self::PHOTO_OK && Cache::add("attendance-evidence-altered:{$punch->id}", true, now()->addDay())) {
+            $this->audit->log('attendance.evidence_altered', $punch, [
+                'attendance_id' => $punch->attendance_id,
+                'employee_id'   => $punch->user_id,
+                'problem'       => $state,
+            ]);
+        }
+
+        return $state;
+    }
+
+    /**
+     * Integridad de las fotos de varias marcaciones.
+     *
+     * @param  Collection<int, AttendancePunch>  $punches
+     * @return array<int, string|null> id de marcación => estado
+     */
+    public function integrity(Collection $punches): array
+    {
+        return $punches->mapWithKeys(fn (AttendancePunch $p) => [$p->id => $this->photoIntegrity($p)])->all();
+    }
+
     public function photoUrl(Attendance $attendance, string $moment): ?string
     {
         $path = $moment === 'in' ? $attendance->clock_in_photo : $attendance->clock_out_photo;
@@ -66,9 +122,11 @@ class AttendanceEvidence
         $this->recordView($attendance);
 
         $branch = $attendance->branch;
+        $punches = $attendance->punches()->withoutGlobalScopes()->orderBy('server_time')->orderBy('id')->get();
+        $integrity = $this->integrity($punches);
         $radius = (int) ($branch->allowed_radius_meters ?? 0);
 
-        $point = function (string $moment) use ($attendance, $radius) {
+        $point = function (string $moment) use ($attendance, $radius, $punches, $integrity) {
             $at = $attendance->{"clock_{$moment}_at"};
             if (! $at) {
                 return null;
@@ -97,6 +155,9 @@ class AttendanceEvidence
                 'device'          => $attendance->{"clock_{$moment}_device_id"},
                 'device_flags'    => array_map(fn ($f) => \App\Modules\Core\Support\Labels::enum('device_flag', $f), $meta['device_flags'] ?? []),
                 'photo_url'       => $this->photoUrl($attendance, $moment),
+                // La selfie del resumen es la misma que la de su evento en la bitácora
+                'photo_integrity' => ($punch = $punches->firstWhere('photo_path', $attendance->{"clock_{$moment}_photo"}))
+                    && $attendance->{"clock_{$moment}_photo"} ? $integrity[$punch->id] : null,
             ];
         };
 
@@ -124,7 +185,8 @@ class AttendanceEvidence
             'clock_out' => $point('out'),
             'is_suspicious' => (bool) $attendance->is_suspicious,
             // Bitácora inmutable: cada evento con su hora de servidor/teléfono, GPS y motivos
-            'punches'   => $attendance->punches()->withoutGlobalScopes()->get()->map->toApi()->all(),
+            'punches'   => $punches->map(fn (AttendancePunch $p) => $p->toApi() + ['photo_integrity' => $integrity[$p->id]])->all(),
+            'evidence_altered' => in_array(self::PHOTO_ALTERED, $integrity, true) || in_array(self::PHOTO_MISSING, $integrity, true),
         ];
     }
 }
