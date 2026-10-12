@@ -5,6 +5,8 @@ namespace App\Modules\HR\Controllers\Web;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Position;
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Services\CredentialProvisioner;
 use App\Modules\Core\Services\OrgScope;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Shift;
@@ -14,7 +16,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -102,11 +103,8 @@ class EmployeeController extends Controller
         $validated = $request->validate([
             'first_name'      => ['required', 'string', 'max:100'],
             'last_name'       => ['required', 'string', 'max:100'],
-            'email'           => [
-                'required', 'email', 'max:150',
-                Rule::unique('users')->where(fn($q) => $q->where('tenant_id', $tenantId))
-            ],
-            'password'        => ['required', 'string', 'min:8'],
+            // Vacío: se genera [DNI]@dominio (Marca y app). La contraseña siempre la genera el sistema.
+            'email'           => ['nullable', 'email', 'max:150', Rule::unique('users', 'email')],
             'role'            => ['required', 'in:company_admin,hr_manager,supervisor,employee'],
             'document_type'   => ['required', Rule::in(['dni', 'ce', 'passport'])],
             'document_number' => ['required', 'string', 'max:30'],
@@ -125,7 +123,11 @@ class EmployeeController extends Controller
 
         abort_unless(Auth::user()->canAssignRole($validated['role']), 403, 'No puedes crear usuarios con un rol igual o superior al tuyo.');
 
-        DB::transaction(function () use ($validated, $tenantId, $request) {
+        $credentials = app(CredentialProvisioner::class);
+        $email = ($validated['email'] ?? null) ?: $credentials->emailFor(Tenant::find($tenantId), $validated['document_number']);
+        $temporaryPassword = $credentials->temporaryPassword();
+
+        DB::transaction(function () use ($validated, $tenantId, $request, $email, $temporaryPassword, $credentials) {
             $avatarPath = null;
             if ($request->hasFile('avatar')) {
                 $avatarPath = $request->file('avatar')->store('avatars', 'public');
@@ -136,8 +138,8 @@ class EmployeeController extends Controller
                 'tenant_id'       => $tenantId,
                 'first_name'      => $validated['first_name'],
                 'last_name'       => $validated['last_name'],
-                'email'           => $validated['email'],
-                'password'        => Hash::make($validated['password']),
+                'email'           => $email,
+                'password'        => $temporaryPassword,
                 'role'            => $validated['role'],
                 'status'          => 'active',
                 'document_type'   => $validated['document_type'],
@@ -149,9 +151,9 @@ class EmployeeController extends Controller
                 'base_salary'     => $validated['base_salary'] ?? 0,
                 'hire_date'       => $validated['hire_date'] ?? Carbon::today(),
                 'avatar_path'     => $avatarPath,
-                // Contraseña temporal: se exige cambiarla en el primer ingreso
-                'must_change_password' => true,
             ], $this->orgData($validated, $request)));
+            // Contraseña temporal: vence en 72 h y se exige cambiarla en el primer ingreso
+            $user->forceFill($credentials->temporaryAttributes($temporaryPassword))->saveQuietly();
 
             // Asignar sucursales (con bandera de sucursal principal)
             $branchesToSync = [];
@@ -177,7 +179,8 @@ class EmployeeController extends Controller
         });
 
         return redirect()->route('employees.index')
-            ->with('success', "Empleado {$validated['first_name']} {$validated['last_name']} creado exitosamente.");
+            ->with('success', "Empleado {$validated['first_name']} {$validated['last_name']} creado exitosamente.")
+            ->with('credentials', ['name' => "{$validated['first_name']} {$validated['last_name']}", 'email' => $email, 'password' => $temporaryPassword]);
     }
 
     /**
@@ -212,7 +215,6 @@ class EmployeeController extends Controller
                 'required', 'email', 'max:150',
                 Rule::unique('users')->where(fn($q) => $q->where('tenant_id', $tenantId))->ignore($employee->id)
             ],
-            'password'        => ['nullable', 'string', 'min:8'],
             'role'            => ['required', 'in:company_admin,hr_manager,supervisor,employee'],
             'status'          => ['required', 'in:active,inactive,suspended'],
             'document_type'   => ['required', Rule::in(['dni', 'ce', 'passport'])],
@@ -254,12 +256,6 @@ class EmployeeController extends Controller
                 'base_salary'     => $validated['base_salary'] ?? 0,
                 'hire_date'       => $validated['hire_date'] ?? $employee->hire_date,
             ], $this->orgData($validated, $request));
-
-            if (!empty($validated['password'])) {
-                $dataToUpdate['password'] = Hash::make($validated['password']);
-                // Contraseña asignada por RRHH = temporal
-                $dataToUpdate['must_change_password'] = true;
-            }
 
             if ($request->hasFile('avatar')) {
                 if ($employee->avatar_path) {
@@ -319,6 +315,24 @@ class EmployeeController extends Controller
         app(\App\Modules\Core\Services\AuditLogger::class)->saveWithAudit('auth.account_unlocked', $employee, ['name' => $employee->full_name]);
 
         return back()->with('success', "Se desbloqueó el acceso de {$employee->first_name}.");
+    }
+
+    /**
+     * Restablecer acceso: contraseña temporal nueva (se muestra una vez),
+     * desbloqueo y cierre de sesiones de la app. Es la única forma de
+     * recuperar una contraseña de la app: ella no tiene "olvidé mi contraseña".
+     */
+    public function resetAccess(int $id): RedirectResponse
+    {
+        $employee = User::forTenant(current_tenant_id_or_null())->findOrFail($id);
+        abort_unless(Auth::user()->canManage($employee) && Auth::id() !== $employee->id, 403);
+
+        $password = app(CredentialProvisioner::class)->resetAccess($employee);
+        app(\App\Modules\Core\Services\AuditLogger::class)->log('auth.access_reset', $employee, ['name' => $employee->full_name]);
+
+        return back()
+            ->with('success', "Se restableció el acceso de {$employee->first_name}. Se cerraron sus sesiones en la app.")
+            ->with('credentials', ['name' => $employee->full_name, 'email' => $employee->email, 'password' => $password]);
     }
 
     /**

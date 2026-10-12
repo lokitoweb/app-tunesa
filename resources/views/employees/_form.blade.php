@@ -12,6 +12,7 @@
     $assignedBranchIds = $editing ? $employee->branches->pluck('id')->all() : [];
     $primaryBranchId = $editing ? $employee->branches->firstWhere('pivot.is_primary', true)?->id : null;
     $activeShiftId = $editing ? ($currentShift?->shift_id) : null;
+    $loginDomain = \App\Modules\Core\Models\TenantSetting::forTenant(app(\App\Modules\Core\Services\TenantContext::class)->getOrNull())->loginEmailDomain();
 @endphp
 
 <div class="row g-3">
@@ -29,15 +30,26 @@
                         <input type="text" id="last_name" name="last_name" value="{{ $val('last_name') }}" required class="form-control @error('last_name') is-invalid @enderror">
                     </div>
                     <div class="col-md-6">
-                        <label for="email" class="form-label">Correo electrónico <span class="text-danger">*</span></label>
-                        <input type="email" id="email" name="email" value="{{ $val('email') }}" required class="form-control @error('email') is-invalid @enderror">
+                        <label for="email" class="form-label">Correo de acceso @if($editing)<span class="text-danger">*</span>@endif</label>
+                        <input type="email" id="email" name="email" value="{{ $val('email') }}" @if($editing) required @endif
+                               class="form-control @error('email') is-invalid @enderror" aria-describedby="email_help"
+                               @unless($editing) placeholder="DNI@{{ $loginDomain }}" @endunless>
+                        <div id="email_help" class="form-text">
+                            @if($editing)
+                                Con este correo ingresa a la app.
+                            @else
+                                Vacío: se genera con su documento, <code>DNI@{{ $loginDomain }}</code>. Escríbelo solo si usará otro correo.
+                            @endif
+                        </div>
                     </div>
                     <div class="col-md-6">
-                        <label for="password" class="form-label">{{ $editing ? 'Nueva contraseña temporal' : 'Contraseña temporal' }} @unless($editing)<span class="text-danger">*</span>@endunless</label>
-                        <input type="password" id="password" name="password" @unless($editing) required @endunless autocomplete="new-password"
-                               class="form-control @error('password') is-invalid @enderror" aria-describedby="password_help"
-                               placeholder="{{ $editing ? 'Déjala en blanco para mantenerla' : 'Mínimo 8 caracteres' }}">
-                        <div id="password_help" class="form-text">El colaborador deberá cambiarla en su primer ingreso.</div>
+                        <span class="form-label d-block">Contraseña</span>
+                        @if($editing)
+                            <button type="submit" form="resetAccessForm" class="btn btn-outline-warning"><i class="bi bi-key me-1"></i>Restablecer acceso</button>
+                            <div class="form-text">Genera una contraseña temporal nueva y cierra sus sesiones en la app. La app no permite recuperarla ni cambiarla.</div>
+                        @else
+                            <p class="form-text mt-0 mb-0">Se genera una contraseña temporal al guardar. Vence en {{ \App\Modules\Core\Services\CredentialProvisioner::TEMP_TTL_HOURS }} horas y deberá cambiarla en su primer ingreso.</p>
+                        @endif
                     </div>
                     <div class="col-md-4">
                         <label for="document_type" class="form-label">Tipo de documento <span class="text-danger">*</span></label>
