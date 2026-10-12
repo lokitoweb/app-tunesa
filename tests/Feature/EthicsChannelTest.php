@@ -77,8 +77,8 @@ class EthicsChannelTest extends TestCase
 
         $code   = $response->json('data.code');
         $secret = $response->json('data.token');
-        $this->assertMatchesRegularExpression('/^ET-[2-9A-Z]{6}$/', $code);
-        $this->assertMatchesRegularExpression('/^([2-9A-Z]{4}-){5}[2-9A-Z]{4}$/', $secret);
+        $this->assertMatchesRegularExpression('/^\d{6}$/', $code);
+        $this->assertMatchesRegularExpression('/^([2-9A-Z]{4}-){1}[2-9A-Z]{4}$/', $secret);
 
         // En la base: sin usuario, sin IP, texto cifrado, solo el hash del token y fecha sin hora
         $row = DB::table('ethics_cases')->where('public_code', $code)->first();
@@ -103,7 +103,7 @@ class EthicsChannelTest extends TestCase
         $data = $this->report()->assertCreated()->json('data');
 
         $this->lookup($data['code'], 'AAAA-BBBB-CCCC-DDDD-EEEE-FFFF')->assertNotFound()->assertJsonPath('code', 'ETHICS_CASE_NOT_FOUND');
-        $this->lookup('ET-ZZZZZZ', $data['token'])->assertNotFound();
+        $this->lookup('000000', $data['token'])->assertNotFound();
         // El token se acepta en minúsculas y sin guiones
         $this->lookup($data['code'], strtolower(str_replace('-', ' ', $data['token'])))->assertOk()
             ->assertJsonPath('data.subject', 'Trato humillante en el turno noche')
@@ -174,5 +174,82 @@ class EthicsChannelTest extends TestCase
         $this->flushHeaders();
         $this->withHeaders(['X-Tenant-Slug' => 'acme'])->getJson('/api/ethics/categories')
             ->assertOk()->assertJsonFragment(['key' => 'harassment', 'label' => 'Acoso laboral o sexual']);
+    }
+
+    public function test_categories_include_theft_mistreatment_and_hostility(): void
+    {
+        $this->withHeaders(['X-Tenant-Slug' => 'acme'])->getJson('/api/ethics/categories')->assertOk()
+            ->assertJsonFragment(['key' => 'theft', 'label' => 'Robo'])
+            ->assertJsonFragment(['key' => 'mistreatment', 'label' => 'Maltrato'])
+            ->assertJsonFragment(['key' => 'hostility', 'label' => 'Hostigamiento']);
+    }
+
+    public function test_optional_identity_is_encrypted_and_only_hr_sees_it_with_audit(): void
+    {
+        $this->employee->update(['first_name' => 'Rosa', 'last_name' => 'Quispe', 'document_type' => 'dni', 'document_number' => '44556677']);
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $supervisor = $this->makeUser($this->acme, 'supervisor');
+
+        // Sin sesión no se puede identificar
+        $this->withHeaders(['X-Tenant-Slug' => 'acme'])->postJson('/api/ethics/cases/identified', [])->assertUnauthorized();
+
+        $token = $this->employee->createToken('app')->plainTextToken;
+        $this->flushHeaders();
+        $data = $this->withHeaders(['X-Tenant-Slug' => 'acme', 'Authorization' => "Bearer {$token}"])->postJson('/api/ethics/cases/identified', [
+            'category' => 'theft', 'subject' => 'Faltante en caja', 'body' => 'Vi que retiraban dinero de la caja chica sin registrar el movimiento.',
+        ])->assertCreated()->assertJsonPath('data.identified', true)->json('data');
+
+        // En la base, la identidad va cifrada (no aparece el nombre ni el documento en claro)
+        $raw = \DB::table('ethics_cases')->where('public_code', $data['code'])->first();
+        $this->assertTrue((bool) $raw->identified);
+        $this->assertStringNotContainsString('Quispe', $raw->reporter_identity);
+        $this->assertStringNotContainsString('44556677', $raw->reporter_identity);
+
+        $case = EthicsCase::withoutGlobalScopes()->where('public_code', $data['code'])->sole();
+
+        // RRHH ve el aviso y el botón; al revelarla queda en la bitácora
+        $this->web($hr)->get(route('ethics.show', $case->id))->assertOk()->assertSee('identidad queda registrada de forma reservada')->assertSee('Ver identidad')->assertDontSee('Quispe');
+        $this->web($hr)->post(route('ethics.identity', $case->id))->assertRedirect();
+        $this->web($hr)->withSession(['ethics_identity' => $case->reporter_identity])->get(route('ethics.show', $case->id))
+            ->assertSee('Rosa Quispe')->assertSee('DNI 44556677');
+        $this->assertSame(1, \App\Modules\Core\Models\AuditLog::where('action', 'ethics.identity_viewed')->count());
+
+        // Jefaturas no: ni el canal ni la identidad
+        $this->web($supervisor)->post(route('ethics.identity', $case->id))->assertForbidden();
+
+        // El denunciante sigue su caso con código y clave como siempre
+        $this->lookup($data['code'], $data['token'])->assertOk()->assertJsonPath('data.identified', true);
+    }
+
+    public function test_anonymous_web_page_reports_and_follows_up_without_session(): void
+    {
+        $this->get('/canal-etico/acme')->assertOk()->assertSee('Hacer una denuncia')->assertSee('Robo')
+            ->assertCookieMissing(config('session.cookie'));
+
+        // Validación en la misma página
+        $this->post('/canal-etico/acme/denuncias', ['category' => 'theft', 'subject' => 'x', 'body' => 'corto'])
+            ->assertOk()->assertSee('is-invalid', false);
+
+        $page = $this->post('/canal-etico/acme/denuncias', [
+            'category' => 'mistreatment', 'subject' => 'Gritos en almacén', 'body' => 'El jefe de almacén grita e insulta al personal nuevo todos los lunes.',
+        ])->assertOk()->assertSee('Recibimos tu denuncia')->assertCookieMissing(config('session.cookie'));
+        $case = EthicsCase::withoutGlobalScopes()->latest('id')->firstOrFail();
+        $this->assertFalse($case->identified);
+        preg_match('#id="created-token">([^<]+)<#', $page->getContent(), $m);
+        $secret = $m[1];
+
+        // Seguimiento: código y clave en el cuerpo, nunca en la URL
+        $this->post('/canal-etico/acme/seguimiento', ['code' => $case->public_code, 'token' => 'MALA-CLAV'])->assertOk()->assertSee('No encontramos');
+        $this->post('/canal-etico/acme/seguimiento', ['code' => $case->public_code, 'token' => $secret])->assertOk()->assertSee('Gritos en almacén');
+
+        $this->post('/canal-etico/acme/seguimiento/mensaje', ['code' => $case->public_code, 'token' => $secret, 'body' => 'Pasó otra vez hoy.'])
+            ->assertOk()->assertSee('Mensaje enviado')->assertSee('Pasó otra vez hoy.');
+        $this->assertTrue($case->fresh()->investigator_unread);
+
+        // Empresa inexistente o con el módulo apagado: no existe
+        $this->get('/canal-etico/nadie')->assertNotFound();
+
+        // El panel muestra el enlace para compartir
+        $this->web($this->admin)->get(route('ethics.index'))->assertSee(route('ethics.public', 'acme'));
     }
 }

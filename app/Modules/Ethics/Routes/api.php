@@ -13,3 +13,6 @@ Route::middleware('tenant')->prefix('ethics')->group(function () {
     Route::get('cases/{code}', [EthicsReportController::class, 'show'])->middleware('ethics.anonymous:20');
     Route::post('cases/{code}/messages', [EthicsReportController::class, 'message'])->middleware('ethics.anonymous:10');
 });
+
+// Denuncia desde la app: con sesión; la identidad queda reservada (solo RRHH la ve)
+Route::middleware(['api.tenant', 'throttle:5,1'])->post('ethics/cases/identified', [EthicsReportController::class, 'storeIdentified']);

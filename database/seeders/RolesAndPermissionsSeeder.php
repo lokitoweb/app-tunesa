@@ -78,6 +78,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Canal ético
         'ethics.investigate'      => ['Ver e investigar las denuncias del canal ético', 'ethics'],
+        'ethics.view_identity'    => ['Ver quién envió una denuncia desde la app (fines legales)', 'ethics'],
     ];
 
     /** slug del rol => [nombre, descripción, permisos ('*' = todos)] */

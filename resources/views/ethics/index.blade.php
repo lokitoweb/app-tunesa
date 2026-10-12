@@ -6,9 +6,17 @@
 <div class="page-header">
     <div>
         <h1>Canal ético</h1>
-        <p>Denuncias anónimas de los colaboradores. No sabemos quién las envió: respóndele por aquí y lo verá con su código.</p>
+        <p>Denuncias de los colaboradores, anónimas para todos; las enviadas desde la app guardan la identidad de forma reservada, visible solo para RR. HH.. Respóndeles por aquí y lo verán con su código.</p>
     </div>
 </div>
+
+@php($ethicsTenant = app(\App\Modules\Core\Services\TenantContext::class)->resolved() ? app(\App\Modules\Core\Services\TenantContext::class)->get() : null)
+@if($ethicsTenant)
+    <div class="alert alert-light border small d-flex flex-wrap align-items-center gap-2">
+        <i class="bi bi-globe2"></i> También se puede denunciar desde la web, sin iniciar sesión:
+        <a href="{{ route('ethics.public', $ethicsTenant->slug) }}" target="_blank" rel="noopener" class="font-monospace text-break">{{ route('ethics.public', $ethicsTenant->slug) }}</a>
+    </div>
+@endif
 
 <ul class="nav nav-pills mb-3 flex-nowrap overflow-auto" role="tablist">
     @foreach(['open' => 'Abiertas', 'received' => 'Recibidas', 'in_review' => 'En investigación', 'needs_info' => 'Esperan información', 'closed' => 'Cerradas', 'all' => 'Todas'] as $key => $text)

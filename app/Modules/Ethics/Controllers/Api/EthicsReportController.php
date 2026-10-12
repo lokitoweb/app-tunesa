@@ -28,6 +28,20 @@ class EthicsReportController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        return $this->register($request, null);
+    }
+
+    /**
+     * Denuncia desde la app: va con sesión y la identidad queda cifrada y
+     * reservada. Para todos es anónima; solo RRHH (ethics.view_identity) la ve.
+     */
+    public function storeIdentified(Request $request): JsonResponse
+    {
+        return $this->register($request, $request->user());
+    }
+
+    private function register(Request $request, ?\App\Modules\Core\Models\User $identifyAs): JsonResponse
+    {
         $data = $request->validate([
             'category'     => ['required', Rule::in(array_keys(EthicsCase::CATEGORIES))],
             'subject'      => ['required', 'string', 'min:5', 'max:150'],
@@ -37,15 +51,17 @@ class EthicsReportController extends Controller
             'photos.*'     => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
 
-        $result = $this->ethics->report($request->attributes->get('tenant'), $data, $request->file('photos', []));
+        $tenant = $request->attributes->get('tenant') ?? $identifyAs?->tenant;
+        $result = $this->ethics->report($tenant, $data, $request->file('photos', []), $identifyAs);
 
         return response()->json([
             'success' => true,
-            'message' => 'Denuncia registrada. Guarda el código y el token: son la única forma de seguirla.',
+            'message' => 'Denuncia registrada. Guarda el código y la clave: son la única forma de seguirla.',
             'data'    => [
-                'code'   => $result['case']->public_code,
-                'token'  => $result['token'],
-                'status' => $result['case']->status,
+                'code'       => $result['case']->public_code,
+                'token'      => $result['token'],
+                'status'     => $result['case']->status,
+                'identified' => $result['case']->identified,
             ],
         ], 201);
     }
@@ -81,7 +97,7 @@ class EthicsReportController extends Controller
         if (! $case) {
             abort(response()->json([
                 'success' => false,
-                'message' => 'No encontramos una denuncia con ese código y token. Revisa que estén bien escritos.',
+                'message' => 'No encontramos una denuncia con ese código y clave. Revisa que estén bien escritos.',
                 'code'    => 'ETHICS_CASE_NOT_FOUND',
             ], 404));
         }
@@ -102,6 +118,7 @@ class EthicsReportController extends Controller
             'body'           => $case->body,
             'status'         => $case->status,
             'status_label'   => $case->statusLabel(),
+            'identified'     => $case->identified,
             'reported_on'    => $case->reported_on->toDateString(),
             'resolution'     => $case->isClosed() ? $case->resolution : null,
             'photos'         => $case->attachments->whereNull('message_id')->count(),
