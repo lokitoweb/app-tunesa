@@ -80,9 +80,11 @@ Programar el scheduler para el control de faltas (`attendance:mark-absences`, 01
 limpieza de tokens vencidos (`sanctum:prune-expired`, diario), ambos en `routes/console.php`:
 `* * * * * cd /ruta/al/proyecto && php artisan schedule:run >> /dev/null 2>&1`
 
-Si alguna empresa usa el webhook o el endpoint de notificaciones de "Marca y app", deja corriendo
-un worker de la cola (`QUEUE_CONNECTION=database`): `php artisan queue:work` (los reintentos los define el job: 5 intentos). Sin worker
-los envíos quedan pendientes en la tabla `jobs` (ver `docs/deployment/integrations-queue.md`).
+La cola (`QUEUE_CONNECTION=database`: push, webhook y endpoint de notificaciones) la procesa el mismo
+scheduler cada minuto, así que basta con ese cron. Si prefieres un worker permanente
+(`php artisan queue:work` con Supervisor o systemd), pon `QUEUE_WORK_FROM_SCHEDULER=false`. Sin ninguno de
+los dos, los envíos quedan pendientes en la tabla `jobs` (ver `docs/deployment/integrations-queue.md`).
+El recordatorio de entrada (`attendance:remind-entry`) corre cada 5 minutos.
 
 ## Multi-tenant, roles y permisos
 
@@ -131,7 +133,36 @@ Tras actualizar, corre `php artisan migrate` y vuelve a sembrar los permisos con
 
 ### Notificaciones push
 
-El backend ya acepta el token de Firebase Cloud Messaging en `POST /api/auth/refresh-fcm` (y en el login como `fcm_token`; columna `users.fcm_token`), pero el envío push no está activo porque necesita el proyecto de Firebase del cliente, y la app todavía no integra Firebase ni envía el token. Para activarlo hace falta: crear el proyecto en Firebase y registrar la app Android (y la de iOS con su clave APNs), poner su `google-services.json` en la app y hacer que registre su token con `refresh-fcm`, generar una cuenta de servicio con permiso de Firebase Cloud Messaging y guardar su JSON en el servidor (fuera del repositorio), e instalar un canal de notificaciones FCM para Laravel (p. ej. `laravel-notification-channels/fcm`) agregando `'fcm'` al `via()` de las clases en `app/Notifications`. Los datos de cada aviso (`type`, `title`, `body`, `data`) son los mismos que guarda el canal `database`.
+Firebase Cloud Messaging (API HTTP v1), sin librerías extra. Cada aviso in-app sale también como push
+si el usuario tiene el teléfono registrado (`users.fcm_token`, lo envía la app con `POST /api/auth/refresh-fcm`).
+
+Para activarlo:
+
+1. **Servidor:** en la vista global, `Configuración > Marca y app > Integraciones`, sube el `.json` de la
+   cuenta de servicio de Firebase y usa "Enviar push de prueba". Con la credencial cargada el push queda
+   encendido para todas las empresas (cada una puede apagarlo en su pestaña Integraciones).
+2. **Cola:** los push salen por la cola. Con el cron de `schedule:run` basta: el scheduler procesa la cola cada
+   minuto (`QUEUE_WORK_FROM_SCHEDULER=true`). Si ya tienes un `queue:work` permanente, ponlo en `false`.
+3. **App Android:** `mobile/android/app/google-services.json` (ya incluido) o los `FIREBASE_*` del workflow.
+4. **App iOS:** `FIREBASE_IOS_APP_ID` y `FIREBASE_IOS_BUNDLE_ID`, la clave APNs (.p8) subida en Firebase
+   (Configuración del proyecto > Cloud Messaging) y la capacidad *Push Notifications* activa en el App ID de Apple
+   (la app ya trae `Runner.entitlements`).
+
+Avisos que llegan al teléfono:
+
+| Aviso | Cuándo | Abre |
+|---|---|---|
+| Nueva boleta de pago | Al publicar una boleta | Boletas |
+| Solicitud aprobada o rechazada | Al revisar vacaciones, permisos o licencias | Solicitudes |
+| Nueva solicitud de tu equipo | Supervisor y RRHH, al enviarse una | Aprobaciones |
+| Documento revisado / justificación revisada | Al aprobar o rechazar | Legajo / Historial |
+| Tienes un nuevo horario | Al asignar o cambiar el turno del colaborador | Inicio |
+| ¿Ya marcaste tu entrada? | Pasada la tolerancia del turno sin marcar (una vez al día, hasta 1 h después; no en feriados ni licencias) | Inicio |
+| Nueva versión de la app | Al subir la "Última versión publicada" en Marca y app | Inicio, con el botón "Actualizar" |
+| Marcación fuera de horario o de la geocerca | Al marcar | Bandeja |
+
+"Nueva versión" y el recordatorio de entrada son solo push (no llenan la bandeja). El enlace del botón
+"Actualizar" es el campo "Enlace para descargar la app" (tienda o APK, solo `https://`).
 
 ## App móvil
 

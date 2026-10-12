@@ -209,6 +209,7 @@ final class Labels
         'min_supported_version'   => 'Versión mínima de la app',
         'latest_version'          => 'Última versión de la app',
         'force_update'            => 'Obligar a actualizar la app',
+        'update_url'              => 'Enlace para descargar la app',
         'selfie_required'         => 'Selfie obligatoria al marcar',
         'face_detection_required' => 'Detección de rostro obligatoria',
         'offline_mode_enabled'    => 'Marcación sin conexión',

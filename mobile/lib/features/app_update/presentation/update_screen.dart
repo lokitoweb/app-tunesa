@@ -1,9 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config_controller.dart';
 import '../../../core/config/version_gate.dart';
 import '../../../core/widgets/brand_logo.dart';
+
+/// Abre el enlace de descarga (tienda o APK) fuera de la app.
+Future<void> openUpdateLink(BuildContext context, String url) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  var opened = false;
+  try {
+    opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  } catch (_) {
+    opened = false;
+  }
+  if (!opened) {
+    messenger?.showSnackBar(const SnackBar(content: Text('No se pudo abrir el enlace de descarga. Pídeselo a RRHH.')));
+  }
+}
 
 /// Pantalla bloqueante: la versión instalada ya no está soportada
 /// (`force_update` o un 426 APP_UPDATE_REQUIRED). No hay forma de seguir.
@@ -69,6 +84,14 @@ class _UpdateScreenState extends ConsumerState<UpdateScreen> {
                     ]),
                   ),
                 ],
+                if (config.mobile.updateUrl != null) ...[
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    onPressed: () => openUpdateLink(context, config.mobile.updateUrl!),
+                    icon: const Icon(Icons.download_rounded),
+                    label: Text(latest == null ? 'Descargar la nueva versión' : 'Descargar la versión $latest'),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
                   onPressed: _checking ? null : _retry,
@@ -95,6 +118,7 @@ class UpdateBanner extends ConsumerWidget {
     if (level != UpdateLevel.optional || dismissed) return const SizedBox.shrink();
 
     final latest = ref.watch(appConfigProvider.select((s) => s.config.mobile.latestVersion));
+    final updateUrl = ref.watch(appConfigProvider.select((s) => s.config.mobile.updateUrl));
     final scheme = Theme.of(context).colorScheme;
 
     return Material(
@@ -109,11 +133,18 @@ class UpdateBanner extends ConsumerWidget {
             style: TextStyle(color: scheme.onPrimaryContainer),
           ),
           subtitle: Text('Actualízala cuando puedas.', style: TextStyle(color: scheme.onPrimaryContainer)),
-          trailing: IconButton(
-            tooltip: 'Cerrar',
-            icon: Icon(Icons.close, color: scheme.onPrimaryContainer),
-            onPressed: () => ref.read(updateBannerDismissedProvider.notifier).dismiss(),
-          ),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (updateUrl != null)
+              TextButton(
+                onPressed: () => openUpdateLink(context, updateUrl),
+                child: Text('Actualizar', style: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.w600)),
+              ),
+            IconButton(
+              tooltip: 'Cerrar',
+              icon: Icon(Icons.close, color: scheme.onPrimaryContainer),
+              onPressed: () => ref.read(updateBannerDismissedProvider.notifier).dismiss(),
+            ),
+          ]),
         ),
       ),
     );

@@ -74,6 +74,7 @@ class AttendancePunchLogTest extends TestCase
             'grace_period_minutes' => $grace, 'working_days' => $days, 'break_allowed' => true, 'break_duration_minutes' => 60]);
         EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'shift_id' => $shift->id,
             'branch_id' => $this->branch->id, 'effective_from' => '2020-01-01', 'is_active' => true]);
+        $this->emp->notifications()->delete(); // el aviso "Tienes un nuevo horario" no es lo que se prueba aquí
 
         return $shift;
     }

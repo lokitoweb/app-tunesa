@@ -7,7 +7,11 @@ use App\Modules\Core\Models\Branch;
 use App\Modules\HR\Models\EmployeeDocument;
 use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\Payroll\Models\Payslip;
+use App\Modules\Core\Jobs\NotifyAppUpdate;
 use App\Modules\Core\Models\Scopes\TenantScope;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Notifications\ShiftAssigned;
 use App\Modules\Core\Models\User;
 use App\Modules\HR\Notifications\DocumentReviewed;
 use App\Modules\Attendance\Notifications\JustificationReviewed;
@@ -73,6 +77,37 @@ class NotificationDispatcher
             && in_array($attendance->justification_status, ['approved', 'rejected'], true)) {
             $this->safely(fn () => $this->employee($attendance->user_id)?->notify(new JustificationReviewed($attendance)));
         }
+    }
+
+    /** Turno nuevo o cambio de horario: aviso al colaborador (si sigue vigente) */
+    public function shiftAssigned(EmployeeShift $assignment, bool $created = false): void
+    {
+        $changed = $created || $assignment->wasChanged(['shift_id', 'effective_from']);
+        $current = $assignment->is_active
+            && (! $assignment->effective_until || ! $assignment->effective_until->isPast());
+
+        if ($changed && $current) {
+            $this->safely(fn () => $this->employee($assignment->user_id)?->notify(new ShiftAssigned($assignment->loadMissing('shift'))));
+        }
+    }
+
+    /**
+     * Nueva "Última versión" en Marca y app: push a los colaboradores de esa
+     * empresa (o de las que heredan de la plataforma). Solo si la versión sube.
+     */
+    public function appSettingsSaved(TenantSetting $row): void
+    {
+        $version = $row->latest_version;
+        if (! $row->wasChanged('latest_version') || blank($version)) {
+            return;
+        }
+
+        $previous = $row->getOriginal('latest_version');
+        if ($previous && version_compare(TenantSetting::normalizeVersion($version), TenantSetting::normalizeVersion($previous), '<=')) {
+            return;
+        }
+
+        $this->safely(fn () => NotifyAppUpdate::dispatch($row->tenant_id, $version)->afterCommit());
     }
 
     /**
