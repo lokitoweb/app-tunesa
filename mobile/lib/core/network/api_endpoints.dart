@@ -32,6 +32,7 @@ class ApiEndpoints {
   // Canal ético: sin token de sesión (la denuncia no se asocia al usuario)
   static const ethicsCategories = '/ethics/categories';
   static const ethicsCases = '/ethics/cases';
+  static const ethicsCasesIdentified = '/ethics/cases/identified';
   static String ethicsCase(String code) => '/ethics/cases/${Uri.encodeComponent(code)}';
   static String ethicsMessages(String code) => '${ethicsCase(code)}/messages';
 

@@ -30,13 +30,14 @@ class EthicsService
     /**
      * @param  array{category: string, subject: string, body: string, push_channel?: ?string}  $data
      * @param  list<UploadedFile>  $photos
+     * @param  User|null  $identifyAs  solo si quien denuncia eligió identificarse
      * @return array{case: EthicsCase, token: string}
      */
-    public function report(Tenant $tenant, array $data, array $photos = []): array
+    public function report(Tenant $tenant, array $data, array $photos = [], ?User $identifyAs = null): array
     {
-        $token = $this->randomGroups(6);
+        $token = $this->randomGroups(2);
 
-        $case = DB::transaction(function () use ($tenant, $data, $token, $photos) {
+        $case = DB::transaction(function () use ($tenant, $data, $token, $photos, $identifyAs) {
             $case = EthicsCase::create([
                 'tenant_id'    => $tenant->id,
                 'public_code'  => $this->uniqueCode(),
@@ -46,6 +47,8 @@ class EthicsService
                 'body'         => trim($data['body']),
                 'push_channel' => $data['push_channel'] ?? null,
                 'reported_on'  => now()->toDateString(),
+                'identified'   => $identifyAs !== null,
+                'reporter_identity' => $identifyAs ? self::identityOf($identifyAs) : null,
             ]);
             $this->storePhotos($case, null, $photos);
 
@@ -136,6 +139,34 @@ class EthicsService
         $this->pushToReporter($case);
     }
 
+    /**
+     * Identidad de quien eligió identificarse. La lectura queda en la bitácora
+     * y solo la hace quien tiene ethics.view_identity.
+     */
+    public function revealIdentity(EthicsCase $case, User $by): ?array
+    {
+        if (! $case->identified || ! $by->can('ethics.view_identity')) {
+            return null;
+        }
+        app(AuditLogger::class)->log('ethics.identity_viewed', $case, ['code' => $case->public_code]);
+
+        return $case->reporter_identity;
+    }
+
+    /** @return array<string, mixed> */
+    public static function identityOf(User $user): array
+    {
+        return array_filter([
+            'user_id'         => $user->id,
+            'name'            => $user->full_name,
+            'employee_code'   => $user->employee_code,
+            'document'        => trim(strtoupper((string) $user->document_type) . ' ' . $user->document_number) ?: null,
+            'email'           => $user->email,
+            'phone'           => $user->phone,
+            'position'        => $user->position,
+        ], fn ($v) => $v !== null && $v !== '');
+    }
+
     public static function normalizeToken(string $token): string
     {
         return preg_replace('/[^A-Z0-9]/', '', mb_strtoupper($token));
@@ -212,16 +243,20 @@ class EthicsService
         return (string) ob_get_clean();
     }
 
+    /** Código de seguimiento: 6 dígitos al azar (fácil de anotar o dictar) */
     private function uniqueCode(): string
     {
         do {
-            $code = 'ET-' . $this->randomGroups(1, 6);
+            $code = (string) random_int(100000, 999999);
         } while (EthicsCase::withoutGlobalScopes()->where('public_code', $code)->exists());
 
         return $code;
     }
 
-    /** Grupos de caracteres aleatorios separados por guion (6×4 = 120 bits) */
+    /**
+     * Clave: grupos de caracteres aleatorios separados por guion (2×4 ≈ 40 bits).
+     * Junto con el código y el límite de intentos por minuto, nadie la adivina.
+     */
     private function randomGroups(int $groups, int $size = 4): string
     {
         $parts = [];

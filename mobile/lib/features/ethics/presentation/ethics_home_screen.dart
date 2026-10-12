@@ -58,7 +58,7 @@ class EthicsHomeScreen extends ConsumerWidget {
             key: const Key('ethics-lookup'),
             onPressed: () => _lookup(context),
             icon: const Icon(Icons.key_outlined),
-            label: const Text('Consultar con código y token'),
+            label: const Text('Consultar con código y clave'),
           ),
           const SizedBox(height: 24),
           Text('Guardadas en este celular', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
@@ -66,7 +66,7 @@ class EthicsHomeScreen extends ConsumerWidget {
           ...switch (saved.value) {
             null => const [Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))],
             [] => [
-                Text('Ninguna. Si guardas una denuncia, aparecerá aquí para consultarla sin escribir el token.',
+                Text('Ninguna. Si guardas una denuncia, aparecerá aquí para consultarla sin escribir la clave.',
                     style: TextStyle(color: scheme.onSurfaceVariant)),
               ],
             final list => [
@@ -104,14 +104,14 @@ class EthicsHomeScreen extends ConsumerWidget {
             key: const Key('lookup-code'),
             controller: code,
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(labelText: 'Código', hintText: 'ET-XXXXXX'),
+            decoration: const InputDecoration(labelText: 'Código', hintText: '123456'),
           ),
           const SizedBox(height: 12),
           TextField(
             key: const Key('lookup-token'),
             controller: token,
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(labelText: 'Token', hintText: 'XXXX-XXXX-XXXX-XXXX-XXXX-XXXX'),
+            decoration: const InputDecoration(labelText: 'Clave', hintText: 'XXXX-XXXX'),
           ),
         ]),
         actions: [
@@ -130,7 +130,7 @@ class EthicsHomeScreen extends ConsumerWidget {
       context: context,
       builder: (d) => AlertDialog(
         title: const Text('¿Quitar de este celular?'),
-        content: Text('La denuncia sigue abierta. Para volver a verla necesitarás el código ${c.code} y su token.'),
+        content: Text('La denuncia sigue abierta. Para volver a verla necesitarás el código ${c.code} y su clave.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancelar')),
           FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Quitar')),

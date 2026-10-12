@@ -17,7 +17,36 @@
     <x-status-badge type="ethics_status" :value="$case->status" class="fs-6 align-self-center" />
 </div>
 
-<div class="alert alert-secondary small"><i class="bi bi-incognito me-1"></i>La denuncia es anónima: el sistema no guarda quién la envió ni desde dónde. Cada vez que alguien abre esta página queda en la bitácora.</div>
+@if(! $case->identified)
+    <div class="alert alert-secondary small"><i class="bi bi-incognito me-1"></i>La denuncia es anónima: el sistema no guarda quién la envió ni desde dónde. Cada vez que alguien abre esta página queda en la bitácora.</div>
+@else
+    <div class="alert alert-info small d-flex flex-wrap align-items-center justify-content-between gap-2" id="identity">
+        <div><i class="bi bi-person-lock me-1"></i>Quien denunció eligió identificarse. Su identidad es reservada: solo Recursos Humanos puede verla, para fines legales, y cada consulta queda en la bitácora.</div>
+        @can('ethics.view_identity')
+            @unless(session('ethics_identity'))
+                <form method="POST" action="{{ route('ethics.identity', $case->id) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1"></i>Ver identidad</button>
+                </form>
+            @endunless
+        @endcan
+    </div>
+    @if($identity = session('ethics_identity'))
+        <div class="card border-0 mb-3">
+            <div class="card-body small">
+                <h2 class="h6"><i class="bi bi-person-vcard me-1"></i>Identidad de quien denunció</h2>
+                <dl class="row mb-0">
+                    @foreach(['name' => 'Nombre', 'employee_code' => 'Código', 'document' => 'Documento', 'position' => 'Cargo', 'email' => 'Correo', 'phone' => 'Teléfono'] as $k => $label)
+                        @if(! empty($identity[$k]))
+                            <dt class="col-4 fw-normal text-body-secondary">{{ $label }}</dt><dd class="col-8">{{ $identity[$k] }}</dd>
+                        @endif
+                    @endforeach
+                </dl>
+                <div class="text-body-secondary mt-2">No compartas estos datos con jefaturas ni con las personas denunciadas.</div>
+            </div>
+        </div>
+    @endif
+@endif
 
 @if($case->isClosed() && $case->resolution)
     <div class="alert alert-success"><i class="bi bi-check-circle me-1"></i><strong>Conclusión enviada al denunciante:</strong> {{ $case->resolution }}</div>
@@ -40,7 +69,7 @@
                     <li class="list-group-item {{ $m->fromReporter() ? '' : 'bg-body-tertiary' }}">
                         <div class="small text-body-secondary mb-1">
                             @if($m->fromReporter())
-                                <i class="bi bi-incognito me-1"></i>Denunciante
+                                <i class="bi bi-{{ $case->identified ? 'person' : 'incognito' }} me-1"></i>Denunciante
                             @else
                                 <i class="bi bi-person-badge me-1"></i>{{ $m->investigator ? $m->investigator->first_name . ' ' . $m->investigator->last_name : 'Investigador' }}
                             @endif

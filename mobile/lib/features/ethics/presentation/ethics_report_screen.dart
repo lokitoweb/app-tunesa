@@ -10,7 +10,7 @@ import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'ethics_providers.dart';
 
-/// Formulario de denuncia. Al enviarla muestra el código y el token una sola vez.
+/// Formulario de denuncia. Al enviarla muestra el código y la clave una sola vez.
 class EthicsReportScreen extends ConsumerStatefulWidget {
   const EthicsReportScreen({super.key});
 
@@ -26,6 +26,7 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
   String? _category;
   bool _keep = true;
   bool _notify = true;
+  bool _identify = false;
   bool _sending = false;
 
   @override
@@ -59,6 +60,7 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
             body: _body.text.trim(),
             channel: channel,
             photos: _photos,
+            identified: _identify,
           );
       final saved = SavedEthicsCase(code: result.code, token: result.token, subject: _subject.text.trim(), channel: channel);
       if (_keep) await ref.read(ethicsVaultProvider).save(saved);
@@ -126,12 +128,22 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
               ]),
               const SizedBox(height: 12),
               SwitchListTile(
+                key: const Key('ethics-identify'),
+                contentPadding: EdgeInsets.zero,
+                value: _identify,
+                onChanged: (v) => setState(() => _identify = v),
+                title: const Text('Identificarme (opcional)'),
+                subtitle: Text(_identify
+                    ? 'Tu nombre quedará guardado de forma reservada: solo Recursos Humanos podrá verlo, para fines legales. Tu jefe no.'
+                    : 'Por defecto la denuncia es anónima: nadie sabrá quién la envió.'),
+              ),
+              SwitchListTile(
                 key: const Key('ethics-keep'),
                 contentPadding: EdgeInsets.zero,
                 value: _keep,
                 onChanged: (v) => setState(() => _keep = v),
                 title: const Text('Guardar en este celular'),
-                subtitle: const Text('Para consultarla sin escribir el token. Queda cifrada y solo en este equipo.'),
+                subtitle: const Text('Para consultarla sin escribir la clave. Queda cifrada y solo en este equipo.'),
               ),
               SwitchListTile(
                 key: const Key('ethics-notify'),
@@ -166,7 +178,7 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
   }
 }
 
-/// Código y token recién generados. Es la única vez que se muestra el token.
+/// Código y clave recién generados. Es la única vez que se muestra la clave.
 class EthicsCreatedScreen extends StatelessWidget {
   const EthicsCreatedScreen({super.key, required this.saved, required this.kept});
 
@@ -187,14 +199,14 @@ class EthicsCreatedScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             kept
-                ? 'La guardamos en este celular. Anota igual el código y el token por si cambias de equipo.'
-                : 'Anota el código y el token: son la única forma de seguir la denuncia y no los volveremos a mostrar.',
+                ? 'La guardamos en este celular. Anota igual el código y la clave por si cambias de equipo.'
+                : 'Anota el código y la clave: son la única forma de seguir la denuncia y no los volveremos a mostrar.',
             textAlign: TextAlign.center,
             style: TextStyle(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 20),
           _SecretRow(label: 'Código', value: saved.code, valueKey: const Key('created-code')),
-          _SecretRow(label: 'Token', value: saved.token, valueKey: const Key('created-token')),
+          _SecretRow(label: 'Clave', value: saved.token, valueKey: const Key('created-token')),
           const SizedBox(height: 20),
           FilledButton(
             onPressed: () => context.pushReplacement('/ethics/case', extra: saved),

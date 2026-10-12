@@ -57,6 +57,16 @@ class EthicsWebController extends Controller
         return view('ethics.show', ['case' => $case]);
     }
 
+    /** Identidad de quien eligió identificarse: solo ethics.view_identity, auditado */
+    public function identity(int $case): RedirectResponse
+    {
+        $case = EthicsCase::findOrFail($case);
+        abort_unless($case->identified && Auth::user()->can('ethics.view_identity'), 403);
+
+        return redirect()->to(route('ethics.show', $case->id) . '#identity')
+            ->with('ethics_identity', $this->ethics->revealIdentity($case, Auth::user()));
+    }
+
     public function reply(Request $request, int $case): RedirectResponse
     {
         $case = EthicsCase::findOrFail($case);

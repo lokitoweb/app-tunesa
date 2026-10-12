@@ -102,6 +102,21 @@ void main() {
     expect(adapter.requests.first.headers['X-Ethics-Token'], 'AAAA-BBBB-CCCC-DDDD-EEEE-FFFF');
   });
 
+  test('solo la denuncia identificada (opcional) va con sesión y a su propia ruta', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'tenant_slug': 'acme'});
+    final storage = SessionStorage(await SharedPreferences.getInstance());
+    await storage.saveToken('secreto-de-sesion');
+    final adapter = _Adapter();
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.test/api'))..httpClientAdapter = adapter;
+    final repo = EthicsRepository(ApiClient(storage, dio: dio));
+
+    await repo.report(category: 'theft', subject: 'Faltante', body: 'Detalle suficiente para enviar', identified: true);
+
+    expect(adapter.requests.single.path, '/ethics/cases/identified');
+    expect(adapter.requests.single.headers['Authorization'], 'Bearer secreto-de-sesion');
+  });
+
   test('el cofre guarda y quita denuncias; el canal es aleatorio', () async {
     final vault = EthicsVault(_MemoryStore());
     const item = SavedEthicsCase(code: 'ET-7KQ4PX', token: 'T', subject: 'Asunto', channel: 'abc');

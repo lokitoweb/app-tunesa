@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Denuncia del canal ético. No tiene relación con quien la hizo: se consulta
- * con el código público y el token de seguimiento (solo su hash queda aquí).
+ * con el código de seguimiento (6 dígitos) y la clave (solo su hash queda aquí).
+ * Si quien denuncia elige identificarse, sus datos van cifrados en
+ * reporter_identity y solo RRHH puede verlos (queda en la bitácora).
  *
  * received → in_review ⇄ needs_info → closed
  */
@@ -29,8 +31,11 @@ class EthicsCase extends Model
 
     public const CATEGORIES = [
         'harassment'          => 'Acoso laboral o sexual',
+        'hostility'           => 'Hostigamiento',
+        'mistreatment'        => 'Maltrato',
+        'theft'               => 'Robo',
         'discrimination'      => 'Discriminación',
-        'fraud'               => 'Fraude, robo o corrupción',
+        'fraud'               => 'Fraude o corrupción',
         'safety'              => 'Seguridad y salud en el trabajo',
         'conflict_of_interest' => 'Conflicto de intereses',
         'abuse_of_authority'  => 'Abuso de autoridad',
@@ -40,9 +45,10 @@ class EthicsCase extends Model
     protected $fillable = [
         'tenant_id', 'public_code', 'token_hash', 'category', 'subject', 'body', 'status', 'push_channel',
         'reported_on', 'reporter_unread', 'investigator_unread', 'assigned_to', 'closed_at', 'resolution',
+        'identified', 'reporter_identity',
     ];
 
-    protected $hidden = ['token_hash', 'push_channel'];
+    protected $hidden = ['token_hash', 'push_channel', 'reporter_identity'];
 
     protected $casts = [
         'subject'             => 'encrypted',
@@ -52,6 +58,10 @@ class EthicsCase extends Model
         'closed_at'           => 'datetime',
         'reporter_unread'     => 'boolean',
         'investigator_unread' => 'boolean',
+        'identified'          => 'boolean',
+        // Solo si quien denuncia eligió identificarse: cifrada y sin user_id en
+        // columnas consultables. La ve quien tiene ethics.view_identity (RRHH), auditado.
+        'reporter_identity'   => 'encrypted:array',
     ];
 
     protected $attributes = ['status' => 'received'];
