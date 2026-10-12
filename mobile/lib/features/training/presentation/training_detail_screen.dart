@@ -86,8 +86,10 @@ class TrainingDetailBody extends StatelessWidget {
               title: Text('Cuestionario de ${detail.questions.length} preguntas'),
               subtitle: Text(s.isCompleted
                   ? 'Aprobado con ${s.score ?? 100}'
-                  : detail.allLessonsDone
-                      ? 'Apruebas con ${s.passingScore} de 100${s.attempts > 0 ? ' · Mejor nota: ${s.score ?? 0}' : ''}'
+                  : s.locked
+                      ? 'Sin intentos: RRHH debe darte intentos extra'
+                      : detail.allLessonsDone
+                      ? 'Apruebas con ${s.passingScore} de 100 · ${s.attemptsLeft} de ${s.maxAttempts} intentos${s.attempts > 0 ? ' · Mejor nota: ${s.score ?? 0}' : ''}'
                       : 'Se habilita al terminar todas las lecciones'),
             ),
           ),
@@ -133,6 +135,12 @@ class _ActionBar extends StatelessWidget {
         onPressed: () => context.push('/trainings/${s.id}/lessons/${next.id}'),
         icon: const Icon(Icons.play_arrow_rounded),
         label: Text(s.progress == 0 ? 'Empezar' : 'Continuar: ${next.title}', overflow: TextOverflow.ellipsis),
+      );
+    } else if (s.hasQuiz && s.locked) {
+      button = FilledButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.lock_rounded),
+        label: const Text('Cuestionario bloqueado'),
       );
     } else if (s.hasQuiz) {
       button = FilledButton.icon(

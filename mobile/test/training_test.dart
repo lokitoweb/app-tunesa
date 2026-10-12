@@ -75,7 +75,22 @@ void main() {
       expect(r.score, 100);
     });
 
+    test('lee los intentos y el bloqueo del cuestionario', () {
+      final s = TrainingSummary.fromJson({'id': 7, 'status': 'locked', 'attempts': 3, 'max_attempts': 3, 'attempts_left': 0, 'locked': true});
+      expect(s.status, TrainingStatus.locked);
+      expect(s.status.label, 'Bloqueado');
+      expect(s.locked, isTrue);
+      expect(s.attemptsLeft, 0);
+
+      final r = QuizResult.fromJson({
+        'message': 'Agotaste tus intentos',
+        'data': {'score': 0, 'passed': false, 'correct': 0, 'total': 1, 'attempts_left': 0, 'locked': true},
+      });
+      expect(r.locked, isTrue);
+    });
+
     test('los avisos de capacitación abren Capacitaciones', () {
+      expect(AppNotification.routeFor('training.unlocked'), '/trainings');
       expect(AppNotification.routeFor('training.assigned'), '/trainings');
       expect(AppNotification.routeFor('training.due_soon'), '/trainings');
     });
@@ -103,6 +118,27 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: QuizResultView(result: r, courseId: 7, onRetry: () => retried = true)));
       await tester.tap(find.text('Intentar otra vez'));
       expect(retried, isTrue);
+    });
+
+    testWidgets('bloqueado: sin botón de rendir y con aviso de RRHH', (tester) async {
+      final json = {..._detailJson(status: 'locked', lessonsDone: true), 'attempts': 3, 'attempts_left': 0, 'locked': true};
+      await _pump(tester, TrainingDetailBody(detail: TrainingDetail.fromJson(json)));
+      expect(find.text('Sin intentos: RRHH debe darte intentos extra'), findsOneWidget);
+
+      const r = QuizResult(
+          score: 0, passed: false, correct: 0, total: 1, passingScore: 70, message: 'Agotaste', locked: true);
+      await tester.pumpWidget(MaterialApp(home: QuizResultView(result: r, courseId: 7, onRetry: () {})));
+      expect(find.text('Intentar otra vez'), findsNothing);
+      expect(find.text('Volver a la capacitación'), findsOneWidget);
+    });
+
+    testWidgets('el cuestionario muestra los intentos que quedan', (tester) async {
+      final json = {..._detailJson(lessonsDone: true), 'attempts': 2, 'max_attempts': 3, 'attempts_left': 1};
+      await _pump(tester, const QuizScreen(courseId: 7), overrides: [
+        trainingDetailProvider(7).overrideWith((ref) async => TrainingDetail.fromJson(json)),
+      ]);
+      await tester.pump();
+      expect(find.text('Es tu último intento de 3.'), findsOneWidget);
     });
 
     testWidgets('Inicio avisa las pendientes y se oculta sin ellas', (tester) async {

@@ -69,6 +69,7 @@ class RolesAndPermissionsSeeder extends Seeder
         // Capacitaciones
         'training.view_own'       => ['Ver y completar mis capacitaciones', 'training'],
         'training.manage'         => ['Crear capacitaciones, asignarlas y ver el avance', 'training'],
+        'training.unlock'         => ['Dar intentos extra en cuestionarios bloqueados', 'training'],
     ];
 
     /** slug del rol => [nombre, descripción, permisos ('*' = todos)] */

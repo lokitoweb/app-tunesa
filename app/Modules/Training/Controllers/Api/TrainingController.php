@@ -97,9 +97,11 @@ class TrainingController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $result['passed']
-                ? '¡Aprobaste! Ya puedes descargar tu constancia.'
-                : "Obtuviste {$result['score']} y necesitas {$result['passing_score']}. Repasa las lecciones e inténtalo otra vez.",
+            'message' => match (true) {
+                $result['passed'] => '¡Aprobaste! Ya puedes descargar tu constancia.',
+                $result['locked'] => "Obtuviste {$result['score']} y necesitas {$result['passing_score']}. Agotaste tus intentos: RRHH ya fue avisado y puede darte intentos extra.",
+                default           => "Obtuviste {$result['score']} y necesitas {$result['passing_score']}. Te queda" . ($result['attempts_left'] === 1 ? ' 1 intento' : "n {$result['attempts_left']} intentos") . '. Repasa las lecciones antes de volver a intentarlo.',
+            },
             'data'    => $result + ['training' => $this->summary($enrollment->fresh('course'))],
         ]);
     }
@@ -164,6 +166,9 @@ class TrainingController extends Controller
             'progress'          => $e->progress,
             'score'             => $e->score,
             'attempts'          => $e->attempts,
+            'max_attempts'      => $e->allowedAttempts(),
+            'attempts_left'     => $e->completed_at ? 0 : $e->attemptsLeft(),
+            'locked'            => $e->isLocked(),
             'assigned_at'       => $e->assigned_at?->toIso8601String(),
             'due_date'          => $e->due_date?->toDateString(),
             'completed_at'      => $e->completed_at?->toIso8601String(),
