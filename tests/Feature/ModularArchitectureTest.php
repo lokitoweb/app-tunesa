@@ -27,7 +27,7 @@ class ModularArchitectureTest extends TestCase
 
     public function test_every_module_registers_its_own_routes_and_migrations(): void
     {
-        $this->assertSame(['Core', 'Attendance', 'HR', 'Integrations', 'Payroll', 'Training'], ModuleRegistry::names());
+        $this->assertSame(['Core', 'Attendance', 'HR', 'Integrations', 'Onboarding', 'Payroll', 'Training'], ModuleRegistry::names());
 
         $byModule = collect(Route::getRoutes()->getRoutes())
             ->filter(fn ($route) => str_starts_with($route->getActionName(), 'App\\Modules\\'))
@@ -69,7 +69,7 @@ class ModularArchitectureTest extends TestCase
             'primary_color' => '#1E40AF', 'secondary_color' => '#F59E0B',
             'modules_submitted' => '1', 'modules' => ['Attendance', 'Integrations'],
         ])->assertSessionHasNoErrors();
-        $this->assertSame(['HR', 'Payroll', 'Training'], $acme->fresh()->setting('disabled_modules'));
+        $this->assertSame(['HR', 'Onboarding', 'Payroll', 'Training'], $acme->fresh()->setting('disabled_modules'));
         $this->assertFalse(ModuleRegistry::enabledFor($acme->fresh(), 'HR'));
         $this->assertTrue(ModuleRegistry::enabledFor($acme->fresh(), 'Core'));
 
@@ -96,7 +96,7 @@ class ModularArchitectureTest extends TestCase
             'plan' => 'trial', 'status' => 'active', 'timezone' => 'America/Lima',
             'primary_color' => '#1E40AF', 'secondary_color' => '#F59E0B',
         ])->assertSessionHasNoErrors();
-        $this->assertSame(['HR', 'Payroll', 'Training'], Tenant::find($acme->id)->setting('disabled_modules'));
+        $this->assertSame(['HR', 'Onboarding', 'Payroll', 'Training'], Tenant::find($acme->id)->setting('disabled_modules'));
     }
 
     public function test_moved_user_model_keeps_existing_tokens_and_notifications(): void

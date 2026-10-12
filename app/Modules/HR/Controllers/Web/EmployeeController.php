@@ -162,6 +162,8 @@ class EmployeeController extends Controller
             }
             $user->branches()->sync($branchesToSync);
             app(\App\Modules\Core\Services\AuditLogger::class)->log('employee.created', $user, ['name' => $user->full_name, 'role' => $user->role]);
+            // Ingreso nuevo: no marca hasta que RRHH apruebe su incorporación
+            app(\App\Modules\Onboarding\Services\OnboardingService::class)->startFor($user);
 
             // Asignar turno inicial si fue provisto
             if (!empty($validated['shift_id'])) {

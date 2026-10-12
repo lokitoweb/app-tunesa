@@ -106,6 +106,7 @@ class UserController extends Controller
             'status'    => 'active',
             'password'  => $password,
         ]));
+        app(\App\Modules\Onboarding\Services\OnboardingService::class)->startFor($user);
         $user->forceFill($credentials->temporaryAttributes($password))->save();
 
         return response()->json([

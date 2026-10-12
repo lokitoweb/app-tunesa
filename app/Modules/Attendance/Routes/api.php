@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 // Convenciones de middleware en Core/Routes/api.php.
 Route::middleware('api.tenant')->group(function () {
     // Sincronización en lote de marcaciones hechas sin conexión
-    Route::middleware(['permission:attendance.mark', 'throttle:30,1'])->group(function () {
+    Route::middleware(['permission:attendance.mark', 'throttle:30,1', 'onboarding.approved'])->group(function () {
         Route::post('v1/attendances/sync-batch', [AttendanceSyncController::class, 'syncBatch']);
         Route::post('attendances/sync-batch',    [AttendanceSyncController::class, 'syncBatch']);
     });
@@ -20,7 +20,7 @@ Route::middleware('api.tenant')->group(function () {
             Route::get('history', [AttendanceController::class, 'history']);
             Route::post('{id}/justification', [AttendanceController::class, 'submitJustification'])->whereNumber('id');
         });
-        Route::middleware('permission:attendance.mark')->group(function () {
+        Route::middleware(['permission:attendance.mark', 'onboarding.approved'])->group(function () {
             Route::post('clock-in',    [AttendanceController::class, 'clockIn']);
             Route::post('break-start', [AttendanceController::class, 'breakStart']);
             Route::post('break-end',   [AttendanceController::class, 'breakEnd']);
