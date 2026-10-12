@@ -14,6 +14,8 @@
     <a href="{{ route('employees.create') }}" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Nuevo colaborador</a>
 </div>
 
+@include('employees._credentials')
+
 <div class="card border-0 mb-4">
     <div class="card-body">
         <form method="GET" action="{{ route('employees.index') }}" class="row g-3 align-items-end">

@@ -135,12 +135,14 @@ class AuthHardeningTest extends TestCase
         $acme = $this->makeTenant('acme');
         $hr   = $this->makeUser($acme, 'hr_manager');
 
-        $this->actingIn($hr, $acme)->postJson('/api/admin/employees', [
+        $created = $this->actingIn($hr, $acme)->postJson('/api/admin/employees', [
             'first_name' => 'Nuevo', 'last_name' => 'Ingreso', 'email' => 'nuevo@acme.pe',
             'password' => 'Temporal123', 'role' => 'employee',
         ])->assertCreated()->assertJsonPath('data.must_change_password', true);
+        $temp = $created->json('credentials.temporary_password');
+        $this->assertNotSame('Temporal123', $temp, 'la contraseña temporal la genera el sistema');
 
-        $res = $this->login('acme', 'nuevo@acme.pe', 'Temporal123')->assertOk()->assertJsonPath('data.must_change_password', true);
+        $res = $this->login('acme', 'nuevo@acme.pe', $temp)->assertOk()->assertJsonPath('data.must_change_password', true);
         $this->app['auth']->forgetGuards();
         $headers = ['Authorization' => 'Bearer ' . $res->json('data.token'), 'X-Tenant-Slug' => 'acme'];
 
@@ -148,11 +150,11 @@ class AuthHardeningTest extends TestCase
         $this->withHeaders($headers)->getJson('/api/auth/me')->assertOk();
 
         $this->withHeaders($headers)->putJson('/api/auth/change-password', [
-            'current_password' => 'Temporal123', 'new_password' => 'debil', 'new_password_confirmation' => 'debil',
+            'current_password' => $temp, 'new_password' => 'debil', 'new_password_confirmation' => 'debil',
         ])->assertStatus(422);
 
         $this->withHeaders($headers)->putJson('/api/auth/change-password', [
-            'current_password' => 'Temporal123', 'new_password' => 'Segura2026x', 'new_password_confirmation' => 'Segura2026x',
+            'current_password' => $temp, 'new_password' => 'Segura2026x', 'new_password_confirmation' => 'Segura2026x',
         ])->assertOk();
 
         $this->app['auth']->forgetGuards();

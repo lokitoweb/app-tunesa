@@ -67,16 +67,10 @@ class AuthRepository {
     return user;
   }
 
+  /// Solo el cambio obligatorio de la contraseña temporal; el resto lo hace RRHH.
   Future<void> changePassword({required String current, required String next}) => _api.put(
         ApiEndpoints.changePassword,
         data: {'current_password': current, 'new_password': next, 'new_password_confirmation': next},
-      );
-
-  Future<void> forgotPassword(String email) => _api.post(
-        ApiEndpoints.forgotPasswordByEmail,
-        auth: false,
-        tenant: '',
-        data: {'email': email.trim()},
       );
 
   Future<void> logout() async {

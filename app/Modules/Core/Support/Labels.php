@@ -32,6 +32,7 @@ final class Labels
         'auth.login_failed'                  => ['Intento de ingreso fallido', 'warning', 'shield-exclamation'],
         'auth.account_locked'                => ['Cuenta bloqueada por intentos fallidos', 'danger', 'lock'],
         'auth.account_unlocked'              => ['Cuenta desbloqueada', 'success', 'unlock'],
+        'auth.access_reset'                  => ['Acceso restablecido por RRHH', 'warning', 'key'],
         'auth.password_reset'                => ['Contraseña restablecida', 'info', 'key'],
         'auth.password_changed'              => ['Contraseña cambiada', 'info', 'key'],
 
@@ -217,6 +218,7 @@ final class Labels
         'contact_email'           => 'Correo de contacto',
         'contact_phone'           => 'Teléfono de contacto',
         'website'                 => 'Sitio web',
+        'login_email_domain'      => 'Dominio del correo de acceso',
         'primary_color'           => 'Color primario',
         'secondary_color'         => 'Color secundario',
         'accent_color'            => 'Color de acento',
@@ -308,6 +310,7 @@ final class Labels
         'last_login_at'           => 'Último ingreso',
         'last_login_ip'           => 'Dirección del último ingreso',
         'must_change_password'    => 'Debe cambiar su contraseña',
+        'temp_password_expires_at' => 'Vence la contraseña temporal',
 
         // Ficha laboral (employee_profiles)
         'district'                => 'Distrito',

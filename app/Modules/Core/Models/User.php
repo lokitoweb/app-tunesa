@@ -66,6 +66,7 @@ class User extends Authenticatable
         'fcm_token',
         'notification_preferences',
         'must_change_password',
+        'temp_password_expires_at',
         'department_id',
         'position_id',
         'scope_type',
@@ -116,6 +117,7 @@ class User extends Authenticatable
         'locked_until'         => 'datetime',
         'last_login_at'        => 'datetime',
         'must_change_password' => 'boolean',
+        'temp_password_expires_at' => 'datetime',
         'roaming_attendance_enabled' => 'boolean',
         'failed_login_attempts' => 'integer',
         'notification_preferences' => 'array',
@@ -319,6 +321,7 @@ class User extends Authenticatable
             'password'              => $password,
             'remember_token'        => Str::random(60),
             'must_change_password'  => false,
+            'temp_password_expires_at' => null,
             'failed_login_attempts' => 0,
             'locked_until'          => null,
         ])->save();
@@ -326,6 +329,14 @@ class User extends Authenticatable
         $this->tokens()->delete();
 
         event(new PasswordReset($this));
+    }
+
+    /** La contraseña temporal venció sin cambiarse: solo RRHH puede restablecer el acceso */
+    public function temporaryPasswordExpired(): bool
+    {
+        return $this->must_change_password
+            && $this->temp_password_expires_at !== null
+            && $this->temp_password_expires_at->isPast();
     }
 
     public function isLocked(): bool

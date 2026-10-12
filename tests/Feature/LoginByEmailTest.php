@@ -102,11 +102,13 @@ class LoginByEmailTest extends TestCase
         Storage::disk('public')->assertMissing($current);
     }
 
-    public function test_forgot_password_works_without_company_code(): void
+    public function test_app_password_reset_is_handled_by_hr(): void
     {
         $this->makeUser($this->makeTenant('acme'), 'employee', ['email' => 'ana@acme.test']);
 
-        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'ana@acme.test'])->assertOk();
-        $this->assertDatabaseHas('password_reset_tokens', ['email' => 'ana@acme.test']);
+        foreach (['/api/v1/auth/forgot-password', '/api/auth/forgot-password', '/api/auth/reset-password'] as $url) {
+            $this->withHeaders(['X-Tenant-Slug' => 'acme'])->postJson($url, ['email' => 'ana@acme.test'])->assertStatus(410)->assertJsonPath('code', 'PASSWORD_RESET_BY_ADMIN');
+        }
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'ana@acme.test']);
     }
 }

@@ -327,12 +327,6 @@ class _AccountSection extends ConsumerWidget {
         ),
         const Divider(),
         ListTile(
-          leading: const Icon(Icons.password_rounded),
-          title: const Text('Cambiar contraseña'),
-          onTap: () => context.push('/change-password'),
-        ),
-        const Divider(),
-        ListTile(
           key: const Key('account-devices'),
           leading: const Icon(Icons.devices_rounded),
           title: const Text('Mis dispositivos'),

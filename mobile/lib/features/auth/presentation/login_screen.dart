@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/brand_logo.dart';
-import '../../../core/widgets/async_views.dart';
 import 'auth_controller.dart';
 
 /// Acceso: solo correo y contraseña; la empresa y la sede las reconoce el servidor.
@@ -45,34 +44,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  Future<void> _forgotPassword() async {
-    final email = _email.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      showSnack(context, 'Escribe tu correo y vuelve a tocar "Olvidé mi contraseña".');
-      return;
-    }
-    try {
-      await ref.read(authRepositoryProvider).forgotPassword(email);
-      if (!mounted) return;
-      await showDialog<void>(
+  /// La app no restablece contraseñas (política de tiendas y de la empresa): lo hace RRHH.
+  Future<void> _forgotPassword() => showDialog<void>(
         context: context,
         builder: (c) => AlertDialog(
-          icon: const Icon(Icons.mark_email_read_outlined),
-          title: const Text('Revisa tu correo'),
-          content: Text(
-            'Si $email está registrado, te enviamos un enlace para restablecer tu contraseña.\n\n'
-            '1. Abre el enlace del correo (se abre una página web).\n'
-            '2. Crea ahí tu nueva contraseña.\n'
-            '3. Vuelve a la app e ingresa con tu correo y la nueva contraseña.\n\n'
-            'Si no lo ves, revisa la carpeta de spam. El enlace vence en una hora.',
+          icon: const Icon(Icons.support_agent_rounded),
+          title: const Text('¿Olvidaste tu contraseña?'),
+          content: const Text(
+            'Pide a RRHH que restablezca tu acceso. Te darán una contraseña temporal '
+            'que deberás cambiar al ingresar.',
           ),
           actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Entendido'))],
         ),
       );
-    } on ApiException catch (e) {
-      if (mounted) showSnack(context, e.message, error: true);
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +136,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: TextButton(onPressed: _forgotPassword, child: const Text('Olvidé mi contraseña')),
+                    child: TextButton(onPressed: _forgotPassword, child: const Text('¿Olvidaste tu contraseña?')),
                   ),
                   const SizedBox(height: 8),
                   FilledButton(
