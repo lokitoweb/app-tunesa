@@ -232,7 +232,7 @@ class _DocumentCardState extends ConsumerState<_DocumentCard> {
       _ => (scheme.primary, Icons.upload_file_rounded, 'Sin subir'),
     };
     final canReplace = widget.canUpload;
-    final uploadLabel = doc == null ? 'Subir' : 'Reemplazar';
+    final uploadLabel = doc == null ? 'Subir documento' : 'Reemplazar documento';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -250,7 +250,12 @@ class _DocumentCardState extends ConsumerState<_DocumentCard> {
               const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(widget.label, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 15)),
+                  // Una sola línea: el nombre no se parte ("Documento de identidad")
+                  Text(widget.label,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 4),
                   Wrap(spacing: 6, runSpacing: 4, children: [
                     _Tag(text: statusText, color: color),
@@ -258,10 +263,7 @@ class _DocumentCardState extends ConsumerState<_DocumentCard> {
                   ]),
                 ]),
               ),
-              if (doc == null && canReplace) ...[
-                const SizedBox(width: 8),
-                _UploadButton(label: uploadLabel, busy: _busy, onPressed: _chooseSource),
-              ],
+              if (canReplace) _UploadIcon(tooltip: uploadLabel, busy: _busy, onPressed: _chooseSource),
             ]),
             if (doc != null) ...[
               const SizedBox(height: 12),
@@ -297,7 +299,6 @@ class _DocumentCardState extends ConsumerState<_DocumentCard> {
                   icon: const Icon(Icons.visibility_outlined, size: 20),
                   label: const Text('Ver'),
                 ),
-                if (canReplace) _UploadButton(label: uploadLabel, busy: _busy, onPressed: _chooseSource),
               ]),
             ],
           ]),
@@ -307,21 +308,23 @@ class _DocumentCardState extends ConsumerState<_DocumentCard> {
   }
 }
 
-class _UploadButton extends StatelessWidget {
-  const _UploadButton({required this.label, required this.busy, required this.onPressed});
+/// Subir o reemplazar: solo el ícono, sin botón ni fondo.
+class _UploadIcon extends StatelessWidget {
+  const _UploadIcon({required this.tooltip, required this.busy, required this.onPressed});
 
-  final String label;
+  final String tooltip;
   final bool busy;
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => FilledButton.tonalIcon(
-        style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 14)),
+  Widget build(BuildContext context) => IconButton(
+        key: const Key('upload-document'),
+        tooltip: tooltip,
+        color: Theme.of(context).colorScheme.primary,
         onPressed: busy ? null : onPressed,
         icon: busy
-            ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
-            : const Icon(Icons.upload_rounded, size: 20),
-        label: Text(label),
+            ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.file_upload_outlined, size: 26),
       );
 }
 
