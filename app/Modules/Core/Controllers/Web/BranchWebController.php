@@ -4,6 +4,7 @@ namespace App\Modules\Core\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\CompanyConfiguration;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\TenantContext;
@@ -168,6 +169,9 @@ class BranchWebController extends Controller
             'latitude'              => ['required', 'numeric', 'between:-90,90'],
             'longitude'             => ['required', 'numeric', 'between:-180,180'],
             'allowed_radius_meters' => ['required', 'integer', 'min:10', 'max:5000'],
+            'geofence_tolerance_meters' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'max_gps_accuracy_meters'   => ['nullable', 'integer', 'min:5', 'max:500'],
+            'geofence_policy'           => ['nullable', Rule::in(array_keys(CompanyConfiguration::GEOFENCE_POLICIES))],
             'zone_id'               => ['sometimes', 'nullable', 'integer', Rule::exists('zones', 'id')->where('tenant_id', $tenantId)],
             'branch_type'           => ['sometimes', Rule::in(array_keys(Branch::TYPES))],
             'supervisor_id'         => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $tenantId)->whereIn('role', self::SUPERVISOR_ROLES)],

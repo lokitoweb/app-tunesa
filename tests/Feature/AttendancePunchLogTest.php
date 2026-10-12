@@ -328,9 +328,9 @@ class AttendancePunchLogTest extends TestCase
             ->assertCreated()->assertJsonPath('punch.suspicious', false);
         $this->assertSame(0, $this->emp->notifications()->count());
 
-        // Sábado (día de descanso): fuera de horario
+        // Sábado (día de descanso): fuera de horario. Otra lectura de GPS (un GPS real nunca repite)
         $this->travelTo(Carbon::parse('2026-10-10 09:00:00', 'America/Lima'));
-        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload())
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload(['latitude' => -12.0941832]))
             ->assertCreated()->assertJsonPath('punch.suspicion_reasons', ['OUTSIDE_SCHEDULE']);
     }
 

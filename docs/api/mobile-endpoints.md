@@ -290,8 +290,15 @@ campos van en cada elemento de `sync-batch`.
    anterior a la entrada → `422 OFFLINE_BEFORE_CLOCK_IN`; fin de descanso anterior a su inicio →
    `422 OFFLINE_OUT_OF_ORDER`; `409 BREAK_ALREADY_STARTED`, `409 BREAK_NOT_STARTED`,
    `409 BREAK_ALREADY_ENDED`, `422 BREAK_NOT_ALLOWED`.
-8. **Geocerca** (Haversine contra la sucursal), solo entrada y salida, según
-   `company_configurations.geofence_policy`:
+8. **Geocerca** (Haversine contra la sucursal), solo entrada y salida. La precisión máxima es la
+   de la sede (`branches.max_gps_accuracy_meters`) o la de la empresa → `422 GPS_ACCURACY_TOO_LOW`.
+   Con distancia d, radio r, precisión a y tolerancia t de la sede (`branches.geofence_tolerance_meters`,
+   15 m por defecto, 0 la desactiva):
+   - d ≤ r: dentro.
+   - r < d ≤ r + min(a, t): **zona de borde**, se acepta con motivo `GEOFENCE_EDGE` y
+     `within_geofence: false`, sin aviso ni rechazo.
+   - más lejos: política de la sede (`branches.geofence_policy`) o, si está vacía,
+     `company_configurations.geofence_policy`:
    - `reject` (por defecto): `422 GEOFENCE_VIOLATION` con el mensaje
      "Estás fuera del área permitida. Distancia: 180m. Máximo permitido: 100m. Necesitas acercarte 80m más."
      y aviso `attendance.outside_geofence` al colaborador y al supervisor (máx. 1 cada 10 min por persona).
@@ -303,8 +310,13 @@ campos van en cada elemento de `sync-batch`.
    día sin turno (teniendo turnos asignados) → se acepta con motivo `OUTSIDE_SCHEDULE` y aviso
    `attendance.outside_schedule`. Sin turnos asignados no se evalúa.
 
+10. **Ubicación inventada** (no rechaza): `IMPOSSIBLE_TRAVEL` si desde la marcación anterior habría
+   que moverse a más de 150 km/h (y más de 2 km); `REPEATED_COORDINATES` si las coordenadas
+   coinciden (±1 cm) con una marcación de otro día de los últimos 30 días.
+
 Motivos de sospecha (`suspicion_reasons`): `MOCK_LOCATION`, `TIME_DRIFT`, `FACE_UNVERIFIED`,
-`OUT_OF_GEOFENCE`, `OUTSIDE_SCHEDULE`. Con al menos uno el evento queda `suspicious: true` y la
+`OUT_OF_GEOFENCE`, `GEOFENCE_EDGE`, `OUTSIDE_SCHEDULE`, `UNSAFE_DEVICE`, `IMPOSSIBLE_TRAVEL`,
+`REPEATED_COORDINATES`. Con al menos uno el evento queda `suspicious: true` y la
 jornada `is_suspicious: true`.
 
 ### Respuesta
@@ -722,8 +734,12 @@ Verificado contra `mobile/lib` (rutas entre paréntesis).
   analiza la foto en el teléfono; si no encuentra rostro el botón de enviar queda bloqueado, y
   si ML Kit no puede analizarla no se envía `face_detected` (el backend no rechaza: la marca como
   sospechosa con `FACE_UNVERIFIED`).
-- **Precisión GPS:** la app exige `max_gps_accuracy_meters` antes de enviar (respaldo:
-  `MAX_GPS_ACCURACY` compilado) y manda `accuracy_meters` e `is_mocked` también en los descansos.
+- **Precisión GPS:** la app toma hasta 3 lecturas en 8 s (corta antes si una baja de ±10 m), envía
+  la más precisa y la trata como simulada si cualquiera lo fue. Exige la precisión más permisiva
+  entre `max_gps_accuracy_meters` de la empresa y el de sus sedes (`/api/my-branches`,
+  `geofence.max_gps_accuracy_meters`; respaldo: `MAX_GPS_ACCURACY` compilado) y manda
+  `accuracy_meters` e `is_mocked` también en los descansos. Su verificación previa de geocerca usa
+  la misma zona de borde que el servidor (`geofence.tolerance_meters`).
 - **Errores de marcación** (`_SendErrorCard`): ofrece volver a leer el GPS ante
   `GEOFENCE_VIOLATION`, `MOCK_LOCATION_DETECTED` y `GPS_ACCURACY_TOO_LOW`, y pide repetir la
   selfie ante `FACE_NOT_DETECTED`. Los demás códigos solo muestran `message`.

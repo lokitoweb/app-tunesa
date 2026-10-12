@@ -40,6 +40,12 @@ class AttendancePunch extends Model
     public const REASON_OUT_OF_GEOFENCE  = 'OUT_OF_GEOFENCE';
     public const REASON_OUTSIDE_SCHEDULE = 'OUTSIDE_SCHEDULE';
     public const REASON_UNSAFE_DEVICE    = 'UNSAFE_DEVICE';
+    /** Fuera del radio pero dentro del margen de la precisión GPS: se acepta observada */
+    public const REASON_GEOFENCE_EDGE    = 'GEOFENCE_EDGE';
+    /** Exigiría viajar a más de MAX_TRAVEL_KMH desde la marcación anterior */
+    public const REASON_IMPOSSIBLE_TRAVEL     = 'IMPOSSIBLE_TRAVEL';
+    /** Mismas coordenadas exactas que una marcación de otro día: típico de una ubicación inventada */
+    public const REASON_REPEATED_COORDINATES  = 'REPEATED_COORDINATES';
 
     public const UPDATED_AT = null;
 

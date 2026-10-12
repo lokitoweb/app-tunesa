@@ -278,6 +278,7 @@ final class Labels
         'latitude'                => 'Latitud',
         'longitude'               => 'Longitud',
         'allowed_radius_meters'   => 'Radio de la geocerca (m)',
+        'geofence_tolerance_meters' => 'Tolerancia de borde (m)',
         'supervisor_id'           => 'Supervisor',
         'zone_id'                 => 'Zona',
         'branch_type'             => 'Tipo de sede',
@@ -761,6 +762,9 @@ final class Labels
             'OUT_OF_GEOFENCE'  => ['Fuera de la geocerca', 'warning'],
             'OUTSIDE_SCHEDULE' => ['Fuera del horario', 'warning'],
             'UNSAFE_DEVICE'    => ['Teléfono con root o app modificada', 'danger'],
+            'GEOFENCE_EDGE'        => ['En el borde de la geocerca', 'warning'],
+            'IMPOSSIBLE_TRAVEL'    => ['Viaje imposible desde la marcación anterior', 'danger'],
+            'REPEATED_COORDINATES' => ['Coordenadas idénticas a otro día', 'danger'],
         ],
         'device_flag' => [
             'rooted'   => ['Root / jailbreak', 'danger'],
