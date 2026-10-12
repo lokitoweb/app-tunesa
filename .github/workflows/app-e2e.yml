@@ -107,11 +107,17 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      # El runner trae ~14 GB libres y el emulador pide 7 GB para su partición de datos
+      # El emulador pide ~7 GB para su partición de datos y la compilación ocupa varios GB más
       - name: Liberar espacio en disco
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
-          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            /usr/share/swift /usr/local/share/powershell /usr/local/lib/node_modules /opt/az /opt/microsoft \
+            /opt/google /usr/local/julia* /usr/lib/google-cloud-sdk /usr/share/miniconda
+          sudo docker image prune -af > /dev/null || true
+          # El AVD va al disco temporal del runner (/mnt) para no competir con la compilación
+          sudo mkdir -p /mnt/avd && sudo chown "$USER" /mnt/avd
+          echo "ANDROID_AVD_HOME=/mnt/avd" >> "$GITHUB_ENV"
+          df -h / /mnt
 
       - name: Habilitar KVM
         run: |
