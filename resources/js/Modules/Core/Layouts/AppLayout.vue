@@ -84,6 +84,10 @@ function toggleTheme() {
                     </form>
                 </div>
                 <div class="d-flex align-items-center gap-2">
+                    <form v-if="auth.can_search" method="GET" action="/employees" class="topbar-search d-none d-xl-flex" role="search">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <input type="search" name="search" class="form-control form-control-sm" placeholder="Buscar colaborador…" aria-label="Buscar colaborador">
+                    </form>
                     <span class="small text-body-secondary d-none d-md-inline">{{ page.props.today }}</span>
 
                     <div class="dropdown">
@@ -138,6 +142,7 @@ function toggleTheme() {
                                 <div class="small text-body-secondary text-truncate">{{ auth.email }}</div>
                             </div>
                             <div class="dropdown-divider"></div>
+                            <a class="dropdown-item" href="/account"><i class="bi bi-person-gear me-2"></i>Mi cuenta</a>
                             <a class="dropdown-item" href="/notifications"><i class="bi bi-bell me-2"></i>Notificaciones</a>
                             <form method="POST" action="/logout" class="m-0">
                                 <input type="hidden" name="_token" :value="page.props.csrf">

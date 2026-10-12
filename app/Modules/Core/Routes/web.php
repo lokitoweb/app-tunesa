@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Core\Controllers\SecureFileController;
+use App\Modules\Core\Controllers\Web\AccountWebController;
 use App\Modules\Core\Controllers\Web\AuditLogWebController;
 use App\Modules\Core\Controllers\Web\AuthController;
 use App\Modules\Core\Controllers\Web\BranchWebController;
@@ -52,6 +53,10 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/live-stream', [DashboardController::class, 'liveStream'])->name('dashboard.live-stream');
     Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
+
+    // Mi cuenta: datos personales y cambio de contraseña
+    Route::get('/account', [AccountWebController::class, 'edit'])->name('account.edit');
+    Route::put('/account/password', [AccountWebController::class, 'updatePassword'])->name('account.password')->middleware('throttle:6,1');
 
     // Notificaciones personales (campana del topbar)
     Route::get('/notifications', [NotificationWebController::class, 'index'])->name('notifications.index');
