@@ -64,6 +64,11 @@ final class Labels
         'shift.created'                      => ['Turno creado', 'success', 'calendar-week'],
         'shift.updated'                      => ['Turno actualizado', 'primary', 'calendar-week'],
         'shift.deleted'                      => ['Turno eliminado', 'danger', 'calendar-week'],
+        'training.created'                   => ['Capacitación creada', 'success', 'mortarboard'],
+        'training.updated'                   => ['Capacitación actualizada', 'primary', 'mortarboard'],
+        'training.published'                 => ['Capacitación publicada', 'success', 'mortarboard'],
+        'training.archived'                  => ['Capacitación archivada', 'secondary', 'mortarboard'],
+        'training.deleted'                   => ['Capacitación eliminada', 'danger', 'mortarboard'],
         'holiday.created'                    => ['Feriado creado', 'success', 'calendar-heart'],
         'holiday.deleted'                    => ['Feriado eliminado', 'danger', 'calendar-x'],
 

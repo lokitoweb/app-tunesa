@@ -65,6 +65,10 @@ class RolesAndPermissionsSeeder extends Seeder
         'uniforms.manage'         => ['Gestionar tallas y entregas de dotación', 'profiles'],
         'company.configure'       => ['Configurar qué ve el colaborador en la app', 'tenants'],
         'audit.view'              => ['Ver la bitácora de auditoría', 'tenants'],
+
+        // Capacitaciones
+        'training.view_own'       => ['Ver y completar mis capacitaciones', 'training'],
+        'training.manage'         => ['Crear capacitaciones, asignarlas y ver el avance', 'training'],
     ];
 
     /** slug del rol => [nombre, descripción, permisos ('*' = todos)] */
@@ -92,7 +96,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'attendance.mark', 'attendance.view_own', 'attendance.view_team',
                 'dashboard.view', 'reports.view',
                 'leave.request', 'leave.approve_team',
-                'payslips.view_own', 'profile.manage_own',
+                'payslips.view_own', 'profile.manage_own', 'training.view_own',
             ],
         ],
         Role::EMPLOYEE => [
@@ -100,7 +104,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'Marca asistencia, consulta turnos, solicitudes y boletas.',
             [
                 'shifts.view_own', 'attendance.mark', 'attendance.view_own',
-                'leave.request', 'payslips.view_own', 'profile.manage_own',
+                'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
             ],
         ],
     ];

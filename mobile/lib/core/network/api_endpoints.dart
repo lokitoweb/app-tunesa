@@ -64,6 +64,14 @@ class ApiEndpoints {
   static const payslips = '/payslips';
   static String payslipDownload(int id) => '/payslips/$id/download';
 
+  // Capacitaciones
+  static const trainings = '/trainings';
+  static String training(int id) => '/trainings/$id';
+  static String trainingLessonComplete(int course, int lesson) => '/trainings/$course/lessons/$lesson/complete';
+  static String trainingLessonFile(int course, int lesson) => '/trainings/$course/lessons/$lesson/file';
+  static String trainingQuiz(int course) => '/trainings/$course/quiz';
+  static String trainingCertificate(int course) => '/trainings/$course/certificate';
+
   // Autoservicio: legajo, datos de pago y dotación
   static const employeeConfig = '/employee/config';
   static const employeeProfile = '/employee/profile';

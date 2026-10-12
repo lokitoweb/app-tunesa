@@ -32,3 +32,6 @@ if (config('queue.work_from_scheduler')) {
     Schedule::command('queue:work', ['--stop-when-empty', '--max-time=50', '--sleep=1'])
         ->everyMinute()->withoutOverlapping(5)->runInBackground();
 }
+
+// Capacitaciones: asigna cursos a quien le corresponden y avisa los que vencen pronto
+Schedule::command('training:sync')->dailyAt('06:00')->withoutOverlapping()->onOneServer();

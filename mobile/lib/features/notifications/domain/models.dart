@@ -35,6 +35,7 @@ class AppNotification {
       'document' || 'documents' => '/profile/documents',
       'approval' || 'approvals' => '/approvals',
       'shift' || 'app' => '/home',
+      'training' => '/trainings',
       _ => null,
     };
   }

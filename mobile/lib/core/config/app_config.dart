@@ -265,12 +265,21 @@ class ContactConfig {
 }
 
 class ModulesConfig {
-  const ModulesConfig({this.payslips = true, this.documents = true, this.paymentInfo = true, this.uniforms = true});
+  const ModulesConfig({
+    this.payslips = true,
+    this.documents = true,
+    this.paymentInfo = true,
+    this.uniforms = true,
+    this.trainings = true,
+  });
 
   final bool payslips;
   final bool documents;
   final bool paymentInfo;
   final bool uniforms;
+
+  /// Capacitaciones (módulo Training de la empresa).
+  final bool trainings;
 
   factory ModulesConfig.fromJson(Object? raw) {
     final json = _map(raw);
@@ -279,11 +288,12 @@ class ModulesConfig {
       documents: _bool(json['documents'], true),
       paymentInfo: _bool(json['payment_info'], true),
       uniforms: _bool(json['uniforms'], true),
+      trainings: _bool(json['trainings'], true),
     );
   }
 
   Map<String, dynamic> toJson() =>
-      {'payslips': payslips, 'documents': documents, 'payment_info': paymentInfo, 'uniforms': uniforms};
+      {'payslips': payslips, 'documents': documents, 'payment_info': paymentInfo, 'uniforms': uniforms, 'trainings': trainings};
 }
 
 class AppConfig {

@@ -80,6 +80,7 @@ String pushRouteFor(Map<String, dynamic> data) {
     'notifications' => '/notifications',
     'home' || 'app_update' => '/home',
     'profile' => '/profile',
+    'trainings' || 'training' => '/trainings',
     _ => null,
   };
   if (byScreen != null) return byScreen;
