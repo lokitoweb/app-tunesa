@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Denuncia del canal ético. No tiene relación con quien la hizo: se consulta
  * con el código de seguimiento (6 dígitos) y la clave (solo su hash queda aquí).
- * Si quien denuncia elige identificarse, sus datos van cifrados en
+ * Las enviadas desde la app guardan los datos de quien denuncia cifrados en
  * reporter_identity y solo RRHH puede verlos (queda en la bitácora).
  *
  * received → in_review ⇄ needs_info → closed
@@ -59,7 +59,7 @@ class EthicsCase extends Model
         'reporter_unread'     => 'boolean',
         'investigator_unread' => 'boolean',
         'identified'          => 'boolean',
-        // Solo si quien denuncia eligió identificarse: cifrada y sin user_id en
+        // Denuncias desde la app: identidad cifrada y sin user_id en
         // columnas consultables. La ve quien tiene ethics.view_identity (RRHH), auditado.
         'reporter_identity'   => 'encrypted:array',
     ];

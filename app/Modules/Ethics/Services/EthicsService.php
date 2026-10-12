@@ -30,7 +30,7 @@ class EthicsService
     /**
      * @param  array{category: string, subject: string, body: string, push_channel?: ?string}  $data
      * @param  list<UploadedFile>  $photos
-     * @param  User|null  $identifyAs  solo si quien denuncia eligió identificarse
+     * @param  User|null  $identifyAs  quien denuncia desde la app (identidad reservada)
      * @return array{case: EthicsCase, token: string}
      */
     public function report(Tenant $tenant, array $data, array $photos = [], ?User $identifyAs = null): array
@@ -140,7 +140,7 @@ class EthicsService
     }
 
     /**
-     * Identidad de quien eligió identificarse. La lectura queda en la bitácora
+     * Identidad reservada de quien denunció desde la app. La lectura queda en la bitácora
      * y solo la hace quien tiene ethics.view_identity.
      */
     public function revealIdentity(EthicsCase $case, User $by): ?array

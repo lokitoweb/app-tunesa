@@ -6,7 +6,7 @@
 <div class="page-header">
     <div>
         <h1>Canal ético</h1>
-        <p>Denuncias de los colaboradores, anónimas salvo que elijan identificarse. Respóndeles por aquí y lo verán con su código.</p>
+        <p>Denuncias de los colaboradores, anónimas para todos; las enviadas desde la app guardan la identidad de forma reservada, visible solo para RR. HH.. Respóndeles por aquí y lo verán con su código.</p>
     </div>
 </div>
 

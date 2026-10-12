@@ -18,10 +18,10 @@
 </div>
 
 @if(! $case->identified)
-    <div class="alert alert-secondary small"><i class="bi bi-incognito me-1"></i>La denuncia es anónima: el sistema no guarda quién la envió ni desde dónde. Cada vez que alguien abre esta página queda en la bitácora.</div>
+    <div class="alert alert-secondary small"><i class="bi bi-incognito me-1"></i>Enviada desde la web sin iniciar sesión: el sistema no sabe quién la envió ni desde dónde. Cada vez que alguien abre esta página queda en la bitácora.</div>
 @else
     <div class="alert alert-info small d-flex flex-wrap align-items-center justify-content-between gap-2" id="identity">
-        <div><i class="bi bi-person-lock me-1"></i>Quien denunció eligió identificarse. Su identidad es reservada: solo Recursos Humanos puede verla, para fines legales, y cada consulta queda en la bitácora.</div>
+        <div><i class="bi bi-person-lock me-1"></i>Enviada desde la app: para quien denunció es anónima, pero su identidad queda registrada de forma reservada. Solo Recursos Humanos puede verla, para fines legales, y cada consulta queda en la bitácora.</div>
         @can('ethics.view_identity')
             @unless(session('ethics_identity'))
                 <form method="POST" action="{{ route('ethics.identity', $case->id) }}">

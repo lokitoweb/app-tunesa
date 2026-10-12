@@ -4,9 +4,9 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../domain/models.dart';
 
-/// Llamadas del canal ético. Van sin sesión ([ApiClient.anonymous]): el
-/// servidor no puede saber qué usuario las hizo. La única excepción es la
-/// denuncia identificada, que se envía con sesión solo si la persona lo eligió.
+/// Llamadas del canal ético. La denuncia desde la app va con sesión: queda
+/// registrada con el usuario de forma reservada (solo RRHH puede verlo). La
+/// consulta y los mensajes van sin sesión ([ApiClient.anonymous]).
 class EthicsRepository {
   EthicsRepository(this._api);
 

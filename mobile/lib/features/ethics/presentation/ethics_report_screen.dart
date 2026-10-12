@@ -26,7 +26,6 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
   String? _category;
   bool _keep = true;
   bool _notify = true;
-  bool _identify = false;
   bool _sending = false;
 
   @override
@@ -60,7 +59,7 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
             body: _body.text.trim(),
             channel: channel,
             photos: _photos,
-            identified: _identify,
+            identified: true,
           );
       final saved = SavedEthicsCase(code: result.code, token: result.token, subject: _subject.text.trim(), channel: channel);
       if (_keep) await ref.read(ethicsVaultProvider).save(saved);
@@ -114,7 +113,7 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
                 maxLength: 5000,
                 decoration: const InputDecoration(
                   labelText: 'Detalle',
-                  hintText: 'Qué ocurrió, cuándo, dónde y quiénes participaron. No hace falta que digas quién eres.',
+                  hintText: 'Qué ocurrió, cuándo, dónde y quiénes participaron.',
                   alignLabelWithHint: true,
                 ),
                 validator: (v) => (v ?? '').trim().length < 20 ? 'Cuéntanos un poco más (mínimo 20 caracteres)' : null,
@@ -127,16 +126,17 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
                   ActionChip(avatar: const Icon(Icons.add_photo_alternate_outlined), label: const Text('Adjuntar foto'), onPressed: _addPhoto),
               ]),
               const SizedBox(height: 12),
-              SwitchListTile(
-                key: const Key('ethics-identify'),
-                contentPadding: EdgeInsets.zero,
-                value: _identify,
-                onChanged: (v) => setState(() => _identify = v),
-                title: const Text('Identificarme (opcional)'),
-                subtitle: Text(_identify
-                    ? 'Tu nombre quedará guardado de forma reservada: solo Recursos Humanos podrá verlo, para fines legales. Tu jefe no.'
-                    : 'Por defecto la denuncia es anónima: nadie sabrá quién la envió.'),
+              Card(
+                key: const Key('ethics-privacy'),
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  leading: const Icon(Icons.lock_outline),
+                  title: const Text('Nadie en la app sabrá que fuiste tú'),
+                  subtitle: const Text(
+                      'Tu jefe, tus compañeros y las personas denunciadas no verán tu nombre. Por temas legales, la denuncia queda registrada con tu usuario y solo el área de Recursos Humanos puede consultarlo.'),
+                ),
               ),
+              const SizedBox(height: 8),
               SwitchListTile(
                 key: const Key('ethics-keep'),
                 contentPadding: EdgeInsets.zero,

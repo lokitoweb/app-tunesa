@@ -208,7 +208,7 @@ class EthicsChannelTest extends TestCase
         $case = EthicsCase::withoutGlobalScopes()->where('public_code', $data['code'])->sole();
 
         // RRHH ve el aviso y el botón; al revelarla queda en la bitácora
-        $this->web($hr)->get(route('ethics.show', $case->id))->assertOk()->assertSee('eligió identificarse')->assertSee('Ver identidad')->assertDontSee('Quispe');
+        $this->web($hr)->get(route('ethics.show', $case->id))->assertOk()->assertSee('identidad queda registrada de forma reservada')->assertSee('Ver identidad')->assertDontSee('Quispe');
         $this->web($hr)->post(route('ethics.identity', $case->id))->assertRedirect();
         $this->web($hr)->withSession(['ethics_identity' => $case->reporter_identity])->get(route('ethics.show', $case->id))
             ->assertSee('Rosa Quispe')->assertSee('DNI 44556677');

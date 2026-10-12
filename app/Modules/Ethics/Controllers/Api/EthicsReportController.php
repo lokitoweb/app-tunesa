@@ -32,8 +32,8 @@ class EthicsReportController extends Controller
     }
 
     /**
-     * Denuncia identificada: la app la envía con sesión solo si la persona lo
-     * eligió. Su identidad queda cifrada y solo la ve RRHH (ethics.view_identity).
+     * Denuncia desde la app: va con sesión y la identidad queda cifrada y
+     * reservada. Para todos es anónima; solo RRHH (ethics.view_identity) la ve.
      */
     public function storeIdentified(Request $request): JsonResponse
     {

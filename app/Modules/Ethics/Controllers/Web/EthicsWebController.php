@@ -57,7 +57,7 @@ class EthicsWebController extends Controller
         return view('ethics.show', ['case' => $case]);
     }
 
-    /** Identidad de quien eligió identificarse: solo ethics.view_identity, auditado */
+    /** Identidad reservada de quien denunció desde la app: solo ethics.view_identity, auditado */
     public function identity(int $case): RedirectResponse
     {
         $case = EthicsCase::findOrFail($case);
