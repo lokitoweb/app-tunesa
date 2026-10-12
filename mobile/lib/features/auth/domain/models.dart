@@ -73,6 +73,15 @@ class AppUser {
 
   /// Foto de perfil (null: se muestran las iniciales).
   final String? avatarUrl;
+
+  /// Iniciales del nombre y del apellido ("Rosa Elena Quispe Díaz" → "RQ").
+  String get initials {
+    final words = fullName.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.isEmpty) return '?';
+    final firstWords = firstName.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+    final last = words.length > firstWords ? words[firstWords] : (words.length > 1 ? words.last : '');
+    return (words.first[0] + (last.isEmpty ? '' : last[0])).toUpperCase();
+  }
   final String? companyName;
 
   /// Cuenta creada por RRHH con contraseña temporal: debe cambiarla primero.

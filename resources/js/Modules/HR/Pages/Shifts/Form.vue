@@ -8,7 +8,19 @@ const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const editing = props.shift.id !== null;
 const form = useForm({ ...props.shift });
 
+// Horas siempre en 24 h (HH:MM): <input type="time"> muestra AM/PM según el idioma del navegador
+const HHMM = '([01][0-9]|2[0-3]):[0-5][0-9]';
+
+function normalizeTime(field) {
+    const m = String(form[field] ?? '').trim().match(/^(\d{1,2})[:.h]?(\d{2})?$/);
+    if (m && Number(m[1]) < 24 && Number(m[2] ?? 0) < 60) {
+        form[field] = `${m[1].padStart(2, '0')}:${m[2] ?? '00'}`;
+    }
+}
+
 function submit() {
+    normalizeTime('start_time');
+    normalizeTime('end_time');
     editing ? form.put(`/shifts/${props.shift.id}`) : form.post('/shifts');
 }
 </script>
@@ -47,12 +59,14 @@ function submit() {
                         </select>
                     </div>
                     <div class="col-6 col-md-4">
-                        <label for="start_time" class="form-label">Entrada</label>
-                        <input id="start_time" v-model="form.start_time" type="time" class="form-control" :class="{ 'is-invalid': form.errors.start_time }" required>
+                        <label for="start_time" class="form-label">Entrada <span class="text-body-secondary small">(24 h)</span></label>
+                        <input id="start_time" v-model="form.start_time" type="text" inputmode="numeric" maxlength="5" :pattern="HHMM" placeholder="HH:MM" title="Formato de 24 horas, por ejemplo 08:00 o 17:30" autocomplete="off" class="form-control font-monospace" :class="{ 'is-invalid': form.errors.start_time }" @blur="normalizeTime('start_time')" required>
+                        <div v-if="form.errors.start_time" class="invalid-feedback">{{ form.errors.start_time }}</div>
                     </div>
                     <div class="col-6 col-md-4">
-                        <label for="end_time" class="form-label">Salida</label>
-                        <input id="end_time" v-model="form.end_time" type="time" class="form-control" :class="{ 'is-invalid': form.errors.end_time }" required>
+                        <label for="end_time" class="form-label">Salida <span class="text-body-secondary small">(24 h)</span></label>
+                        <input id="end_time" v-model="form.end_time" type="text" inputmode="numeric" maxlength="5" :pattern="HHMM" placeholder="HH:MM" title="Formato de 24 horas, por ejemplo 08:00 o 17:30" autocomplete="off" class="form-control font-monospace" :class="{ 'is-invalid': form.errors.end_time }" @blur="normalizeTime('end_time')" required>
+                        <div v-if="form.errors.end_time" class="invalid-feedback">{{ form.errors.end_time }}</div>
                     </div>
                     <div class="col-md-4">
                         <label for="grace_period_minutes" class="form-label">Tolerancia de tardanza (min)</label>
