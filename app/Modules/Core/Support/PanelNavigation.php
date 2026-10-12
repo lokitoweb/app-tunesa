@@ -45,6 +45,7 @@ class PanelNavigation
                 ['Core', 'branches.manage', 'organization.index', [], 'diagram-3', 'Organización', $request->routeIs('organization*'), null, true],
                 ['Core', 'branches.manage', 'branches.index', [], 'pin-map', 'Sucursales y geocercas', $request->routeIs('branches*')],
                 ['Payroll', 'payslips.manage', 'payslips.index', [], 'file-earmark-text', 'Boletas de pago', $request->routeIs('payslips*')],
+                ['Training', 'training.manage', 'training.index', [], 'mortarboard', 'Capacitaciones', $request->routeIs('training.*'), null, true],
             ],
             'Legajo y planilla' => [
                 ['HR', 'documents.review', 'documents.index', [], 'folder-check', 'Legajos digitales', $request->routeIs('documents*', 'employees.file*'), fn () => $hasTenant ? EmployeeDocument::where('status', 'pending')->count() : 0],

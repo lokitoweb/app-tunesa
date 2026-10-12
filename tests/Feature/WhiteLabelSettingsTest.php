@@ -36,7 +36,7 @@ class WhiteLabelSettingsTest extends TestCase
                 'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled'],
             'rules' => ['grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius'],
             'contact' => ['email', 'phone', 'website', 'address'],
-            'modules' => ['payslips', 'documents', 'payment_info', 'uniforms'],
+            'modules' => ['payslips', 'documents', 'payment_info', 'uniforms', 'trainings'],
         ],
         'meta' => ['config_version'],
     ];

@@ -51,5 +51,5 @@ jobs:
       - name: Chunks por módulo y sin sourcemaps
         run: |
           ls public/build/assets
-          for chunk in core hr integrations; do ls public/build/assets/$chunk-*.js; done
+          for chunk in core hr integrations training; do ls public/build/assets/$chunk-*.js; done
           ! ls public/build/assets/*.map 2>/dev/null

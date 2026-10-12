@@ -10,6 +10,8 @@ use App\Modules\Core\Models\TenantSetting;
 use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Models\EmployeeBranch;
+use App\Modules\Training\Services\TrainingEnrollmentService;
 use App\Modules\Integrations\Services\IntegrationDispatcher;
 use App\Modules\Core\Services\NotificationDispatcher;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -67,6 +69,20 @@ class AppServiceProvider extends ServiceProvider
         EmployeeShift::created(fn (EmployeeShift $m) => $notify()->shiftAssigned($m, created: true));
         EmployeeShift::updated(fn (EmployeeShift $m) => $notify()->shiftAssigned($m));
         TenantSetting::saved(fn (TenantSetting $m) => $notify()->appSettingsSaved($m));
+
+        // Capacitaciones: al dar de alta a alguien o cambiarle sucursal, área o
+        // cargo recibe los cursos publicados que le corresponden
+        $trainings = fn () => app(TrainingEnrollmentService::class);
+        $syncTrainings = function (User $user) use ($trainings) {
+            try {
+                $trainings()->syncUser($user);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('No se pudieron asignar capacitaciones: ' . $e->getMessage(), ['user_id' => $user->id]);
+            }
+        };
+        User::created(fn (User $u) => $syncTrainings($u));
+        User::updated(fn (User $u) => $u->wasChanged(['department_id', 'position', 'status', 'role']) ? $syncTrainings($u) : null);
+        EmployeeBranch::saved(fn (EmployeeBranch $p) => ($u = User::withoutGlobalScopes()->find($p->user_id)) ? $syncTrainings($u) : null);
 
         // Integraciones de "Marca y app": webhook (marcaciones y permisos) y
         // endpoint de notificaciones (cada aviso in-app). Encolados y firmados.

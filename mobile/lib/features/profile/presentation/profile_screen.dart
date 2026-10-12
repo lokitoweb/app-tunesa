@@ -9,6 +9,7 @@ import 'profile_avatar.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
+import '../../training/presentation/training_providers.dart';
 
 /// "Mi perfil": avance del onboarding y acceso a Mi Legajo, Datos de Pago y
 /// Previsión, y Dotación. Cada sección aparece solo si la empresa la habilitó.
@@ -102,6 +103,7 @@ class ProfileBody extends StatelessWidget {
           done: file.steps['contact'] == true,
           onTap: () => context.push('/profile/contact'),
         ),
+        const _TrainingsTile(),
         const SizedBox(height: 8),
         Text('Cuenta', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant)),
         const SizedBox(height: 8),
@@ -181,6 +183,32 @@ class _OnboardingCard extends StatelessWidget {
           ),
         ]),
       ),
+    );
+  }
+}
+
+/// Acceso a "Capacitaciones" (si la empresa usa el módulo).
+class _TrainingsTile extends ConsumerWidget {
+  const _TrainingsTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(trainingsEnabledProvider)) return const SizedBox.shrink();
+    final list = ref.watch(trainingsProvider).value;
+    final pending = list?.where((t) => !t.isCompleted).length ?? 0;
+    return _SectionTile(
+      key: const Key('section-trainings'),
+      icon: Icons.school_outlined,
+      title: 'Capacitaciones',
+      subtitle: list == null
+          ? 'Cursos asignados y tus constancias'
+          : pending > 0
+              ? '$pending por completar'
+              : list.isEmpty
+                  ? 'Sin cursos asignados'
+                  : 'Todas completadas',
+      done: list != null && list.isNotEmpty && pending == 0,
+      onTap: () => context.push('/trainings'),
     );
   }
 }
