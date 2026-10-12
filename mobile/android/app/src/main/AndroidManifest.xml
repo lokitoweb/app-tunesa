@@ -20,12 +20,17 @@
     <!--
       usesCleartextTraffic solo se habilita en builds de desarrollo (http://10.0.2.2)
       vía manifestPlaceholders en build.gradle.kts; en release es false (solo HTTPS).
+      Sin copias de seguridad (allowBackup, dataExtractionRules): la sesión, la cola
+      offline cifrada y las selfies no salen del teléfono por adb backup ni por la nube.
     -->
     <application
         android:label="${appLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="${usesCleartextTraffic}">
+        android:usesCleartextTraffic="${usesCleartextTraffic}"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -65,6 +70,17 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Revisión de integridad (MainActivity.DeviceIntegrity): apps de root y de hooking -->
+        <package android:name="com.topjohnwu.magisk" />
+        <package android:name="eu.chainfire.supersu" />
+        <package android:name="com.koushikdutta.superuser" />
+        <package android:name="com.noshufou.android.su" />
+        <package android:name="com.thirdparty.superuser" />
+        <package android:name="com.kingroot.kinguser" />
+        <package android:name="de.robv.android.xposed.installer" />
+        <package android:name="org.lsposed.manager" />
+        <package android:name="io.va.exposed" />
+        <package android:name="com.saurik.substrate" />
         <!-- Enlace de descarga de la app (url_launcher) -->
         <intent>
             <action android:name="android.intent.action.VIEW" />

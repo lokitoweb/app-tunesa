@@ -438,6 +438,11 @@ class AttendanceService
      */
     private function enforceDeviceTrust(User $employee, PunchData $data, TenantSetting $settings, array &$reasons): void
     {
+        // Root, emulador, app modificada...: se acepta, pero RRHH la ve como sospechosa
+        if ($data->deviceFlags) {
+            $reasons[] = AttendancePunch::REASON_UNSAFE_DEVICE;
+        }
+
         if ($data->isMocked) {
             if ($settings->mockLocationPolicy() === 'reject') {
                 Log::warning('Marcación con ubicación simulada rechazada', [

@@ -251,6 +251,20 @@ class AttendancePunchLogTest extends TestCase
             ->assertOk()->assertJsonPath('punch.suspicion_reasons', ['MOCK_LOCATION']);
     }
 
+    public function test_unsafe_device_is_accepted_but_flagged_for_hr(): void
+    {
+        $this->actingIn($this->emp, $this->acme)->withHeader('X-Device-Integrity', 'rooted, hooked, inventado')
+            ->post('/api/attendance/clock-in', $this->payload())
+            ->assertCreated()
+            ->assertJsonPath('punch.suspicious', true)
+            ->assertJsonPath('punch.suspicion_reasons', ['UNSAFE_DEVICE']);
+
+        $attendance = Attendance::withoutGlobalScopes()->sole();
+        $this->assertSame(['rooted', 'hooked'], $attendance->clock_in_meta['device_flags']);
+        $this->assertSame(['Root / jailbreak', 'Herramienta de manipulación (Frida/Xposed)'],
+            app(\App\Modules\Attendance\Services\AttendanceEvidence::class)->detail($attendance)['clock_in']['device_flags']);
+    }
+
     public function test_time_drift_beyond_the_limit_is_flagged_but_never_rejected(): void
     {
         $this->settings(null, ['max_time_drift_seconds' => 120]);

@@ -7,6 +7,7 @@ import 'config/version_gate.dart';
 import 'location/location_service.dart';
 import 'network/api_client.dart';
 import 'network/server_url.dart';
+import 'security/device_integrity.dart';
 import 'storage/session_storage.dart';
 
 /// Se inicializa en main() y se inyecta con overrideWithValue.
@@ -29,8 +30,11 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   );
   // Cambio de dominio (tester o servidor) sin recrear repositorios ni reiniciar.
   ref.listen(baseUrlProvider, (_, next) => client.baseUrl = next);
+  ref.read(deviceIntegrityProvider).flags().then((f) => client.deviceFlags = f);
   return client;
 });
+
+final deviceIntegrityProvider = Provider<DeviceIntegrity>((ref) => DeviceIntegrity());
 
 final locationServiceProvider = Provider<LocationService>((ref) => LocationService());
 

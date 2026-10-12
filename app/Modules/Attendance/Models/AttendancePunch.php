@@ -39,6 +39,7 @@ class AttendancePunch extends Model
     public const REASON_FACE_UNVERIFIED  = 'FACE_UNVERIFIED';
     public const REASON_OUT_OF_GEOFENCE  = 'OUT_OF_GEOFENCE';
     public const REASON_OUTSIDE_SCHEDULE = 'OUTSIDE_SCHEDULE';
+    public const REASON_UNSAFE_DEVICE    = 'UNSAFE_DEVICE';
 
     public const UPDATED_AT = null;
 

@@ -138,6 +138,7 @@ class AttendanceSyncController extends Controller
                 $request->ip(),
                 $request->userAgent(),
                 $sentAt,
+                $request->header('X-Device-Integrity'),
             ));
 
             return [

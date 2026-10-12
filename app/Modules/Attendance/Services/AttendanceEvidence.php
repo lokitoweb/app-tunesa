@@ -55,6 +55,7 @@ class AttendanceEvidence
                 'suspicion_reasons'  => $meta['suspicion_reasons'] ?? [],
                 'suspicion_labels'   => array_map(fn ($r) => \App\Modules\Core\Support\Labels::enum('suspicion_reason', $r), $meta['suspicion_reasons'] ?? []),
                 'device'          => $attendance->{"clock_{$moment}_device_id"},
+                'device_flags'    => array_map(fn ($f) => \App\Modules\Core\Support\Labels::enum('device_flag', $f), $meta['device_flags'] ?? []),
                 'photo_url'       => $this->photoUrl($attendance, $moment),
             ];
         };

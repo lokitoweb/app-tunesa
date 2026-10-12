@@ -34,6 +34,10 @@ class Env {
   static const String firebaseIosAppId = String.fromEnvironment('FIREBASE_IOS_APP_ID');
   static const String firebaseIosBundleId = String.fromEnvironment('FIREBASE_IOS_BUNDLE_ID');
 
+  /// Huella SHA-256 del certificado con que se firma el APK (varias separadas por
+  /// coma, p. ej. la llave propia y la de Google Play). Vacía = no se revisa.
+  static const String appCertSha256 = String.fromEnvironment('APP_CERT_SHA256');
+
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 30);
   static const Duration gpsTimeout = Duration(seconds: 20);

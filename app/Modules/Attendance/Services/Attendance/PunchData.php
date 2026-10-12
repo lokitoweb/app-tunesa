@@ -19,6 +19,9 @@ use InvalidArgumentException;
  */
 final class PunchData
 {
+    /** Señales que la app informa en X-Device-Integrity (lo demás se ignora) */
+    public const DEVICE_FLAGS = ['rooted', 'emulator', 'debugger', 'hooked', 'tampered'];
+
     public function __construct(
         public readonly string $type,
         public readonly float $latitude,
@@ -36,6 +39,8 @@ final class PunchData
         public readonly ?CarbonImmutable $offlineRecordedAt = null,
         public readonly ?CarbonImmutable $deviceSentAt = null,
         public readonly ?string $clientUuid = null,
+        /** Señales de un teléfono manipulado (cabecera X-Device-Integrity): rooted, emulator, ... */
+        public readonly array $deviceFlags = [],
     ) {
         if (! in_array($type, AttendancePunch::TYPES, true)) {
             throw new InvalidArgumentException("Tipo de marcación desconocido: {$type}");
@@ -45,7 +50,7 @@ final class PunchData
     /**
      * @param  array<string, mixed>  $input  Campos ya validados (latitude, longitude, accuracy_meters, ...)
      */
-    public static function fromInput(string $type, array $input, ?UploadedFile $photo = null, ?string $ip = null, ?string $userAgent = null, ?string $deviceSentAt = null): self
+    public static function fromInput(string $type, array $input, ?UploadedFile $photo = null, ?string $ip = null, ?string $userAgent = null, ?string $deviceSentAt = null, ?string $deviceIntegrity = null): self
     {
         $bool = fn (string $key) => array_key_exists($key, $input) && $input[$key] !== null && $input[$key] !== ''
             ? filter_var($input[$key], FILTER_VALIDATE_BOOLEAN)
@@ -68,7 +73,16 @@ final class PunchData
             offlineRecordedAt: self::utc($input['offline_recorded_at'] ?? null),
             deviceSentAt: self::utc($deviceSentAt ?? ($input['device_sent_at'] ?? null)),
             clientUuid: filled($input['client_uuid'] ?? null) ? strtolower((string) $input['client_uuid']) : null,
+            deviceFlags: self::deviceFlags($deviceIntegrity),
         );
+    }
+
+    /** "rooted, hooked" → ['rooted', 'hooked'] (solo señales conocidas) */
+    public static function deviceFlags(?string $header): array
+    {
+        $flags = array_map(fn ($f) => strtolower(trim($f)), explode(',', (string) $header));
+
+        return array_values(array_intersect(self::DEVICE_FLAGS, $flags));
     }
 
     public static function utc(mixed $value): ?CarbonImmutable
@@ -102,6 +116,7 @@ final class PunchData
             'user_agent'      => $this->userAgent,
             'device_time'     => $this->deviceTime?->toIso8601String(),
             'client_uuid'     => $this->clientUuid,
+            'device_flags'    => $this->deviceFlags ?: null,
         ], fn ($v) => $v !== null && $v !== '');
 
         if ($this->faceDetected !== null) {

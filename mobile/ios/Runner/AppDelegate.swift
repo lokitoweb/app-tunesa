@@ -1,4 +1,6 @@
 import CoreLocation
+import Darwin
+import MachO
 import Flutter
 import UIKit
 
@@ -30,6 +32,76 @@ import UIKit
       checker.check(result: result)
     }
     locationIntegrity = checker
+
+    // Canal "tunesa/device_integrity": jailbreak, simulador, depurador y librerías inyectadas
+    let integrity = FlutterMethodChannel(
+      name: "tunesa/device_integrity",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    integrity.setMethodCallHandler { call, result in
+      guard call.method == "check" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(DeviceIntegrity.check())
+    }
+  }
+}
+
+/// Revisiones locales (sin red). La app manda las señales al servidor y RRHH ve
+/// la marcación como sospechosa; no bloquean el uso.
+enum DeviceIntegrity {
+  static func check() -> [String: Any] {
+    #if targetEnvironment(simulator)
+    let simulator = true
+    #else
+    let simulator = false
+    #endif
+    #if DEBUG
+    let debugger = false  // en desarrollo el depurador es normal
+    #else
+    let debugger = isDebuggerAttached()
+    #endif
+    return [
+      "rooted": !simulator && isJailbroken(),
+      "emulator": simulator,
+      "debugger": debugger,
+      "hooked": hasInjectedLibraries(),
+    ]
+  }
+
+  private static func isJailbroken() -> Bool {
+    let paths = [
+      "/Applications/Cydia.app", "/Applications/Sileo.app", "/Applications/Zebra.app",
+      "/Library/MobileSubstrate/MobileSubstrate.dylib", "/bin/bash", "/usr/sbin/sshd", "/etc/apt",
+      "/private/var/lib/apt/", "/usr/bin/ssh", "/var/jb", "/private/preboot/jb",
+    ]
+    if paths.contains(where: { FileManager.default.fileExists(atPath: $0) }) { return true }
+    // Fuera del sandbox no se puede escribir en un teléfono sin jailbreak
+    let probe = "/private/tunesa_jb_probe.txt"
+    if (try? "x".write(toFile: probe, atomically: true, encoding: .utf8)) != nil {
+      try? FileManager.default.removeItem(atPath: probe)
+      return true
+    }
+    return false
+  }
+
+  private static func hasInjectedLibraries() -> Bool {
+    let suspects = ["frida", "cynject", "libcycript", "mobilesubstrate", "substrate", "substitute", "libhooker", "ellekit"]
+    for i in 0..<_dyld_image_count() {
+      guard let name = _dyld_get_image_name(i) else { continue }
+      let lower = String(cString: name).lowercased()
+      if suspects.contains(where: { lower.contains($0) }) { return true }
+    }
+    return false
+  }
+
+  private static func isDebuggerAttached() -> Bool {
+    var info = kinfo_proc()
+    var size = MemoryLayout<kinfo_proc>.stride
+    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+    let ok = sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) == 0
+    return ok && (info.kp_proc.p_flag & P_TRACED) != 0
   }
 }
 
