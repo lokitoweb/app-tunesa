@@ -153,6 +153,8 @@ class TenantSettingsService
             'contact_phone' => ['sometimes', 'nullable', 'string', 'max:30'],
             'website'       => ['sometimes', 'nullable', 'url:http,https', 'max:255'],
             'address'       => ['sometimes', 'nullable', 'string', 'max:500'],
+            // Dominio del correo de acceso que se genera al dar de alta (sin @)
+            'login_email_domain' => ['sometimes', 'nullable', 'string', 'max:150', 'regex:/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i'],
 
             'primary_color'   => $global ? ['sometimes', 'nullable', self::HEX] : ['sometimes', 'required', self::HEX],
             'secondary_color' => $global ? ['sometimes', 'nullable', self::HEX] : ['sometimes', 'required', self::HEX],

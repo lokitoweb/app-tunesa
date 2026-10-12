@@ -61,6 +61,13 @@ class LoginGuard
 
         RateLimiter::clear($key);
 
+        // Contraseña temporal vencida: la app no restablece contraseñas, lo hace RRHH
+        if ($user->temporaryPasswordExpired()) {
+            throw ValidationException::withMessages([
+                'email' => ['Tu contraseña temporal venció. Pide a RRHH que restablezca tu acceso.'],
+            ])->status(403);
+        }
+
         return $user;
     }
 

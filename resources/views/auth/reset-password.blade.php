@@ -8,7 +8,7 @@
         <div class="card-body p-4">
             @include('auth._brand')
             <h1 class="h5 fw-semibold mb-1">Crea una nueva contraseña</h1>
-            <p class="small text-body-secondary mb-3">Mínimo 8 caracteres, con letras y números. Servirá para la app y, si tienes acceso, para el panel.</p>
+            <p class="small text-body-secondary mb-3">Mínimo 8 caracteres, con letras y números.</p>
 
             @if($errors->any())
                 <div class="alert alert-danger small" role="alert">

@@ -72,6 +72,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (auth.status == AuthStatus.authenticated && (auth.user?.mustChangePassword ?? false)) {
         return loc == '/change-password' ? null : '/change-password';
       }
+      // Fuera de ese caso la app no cambia contraseñas: lo hace RRHH desde el panel
+      if (loc == '/change-password') return '/profile';
 
       return switch (auth.status) {
         // Sin empresa conocida también va al login: el servidor la reconoce por el correo

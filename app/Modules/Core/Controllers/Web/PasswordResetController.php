@@ -14,16 +14,17 @@ use Illuminate\View\View;
 /**
  * PasswordResetController (Web)
  *
- * "¿Olvidaste tu contraseña?" desde el navegador. El correo de recuperación
+ * "¿Olvidaste tu contraseña?" del panel. El correo de recuperación
  * (AppServiceProvider → ResetPassword::createUrlUsing) apunta a
- * APP_URL/reset-password?token=...&email=...&tenant=..., y lo reciben tanto
- * usuarios del panel como colaboradores de la app (que lo piden con
- * POST /api/auth/forgot-password). Por eso al terminar no se inicia sesión:
- * se vuelve al login con un mensaje que sirve para ambos.
+ * APP_URL/reset-password?token=...&email=...&tenant=...
+ *
+ * Solo para quienes usan el panel: a los colaboradores de la app les
+ * restablece el acceso RRHH ("Restablecer acceso" en su ficha), por política
+ * de las tiendas y de la empresa. Al terminar se vuelve al login.
  */
 class PasswordResetController extends Controller
 {
-    public const SUCCESS_MESSAGE = 'Contraseña restablecida. Ya puedes ingresar en la app o en el panel.';
+    public const SUCCESS_MESSAGE = 'Contraseña restablecida. Ya puedes ingresar al panel.';
 
     public function __construct(
         private readonly TenantContext $tenantContext
@@ -48,7 +49,10 @@ class PasswordResetController extends Controller
             $this->tenantContext->set($tenant);
         }
 
-        Password::sendResetLink($request->only('email'));
+        // Solo usuarios del panel; al resto se les responde igual, sin enviar nada
+        if (self::usesPanel(User::where('email', $request->input('email'))->first())) {
+            Password::sendResetLink($request->only('email'));
+        }
 
         // Mismo mensaje exista o no el correo: no se revela quién está registrado
         return back()->with('status', 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña. Revisa también la carpeta de spam.');
@@ -88,10 +92,12 @@ class PasswordResetController extends Controller
             'password' => 'contraseña',
         ]);
 
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            fn (User $user, string $password) => $user->completePasswordReset($password)
-        );
+        $status = self::usesPanel(User::where('email', $request->input('email'))->first())
+            ? Password::reset(
+                $request->only('email', 'password', 'password_confirmation', 'token'),
+                fn (User $user, string $password) => $user->completePasswordReset($password)
+            )
+            : Password::INVALID_USER;
 
         if ($status !== Password::PASSWORD_RESET) {
             return back()
@@ -100,5 +106,11 @@ class PasswordResetController extends Controller
         }
 
         return redirect()->route('login')->with('status', self::SUCCESS_MESSAGE);
+    }
+
+    /** Super Admin, administradores, RRHH y supervisores (los que entran al panel) */
+    public static function usesPanel(?User $user): bool
+    {
+        return $user !== null && $user->hasPermission('dashboard.view');
     }
 }
