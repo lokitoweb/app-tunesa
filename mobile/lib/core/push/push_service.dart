@@ -31,7 +31,7 @@ class PushService {
 
   final _routes = StreamController<String>.broadcast();
   final _tokens = StreamController<String>.broadcast();
-  final _received = StreamController<void>.broadcast();
+  final _received = StreamController<Map<String, dynamic>>.broadcast();
   String? _pendingRoute;
 
   /// Ruta a abrir tras tocar un push.
@@ -40,8 +40,9 @@ class PushService {
   /// Token nuevo de FCM (rotación).
   Stream<String> get tokenRefresh => _tokens.stream;
 
-  /// Llegó un push con la app abierta (para refrescar la campana).
-  Stream<void> get received => _received.stream;
+  /// Llegó un push con la app abierta o se tocó uno (datos del aviso), para
+  /// refrescar la campana o la configuración.
+  Stream<Map<String, dynamic>> get received => _received.stream;
 
   bool get isStarted => _started;
 
@@ -129,7 +130,7 @@ class PushService {
   }
 
   Future<void> _onForegroundMessage(RemoteMessage message) async {
-    _received.add(null);
+    _received.add(message.data);
     final notification = message.notification;
     final local = _local;
     if (notification == null || local == null) return;
@@ -164,6 +165,7 @@ class PushService {
   }
 
   void _open(Map<String, dynamic> data) {
+    if (!_received.isClosed) _received.add(data);
     final route = pushRouteFor(data);
     _pendingRoute = route;
     if (_routes.hasListener) _routes.add(route);

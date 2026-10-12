@@ -334,6 +334,24 @@ class DatabaseSeeder extends Seeder
 
         $this->command->info("✅ Legajo demo: datos de pago, tallas y una entrega");
 
+        // Capacitación demo publicada para todo el personal
+        $course = \App\Modules\Training\Models\TrainingCourse::create([
+            'tenant_id' => $tenant->id, 'title' => 'Inducción Tunesa', 'category' => 'induccion',
+            'description' => 'Conoce la empresa, cómo marcar tu asistencia y a quién acudir.',
+            'estimated_minutes' => 15, 'is_mandatory' => true, 'due_days' => 7, 'passing_score' => 70,
+            'status' => 'published', 'published_at' => now(), 'created_by' => $hrManager->id,
+        ]);
+        $course->lessons()->create(['tenant_id' => $tenant->id, 'position' => 0, 'title' => 'Bienvenida', 'type' => 'text',
+            'content' => "Bienvenido al equipo.\n\nMarca tu entrada y salida desde la app con tu selfie dentro de la sede. Si tienes un problema, habla con tu supervisor."]);
+        $course->lessons()->create(['tenant_id' => $tenant->id, 'position' => 1, 'title' => 'Cómo marcar asistencia', 'type' => 'video',
+            'url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'duration_minutes' => 3]);
+        $course->questions()->create(['tenant_id' => $tenant->id, 'position' => 0, 'question' => '¿Desde dónde marcas tu asistencia?',
+            'options' => ['Desde la app, dentro de la sede', 'Por WhatsApp', 'No hace falta marcar'], 'correct_option' => 0]);
+        $course->targets()->create(['tenant_id' => $tenant->id, 'target_type' => 'all']);
+        app(\App\Modules\Training\Services\TrainingEnrollmentService::class)->syncCourse($course->fresh('targets'));
+
+        $this->command->info("✅ Capacitación demo: Inducción Tunesa (todo el personal)");
+
         // =====================================================================
         // RESUMEN FINAL
         // =====================================================================

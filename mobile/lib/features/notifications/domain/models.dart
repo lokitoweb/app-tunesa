@@ -34,6 +34,9 @@ class AppNotification {
       'leave_request' || 'leave_requests' || 'leave' => _isForApprover(type) ? '/approvals' : '/requests',
       'document' || 'documents' => '/profile/documents',
       'approval' || 'approvals' => '/approvals',
+      'shift' || 'app' => '/home',
+      'training' => '/trainings',
+      'security' => '/profile/devices',
       _ => null,
     };
   }

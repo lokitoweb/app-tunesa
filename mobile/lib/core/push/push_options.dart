@@ -63,6 +63,10 @@ FirebaseOptions? firebaseOptionsFor(TargetPlatform platform, FirebaseDefines d) 
   }
 }
 
+/// Push de "Nueva versión de la app" (`app.update_available`).
+bool isAppUpdatePush(Map<String, dynamic> data) =>
+    data['type']?.toString() == 'app.update_available' || data['screen']?.toString() == 'app_update';
+
 /// Pantalla a la que lleva un push según `data.screen` (o, si no viene, el
 /// `type`, igual que la bandeja in-app). Sin destino conocido: la bandeja.
 String pushRouteFor(Map<String, dynamic> data) {
@@ -74,8 +78,10 @@ String pushRouteFor(Map<String, dynamic> data) {
     'documents' || 'document' => '/profile/documents',
     'attendance' || 'history' => '/history',
     'notifications' => '/notifications',
-    'home' => '/home',
+    'home' || 'app_update' => '/home',
     'profile' => '/profile',
+    'trainings' || 'training' => '/trainings',
+    'devices' => '/profile/devices',
     _ => null,
   };
   if (byScreen != null) return byScreen;

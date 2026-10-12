@@ -114,6 +114,9 @@ class CompanyConfiguration extends Model
                 'documents'    => $this->allows('mobile_documents_enabled'),
                 'payment_info' => $this->allows('mobile_payment_info_enabled'),
                 'uniforms'     => $this->allows('mobile_uniforms_enabled'),
+                // Capacitaciones: módulo del ERP (se apaga por empresa en Empresas)
+                'trainings'    => \App\Modules\ModuleRegistry::enabledFor(
+                    $this->tenant_id ? \App\Modules\Core\Models\Tenant::find($this->tenant_id) : null, 'Training'),
             ],
             'permissions' => [
                 'upload_documents'  => $this->allows('mobile_documents_upload'),

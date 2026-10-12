@@ -17,11 +17,11 @@
 <div class="card border-0 mb-4">
     <div class="card-body">
         <form method="GET" action="{{ route('employees.index') }}" class="row g-3 align-items-end">
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-3">
                 <label for="search" class="form-label small">Buscar</label>
                 <input type="search" id="search" name="search" value="{{ request('search') }}" placeholder="Nombre, correo o código" class="form-control">
             </div>
-            <div class="col-6 col-md-3">
+            <div class="col-6 col-md-2">
                 <label for="branch_id" class="form-label small">Sucursal</label>
                 <select id="branch_id" name="branch_id" class="form-select">
                     <option value="">Todas</option>
@@ -30,7 +30,18 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-6 col-md-2">
+            @if($positions->isNotEmpty())
+                <div class="col-6 col-md-2">
+                    <label for="position_id" class="form-label small">Cargo</label>
+                    <select id="position_id" name="position_id" class="form-select">
+                        <option value="">Todos</option>
+                        @foreach($positions as $p)
+                            <option value="{{ $p->id }}" @selected(request('position_id') == $p->id)>{{ $p->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+            <div class="col-6 {{ $positions->isNotEmpty() ? 'col-md-2' : 'col-md-3' }}">
                 <label for="role" class="form-label small">Rol</label>
                 <select id="role" name="role" class="form-select">
                     <option value="">Todos</option>
@@ -39,7 +50,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-6 col-md-2">
+            <div class="col-6 {{ $positions->isNotEmpty() ? 'col-md-2' : 'col-md-3' }}">
                 <label for="status" class="form-label small">Estado</label>
                 <select id="status" name="status" class="form-select">
                     <option value="">Todos</option>

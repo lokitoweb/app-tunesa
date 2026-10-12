@@ -154,6 +154,7 @@ class ProfileController extends Controller
                 'document_number' => $user->document_number,
                 'employee_code'   => $user->employee_code,
                 'position'        => $user->position,
+                'position_id'     => $user->position_id,
                 'department'      => $user->department,
                 'hire_date'       => $user->hire_date?->toDateString(),
                 'contract_type'   => $user->contract_type,

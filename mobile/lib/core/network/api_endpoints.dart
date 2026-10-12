@@ -20,6 +20,10 @@ class ApiEndpoints {
   static const forgotPassword = '/auth/forgot-password';
   static const changePassword = '/auth/change-password';
   static const logoutAll = '/auth/logout-all';
+  static const logoutOthers = '/auth/logout-others';
+  static const sessions = '/auth/sessions';
+  static String session(int id) => '/auth/sessions/$id';
+  static const notificationPreferences = '/auth/notification-preferences';
   static const refreshFcm = '/auth/refresh-fcm';
 
   // Asistencia
@@ -63,6 +67,14 @@ class ApiEndpoints {
   // Boletas
   static const payslips = '/payslips';
   static String payslipDownload(int id) => '/payslips/$id/download';
+
+  // Capacitaciones
+  static const trainings = '/trainings';
+  static String training(int id) => '/trainings/$id';
+  static String trainingLessonComplete(int course, int lesson) => '/trainings/$course/lessons/$lesson/complete';
+  static String trainingLessonFile(int course, int lesson) => '/trainings/$course/lessons/$lesson/file';
+  static String trainingQuiz(int course) => '/trainings/$course/quiz';
+  static String trainingCertificate(int course) => '/trainings/$course/certificate';
 
   // Autoservicio: legajo, datos de pago y dotación
   static const employeeConfig = '/employee/config';

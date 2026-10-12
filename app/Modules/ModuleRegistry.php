@@ -20,6 +20,7 @@ final class ModuleRegistry
         'HR'           => 'Recursos humanos',
         'Integrations' => 'Integraciones',
         'Payroll'      => 'Nómina y boletas',
+        'Training'     => 'Capacitaciones',
     ];
 
     /** @return list<string> Core primero: los demás dependen de él */

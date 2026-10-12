@@ -97,6 +97,12 @@ class Branch extends Model
             ->withTimestamps();
     }
 
+    /** Plantilla de la sede: cargos y plazas previstas de cada uno */
+    public function positions(): BelongsToMany
+    {
+        return $this->belongsToMany(Position::class, 'branch_positions')->withPivot(['planned_headcount', 'tenant_id'])->withTimestamps();
+    }
+
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);

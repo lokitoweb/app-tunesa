@@ -85,7 +85,7 @@ class OrgHierarchyTest extends TestCase
         $trujillo = collect($page->prop('branches'))->firstWhere('name', 'Terminal Trujillo');
         $this->assertSame($this->north->id, $trujillo['zone_id']);
         $this->assertSame('terminal', $trujillo['type']);
-        $this->assertSame([['department_id' => $ops->id, 'position' => 'Chofer', 'total' => 1]], $trujillo['staff']);
+        $this->assertSame([['department_id' => $ops->id, 'position_id' => null, 'position' => 'Chofer', 'total' => 1]], $trujillo['staff']);
 
         // Zonas y áreas: crear, editar, duplicados y eliminar
         $this->post('/organization/zones', ['name' => 'Zona Centro', 'code' => 'ZC', 'is_active' => true])->assertSessionHasNoErrors();

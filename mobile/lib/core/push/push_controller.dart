@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/notifications/presentation/notifications_providers.dart';
 import '../config/app_config_controller.dart';
+import '../config/version_gate.dart';
 import '../network/api_endpoints.dart';
 import '../providers.dart';
 import 'push_options.dart';
@@ -54,7 +55,7 @@ final pushServiceProvider = Provider<PushService?>((ref) {
 /// cerrar sesión.
 class PushController extends Notifier<PushStatus> {
   StreamSubscription<String>? _tokenSub;
-  StreamSubscription<void>? _receivedSub;
+  StreamSubscription<Map<String, dynamic>>? _receivedSub;
   String? _lastSentToken;
 
   @override
@@ -92,8 +93,14 @@ class PushController extends Notifier<PushStatus> {
 
     if (!await service.start() || !ref.mounted) return;
     _tokenSub ??= service.tokenRefresh.listen(_register);
-    _receivedSub ??= service.received.listen((_) {
-      if (ref.mounted) ref.invalidate(unreadCountProvider);
+    _receivedSub ??= service.received.listen((data) {
+      if (!ref.mounted) return;
+      ref.invalidate(unreadCountProvider);
+      // Nueva versión publicada: recarga la configuración y vuelve a mostrar el aviso
+      if (isAppUpdatePush(data)) {
+        ref.read(updateBannerDismissedProvider.notifier).show();
+        unawaited(ref.read(appConfigProvider.notifier).refresh());
+      }
     });
     final token = await service.token();
     if (token != null) await _register(token);

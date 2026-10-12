@@ -10,6 +10,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../training/presentation/training_providers.dart';
 
 /// "Mi perfil": foto, avance de la ficha y acceso a Mis documentos,
 /// Información de pagos, Uniforme y tallas y Datos de contacto. Cada sección
@@ -104,6 +105,7 @@ class ProfileBody extends StatelessWidget {
           done: file.steps['contact'] == true,
           onTap: () => context.push('/profile/contact'),
         ),
+        const _TrainingsTile(),
         const SizedBox(height: 10),
         const _GroupTitle('Cuenta y ajustes'),
         const _AccountSection(),
@@ -185,6 +187,32 @@ class _OnboardingCard extends StatelessWidget {
           ),
         ]),
       ),
+    );
+  }
+}
+
+/// Acceso a "Capacitaciones" (si la empresa usa el módulo).
+class _TrainingsTile extends ConsumerWidget {
+  const _TrainingsTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(trainingsEnabledProvider)) return const SizedBox.shrink();
+    final list = ref.watch(trainingsProvider).value;
+    final pending = list?.where((t) => !t.isCompleted).length ?? 0;
+    return _SectionTile(
+      key: const Key('section-trainings'),
+      icon: Icons.school_outlined,
+      title: 'Capacitaciones',
+      subtitle: list == null
+          ? 'Cursos asignados y tus constancias'
+          : pending > 0
+              ? '$pending por completar'
+              : list.isEmpty
+                  ? 'Sin cursos asignados'
+                  : 'Todas completadas',
+      done: list != null && list.isNotEmpty && pending == 0,
+      onTap: () => context.push('/trainings'),
     );
   }
 }
@@ -302,6 +330,24 @@ class _AccountSection extends ConsumerWidget {
           leading: const Icon(Icons.password_rounded),
           title: const Text('Cambiar contraseña'),
           onTap: () => context.push('/change-password'),
+        ),
+        const Divider(),
+        ListTile(
+          key: const Key('account-devices'),
+          leading: const Icon(Icons.devices_rounded),
+          title: const Text('Mis dispositivos'),
+          subtitle: const Text('Dónde está abierta tu cuenta'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/profile/devices'),
+        ),
+        const Divider(),
+        ListTile(
+          key: const Key('account-notifications'),
+          leading: const Icon(Icons.notifications_active_outlined),
+          title: const Text('Notificaciones'),
+          subtitle: const Text('Elige qué avisos te llegan'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/profile/notifications'),
         ),
         const Divider(),
         ListTile(

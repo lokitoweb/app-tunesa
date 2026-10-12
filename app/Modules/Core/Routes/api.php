@@ -21,6 +21,7 @@ use App\Modules\Core\Controllers\Api\Admin\CompanyConfigurationController;
 use App\Modules\Core\Controllers\Api\AppConfigController;
 use App\Modules\Core\Controllers\Api\AuthController;
 use App\Modules\Core\Controllers\Api\BranchController;
+use App\Modules\Core\Controllers\Api\PositionController;
 use App\Modules\Core\Controllers\Api\NotificationController;
 use App\Modules\Core\Controllers\Api\RoleController;
 use App\Modules\Core\Controllers\Api\TenantController;
@@ -51,6 +52,9 @@ Route::middleware('api.tenant')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('logout',          [AuthController::class, 'logout']);
         Route::post('logout-all',      [AuthController::class, 'logoutAll']);
+        Route::post('logout-others',   [AuthController::class, 'logoutOthers']);
+        Route::get('notification-preferences', [AuthController::class, 'notificationPreferences']);
+        Route::put('notification-preferences', [AuthController::class, 'updateNotificationPreferences']);
         Route::get('sessions',         [AuthController::class, 'sessions']);
         Route::delete('sessions/{id}', [AuthController::class, 'revokeSession'])->whereNumber('id');
         Route::get('me',               [AuthController::class, 'me']);
@@ -70,6 +74,7 @@ Route::middleware('api.tenant')->group(function () {
 
     Route::prefix('admin')->group(function () {
         Route::apiResource('branches', BranchController::class)->middleware('permission:branches.manage');
+        Route::get('positions', [PositionController::class, 'index'])->middleware('permission:users.manage,branches.manage');
         Route::get('dashboard/map', [BranchController::class, 'mapData'])->middleware('permission:attendance.view_all');
         Route::put('branding', [TenantController::class, 'updateBranding'])->middleware('permission:tenants.branding');
         Route::get('roles', [RoleController::class, 'index'])->middleware('permission:roles.view');

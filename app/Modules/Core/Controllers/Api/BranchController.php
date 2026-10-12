@@ -4,6 +4,7 @@ namespace App\Modules\Core\Controllers\Api;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Services\BranchStaffing;
 use App\Modules\Attendance\Services\GeofenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -213,6 +214,10 @@ class BranchController extends Controller
 
         if ($detailed && $branch->relationLoaded('employees')) {
             $data['employees_count'] = $branch->employees->count();
+        }
+        if ($detailed) {
+            // Plantilla: plazas previstas por cargo frente al personal activo
+            $data['staffing'] = app(BranchStaffing::class)->forBranch($branch);
         }
 
         return $data;

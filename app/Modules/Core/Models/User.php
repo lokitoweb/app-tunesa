@@ -64,8 +64,10 @@ class User extends Authenticatable
         'position',
         'department',
         'fcm_token',
+        'notification_preferences',
         'must_change_password',
         'department_id',
+        'position_id',
         'scope_type',
         'scope_zone_id',
         'scope_branch_id',
@@ -116,6 +118,7 @@ class User extends Authenticatable
         'must_change_password' => 'boolean',
         'roaming_attendance_enabled' => 'boolean',
         'failed_login_attempts' => 'integer',
+        'notification_preferences' => 'array',
     ];
 
     /**
@@ -124,6 +127,21 @@ class User extends Authenticatable
      */
     protected static function booted(): void
     {
+        // Cargo del catálogo: users.position guarda la copia del nombre (reportes, app)
+        // y el área se toma del cargo si el colaborador no tiene una.
+        static::saving(function (User $user) {
+            if (! $user->isDirty('position_id')) {
+                return;
+            }
+            $position = $user->position_id ? Position::withoutGlobalScopes()->find($user->position_id) : null;
+            if ($position) {
+                $user->position = $position->name;
+                $user->department_id ??= $position->department_id;
+            } elseif (! $user->isDirty('position')) {
+                $user->position = null;
+            }
+        });
+
         static::updated(function (User $user) {
             if ($user->wasChanged('status') && $user->status !== 'active') {
                 $user->tokens()->delete();
@@ -337,6 +355,11 @@ class User extends Authenticatable
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function jobPosition(): BelongsTo
+    {
+        return $this->belongsTo(Position::class, 'position_id');
     }
 
     public function assignedZone(): BelongsTo

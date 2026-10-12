@@ -15,6 +15,8 @@ import '../../notifications/presentation/notifications_screen.dart';
 import '../../profile/presentation/profile_providers.dart';
 import '../../team/presentation/team_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../training/presentation/training_home_card.dart';
+import '../../training/presentation/training_providers.dart';
 
 /// Inicio del colaborador: turno de hoy, estado de la jornada y botones de marcación.
 /// Para supervisores / RRHH agrega la sección "Mi equipo".
@@ -44,6 +46,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _refreshBadges() {
     ref.invalidate(unreadCountProvider);
     ref.invalidate(pendingApprovalsCountProvider);
+    ref.invalidate(trainingsProvider);
   }
 
   @override
@@ -68,6 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _Greeting(name: auth.user?.firstName ?? ''),
             const SizedBox(height: 16),
             const _OnboardingBanner(),
+            const TrainingHomeCard(),
             if (user != null && user.hasTeamArea) ...[
               _TeamSection(canApprove: user.canApproveRequests, canViewTeam: user.canViewTeam),
               const SizedBox(height: 16),

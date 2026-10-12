@@ -2,6 +2,8 @@
 
 namespace App\Modules\Core\Notifications;
 
+use App\Modules\Core\Models\User;
+use App\Modules\Core\Support\NotificationPreferences;
 use App\Modules\Integrations\Notifications\Channels\FcmChannel;
 use App\Modules\Integrations\Services\Push\FcmSender;
 use Illuminate\Bus\Queueable;
@@ -45,7 +47,10 @@ abstract class AppNotification extends Notification
     {
         $channels = $this->channels($notifiable);
 
-        if ($this->push && app(FcmSender::class)->canSendTo($notifiable)) {
+        // Push solo si la persona no apagó esa categoría (Mi cuenta › Notificaciones)
+        if ($this->push
+            && (! $notifiable instanceof User || NotificationPreferences::allowsPush($notifiable, $this->type()))
+            && app(FcmSender::class)->canSendTo($notifiable)) {
             $channels[] = FcmChannel::class;
         }
 
