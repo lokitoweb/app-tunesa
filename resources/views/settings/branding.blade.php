@@ -140,6 +140,14 @@
                                     <label for="address" class="form-label">Dirección</label>
                                     <input type="text" id="address" name="address" maxlength="500" value="{{ $val('address') }}" placeholder="{{ $tenant?->address }}" class="form-control @error('address') is-invalid @enderror">
                                 </div>
+                                <div class="col-sm-6">
+                                    <label for="login_email_domain" class="form-label">Dominio del correo de acceso</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">DNI@</span>
+                                        <input type="text" id="login_email_domain" name="login_email_domain" maxlength="150" value="{{ $val('login_email_domain') }}" placeholder="{{ \App\Modules\Core\Models\TenantSetting::forTenant(null)->loginEmailDomain() }}" class="form-control @error('login_email_domain') is-invalid @enderror" aria-describedby="login_email_domain_help">
+                                    </div>
+                                    <div id="login_email_domain_help" class="form-text">Al dar de alta a un colaborador su correo de acceso se arma con su documento y este dominio. Vacío: {{ $isGlobal ? 'turismonegreiros.com' : 'el de la plataforma' }}.</div>
+                                </div>
                             </div>
                         </div>
                     </div>

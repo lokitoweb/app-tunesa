@@ -58,7 +58,7 @@ class AccountControlTest extends TestCase
         $this->assertSame(1, $ana->notifications()->get()->filter(fn ($n) => str_contains($n->data['body'], 'Teléfono Android'))->count());
     }
 
-    public function test_voluntary_password_change_warns_but_the_temporary_one_does_not(): void
+    public function test_only_the_forced_password_change_is_allowed_and_it_does_not_warn(): void
     {
         $acme = $this->makeTenant('acme');
         $ana  = $this->makeUser($acme, 'employee', ['email' => 'ana@acme.pe', 'must_change_password' => true]);
@@ -66,13 +66,13 @@ class AccountControlTest extends TestCase
 
         $change = fn (string $from, string $to) => $this->actingIn($ana->fresh(), $acme)->putJson('/api/auth/change-password', [
             'current_password' => $from, 'new_password' => $to, 'new_password_confirmation' => $to,
-        ])->assertOk();
+        ]);
 
-        $change('Secret123', 'Nueva1234');
+        $change('Secret123', 'Nueva1234')->assertOk();
         $this->assertSame([], $this->securityAlerts($ana));
 
-        $change('Nueva1234', 'Otra12345');
-        $this->assertSame(['security.password_changed'], $this->securityAlerts($ana));
+        $change('Nueva1234', 'Otra12345')->assertForbidden()->assertJsonPath('code', 'PASSWORD_CHANGE_BY_ADMIN');
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('Nueva1234', $ana->fresh()->password));
     }
 
     public function test_logout_others_keeps_only_the_current_device(): void
