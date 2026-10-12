@@ -764,7 +764,11 @@ class AttendanceService
     private function getEmployeeBranchForToday(User $employee, string $date): Branch
     {
         $branch = $employee->branches()
-            ->wherePivot('assigned_from', '<=', $date)
+            // Sin fecha de inicio (asignada desde el panel) = vigente desde siempre
+            ->where(function ($q) use ($date) {
+                $q->whereNull('employee_branch.assigned_from')
+                    ->orWhere('employee_branch.assigned_from', '<=', $date);
+            })
             ->where(function ($q) use ($date) {
                 $q->whereNull('employee_branch.assigned_until')
                     ->orWhere('employee_branch.assigned_until', '>=', $date);

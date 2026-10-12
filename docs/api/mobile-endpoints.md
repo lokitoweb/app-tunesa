@@ -50,6 +50,7 @@ el texto.
 | 404 | `TENANT_NOT_FOUND` | Slug inexistente (o suspendido, en la ruta de config). |
 | 403 | `UNAUTHORIZED` | Falla una autorización de Laravel (`AuthorizationException`, p. ej. `Gate::authorize`). |
 | 404 | `NOT_FOUND` | Recurso inexistente (`findOrFail` con un id que no existe o no es tuyo). |
+| 403 | `ONBOARDING_PENDING` | Marcación (también `sync-batch`) de alguien cuya incorporación no aprobó RRHH. `data.status` y `data.next_stage` dicen a dónde llevarlo; ver [Incorporación](#incorporación). |
 | 404 | `NO_OPEN_ATTENDANCE` | Descanso o salida sin jornada abierta. |
 | 409 | `CONFLICT`, `OVERLAPPING_REQUEST`, `NOT_PENDING`, `DOCUMENT_LOCKED` | Estado incompatible. |
 | 409 | `ALREADY_CLOCKED_IN`, `BREAK_ALREADY_STARTED`, `BREAK_NOT_STARTED`, `BREAK_ALREADY_ENDED` | Estado de la jornada incompatible (ver [Marcación](#marcación)). |
@@ -567,6 +568,22 @@ Permiso `profile.manage_own`. Cada sección respeta los interruptores de `/setti
 Formato de un documento (`EmployeeDocument::toApi`): `id`, `type`, `type_label`, `title`,
 `original_name`, `mime_type`, `size_kb`, `sha256`, `status` (`pending`, `approved`, `rejected`,
 `superseded`), `status_label`, `rejection_reason`, `expires_at`, …
+
+## Incorporación
+
+Un ingreso nuevo no puede marcar hasta que completa sus etapas y RRHH aprueba
+(`users.onboarding_status`, también en `GET /api/auth/me` como `onboarding_status`).
+Quien ya marcaba antes de este cambio queda `approved`. Si la empresa apaga el módulo
+Onboarding, no hay candado.
+
+| Ruta | Detalle |
+|---|---|
+| `GET /api/onboarding` | `status` (`pending`, `submitted`, `approved`, `rejected`), `can_punch`, `can_submit`, `next_stage`, `rejection_reason`, `submitted_at`, `approved_at` y `stages[]`: `key` (`personal_data`, `uniforms`, `documents`, `induction`), `title`, `description`, `required`, `status` (`completed`, `pending`, `not_applicable`), `missing[]` (textos listos para mostrar). |
+| `POST /api/onboarding/submit` | Envía a RRHH cuando las etapas obligatorias están completas (`throttle:10,1`). `422` con `errors.onboarding` si falta una etapa o ya fue enviada. |
+
+Cada etapa se completa con las rutas de [Legajo, datos de pago y dotación](#legajo-datos-de-pago-y-dotación)
+y de capacitaciones; los documentos exigidos son `required_documents` de `GET /api/employee/config`.
+Avisos: `onboarding.approved` y `onboarding.rejected` al colaborador (`data.screen = onboarding`).
 
 ## Notificaciones in-app
 

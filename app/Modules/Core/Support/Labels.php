@@ -125,6 +125,12 @@ final class Labels
         'payslip.archived'                   => ['Boleta anulada', 'warning', 'file-earmark-lock'],
         'payroll.exported'                   => ['Planilla exportada', 'info', 'file-earmark-spreadsheet'],
 
+        // Incorporación
+        'onboarding.submitted'               => ['Incorporación enviada a revisión', 'info', 'send'],
+        'onboarding.approved'                => ['Incorporación aprobada', 'success', 'person-check'],
+        'onboarding.rejected'                => ['Incorporación observada', 'danger', 'person-exclamation'],
+        'onboarding.stages_updated'          => ['Etapas de incorporación actualizadas', 'primary', 'list-check'],
+
         // Dotación
         'uniform.delivered'                  => ['Uniforme entregado', 'info', 'bag-check'],
     ];
@@ -144,6 +150,7 @@ final class Labels
         'attendance'            => 'la marcación',
         'leave_request'         => 'la solicitud',
         'payslip'               => 'la boleta',
+        'onboarding'            => 'la incorporación',
     ];
 
     /** Nombre de los registros (subject_type de la bitácora) */
@@ -300,6 +307,7 @@ final class Labels
         'fcm_token'               => 'Dispositivo para notificaciones',
         'notification_preferences' => 'Preferencias de notificaciones',
         'failed_login_attempts'   => 'Intentos fallidos de ingreso',
+        'onboarding_status'       => 'Estado de incorporación',
         'locked_until'            => 'Bloqueado hasta',
         'last_login_at'           => 'Último ingreso',
         'last_login_ip'           => 'Dirección del último ingreso',
@@ -708,7 +716,19 @@ final class Labels
             'break_end'   => ['Fin de descanso', 'secondary'],
             'clock_out'   => ['Salida', 'primary'],
         ],
+        'onboarding_status' => [
+            'pending'   => ['En proceso', 'secondary'],
+            'submitted' => ['Por revisar', 'warning'],
+            'approved'  => ['Aprobada', 'success'],
+            'rejected'  => ['Observada', 'danger'],
+        ],
+        'onboarding_stage_status' => [
+            'completed'      => ['Completa', 'success'],
+            'pending'        => ['Pendiente', 'warning'],
+            'not_applicable' => ['No aplica', 'secondary'],
+        ],
         'punch_attempt_code' => [
+            'ONBOARDING_PENDING'      => ['Incorporación sin aprobar', 'secondary'],
             'GEOFENCE_VIOLATION'      => ['Fuera de la geocerca', 'danger'],
             'MOCK_LOCATION_DETECTED'  => ['Ubicación simulada', 'danger'],
             'GPS_ACCURACY_TOO_LOW'    => ['GPS impreciso', 'warning'],
