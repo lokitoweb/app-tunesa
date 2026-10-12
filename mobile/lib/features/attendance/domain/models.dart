@@ -41,6 +41,9 @@ class Attendance {
     this.shiftName,
     this.justificationStatus,
     this.justificationNotes,
+    this.overtimeHours = 0,
+    this.overtimeStatus,
+    this.overtimeApprovedHours,
   });
 
   final int id;
@@ -58,6 +61,23 @@ class Attendance {
   final String? shiftName;
   final String? justificationStatus;
   final String? justificationNotes;
+
+  /// Horas extra calculadas y su aprobación por jefatura
+  /// (null: no aplica; pending | approved | rejected).
+  final double overtimeHours;
+  final String? overtimeStatus;
+  final double? overtimeApprovedHours;
+
+  /// Texto corto para el historial, o null si no hubo horas extra que aprobar.
+  String? get overtimeLabel {
+    String h(double v) => '${v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '')} h';
+    return switch (overtimeStatus) {
+      'pending' => '${h(overtimeHours)} extra por aprobar',
+      'approved' => '${h(overtimeApprovedHours ?? overtimeHours)} extra aprobadas',
+      'rejected' => 'Horas extra no aprobadas',
+      _ => null,
+    };
+  }
 
   /// Tardanzas, faltas y jornadas incompletas se pueden justificar mientras
   /// la justificación no esté aprobada.
@@ -87,6 +107,9 @@ class Attendance {
       shiftName: (json['shift'] as Map?)?['name'] as String?,
       justificationStatus: justification?['status'] as String?,
       justificationNotes: justification?['notes'] as String?,
+      overtimeHours: (summary?['overtime_hours'] as num?)?.toDouble() ?? 0,
+      overtimeStatus: summary?['overtime_status'] as String?,
+      overtimeApprovedHours: (summary?['overtime_approved_hours'] as num?)?.toDouble(),
     );
   }
 }

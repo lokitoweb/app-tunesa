@@ -4,6 +4,7 @@ namespace App\Modules\HR\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Services\OvertimeApproval;
 use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\Core\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,11 +19,13 @@ use Illuminate\View\View;
  *
  * Bandeja de aprobaciones con flujo por estados (pendiente → aprobado /
  * rechazado) para vacaciones, permisos, licencias médicas y justificaciones
- * de asistencia. El supervisor solo ve a su equipo; RRHH y el administrador
- * ven toda la empresa.
+ * de asistencia, y horas extra. El supervisor solo ve a su equipo; RRHH y el
+ * administrador ven toda la empresa.
  */
 class ApprovalWebController extends Controller
 {
+    public function __construct(private readonly OvertimeApproval $overtime) {}
+
     public function index(Request $request): View
     {
         $user   = Auth::user();
@@ -33,15 +36,27 @@ class ApprovalWebController extends Controller
         if ($tab === 'justifications' && ! $user->can('attendance.review')) {
             $tab = 'leave';
         }
+        if ($tab === 'overtime' && $status === 'cancelled') {
+            $status = 'pending';
+        }
 
         $counts = [
             'leave'          => $this->leaveQuery($user)->where('status', 'pending')->count(),
             'justifications' => $user->can('attendance.review')
                 ? Attendance::where('justification_status', 'pending')->count()
                 : 0,
+            'overtime'       => $this->overtime->pendingCount($user),
         ];
 
-        if ($tab === 'justifications') {
+        if ($tab === 'overtime') {
+            $items = $this->overtime->query($user)
+                ->where('overtime_status', $status)
+                ->with(['user:id,first_name,last_name,employee_code', 'branch:id,name', 'shift:id,name,daily_hours', 'overtimeReviewer:id,first_name,last_name'])
+                ->orderBy($status === 'pending' ? 'work_date' : 'overtime_reviewed_at', $status === 'pending' ? 'asc' : 'desc')
+                ->orderBy('id')
+                ->paginate(30)
+                ->withQueryString();
+        } elseif ($tab === 'justifications') {
             $items = Attendance::where('justification_status', $status === 'cancelled' ? 'none' : $status)
                 ->with(['user:id,first_name,last_name,employee_code', 'branch:id,name', 'reviewer:id,first_name,last_name'])
                 ->orderByDesc('work_date')
@@ -89,6 +104,46 @@ class ApprovalWebController extends Controller
         ]);
 
         return back()->with('success', 'Solicitud ' . ($validated['decision'] === 'approved' ? 'aprobada' : 'rechazada') . '.');
+    }
+
+    /** Aprobar (todas o menos horas) o rechazar las horas extra de una jornada */
+    public function reviewOvertime(Request $request, int $id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'decision' => ['required', 'in:approved,rejected'],
+            'hours'    => ['nullable', 'numeric', 'min:0', 'max:24'],
+            'notes'    => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $attendance = $this->overtime->query(Auth::user())->findOrFail($id);
+        $this->overtime->review($attendance, Auth::user(), $validated['decision'],
+            isset($validated['hours']) ? (float) $validated['hours'] : null, $validated['notes'] ?? null);
+
+        return back()->with('success', 'Horas extra ' . ($validated['decision'] === 'approved' ? 'aprobadas' : 'rechazadas') . '.');
+    }
+
+    /** Aprobar varias jornadas a la vez, con todas sus horas calculadas */
+    public function approveOvertimeBulk(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids'   => ['required', 'array', 'max:100'],
+            'ids.*' => ['integer'],
+        ], ['ids.required' => 'Marca al menos una jornada.']);
+
+        $user = Auth::user();
+        $approved = 0;
+
+        $this->overtime->query($user)
+            ->whereIn('id', $validated['ids'])
+            ->where('overtime_status', Attendance::OVERTIME_PENDING)
+            ->where('user_id', '!=', $user->id)
+            ->get()
+            ->each(function (Attendance $attendance) use ($user, &$approved) {
+                $this->overtime->review($attendance, $user, Attendance::OVERTIME_APPROVED);
+                $approved++;
+            });
+
+        return back()->with('success', $approved === 1 ? 'Se aprobó 1 jornada con horas extra.' : "Se aprobaron {$approved} jornadas con horas extra.");
     }
 
     /** Sustento adjunto de una solicitud (certificado médico, etc.) */

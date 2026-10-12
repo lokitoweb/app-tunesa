@@ -19,7 +19,7 @@ class CalendarExporter
 {
     private const LEAD = ['Código', 'Colaborador', 'Cargo'];
 
-    private const TOTALS = ['Faltas', 'Tardanzas', 'Min. tarde', 'Justificadas', 'Observadas', 'Horas'];
+    private const TOTALS = ['Faltas', 'Tardanzas', 'Min. tarde', 'Justificadas', 'Observadas', 'Horas', 'HE aprobadas', 'HE por aprobar'];
 
     /** Estados con texto claro sobre su color */
     private const LIGHT_TEXT = ['present', 'absent', 'excused'];
@@ -60,7 +60,7 @@ class CalendarExporter
             }
 
             $t = $r['totals'];
-            foreach ([$t['absent'], $t['late'], $t['late_minutes'], $t['excused'], $t['suspicious'], $t['worked_hours']] as $value) {
+            foreach ([$t['absent'], $t['late'], $t['late_minutes'], $t['excused'], $t['suspicious'], $t['worked_hours'], $t['overtime_approved'], $t['overtime_pending']] as $value) {
                 $sheet->setCellValue([$col++, $row], $value);
             }
             $row++;
@@ -103,6 +103,12 @@ class CalendarExporter
             $cell['late_minutes'] ? "{$cell['late_minutes']} min tarde" : null,
             $cell['note'],
             $cell['suspicious'] ? 'Observada' : null,
+            match ($cell['overtime_status'] ?? null) {
+                'pending'  => "Horas extra por aprobar: {$cell['overtime_hours']} h",
+                'approved' => "Horas extra aprobadas: {$cell['overtime_hours']} h",
+                'rejected' => 'Horas extra rechazadas',
+                default    => null,
+            },
         ]);
         $sheet->getComment([$col, $row])->getText()->createText(implode("\n", $note));
     }

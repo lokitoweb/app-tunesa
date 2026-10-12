@@ -60,6 +60,17 @@ void main() {
       final present = Map<String, dynamic>.from(json)..['status'] = 'present';
       expect(Attendance.fromJson(present).canJustify, isFalse);
     });
+
+    test('horas extra: por aprobar, aprobadas (parciales) o rechazadas', () {
+      Attendance withOvertime(String? status, [double? approved]) => Attendance.fromJson(Map<String, dynamic>.from(json)
+        ..['summary'] = {'late_minutes': 0, 'worked_hours': 10.5, 'overtime_hours': 2.5, 'overtime_status': status, 'overtime_approved_hours': approved});
+
+      expect(Attendance.fromJson(json).overtimeLabel, isNull);
+      expect(withOvertime(null).overtimeLabel, isNull);
+      expect(withOvertime('pending').overtimeLabel, '2.5 h extra por aprobar');
+      expect(withOvertime('approved', 2).overtimeLabel, '2 h extra aprobadas');
+      expect(withOvertime('rejected').overtimeLabel, 'Horas extra no aprobadas');
+    });
   });
 
   group('LeaveRequest', () {

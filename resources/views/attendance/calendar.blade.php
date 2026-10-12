@@ -16,6 +16,9 @@
     .cal-cell.is-scheduled { border: 1px dashed var(--bs-secondary-color); color: var(--bs-secondary-color); background: transparent; }
     .cal-cell.is-incomplete { outline: 2px solid var(--bs-warning-border-subtle); outline-offset: -2px; }
     .cal-cell .cal-flag { position: absolute; top: -3px; right: -3px; width: .55rem; height: .55rem; border-radius: 50%; background: #6f42c1; border: 1px solid var(--bs-body-bg); }
+    .cal-cell .cal-ot { position: absolute; bottom: -3px; left: -3px; width: .55rem; height: .55rem; border-radius: 50%; border: 1px solid var(--bs-body-bg); }
+    .cal-ot.is-pending { background: #fd7e14; }
+    .cal-ot.is-approved { background: #20c997; }
     button.cal-cell { border: 0; }
     .cal-total { font-variant-numeric: tabular-nums; }
 </style>
@@ -24,6 +27,7 @@
 @section('content')
 @php
     $monthLabel = \Carbon\Carbon::createFromFormat('!Y-m', $filters->month)->locale('es')->isoFormat('MMMM [de] YYYY');
+    $fmtHours = fn ($h, $unit = true) => rtrim(rtrim(number_format((float) $h, 2, '.', ''), '0'), '.') . ($unit ? ' h' : '');
 @endphp
 <div class="page-header">
     <div>
@@ -114,6 +118,12 @@
     <span class="d-inline-flex align-items-center gap-1">
         <span class="cal-cell text-bg-success"><span class="cal-flag"></span>P</span>Observada (motivos de sospecha)
     </span>
+    <span class="d-inline-flex align-items-center gap-1">
+        <span class="cal-cell text-bg-success"><span class="cal-ot is-pending"></span>P</span>Horas extra por aprobar
+    </span>
+    <span class="d-inline-flex align-items-center gap-1">
+        <span class="cal-cell text-bg-success"><span class="cal-ot is-approved"></span>P</span>Horas extra aprobadas
+    </span>
 </div>
 
 <div class="card border-0">
@@ -137,6 +147,7 @@
                     <th title="Tardanzas">T</th>
                     <th title="Minutos de tardanza">Min</th>
                     <th title="Horas trabajadas">Horas</th>
+                    <th title="Horas extra aprobadas (y por aprobar)">HE</th>
                 </tr>
             </thead>
             <tbody>
@@ -158,13 +169,20 @@
                                             $c['late_minutes'] ? $c['late_minutes'] . ' min tarde' : null,
                                             $c['note'],
                                             $c['suspicious'] ? 'Observada' : null,
+                                            match ($c['overtime_status']) {
+                                                'pending'  => 'HE ' . $fmtHours($c['overtime_hours']) . ' por aprobar',
+                                                'approved' => 'HE ' . $fmtHours($c['overtime_hours']) . ' aprobadas',
+                                                'rejected' => 'HE rechazadas',
+                                                default    => null,
+                                            },
                                         ]));
+                                        $ot = in_array($c['overtime_status'], ['pending', 'approved'], true) ? '<span class="cal-ot is-' . $c['overtime_status'] . '"></span>' : '';
                                         $classes = 'cal-cell ' . ($c['state'] === 'scheduled' ? 'is-scheduled' : 'text-bg-' . $c['tone']) . ($c['state'] === 'incomplete' ? ' is-incomplete' : '');
                                     @endphp
                                     @if($canOpen && $c['attendance_id'])
-                                        <button type="button" class="{{ $classes }}" title="{{ $tip }}" aria-label="{{ $date }}: {{ $tip }}" onclick="openEvidence({{ $c['attendance_id'] }})">{{ $c['letter'] }}@if($c['suspicious'])<span class="cal-flag"></span>@endif</button>
+                                        <button type="button" class="{{ $classes }}" title="{{ $tip }}" aria-label="{{ $date }}: {{ $tip }}" onclick="openEvidence({{ $c['attendance_id'] }})">{{ $c['letter'] }}@if($c['suspicious'])<span class="cal-flag"></span>@endif{!! $ot !!}</button>
                                     @else
-                                        <span class="{{ $classes }}" title="{{ $tip }}" aria-label="{{ $date }}: {{ $tip }}">{{ $c['letter'] }}@if($c['suspicious'])<span class="cal-flag"></span>@endif</span>
+                                        <span class="{{ $classes }}" title="{{ $tip }}" aria-label="{{ $date }}: {{ $tip }}">{{ $c['letter'] }}@if($c['suspicious'])<span class="cal-flag"></span>@endif{!! $ot !!}</span>
                                     @endif
                                 @endif
                             </td>
@@ -173,9 +191,10 @@
                         <td class="cal-total">{{ $r['totals']['late'] }}</td>
                         <td class="cal-total">{{ $r['totals']['late_minutes'] }}</td>
                         <td class="cal-total">{{ rtrim(rtrim(number_format($r['totals']['worked_hours'], 2, '.', ''), '0'), '.') }}</td>
+                        <td class="cal-total">{{ $r['totals']['overtime_approved'] ? $fmtHours($r['totals']['overtime_approved'], false) : '' }}@if($r['totals']['overtime_pending'])<span class="d-block small text-warning-emphasis" title="Por aprobar">+{{ $fmtHours($r['totals']['overtime_pending'], false) }}</span>@endif</td>
                     </tr>
                 @empty
-                    <tr><td colspan="{{ count($days) + 5 }}"><div class="empty-state"><i class="bi bi-calendar3"></i>No hay colaboradores con estos filtros.</div></td></tr>
+                    <tr><td colspan="{{ count($days) + 6 }}"><div class="empty-state"><i class="bi bi-calendar3"></i>No hay colaboradores con estos filtros.</div></td></tr>
                 @endforelse
             </tbody>
         </table>

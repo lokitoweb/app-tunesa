@@ -14,7 +14,7 @@ final class NotificationPreferences
     /** clave => [título, descripción, prefijos de tipo] */
     public const CATEGORIES = [
         'payslips'             => ['Boletas de pago', 'Cuando publican una boleta nueva.', ['payslip.']],
-        'requests'             => ['Solicitudes y justificaciones', 'Cuando aprueban o rechazan tus solicitudes, o llega una de tu equipo.', ['leave_request.', 'justification.']],
+        'requests'             => ['Solicitudes y justificaciones', 'Cuando aprueban o rechazan tus solicitudes, justificaciones u horas extra, o llega una de tu equipo.', ['leave_request.', 'justification.', 'overtime.']],
         'attendance_reminders' => ['Recordatorio de entrada', 'Si empezó tu turno y aún no marcaste.', ['attendance.entry_reminder']],
         'attendance_alerts'    => ['Alertas de marcación', 'Marcaciones fuera de horario o de la sede.', ['attendance.outside_']],
         'shifts'               => ['Turnos y horarios', 'Cuando te asignan o cambian el turno.', ['shift.']],

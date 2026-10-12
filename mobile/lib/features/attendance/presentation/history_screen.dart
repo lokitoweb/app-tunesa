@@ -140,6 +140,7 @@ class _AttendanceTile extends StatelessWidget {
         subtitle: Text([
           '${Fmt.time(a.clockIn)} – ${Fmt.time(a.clockOut)}',
           if (a.lateMinutes > 0) '${a.lateMinutes} min tarde',
+          ?a.overtimeLabel,
           ?justification,
         ].join(' · ')),
         trailing: Column(

@@ -70,7 +70,8 @@ class NotificationWebController extends Controller
             'payslip.published'                                => 'file-earmark-text',
             'report.monthly_ready'                             => 'file-earmark-spreadsheet',
             'document.approved', 'document.rejected'           => 'folder-check',
-            'justification.approved', 'justification.rejected' => 'clock-history',
+            'justification.approved', 'justification.rejected',
+            'overtime.approved', 'overtime.rejected' => 'clock-history',
             default                                            => 'bell',
         };
     }

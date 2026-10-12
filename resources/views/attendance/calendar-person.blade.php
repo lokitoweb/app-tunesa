@@ -20,6 +20,7 @@
 @php
     $monthLabel = \Carbon\Carbon::createFromFormat('!Y-m', $filters->month)->locale('es')->isoFormat('MMMM [de] YYYY');
     $t = $row['totals'];
+    $fmtHours = fn ($h) => rtrim(rtrim(number_format((float) $h, 2, '.', ''), '0'), '.') . ' h';
 @endphp
 <div class="page-header">
     <div>
@@ -45,6 +46,9 @@
         <span><strong>{{ $t['late'] }}</strong> tardanzas ({{ $t['late_minutes'] }} min)</span>
         <span><strong>{{ $t['excused'] }}</strong> justificados</span>
         <span><strong>{{ rtrim(rtrim(number_format($t['worked_hours'], 2, '.', ''), '0'), '.') ?: 0 }}</strong> horas</span>
+        @if($t['overtime_approved'] || $t['overtime_pending'])
+            <span><strong>{{ $fmtHours($t['overtime_approved']) }}</strong> extra aprobadas @if($t['overtime_pending'])<span class="text-warning-emphasis">(+{{ $fmtHours($t['overtime_pending']) }} por aprobar)</span>@endif</span>
+        @endif
         @if($t['suspicious'])
             <span class="text-warning-emphasis"><strong>{{ $t['suspicious'] }}</strong> observadas</span>
         @endif
@@ -88,6 +92,11 @@
                                 @endif
                                 @if($c['late_minutes'])
                                     <div class="text-warning-emphasis">{{ $c['late_minutes'] }} min tarde</div>
+                                @endif
+                                @if($c['overtime_status'] === 'pending')
+                                    <div class="text-warning-emphasis">HE {{ $fmtHours($c['overtime_hours']) }} por aprobar</div>
+                                @elseif($c['overtime_status'] === 'approved')
+                                    <div class="text-success-emphasis">HE {{ $fmtHours($c['overtime_hours']) }} aprobadas</div>
                                 @endif
                                 @if($c['note'] && $c['state'] !== 'scheduled')
                                     <div class="text-body-secondary text-truncate" title="{{ $c['note'] }}">{{ $c['note'] }}</div>

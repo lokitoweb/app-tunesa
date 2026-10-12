@@ -63,10 +63,12 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::delete('/{id}', [HolidayWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     });
 
-    // Aprobaciones: vacaciones, permisos, licencias y justificaciones
+    // Aprobaciones: vacaciones, permisos, licencias, justificaciones y horas extra
     Route::prefix('approvals')->name('approvals.')->middleware('can:leave.approve_team')->group(function () {
         Route::get('/', [ApprovalWebController::class, 'index'])->name('index');
         Route::post('/leave/{id}', [ApprovalWebController::class, 'reviewLeave'])->name('leave.review')->whereNumber('id');
         Route::get('/leave/{id}/attachment', [ApprovalWebController::class, 'leaveAttachment'])->name('leave.attachment')->whereNumber('id');
+        Route::post('/overtime/bulk', [ApprovalWebController::class, 'approveOvertimeBulk'])->name('overtime.bulk');
+        Route::post('/overtime/{id}', [ApprovalWebController::class, 'reviewOvertime'])->name('overtime.review')->whereNumber('id');
     });
 });

@@ -455,6 +455,8 @@ class AttendanceService
             'clock_out_face_detected'      => $data->faceDetected,
             'worked_hours'   => $workedHours,
             'overtime_hours' => $overtimeHours,
+            'overtime_status'         => Attendance::overtimeStatusFor($overtimeHours),
+            'overtime_approved_hours' => null,
             'status'         => $this->determineFinalStatus($attendance, $workedHours, $dailyHours),
         ]);
 

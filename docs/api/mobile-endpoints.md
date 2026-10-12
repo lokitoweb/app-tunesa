@@ -350,7 +350,8 @@ Entrada nueva `201`; descansos, salida y duplicados `200`:
       "photo_url": "https://<host>/secure-files/selfie-in/120?expires=...&signature=..."
     },
     "break": { "start_time": null, "end_time": null, "duration_min": null },
-    "summary": { "late_minutes": 2, "break_minutes": null, "worked_hours": 0, "overtime_hours": 0 },
+    "summary": { "late_minutes": 2, "break_minutes": null, "worked_hours": 0, "overtime_hours": 0,
+                 "overtime_status": null, "overtime_approved_hours": null },
     "justification": { "status": null, "notes": null, "has_file": false },
     "branch": { "id": 1, "name": "Sede Principal - San Isidro", "code": "SED-01" },
     "shift": { "id": 1, "name": "Turno Mañana", "start_time": "08:00:00", "end_time": "17:00:00" }
@@ -677,6 +678,7 @@ Tipos de aviso de asistencia (además de `leave_request.*`, `justification.*`, `
 | `type` | Cuándo | `data` |
 |---|---|---|
 | `attendance.outside_schedule` | Entrada o salida aceptada fuera de la ventana del turno (motivo `OUTSIDE_SCHEDULE`) | `attendance_id`, `punch_id`, `punch_type`, `user_id`, `work_date`, `screen` (`attendance`; `team_attendance` para el supervisor) |
+| `overtime.approved` / `overtime.rejected` | La jefatura aprobó (todas o parte) o rechazó las horas extra de un día | `attendance_id`, `work_date`, `overtime_status`, `overtime_approved_hours`, `screen` (`attendance`) |
 | `attendance.mock_repeated` | Tercer intento del día con ubicación simulada (solo a supervisor, administradores y RRHH; in-app, sin push) | `user_id`, `attempts`, `screen` (`attendance_attempts`) |
 | `attendance.outside_geofence` | Entrada o salida lejos de la sucursal: rechazada (`rejected: true`, `GEOFENCE_VIOLATION`) o aceptada con `flag` | `punch_type`, `branch_id`, `distance_meters`, `allowed_radius`, `rejected`, `screen` y, si se aceptó, `attendance_id`, `punch_id` |
 

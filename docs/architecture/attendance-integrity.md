@@ -299,3 +299,23 @@ la entrada, la salida y los minutos tarde.
   con el estado, horas y notas de cada día, y los totales. Se entra desde el nombre en la matriz o
   la vista del día y desde «Calendario» en la ficha del colaborador. Un supervisor solo abre los de
   su equipo (404 si no).
+
+## Horas extra con aprobación
+
+Al marcar la salida, `overtime_hours` sigue siendo lo trabajado sobre `shifts.daily_hours` (8 h sin
+turno). Desde 15 min (`Attendance::OVERTIME_MIN_HOURS`) la jornada queda con
+`overtime_status = pending`; por debajo no se pide aprobación ni se paga.
+
+- **Quién aprueba:** Aprobaciones > Horas extra (`OvertimeApproval`). El supervisor ve a su equipo
+  (`User::visibleTo`) y RRHH (`leave.approve_all`) a toda la empresa. Se aprueban todas las horas o
+  menos (`overtime_approved_hours`), o se rechazan con un motivo. Nadie revisa las suyas. Hay
+  aprobación en lote para las marcadas. Cada decisión se audita (`attendance.overtime_approved` /
+  `attendance.overtime_rejected`) y avisa al colaborador (`overtime.approved` / `overtime.rejected`).
+- **Planilla:** `PayrollExportService` suma solo las aprobadas (`Attendance::payableOvertimeSql()`)
+  y agrega la columna «Horas extra por aprobar». La migración deja aprobadas, tal cual, las jornadas
+  anteriores con horas extra para no cambiar planillas ya cerradas.
+- **Calendario:** punto naranja (por aprobar) o verde (aprobadas) en la celda, columna HE con los
+  totales del mes, y lo mismo en el calendario de una persona y en el Excel.
+- **App:** `summary.overtime_status` y `summary.overtime_approved_hours` en cada jornada; el historial
+  muestra «2.5 h extra por aprobar» o «2 h extra aprobadas».
+
