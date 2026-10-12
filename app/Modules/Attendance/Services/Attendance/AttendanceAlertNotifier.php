@@ -7,6 +7,7 @@ use App\Modules\Attendance\Models\AttendancePunch;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Scopes\TenantScope;
 use App\Modules\Core\Models\User;
+use App\Modules\Attendance\Notifications\AttendanceMockRepeated;
 use App\Modules\Attendance\Notifications\AttendanceOutsideGeofence;
 use App\Modules\Attendance\Notifications\AttendanceOutsideSchedule;
 use Illuminate\Support\Facades\Cache;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Log;
  * Avisos de marcaciones anómalas:
  *  - attendance.outside_schedule (aceptada, fuera de la ventana del turno)
  *  - attendance.outside_geofence (rechazada o aceptada con "flag")
+ *  - attendance.mock_repeated (MOCK_ATTEMPTS_ALERT intentos con GPS falso en el día)
  *
  * Al colaborador: in-app + push. Al supervisor de la sucursal: solo in-app.
  * Los intentos rechazados se avisan como máximo una vez cada 10 minutos por
@@ -25,6 +27,9 @@ use Illuminate\Support\Facades\Log;
 class AttendanceAlertNotifier
 {
     public const REJECTED_THROTTLE_SECONDS = 600;
+
+    /** Intentos con GPS falso en un día que disparan el aviso a supervisor y RRHH */
+    public const MOCK_ATTEMPTS_ALERT = 3;
 
     public function outsideSchedule(Attendance $attendance, AttendancePunch $punch): void
     {
@@ -66,6 +71,36 @@ class AttendanceAlertNotifier
 
             $this->supervisorOf($branch?->id, $employee)
                 ?->notify((new AttendanceOutsideGeofence($info, $punchType, $rejected, $employee, forSupervisor: true))->withoutPush());
+        });
+    }
+
+    /**
+     * Aviso único del día al llegar a MOCK_ATTEMPTS_ALERT intentos con GPS
+     * falso: al supervisor de la sede y a administradores y RRHH (in-app).
+     */
+    public function mockRepeated(User $employee, int $attempts, ?int $branchId): void
+    {
+        $this->safely(function () use ($employee, $attempts, $branchId) {
+            $day = now(tenant_timezone())->toDateString();
+            if (! Cache::add("attendance-alert:mock:{$employee->id}:{$day}", true, now()->addDay())) {
+                return;
+            }
+
+            $branchName = $branchId ? Branch::withoutGlobalScope(TenantScope::class)->whereKey($branchId)->value('name') : null;
+
+            $recipients = User::withoutGlobalScope(TenantScope::class)
+                ->where('tenant_id', $employee->tenant_id)
+                ->where('status', 'active')
+                ->whereIn('role', ['company_admin', 'hr_manager'])
+                ->get();
+
+            if ($supervisor = $this->supervisorOf($branchId, $employee)) {
+                $recipients->push($supervisor);
+            }
+
+            $recipients->unique('id')
+                ->reject(fn (User $u) => (int) $u->id === (int) $employee->id)
+                ->each(fn (User $u) => $u->notify((new AttendanceMockRepeated($employee, $attempts, $branchName))->withoutPush()));
         });
     }
 

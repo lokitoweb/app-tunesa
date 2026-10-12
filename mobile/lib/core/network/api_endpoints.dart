@@ -45,6 +45,7 @@ class ApiEndpoints {
   static const breakStart = '/attendance/break-start';
   static const breakEnd = '/attendance/break-end';
   static const clockOut = '/attendance/clock-out';
+  static const attendanceAttempts = '/attendance/attempts';
 
   /// Envío en lote de la cola sin conexión (máx. 50; la app manda 20).
   static const syncBatch = '/v1/attendances/sync-batch';
