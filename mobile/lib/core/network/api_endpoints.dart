@@ -23,6 +23,7 @@ class ApiEndpoints {
   static String session(int id) => '/auth/sessions/$id';
   static const notificationPreferences = '/auth/notification-preferences';
   static const refreshFcm = '/auth/refresh-fcm';
+  static const testPush = '/auth/test-push';
 
   // Incorporación: etapas y envío a RRHH (candado de la marcación)
   static const onboarding = '/onboarding';

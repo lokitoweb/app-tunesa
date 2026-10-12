@@ -64,6 +64,7 @@ class User extends Authenticatable
         'position',
         'department',
         'fcm_token',
+        'fcm_token_updated_at',
         'notification_preferences',
         'must_change_password',
         'temp_password_expires_at',
@@ -116,6 +117,7 @@ class User extends Authenticatable
         'password'          => 'hashed',
         'locked_until'         => 'datetime',
         'last_login_at'        => 'datetime',
+        'fcm_token_updated_at' => 'datetime',
         'must_change_password' => 'boolean',
         'temp_password_expires_at' => 'datetime',
         'roaming_attendance_enabled' => 'boolean',
@@ -347,6 +349,21 @@ class User extends Authenticatable
     /**
      * Nombre completo del usuario.
      */
+    /**
+     * Guarda el token de push de este celular. Un teléfono tiene un solo token:
+     * si antes lo usaba otra cuenta (otro colaborador inició sesión en el mismo
+     * equipo), se le quita para que sus avisos no lleguen a quien no son.
+     */
+    public function registerFcmToken(string $token): void
+    {
+        static::withoutGlobalScopes()
+            ->where('fcm_token', $token)
+            ->whereKeyNot($this->getKey())
+            ->update(['fcm_token' => null, 'fcm_token_updated_at' => null]);
+
+        $this->forceFill(['fcm_token' => $token, 'fcm_token_updated_at' => now()])->save();
+    }
+
     public function getFullNameAttribute(): string
     {
         return "{$this->first_name} {$this->last_name}";

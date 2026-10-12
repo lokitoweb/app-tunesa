@@ -411,8 +411,10 @@ class IntegrationDeliveriesTest extends TestCase
             ->withArgs(fn (User $to) => $to->is($admin))
             ->andReturn(['ok' => true, 'status' => 200, 'ms' => 321, 'response' => '{"name":"projects/x/messages/1"}']);
 
-        $this->actingAs($admin)->postJson('/settings/branding/test-push')
-            ->assertOk()->assertJson(['ok' => true, 'status' => 200, 'ms' => 321, 'body' => '{"name":"projects/x/messages/1"}']);
+        $body = $this->actingAs($admin)->postJson('/settings/branding/test-push')
+            ->assertOk()->assertJson(['ok' => true, 'status' => 200, 'ms' => 321])->json('body');
+        $this->assertStringContainsString("Google aceptó el aviso para {$admin->email}.", $body);
+        $this->assertStringContainsString('Id de Firebase: projects/x/messages/1', $body);
     }
 
     // =========================================================================

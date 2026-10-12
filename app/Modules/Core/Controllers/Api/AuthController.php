@@ -13,6 +13,7 @@ use App\Modules\Core\Notifications\SecurityAlert;
 use App\Modules\Core\Support\NotificationPreferences;
 use Illuminate\Support\Str;
 use Illuminate\Http\JsonResponse;
+use App\Modules\Integrations\Services\Push\FcmSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
@@ -148,8 +149,8 @@ class AuthController extends Controller
         }
 
         // Actualizar FCM token si se proporcionó
-        if ($fcmToken = $request->input('fcm_token')) {
-            $user->update(['fcm_token' => $fcmToken]);
+        if (is_string($fcmToken = $request->input('fcm_token')) && $fcmToken !== '') {
+            $user->registerFcmToken($fcmToken);
         }
 
         return response()->json([
@@ -442,12 +443,46 @@ class AuthController extends Controller
     public function updateFcmToken(Request $request): JsonResponse
     {
         $request->validate([
-            'fcm_token' => ['required', 'string'],
+            'fcm_token' => ['required', 'string', 'max:4096'],
         ]);
 
-        $request->user()->update(['fcm_token' => $request->fcm_token]);
+        $request->user()->registerFcmToken($request->fcm_token);
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Push de prueba al celular desde el que se pide (Perfil > Notificaciones).
+     * Sirve para que el colaborador confirme que los avisos le llegan.
+     * POST /api/auth/test-push
+     */
+    public function testPush(Request $request, FcmSender $sender): JsonResponse
+    {
+        $request->validate(['fcm_token' => ['nullable', 'string', 'max:4096']]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        // La app manda su token actual: así la prueba va a este teléfono aunque
+        // el registro anterior no se hubiera guardado.
+        if (filled($request->fcm_token) && $request->fcm_token !== $user->fcm_token) {
+            $user->registerFcmToken($request->fcm_token);
+        }
+
+        if (blank($user->fcm_token)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este teléfono todavía no está registrado para recibir avisos. Cierra la app, vuelve a abrirla e inténtalo otra vez.',
+                'code'    => 'NO_DEVICE_TOKEN',
+            ], 422);
+        }
+
+        $result = $sender->test($user);
+
+        return response()->json(! empty($result['ok'])
+            ? ['success' => true, 'message' => 'Aviso de prueba enviado. Debería aparecer en unos segundos.']
+            : ['success' => false, 'message' => (string) ($result['error'] ?? 'No se pudo enviar el aviso de prueba.'), 'code' => 'PUSH_FAILED'],
+            ! empty($result['ok']) ? 200 : 422);
     }
 
     // =========================================================================

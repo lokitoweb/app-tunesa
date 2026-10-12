@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- isShrinkResources: el icono de las notificaciones push en primer plano se
-     busca por nombre (flutter_local_notifications), así que se conserva aquí. -->
+<!-- isShrinkResources: el ícono de los avisos push en primer plano se busca por
+     nombre desde Dart (flutter_local_notifications), así que se conserva aquí. -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@mipmap/ic_launcher" />
+    tools:keep="@mipmap/ic_launcher,@drawable/ic_stat_notification" />

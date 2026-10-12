@@ -64,6 +64,7 @@ Route::middleware('api.tenant')->group(function () {
         // Solo el cambio obligatorio de la contraseña temporal (403 en otro caso)
         Route::put('change-password',  [AuthController::class, 'changePassword']);
         Route::post('refresh-fcm',     [AuthController::class, 'updateFcmToken']);
+        Route::post('test-push',       [AuthController::class, 'testPush'])->middleware('throttle:5,1');
     });
 
     Route::prefix('notifications')->group(function () {
