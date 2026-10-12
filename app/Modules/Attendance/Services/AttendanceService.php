@@ -9,7 +9,6 @@ use App\Modules\Attendance\Jobs\ReverseGeocodePunch;
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Models\AttendancePunch;
 use App\Modules\Core\Models\Branch;
-use App\Modules\Core\Models\CompanyConfiguration;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Shift;
 use App\Modules\Core\Models\Tenant;
@@ -48,6 +47,10 @@ use Illuminate\Support\Facades\Storage;
 class AttendanceService
 {
     private const TYPE_ORDER = ['clock_in' => 0, 'break_start' => 1, 'break_end' => 2, 'clock_out' => 3];
+
+    /** Velocidad máxima creíble entre dos marcaciones (km/h) y distancia mínima para medirla (m) */
+    private const MAX_TRAVEL_KMH    = 150;
+    private const MIN_TRAVEL_METERS = 2000;
 
     public function __construct(
         private readonly GeofenceService         $geofence,
@@ -97,6 +100,7 @@ class AttendanceService
 
         $this->enforceDeviceTrust($employee, $data, $settings, $reasons);
         $at    = $this->resolveTime($data, $settings, $tenant);
+        $reasons = array_merge($reasons, $this->locationReasons($employee, $data, $serverTime));
         $drift = $this->timeDrift($data, $serverTime);
 
         if ($drift !== null && abs($drift) > $settings->maxTimeDriftSeconds()) {
@@ -214,7 +218,7 @@ class AttendanceService
             ]);
         }
 
-        if ($geo && ! $geo->isWithinGeofence && $data->isClockEvent()) {
+        if ($geo && ! $geo->isWithinGeofence && ! $geo->isEdge && $data->isClockEvent()) {
             $this->audit->log("attendance.{$data->type}_out_of_geofence", $attendance, $geo->toArray());
         }
 
@@ -250,7 +254,8 @@ class AttendanceService
         $branch = $employee->roaming_attendance_enabled
             ? $this->roamingBranch($employee, $today, $data)
             : $this->getEmployeeBranchForToday($employee, $today);
-        $geo    = $this->geofence->check($data->latitude, $data->longitude, $branch);
+        $this->enforceAccuracy($data, $c['settings'], $branch);
+        $geo    = $this->geofence->check($data->latitude, $data->longitude, $branch, $data->accuracyMeters);
         if (! $employee->roaming_attendance_enabled) {
             $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
         }
@@ -328,6 +333,7 @@ class AttendanceService
             throw new AttendanceException('El descanso sin conexión no puede ser anterior a tu entrada.', 'OFFLINE_BEFORE_CLOCK_IN', 422);
         }
 
+        $this->enforceAccuracy($data, $c['settings'], $attendance->branch);
         $geo = $this->breakGeofence($attendance, $data);
 
         $attendance->update([
@@ -373,6 +379,7 @@ class AttendanceService
             ]);
         }
 
+        $this->enforceAccuracy($data, $c['settings'], $attendance->branch);
         $geo = $this->breakGeofence($attendance, $data);
 
         $attendance->update([
@@ -402,7 +409,8 @@ class AttendanceService
         }
 
         $branch  = $attendance->branch;
-        $geo     = $this->geofence->check($data->latitude, $data->longitude, $branch);
+        $this->enforceAccuracy($data, $c['settings'], $branch);
+        $geo     = $this->geofence->check($data->latitude, $data->longitude, $branch, $data->accuracyMeters);
         if (! $employee->roaming_attendance_enabled) {
             $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
         }
@@ -480,7 +488,22 @@ class AttendanceService
             $reasons[] = AttendancePunch::REASON_MOCK_LOCATION;
         }
 
-        $maxAccuracy = $settings->maxGpsAccuracy();
+        // La app hace la detección de rostro; si informa que no hubo rostro, se rechaza
+        if ($settings->face_detection_required && $data->faceDetected === false) {
+            throw new AttendanceException(
+                'No se detectó un rostro en la selfie. Toma la foto de frente y con buena luz.',
+                'FACE_NOT_DETECTED',
+            );
+        }
+    }
+
+    /**
+     * Precisión GPS máxima de la sede de la marcación (o de la empresa si la
+     * sede no define la suya): una lectura menos precisa se rechaza.
+     */
+    private function enforceAccuracy(PunchData $data, TenantSetting $settings, ?Branch $branch): void
+    {
+        $maxAccuracy = $branch ? $branch->maxGpsAccuracy($settings) : $settings->maxGpsAccuracy();
         if ($maxAccuracy > 0 && $data->accuracyMeters !== null && $data->accuracyMeters > $maxAccuracy) {
             $shown = rtrim(rtrim(number_format($data->accuracyMeters, 2, '.', ''), '0'), '.');
 
@@ -489,14 +512,52 @@ class AttendanceService
                 'GPS_ACCURACY_TOO_LOW',
             );
         }
+    }
 
-        // La app hace la detección de rostro; si informa que no hubo rostro, se rechaza
-        if ($settings->face_detection_required && $data->faceDetected === false) {
-            throw new AttendanceException(
-                'No se detectó un rostro en la selfie. Toma la foto de frente y con buena luz.',
-                'FACE_NOT_DETECTED',
-            );
+    /**
+     * Señales de ubicación inventada contra las marcaciones anteriores del
+     * colaborador (no rechazan, agregan motivos de sospecha):
+     *  - IMPOSSIBLE_TRAVEL: desde la última marcación habría que moverse a más
+     *    de MAX_TRAVEL_KMH (y más de MIN_TRAVEL_METERS, para no saltar con el ruido del GPS).
+     *  - REPEATED_COORDINATES: las mismas coordenadas (±1 cm) que una marcación
+     *    de otro día en los últimos 30 días; un GPS real nunca repite así.
+     */
+    private function locationReasons(User $employee, PunchData $data, CarbonImmutable $serverTime): array
+    {
+        $reasons = [];
+        $at      = $data->isOffline() ? $data->offlineRecordedAt : $serverTime;
+
+        $previous = AttendancePunch::withoutGlobalScopes()
+            ->where('tenant_id', $employee->tenant_id)
+            ->where('user_id', $employee->id)
+            ->orderByDesc('server_time')
+            ->first(['latitude', 'longitude', 'server_time', 'offline_recorded_at']);
+
+        if ($previous && $previous->latitude !== null) {
+            $meters  = $this->geofence->calculateDistance($data->latitude, $data->longitude, $previous->latitude, $previous->longitude);
+            $before  = $previous->offline_recorded_at ?? $previous->server_time;
+            $seconds = max(60, abs($at->getTimestamp() - $before->getTimestamp()));
+
+            if ($meters > self::MIN_TRAVEL_METERS && ($meters / 1000) / ($seconds / 3600) > self::MAX_TRAVEL_KMH) {
+                $reasons[] = AttendancePunch::REASON_IMPOSSIBLE_TRAVEL;
+            }
         }
+
+        $epsilon  = 0.0000001;
+        $repeated = AttendancePunch::withoutGlobalScopes()
+            ->where('tenant_id', $employee->tenant_id)
+            ->where('user_id', $employee->id)
+            ->whereBetween('latitude', [$data->latitude - $epsilon, $data->latitude + $epsilon])
+            ->whereBetween('longitude', [$data->longitude - $epsilon, $data->longitude + $epsilon])
+            ->where('server_time', '>=', $serverTime->subDays(30))
+            ->where('server_time', '<', $at->setTimezone(tenant_timezone())->startOfDay()->utc())
+            ->exists();
+
+        if ($repeated) {
+            $reasons[] = AttendancePunch::REASON_REPEATED_COORDINATES;
+        }
+
+        return $reasons;
     }
 
     /** Rostro exigido pero la app no informó el resultado → FACE_UNVERIFIED (no se rechaza) */
@@ -552,8 +613,9 @@ class AttendanceService
     }
 
     /**
-     * Política de geocerca (CompanyConfiguration::geofence_policy): "reject"
-     * rechaza fuera del radio; "flag" acepta con motivo OUT_OF_GEOFENCE.
+     * Política de geocerca de la sede (o CompanyConfiguration::geofence_policy):
+     * "reject" rechaza fuera del radio; "flag" acepta con motivo OUT_OF_GEOFENCE.
+     * La zona de borde (GeofenceService::check) se acepta siempre con GEOFENCE_EDGE.
      */
     private function applyGeofencePolicy(GeofenceResult $result, User $employee, Branch $branch, array $reasons): array
     {
@@ -561,7 +623,14 @@ class AttendanceService
             return $reasons;
         }
 
-        if (! CompanyConfiguration::forTenantId($employee->tenant_id)->flagsOutOfGeofence()) {
+        // Zona de borde: la duda es de la precisión del GPS, se acepta observada
+        if ($result->isEdge) {
+            $reasons[] = AttendancePunch::REASON_GEOFENCE_EDGE;
+
+            return $reasons;
+        }
+
+        if (! $branch->flagsOutOfGeofence()) {
             throw new AttendanceException($result->getMessage(), 'GEOFENCE_VIOLATION', 422, [
                 'branch_id'       => $branch->id,
                 'distance_meters' => $result->distanceMeters,

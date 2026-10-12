@@ -4,6 +4,7 @@ namespace App\Modules\Core\Controllers\Api;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\BranchStaffing;
 use App\Modules\Attendance\Services\GeofenceService;
 use Illuminate\Http\JsonResponse;
@@ -206,6 +207,9 @@ class BranchController extends Controller
                 'latitude'              => (float) $branch->latitude,
                 'longitude'             => (float) $branch->longitude,
                 'allowed_radius_meters' => $branch->allowed_radius_meters,
+                // Zona de borde y precisión efectivas (la app las usa en su verificación previa)
+                'tolerance_meters'        => $branch->edgeToleranceMeters(),
+                'max_gps_accuracy_meters' => $branch->maxGpsAccuracy(TenantSetting::forTenant($branch->tenant)),
             ],
             'timezone'              => $branch->getEffectiveTimezone(),
             'is_active'             => $branch->is_active,

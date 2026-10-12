@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../../../core/utils/formatters.dart';
 
 /// Acciones de marcación. Entrada y salida exigen selfie; el descanso solo GPS.
@@ -154,13 +156,34 @@ class TodayStatus {
 
 /// Sucursal asignada con su geocerca.
 class BranchGeofence {
-  const BranchGeofence({required this.id, required this.name, required this.lat, required this.lng, required this.radius});
+  const BranchGeofence({
+    required this.id,
+    required this.name,
+    required this.lat,
+    required this.lng,
+    required this.radius,
+    this.tolerance = defaultTolerance,
+    this.maxAccuracy,
+  });
+
+  /// Margen de borde si el servidor no lo envía (Branch::DEFAULT_EDGE_TOLERANCE).
+  static const double defaultTolerance = 15;
 
   final int id;
   final String name;
   final double lat;
   final double lng;
   final double radius;
+
+  /// Margen máximo fuera del radio que cubre la imprecisión del GPS (m).
+  final double tolerance;
+
+  /// Precisión GPS máxima de la sede (null = la de la empresa).
+  final int? maxAccuracy;
+
+  /// Misma regla que GeofenceService::check: dentro, o fuera por menos de
+  /// min(precisión, tolerancia) — la zona de borde, que el servidor acepta observada.
+  bool admits(double distance, double accuracy) => distance <= radius + min(max(accuracy, 0), tolerance);
 
   factory BranchGeofence.fromJson(Map<String, dynamic> json) {
     final geo = Map<String, dynamic>.from(json['geofence'] as Map);
@@ -170,6 +193,8 @@ class BranchGeofence {
       lat: (geo['latitude'] as num).toDouble(),
       lng: (geo['longitude'] as num).toDouble(),
       radius: (geo['allowed_radius_meters'] as num?)?.toDouble() ?? 100,
+      tolerance: (geo['tolerance_meters'] as num?)?.toDouble() ?? defaultTolerance,
+      maxAccuracy: (geo['max_gps_accuracy_meters'] as num?)?.toInt(),
     );
   }
 }

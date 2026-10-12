@@ -43,11 +43,17 @@ class Branch extends Model
         'latitude',
         'longitude',
         'allowed_radius_meters',
+        'geofence_tolerance_meters',
+        'max_gps_accuracy_meters',
+        'geofence_policy',
         'timezone',
         'is_active',
         'notes',
         'supervisor_id',
     ];
+
+    /** Margen máximo de la zona de borde si la sede no define el suyo (m) */
+    public const DEFAULT_EDGE_TOLERANCE = 15;
 
     /** Tipos de sede (branches.branch_type) */
     public const TYPES = [
@@ -62,6 +68,8 @@ class Branch extends Model
         'latitude'               => 'decimal:8',
         'longitude'              => 'decimal:8',
         'allowed_radius_meters'  => 'integer',
+        'geofence_tolerance_meters' => 'integer',
+        'max_gps_accuracy_meters'   => 'integer',
         'is_active'              => 'boolean',
     ];
 
@@ -124,6 +132,26 @@ class Branch extends Model
     public function getEffectiveTimezone(): string
     {
         return $this->timezone ?? $this->tenant->timezone ?? 'UTC';
+    }
+
+    /** Margen máximo de la zona de borde de esta sede (m) */
+    public function edgeToleranceMeters(): int
+    {
+        return $this->geofence_tolerance_meters ?? self::DEFAULT_EDGE_TOLERANCE;
+    }
+
+    /** Precisión GPS máxima en esta sede: la propia o la de la empresa */
+    public function maxGpsAccuracy(TenantSetting $settings): int
+    {
+        return $this->max_gps_accuracy_meters ?: $settings->maxGpsAccuracy();
+    }
+
+    /** ¿Fuera del radio se registra como incidencia ("flag") en vez de rechazarse? Sede → empresa. */
+    public function flagsOutOfGeofence(): bool
+    {
+        return $this->geofence_policy
+            ? $this->geofence_policy === 'flag'
+            : CompanyConfiguration::forTenantId($this->tenant_id)->flagsOutOfGeofence();
     }
 
     /**

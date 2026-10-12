@@ -90,7 +90,9 @@ class LocationIntegrityChannel {
 ///
 /// 1. Servicio de ubicación encendido.
 /// 2. Permiso concedido (lo solicita si hace falta).
-/// 3. Lectura fresca de alta precisión (no se usa la última posición cacheada).
+/// 3. Lecturas frescas de alta precisión (no se usa la última posición
+///    cacheada): hasta [maxSamples] en [sampleWindow], se queda con la más
+///    precisa y corta antes si una baja de [goodEnoughMeters].
 /// 4. Ubicaciones simuladas (mock GPS / apps de GPS falso) según la política
 ///    de la empresa: `reject` las bloquea, `flag` las deja pasar marcadas.
 /// 5. Rechaza lecturas con precisión peor que `max_gps_accuracy_meters` de
@@ -101,6 +103,11 @@ class LocationService {
   LocationService({this._integrity = const LocationIntegrityChannel()});
 
   static const double _earthRadiusMeters = 6371000;
+
+  /// Lecturas por marcación, ventana para tomarlas y precisión que ya basta.
+  static const int maxSamples = 3;
+  static const Duration sampleWindow = Duration(seconds: 8);
+  static const double goodEnoughMeters = 10;
 
   final LocationIntegrityChannel _integrity;
 
@@ -133,10 +140,10 @@ class LocationService {
       );
     }
 
-    final Position position;
+    final List<Position> samples;
     final simulated = _integrity.isSimulated();
     try {
-      position = await Geolocator.getCurrentPosition(locationSettings: _settings());
+      samples = await _sample();
     } on Exception catch (e) {
       if (e is LocationServiceDisabledException) {
         throw const LocationException(LocationFailure.serviceDisabled, 'El GPS se desactivó durante la lectura.');
@@ -147,7 +154,9 @@ class LocationService {
       );
     }
 
-    final isMocked = position.isMocked || await simulated;
+    final position = bestSample(samples);
+    // Una sola lectura simulada basta para tratar la marcación como simulada
+    final isMocked = samples.any((p) => p.isMocked) || await simulated;
     if (decideMock(isMocked: isMocked, policy: mockPolicy) == MockDecision.block) {
       throw const LocationException(
         LocationFailure.mocked,
@@ -170,14 +179,37 @@ class LocationService {
       ? Geolocator.openLocationSettings()
       : Geolocator.openAppSettings();
 
-  LocationSettings _settings() {
+  /// La primera lectura espera hasta [Env.gpsTimeout] (si falla, falla la
+  /// marcación); las siguientes solo lo que quede de [sampleWindow] y su
+  /// error se ignora: ya hay una lectura válida.
+  Future<List<Position>> _sample() async {
+    final samples = [await Geolocator.getCurrentPosition(locationSettings: _settings(Env.gpsTimeout))];
+    final deadline = DateTime.now().add(sampleWindow);
+    while (samples.length < maxSamples && bestSample(samples).accuracy > goodEnoughMeters) {
+      final left = deadline.difference(DateTime.now());
+      if (left <= Duration.zero) break;
+      try {
+        samples.add(await Geolocator.getCurrentPosition(locationSettings: _settings(left)));
+      } on Exception {
+        break;
+      }
+    }
+    return samples;
+  }
+
+  /// La lectura más precisa (menor `accuracy`); ante empate, la más reciente.
+  @visibleForTesting
+  static Position bestSample(List<Position> samples) =>
+      samples.reduce((best, p) => p.accuracy <= best.accuracy ? p : best);
+
+  LocationSettings _settings(Duration timeLimit) {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return AndroidSettings(accuracy: LocationAccuracy.best, timeLimit: Env.gpsTimeout);
+      return AndroidSettings(accuracy: LocationAccuracy.best, timeLimit: timeLimit);
     }
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return AppleSettings(accuracy: LocationAccuracy.best, timeLimit: Env.gpsTimeout);
+      return AppleSettings(accuracy: LocationAccuracy.best, timeLimit: timeLimit);
     }
-    return LocationSettings(accuracy: LocationAccuracy.best, timeLimit: Env.gpsTimeout);
+    return LocationSettings(accuracy: LocationAccuracy.best, timeLimit: timeLimit);
   }
 
   /// Distancia Haversine en metros (misma fórmula que GeofenceService del backend).

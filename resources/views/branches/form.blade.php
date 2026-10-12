@@ -121,6 +121,46 @@
                         <div class="form-text">Para más de 1 km escribe el valor (máximo 5000 m).</div>
                     </div>
 
+                    {{-- Ajustes de geocerca de la sede: vacío = el valor de la empresa --}}
+                    @php $tuned = old('geofence_tolerance_meters', $branch->geofence_tolerance_meters ?? null) !== null
+                        || old('max_gps_accuracy_meters', $branch->max_gps_accuracy_meters ?? null) !== null
+                        || old('geofence_policy', $branch->geofence_policy ?? null) !== null; @endphp
+                    <details class="mb-3" @if($tuned || $errors->hasAny(['geofence_tolerance_meters', 'max_gps_accuracy_meters', 'geofence_policy'])) open @endif>
+                        <summary class="small fw-semibold mb-2">Ajustes de geocerca de esta sede</summary>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label for="toleranceInput" class="form-label">Tolerancia de borde</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control @error('geofence_tolerance_meters') is-invalid @enderror" id="toleranceInput" name="geofence_tolerance_meters" min="0" max="100" step="1"
+                                           value="{{ old('geofence_tolerance_meters', $branch->geofence_tolerance_meters ?? '') }}" placeholder="{{ \App\Modules\Core\Models\Branch::DEFAULT_EDGE_TOLERANCE }}">
+                                    <span class="input-group-text">m</span>
+                                </div>
+                                @error('geofence_tolerance_meters')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                <div class="form-text">Si el GPS es impreciso, acepta hasta estos metros fuera del radio y la marca como observada. 0 la desactiva.</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label for="accuracyInput" class="form-label">Precisión GPS máxima</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control @error('max_gps_accuracy_meters') is-invalid @enderror" id="accuracyInput" name="max_gps_accuracy_meters" min="5" max="500" step="1"
+                                           value="{{ old('max_gps_accuracy_meters', $branch->max_gps_accuracy_meters ?? '') }}" placeholder="La de la empresa">
+                                    <span class="input-group-text">m</span>
+                                </div>
+                                @error('max_gps_accuracy_meters')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                <div class="form-text">Lecturas menos precisas se rechazan. Sube el valor en sedes techadas.</div>
+                            </div>
+                            <div class="col-12">
+                                <label for="policyInput" class="form-label">Fuera del radio</label>
+                                <select id="policyInput" name="geofence_policy" class="form-select @error('geofence_policy') is-invalid @enderror">
+                                    <option value="">Lo que defina la empresa</option>
+                                    @foreach (\App\Modules\Core\Models\CompanyConfiguration::GEOFENCE_POLICIES as $key => [$label])
+                                        <option value="{{ $key }}" @selected(old('geofence_policy', $branch->geofence_policy ?? '') === $key)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                @error('geofence_policy')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            </div>
+                        </div>
+                    </details>
+
                     <div class="row g-3 mb-3">
                         <div class="col-sm-6">
                             <label for="latInput" class="form-label">Latitud <span class="text-danger">*</span></label>

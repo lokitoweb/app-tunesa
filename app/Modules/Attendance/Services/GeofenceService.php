@@ -36,12 +36,19 @@ class GeofenceService
      * Verifica si unas coordenadas GPS están dentro del radio permitido
      * de una sucursal.
      *
+     * Con la precisión de la lectura (accuracy, en m) hay una zona de borde:
+     * fuera del radio pero a menos de min(accuracy, tolerancia de la sede)
+     * de él. La duda ahí es del GPS: isWithinGeofence sigue en false y
+     * isEdge en true, y la política decide (AttendanceService la acepta
+     * como observada con GEOFENCE_EDGE).
+     *
      * @param  float   $lat            Latitud del dispositivo móvil
      * @param  float   $lng            Longitud del dispositivo móvil
      * @param  Branch  $branch         Sucursal con su geocerca definida
+     * @param  ?float  $accuracy       Precisión de la lectura en metros (null = sin zona de borde)
      * @return GeofenceResult          DTO con resultado, distancia y mensaje
      */
-    public function check(float $lat, float $lng, Branch $branch): GeofenceResult
+    public function check(float $lat, float $lng, Branch $branch, ?float $accuracy = null): GeofenceResult
     {
         $distance = $this->calculateDistance(
             lat1: $lat,
@@ -50,15 +57,19 @@ class GeofenceService
             lng2: (float) $branch->longitude,
         );
 
-        $isInside       = $distance <= $branch->allowed_radius_meters;
-        $excessMeters   = max(0, (int) round($distance - $branch->allowed_radius_meters));
+        $radius       = $branch->allowed_radius_meters;
+        $isInside     = $distance <= $radius;
+        $margin       = $accuracy !== null && $accuracy > 0 ? min($accuracy, $branch->edgeToleranceMeters()) : 0;
+        $isEdge       = ! $isInside && $distance <= $radius + $margin;
+        $excessMeters = max(0, (int) round($distance - $radius));
 
         return new GeofenceResult(
             isWithinGeofence: $isInside,
             distanceMeters:   (int) round($distance),
-            allowedRadius:    $branch->allowed_radius_meters,
+            allowedRadius:    $radius,
             branchName:       $branch->name,
             excessMeters:     $excessMeters,
+            isEdge:           $isEdge,
         );
     }
 
@@ -172,6 +183,8 @@ readonly class GeofenceResult
         public readonly int    $allowedRadius,
         public readonly string $branchName,
         public readonly int    $excessMeters,
+        /** Fuera del radio pero dentro del margen de la precisión GPS (zona de borde) */
+        public readonly bool   $isEdge = false,
     ) {}
 
     /**
@@ -196,6 +209,7 @@ readonly class GeofenceResult
             'distance_meters'  => $this->distanceMeters,
             'allowed_radius'   => $this->allowedRadius,
             'excess_meters'    => $this->excessMeters,
+            'edge'             => $this->isEdge,
             'branch_name'      => $this->branchName,
             'message'          => $this->getMessage(),
         ];

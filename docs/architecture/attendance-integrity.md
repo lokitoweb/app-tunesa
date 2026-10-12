@@ -63,7 +63,7 @@ Una fila por evento, **nunca se edita ni se borra**:
 | `photo_path` | disco `ATTENDANCE_DISK` (privado); URL firmada `/secure-files/punch-photo/{id}` |
 | `face_detected` | lo que informó la app (nullable) |
 | `mock_location_detected` | `is_mocked` del teléfono |
-| `suspicious`, `suspicion_reasons` | motivos: `MOCK_LOCATION`, `TIME_DRIFT`, `FACE_UNVERIFIED`, `OUT_OF_GEOFENCE`, `OUTSIDE_SCHEDULE` |
+| `suspicious`, `suspicion_reasons` | motivos: `MOCK_LOCATION`, `TIME_DRIFT`, `FACE_UNVERIFIED`, `OUT_OF_GEOFENCE`, `GEOFENCE_EDGE`, `OUTSIDE_SCHEDULE`, `UNSAFE_DEVICE`, `IMPOSSIBLE_TRAVEL`, `REPEATED_COORDINATES` |
 | `device_id`, `device_os`, `app_version`, `ip` | metadatos |
 | `created_at` | solo creación (`UPDATED_AT = null`) |
 
@@ -106,6 +106,9 @@ la lista `punches`.
 | `max_time_drift_seconds` | 30..86400 | 300 | umbral de `TIME_DRIFT` |
 | `face_detection_required` (existente) | bool | `false` | `face_detected=false` → `422 FACE_NOT_DETECTED`; ausente → `FACE_UNVERIFIED` |
 | `company_configurations.geofence_policy` (existente) | `reject` \| `flag` | `reject` | `flag` → acepta con `OUT_OF_GEOFENCE` |
+| `branches.geofence_policy` | `reject` \| `flag` \| vacío | vacío | vacío = la de la empresa |
+| `branches.geofence_tolerance_meters` | 0–100 | 15 | margen de la zona de borde (`GEOFENCE_EDGE`) |
+| `branches.max_gps_accuracy_meters` | 5–500 \| vacío | vacío | vacío = la de la empresa |
 
 Fuera de horario: ventana `[inicio − tolerancia, fin + tolerancia]` del turno de ese día
 (`shifts.grace_period_minutes`; si `end ≤ start` o `crosses_midnight`, el fin es al día

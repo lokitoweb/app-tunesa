@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
@@ -116,7 +117,10 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     try {
       final fix = await ref
           .read(locationServiceProvider)
-          .getVerifiedFix(maxAccuracyMeters: _mobile.maxGpsAccuracyMeters, mockPolicy: _mobile.mockLocationPolicy);
+          .getVerifiedFix(
+            maxAccuracyMeters: effectiveMaxAccuracy(_mobile.maxGpsAccuracyMeters, ref.read(myBranchesProvider).value ?? const []),
+            mockPolicy: _mobile.mockLocationPolicy,
+          );
       return (fix, null);
     } on LocationException catch (e) {
       return (null, e);
@@ -900,9 +904,17 @@ class _NoticeCard extends StatelessWidget {
   ({BranchGeofence branch, double distance, bool inside})? best;
   for (final b in branches) {
     final d = LocationService.haversineMeters(position.latitude, position.longitude, b.lat, b.lng);
-    if (best == null || d < best.distance) best = (branch: b, distance: d, inside: d <= b.radius);
+    if (best == null || d < best.distance) best = (branch: b, distance: d, inside: b.admits(d, position.accuracy));
   }
   return best;
+}
+
+/// Precisión máxima para la verificación en el teléfono: la más permisiva
+/// entre la empresa y las sedes asignadas (la marcación puede caer en
+/// cualquiera); el servidor aplica la exacta de la sede.
+int? effectiveMaxAccuracy(int? company, List<BranchGeofence> branches) {
+  final values = [?company, for (final b in branches) ?b.maxAccuracy];
+  return values.isEmpty ? null : values.reduce(max);
 }
 
 /// 85 → "85 m" · 1530 → "1,5 km" · 493532 → "494 km".
