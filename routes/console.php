@@ -21,3 +21,14 @@ Schedule::command('model:prune', ['--model' => [\App\Modules\Integrations\Models
 // Reporte mensual de horas y faltas: el día 1 a las 07:00 genera el Excel del
 // mes anterior de cada empresa (disco privado) y notifica a administradores y RRHH
 Schedule::command('reports:send-monthly')->monthlyOn(1, '07:00')->withoutOverlapping()->onOneServer();
+
+// Recordatorio push de entrada: a quien empezó su turno (más la tolerancia) y no marcó
+Schedule::command('attendance:remind-entry')->everyFiveMinutes()->withoutOverlapping()->onOneServer();
+
+// Cola (push, webhooks, avisos de nueva versión): con solo el cron del scheduler
+// se procesa cada minuto, sin un `queue:work` aparte. Si ya tienes un worker
+// permanente (Supervisor, systemd), pon QUEUE_WORK_FROM_SCHEDULER=false.
+if (config('queue.work_from_scheduler')) {
+    Schedule::command('queue:work', ['--stop-when-empty', '--max-time=50', '--sleep=1'])
+        ->everyMinute()->withoutOverlapping(5)->runInBackground();
+}

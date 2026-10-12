@@ -35,6 +35,7 @@ class TenantSetting extends Model
         'min_supported_version'   => '1.0.0',
         'latest_version'          => null,
         'force_update'            => false,
+        'update_url'              => null,
         'selfie_required'         => true,
         'face_detection_required' => false,
         'offline_mode_enabled'    => false,
@@ -47,7 +48,9 @@ class TenantSetting extends Model
         'mock_location_policy'    => 'reject',
         'max_time_drift_seconds'  => 300,
         'geocoding_provider'      => 'nominatim',
-        'fcm_enabled'             => false,
+        // Encendido por defecto: solo envía si la plataforma cargó la cuenta de
+        // servicio de Firebase (fcmEnabled()). Una empresa puede apagarlo.
+        'fcm_enabled'             => true,
     ];
 
     public const MOCK_LOCATION_POLICIES = ['reject', 'flag'];
@@ -58,7 +61,7 @@ class TenantSetting extends Model
     public const SETTING_FIELDS = [
         'trade_name', 'contact_email', 'contact_phone', 'website', 'address',
         'accent_color', 'navbar_color',
-        'api_base_url', 'min_supported_version', 'latest_version', 'force_update',
+        'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius',
         'webhook_url', 'notification_endpoint',
@@ -90,7 +93,7 @@ class TenantSetting extends Model
         'trade_name', 'logo_path', 'logo_dark_path', 'favicon_path', 'splash_path',
         'contact_email', 'contact_phone', 'website', 'address',
         'primary_color', 'secondary_color', 'accent_color', 'navbar_color',
-        'api_base_url', 'min_supported_version', 'latest_version', 'force_update',
+        'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius',
         'webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint',
@@ -524,6 +527,7 @@ class TenantSetting extends Model
             'min_supported_version'   => $this->min_supported_version ?: self::DEFAULTS['min_supported_version'],
             'latest_version'          => $this->latest_version ?: null,
             'force_update'            => (bool) $this->force_update,
+            'update_url'              => $this->update_url ?: null,
             'selfie_required'         => (bool) $this->selfie_required,
             'face_detection_required' => (bool) $this->face_detection_required,
             'offline_mode_enabled'    => (bool) $this->offline_mode_enabled,

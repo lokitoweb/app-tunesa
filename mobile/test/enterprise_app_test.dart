@@ -105,6 +105,22 @@ void main() {
       expect(pushRouteFor({'type': 'document.rejected'}), '/profile/documents');
       expect(pushRouteFor({'type': 'leave_request.submitted'}), '/approvals');
       expect(pushRouteFor({}), '/notifications');
+      expect(pushRouteFor({'type': 'app.update_available', 'screen': 'app_update'}), '/home');
+      expect(pushRouteFor({'type': 'shift.assigned'}), '/home');
+      expect(pushRouteFor({'type': 'attendance.entry_reminder', 'screen': 'home'}), '/home');
+    });
+
+    test('reconoce el push de nueva versión', () {
+      expect(isAppUpdatePush({'type': 'app.update_available'}), isTrue);
+      expect(isAppUpdatePush({'screen': 'app_update'}), isTrue);
+      expect(isAppUpdatePush({'type': 'payslip.published'}), isFalse);
+    });
+
+    test('el enlace de descarga solo se acepta con https', () {
+      expect(MobileConfig.fromJson({'update_url': 'https://tunesa.app/app.apk'}).updateUrl, 'https://tunesa.app/app.apk');
+      expect(MobileConfig.fromJson({'update_url': 'http://tunesa.app/app.apk'}).updateUrl, isNull);
+      expect(MobileConfig.fromJson({'update_url': 'javascript:alert(1)'}).updateUrl, isNull);
+      expect(MobileConfig.fromJson({}).updateUrl, isNull);
     });
   });
 

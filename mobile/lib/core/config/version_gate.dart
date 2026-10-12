@@ -70,6 +70,9 @@ class UpdateBannerDismissed extends Notifier<bool> {
   bool build() => false;
 
   void dismiss() => state = true;
+
+  /// Un push de versión nueva vuelve a mostrar el aviso.
+  void show() => state = false;
 }
 
 final updateBannerDismissedProvider = NotifierProvider<UpdateBannerDismissed, bool>(UpdateBannerDismissed.new);

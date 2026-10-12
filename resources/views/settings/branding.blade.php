@@ -6,7 +6,7 @@
 @php
     // Pestaña a abrir: la pedida, o la del primer campo con error
     $fieldTabs = [
-        'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters'],
+        'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters'],
         'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds'],
     ];
     // Campos que dependen de columnas nuevas de tenant_settings: solo se muestran si existen
@@ -226,6 +226,11 @@
                                 <div class="col-sm-6">
                                     <label for="latest_version" class="form-label">Última versión publicada</label>
                                     <input type="text" id="latest_version" name="latest_version" maxlength="40" value="{{ $val('latest_version') }}" placeholder="{{ $inh('latest_version') ?: '1.4.0' }}" class="form-control font-monospace @error('latest_version') is-invalid @enderror">
+                                </div>
+                                <div class="col-12">
+                                    <label for="update_url" class="form-label">Enlace para descargar la app</label>
+                                    <input type="url" id="update_url" name="update_url" maxlength="500" value="{{ $val('update_url') }}" placeholder="{{ $inh('update_url') ?: 'https://play.google.com/store/apps/details?id=…' }}" class="form-control @error('update_url') is-invalid @enderror">
+                                    <div class="form-text">Tienda o enlace del APK. La app lo abre con el botón "Actualizar". Al subir la última versión, cada colaborador recibe un aviso push.</div>
                                 </div>
                             </div>
                             @include('settings.partials.bool-setting', ['flag' => 'force_update', 'class' => 'mt-3',

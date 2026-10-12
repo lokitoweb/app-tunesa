@@ -16,6 +16,13 @@ return [
     'default' => env('QUEUE_CONNECTION', 'database'),
 
     /*
+    | El scheduler (routes/console.php) procesa la cola cada minuto, así push y
+    | webhooks salen con solo el cron de `schedule:run`. Apágalo si tienes un
+    | `queue:work` permanente (Supervisor, systemd).
+    */
+    'work_from_scheduler' => (bool) env('QUEUE_WORK_FROM_SCHEDULER', true),
+
+    /*
     |--------------------------------------------------------------------------
     | Queue Connections
     |--------------------------------------------------------------------------

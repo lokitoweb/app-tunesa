@@ -5,6 +5,8 @@ namespace App\Providers;
 use Illuminate\Cache\RateLimiting\Limit;
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\HR\Models\EmployeeDocument;
+use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\Core\Models\TenantSetting;
 use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Core\Models\User;
@@ -62,6 +64,9 @@ class AppServiceProvider extends ServiceProvider
         Payslip::updated(fn (Payslip $m) => $notify()->payslipSaved($m));
         EmployeeDocument::updated(fn (EmployeeDocument $m) => $notify()->documentUpdated($m));
         Attendance::updated(fn (Attendance $m) => $notify()->attendanceUpdated($m));
+        EmployeeShift::created(fn (EmployeeShift $m) => $notify()->shiftAssigned($m, created: true));
+        EmployeeShift::updated(fn (EmployeeShift $m) => $notify()->shiftAssigned($m));
+        TenantSetting::saved(fn (TenantSetting $m) => $notify()->appSettingsSaved($m));
 
         // Integraciones de "Marca y app": webhook (marcaciones y permisos) y
         // endpoint de notificaciones (cada aviso in-app). Encolados y firmados.

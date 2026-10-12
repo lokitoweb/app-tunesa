@@ -11,6 +11,13 @@ String? _str(Object? v) {
   return s.isEmpty ? null : s;
 }
 
+/// Solo enlaces https:// (el enlace de descarga lo abre el sistema).
+String? _httpsUrl(Object? v) {
+  final s = _str(v);
+  final uri = s == null ? null : Uri.tryParse(s);
+  return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty ? s : null;
+}
+
 bool _bool(Object? v, bool fallback) {
   if (v is bool) return v;
   if (v is num) return v != 0;
@@ -107,6 +114,7 @@ class MobileConfig {
     this.minSupportedVersion,
     this.latestVersion,
     this.forceUpdate = false,
+    this.updateUrl,
     this.selfieRequired = true,
     this.faceDetectionRequired = false,
     this.offlineModeEnabled = false,
@@ -123,6 +131,9 @@ class MobileConfig {
   final String? minSupportedVersion;
   final String? latestVersion;
   final bool forceUpdate;
+
+  /// Enlace de descarga (tienda o APK) para el botón "Actualizar"; null = sin botón.
+  final String? updateUrl;
   final bool selfieRequired;
   final bool faceDetectionRequired;
   final bool offlineModeEnabled;
@@ -154,6 +165,7 @@ class MobileConfig {
       minSupportedVersion: _str(json['min_supported_version']),
       latestVersion: _str(json['latest_version']),
       forceUpdate: _bool(json['force_update'], false),
+      updateUrl: _httpsUrl(json['update_url']),
       selfieRequired: _bool(json['selfie_required'], true),
       faceDetectionRequired: _bool(json['face_detection_required'], false),
       offlineModeEnabled: _bool(json['offline_mode_enabled'], false),
@@ -172,6 +184,7 @@ class MobileConfig {
         'min_supported_version': minSupportedVersion,
         'latest_version': latestVersion,
         'force_update': forceUpdate,
+        'update_url': updateUrl,
         'selfie_required': selfieRequired,
         'face_detection_required': faceDetectionRequired,
         'offline_mode_enabled': offlineModeEnabled,
