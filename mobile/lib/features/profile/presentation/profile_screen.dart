@@ -292,6 +292,24 @@ class _AccountSection extends ConsumerWidget {
         ),
         const Divider(),
         ListTile(
+          key: const Key('account-devices'),
+          leading: const Icon(Icons.devices_rounded),
+          title: const Text('Mis dispositivos'),
+          subtitle: const Text('Dónde está abierta tu cuenta'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/profile/devices'),
+        ),
+        const Divider(),
+        ListTile(
+          key: const Key('account-notifications'),
+          leading: const Icon(Icons.notifications_active_outlined),
+          title: const Text('Notificaciones'),
+          subtitle: const Text('Elige qué avisos te llegan'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.push('/profile/notifications'),
+        ),
+        const Divider(),
+        ListTile(
           leading: Icon(Icons.logout_rounded, color: Theme.of(context).colorScheme.error),
           title: Text(
             'Cerrar sesión',

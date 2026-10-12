@@ -51,6 +51,9 @@ Route::middleware('api.tenant')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('logout',          [AuthController::class, 'logout']);
         Route::post('logout-all',      [AuthController::class, 'logoutAll']);
+        Route::post('logout-others',   [AuthController::class, 'logoutOthers']);
+        Route::get('notification-preferences', [AuthController::class, 'notificationPreferences']);
+        Route::put('notification-preferences', [AuthController::class, 'updateNotificationPreferences']);
         Route::get('sessions',         [AuthController::class, 'sessions']);
         Route::delete('sessions/{id}', [AuthController::class, 'revokeSession'])->whereNumber('id');
         Route::get('me',               [AuthController::class, 'me']);

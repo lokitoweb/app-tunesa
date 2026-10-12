@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/account/presentation/devices_screen.dart';
+import '../../features/account/presentation/notification_settings_screen.dart';
 import '../../features/app_update/presentation/update_screen.dart';
 import '../../features/training/presentation/certificate_screen.dart';
 import '../../features/training/presentation/lesson_screen.dart';
@@ -107,6 +109,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(parentNavigatorKey: _rootKey, path: '/profile/payment', builder: (_, _) => const PaymentInfoScreen()),
       GoRoute(parentNavigatorKey: _rootKey, path: '/profile/uniforms', builder: (_, _) => const UniformsScreen()),
       GoRoute(parentNavigatorKey: _rootKey, path: '/profile/contact', builder: (_, _) => const ContactScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/profile/devices', builder: (_, _) => const DevicesScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/profile/notifications', builder: (_, _) => const NotificationSettingsScreen()),
       GoRoute(
         parentNavigatorKey: _rootKey,
         path: '/clock/:action',

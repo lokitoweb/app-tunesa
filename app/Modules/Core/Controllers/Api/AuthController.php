@@ -9,6 +9,9 @@ use App\Modules\Core\Resources\UserResource;
 use App\Modules\Core\Models\Role;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\LoginGuard;
+use App\Modules\Core\Notifications\SecurityAlert;
+use App\Modules\Core\Support\NotificationPreferences;
+use Illuminate\Support\Str;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -121,10 +124,13 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // ¿Dispositivo nuevo para una cuenta que ya había entrado antes? → aviso de seguridad
+        $deviceName  = $request->input('device_name', 'mobile_app');
+        $isNewDevice = $user->last_login_at !== null && ! $user->tokens()->where('name', $deviceName)->exists();
+
         $this->guard->registerSuccess($user, $request);
 
         // Revocar tokens anteriores del mismo dispositivo (evitar sesiones huérfanas)
-        $deviceName = $request->input('device_name', 'mobile_app');
         $user->tokens()->where('name', $deviceName)->delete();
 
         // Crear nuevo token Sanctum (revocable, con expiración)
@@ -135,6 +141,10 @@ class AuthController extends Controller
         );
 
         $this->pruneDevices($user);
+
+        if ($isNewDevice) {
+            $this->notifySafely($user, new SecurityAlert('new_device', self::deviceLabel((string) $deviceName), now($user->tenant?->timezone ?: config('app.timezone'))->toDateTimeString()));
+        }
 
         // Actualizar FCM token si se proporcionó
         if ($fcmToken = $request->input('fcm_token')) {
@@ -282,6 +292,45 @@ class AuthController extends Controller
     }
 
     /**
+     * Cerrar sesión en los demás dispositivos (mantiene este).
+     * POST /api/auth/logout-others
+     */
+    public function logoutOthers(Request $request): JsonResponse
+    {
+        $count = $request->user()->tokens()->where('id', '!=', $request->user()->currentAccessToken()?->id)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => $count ? "Se cerró la sesión en {$count} dispositivo(s)." : 'No tenías sesiones abiertas en otros dispositivos.',
+            'data'    => ['closed' => $count],
+        ]);
+    }
+
+    /**
+     * Qué avisos push recibe la persona.
+     * GET /api/auth/notification-preferences
+     */
+    public function notificationPreferences(Request $request): JsonResponse
+    {
+        return response()->json(['success' => true, 'data' => NotificationPreferences::forUser($request->user())]);
+    }
+
+    /**
+     * PUT /api/auth/notification-preferences  { "trainings": false, ... }
+     */
+    public function updateNotificationPreferences(Request $request): JsonResponse
+    {
+        $keys      = array_keys(NotificationPreferences::CATEGORIES);
+        $validated = $request->validate(array_fill_keys($keys, ['sometimes', 'boolean']));
+        $user      = $request->user();
+
+        $prefs = array_merge($user->notification_preferences ?? [], array_map('boolval', $validated));
+        $user->forceFill(['notification_preferences' => array_intersect_key($prefs, array_flip($keys))])->save();
+
+        return response()->json(['success' => true, 'message' => 'Preferencias guardadas.', 'data' => NotificationPreferences::forUser($user)]);
+    }
+
+    /**
      * Dispositivos con sesión abierta (tokens vigentes).
      * GET /api/auth/sessions
      */
@@ -298,6 +347,8 @@ class AuthController extends Controller
                 ->map(fn ($t) => [
                     'id'           => $t->id,
                     'device'       => $t->name,
+                    'label'        => self::deviceLabel($t->name),
+                    'created_at'   => $t->created_at?->toIso8601String(),
                     'last_used_at' => $t->last_used_at?->toIso8601String(),
                     'expires_at'   => $t->expires_at?->toIso8601String(),
                     'current'      => $t->id === $current,
@@ -387,6 +438,8 @@ class AuthController extends Controller
             ]);
         }
 
+        $wasTemporary = (bool) $user->must_change_password;
+
         $user->forceFill([
             'password'             => $request->new_password,
             'must_change_password' => false,
@@ -394,6 +447,11 @@ class AuthController extends Controller
 
         // Revocar todos los otros tokens (forzar re-login en otros dispositivos)
         $user->tokens()->where('id', '!=', $user->currentAccessToken()->id)->delete();
+
+        // Cambio voluntario (no el de la contraseña temporal): aviso de seguridad
+        if (! $wasTemporary) {
+            $this->notifySafely($user, new SecurityAlert('password_changed'));
+        }
 
         return response()->json([
             'success' => true,
@@ -423,6 +481,30 @@ class AuthController extends Controller
     /**
      * Mantiene como máximo N dispositivos con sesión abierta (los más antiguos se revocan).
      */
+    /** Nombre legible del dispositivo: la app manda app_<plataforma>_<id de instalación> */
+    public static function deviceLabel(string $name): string
+    {
+        if (preg_match('/^app_(android|ios|iOS|macos|windows|linux|fuchsia)_/i', $name, $m)) {
+            return match (strtolower($m[1])) {
+                'android' => 'Teléfono Android',
+                'ios'     => 'iPhone',
+                default   => 'App en ' . ucfirst(strtolower($m[1])),
+            };
+        }
+
+        return Str::limit($name, 60);
+    }
+
+    /** Un aviso que falla (correo, cola) no debe tumbar el login */
+    private function notifySafely(User $user, SecurityAlert $alert): void
+    {
+        try {
+            $user->notify($alert);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
     private function pruneDevices(User $user): void
     {
         $max = (int) config('auth.max_devices', 3);
