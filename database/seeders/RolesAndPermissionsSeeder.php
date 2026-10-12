@@ -41,6 +41,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'attendance.view_team'   => ['Ver asistencia de mi equipo', 'attendance'],
         'attendance.view_all'    => ['Ver asistencia de toda la empresa', 'attendance'],
         'attendance.review'      => ['Aprobar o rechazar justificaciones', 'attendance'],
+        'attendance.edit'        => ['Corregir marcaciones a mano (con motivo)', 'attendance'],
 
         // Dashboard y reportes
         'dashboard.view'         => ['Ver dashboard y mapa en tiempo real', 'dashboard'],
@@ -101,7 +102,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'Supervisa la asistencia y solicitudes de su equipo.',
             [
                 'users.view', 'branches.view', 'shifts.view', 'shifts.view_own',
-                'attendance.mark', 'attendance.view_own', 'attendance.view_team',
+                'attendance.mark', 'attendance.view_own', 'attendance.view_team', 'attendance.edit',
                 'dashboard.view', 'reports.view',
                 'leave.request', 'leave.approve_team',
                 'payslips.view_own', 'profile.manage_own', 'training.view_own',

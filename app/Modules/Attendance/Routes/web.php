@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Attendance\Controllers\Web\AttendanceEditWebController;
 use App\Modules\Attendance\Controllers\Web\AttendanceWebController;
 use App\Modules\Attendance\Controllers\Web\CalendarWebController;
 use App\Modules\Attendance\Controllers\Web\HoursReportWebController;
@@ -45,5 +46,13 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::get('/attendance-calendar/excel', [CalendarWebController::class, 'excel'])->name('attendance.calendar.excel');
     Route::get('/attendance-calendar/day', [CalendarWebController::class, 'day'])->name('attendance.calendar.day');
     Route::get('/attendance-calendar/person/{id}', [CalendarWebController::class, 'person'])->name('attendance.calendar.person')->whereNumber('id');
+
+    // Corrección manual de una jornada (RRHH: toda la empresa; supervisor: su equipo)
+    Route::middleware('can:attendance.edit')->group(function () {
+        Route::get('/attendance-calendar/person/{id}/day/{date}', [AttendanceEditWebController::class, 'edit'])->name('attendance.manual.edit')
+            ->whereNumber('id')->where('date', '\\d{4}-\\d{2}-\\d{2}');
+        Route::put('/attendance-calendar/person/{id}/day/{date}', [AttendanceEditWebController::class, 'update'])->name('attendance.manual.update')
+            ->whereNumber('id')->where('date', '\\d{4}-\\d{2}-\\d{2}');
+    });
     Route::get('/live/data', [LiveBoardController::class, 'data'])->name('live.data');
 });

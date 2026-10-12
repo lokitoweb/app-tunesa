@@ -895,7 +895,7 @@ class AttendanceService
      *
      * @return array{0: ?EmployeeShift, 1: bool}  [asignación, ¿tiene asignaciones vigentes?]
      */
-    private function getCurrentShift(User $employee, string $date): array
+    public function getCurrentShift(User $employee, string $date): array
     {
         $assignments = EmployeeShift::where('user_id', $employee->id)
             ->current($date)
@@ -911,7 +911,7 @@ class AttendanceService
     }
 
     /** Minutos de tardanza contra la hora de entrada del turno (más la tolerancia). */
-    private function calculateLateMinutes(?Shift $shift, string $date, string $timezone, ?Carbon $at = null): int
+    public function calculateLateMinutes(?Shift $shift, string $date, string $timezone, ?Carbon $at = null): int
     {
         if (! $shift) {
             return 0;
@@ -936,7 +936,7 @@ class AttendanceService
      * (el del turno, o el de la empresa si no hay turno). El fijo solo aplica si la
      * jornada pasó de FIXED_BREAK_MIN_SPAN_MINUTES: un medio turno no lo tiene.
      */
-    private function breakToDeduct(int $totalMinutes, int $markedMinutes, ?Shift $shift, TenantSetting $settings): int
+    public function breakToDeduct(int $totalMinutes, int $markedMinutes, ?Shift $shift, TenantSetting $settings): int
     {
         $fixed = $shift
             ? ($shift->break_allowed ? (int) $shift->break_duration_minutes : 0)
@@ -955,7 +955,7 @@ class AttendanceService
         return $employee->contract_type === 'part_time' ? self::PART_TIME_HOURS : self::FULL_TIME_HOURS;
     }
 
-    private function determineFinalStatus(Attendance $attendance, float $workedHours, float $dailyHours): string
+    public function determineFinalStatus(Attendance $attendance, float $workedHours, float $dailyHours): string
     {
         if ($attendance->status === 'late') {
             return 'late';

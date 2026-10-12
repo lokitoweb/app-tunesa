@@ -5,6 +5,7 @@ namespace App\Modules\Attendance\Controllers\Web;
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Services\AttendanceCalendarService;
 use App\Modules\Attendance\Services\CalendarFilters;
+use App\Modules\Attendance\Services\ManualAttendanceEdit;
 use App\Modules\Attendance\Services\Reports\CalendarExporter;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
@@ -117,6 +118,7 @@ class CalendarWebController extends Controller
             'branches' => Branch::forTenant($tenantId)->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
             'shifts'   => Shift::forTenant($tenantId)->orderBy('start_time')->get(['id', 'name', 'start_time']),
             'canOpen'  => $request->user()->can('attendance.view_all'),
+            'canEdit'  => $request->user()->can('attendance.edit'),
         ]);
     }
 
@@ -135,11 +137,12 @@ class CalendarWebController extends Controller
         return view('attendance.calendar-person', [
             'filters'  => $filters,
             'row'      => $row,
-            'employee' => User::forTenant(current_tenant_id_or_null())->findOrFail($id),
+            'employee' => $employee = User::forTenant(current_tenant_id_or_null())->findOrFail($id),
             'weeks'    => array_chunk(array_merge(array_fill(0, $first->dayOfWeekIso - 1, null), array_keys($row['cells'])), 7),
             'states'   => AttendanceCalendarService::STATES,
             'today'    => now(tenant_timezone())->toDateString(),
             'canOpen'  => $request->user()->can('attendance.view_all'),
+            'canEdit'  => app(ManualAttendanceEdit::class)->canEdit($request->user(), $employee),
         ]);
     }
 
