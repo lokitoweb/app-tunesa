@@ -60,6 +60,7 @@ el texto.
 | 422 | `GEOFENCE_VIOLATION`, `NO_BRANCH_ASSIGNED`, `BREAK_NOT_ALLOWED`, `MOCK_LOCATION_DETECTED`, `GPS_ACCURACY_TOO_LOW`, `FACE_NOT_DETECTED`, `OFFLINE_NOT_ALLOWED`, `OFFLINE_TOO_OLD`, `OFFLINE_BEFORE_CLOCK_IN`, `OFFLINE_OUT_OF_ORDER` | Reglas de marcación, ver [Marcación](#marcación). |
 | 423 | `ACCOUNT_LOCKED` | Demasiados intentos fallidos (`LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCK_MINUTES`). |
 | 426 | `APP_UPDATE_REQUIRED` | Versión de la app por debajo de la mínima con `force_update`. |
+| 423 | `TRAINING_LOCKED` | Agotó los intentos del cuestionario (`POST /api/trainings/{id}/quiz`); RRHH debe dar intentos extra desde el panel. `GET /api/trainings/{id}` trae `max_attempts`, `attempts_left` y `locked`. |
 | 429 | `TOO_MANY_ATTEMPTS` | Ráfaga de intentos de login (`LoginGuard`). Los límites `throttle:` de las rutas devuelven el 429 estándar de Laravel, sin `code`. |
 | 500 | `SERVER_ERROR` | Error inesperado al marcar (se registra en el log; el mensaje no expone detalles internos). |
 | 503 | `GEOCODING_UNAVAILABLE` | El proveedor de mapas (Nominatim/Google) no respondió (`/api/geocode/reverse`). |

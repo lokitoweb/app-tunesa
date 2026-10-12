@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'training_providers.dart';
@@ -27,6 +28,10 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
       final result = await ref.read(trainingRepositoryProvider).submitQuiz(widget.courseId, _answers);
       refreshTraining(ref, widget.courseId);
       if (mounted) setState(() => _result = result);
+    } on ApiException catch (e) {
+      // 423: agotó los intentos (otro dispositivo o pantalla vieja)
+      if (e.code == 'TRAINING_LOCKED') refreshTraining(ref, widget.courseId);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
@@ -54,11 +59,24 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
       body: detail.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(trainingDetailProvider(widget.courseId))),
-        data: (d) => ListView(
+        data: (d) => d.summary.locked
+            ? const QuizLockedView()
+            : ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
             Text('Apruebas con ${d.summary.passingScore} de 100. Responde todas las preguntas.',
                 style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 4),
+            Text(
+              d.summary.attemptsLeft == 1
+                  ? 'Es tu último intento de ${d.summary.maxAttempts}.'
+                  : 'Te quedan ${d.summary.attemptsLeft} de ${d.summary.maxAttempts} intentos.',
+              key: const Key('quiz-attempts-left'),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: d.summary.attemptsLeft == 1 ? Theme.of(context).colorScheme.error : null,
+              ),
+            ),
             const SizedBox(height: 12),
             for (final (i, q) in d.questions.indexed)
               Card(
@@ -89,7 +107,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
         ),
       ),
       bottomNavigationBar: detail.whenOrNull(
-        data: (d) => SafeArea(
+        data: (d) => d.summary.locked ? null : SafeArea(
           minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: SizedBox(
             height: 52,
@@ -124,7 +142,7 @@ class QuizResultView extends StatelessWidget {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(result.passed ? Icons.emoji_events_rounded : Icons.replay_circle_filled_rounded, size: 80, color: color),
+            Icon(result.passed ? Icons.emoji_events_rounded : (result.locked ? Icons.lock_rounded : Icons.replay_circle_filled_rounded), size: 80, color: color),
             const SizedBox(height: 16),
             Text('${result.score}', style: Theme.of(context).textTheme.displayMedium?.copyWith(fontWeight: FontWeight.w800, color: color)),
             Text('${result.correct} de ${result.total} respuestas correctas'),
@@ -137,12 +155,41 @@ class QuizResultView extends StatelessWidget {
                 icon: const Icon(Icons.workspace_premium_rounded),
                 label: const Text('Ver mi constancia'),
               )
+            else if (result.locked)
+              FilledButton.icon(
+                onPressed: () => context.pop(),
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Volver a la capacitación'),
+              )
             else ...[
               FilledButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh), label: const Text('Intentar otra vez')),
               TextButton(onPressed: () => context.pop(), child: const Text('Repasar las lecciones')),
             ],
           ]),
         ),
+      ),
+    );
+  }
+}
+
+/// Sin intentos: el cuestionario queda cerrado hasta que RRHH lo desbloquee.
+class QuizLockedView extends StatelessWidget {
+  const QuizLockedView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.lock_rounded, size: 72, color: Theme.of(context).colorScheme.error),
+          const SizedBox(height: 16),
+          const Text(
+            'Agotaste los intentos de este cuestionario. RRHH ya fue avisado y puede darte intentos extra; te llegará un aviso.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16),
+          ),
+        ]),
       ),
     );
   }

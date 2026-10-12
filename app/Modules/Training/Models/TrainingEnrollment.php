@@ -6,6 +6,7 @@ use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use App\Modules\Core\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Curso asignado a una persona y su avance */
 class TrainingEnrollment extends Model
@@ -15,6 +16,7 @@ class TrainingEnrollment extends Model
     protected $fillable = [
         'tenant_id', 'course_id', 'user_id', 'assigned_at', 'due_date', 'started_at', 'completed_at',
         'completed_lessons', 'progress', 'score', 'attempts', 'due_reminder_sent_at',
+        'extra_attempts', 'locked_at', 'unlocked_by', 'unlocked_at',
     ];
 
     protected $casts = [
@@ -27,6 +29,9 @@ class TrainingEnrollment extends Model
         'progress'             => 'integer',
         'score'                => 'integer',
         'attempts'             => 'integer',
+        'extra_attempts'       => 'integer',
+        'locked_at'            => 'datetime',
+        'unlocked_at'          => 'datetime',
     ];
 
     public function course(): BelongsTo
@@ -39,11 +44,35 @@ class TrainingEnrollment extends Model
         return $this->belongsTo(User::class);
     }
 
-    /** pending | in_progress | completed | overdue */
+    public function quizAttempts(): HasMany
+    {
+        return $this->hasMany(TrainingQuizAttempt::class, 'enrollment_id')->latest('created_at')->latest('id');
+    }
+
+    /** Intentos permitidos: el tope del curso más los extra que dio RRHH */
+    public function allowedAttempts(): int
+    {
+        return (int) ($this->course?->max_attempts ?? 3) + (int) $this->extra_attempts;
+    }
+
+    public function attemptsLeft(): int
+    {
+        return max(0, $this->allowedAttempts() - (int) $this->attempts);
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->locked_at !== null && ! $this->completed_at;
+    }
+
+    /** pending | in_progress | completed | locked | overdue */
     public function status(): string
     {
         if ($this->completed_at) {
             return 'completed';
+        }
+        if ($this->locked_at) {
+            return 'locked';
         }
         if ($this->due_date && $this->due_date->endOfDay()->isPast()) {
             return 'overdue';
@@ -56,6 +85,7 @@ class TrainingEnrollment extends Model
         'pending'     => 'Sin empezar',
         'in_progress' => 'En curso',
         'completed'   => 'Completado',
+        'locked'      => 'Bloqueado',
         'overdue'     => 'Vencido',
     ];
 

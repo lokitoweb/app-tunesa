@@ -183,6 +183,55 @@ class TrainingTest extends TestCase
         $this->actingAs($this->admin)->get("/training/{$course->id}/export")->assertOk();
     }
 
+    public function test_quiz_locks_after_max_attempts_alerts_hr_and_hr_grants_extra(): void
+    {
+        $hr     = $this->makeUser($this->acme, 'hr_manager');
+        $course = $this->createCourse(['max_attempts' => 2]);
+        $this->assertSame(2, $course->max_attempts);
+        $q = $course->questions()->pluck('id');
+        foreach ($course->lessons()->pluck('id') as $id) {
+            $this->actingIn($this->emp, $this->acme)->postJson("/api/trainings/{$course->id}/lessons/{$id}/complete")->assertOk();
+        }
+        $quiz = fn (array $answers) => $this->actingIn($this->emp, $this->acme)->postJson("/api/trainings/{$course->id}/quiz", ['answers' => $answers]);
+        $fail = [$q[0] => 0, $q[1] => 1];
+
+        $quiz($fail)->assertOk()->assertJsonPath('data.attempts_left', 1)->assertJsonPath('data.locked', false)
+            ->assertJsonPath('message', 'Obtuviste 0 y necesitas 70. Te queda 1 intento. Repasa las lecciones antes de volver a intentarlo.');
+        $quiz($fail)->assertOk()->assertJsonPath('data.locked', true)->assertJsonPath('data.attempts_left', 0)
+            ->assertJsonPath('data.training.status', 'locked')->assertJsonPath('data.training.locked', true);
+
+        // Bloqueado: ni aprobando entra
+        $quiz([$q[0] => 1, $q[1] => 0])->assertStatus(423)->assertJsonPath('code', 'TRAINING_LOCKED');
+
+        app(TenantContext::class)->clear();
+        $enrollment = TrainingEnrollment::sole();
+        $this->assertNotNull($enrollment->locked_at);
+        $this->assertSame(2, $enrollment->quizAttempts()->count());
+        $this->assertSame([0, 0], $enrollment->quizAttempts()->pluck('score')->all());
+        $this->assertSame(1, $hr->notifications()->where('type', 'training.locked')->count());
+        $this->assertSame(1, $this->admin->notifications()->where('type', 'training.locked')->count());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'training.locked', 'subject_id' => $this->emp->id]);
+
+        // Panel: aparece bloqueado con su historial; un supervisor no puede desbloquear
+        $this->actingAs($hr)->get("/training/{$course->id}?status=locked")->assertOk()
+            ->assertInertia(fn ($page) => $page->where('stats.locked', 1)->where('canUnlock', true)
+                ->where('enrollments.data.0.locked', true)->where('enrollments.data.0.max_attempts', 2)
+                ->has('enrollments.data.0.history', 2));
+        $sup = $this->makeUser($this->acme, 'supervisor');
+        app(TenantContext::class)->clear();
+        $this->actingAs($sup)->post("/training/{$course->id}/enrollments/{$enrollment->id}/unlock", ['extra' => 1])->assertForbidden();
+
+        $this->actingAs($hr)->post("/training/{$course->id}/enrollments/{$enrollment->id}/unlock", ['extra' => 1])->assertRedirect();
+        app(TenantContext::class)->clear();
+        $enrollment->refresh();
+        $this->assertNull($enrollment->locked_at);
+        $this->assertSame($hr->id, $enrollment->unlocked_by);
+        $this->assertSame(1, $enrollment->attemptsLeft());
+        $this->assertSame(1, $this->emp->notifications()->where('type', 'training.unlocked')->count());
+
+        $quiz([$q[0] => 1, $q[1] => 0])->assertOk()->assertJsonPath('data.passed', true)->assertJsonPath('data.training.status', 'completed');
+    }
+
     public function test_course_without_quiz_completes_with_last_lesson(): void
     {
         $course = $this->createCourse(['questions' => [], 'lessons' => [['title' => 'Única', 'type' => 'text', 'content' => 'x']]]);

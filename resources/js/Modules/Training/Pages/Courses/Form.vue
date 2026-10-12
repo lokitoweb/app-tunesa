@@ -102,6 +102,11 @@ function submit(status) {
                             <label for="passing_score" class="form-label">Nota para aprobar</label>
                             <input id="passing_score" v-model="form.passing_score" type="number" min="1" max="100" class="form-control" :class="{ 'is-invalid': err('passing_score') }" required>
                         </div>
+                        <div class="col-6 col-md-3">
+                            <label for="max_attempts" class="form-label">Intentos del cuestionario</label>
+                            <input id="max_attempts" v-model="form.max_attempts" type="number" min="1" max="10" class="form-control" :class="{ 'is-invalid': err('max_attempts') }" aria-describedby="max_attempts_help" required>
+                            <div id="max_attempts_help" class="form-text">Al agotarlos se bloquea y RRHH recibe un aviso.</div>
+                        </div>
                         <div class="col-6 col-md-3 d-flex align-items-end">
                             <div class="form-check form-switch mb-2">
                                 <input id="is_mandatory" v-model="form.is_mandatory" class="form-check-input" type="checkbox" role="switch">
