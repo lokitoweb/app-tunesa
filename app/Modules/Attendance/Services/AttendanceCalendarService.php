@@ -184,7 +184,7 @@ class AttendanceCalendarService
             ->orderBy('work_date')->orderBy('clock_in_at')->orderBy('id')
             ->get(['id', 'tenant_id', 'user_id', 'branch_id', 'work_date', 'status', 'clock_in_at', 'clock_out_at',
                 'late_minutes', 'worked_hours', 'is_suspicious', 'justification_status',
-                'overtime_hours', 'overtime_status', 'overtime_approved_hours'])
+                'overtime_hours', 'overtime_status', 'overtime_approved_hours', 'manual_edited_at'])
             ->groupBy(fn (Attendance $a) => $a->user_id . '|' . $a->work_date->toDateString());
 
         $assignments = EmployeeShift::forTenant($f->tenantId)
@@ -340,6 +340,7 @@ class AttendanceCalendarService
                 'note'          => $leave && $state === 'excused' ? $leave->type_label : null,
                 'overtime_status' => $overtimeStatus,
                 'overtime_hours'  => round($overtimeHours, 2),
+                'manual'          => $records->contains(fn (Attendance $a) => $a->manual_edited_at !== null),
             ]);
         }
 
@@ -386,6 +387,7 @@ class AttendanceCalendarService
             'shift_start'   => null,
             'shift_grace'   => 0,
             'overtime_status' => null,
+            'manual'          => false,
             'overtime_hours'  => 0.0,
         ], $extra);
     }

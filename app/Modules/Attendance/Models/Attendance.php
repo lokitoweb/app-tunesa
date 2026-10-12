@@ -106,6 +106,11 @@ class Attendance extends Model
         'overtime_reviewed_at',
         'overtime_review_notes',
 
+        // Corrección manual desde el panel
+        'manual_edited_by',
+        'manual_edited_at',
+        'manual_edit_reason',
+
         // Justificación
         'notes',
         'justification_file',
@@ -132,6 +137,7 @@ class Attendance extends Model
         'overtime_hours'            => 'decimal:2',
         'overtime_approved_hours'   => 'decimal:2',
         'overtime_reviewed_at'      => 'datetime',
+        'manual_edited_at'          => 'datetime',
         'reviewed_at'               => 'datetime',
         'clock_in_accuracy_meters'  => 'float',
         'clock_out_accuracy_meters' => 'float',
@@ -179,6 +185,11 @@ class Attendance extends Model
     public function overtimeReviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'overtime_reviewed_by');
+    }
+
+    public function manualEditor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manual_edited_by');
     }
 
     /**

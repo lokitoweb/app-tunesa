@@ -111,6 +111,7 @@
                         <th>Selfie</th>
                         <th class="text-end">Distancia al punto</th>
                         <th>Sucursal</th>
+                        @if($canEdit)<th><span class="visually-hidden">Corregir</span></th>@endif
                     </tr>
                 </thead>
                 <tbody>
@@ -165,6 +166,13 @@
                                 @endif
                             </td>
                             <td>{{ $a?->branch?->name ?? '—' }}</td>
+                            @if($canEdit)
+                                <td class="text-end">
+                                    @if((int) $r['user_id'] !== (int) auth()->id() && $filters->day <= now(tenant_timezone())->toDateString())
+                                        <a href="{{ route('attendance.manual.edit', ['id' => $r['user_id'], 'date' => $filters->day]) }}" class="btn btn-sm btn-outline-secondary" title="Corregir asistencia"><i class="bi bi-pencil"></i><span class="visually-hidden">Corregir asistencia de {{ $r['first_name'] }}</span></a>
+                                    @endif
+                                </td>
+                            @endif
                         </tr>
                     @endforeach
                 </tbody>

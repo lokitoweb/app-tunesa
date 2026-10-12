@@ -12,6 +12,10 @@
     .person-day .chip { display: inline-flex; align-items: center; justify-content: center; min-width: 1.6rem; height: 1.6rem; border-radius: .35rem; font-weight: 600; }
     .person-day .chip.is-scheduled { border: 1px dashed var(--bs-secondary-color); color: var(--bs-secondary-color); }
     button.person-day:hover { border-color: var(--bs-primary); }
+    .person-cell { position: relative; }
+    .person-cell > .person-day { height: 100%; }
+    .person-cell .day-edit { position: absolute; right: .3rem; bottom: .2rem; font-size: .8rem; line-height: 1; padding: .15rem .25rem; border-radius: .25rem; color: var(--bs-secondary-color); }
+    .person-cell .day-edit:hover { color: var(--bs-primary); background: var(--bs-tertiary-bg); }
     @media (max-width: 575.98px) { .person-day { min-height: 4.5rem; padding: .25rem; } .person-day .detail { display: none; } }
 </style>
 @endsection
@@ -73,6 +77,7 @@
                         $c = $row['cells'][$date];
                         $num = (int) substr($date, 8, 2);
                     @endphp
+                    <div class="person-cell">
                     @if($canOpen && $c && $c['attendance_id'])
                         <button type="button" class="person-day {{ $date === $today ? 'is-today' : '' }}" onclick="openEvidence({{ $c['attendance_id'] }})" aria-label="{{ $date }}: {{ $c['label'] }}">
                     @else
@@ -98,6 +103,9 @@
                                 @elseif($c['overtime_status'] === 'approved')
                                     <div class="text-success-emphasis">HE {{ $fmtHours($c['overtime_hours']) }} aprobadas</div>
                                 @endif
+                                @if($c['manual'] ?? false)
+                                    <div class="text-body-secondary"><i class="bi bi-pencil-square"></i> Corregida</div>
+                                @endif
                                 @if($c['note'] && $c['state'] !== 'scheduled')
                                     <div class="text-body-secondary text-truncate" title="{{ $c['note'] }}">{{ $c['note'] }}</div>
                                 @endif
@@ -108,6 +116,10 @@
                     @else
                         </div>
                     @endif
+                    @if($canEdit && $date <= $today)
+                        <a href="{{ route('attendance.manual.edit', ['id' => $employee->id, 'date' => $date]) }}" class="day-edit" title="Corregir asistencia del {{ $num }}" aria-label="Corregir asistencia del {{ $date }}"><i class="bi bi-pencil"></i></a>
+                    @endif
+                    </div>
                 @endforeach
                 @for($i = count($week); $i < 7; $i++)
                     <div></div>
