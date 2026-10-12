@@ -20,6 +20,7 @@ import '../../features/auth/presentation/change_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/payslips/presentation/payslip_viewer_screen.dart';
 import '../../features/profile/domain/models.dart';
 import '../../features/profile/presentation/contact_screen.dart';
@@ -128,6 +129,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const NewRequestScreen(),
       ),
       GoRoute(parentNavigatorKey: _rootKey, path: '/notifications', builder: (_, _) => const NotificationsScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
       // Área de supervisor / RRHH: solo con permiso (el backend igual responde 403)
       GoRoute(
         parentNavigatorKey: _rootKey,

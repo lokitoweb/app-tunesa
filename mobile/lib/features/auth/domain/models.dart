@@ -59,6 +59,7 @@ class AppUser {
     this.companyName,
     this.avatarUrl,
     this.mustChangePassword = false,
+    this.onboardingStatus = 'approved',
     this.permissions = const {},
   });
 
@@ -76,6 +77,10 @@ class AppUser {
 
   /// Cuenta creada por RRHH con contraseña temporal: debe cambiarla primero.
   final bool mustChangePassword;
+
+  /// Incorporación (pending, submitted, approved, rejected). Respaldo sin
+  /// conexión del candado: la fuente es GET /api/onboarding.
+  final String onboardingStatus;
 
   /// Permisos que envía el backend (UserResource.permissions): flags
   /// `can_*` o, si algún día llega como lista, slugs (`leave.approve_team`).
@@ -122,6 +127,7 @@ class AppUser {
         avatarUrl: json['avatar_url'] as String?,
         companyName: (json['company'] as Map?)?['name'] as String? ?? json['company_name'] as String?,
         mustChangePassword: json['must_change_password'] == true,
+        onboardingStatus: json['onboarding_status']?.toString() ?? 'approved',
         permissions: parsePermissions(json['permissions']),
       );
 
@@ -136,6 +142,7 @@ class AppUser {
         companyName: companyName,
         avatarUrl: avatarUrl,
         mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+        onboardingStatus: onboardingStatus,
         permissions: permissions,
       );
 
@@ -150,6 +157,7 @@ class AppUser {
         'company_name': companyName,
         'avatar_url': avatarUrl,
         'must_change_password': mustChangePassword,
+        'onboarding_status': onboardingStatus,
         'permissions': permissions,
       };
 }

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../onboarding/presentation/onboarding_providers.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/config/app_config_controller.dart';
 import '../../../core/location/location_service.dart';
@@ -292,6 +293,8 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       // Error de negocio: el próximo intento es una captura nueva. Con 5xx /
       // 429 el servidor pudo guardarla: se conserva el mismo client_uuid.
       if (!OfflineSyncEngine.isRetryable(e)) _capture = null;
+      // Incorporación sin aprobar: Inicio cambia los botones por el asistente
+      if (e.code == 'ONBOARDING_PENDING') ref.invalidate(onboardingProvider);
       if (mounted) setState(() => _sendError = e);
     } finally {
       if (mounted) setState(() => _sending = false);

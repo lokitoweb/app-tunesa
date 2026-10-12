@@ -101,6 +101,7 @@ class _NotificationTile extends StatelessWidget {
       'leave_request' || 'leave_requests' || 'leave' => Icons.event_note_outlined,
       'document' || 'documents' => Icons.description_outlined,
       'attendance' => Icons.schedule_rounded,
+      'onboarding' => Icons.assignment_ind_outlined,
       _ => Icons.notifications_outlined,
     };
   }
