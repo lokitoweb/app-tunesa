@@ -18,10 +18,15 @@ enum LocationFailure {
 }
 
 class LocationException implements Exception {
-  const LocationException(this.failure, this.message);
+  const LocationException(this.failure, this.message, {this.position, this.isMocked = false});
 
   final LocationFailure failure;
   final String message;
+
+  /// Lectura que se descartó ([LocationFailure.mocked] / [LocationFailure.lowAccuracy]):
+  /// se reporta al servidor como intento bloqueado.
+  final Position? position;
+  final bool isMocked;
 
   /// El usuario puede resolverlo desde Ajustes del sistema.
   bool get canOpenSettings =>
@@ -158,10 +163,12 @@ class LocationService {
     // Una sola lectura simulada basta para tratar la marcación como simulada
     final isMocked = samples.any((p) => p.isMocked) || await simulated;
     if (decideMock(isMocked: isMocked, policy: mockPolicy) == MockDecision.block) {
-      throw const LocationException(
+      throw LocationException(
         LocationFailure.mocked,
         'Se detectó una ubicación simulada y tu empresa no permite marcar así. Desactiva cualquier app de '
         'GPS falso o las opciones de desarrollador de ubicación y vuelve a intentarlo.',
+        position: position,
+        isMocked: true,
       );
     }
 
@@ -169,6 +176,8 @@ class LocationService {
       throw LocationException(
         LocationFailure.lowAccuracy,
         'La señal GPS es imprecisa (±${position.accuracy.round()} m). Acércate a una ventana o sal al exterior y reintenta.',
+        position: position,
+        isMocked: isMocked,
       );
     }
 

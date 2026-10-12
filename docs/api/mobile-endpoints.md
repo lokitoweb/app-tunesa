@@ -438,6 +438,27 @@ vaciar la cola offline de la app en un solo envío (`AttendanceSyncController`).
 (con el primer mensaje de validación) o `SERVER_ERROR`. La app puede borrar de su cola los
 `created` y `duplicate`, y los `rejected` (salvo `SERVER_ERROR`, que conviene reintentar).
 
+### `POST /api/attendance/attempts`
+
+La app reporta una marcación que **ella misma** bloqueó antes de enviarla, para que RRHH la vea
+en Asistencia > Intentos rechazados con la etiqueta «Desde la app». Requiere `attendance.mark`;
+máximo 30 por minuto. Idempotente por `client_uuid`: `201` si es nuevo, `200 {duplicate: true}` si ya estaba.
+
+| Campo | Regla |
+|---|---|
+| `client_uuid` | UUID, obligatorio |
+| `type` | `clock_in`, `break_start`, `break_end` o `clock_out` |
+| `code` | `MOCK_LOCATION_DETECTED`, `GPS_ACCURACY_TOO_LOW` o `GEOFENCE_VIOLATION` |
+| `occurred_at` | ISO 8601 con zona; de hace 7 días como máximo |
+| `latitude`, `longitude`, `accuracy_meters` | la lectura descartada, opcionales |
+| `distance_meters`, `allowed_radius`, `branch_id` | solo fuera del radio; una sede no asignada se cambia por la principal |
+| `is_mocked`, `offline`, `device_id`, `device_os`, `app_version` | opcionales |
+
+Al tercer `MOCK_LOCATION_DETECTED` del día (sumando los que rechaza el servidor) se avisa una sola
+vez al supervisor de la sede, a administradores y a RRHH (`attendance.mock_repeated`). Los intentos
+se borran a los 12 meses (`model:prune` diario). La app guarda en el teléfono hasta 30 reportes que
+no pudo enviar (sin señal, 5xx o 429) y los reenvía con el siguiente; un 4xx se descarta.
+
 ### `GET /api/geocode/reverse?lat=&lng=`
 
 Con token de la empresa (cualquier rol), `throttle:60,1`. Dirección legible de un punto con el
@@ -651,6 +672,7 @@ Tipos de aviso de asistencia (además de `leave_request.*`, `justification.*`, `
 | `type` | Cuándo | `data` |
 |---|---|---|
 | `attendance.outside_schedule` | Entrada o salida aceptada fuera de la ventana del turno (motivo `OUTSIDE_SCHEDULE`) | `attendance_id`, `punch_id`, `punch_type`, `user_id`, `work_date`, `screen` (`attendance`; `team_attendance` para el supervisor) |
+| `attendance.mock_repeated` | Tercer intento del día con ubicación simulada (solo a supervisor, administradores y RRHH; in-app, sin push) | `user_id`, `attempts`, `screen` (`attendance_attempts`) |
 | `attendance.outside_geofence` | Entrada o salida lejos de la sucursal: rechazada (`rejected: true`, `GEOFENCE_VIOLATION`) o aceptada con `flag` | `punch_type`, `branch_id`, `distance_meters`, `allowed_radius`, `rejected`, `screen` y, si se aceptó, `attendance_id`, `punch_id` |
 
 El colaborador los recibe in-app **y por push**; el supervisor de la sucursal, solo in-app.

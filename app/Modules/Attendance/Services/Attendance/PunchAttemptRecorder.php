@@ -14,13 +14,15 @@ use Illuminate\Http\Request;
  */
 class PunchAttemptRecorder
 {
+    public function __construct(private readonly AttendanceAlertNotifier $alerts) {}
+
     public function record(User $employee, PunchData $data, AttendanceException $e): ?AttendancePunchAttempt
     {
         try {
             $context  = $e->context;
             $branchId = $context['branch_id'] ?? $employee->primaryBranch()->value('branches.id');
 
-            return AttendancePunchAttempt::withoutGlobalScopes()->create([
+            return $this->saved(AttendancePunchAttempt::withoutGlobalScopes()->create([
                 'tenant_id'              => $employee->tenant_id,
                 'user_id'                => $employee->id,
                 'branch_id'              => $branchId,
@@ -42,7 +44,7 @@ class PunchAttemptRecorder
                 'device_os'              => $data->deviceOs ? mb_substr($data->deviceOs, 0, 100) : null,
                 'app_version'            => $data->appVersion ? mb_substr($data->appVersion, 0, 50) : null,
                 'ip'                     => $data->ip,
-            ]);
+            ]), $employee);
         } catch (\Throwable $err) {
             report($err);
 
@@ -62,7 +64,7 @@ class PunchAttemptRecorder
         $str   = fn (string $key, int $max) => is_string($input[$key] ?? null) && $input[$key] !== '' ? mb_substr($input[$key], 0, $max) : null;
 
         try {
-            return AttendancePunchAttempt::withoutGlobalScopes()->create([
+            return $this->saved(AttendancePunchAttempt::withoutGlobalScopes()->create([
                 'tenant_id'   => $employee->tenant_id,
                 'user_id'     => $employee->id,
                 'branch_id'   => $employee->primaryBranch()->value('branches.id'),
@@ -77,11 +79,88 @@ class PunchAttemptRecorder
                 'device_os'   => $str('device_os', 100),
                 'app_version' => $str('app_version', 50),
                 'ip'          => $request->ip(),
-            ]);
+            ]), $employee);
         } catch (\Throwable $err) {
             report($err);
 
             return null;
         }
+    }
+
+    /**
+     * Bloqueo que hizo la app antes de enviar (POST /api/attendance/attempts).
+     * Idempotente por client_uuid: la app reintenta los que no pudo enviar.
+     *
+     * @param  array<string, mixed>  $input  Campos ya validados
+     * @return array{0: AttendancePunchAttempt, 1: bool}  [intento, ¿nuevo?]
+     */
+    public function recordFromApp(User $employee, array $input, ?string $ip): array
+    {
+        $existing = AttendancePunchAttempt::withoutGlobalScopes()
+            ->where('tenant_id', $employee->tenant_id)
+            ->where('user_id', $employee->id)
+            ->where('client_uuid', $input['client_uuid'])
+            ->first();
+
+        if ($existing) {
+            return [$existing, false];
+        }
+
+        $branchId = $input['branch_id'] ?? null;
+        if ($branchId && ! $employee->branches()->whereKey($branchId)->exists()) {
+            $branchId = null;
+        }
+
+        $attempt = AttendancePunchAttempt::withoutGlobalScopes()->create([
+            'tenant_id'              => $employee->tenant_id,
+            'user_id'                => $employee->id,
+            'branch_id'              => $branchId ?? $employee->primaryBranch()->value('branches.id'),
+            'type'                   => $input['type'],
+            'error_code'             => $input['code'],
+            'source'                 => AttendancePunchAttempt::SOURCE_APP,
+            'message'                => mb_substr(self::APP_MESSAGES[$input['code']], 0, 500),
+            'latitude'               => $input['latitude'] ?? null,
+            'longitude'              => $input['longitude'] ?? null,
+            'accuracy_meters'        => $input['accuracy_meters'] ?? null,
+            'distance_meters'        => isset($input['distance_meters']) ? (int) round($input['distance_meters']) : null,
+            'allowed_radius'         => isset($input['allowed_radius']) ? (int) $input['allowed_radius'] : null,
+            'mock_location_detected' => (bool) ($input['is_mocked'] ?? false),
+            'offline'                => (bool) ($input['offline'] ?? false),
+            'device_time'            => $input['occurred_at'],
+            'client_uuid'            => $input['client_uuid'],
+            'device_id'              => isset($input['device_id']) ? mb_substr($input['device_id'], 0, 191) : null,
+            'device_os'              => isset($input['device_os']) ? mb_substr($input['device_os'], 0, 100) : null,
+            'app_version'            => isset($input['app_version']) ? mb_substr($input['app_version'], 0, 50) : null,
+            'ip'                     => $ip,
+        ]);
+
+        return [$this->saved($attempt, $employee), true];
+    }
+
+    /** Lo que vio el colaborador en la app para cada bloqueo */
+    public const APP_MESSAGES = [
+        'MOCK_LOCATION_DETECTED' => 'La app detectó una ubicación simulada y no envió la marcación.',
+        'GPS_ACCURACY_TOO_LOW'   => 'La app no envió la marcación: la señal GPS era imprecisa.',
+        'GEOFENCE_VIOLATION'     => 'La app no envió la marcación: estaba fuera del radio de la sucursal.',
+    ];
+
+    /** Tras guardar: con GPS falso repetido en el día, avisa a supervisor y RRHH */
+    private function saved(AttendancePunchAttempt $attempt, User $employee): AttendancePunchAttempt
+    {
+        if ($attempt->error_code === 'MOCK_LOCATION_DETECTED') {
+            $start = now(tenant_timezone())->startOfDay()->setTimezone(config('app.timezone'));
+            $count = AttendancePunchAttempt::withoutGlobalScopes()
+                ->where('tenant_id', $employee->tenant_id)
+                ->where('user_id', $employee->id)
+                ->where('error_code', 'MOCK_LOCATION_DETECTED')
+                ->where('created_at', '>=', $start)
+                ->count();
+
+            if ($count >= AttendanceAlertNotifier::MOCK_ATTEMPTS_ALERT) {
+                $this->alerts->mockRepeated($employee, $count, $attempt->branch_id);
+            }
+        }
+
+        return $attempt;
     }
 }

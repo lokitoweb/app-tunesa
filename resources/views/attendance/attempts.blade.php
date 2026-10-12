@@ -79,6 +79,18 @@
     </div>
 </div>
 
+@if($mapPoints->isNotEmpty())
+<div class="card border-0 mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="h6 mb-0">Dónde intentaron marcar</h2>
+            <span class="small text-body-secondary">Intentos de esta página y radio de cada sede (línea punteada: tolerancia del borde)</span>
+        </div>
+        <div id="attemptsMap" style="height: 320px" class="rounded"></div>
+    </div>
+</div>
+@endif
+
 <div class="card border-0">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -102,6 +114,9 @@
                         </td>
                         <td class="text-nowrap">
                             <div class="fw-semibold">{{ $a->created_at->format('d/m/Y H:i:s') }}</div>
+                            @if($a->fromApp())
+                                <span class="badge rounded-pill bg-info-subtle text-info-emphasis" title="La app bloqueó la marcación antes de enviarla"><i class="bi bi-phone"></i> Desde la app</span>
+                            @endif
                             @if($a->offline)
                                 <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis" title="Hecha sin conexión el {{ $a->offline_recorded_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') }}"><i class="bi bi-wifi-off"></i> Sin conexión</span>
                             @endif
@@ -143,4 +158,32 @@
         <div class="card-footer bg-transparent">{{ $attempts->links() }}</div>
     @endif
 </div>
+@endsection
+
+@section('scripts')
+@if($mapPoints->isNotEmpty())
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const BRANCHES = @json($mapBranches);
+    const POINTS = @json($mapPoints);
+    const brand = Panel.cssVar('--brand') || '#1E40AF';
+    const map = L.map('attemptsMap', { scrollWheelZoom: false });
+    Panel.tiles(map);
+    const bounds = [];
+    BRANCHES.forEach((b) => {
+        L.circle([b.lat, b.lng], { radius: b.radius || 50, color: brand, fillColor: brand, fillOpacity: .1, weight: 2 })
+            .addTo(map).bindPopup(`<strong>${Panel.esc(b.name)}</strong><br>Radio ${b.radius} m`);
+        if (b.tolerance > 0) {
+            L.circle([b.lat, b.lng], { radius: b.radius + b.tolerance, color: brand, weight: 1, dashArray: '4 4', fill: false, interactive: false }).addTo(map);
+        }
+    });
+    POINTS.forEach((p) => {
+        L.circleMarker([p.lat, p.lng], { radius: 7, color: p.mock ? '#b91c1c' : '#d97706', fillOpacity: .8, weight: 2 })
+            .addTo(map).bindPopup(`<strong>${Panel.esc(p.name)}</strong><br>${Panel.esc(p.code)}<br>${Panel.esc(p.at)}`);
+        bounds.push([p.lat, p.lng]);
+    });
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+});
+</script>
+@endif
 @endsection

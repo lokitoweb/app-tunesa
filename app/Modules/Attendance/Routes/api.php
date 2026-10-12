@@ -3,6 +3,7 @@
 use App\Modules\Attendance\Controllers\Api\Admin\AttendanceDetailController;
 use App\Modules\Attendance\Controllers\Api\AttendanceController;
 use App\Modules\Attendance\Controllers\Api\AttendanceSyncController;
+use App\Modules\Attendance\Controllers\Api\PunchAttemptController;
 use Illuminate\Support\Facades\Route;
 
 // Attendance (API): marcación, sincronización offline, tableros y reportes.
@@ -26,6 +27,9 @@ Route::middleware('api.tenant')->group(function () {
             Route::post('break-end',   [AttendanceController::class, 'breakEnd']);
             Route::post('clock-out',   [AttendanceController::class, 'clockOut']);
         });
+        // Bloqueos que hizo la app antes de enviar (GPS falso, impreciso, fuera del radio)
+        Route::post('attempts', [PunchAttemptController::class, 'store'])
+            ->middleware(['permission:attendance.mark', 'throttle:30,1']);
     });
 
     Route::prefix('admin')->group(function () {

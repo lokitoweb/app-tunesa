@@ -16,6 +16,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/providers.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
+import '../data/attempt_reporter.dart';
 import '../data/offline_sync_engine.dart';
 import '../domain/models.dart';
 import '../domain/punch.dart';
@@ -143,10 +144,22 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
 
   /// Con geocerca estricta: [fix] cae fuera del radio de la sede más cercana.
   /// Sin sedes cargadas no se bloquea (el servidor valida al final).
-  bool _isOutside(LocationFix fix) {
-    if (!_mobile.geofenceStrictMode) return false;
+  bool _isOutside(LocationFix fix) => _outsideAttempt(fix) != null;
+
+  AppAttempt? _outsideAttempt(LocationFix fix, {DateTime? at}) {
+    if (!_mobile.geofenceStrictMode) return null;
     final near = nearestBranch(ref.read(myBranchesProvider).value ?? const [], fix.position);
-    return near != null && !near.inside;
+    if (near == null || near.inside) return null;
+    return AppAttempt.outside(widget.action, fix, branch: near.branch, distance: near.distance, at: at);
+  }
+
+  /// La app no dejó marcar (GPS falso, impreciso o fuera del radio): se avisa
+  /// al servidor para que RRHH lo vea. No espera la respuesta.
+  void _reportBlock({LocationFix? fix, LocationException? error, DateTime? at}) {
+    final attempt = error != null
+        ? AppAttempt.fromLocationError(widget.action, error, at: at)
+        : (fix == null ? null : _outsideAttempt(fix, at: at));
+    if (attempt != null) unawaited(ref.read(attemptReporterProvider).report(attempt));
   }
 
   /// Abre la cámara. [auto]: apertura automática al entrar; si se cancela y
@@ -198,6 +211,8 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       });
     }
 
+    _reportBlock(fix: fix, error: error, at: shot.takenAt);
+
     // Todo en orden: se envía sin pedir otra confirmación (la foto aceptada lo es)
     if (fix == null || _isOutside(fix) || (detect && _faceDetected == false)) return;
     await _send();
@@ -235,7 +250,10 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
         _locationError = error;
         if (fresh != null) _preview = fresh;
       });
-      if (fresh == null) return null;
+      if (fresh == null) {
+        if (error != null) _reportBlock(error: error, at: now);
+        return null;
+      }
       fix = fresh;
       deviceTime = now;
     }
