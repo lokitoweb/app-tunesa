@@ -3,6 +3,7 @@
 use App\Modules\Attendance\Controllers\Web\AttendanceWebController;
 use App\Modules\Attendance\Controllers\Web\HoursReportWebController;
 use App\Modules\Attendance\Controllers\Web\LiveBoardController;
+use App\Modules\Attendance\Controllers\Web\PunchAttemptWebController;
 use App\Modules\Attendance\Controllers\Web\ReportWebController;
 use Illuminate\Support\Facades\Route;
 
@@ -11,6 +12,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     // Control de Asistencias, faltas y auditoría GPS / Selfie
     Route::prefix('attendance')->name('attendance.')->middleware('can:attendance.view_all')->group(function () {
         Route::get('/', [AttendanceWebController::class, 'index'])->name('index');
+        Route::get('/attempts', [PunchAttemptWebController::class, 'index'])->name('attempts');
         Route::get('/{id}', [AttendanceWebController::class, 'show'])->name('show')->whereNumber('id');
         Route::get('/{id}/evidence', [AttendanceWebController::class, 'evidence'])->name('evidence')->whereNumber('id');
         Route::post('/{id}/review', [AttendanceWebController::class, 'reviewJustification'])->name('review')->middleware('can:attendance.review')->whereNumber('id');

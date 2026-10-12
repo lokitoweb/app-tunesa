@@ -32,6 +32,7 @@ final class Labels
         'auth.login_failed'                  => ['Intento de ingreso fallido', 'warning', 'shield-exclamation'],
         'auth.account_locked'                => ['Cuenta bloqueada por intentos fallidos', 'danger', 'lock'],
         'auth.account_unlocked'              => ['Cuenta desbloqueada', 'success', 'unlock'],
+        'auth.access_reset'                  => ['Acceso restablecido por RRHH', 'warning', 'key'],
         'auth.password_reset'                => ['Contraseña restablecida', 'info', 'key'],
         'auth.password_changed'              => ['Contraseña cambiada', 'info', 'key'],
 
@@ -212,6 +213,7 @@ final class Labels
         'contact_email'           => 'Correo de contacto',
         'contact_phone'           => 'Teléfono de contacto',
         'website'                 => 'Sitio web',
+        'login_email_domain'      => 'Dominio del correo de acceso',
         'primary_color'           => 'Color primario',
         'secondary_color'         => 'Color secundario',
         'accent_color'            => 'Color de acento',
@@ -302,6 +304,7 @@ final class Labels
         'last_login_at'           => 'Último ingreso',
         'last_login_ip'           => 'Dirección del último ingreso',
         'must_change_password'    => 'Debe cambiar su contraseña',
+        'temp_password_expires_at' => 'Vence la contraseña temporal',
 
         // Ficha laboral (employee_profiles)
         'district'                => 'Distrito',
@@ -704,6 +707,18 @@ final class Labels
             'break_start' => ['Inicio de descanso', 'secondary'],
             'break_end'   => ['Fin de descanso', 'secondary'],
             'clock_out'   => ['Salida', 'primary'],
+        ],
+        'punch_attempt_code' => [
+            'GEOFENCE_VIOLATION'      => ['Fuera de la geocerca', 'danger'],
+            'MOCK_LOCATION_DETECTED'  => ['Ubicación simulada', 'danger'],
+            'GPS_ACCURACY_TOO_LOW'    => ['GPS impreciso', 'warning'],
+            'FACE_NOT_DETECTED'       => ['Sin rostro en la selfie', 'warning'],
+            'NO_BRANCH_ASSIGNED'      => ['Sin sucursal asignada', 'secondary'],
+            'BREAK_NOT_ALLOWED'       => ['Turno sin descanso', 'secondary'],
+            'OFFLINE_NOT_ALLOWED'     => ['Sin conexión no permitido', 'warning'],
+            'OFFLINE_TOO_OLD'         => ['Sin conexión demasiado antigua', 'warning'],
+            'OFFLINE_BEFORE_CLOCK_IN' => ['Sin conexión antes de la entrada', 'warning'],
+            'OFFLINE_OUT_OF_ORDER'    => ['Sin conexión fuera de orden', 'warning'],
         ],
         'suspicion_reason' => [
             'MOCK_LOCATION'    => ['Ubicación simulada', 'danger'],

@@ -33,10 +33,14 @@ class PasswordResetWebTest extends TestCase
     {
         Notification::fake();
         $acme = $this->makeTenant('acme');
-        $employee = $this->makeUser($acme, 'employee', ['email' => 'rosa@acme.pe']);
+        $employee = $this->makeUser($acme, 'hr_manager', ['email' => 'rosa@acme.pe']);
+        $worker   = $this->makeUser($acme, 'employee', ['email' => 'luis@acme.pe']);
 
         $this->post('/forgot-password', ['email' => 'rosa@acme.pe'])->assertSessionHas('status');
         $this->post('/forgot-password', ['email' => 'nadie@acme.pe'])->assertSessionHas('status')->assertSessionHasNoErrors();
+        // Un colaborador de la app recibe el mismo mensaje, pero no un enlace: su acceso lo restablece RRHH.
+        $this->post('/forgot-password', ['email' => 'luis@acme.pe'])->assertSessionHas('status')->assertSessionHasNoErrors();
+        Notification::assertNotSentTo($worker, ResetPassword::class);
 
         Notification::assertSentTo($employee, ResetPassword::class, function (ResetPassword $n) use ($employee) {
             $url = $n->toMail($employee)->actionUrl;
@@ -56,10 +60,10 @@ class PasswordResetWebTest extends TestCase
         $this->get('/reset-password')->assertRedirect(route('password.request'));
     }
 
-    public function test_employee_resets_password_clears_temporary_flag_and_is_not_logged_in(): void
+    public function test_panel_user_resets_password_clears_temporary_flag_and_is_not_logged_in(): void
     {
         $acme = $this->makeTenant('acme');
-        $employee = $this->makeUser($acme, 'employee', ['email' => 'rosa@acme.pe', 'must_change_password' => true]);
+        $employee = $this->makeUser($acme, 'hr_manager', ['email' => 'rosa@acme.pe', 'must_change_password' => true]);
         $employee->createToken('app');
         $token = Password::createToken($employee);
 
@@ -67,7 +71,7 @@ class PasswordResetWebTest extends TestCase
             'token' => $token, 'email' => 'rosa@acme.pe',
             'password' => 'NuevaClave9', 'password_confirmation' => 'NuevaClave9',
         ])->assertRedirect(route('login'))
-          ->assertSessionHas('status', 'Contraseña restablecida. Ya puedes ingresar en la app o en el panel.');
+          ->assertSessionHas('status', 'Contraseña restablecida. Ya puedes ingresar al panel.');
 
         $this->assertGuest();
         $employee->refresh();
@@ -75,7 +79,21 @@ class PasswordResetWebTest extends TestCase
         $this->assertFalse($employee->must_change_password);
         $this->assertSame(0, $employee->tokens()->count());
 
-        $this->get('/login')->assertSee('Ya puedes ingresar en la app o en el panel');
+        $this->get('/login')->assertSee('Ya puedes ingresar al panel');
+    }
+
+    public function test_app_employee_cannot_reset_from_the_web(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $worker = $this->makeUser($acme, 'employee', ['email' => 'luis@acme.pe']);
+        $token = Password::createToken($worker);
+
+        $this->post('/reset-password', [
+            'token' => $token, 'email' => 'luis@acme.pe',
+            'password' => 'NuevaClave9', 'password_confirmation' => 'NuevaClave9',
+        ])->assertSessionHasErrors();
+
+        $this->assertTrue(Hash::check('Secret123', $worker->fresh()->password));
     }
 
     public function test_reset_applies_password_rules_and_rejects_invalid_token(): void

@@ -19,6 +19,14 @@
     @endcan
 </div>
 
+@include('employees._credentials')
+
+{{-- Fuera del formulario principal: un formulario no puede ir dentro de otro --}}
+<form method="POST" action="{{ route('employees.reset-access', $employee->id) }}" id="resetAccessForm"
+      onsubmit="return confirm('Se generará una contraseña temporal nueva y se cerrarán sus sesiones en la app. ¿Continuar?');">
+    @csrf
+</form>
+
 <form method="POST" action="{{ route('employees.update', $employee->id) }}" enctype="multipart/form-data">
     @csrf
     @method('PUT')

@@ -16,6 +16,7 @@ use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Models\User;
 use App\Modules\Attendance\Services\Attendance\AttendanceAlertNotifier;
+use App\Modules\Attendance\Services\Attendance\PunchAttemptRecorder;
 use App\Modules\Attendance\Services\Attendance\PunchData;
 use App\Modules\Attendance\Services\Attendance\PunchResult;
 use App\Modules\Attendance\Services\Attendance\SelfieStorage;
@@ -54,6 +55,7 @@ class AttendanceService
         private readonly AuditLogger             $audit,
         private readonly SelfieStorage           $selfies,
         private readonly AttendanceAlertNotifier $alerts,
+        private readonly PunchAttemptRecorder    $attempts,
     ) {}
 
     // =========================================================================
@@ -61,9 +63,27 @@ class AttendanceService
     // =========================================================================
 
     /**
+     * Un rechazo por regla de negocio (422: geocerca, ubicación simulada, GPS,
+     * sin conexión...) queda en attendance_punch_attempts. Los conflictos de
+     * estado (409/404: ya marcó, no hay jornada abierta) no son intentos
+     * rechazados, son reintentos, y no se registran.
+     *
      * @throws AttendanceException
      */
     public function punch(User $employee, PunchData $data): PunchResult
+    {
+        try {
+            return $this->attemptPunch($employee, $data);
+        } catch (AttendanceException $e) {
+            if ($e->status() === 422) {
+                $this->attempts->record($employee, $data, $e);
+            }
+
+            throw $e;
+        }
+    }
+
+    private function attemptPunch(User $employee, PunchData $data): PunchResult
     {
         $tenant   = $this->tenantContext->get();
         $settings = TenantSetting::forTenant($tenant);
