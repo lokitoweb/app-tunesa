@@ -81,13 +81,15 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::delete('/{id}', [BranchWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     });
 
-    // Jerarquía organizacional: zonas, sedes y áreas (pantalla Vue)
+    // Jerarquía organizacional: zonas, sedes, áreas y cargos (pantalla Vue)
     Route::prefix('organization')->name('organization.')->middleware('can:branches.manage')->group(function () {
         Route::get('/', [OrganizationWebController::class, 'index'])->name('index');
         Route::patch('/branches/{id}', [OrganizationWebController::class, 'updateBranch'])->name('branches.update')->whereNumber('id');
-        Route::post('/{catalog}', [OrganizationWebController::class, 'store'])->name('store')->whereIn('catalog', ['zones', 'departments']);
-        Route::put('/{catalog}/{id}', [OrganizationWebController::class, 'update'])->name('update')->whereIn('catalog', ['zones', 'departments'])->whereNumber('id');
-        Route::delete('/{catalog}/{id}', [OrganizationWebController::class, 'destroy'])->name('destroy')->whereIn('catalog', ['zones', 'departments'])->whereNumber('id');
+        Route::put('/branches/{id}/positions', [OrganizationWebController::class, 'updateBranchPositions'])->name('branches.positions')->whereNumber('id');
+        Route::post('/positions/suggested', [OrganizationWebController::class, 'storeSuggestedPositions'])->name('positions.suggested');
+        Route::post('/{catalog}', [OrganizationWebController::class, 'store'])->name('store')->whereIn('catalog', ['zones', 'departments', 'positions']);
+        Route::put('/{catalog}/{id}', [OrganizationWebController::class, 'update'])->name('update')->whereIn('catalog', ['zones', 'departments', 'positions'])->whereNumber('id');
+        Route::delete('/{catalog}/{id}', [OrganizationWebController::class, 'destroy'])->name('destroy')->whereIn('catalog', ['zones', 'departments', 'positions'])->whereNumber('id');
     });
 
     // Plataforma (Super Admin): empresas, su primer administrador y marca blanca

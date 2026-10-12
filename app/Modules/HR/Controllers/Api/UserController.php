@@ -10,6 +10,7 @@ use App\Modules\Core\Models\User;
 use App\Modules\Attendance\Services\GeofenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * UserController (Admin)
@@ -80,6 +81,7 @@ class UserController extends Controller
             'password'      => ['required', 'string', 'min:8'],
             'role'          => ['required', 'in:company_admin,hr_manager,supervisor,employee'],
             'position'      => ['sometimes', 'nullable', 'string', 'max:150'],
+            'position_id'   => ['sometimes', 'nullable', 'integer', Rule::exists('positions', 'id')->where('tenant_id', current_tenant_id())],
             'department'    => ['sometimes', 'nullable', 'string', 'max:100'],
             'employee_code' => ['sometimes', 'nullable', 'string', 'max:50'],
             'base_salary'   => ['sometimes', 'numeric', 'min:0'],
@@ -112,7 +114,8 @@ class UserController extends Controller
         $validated = $request->validate([
             'first_name'    => ['sometimes', 'string', 'max:100'],
             'last_name'     => ['sometimes', 'string', 'max:100'],
-            'position'      => ['sometimes', 'nullable', 'string'],
+            'position'      => ['sometimes', 'nullable', 'string', 'max:150'],
+            'position_id'   => ['sometimes', 'nullable', 'integer', Rule::exists('positions', 'id')->where('tenant_id', current_tenant_id())],
             'department'    => ['sometimes', 'nullable', 'string'],
             'base_salary'   => ['sometimes', 'numeric', 'min:0'],
             'status'        => ['sometimes', 'in:active,inactive,suspended'],

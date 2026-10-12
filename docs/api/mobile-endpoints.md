@@ -471,6 +471,18 @@ justificación `pending`. `409 CONFLICT` si ya estaba aprobada.
 | `GET /api/my-shifts` | `shifts.view_own` | Asignaciones vigentes: `effective_from`, `effective_until`, `rotation_anchor_date`, `branch`, `shift`. |
 | `GET /api/schedule?from=&to=` | `shifts.view_own` | Un elemento por día con `date`, `is_workday` y `shift`. Máx. 92 días (`422 RANGE_TOO_LARGE`). |
 | `GET /api/my-branches` | autenticado | Sucursales vigentes y activas del usuario. |
+| `GET /api/admin/branches/{id}` | `branches.manage` | Detalle de la sede con `staffing`: por cargo, `planned` (plazas previstas), `actual` (personal activo) y `gap` (> 0 faltan, < 0 sobran). |
+
+## Cargos
+
+Los cargos (Atención al cliente, Almacenero, Chofer, Estibador...) se administran en el panel, en
+Organización, junto con la plantilla de cada sede. El perfil (`GET /api/employee/profile`,
+`data.user`) y `GET /api/auth/me` traen `position` (nombre) y `position_id`.
+
+| Ruta | Permiso | Devuelve |
+|---|---|---|
+| `GET /api/admin/positions` | `users.manage` o `branches.manage` | Cargos activos: `id`, `name`, `code`, `description`, `department {id, name}`, `is_roaming`. `?include_inactive=1` agrega los inactivos. |
+| `PUT /api/admin/employees/{id}` | `users.manage` | Acepta `position_id`; el nombre del cargo se copia en `position`. |
 
 ## Solicitudes (vacaciones, permisos, licencias)
 
