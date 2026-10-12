@@ -7,6 +7,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../data/payslip_repository.dart';
 import '../domain/models.dart';
+import '../../../core/widgets/page_padding.dart';
 
 final payslipRepositoryProvider = Provider<PayslipRepository>((ref) => PayslipRepository(ref.watch(apiClientProvider)));
 
@@ -32,7 +33,7 @@ class PayslipsScreen extends ConsumerWidget {
                   EmptyView(icon: Icons.receipt_long_outlined, message: 'Aún no tienes boletas publicadas.'),
                 ])
               : ListView.separated(
-                  padding: const EdgeInsets.all(16),
+                  padding: pagePadding(context),
                   itemCount: list.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (_, i) {

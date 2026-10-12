@@ -7,6 +7,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'notifications_providers.dart';
+import '../../../core/widgets/page_padding.dart';
 
 /// Pestañas de la navegación inferior: se abren con go() en vez de push().
 const _tabRoutes = {'/home', '/history', '/requests', '/payslips', '/profile'};
@@ -67,7 +68,7 @@ class NotificationsScreen extends ConsumerWidget {
                 : NotificationListener<ScrollNotification>(
                     onNotification: (n) => loadMoreOnScroll(n, controller.loadMore),
                     child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: pagePadding(context, top: 8, horizontal: 0, bottom: 16),
                       itemCount: list.length + 1,
                       separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (_, i) => i < list.length

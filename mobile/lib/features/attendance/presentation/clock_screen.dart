@@ -721,9 +721,15 @@ class _LocationCard extends StatelessWidget {
         Colors.green.shade600,
         'Estás en ${branch.name}',
       ),
+      // Con geocerca estricta el título de arriba ya dice la sede y la distancia
+      (inside: false, branch: _, distance: _) when strict => (
+        Icons.my_location_rounded,
+        scheme.onSurfaceVariant,
+        'Tu ubicación actual',
+      ),
       (inside: false, :final branch, :final distance) => (
         Icons.near_me_disabled_rounded,
-        strict ? scheme.error : scheme.tertiary,
+        scheme.tertiary,
         '${branch.name} está a ${formatDistance(distance)} de ti',
       ),
     };

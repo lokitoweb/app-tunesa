@@ -9,10 +9,12 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
+import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
 
-/// "Mi Legajo": estado de cada documento y subida por foto o PDF.
+/// "Mis documentos" (legajo): avance de los obligatorios, estado de cada
+/// documento y subida por foto o PDF.
 class DocumentsScreen extends ConsumerWidget {
   const DocumentsScreen({super.key});
 
@@ -21,7 +23,7 @@ class DocumentsScreen extends ConsumerWidget {
     final file = ref.watch(employeeFileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mi Legajo')),
+      appBar: AppBar(title: const Text('Mis documentos')),
       body: file.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),
@@ -32,18 +34,20 @@ class DocumentsScreen extends ConsumerWidget {
           final types = f.catalogs.documentTypes.isEmpty
               ? const {'dni': 'Documento de identidad', 'cv': 'Currículum (CV)', 'proof_of_address': 'Recibo de servicios / domicilio'}
               : f.catalogs.documentTypes;
+          // Obligatorios primero, en el orden del catálogo
+          final ordered = [
+            ...types.entries.where((e) => f.config.requiredDocuments.contains(e.key)),
+            ...types.entries.where((e) => !f.config.requiredDocuments.contains(e.key)),
+          ];
 
           return RefreshIndicator(
             onRefresh: () => ref.refresh(employeeFileProvider.future),
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: pagePadding(context),
               children: [
-                Text(
-                  'Sube una foto nítida o un PDF (máx. ${f.config.maxUploadMb} MB). RRHH revisará cada documento.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-                for (final entry in types.entries)
+                _DocumentsSummary(file: f, types: types),
+                const SizedBox(height: 20),
+                for (final entry in ordered)
                   _DocumentCard(
                     type: entry.key,
                     label: entry.value,
@@ -56,6 +60,72 @@ class DocumentsScreen extends ConsumerWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Cabecera: cuántos obligatorios están listos y cómo subir.
+class _DocumentsSummary extends StatelessWidget {
+  const _DocumentsSummary({required this.file, required this.types});
+
+  final EmployeeFile file;
+  final Map<String, String> types;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final required = file.config.requiredDocuments.where(types.containsKey).toList();
+    final ready = required.where((t) => !file.missingDocuments.contains(t)).length;
+    final total = required.length;
+    final complete = total == 0 || ready == total;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: (complete ? Colors.green : scheme.primary).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(complete ? Icons.verified_rounded : Icons.folder_shared_outlined,
+                  color: complete ? Colors.green.shade600 : scheme.primary),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(complete ? 'Documentos al día' : 'Documentos obligatorios',
+                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 15)),
+                const SizedBox(height: 2),
+                Text(total == 0 ? 'Tu empresa no exige documentos.' : '$ready de $total entregados',
+                    style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+              ]),
+            ),
+          ]),
+          if (total > 0) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(value: ready / total, minHeight: 8),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.info_outline_rounded, size: 18, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Sube una foto nítida o un PDF (máx. ${file.config.maxUploadMb} MB). RRHH revisará cada documento.',
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.35),
+              ),
+            ),
+          ]),
+        ]),
       ),
     );
   }
@@ -153,74 +223,121 @@ class _DocumentCardState extends ConsumerState<_DocumentCard> {
   @override
   Widget build(BuildContext context) {
     final doc = widget.document;
-    final scheme = Theme.of(context).colorScheme;
-    final (color, icon) = switch (doc?.status) {
-      DocumentStatus.approved => (Colors.green, Icons.verified_rounded),
-      DocumentStatus.pending => (Colors.orange, Icons.hourglass_top_rounded),
-      DocumentStatus.rejected => (scheme.error, Icons.error_outline_rounded),
-      _ => (scheme.outline, Icons.upload_file_rounded),
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final (color, icon, statusText) = switch (doc?.status) {
+      DocumentStatus.approved => (Colors.green.shade600, Icons.verified_rounded, 'Aprobado'),
+      DocumentStatus.pending => (Colors.orange.shade700, Icons.hourglass_top_rounded, 'En revisión'),
+      DocumentStatus.rejected => (scheme.error, Icons.error_outline_rounded, 'Rechazado'),
+      _ => (scheme.primary, Icons.upload_file_rounded, 'Sin subir'),
     };
+    final canReplace = widget.canUpload;
+    final uploadLabel = doc == null ? 'Subir' : 'Reemplazar';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
-              Icon(icon, color: color),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(widget.label + (widget.required ? ' *' : ''), style: Theme.of(context).textTheme.titleMedium),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, color: color),
               ),
-              if (doc != null)
-                Chip(
-                  label: Text(doc.status.label),
-                  labelStyle: TextStyle(color: color, fontWeight: FontWeight.w600),
-                  side: BorderSide(color: color.withValues(alpha: 0.4)),
-                  visualDensity: VisualDensity.compact,
-                ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(widget.label, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 4),
+                  Wrap(spacing: 6, runSpacing: 4, children: [
+                    _Tag(text: statusText, color: color),
+                    if (widget.required) _Tag(text: 'Obligatorio', color: scheme.onSurfaceVariant),
+                  ]),
+                ]),
+              ),
+              if (doc == null && canReplace) ...[
+                const SizedBox(width: 8),
+                _UploadButton(label: uploadLabel, busy: _busy, onPressed: _chooseSource),
+              ],
             ]),
             if (doc != null) ...[
-              const SizedBox(height: 6),
-              Text('${doc.originalName} · ${Fmt.date(doc.uploadedAt)}',
-                  style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(children: [
+                  Icon(doc.originalName.toLowerCase().endsWith('.pdf') ? Icons.picture_as_pdf_outlined : Icons.image_outlined,
+                      size: 20, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(doc.originalName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(Fmt.date(doc.uploadedAt), style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                ]),
+              ),
               if (doc.status == DocumentStatus.rejected && doc.rejectionReason != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text('Motivo: ${doc.rejectionReason}', style: TextStyle(color: scheme.error)),
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text('Motivo del rechazo: ${doc.rejectionReason}',
+                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
                 ),
-            ],
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              if (doc != null)
-                OutlinedButton.icon(
+              const SizedBox(height: 8),
+              Wrap(alignment: WrapAlignment.end, spacing: 4, runSpacing: 4, children: [
+                if (doc.canDelete && canReplace)
+                  TextButton(onPressed: _busy ? null : () => _delete(doc), child: const Text('Retirar')),
+                TextButton.icon(
                   onPressed: _busy ? null : () => context.push('/profile/documents/${doc.id}', extra: doc),
-                  icon: const Icon(Icons.visibility_outlined),
+                  icon: const Icon(Icons.visibility_outlined, size: 20),
                   label: const Text('Ver'),
                 ),
-              if (widget.canUpload && doc?.status != DocumentStatus.approved)
-                FilledButton.tonalIcon(
-                  onPressed: _busy ? null : _chooseSource,
-                  icon: _busy
-                      ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.upload_rounded),
-                  label: Text(doc == null ? 'Subir' : 'Reemplazar'),
-                ),
-              if (widget.canUpload && doc?.status == DocumentStatus.approved)
-                TextButton.icon(
-                  onPressed: _busy ? null : _chooseSource,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Actualizar'),
-                ),
-              if (doc != null && doc.canDelete && widget.canUpload)
-                TextButton(onPressed: _busy ? null : () => _delete(doc), child: const Text('Retirar')),
-            ]),
+                if (canReplace) _UploadButton(label: uploadLabel, busy: _busy, onPressed: _chooseSource),
+              ]),
+            ],
           ]),
         ),
       ),
     );
   }
+}
+
+class _UploadButton extends StatelessWidget {
+  const _UploadButton({required this.label, required this.busy, required this.onPressed});
+
+  final String label;
+  final bool busy;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => FilledButton.tonalIcon(
+        style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 14)),
+        onPressed: busy ? null : onPressed,
+        icon: busy
+            ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.upload_rounded, size: 20),
+        label: Text(label),
+      );
+}
+
+/// Etiqueta corta de color ("Aprobado", "Obligatorio").
+class _Tag extends StatelessWidget {
+  const _Tag({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+        child: Text(text, style: TextStyle(color: color, fontSize: 11.5, fontWeight: FontWeight.w600)),
+      );
 }
 
 enum _Source { camera, gallery, file }

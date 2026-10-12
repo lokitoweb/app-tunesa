@@ -9,10 +9,12 @@ import 'profile_avatar.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
+import '../../../core/widgets/page_padding.dart';
 import '../../training/presentation/training_providers.dart';
 
-/// "Mi perfil": avance del onboarding y acceso a Mi Legajo, Datos de Pago y
-/// Previsión, y Dotación. Cada sección aparece solo si la empresa la habilitó.
+/// "Mi perfil": foto, avance de la ficha y acceso a Mis documentos,
+/// Información de pagos, Uniforme y tallas y Datos de contacto. Cada sección
+/// aparece solo si la empresa la habilitó.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -50,17 +52,17 @@ class ProfileBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = file.config;
-    final scheme = Theme.of(context).colorScheme;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+      padding: pagePadding(context, top: 12),
       children: [
         _Header(file: file),
         const SizedBox(height: 16),
         if (c.hasEmployeeFile) ...[
           _OnboardingCard(file: file),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
         ],
+        const _GroupTitle('Mi ficha'),
         if (c.documents)
           _SectionTile(
             key: const Key('section-documents'),
@@ -76,10 +78,10 @@ class ProfileBody extends StatelessWidget {
           _SectionTile(
             key: const Key('section-payment'),
             icon: Icons.account_balance_outlined,
-            title: 'Información de pago',
+            title: 'Información de pagos',
             subtitle: file.payment.isComplete
                 ? '${file.payment.bankName} ${file.payment.accountNumberMasked ?? ''} · ${file.payment.statusLabel}'
-                : 'Registra tu cuenta y tu AFP / ONP',
+                : 'Tu cuenta para el sueldo y tu AFP / ONP',
             done: file.payment.isVerified,
             onTap: () => context.push('/profile/payment'),
           ),
@@ -96,17 +98,16 @@ class ProfileBody extends StatelessWidget {
           ),
         _SectionTile(
           icon: Icons.contact_emergency_outlined,
-          title: 'Contacto de emergencia',
+          title: 'Datos de contacto',
           subtitle: file.emergencyContactPhone != null
-              ? '${file.emergencyContactName ?? ''} · ${file.emergencyContactPhone}'
-              : 'Agrega tu dirección y un contacto de emergencia',
+              ? 'Emergencia: ${file.emergencyContactName ?? ''} · ${file.emergencyContactPhone}'
+              : 'Tu dirección y un contacto de emergencia',
           done: file.steps['contact'] == true,
           onTap: () => context.push('/profile/contact'),
         ),
         const _TrainingsTile(),
-        const SizedBox(height: 8),
-        Text('Cuenta', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant)),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
+        const _GroupTitle('Cuenta y ajustes'),
         const _AccountSection(),
       ],
     );
@@ -146,6 +147,9 @@ class _Header extends StatelessWidget {
             ),
             if (file.hireDate != null)
               Text('Ingreso: ${file.hireDate}', style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85), fontSize: 13)),
+            const SizedBox(height: 6),
+            Text('Toca tu foto para cambiarla',
+                style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.7), fontSize: 12, fontStyle: FontStyle.italic)),
           ]),
         ),
       ]),
@@ -224,27 +228,63 @@ class _SectionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Card(
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          leading: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Icon(icon, color: scheme.primary),
-          ),
-          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
-          trailing: Icon(done ? Icons.check_circle_rounded : Icons.chevron_right_rounded,
-              color: done ? Colors.green : scheme.onSurfaceVariant),
+        child: InkWell(
           onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+            child: Row(children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, color: scheme.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 3),
+                  Text(subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant, height: 1.3)),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              if (done) const Icon(Icons.check_circle_rounded, color: Colors.green, size: 22),
+              Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+            ]),
+          ),
         ),
       ),
     );
   }
+}
+
+/// Título de un grupo de tarjetas ("Mi ficha", "Cuenta y ajustes").
+class _GroupTitle extends StatelessWidget {
+  const _GroupTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 8),
+        child: Text(
+          text.toUpperCase(),
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+        ),
+      );
 }
 
 class _AccountSection extends ConsumerWidget {
@@ -271,9 +311,10 @@ class _AccountSection extends ConsumerWidget {
           child: Row(children: [
             const Icon(Icons.palette_outlined),
             const SizedBox(width: 12),
-            const Expanded(child: Text('Apariencia')),
+            const Expanded(child: Text('Apariencia', maxLines: 1, overflow: TextOverflow.ellipsis)),
             SegmentedButton<ThemeMode>(
               showSelectedIcon: false,
+              style: const ButtonStyle(visualDensity: VisualDensity.compact, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
               segments: const [
                 ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined), tooltip: 'Claro'),
                 ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto_outlined), tooltip: 'Automático'),

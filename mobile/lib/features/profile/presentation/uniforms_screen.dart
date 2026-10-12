@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_views.dart';
+import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
 
-/// "Dotación": selector de tallas (polo, pantalón, calzado) e historial de entregas.
+/// "Uniforme y tallas": selector de tallas (polo, pantalón, calzado) e historial de entregas.
 class UniformsScreen extends ConsumerWidget {
   const UniformsScreen({super.key});
 
@@ -16,7 +18,7 @@ class UniformsScreen extends ConsumerWidget {
     final file = ref.watch(employeeFileProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dotación')),
+      appBar: AppBar(title: const Text('Uniforme y tallas')),
       body: file.when(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),
@@ -72,7 +74,7 @@ class _UniformSizePickerState extends ConsumerState<UniformSizePicker> {
     final complete = _shirt != null && _pants != null && _shoes != null;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: pagePadding(context),
       children: [
         if (!_canEdit)
           Padding(
@@ -121,9 +123,9 @@ class _UniformSizePickerState extends ConsumerState<UniformSizePicker> {
                 : Text(complete ? 'Guardar tallas' : 'Elige las 3 tallas'),
           ),
         ],
-        const SizedBox(height: 24),
-        Text('Entregas recibidas', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
+        const SizedBox(height: 28),
+        Text('Entregas recibidas', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 10),
         if (widget.file.deliveries.isEmpty)
           const Card(child: ListTile(leading: Icon(Icons.inventory_2_outlined), title: Text('Aún no tienes entregas registradas.')))
         else
@@ -180,16 +182,69 @@ class _SizeGroup extends StatelessWidget {
                 Text(selected!, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: scheme.primary, fontWeight: FontWeight.w800)),
             ]),
             const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final o in options)
-                ChoiceChip(
-                  label: SizedBox(width: 34, child: Text(o, textAlign: TextAlign.center)),
-                  selected: selected == o,
-                  onSelected: enabled ? (_) => onSelected(o) : null,
-                ),
-            ]),
+            // Grilla de 4 columnas iguales: todas las tallas del mismo ancho
+            LayoutBuilder(builder: (context, box) {
+              const gap = 8.0;
+              final width = (box.maxWidth - gap * 3) / 4;
+              return Wrap(spacing: gap, runSpacing: gap, children: [
+                for (final o in options)
+                  SizedBox(
+                    width: width,
+                    child: _SizeOption(label: o, selected: selected == o, onTap: enabled ? () => onSelected(o) : null),
+                  ),
+              ]);
+            }),
             if (footer != null) ...[const SizedBox(height: 12), SizedBox(width: double.infinity, child: footer!)],
           ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Talla seleccionable: relleno de marca al elegirla, borde suave si no.
+class _SizeOption extends StatelessWidget {
+  const _SizeOption({required this.label, required this.selected, this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? scheme.primary : scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          side: BorderSide(color: selected ? scheme.primary : scheme.outlineVariant),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 44,
+            child: Center(
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: selected
+                      ? scheme.onPrimary
+                      : enabled
+                          ? scheme.onSurface
+                          : scheme.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

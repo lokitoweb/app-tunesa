@@ -10,6 +10,7 @@ import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../data/leave_repository.dart';
 import '../domain/models.dart';
+import '../../../core/widgets/page_padding.dart';
 
 final leaveRepositoryProvider = Provider<LeaveRepository>((ref) => LeaveRepository(ref.watch(apiClientProvider)));
 
@@ -57,7 +58,7 @@ class RequestsScreen extends ConsumerWidget {
                 : NotificationListener<ScrollNotification>(
                     onNotification: (n) => loadMoreOnScroll(n, controller.loadMore),
                     child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                      padding: pagePadding(context, bottom: 96),
                       itemCount: list.length + 1,
                       itemBuilder: (_, i) => i < list.length
                           ? _RequestCard(request: list[i])

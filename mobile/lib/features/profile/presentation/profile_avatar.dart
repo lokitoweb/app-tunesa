@@ -21,29 +21,44 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
   bool _busy = false;
 
   Future<void> _change() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final hasPhoto = ref.read(authControllerProvider).user?.avatarUrl != null;
+    final scheme = Theme.of(context).colorScheme;
+    final source = await showModalBottomSheet<_AvatarAction>(
       context: context,
       builder: (c) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(hasPhoto ? 'Cambiar foto de perfil' : 'Subir foto de perfil',
+                style: Theme.of(c).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          ),
           ListTile(
             leading: const Icon(Icons.photo_camera_outlined),
             title: const Text('Tomar foto'),
-            onTap: () => Navigator.pop(c, ImageSource.camera),
+            onTap: () => Navigator.pop(c, _AvatarAction.camera),
           ),
           ListTile(
             leading: const Icon(Icons.photo_library_outlined),
             title: const Text('Elegir de la galería'),
-            onTap: () => Navigator.pop(c, ImageSource.gallery),
+            onTap: () => Navigator.pop(c, _AvatarAction.gallery),
           ),
+          if (hasPhoto)
+            ListTile(
+              leading: Icon(Icons.delete_outline_rounded, color: scheme.error),
+              title: Text('Quitar foto', style: TextStyle(color: scheme.error)),
+              onTap: () => Navigator.pop(c, _AvatarAction.remove),
+            ),
           const SizedBox(height: 8),
         ]),
       ),
     );
-    if (source == null) return;
+    if (source == null || !mounted) return;
+    if (source == _AvatarAction.remove) return _remove();
+
 
     // 800 px y calidad 85: pesa muy por debajo del máximo de 2 MB del servidor
     final image = await ImagePicker().pickImage(
-      source: source,
+      source: source == _AvatarAction.camera ? ImageSource.camera : ImageSource.gallery,
       maxWidth: 800,
       maxHeight: 800,
       imageQuality: 85,
@@ -62,6 +77,18 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
     }
   }
 
+  Future<void> _remove() async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(authControllerProvider.notifier).removeAvatar();
+      if (mounted) showSnack(context, 'Foto de perfil eliminada.');
+    } on ApiException catch (e) {
+      if (mounted) showSnack(context, e.message, error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -74,7 +101,7 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
         onTap: _busy ? null : _change,
         child: Stack(clipBehavior: Clip.none, children: [
           CircleAvatar(
-            radius: 32,
+            radius: 36,
             backgroundColor: scheme.onPrimary.withValues(alpha: 0.2),
             foregroundImage: url == null ? null : NetworkImage(url),
             child: _busy
@@ -86,13 +113,13 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
             right: -2,
             bottom: -2,
             child: Container(
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: scheme.surface,
                 shape: BoxShape.circle,
                 border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
               ),
-              child: Icon(Icons.photo_camera_rounded, size: 14, color: scheme.primary),
+              child: Icon(Icons.photo_camera_rounded, size: 16, color: scheme.primary),
             ),
           ),
         ]),
@@ -100,3 +127,5 @@ class _ProfileAvatarState extends ConsumerState<ProfileAvatar> {
     );
   }
 }
+
+enum _AvatarAction { camera, gallery, remove }

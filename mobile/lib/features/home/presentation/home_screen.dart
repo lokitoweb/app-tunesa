@@ -14,6 +14,7 @@ import '../../notifications/presentation/notifications_providers.dart';
 import '../../notifications/presentation/notifications_screen.dart';
 import '../../profile/presentation/profile_providers.dart';
 import '../../team/presentation/team_providers.dart';
+import '../../../core/widgets/page_padding.dart';
 import '../../training/presentation/training_home_card.dart';
 import '../../training/presentation/training_providers.dart';
 
@@ -65,7 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           return ref.refresh(todayStatusProvider.future);
         },
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: pagePadding(context),
           children: [
             _Greeting(name: auth.user?.firstName ?? ''),
             const SizedBox(height: 16),

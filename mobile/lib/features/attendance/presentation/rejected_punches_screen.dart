@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/punch.dart';
 import 'offline_sync.dart';
+import '../../../core/widgets/page_padding.dart';
 
 /// "Marcaciones no aceptadas": marcaciones de la cola offline que el servidor
 /// rechazó o que vencieron sin enviarse, con el motivo. El colaborador las
@@ -43,7 +44,7 @@ class RejectedPunchesScreen extends ConsumerWidget {
                 ),
               )
             : ListView.separated(
-                padding: const EdgeInsets.all(16),
+                padding: pagePadding(context),
                 itemCount: items.length + 1,
                 separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (context, i) {
