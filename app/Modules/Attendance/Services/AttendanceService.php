@@ -24,7 +24,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * AttendanceService
@@ -106,10 +105,14 @@ class AttendanceService
         if ($drift !== null && abs($drift) > $settings->maxTimeDriftSeconds()) {
             $reasons[] = AttendancePunch::REASON_TIME_DRIFT;
         }
+        if ($this->isStalePhoto($data)) {
+            $reasons[] = AttendancePunch::REASON_STALE_PHOTO;
+        }
 
-        $photoPath = $data->photo
+        $selfie = $data->photo
             ? $this->selfies->store($data->photo, $employee->tenant_id, $employee->id, $data->type)
             : null;
+        $photoPath = $selfie?->path;
 
         $context = [
             'employee'   => $employee,
@@ -120,6 +123,7 @@ class AttendanceService
             'serverTime' => $serverTime,
             'drift'      => $drift,
             'photoPath'  => $photoPath,
+            'photoHash'  => $selfie?->sha256,
         ];
 
         try {
@@ -194,6 +198,7 @@ class AttendanceService
             'offline'                => $data->isOffline(),
             'offline_recorded_at'    => $data->offlineRecordedAt,
             'photo_path'             => $c['photoPath'],
+            'photo_sha256'           => $c['photoHash'],
             'face_detected'          => $data->faceDetected,
             'mock_location_detected' => $data->isMocked,
             'suspicious'             => $reasons !== [],
@@ -607,9 +612,26 @@ class AttendanceService
      */
     private function timeDrift(PunchData $data, CarbonImmutable $serverTime): ?int
     {
-        $reference = $data->isOffline() ? $data->deviceSentAt : ($data->deviceTime ?? $data->deviceSentAt);
+        // En línea con device_sent_at (apps desde la Fase 2) se mide al enviar:
+        // device_time es la hora de la selfie y su antigüedad no es desfase
+        $reference = $data->isOffline() ? $data->deviceSentAt : ($data->deviceSentAt ?? $data->deviceTime);
 
         return $reference ? (int) round($reference->getTimestamp() - $serverTime->getTimestamp()) : null;
+    }
+
+    /**
+     * Selfie vieja: en línea, entre la foto (device_time) y el envío
+     * (device_sent_at) pasaron más de STALE_PHOTO_SECONDS. Las dos horas son
+     * del teléfono, así que un reloj desfasado no la dispara. Sin conexión no
+     * aplica (la foto se toma al marcar y se envía después).
+     */
+    private function isStalePhoto(PunchData $data): bool
+    {
+        if (! $data->photo || $data->isOffline() || ! $data->deviceTime || ! $data->deviceSentAt) {
+            return false;
+        }
+
+        return $data->deviceSentAt->getTimestamp() - $data->deviceTime->getTimestamp() > AttendancePunch::STALE_PHOTO_SECONDS;
     }
 
     /**
@@ -773,7 +795,7 @@ class AttendanceService
     {
         if ($path) {
             try {
-                Storage::disk($this->selfies->disk())->delete($path);
+                $this->selfies->delete($path);
             } catch (\Throwable) {
                 // Un archivo huérfano no debe ocultar el error original
             }

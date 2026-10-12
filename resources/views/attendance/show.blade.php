@@ -158,9 +158,14 @@
                                 @if($url = $punch->photoUrl())
                                     <button type="button" class="btn btn-sm btn-outline-secondary" data-photo="{{ $url }}"
                                             data-photo-title="Foto: {{ label('punch_type', $punch->type) }}"
-                                            data-photo-meta="{{ $punch->server_time?->copy()->setTimezone($tz)->format('d/m/Y H:i:s') }}">
+                                            data-photo-meta="{{ $punch->server_time?->copy()->setTimezone($tz)->format('d/m/Y H:i:s') }}{{ $punch->photo_sha256 ? ' · SHA-256 ' . substr($punch->photo_sha256, 0, 12) . '…' : '' }}">
                                         <i class="bi bi-image"></i><span class="visually-hidden">Ver foto</span>
                                     </button>
+                                @elseif($punch->photo_purged_at)
+                                    <span class="small text-body-secondary" title="Borrada por retención el {{ $punch->photo_purged_at->copy()->setTimezone($tz)->format('d/m/Y') }}"><i class="bi bi-image-alt"></i> Foto borrada</span>
+                                @endif
+                                @if($punch->photo_sha256)
+                                    <div class="small text-body-secondary font-monospace mt-1" title="Huella SHA-256 de la foto guardada: {{ $punch->photo_sha256 }}">{{ substr($punch->photo_sha256, 0, 12) }}…</div>
                                 @endif
                             </td>
                         </tr>

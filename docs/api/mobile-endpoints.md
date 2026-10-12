@@ -252,13 +252,13 @@ campos van en cada elemento de `sync-batch`.
 |---|---|---|
 | `latitude` | número | obligatorio, -90..90 |
 | `longitude` | número | obligatorio, -180..180 |
-| `photo` | archivo | JPG/JPEG/PNG/WebP, máx. 5 MB. Entrada/salida: **obligatoria solo si `selfie_required = true`**. Descansos: siempre opcional. El servidor la guarda como WebP (calidad 80, lado mayor ≤ 1280 px) |
+| `photo` | archivo | JPG/JPEG/PNG/WebP, máx. 5 MB. Entrada/salida: **obligatoria solo si `selfie_required = true`**. Descansos: siempre opcional. El servidor siempre la vuelve a codificar, sin metadatos (EXIF): WebP calidad 80 (JPEG si el servidor no tiene WebP), lado mayor ≤ 1280 px, más una miniatura de 160 px. Una foto ilegible → `422 PHOTO_UNREADABLE` |
 | `accuracy_meters` | número | opcional, 0..100000 |
 | `is_mocked` | booleano (`1`/`0`) | opcional; `position.isMocked` |
 | `face_detected` | booleano | opcional; resultado de ML Kit en el teléfono |
 | `device_time` | fecha ISO 8601 **con zona** | opcional; reloj del teléfono en el momento de la marcación (p. ej. `2026-10-09T08:02:11-05:00`). Se guarda en UTC |
 | `offline_recorded_at` | fecha ISO 8601 | opcional; hora real de una marcación hecha sin conexión. No puede estar más de 2 min en el futuro. **También en descansos** |
-| `device_sent_at` | fecha ISO 8601 | opcional; reloj del teléfono al enviar (útil en `sync-batch`, ver desfase) |
+| `device_sent_at` | fecha ISO 8601 | opcional; reloj del teléfono al enviar. En línea la app lo manda siempre: mide el desfase y, con `device_time` (la selfie), la antigüedad de la foto |
 | `client_uuid` | UUID | opcional (obligatorio en `sync-batch`); idempotencia, único por empresa |
 | `device_id` | texto | opcional, máx. 255 |
 | `device_os` | `android` \| `ios` | opcional |
@@ -282,8 +282,11 @@ campos van en cada elemento de `sync-batch`.
    descanso) se guarda con esa hora (la tardanza y los minutos de descanso se calculan con ella),
    con `offline: true`, y queda en auditoría (`attendance.offline_synced`).
 6. **Desfase de reloj** (`time_drift_seconds` = teléfono − servidor, en segundos): en línea se mide
-   con `device_time`; en una marcación offline solo con `device_sent_at` (si no, `null`). Si supera
-   `max_time_drift_seconds` (300 por defecto) se acepta con motivo `TIME_DRIFT`. **Nunca rechaza.**
+   con `device_sent_at` (o `device_time` si la app no lo manda); en una marcación offline solo con
+   `device_sent_at` (si no, `null`). Si supera `max_time_drift_seconds` (300 por defecto) se acepta
+   con motivo `TIME_DRIFT`. **Nunca rechaza.** Selfie vieja: en línea, si entre `device_time` y
+   `device_sent_at` pasaron más de 2 min, se acepta con motivo `STALE_PHOTO` (las dos horas son del
+   teléfono, un reloj desfasado no la dispara).
 7. Estado de la jornada: entrada repetida → `409 ALREADY_CLOCKED_IN`; sin sucursal vigente →
    `422 NO_BRANCH_ASSIGNED`; descanso o salida sin jornada abierta → `404 NO_OPEN_ATTENDANCE`
    (una marcación offline busca la jornada del día de `offline_recorded_at`); evento offline
@@ -316,7 +319,7 @@ campos van en cada elemento de `sync-batch`.
 
 Motivos de sospecha (`suspicion_reasons`): `MOCK_LOCATION`, `TIME_DRIFT`, `FACE_UNVERIFIED`,
 `OUT_OF_GEOFENCE`, `GEOFENCE_EDGE`, `OUTSIDE_SCHEDULE`, `UNSAFE_DEVICE`, `IMPOSSIBLE_TRAVEL`,
-`REPEATED_COORDINATES`. Con al menos uno el evento queda `suspicious: true` y la
+`REPEATED_COORDINATES`, `STALE_PHOTO`. Con al menos uno el evento queda `suspicious: true` y la
 jornada `is_suspicious: true`.
 
 ### Respuesta
@@ -384,6 +387,8 @@ Entrada nueva `201`; descansos, salida y duplicados `200`:
   (180 m). RRHH la revisará."; descansos "☕ Descanso iniciado." / "🔄 Regreso de descanso
   registrado."; salida "🏁 Salida registrada. Horas trabajadas hoy: 8.5h."; duplicado "Esta
   marcación ya estaba registrada.".
+- `punch.photo_sha256` es la huella SHA-256 del archivo guardado (inmutable) y `punch.photo_purged`
+  indica que la foto se borró por retención (12 meses, `attendance:purge-photos`); entonces `photo_url` es `null`.
 - `photo_url` es una URL firmada que vence a los `SIGNED_URL_MINUTES` (5) minutos (15 en `punch`),
   o `null` si no hubo foto.
 

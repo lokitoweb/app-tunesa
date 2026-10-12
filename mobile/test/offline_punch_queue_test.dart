@@ -360,6 +360,22 @@ void main() {
       expect(fields.containsKey('face_detected'), isFalse);
       expect(fields.containsKey('offline_recorded_at'), isFalse);
       expect(fields['is_mocked'], '0');
+      expect(fields.containsKey('device_sent_at'), isFalse);
+
+      // En línea va la hora de envío: el servidor mide cuánto antes se tomó la selfie
+      final online = punchFields(
+        clientUuid: 'u',
+        deviceTime: DateTime.utc(2026, 10, 9, 13),
+        latitude: 1,
+        longitude: 2,
+        accuracy: 3,
+        isMocked: false,
+        deviceId: 'd',
+        deviceOs: 'ios',
+        appVersion: '1',
+        deviceSentAt: DateTime.utc(2026, 10, 9, 13, 0, 40),
+      );
+      expect(online['device_sent_at'], '2026-10-09T13:00:40.000Z');
 
       final dup = PunchOutcome.fromJson({'success': true, 'duplicate': true, 'data': {'id': 3}});
       expect(dup.duplicate, isTrue);

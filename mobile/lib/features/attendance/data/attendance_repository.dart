@@ -94,6 +94,7 @@ class AttendanceRepository implements PunchTransport {
       deviceId: await _storage.installationId(),
       deviceOs: deviceOs,
       appVersion: appVersion,
+      deviceSentAt: DateTime.now(),
     );
     final photo = capture.photo;
     final json = await _api.postMultipart(

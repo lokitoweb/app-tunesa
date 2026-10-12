@@ -85,7 +85,7 @@
                 @forelse($recentAttendances as $att)
                     <div class="list-group-item d-flex align-items-center gap-3">
                         @if($att->clock_in_photo)
-                            <img src="{{ attendance_photo_url($att, 'in') }}" alt="Selfie de {{ $att->user->first_name }}"
+                            <img src="{{ attendance_photo_thumb_url($att, 'in') }}" alt="Selfie de {{ $att->user->first_name }}"
                                  class="selfie-thumb {{ $att->clock_in_within_geofence ? '' : 'is-outside' }}"
                                  data-photo="{{ attendance_photo_url($att, 'in') }}"
                                  data-photo-title="{{ $att->user->first_name }} {{ $att->user->last_name }}"

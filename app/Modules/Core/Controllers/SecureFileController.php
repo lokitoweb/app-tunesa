@@ -4,6 +4,7 @@ namespace App\Modules\Core\Controllers;
 
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Models\AttendancePunch;
+use App\Modules\Attendance\Services\Attendance\SelfieStorage;
 use App\Modules\HR\Models\EmployeeDocument;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,6 +19,13 @@ class SecureFileController extends Controller
 {
     public function show(string $kind, int $id): Response
     {
+        // Miniatura de selfie: la de 160 px si existe; las fotos anteriores no la tienen
+        $thumb = str_ends_with($kind, '-thumb');
+        if ($thumb) {
+            $kind = substr($kind, 0, -6);
+            abort_unless(in_array($kind, ['selfie-in', 'selfie-out', 'punch-photo'], true), 404);
+        }
+
         [$disk, $path, $name] = match ($kind) {
             'document' => $this->document($id),
             'selfie-in', 'selfie-out' => $this->selfie($id, $kind === 'selfie-in' ? 'in' : 'out'),
@@ -26,6 +34,10 @@ class SecureFileController extends Controller
         };
 
         abort_if(empty($path), 404);
+
+        if ($thumb && Storage::disk($disk)->exists($small = SelfieStorage::thumbPathFor($path))) {
+            $path = $small;
+        }
 
         // Selfies anteriores a la Fase 3 quedaron en el disco público
         if (! Storage::disk($disk)->exists($path) && str_starts_with($kind, 'selfie') && Storage::disk('public')->exists($path)) {
@@ -52,7 +64,7 @@ class SecureFileController extends Controller
     private function punchPhoto(int $id): array
     {
         $punch = AttendancePunch::withoutGlobalScopes()->findOrFail($id);
-        $path  = $punch->photo_path;
+        $path  = $punch->photo_purged_at ? null : $punch->photo_path;
 
         return [config('filesystems.attendance_disk', 'private'), $path,
             "punch_{$punch->type}_{$id}." . ($path ? (pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg') : 'jpg')];

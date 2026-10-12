@@ -21,6 +21,9 @@ Schedule::command('model:prune', ['--model' => [\App\Modules\Integrations\Models
 // Intentos de marcación rechazados: se guardan 12 meses
 Schedule::command('model:prune', ['--model' => [\App\Modules\Attendance\Models\AttendancePunchAttempt::class]])->dailyAt('03:30');
 
+// Selfies de marcación con más de 12 meses (la bitácora conserva ruta y huella)
+Schedule::command('attendance:purge-photos')->dailyAt('03:45')->withoutOverlapping()->onOneServer();
+
 // Reporte mensual de horas y faltas: el día 1 a las 07:00 genera el Excel del
 // mes anterior de cada empresa (disco privado) y notifica a administradores y RRHH
 Schedule::command('reports:send-monthly')->monthlyOn(1, '07:00')->withoutOverlapping()->onOneServer();

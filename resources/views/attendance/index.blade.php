@@ -112,7 +112,7 @@
                         <td class="text-nowrap">{{ $att->work_date?->format('d/m/Y') ?? '--' }}</td>
                         <td>
                             @if($att->clock_in_photo)
-                                <img src="{{ attendance_photo_url($att, 'in') }}" alt="Selfie de entrada"
+                                <img src="{{ attendance_photo_thumb_url($att, 'in') }}" alt="Selfie de entrada"
                                      class="selfie-thumb {{ $att->clock_in_within_geofence ? '' : 'is-outside' }}"
                                      role="button" onclick="openEvidence({{ $att->id }})" title="Ver selfie, mapa y geocerca">
                             @else
