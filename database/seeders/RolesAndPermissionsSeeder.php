@@ -69,6 +69,14 @@ class RolesAndPermissionsSeeder extends Seeder
         // Capacitaciones
         'training.view_own'       => ['Ver y completar mis capacitaciones', 'training'],
         'training.manage'         => ['Crear capacitaciones, asignarlas y ver el avance', 'training'],
+        'training.unlock'         => ['Dar intentos extra en cuestionarios bloqueados', 'training'],
+
+        // Incorporación (onboarding)
+        'onboarding.review'       => ['Revisar y aprobar la incorporación de colaboradores', 'onboarding'],
+        'onboarding.manage'       => ['Configurar las etapas de incorporación', 'onboarding'],
+
+        // Canal ético
+        'ethics.investigate'      => ['Ver e investigar las denuncias del canal ético', 'ethics'],
     ];
 
     /** slug del rol => [nombre, descripción, permisos ('*' = todos)] */

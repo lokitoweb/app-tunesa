@@ -63,6 +63,7 @@ class PushController extends Notifier<PushStatus> {
     ref.onDispose(() {
       _tokenSub?.cancel();
       _receivedSub?.cancel();
+      _retry?.cancel();
     });
     ref.listen<int?>(
       authControllerProvider.select((s) => s.status == AuthStatus.authenticated ? s.user?.id : null),
@@ -103,19 +104,57 @@ class PushController extends Notifier<PushStatus> {
       }
     });
     final token = await service.token();
-    if (token != null) await _register(token);
+    if (token != null) {
+      await _register(token);
+    } else {
+      _retryLater();
+    }
   }
 
-  Future<void> _register(String token) async {
-    if (!ref.mounted || token == _lastSentToken) return;
-    if (ref.read(authControllerProvider).status != AuthStatus.authenticated) return;
-    if (!ref.read(appConfigProvider).config.mobile.fcmEnabled) return;
+  Timer? _retry;
+  int _retries = 0;
+
+  /// Google a veces no entrega el token al primer intento (sin red, Play
+  /// Services ocupado): se reintenta unas veces antes de esperar al próximo arranque.
+  void _retryLater() {
+    if (_retries >= 3 || (_retry?.isActive ?? false)) return;
+    _retries++;
+    _retry = Timer(Duration(seconds: 15 * _retries), () {
+      if (ref.mounted) unawaited(_evaluate());
+    });
+  }
+
+  /// Al volver a la app: revisa si cambió el token o la configuración.
+  Future<void> refresh() => _evaluate();
+
+  Future<bool> _register(String token, {bool force = false}) async {
+    if (!ref.mounted || (!force && token == _lastSentToken)) return token == _lastSentToken;
+    if (ref.read(authControllerProvider).status != AuthStatus.authenticated) return false;
+    if (!ref.read(appConfigProvider).config.mobile.fcmEnabled) return false;
     try {
       await ref.read(apiClientProvider).post(ApiEndpoints.refreshFcm, data: {'fcm_token': token});
       _lastSentToken = token;
+      _retries = 0;
+      return true;
     } catch (_) {
-      // Sin red: se reintenta en el próximo arranque o rotación del token.
+      // Sin red: se reintenta en el próximo arranque, al volver a la app o al rotar el token.
+      _retryLater();
+      return false;
     }
+  }
+
+  /// Manda un push de prueba a este mismo teléfono (con su token actual, así
+  /// también corrige un registro viejo en el servidor). Devuelve el mensaje
+  /// del servidor; lanza [ApiException] si falla.
+  Future<String> sendTestToThisPhone() async {
+    final service = ref.read(pushServiceProvider);
+    if (service == null || !await service.start()) {
+      throw StateError('Las notificaciones no están disponibles en esta versión de la app.');
+    }
+    final token = await service.token();
+    final json = await ref.read(apiClientProvider).post(ApiEndpoints.testPush, data: {'fcm_token': ?token});
+    if (token != null) _lastSentToken = token;
+    return json['message']?.toString() ?? 'Aviso de prueba enviado.';
   }
 }
 
@@ -134,12 +173,14 @@ class _PushListenerState extends ConsumerState<PushListener> {
   static const _tabRoutes = {'/home', '/history', '/requests', '/payslips', '/profile'};
 
   StreamSubscription<String>? _routesSub;
+  AppLifecycleListener? _lifecycle;
 
   @override
   void initState() {
     super.initState();
     final service = ref.read(pushServiceProvider);
     if (service == null) return;
+    _lifecycle = AppLifecycleListener(onResume: () => unawaited(ref.read(pushControllerProvider.notifier).refresh()));
     _routesSub = service.routes.listen((_) => _drain());
     WidgetsBinding.instance.addPostFrameCallback((_) => _drain());
   }
@@ -157,6 +198,7 @@ class _PushListenerState extends ConsumerState<PushListener> {
 
   @override
   void dispose() {
+    _lifecycle?.dispose();
     _routesSub?.cancel();
     super.dispose();
   }

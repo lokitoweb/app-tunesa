@@ -51,6 +51,8 @@ class TenantSetting extends Model
         // Encendido por defecto: solo envía si la plataforma cargó la cuenta de
         // servicio de Firebase (fcmEnabled()). Una empresa puede apagarlo.
         'fcm_enabled'             => true,
+        // Correo de acceso de los colaboradores: [DNI]@dominio
+        'login_email_domain'      => 'turismonegreiros.com',
     ];
 
     public const MOCK_LOCATION_POLICIES = ['reject', 'flag'];
@@ -59,7 +61,7 @@ class TenantSetting extends Model
 
     /** Columnas de configuración editables (NULL = heredar) */
     public const SETTING_FIELDS = [
-        'trade_name', 'contact_email', 'contact_phone', 'website', 'address',
+        'trade_name', 'contact_email', 'contact_phone', 'website', 'address', 'login_email_domain',
         'accent_color', 'navbar_color',
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
@@ -91,7 +93,7 @@ class TenantSetting extends Model
     protected $fillable = [
         'tenant_id', 'updated_by',
         'trade_name', 'logo_path', 'logo_dark_path', 'favicon_path', 'splash_path',
-        'contact_email', 'contact_phone', 'website', 'address',
+        'contact_email', 'contact_phone', 'website', 'address', 'login_email_domain',
         'primary_color', 'secondary_color', 'accent_color', 'navbar_color',
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
@@ -298,6 +300,12 @@ class TenantSetting extends Model
     // =========================================================================
     // VALORES EFECTIVOS
     // =========================================================================
+
+    /** Dominio del correo de acceso [DNI]@dominio (en minúsculas, sin @) */
+    public function loginEmailDomain(): string
+    {
+        return strtolower(ltrim(trim((string) ($this->login_email_domain ?: self::DEFAULTS['login_email_domain'])), '@'));
+    }
 
     public function tradeName(): string
     {

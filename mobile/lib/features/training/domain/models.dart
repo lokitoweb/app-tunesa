@@ -5,7 +5,8 @@ enum TrainingStatus {
   pending('Sin empezar'),
   inProgress('En curso'),
   completed('Completado'),
-  overdue('Vencido');
+  overdue('Vencido'),
+  locked('Bloqueado');
 
   const TrainingStatus(this.label);
 
@@ -15,6 +16,7 @@ enum TrainingStatus {
         'in_progress' => TrainingStatus.inProgress,
         'completed' => TrainingStatus.completed,
         'overdue' => TrainingStatus.overdue,
+        'locked' => TrainingStatus.locked,
         _ => TrainingStatus.pending,
       };
 }
@@ -42,6 +44,9 @@ class TrainingSummary {
     this.hasQuiz = false,
     this.score,
     this.attempts = 0,
+    this.maxAttempts = 3,
+    this.attemptsLeft = 3,
+    this.locked = false,
     this.dueDate,
     this.completedAt,
   });
@@ -58,6 +63,13 @@ class TrainingSummary {
   final bool hasQuiz;
   final int? score;
   final int attempts;
+
+  /// Intentos permitidos del cuestionario (3 + los extra que dio RRHH).
+  final int maxAttempts;
+  final int attemptsLeft;
+
+  /// Agotó los intentos: RRHH debe desbloquearlo.
+  final bool locked;
   final DateTime? dueDate;
   final DateTime? completedAt;
 
@@ -84,6 +96,9 @@ class TrainingSummary {
         hasQuiz: json['has_quiz'] == true,
         score: _intOrNull(json['score']),
         attempts: _int(json['attempts']),
+        maxAttempts: _int(json['max_attempts'], 3),
+        attemptsLeft: _int(json['attempts_left'], 3),
+        locked: json['locked'] == true,
         dueDate: DateTime.tryParse(json['due_date']?.toString() ?? ''),
         completedAt: DateTime.tryParse(json['completed_at']?.toString() ?? ''),
       );
@@ -171,6 +186,8 @@ class QuizResult {
     required this.total,
     required this.passingScore,
     required this.message,
+    this.attemptsLeft = 0,
+    this.locked = false,
   });
 
   final int score;
@@ -179,6 +196,8 @@ class QuizResult {
   final int total;
   final int passingScore;
   final String message;
+  final int attemptsLeft;
+  final bool locked;
 
   factory QuizResult.fromJson(Map<String, dynamic> json) {
     final data = json['data'] is Map ? Map<String, dynamic>.from(json['data'] as Map) : const <String, dynamic>{};
@@ -189,6 +208,8 @@ class QuizResult {
       total: _int(data['total']),
       passingScore: _int(data['passing_score'], 70),
       message: _str(json['message']) ?? '',
+      attemptsLeft: _int(data['attempts_left']),
+      locked: data['locked'] == true,
     );
   }
 }

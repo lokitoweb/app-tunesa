@@ -216,7 +216,7 @@ class IntegrationsWebController extends Controller
             'status' => $result['status'] ?? null,
             'ms'     => (int) ($result['ms'] ?? 0),
         ] + (! empty($result['ok'])
-            ? ['body' => WebhookSender::truncate($this->text($result['response'] ?? null) ?? 'Enviada a ' . $user->email . '.', WebhookSender::RESPONSE_LIMIT)]
+            ? ['body' => WebhookSender::truncate($this->pushAccepted($user, $result['response'] ?? null), WebhookSender::RESPONSE_LIMIT)]
             : ['error' => WebhookSender::truncate($this->text($result['error'] ?? $result['response'] ?? null) ?? 'Error desconocido.', WebhookSender::RESPONSE_LIMIT)]));
     }
 
@@ -241,6 +241,33 @@ class IntegrationsWebController extends Controller
     }
 
     /** La respuesta de FCM llega como arreglo: se muestra como JSON legible */
+    /**
+     * HTTP 200 de FCM solo dice que Google aceptó el aviso, no que el celular lo
+     * mostró: se explica qué celular lo tiene y qué revisar si no aparece.
+     */
+    private function pushAccepted(User $user, mixed $response): string
+    {
+        $zone       = $this->tenantContext->getOrNull()?->timezone ?? config('app.timezone');
+        $registered = $user->fcm_token_updated_at
+            ? 'Celular registrado el ' . $user->fcm_token_updated_at->copy()->setTimezone($zone)->format('d/m/Y H:i')
+                . ' (' . $user->fcm_token_updated_at->diffForHumans() . ').'
+            : 'Celular registrado antes de esta versión (sin fecha): pide que abra la app para actualizar el registro.';
+
+        $lines = [
+            "Google aceptó el aviso para {$user->email}.",
+            $registered,
+            'Si no aparece: en el celular abre la app > Perfil > Notificaciones. Ahí se ve si el teléfono bloquea los avisos y se puede enviar una prueba al propio teléfono.',
+        ];
+        if (is_string($response)) {
+            $response = json_decode($response, true);
+        }
+        if (is_string($name = is_array($response) ? ($response['name'] ?? null) : null)) {
+            $lines[] = "Id de Firebase: {$name}";
+        }
+
+        return implode("\n", $lines);
+    }
+
     private function text(mixed $value): ?string
     {
         return match (true) {

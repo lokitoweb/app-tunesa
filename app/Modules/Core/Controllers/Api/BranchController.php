@@ -133,7 +133,11 @@ class BranchController extends Controller
         $today    = now()->toDateString();
 
         $branches = $employee->branches()
-            ->wherePivot('assigned_from', '<=', $today)
+            // Sin fecha de inicio (asignada desde el panel) = vigente desde siempre
+            ->where(function ($q) use ($today) {
+                $q->whereNull('employee_branch.assigned_from')
+                    ->orWhere('employee_branch.assigned_from', '<=', $today);
+            })
             ->where(function ($q) use ($today) {
                 $q->whereNull('employee_branch.assigned_until')
                     ->orWhere('employee_branch.assigned_until', '>=', $today);

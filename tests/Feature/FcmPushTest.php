@@ -387,6 +387,65 @@ class FcmPushTest extends TestCase
             ->assertOk()->assertJson(['ok' => false, 'error' => 'No hay un usuario con ese correo en esta empresa.']);
     }
 
+    public function test_registering_a_token_dates_it_and_takes_it_from_whoever_had_it(): void
+    {
+        $other = $this->makeUser($this->acme, 'employee', ['fcm_token' => 'shared-phone']);
+        app(TenantContext::class)->clear();
+
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/auth/refresh-fcm', ['fcm_token' => 'shared-phone'])->assertOk();
+
+        $this->assertSame('shared-phone', $this->emp->fresh()->fcm_token);
+        $this->assertNotNull($this->emp->fresh()->fcm_token_updated_at);
+        // El celular ya es de otra cuenta: sus avisos no deben llegar ahí
+        $this->assertNull($other->fresh()->fcm_token);
+    }
+
+    public function test_phone_can_send_itself_a_test_push(): void
+    {
+        $this->fakeGoogle();
+        $this->configurePlatform(enabled: false);
+
+        // Manda su token actual: queda registrado y la prueba va a ese teléfono
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/auth/test-push', ['fcm_token' => 'fresh-token'])
+            ->assertOk()->assertJson(['success' => true]);
+        $this->assertSame('fresh-token', $this->emp->fresh()->fcm_token);
+        Http::assertSent(fn (Request $r) => $r->url() === self::SEND_URL
+            && $r['message']['token'] === 'fresh-token' && $r['message']['data']['type'] === 'push.test'
+            && $r['message']['android']['notification']['channel_id'] === 'tunesa_default');
+
+        // Sin token en ningún lado: error explicado
+        app(TenantContext::class)->clear();
+        $bare = $this->makeUser($this->acme, 'employee');
+        $this->actingIn($bare, $this->acme)->postJson('/api/auth/test-push')
+            ->assertStatus(422)->assertJson(['success' => false, 'code' => 'NO_DEVICE_TOKEN']);
+    }
+
+    public function test_phone_test_push_reports_firebase_errors(): void
+    {
+        $this->fakeGoogle(['error' => ['status' => 'NOT_FOUND', 'message' => 'Requested entity was not found.']], 404);
+        $this->configurePlatform();
+
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/auth/test-push')
+            ->assertStatus(422)->assertJson(['success' => false, 'code' => 'PUSH_FAILED']);
+        $this->assertNull($this->emp->fresh()->fcm_token);
+    }
+
+    public function test_panel_test_push_explains_what_http_200_means(): void
+    {
+        $this->fakeGoogle(['name' => 'projects/tunesa-app/messages/0:99']);
+        $this->configurePlatform();
+        $this->emp->forceFill(['fcm_token_updated_at' => now()->subHours(3)])->save();
+        $root = $this->makeUser(null, 'super_admin');
+
+        $body = $this->actingAs($root)->postJson('/settings/branding/test-push', ['email' => $this->emp->email])
+            ->assertOk()->assertJson(['ok' => true, 'status' => 200])->json('body');
+
+        $this->assertStringContainsString("Google aceptó el aviso para {$this->emp->email}.", $body);
+        $this->assertStringContainsString('Celular registrado el', $body);
+        $this->assertStringContainsString('Perfil > Notificaciones', $body);
+        $this->assertStringContainsString('projects/tunesa-app/messages/0:99', $body);
+    }
+
     public function test_attendance_alerts_push_to_the_employee_and_only_in_app_to_the_supervisor(): void
     {
         \Illuminate\Support\Facades\Storage::fake('private');

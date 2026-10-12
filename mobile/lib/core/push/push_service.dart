@@ -24,6 +24,9 @@ class PushService {
   static const _channelId = 'tunesa_default';
   static const _channelName = 'Avisos de TuneSA';
 
+  /// Ícono blanco de la barra de estado (res/drawable/ic_stat_notification.xml).
+  static const _smallIcon = 'ic_stat_notification';
+
   bool _started = false;
   Future<bool>? _starting;
   FlutterLocalNotificationsPlugin? _local;
@@ -62,13 +65,16 @@ class PushService {
     try {
       if (Firebase.apps.isEmpty) await Firebase.initializeApp(options: options);
       final messaging = FirebaseMessaging.instance;
-      // Android 13+ (POST_NOTIFICATIONS) e iOS piden permiso aquí.
-      await messaging.requestPermission(alert: true, badge: true, sound: true);
 
       if (defaultTargetPlatform == TargetPlatform.iOS) {
         await messaging.setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);
       } else if (defaultTargetPlatform == TargetPlatform.android) {
-        await _initLocalNotifications();
+        try {
+          await _initLocalNotifications();
+        } catch (e) {
+          // Sin avisos en primer plano, pero el token y los de segundo plano siguen
+          debugPrint('Avisos locales no disponibles: $e');
+        }
       }
 
       _subscriptions
@@ -79,10 +85,38 @@ class PushService {
       final initial = await messaging.getInitialMessage();
       if (initial != null) _open(initial.data);
       _started = true;
-      return true;
     } catch (e) {
       debugPrint('Push desactivado: $e');
       return false;
+    }
+
+    // El permiso va aparte y sin esperar: si se cruza con otro pedido (GPS,
+    // cámara) Android lo rechaza o no responde, y antes eso dejaba el teléfono
+    // sin registrar su token. El estado se ve en Perfil > Notificaciones.
+    unawaited(requestPermission());
+    return true;
+  }
+
+  /// Pide permiso de notificaciones (Android 13+ e iOS) y devuelve el estado.
+  Future<PushPermission> requestPermission() async {
+    if (!_started) return PushPermission.unknown;
+    try {
+      final settings = await FirebaseMessaging.instance.requestPermission(alert: true, badge: true, sound: true);
+      return pushPermissionFrom(settings.authorizationStatus);
+    } catch (e) {
+      debugPrint('No se pudo pedir el permiso de notificaciones: $e');
+      return permission();
+    }
+  }
+
+  /// ¿El teléfono deja mostrar los avisos de la app?
+  Future<PushPermission> permission() async {
+    if (!_started) return PushPermission.unknown;
+    try {
+      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      return pushPermissionFrom(settings.authorizationStatus);
+    } catch (_) {
+      return PushPermission.unknown;
     }
   }
 
@@ -94,7 +128,7 @@ class PushService {
         final apns = await FirebaseMessaging.instance.getAPNSToken();
         if (apns == null) return null;
       }
-      return await FirebaseMessaging.instance.getToken();
+      return await FirebaseMessaging.instance.getToken().timeout(const Duration(seconds: 20));
     } catch (e) {
       debugPrint('Sin token FCM: $e');
       return null;
@@ -114,7 +148,7 @@ class PushService {
   Future<void> _initLocalNotifications() async {
     final local = FlutterLocalNotificationsPlugin();
     await local.initialize(
-      settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+      settings: const InitializationSettings(android: AndroidInitializationSettings(_smallIcon)),
       onDidReceiveNotificationResponse: (response) => _openPayload(response.payload),
     );
     await local
@@ -145,6 +179,7 @@ class PushService {
             _channelName,
             importance: Importance.high,
             priority: Priority.high,
+            icon: _smallIcon,
           ),
         ),
         payload: jsonEncode(message.data),

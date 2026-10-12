@@ -43,6 +43,9 @@ class ApiClient {
         if (slug != null && slug.isNotEmpty) {
           options.headers['X-Tenant-Slug'] = slug;
         }
+        if (options.extra['anonymous'] == true) {
+          options.headers.remove('X-Device-Integrity');
+        }
         handler.next(options);
       },
       onResponse: (response, handler) {
@@ -140,6 +143,13 @@ class ApiClient {
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
+  }
+
+  /// Canal ético: sin `Authorization` ni señales del teléfono, solo la empresa.
+  /// El servidor además descarta IP y user agent de estas rutas.
+  Future<Map<String, dynamic>> anonymous(String method, String path, {Object? data, Map<String, String> headers = const {}}) {
+    final options = Options(method: method, extra: {'auth': false, 'anonymous': true}, headers: headers);
+    return _send(() => _dio.request(path, data: data, options: options));
   }
 
   Future<Map<String, dynamic>> _send(Future<Response<dynamic>> Function() request) async {

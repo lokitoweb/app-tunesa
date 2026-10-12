@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config_controller.dart';
+import '../../../core/config/version_gate.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../app_update/presentation/update_screen.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../../../core/widgets/async_views.dart';
 import 'profile_avatar.dart';
@@ -10,6 +13,7 @@ import '../../auth/presentation/auth_controller.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../ethics/presentation/ethics_providers.dart';
 import '../../training/presentation/training_providers.dart';
 
 /// "Mi perfil": foto, avance de la ficha y acceso a Mis documentos,
@@ -106,6 +110,7 @@ class ProfileBody extends StatelessWidget {
           onTap: () => context.push('/profile/contact'),
         ),
         const _TrainingsTile(),
+        const _EthicsTile(),
         const SizedBox(height: 10),
         const _GroupTitle('Cuenta y ajustes'),
         const _AccountSection(),
@@ -213,6 +218,22 @@ class _TrainingsTile extends ConsumerWidget {
                   : 'Todas completadas',
       done: list != null && list.isNotEmpty && pending == 0,
       onTap: () => context.push('/trainings'),
+    );
+  }
+}
+
+class _EthicsTile extends ConsumerWidget {
+  const _EthicsTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(ethicsEnabledProvider)) return const SizedBox.shrink();
+    return _SectionTile(
+      key: const Key('section-ethics'),
+      icon: Icons.shield_outlined,
+      title: 'Canal ético',
+      subtitle: 'Denuncia de forma anónima acoso, fraude u otras faltas',
+      onTap: () => context.push('/ethics'),
     );
   }
 }
@@ -327,12 +348,6 @@ class _AccountSection extends ConsumerWidget {
         ),
         const Divider(),
         ListTile(
-          leading: const Icon(Icons.password_rounded),
-          title: const Text('Cambiar contraseña'),
-          onTap: () => context.push('/change-password'),
-        ),
-        const Divider(),
-        ListTile(
           key: const Key('account-devices'),
           leading: const Icon(Icons.devices_rounded),
           title: const Text('Mis dispositivos'),
@@ -349,6 +364,8 @@ class _AccountSection extends ConsumerWidget {
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => context.push('/profile/notifications'),
         ),
+        const Divider(),
+        const _AppVersionTile(),
         const Divider(),
         ListTile(
           key: const Key('account-privacy'),
@@ -373,6 +390,31 @@ class _AccountSection extends ConsumerWidget {
           },
         ),
       ]),
+    );
+  }
+}
+
+/// Versión instalada de la app. Si el panel publicó una más nueva
+/// (`latest_version`), lo avisa y abre el enlace de descarga configurado.
+class _AppVersionTile extends ConsumerWidget {
+  const _AppVersionTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final version = ref.watch(appVersionProvider);
+    final mobile = ref.watch(appConfigProvider.select((s) => s.config.mobile));
+    final outdated = ref.watch(updateLevelProvider) != UpdateLevel.none;
+    final latest = mobile.latestVersion;
+    final url = mobile.updateUrl;
+
+    return ListTile(
+      key: const Key('account-version'),
+      leading: const Icon(Icons.info_outline_rounded),
+      title: const Text('Versión de la app'),
+      subtitle: Text(outdated && latest != null ? '$version · disponible $latest' : version),
+      trailing: outdated && url != null
+          ? TextButton(onPressed: () => openUpdateLink(context, url), child: const Text('Actualizar'))
+          : null,
     );
   }
 }

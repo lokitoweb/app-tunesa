@@ -98,6 +98,7 @@ class _TeamBody extends StatelessWidget {
             const SizedBox(height: 8),
             for (final m in data.members)
               Card(
+                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
                   leading: const Icon(Icons.person_outline_rounded),
                   title: Text(m.fullName),
@@ -180,6 +181,7 @@ class _AttendanceTile extends StatelessWidget {
     final times = 'Entrada ${Fmt.time(a.clockIn)}${a.clockOut != null ? ' · Salida ${Fmt.time(a.clockOut)}' : ''}';
 
     return Card(
+      margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

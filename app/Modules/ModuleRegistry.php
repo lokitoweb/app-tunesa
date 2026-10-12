@@ -17,8 +17,10 @@ final class ModuleRegistry
     /** Nombre comercial de cada módulo (formulario de empresas) */
     public const LABELS = [
         'Attendance'   => 'Asistencia',
+        'Ethics'       => 'Canal ético',
         'HR'           => 'Recursos humanos',
         'Integrations' => 'Integraciones',
+        'Onboarding'   => 'Incorporación',
         'Payroll'      => 'Nómina y boletas',
         'Training'     => 'Capacitaciones',
     ];

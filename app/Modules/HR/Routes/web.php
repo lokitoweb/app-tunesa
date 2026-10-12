@@ -19,6 +19,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::put('/{id}', [EmployeeController::class, 'update'])->name('update')->whereNumber('id');
         Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status')->whereNumber('id');
         Route::patch('/{id}/unlock', [EmployeeController::class, 'unlock'])->name('unlock')->whereNumber('id');
+        Route::post('/{id}/reset-access', [EmployeeController::class, 'resetAccess'])->name('reset-access')->whereNumber('id')->middleware('throttle:10,1');
     });
 
     // Legajo digital: ficha del colaborador y revisión de documentos

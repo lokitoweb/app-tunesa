@@ -4,7 +4,7 @@ import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
 
-const props = defineProps({ course: Object, stats: Object, enrollments: Object, filters: Object });
+const props = defineProps({ course: Object, stats: Object, enrollments: Object, filters: Object, canUnlock: Boolean });
 
 const search = ref(props.filters.search ?? '');
 const STATUS_BADGE = {
@@ -12,8 +12,18 @@ const STATUS_BADGE = {
     in_progress: 'bg-primary-subtle text-primary-emphasis border-primary-subtle',
     pending: 'bg-secondary-subtle text-secondary-emphasis border-secondary-subtle',
     overdue: 'bg-danger-subtle text-danger-emphasis border-danger-subtle',
+    locked: 'bg-warning-subtle text-warning-emphasis border-warning-subtle',
 };
-const FILTERS = { '': 'Todos', pending: 'Pendientes', overdue: 'Vencidos', completed: 'Completados' };
+const FILTERS = { '': 'Todos', pending: 'Pendientes', locked: 'Bloqueados', overdue: 'Vencidos', completed: 'Completados' };
+const extra = ref({});
+const openHistory = ref(null);
+
+function unlock(e) {
+    const n = Number(extra.value[e.id] ?? 1);
+    if (confirm(`¿Dar ${n} intento${n === 1 ? '' : 's'} más a ${e.employee}? Le avisaremos en la app.`)) {
+        router.post(`/training/${props.course.id}/enrollments/${e.id}/unlock`, { extra: n }, { preserveScroll: true });
+    }
+}
 
 function apply(status = props.filters.status) {
     router.get(`/training/${props.course.id}`, { status: status || undefined, search: search.value || undefined }, { preserveState: true, preserveScroll: true });
@@ -39,7 +49,7 @@ function destroy() {
         <div class="page-header">
             <div>
                 <h1>{{ course.title }}</h1>
-                <p>{{ course.category }} · {{ course.lessons }} lecciones<span v-if="course.questions"> · cuestionario de {{ course.questions }} preguntas (aprueba con {{ course.passing_score }})</span><span v-if="course.due_days"> · plazo de {{ course.due_days }} días</span></p>
+                <p>{{ course.category }} · {{ course.lessons }} lecciones<span v-if="course.questions"> · cuestionario de {{ course.questions }} preguntas (aprueba con {{ course.passing_score }}, {{ course.max_attempts }} intento{{ course.max_attempts === 1 ? '' : 's' }})</span><span v-if="course.due_days"> · plazo de {{ course.due_days }} días</span></p>
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <button v-if="course.status !== 'published'" type="button" class="btn btn-success" @click="setStatus('published')"><i class="bi bi-send me-1"></i>Publicar</button>
@@ -48,6 +58,12 @@ function destroy() {
                 <a :href="`/training/${course.id}/export`" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Exportar avance</a>
                 <button type="button" class="btn btn-outline-danger" aria-label="Eliminar capacitación" @click="destroy"><i class="bi bi-trash"></i></button>
             </div>
+        </div>
+
+        <div v-if="stats.locked" class="alert alert-warning d-flex align-items-center gap-2">
+            <i class="bi bi-lock" aria-hidden="true"></i>
+            <div class="flex-grow-1">{{ stats.locked }} persona{{ stats.locked === 1 ? '' : 's' }} agotó los intentos del cuestionario.</div>
+            <button type="button" class="btn btn-sm btn-warning" @click="apply('locked')">Ver bloqueados</button>
         </div>
 
         <div class="row g-3 mb-4">
@@ -98,7 +114,7 @@ function destroy() {
                             <th>Avance</th>
                             <th>Nota</th>
                             <th>Fecha límite</th>
-                            <th class="text-end">Constancia</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -115,9 +131,29 @@ function destroy() {
                                 </div>
                                 <div class="small text-body-secondary mt-1">{{ e.progress }}%</div>
                             </td>
-                            <td class="small">{{ e.score ?? '—' }}<span v-if="e.attempts" class="text-body-secondary"> ({{ e.attempts }} intento{{ e.attempts === 1 ? '' : 's' }})</span></td>
+                            <td class="small">
+                                {{ e.score ?? '—' }}<span v-if="course.questions" class="text-body-secondary"> · {{ e.attempts }}/{{ e.max_attempts }} intentos</span>
+                                <div v-if="e.history.length">
+                                    <button type="button" class="btn btn-link btn-sm p-0" :aria-expanded="openHistory === e.id" @click="openHistory = openHistory === e.id ? null : e.id">
+                                        {{ openHistory === e.id ? 'Ocultar intentos' : 'Ver intentos' }}
+                                    </button>
+                                    <ul v-if="openHistory === e.id" class="list-unstyled mb-0 mt-1">
+                                        <li v-for="(a, i) in e.history" :key="i" class="text-nowrap">
+                                            <i class="bi" :class="a.passed ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'" aria-hidden="true"></i>
+                                            {{ a.score }} · <span class="text-body-secondary">{{ a.at }}</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
                             <td class="small text-nowrap">{{ e.completed_at ? `Completó ${e.completed_at}` : (e.due_date ?? 'Sin plazo') }}</td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
+                                <div v-if="e.locked && canUnlock" class="d-inline-flex gap-1 align-items-center">
+                                    <label :for="`extra-${e.id}`" class="visually-hidden">Intentos extra para {{ e.employee }}</label>
+                                    <select :id="`extra-${e.id}`" v-model="extra[e.id]" class="form-select form-select-sm" style="width: auto">
+                                        <option v-for="n in [1, 2, 3]" :key="n" :value="n">+{{ n }}</option>
+                                    </select>
+                                    <button type="button" class="btn btn-sm btn-warning" @click="unlock(e)"><i class="bi bi-unlock me-1"></i>Desbloquear</button>
+                                </div>
                                 <a v-if="e.status === 'completed'" :href="`/training/${course.id}/certificates/${e.id}`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-pdf"></i> Ver</a>
                             </td>
                         </tr>

@@ -6,6 +6,8 @@ use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\TenantContext;
 use App\Modules\HR\Models\EmployeeDocument;
+use App\Modules\Ethics\Models\EthicsCase;
+use App\Modules\Onboarding\Models\OnboardingProcess;
 use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\ModuleRegistry;
 use Illuminate\Http\Request;
@@ -34,12 +36,15 @@ class PanelNavigation
             'Monitoreo' => [
                 ['Core', true, 'dashboard', [], 'speedometer2', 'Dashboard', $request->routeIs('dashboard*')],
                 ['Attendance', ['attendance.view_team', 'attendance.view_all'], 'live.index', [], 'broadcast', 'Tablero en vivo', $request->routeIs('live.*')],
-                ['Attendance', 'attendance.view_all', 'attendance.index', [], 'clock-history', 'Marcaciones y GPS', $request->routeIs('attendance*') && ! $absent],
-                ['Attendance', 'attendance.view_all', 'attendance.index', ['status' => 'absent', 'start_date' => now()->startOfMonth()->toDateString(), 'end_date' => now()->toDateString()], 'person-x', 'Control de faltas', $request->routeIs('attendance*') && $absent],
+                ['Attendance', 'attendance.view_all', 'attendance.index', [], 'clock-history', 'Marcaciones y GPS', $request->routeIs('attendance.index', 'attendance.show') && ! $absent],
+                ['Attendance', 'attendance.view_all', 'attendance.attempts', [], 'slash-circle', 'Intentos rechazados', $request->routeIs('attendance.attempts')],
+                ['Attendance', 'attendance.view_all', 'attendance.index', ['status' => 'absent', 'start_date' => now()->startOfMonth()->toDateString(), 'end_date' => now()->toDateString()], 'person-x', 'Control de faltas', $request->routeIs('attendance.index', 'attendance.show') && $absent],
                 ['HR', 'leave.approve_team', 'approvals.index', [], 'check2-square', 'Aprobaciones', $request->routeIs('approvals*'), fn () => $hasTenant ? self::pendingApprovals($user) : 0],
             ],
             'Administración' => [
                 ['HR', 'users.manage', 'employees.index', [], 'people', 'Colaboradores', $request->routeIs('employees.index', 'employees.create', 'employees.edit')],
+                ['Onboarding', 'onboarding.review', 'onboarding.index', [], 'person-badge', 'Incorporación', $request->routeIs('onboarding.*'), fn () => $hasTenant ? OnboardingProcess::where('status', OnboardingProcess::SUBMITTED)->count() : 0],
+                ['Ethics', 'ethics.investigate', 'ethics.index', [], 'shield-exclamation', 'Canal ético', $request->routeIs('ethics.*'), fn () => $hasTenant ? EthicsCase::where('investigator_unread', true)->count() : 0],
                 ['HR', 'shifts.manage', 'shifts.index', [], 'calendar-week', 'Turnos y horarios', $request->routeIs('shifts*'), null, true],
                 ['HR', 'shifts.manage', 'holidays.index', [], 'calendar-heart', 'Feriados', $request->routeIs('holidays*')],
                 ['Core', 'branches.manage', 'organization.index', [], 'diagram-3', 'Organización', $request->routeIs('organization*'), null, true],

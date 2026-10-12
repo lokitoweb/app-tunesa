@@ -28,7 +28,7 @@ class TrainingCourse extends Model
 
     protected $fillable = [
         'tenant_id', 'title', 'description', 'category', 'estimated_minutes', 'is_mandatory',
-        'due_days', 'passing_score', 'status', 'published_at', 'created_by',
+        'due_days', 'passing_score', 'max_attempts', 'status', 'published_at', 'created_by',
     ];
 
     protected $casts = [
@@ -36,6 +36,7 @@ class TrainingCourse extends Model
         'estimated_minutes' => 'integer',
         'due_days'          => 'integer',
         'passing_score'     => 'integer',
+        'max_attempts'      => 'integer',
         'published_at'      => 'datetime',
     ];
 

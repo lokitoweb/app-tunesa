@@ -35,7 +35,7 @@ class TrainingCourseService
         try {
             DB::transaction(function () use ($course, $data, $actor, &$uploaded) {
                 $wasPublished = $course->exists && $course->isPublished();
-                $course->fill(Arr::only($data, ['title', 'description', 'category', 'estimated_minutes', 'is_mandatory', 'due_days', 'passing_score', 'status']));
+                $course->fill(Arr::only($data, ['title', 'description', 'category', 'estimated_minutes', 'is_mandatory', 'due_days', 'passing_score', 'max_attempts', 'status']));
                 $course->created_by ??= $actor->id;
                 if ($course->isPublished() && ! $wasPublished) {
                     $course->published_at = now();

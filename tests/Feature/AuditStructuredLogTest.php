@@ -178,19 +178,15 @@ class AuditStructuredLogTest extends TestCase
         $this->assertSame('••••••••6055', $change['new']);
         $this->assertStringNotContainsString('99887766', json_encode($log->meta));
 
-        // Contraseña nueva: solo "(cambiado)", nunca el hash
-        $branch = $this->makeBranch($acme);
-        $this->actingAs($admin)->put("/employees/{$emp->id}", [
-            'first_name' => 'Ana', 'last_name' => 'Pérez', 'email' => $emp->email, 'password' => 'NuevaClave123',
-            'role' => 'employee', 'status' => 'active', 'document_type' => 'dni', 'document_number' => '12345678',
-            'branch_ids' => [$branch->id], 'primary_branch_id' => $branch->id,
-        ])->assertSessionHasNoErrors();
+        // Restablecer acceso: la bitácora registra quién y a quién, nunca la contraseña ni su hash
+        $this->actingAs($admin)->post("/employees/{$emp->id}/reset-access")->assertSessionHas('credentials');
+        $password = session('credentials')['password'];
 
-        $log  = AuditLog::where('action', 'employee.updated')->latest('id')->first();
-        $pass = collect($log->meta['changes'])->firstWhere('field', 'password');
-        $this->assertSame('(cambiado)', $pass['new']);
+        $log = AuditLog::where('action', 'auth.access_reset')->latest('id')->first();
+        $this->assertSame($emp->id, $log->subject_id);
+        $this->assertStringNotContainsString($password, json_encode($log->meta));
         $this->assertStringNotContainsString('$2y$', json_encode($log->meta));
-        $this->assertStringNotContainsString('NuevaClave', json_encode($log->meta));
+        $this->assertStringNotContainsString('$argon', json_encode($log->meta));
     }
 
     public function test_legacy_rows_without_changes_render_labeled_context(): void

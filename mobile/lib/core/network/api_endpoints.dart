@@ -13,11 +13,9 @@ class ApiEndpoints {
 
   /// Sin código de empresa: el servidor la reconoce por el correo.
   static const loginByEmail = '/v1/auth/login';
-  static const forgotPasswordByEmail = '/v1/auth/forgot-password';
   static const logout = '/auth/logout';
   static const me = '/auth/me';
   static const profile = '/auth/profile';
-  static const forgotPassword = '/auth/forgot-password';
   static const changePassword = '/auth/change-password';
   static const logoutAll = '/auth/logout-all';
   static const logoutOthers = '/auth/logout-others';
@@ -25,6 +23,17 @@ class ApiEndpoints {
   static String session(int id) => '/auth/sessions/$id';
   static const notificationPreferences = '/auth/notification-preferences';
   static const refreshFcm = '/auth/refresh-fcm';
+  static const testPush = '/auth/test-push';
+
+  // Incorporación: etapas y envío a RRHH (candado de la marcación)
+  static const onboarding = '/onboarding';
+  static const onboardingSubmit = '/onboarding/submit';
+
+  // Canal ético: sin token de sesión (la denuncia no se asocia al usuario)
+  static const ethicsCategories = '/ethics/categories';
+  static const ethicsCases = '/ethics/cases';
+  static String ethicsCase(String code) => '/ethics/cases/${Uri.encodeComponent(code)}';
+  static String ethicsMessages(String code) => '${ethicsCase(code)}/messages';
 
   /// Pedido de eliminación de la cuenta y sus datos.
   static const accountDeletion = '/auth/account-deletion';

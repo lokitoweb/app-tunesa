@@ -13,10 +13,10 @@ use App\Modules\Core\Notifications\SecurityAlert;
 use App\Modules\Core\Support\NotificationPreferences;
 use Illuminate\Support\Str;
 use Illuminate\Http\JsonResponse;
+use App\Modules\Integrations\Services\Push\FcmSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 
@@ -37,6 +37,8 @@ use Illuminate\Validation\ValidationException;
  */
 class AuthController extends Controller
 {
+    public const RESET_BY_ADMIN_MESSAGE = 'Para restablecer o cambiar tu contraseña, pide a RRHH que restablezca tu acceso desde el panel.';
+
     public function __construct(private readonly LoginGuard $guard) {}
 
     // =========================================================================
@@ -147,8 +149,8 @@ class AuthController extends Controller
         }
 
         // Actualizar FCM token si se proporcionó
-        if ($fcmToken = $request->input('fcm_token')) {
-            $user->update(['fcm_token' => $fcmToken]);
+        if (is_string($fcmToken = $request->input('fcm_token')) && $fcmToken !== '') {
+            $user->registerFcmToken($fcmToken);
         }
 
         return response()->json([
@@ -216,53 +218,19 @@ class AuthController extends Controller
     // =========================================================================
 
     /**
-     * Envía el enlace de restablecimiento al correo (si existe en la empresa).
-     * Siempre responde igual para no revelar qué correos están registrados.
+     * La app no restablece contraseñas (política de tiendas y de la empresa):
+     * lo hace RRHH desde el panel ("Restablecer acceso"). Se responde 410 para
+     * que las versiones antiguas de la app muestren el aviso.
      *
-     * POST /api/auth/forgot-password
+     * POST /api/auth/forgot-password · /api/v1/auth/forgot-password · /api/auth/reset-password
      */
-    public function forgotPassword(Request $request): JsonResponse
+    public function passwordResetByAdmin(): JsonResponse
     {
-        $request->validate(['email' => ['required', 'email']]);
-
-        // El broker consulta User con el TenantScope activo: solo encuentra
-        // usuarios de la empresa resuelta.
-        Password::sendResetLink($request->only('email'));
-
         return response()->json([
-            'success' => true,
-            'message' => 'Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.',
-        ]);
-    }
-
-    /**
-     * Restablece la contraseña con el token recibido por correo.
-     *
-     * POST /api/auth/reset-password
-     */
-    public function resetPassword(Request $request): JsonResponse
-    {
-        $request->validate([
-            'token'    => ['required', 'string'],
-            'email'    => ['required', 'email'],
-            'password' => ['required', 'confirmed', User::resetPasswordRule()],
-        ]);
-
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            fn (User $user, string $password) => $user->completePasswordReset($password)
-        );
-
-        if ($status !== Password::PASSWORD_RESET) {
-            throw ValidationException::withMessages([
-                'email' => ['El enlace de restablecimiento no es válido o expiró.'],
-            ]);
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Contraseña restablecida. Ya puedes iniciar sesión.',
-        ]);
+            'success' => false,
+            'code'    => 'PASSWORD_RESET_BY_ADMIN',
+            'message' => self::RESET_BY_ADMIN_MESSAGE,
+        ], 410);
     }
 
     // =========================================================================
@@ -431,12 +399,21 @@ class AuthController extends Controller
 
     public function changePassword(Request $request): JsonResponse
     {
+        $user = $request->user();
+
+        // Solo el cambio obligatorio de la contraseña temporal: el resto lo hace RRHH
+        if (! $user->must_change_password) {
+            return response()->json([
+                'success' => false,
+                'code'    => 'PASSWORD_CHANGE_BY_ADMIN',
+                'message' => self::RESET_BY_ADMIN_MESSAGE,
+            ], 403);
+        }
+
         $request->validate([
             'current_password' => ['required', 'string'],
             'new_password'     => ['required', 'string', 'confirmed', 'different:current_password', PasswordRule::min(8)->letters()->mixedCase()->numbers()],
         ]);
-
-        $user = $request->user();
 
         if (! Hash::check($request->current_password, $user->password)) {
             throw ValidationException::withMessages([
@@ -444,20 +421,14 @@ class AuthController extends Controller
             ]);
         }
 
-        $wasTemporary = (bool) $user->must_change_password;
-
         $user->forceFill([
-            'password'             => $request->new_password,
-            'must_change_password' => false,
+            'password'                 => $request->new_password,
+            'must_change_password'     => false,
+            'temp_password_expires_at' => null,
         ])->save();
 
         // Revocar todos los otros tokens (forzar re-login en otros dispositivos)
         $user->tokens()->where('id', '!=', $user->currentAccessToken()->id)->delete();
-
-        // Cambio voluntario (no el de la contraseña temporal): aviso de seguridad
-        if (! $wasTemporary) {
-            $this->notifySafely($user, new SecurityAlert('password_changed'));
-        }
 
         return response()->json([
             'success' => true,
@@ -472,12 +443,46 @@ class AuthController extends Controller
     public function updateFcmToken(Request $request): JsonResponse
     {
         $request->validate([
-            'fcm_token' => ['required', 'string'],
+            'fcm_token' => ['required', 'string', 'max:4096'],
         ]);
 
-        $request->user()->update(['fcm_token' => $request->fcm_token]);
+        $request->user()->registerFcmToken($request->fcm_token);
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Push de prueba al celular desde el que se pide (Perfil > Notificaciones).
+     * Sirve para que el colaborador confirme que los avisos le llegan.
+     * POST /api/auth/test-push
+     */
+    public function testPush(Request $request, FcmSender $sender): JsonResponse
+    {
+        $request->validate(['fcm_token' => ['nullable', 'string', 'max:4096']]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        // La app manda su token actual: así la prueba va a este teléfono aunque
+        // el registro anterior no se hubiera guardado.
+        if (filled($request->fcm_token) && $request->fcm_token !== $user->fcm_token) {
+            $user->registerFcmToken($request->fcm_token);
+        }
+
+        if (blank($user->fcm_token)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este teléfono todavía no está registrado para recibir avisos. Cierra la app, vuelve a abrirla e inténtalo otra vez.',
+                'code'    => 'NO_DEVICE_TOKEN',
+            ], 422);
+        }
+
+        $result = $sender->test($user);
+
+        return response()->json(! empty($result['ok'])
+            ? ['success' => true, 'message' => 'Aviso de prueba enviado. Debería aparecer en unos segundos.']
+            : ['success' => false, 'message' => (string) ($result['error'] ?? 'No se pudo enviar el aviso de prueba.'), 'code' => 'PUSH_FAILED'],
+            ! empty($result['ok']) ? 200 : 422);
     }
 
     // =========================================================================

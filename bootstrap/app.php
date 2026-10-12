@@ -17,6 +17,8 @@ use App\Modules\Core\Middleware\HandleInertiaRequests;
 use App\Modules\Core\Middleware\ResolveTenant;
 use App\Modules\Core\Middleware\SecurityHeaders;
 use App\Modules\Core\Middleware\SetWebTenant;
+use App\Modules\Onboarding\Middleware\EnsureOnboardingApproved;
+use App\Modules\Ethics\Middleware\StripIdentity;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -41,6 +43,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'web.tenant'   => SetWebTenant::class,
             'password.fresh' => EnsurePasswordChanged::class,
             'app.version'  => EnsureSupportedAppVersion::class,
+            'onboarding.approved' => EnsureOnboardingApproved::class,
+            'ethics.anonymous' => StripIdentity::class,
         ]);
 
         // =====================================================================

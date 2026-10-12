@@ -64,8 +64,10 @@ class User extends Authenticatable
         'position',
         'department',
         'fcm_token',
+        'fcm_token_updated_at',
         'notification_preferences',
         'must_change_password',
+        'temp_password_expires_at',
         'department_id',
         'position_id',
         'scope_type',
@@ -115,7 +117,9 @@ class User extends Authenticatable
         'password'          => 'hashed',
         'locked_until'         => 'datetime',
         'last_login_at'        => 'datetime',
+        'fcm_token_updated_at' => 'datetime',
         'must_change_password' => 'boolean',
+        'temp_password_expires_at' => 'datetime',
         'roaming_attendance_enabled' => 'boolean',
         'failed_login_attempts' => 'integer',
         'notification_preferences' => 'array',
@@ -319,6 +323,7 @@ class User extends Authenticatable
             'password'              => $password,
             'remember_token'        => Str::random(60),
             'must_change_password'  => false,
+            'temp_password_expires_at' => null,
             'failed_login_attempts' => 0,
             'locked_until'          => null,
         ])->save();
@@ -326,6 +331,14 @@ class User extends Authenticatable
         $this->tokens()->delete();
 
         event(new PasswordReset($this));
+    }
+
+    /** La contraseña temporal venció sin cambiarse: solo RRHH puede restablecer el acceso */
+    public function temporaryPasswordExpired(): bool
+    {
+        return $this->must_change_password
+            && $this->temp_password_expires_at !== null
+            && $this->temp_password_expires_at->isPast();
     }
 
     public function isLocked(): bool
@@ -336,6 +349,21 @@ class User extends Authenticatable
     /**
      * Nombre completo del usuario.
      */
+    /**
+     * Guarda el token de push de este celular. Un teléfono tiene un solo token:
+     * si antes lo usaba otra cuenta (otro colaborador inició sesión en el mismo
+     * equipo), se le quita para que sus avisos no lleguen a quien no son.
+     */
+    public function registerFcmToken(string $token): void
+    {
+        static::withoutGlobalScopes()
+            ->where('fcm_token', $token)
+            ->whereKeyNot($this->getKey())
+            ->update(['fcm_token' => null, 'fcm_token_updated_at' => null]);
+
+        $this->forceFill(['fcm_token' => $token, 'fcm_token_updated_at' => now()])->save();
+    }
+
     public function getFullNameAttribute(): string
     {
         return "{$this->first_name} {$this->last_name}";

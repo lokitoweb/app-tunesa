@@ -32,6 +32,7 @@ final class Labels
         'auth.login_failed'                  => ['Intento de ingreso fallido', 'warning', 'shield-exclamation'],
         'auth.account_locked'                => ['Cuenta bloqueada por intentos fallidos', 'danger', 'lock'],
         'auth.account_unlocked'              => ['Cuenta desbloqueada', 'success', 'unlock'],
+        'auth.access_reset'                  => ['Acceso restablecido por RRHH', 'warning', 'key'],
         'auth.password_reset'                => ['Contraseña restablecida', 'info', 'key'],
         'auth.password_changed'              => ['Contraseña cambiada', 'info', 'key'],
 
@@ -73,6 +74,8 @@ final class Labels
         'training.published'                 => ['Capacitación publicada', 'success', 'mortarboard'],
         'training.archived'                  => ['Capacitación archivada', 'secondary', 'mortarboard'],
         'training.deleted'                   => ['Capacitación eliminada', 'danger', 'mortarboard'],
+        'training.locked'                    => ['Cuestionario bloqueado por intentos', 'warning', 'lock'],
+        'training.unlocked'                  => ['Intentos extra en cuestionario', 'primary', 'unlock'],
         'holiday.created'                    => ['Feriado creado', 'success', 'calendar-heart'],
         'holiday.deleted'                    => ['Feriado eliminado', 'danger', 'calendar-x'],
 
@@ -122,6 +125,17 @@ final class Labels
         'payslip.archived'                   => ['Boleta anulada', 'warning', 'file-earmark-lock'],
         'payroll.exported'                   => ['Planilla exportada', 'info', 'file-earmark-spreadsheet'],
 
+        // Incorporación
+        'onboarding.submitted'               => ['Incorporación enviada a revisión', 'info', 'send'],
+        'onboarding.approved'                => ['Incorporación aprobada', 'success', 'person-check'],
+        'onboarding.rejected'                => ['Incorporación observada', 'danger', 'person-exclamation'],
+        'onboarding.stages_updated'          => ['Etapas de incorporación actualizadas', 'primary', 'list-check'],
+
+        // Canal ético (solo acciones de quien investiga: el denunciante no deja rastro)
+        'ethics.viewed'                      => ['Denuncia consultada', 'secondary', 'eye'],
+        'ethics.replied'                     => ['Respuesta al denunciante', 'info', 'chat-left-text'],
+        'ethics.status_changed'              => ['Estado de denuncia cambiado', 'primary', 'shield-check'],
+
         // Dotación
         'uniform.delivered'                  => ['Uniforme entregado', 'info', 'bag-check'],
     ];
@@ -141,6 +155,8 @@ final class Labels
         'attendance'            => 'la marcación',
         'leave_request'         => 'la solicitud',
         'payslip'               => 'la boleta',
+        'onboarding'            => 'la incorporación',
+        'ethics'                => 'la denuncia',
     ];
 
     /** Nombre de los registros (subject_type de la bitácora) */
@@ -152,6 +168,7 @@ final class Labels
         'Department'           => 'Área',
         'CompanyConfiguration' => 'Configuración de la app',
         'EmployeeDocument'     => 'Documento',
+        'EthicsCase'           => 'Denuncia',
         'EmployeeProfile'      => 'Ficha laboral',
         'EmployeeShift'        => 'Asignación de turno',
         'Holiday'              => 'Feriado',
@@ -210,6 +227,7 @@ final class Labels
         'contact_email'           => 'Correo de contacto',
         'contact_phone'           => 'Teléfono de contacto',
         'website'                 => 'Sitio web',
+        'login_email_domain'      => 'Dominio del correo de acceso',
         'primary_color'           => 'Color primario',
         'secondary_color'         => 'Color secundario',
         'accent_color'            => 'Color de acento',
@@ -294,12 +312,15 @@ final class Labels
         'two_factor_secret'       => 'Verificación en dos pasos',
         'two_factor_recovery_codes' => 'Códigos de recuperación',
         'fcm_token'               => 'Dispositivo para notificaciones',
+        'fcm_token_updated_at'    => 'Dispositivo registrado el',
         'notification_preferences' => 'Preferencias de notificaciones',
         'failed_login_attempts'   => 'Intentos fallidos de ingreso',
+        'onboarding_status'       => 'Estado de incorporación',
         'locked_until'            => 'Bloqueado hasta',
         'last_login_at'           => 'Último ingreso',
         'last_login_ip'           => 'Dirección del último ingreso',
         'must_change_password'    => 'Debe cambiar su contraseña',
+        'temp_password_expires_at' => 'Vence la contraseña temporal',
 
         // Ficha laboral (employee_profiles)
         'district'                => 'Distrito',
@@ -702,6 +723,36 @@ final class Labels
             'break_start' => ['Inicio de descanso', 'secondary'],
             'break_end'   => ['Fin de descanso', 'secondary'],
             'clock_out'   => ['Salida', 'primary'],
+        ],
+        'onboarding_status' => [
+            'pending'   => ['En proceso', 'secondary'],
+            'submitted' => ['Por revisar', 'warning'],
+            'approved'  => ['Aprobada', 'success'],
+            'rejected'  => ['Observada', 'danger'],
+        ],
+        'onboarding_stage_status' => [
+            'completed'      => ['Completa', 'success'],
+            'pending'        => ['Pendiente', 'warning'],
+            'not_applicable' => ['No aplica', 'secondary'],
+        ],
+        'ethics_status' => [
+            'received'   => ['Recibida', 'warning'],
+            'in_review'  => ['En investigación', 'primary'],
+            'needs_info' => ['Necesita información', 'info'],
+            'closed'     => ['Cerrada', 'secondary'],
+        ],
+        'punch_attempt_code' => [
+            'ONBOARDING_PENDING'      => ['Incorporación sin aprobar', 'secondary'],
+            'GEOFENCE_VIOLATION'      => ['Fuera de la geocerca', 'danger'],
+            'MOCK_LOCATION_DETECTED'  => ['Ubicación simulada', 'danger'],
+            'GPS_ACCURACY_TOO_LOW'    => ['GPS impreciso', 'warning'],
+            'FACE_NOT_DETECTED'       => ['Sin rostro en la selfie', 'warning'],
+            'NO_BRANCH_ASSIGNED'      => ['Sin sucursal asignada', 'secondary'],
+            'BREAK_NOT_ALLOWED'       => ['Turno sin descanso', 'secondary'],
+            'OFFLINE_NOT_ALLOWED'     => ['Sin conexión no permitido', 'warning'],
+            'OFFLINE_TOO_OLD'         => ['Sin conexión demasiado antigua', 'warning'],
+            'OFFLINE_BEFORE_CLOCK_IN' => ['Sin conexión antes de la entrada', 'warning'],
+            'OFFLINE_OUT_OF_ORDER'    => ['Sin conexión fuera de orden', 'warning'],
         ],
         'suspicion_reason' => [
             'MOCK_LOCATION'    => ['Ubicación simulada', 'danger'],

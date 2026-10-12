@@ -2,6 +2,7 @@
 
 namespace App\Modules\HR\Controllers\Api;
 
+use App\Modules\Core\Services\CredentialProvisioner;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Resources\UserResource;
 use App\Modules\Core\Models\Branch;
@@ -77,8 +78,10 @@ class UserController extends Controller
         $validated = $request->validate([
             'first_name'    => ['required', 'string', 'max:100'],
             'last_name'     => ['required', 'string', 'max:100'],
-            'email'         => ['required', 'email', 'unique:users,email'],
-            'password'      => ['required', 'string', 'min:8'],
+            // Sin correo: se genera [DNI]@dominio. La contraseña siempre la genera el sistema.
+            'email'           => ['required_without:document_number', 'nullable', 'email', 'unique:users,email'],
+            'document_type'   => ['sometimes', Rule::in(['dni', 'ce', 'passport'])],
+            'document_number' => ['required_without:email', 'nullable', 'string', 'max:30'],
             'role'          => ['required', 'in:company_admin,hr_manager,supervisor,employee'],
             'position'      => ['sometimes', 'nullable', 'string', 'max:150'],
             'position_id'   => ['sometimes', 'nullable', 'integer', Rule::exists('positions', 'id')->where('tenant_id', current_tenant_id())],
@@ -92,17 +95,25 @@ class UserController extends Controller
 
         abort_unless($request->user()->canAssignRole($validated['role']), 403, 'No puedes crear usuarios con un rol igual o superior al tuyo.');
 
-        // La contraseña es temporal: el colaborador debe cambiarla en su primer ingreso
+        $credentials = app(CredentialProvisioner::class);
+        $validated['email'] = ($validated['email'] ?? null)
+            ?: $credentials->emailFor($request->user()->tenant, $validated['document_number']);
+        $password = $credentials->temporaryPassword();
+
+        // Contraseña temporal: vence en 72 h y se debe cambiar en el primer ingreso
         $user = User::create(array_merge($validated, [
-            'tenant_id'            => current_tenant_id(),
-            'status'               => 'active',
-            'must_change_password' => true,
+            'tenant_id' => current_tenant_id(),
+            'status'    => 'active',
+            'password'  => $password,
         ]));
+        app(\App\Modules\Onboarding\Services\OnboardingService::class)->startFor($user);
+        $user->forceFill($credentials->temporaryAttributes($password))->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Empleado creado correctamente.',
+            'message' => 'Empleado creado correctamente. Entrega la contraseña temporal: no se volverá a mostrar.',
             'data'    => new UserResource($user->load('tenant')),
+            'credentials' => ['email' => $user->email, 'temporary_password' => $password],
         ], 201);
     }
 
