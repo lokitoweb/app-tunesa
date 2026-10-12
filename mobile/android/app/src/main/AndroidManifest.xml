@@ -25,6 +25,8 @@
          scripts/check_play_requirements.py falla el CI si vuelve a aparecer un permiso no revisado. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
+    <!-- Implícito por las librerías; los adjuntos usan el selector del sistema, que no lo necesita -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
 
     <!--
       usesCleartextTraffic solo se habilita en builds de desarrollo (http://10.0.2.2)

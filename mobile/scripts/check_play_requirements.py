@@ -123,9 +123,18 @@ def load_alignments(data):
     return aligns
 
 
+def data_offset(apk_file, info):
+    """Posición de los datos de una entrada: su cabecera local puede traer un
+    'extra' distinto al del directorio central (ahí va el relleno de alineación)."""
+    apk_file.seek(info.header_offset)
+    header = apk_file.read(30)
+    name_len, extra_len = struct.unpack_from("<HH", header, 26)
+    return info.header_offset + 30 + name_len + extra_len
+
+
 def check_16k(apk):
     errors = []
-    with zipfile.ZipFile(apk) as z:
+    with zipfile.ZipFile(apk) as z, open(apk, "rb") as raw:
         libs = [n for n in z.namelist() if n.startswith(("lib/arm64-v8a/", "lib/x86_64/")) and n.endswith(".so")]
         print(f"Librerías nativas de 64 bits: {len(libs)}")
         for name in libs:
@@ -138,7 +147,7 @@ def check_16k(apk):
             print(f"  {status:12} {name} (LOAD align {min(aligns) if aligns else '-'})")
             if bad:
                 errors.append(f"{name} no soporta páginas de 16 KB (LOAD align {min(bad)}).")
-            if info.compress_type == zipfile.ZIP_STORED and (info.header_offset + 30 + len(info.filename.encode()) + len(info.extra)) % PAGE_16K:
+            if info.compress_type == zipfile.ZIP_STORED and data_offset(raw, info) % PAGE_16K:
                 errors.append(f"{name} va sin comprimir pero no está alineada a 16 KB dentro del APK.")
     return errors
 
