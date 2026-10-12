@@ -42,7 +42,7 @@ class TenantSetting extends Model
         'offline_max_hours'       => 24,
         'max_gps_accuracy_meters' => 100,
         'default_grace_minutes'   => 10,
-        'lunch_minutes'           => 60,
+        'lunch_minutes'           => 45,
         'lunch_paid'              => false,
         'default_geofence_radius' => 50,
         'mock_location_policy'    => 'reject',

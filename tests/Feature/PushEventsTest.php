@@ -131,29 +131,30 @@ class PushEventsTest extends TestCase
         $this->assertSame(1, $this->emp->notifications()->count());
     }
 
-    public function test_entry_reminder_once_after_grace_when_not_marked(): void
+    public function test_entry_reminder_five_minutes_before_start_when_not_marked(): void
     {
         $this->assign('08:00', grace: 10);
-        Http::fake([
-            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'ya29.token', 'expires_in' => 3599]),
-            'fcm.googleapis.com/*'        => Http::response(['name' => 'ok']),
-        ]);
+        $this->fakeFcm();
         $countReminders = fn () => collect($this->pushes())->where('data.type', 'attendance.entry_reminder')->count();
 
-        // Antes de la tolerancia: nada
-        Carbon::setTestNow(Carbon::parse('2026-10-12 08:05', 'America/Lima'));
+        // Más de 5 minutos antes: nada
+        Carbon::setTestNow(Carbon::parse('2026-10-12 07:54', 'America/Lima'));
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         $this->assertSame(0, $countReminders());
 
-        // Pasada la tolerancia: un aviso, y no se repite
+        // 5 minutos antes: un aviso, y no se repite
+        Carbon::setTestNow(Carbon::parse('2026-10-12 07:55', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
         Carbon::setTestNow(Carbon::parse('2026-10-12 08:15', 'America/Lima'));
         $this->artisan('attendance:remind-entry')->assertSuccessful();
-        $this->artisan('attendance:remind-entry')->assertSuccessful();
         $this->assertSame(1, $countReminders());
+        $push = collect($this->pushes())->firstWhere('data.type', 'attendance.entry_reminder');
+        $this->assertSame('Tu turno empieza en 5 minutos', $push['notification']['title']);
+        $this->assertStringContainsString('08:00', $push['notification']['body']);
         $this->assertSame(1, $this->emp->notifications()->count()); // solo el del turno: el recordatorio no va a la bandeja
 
         // Otro día, ya marcó: nada
-        Carbon::setTestNow(Carbon::parse('2026-10-13 08:20', 'America/Lima'));
+        Carbon::setTestNow(Carbon::parse('2026-10-13 07:56', 'America/Lima'));
         Attendance::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'branch_id' => EmployeeShift::sole()->branch_id,
             'work_date' => '2026-10-13', 'status' => 'present']);
         app(TenantContext::class)->clear();
@@ -161,17 +162,92 @@ class PushEventsTest extends TestCase
         $this->assertSame(1, $countReminders());
 
         // Feriado: nada
-        Carbon::setTestNow(Carbon::parse('2026-10-14 08:20', 'America/Lima'));
+        Carbon::setTestNow(Carbon::parse('2026-10-14 07:56', 'America/Lima'));
         Holiday::create(['tenant_id' => $this->acme->id, 'date' => '2026-10-14', 'name' => 'Feriado']);
         app(TenantContext::class)->clear();
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         $this->assertSame(1, $countReminders());
 
+        // El programador se atrasó: se avisa igual hasta una hora pasada la tolerancia, con el texto de "ya empezó"
+        Carbon::setTestNow(Carbon::parse('2026-10-15 08:20', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertSame(2, $countReminders());
+        $this->assertSame('¿Ya marcaste tu entrada?', collect($this->pushes())->where('data.type', 'attendance.entry_reminder')->last()['notification']['title']);
+
         // Más de una hora tarde: ya no se recuerda
-        Carbon::setTestNow(Carbon::parse('2026-10-15 09:30', 'America/Lima'));
+        Carbon::setTestNow(Carbon::parse('2026-10-16 09:30', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertSame(2, $countReminders());
+        Carbon::setTestNow();
+    }
+
+    public function test_exit_reminder_five_minutes_after_shift_end_when_not_clocked_out(): void
+    {
+        $shift = $this->assign('08:00');
+        $this->fakeFcm();
+        $countReminders = fn () => collect($this->pushes())->where('data.type', 'attendance.exit_reminder')->count();
+        $open = fn (string $day, ?Shift $s, string $in) => Attendance::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id,
+            'branch_id' => EmployeeShift::sole()->branch_id, 'shift_id' => $s?->id, 'work_date' => $day, 'status' => 'present', 'clock_in_at' => "{$day} {$in}"]);
+
+        $att = $open('2026-10-12', $shift, '07:58:00');
+        app(TenantContext::class)->clear();
+
+        // Sale a las 17:00: a las 17:04 nada, a las 17:05 un aviso, una sola vez
+        Carbon::setTestNow(Carbon::parse('2026-10-12 17:04', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertSame(0, $countReminders());
+        Carbon::setTestNow(Carbon::parse('2026-10-12 17:05', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         $this->assertSame(1, $countReminders());
+        $this->assertStringContainsString('17:00', collect($this->pushes())->firstWhere('data.type', 'attendance.exit_reminder')['notification']['body']);
+
+        // Si ya marcó salida: nada
+        $att->update(['clock_out_at' => '2026-10-12 17:30:00']);
+        $att2 = $open('2026-10-13', $shift, '08:00:00');
+        $att2->update(['clock_out_at' => '2026-10-13 16:50:00']);
+        app(TenantContext::class)->clear();
+        Carbon::setTestNow(Carbon::parse('2026-10-13 17:06', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertSame(1, $countReminders());
+
+        // Turno nocturno 22:00 a 06:00: el aviso llega a las 06:05 del día siguiente
+        $night = Shift::create(['tenant_id' => $this->acme->id, 'name' => 'Noche', 'start_time' => '22:00', 'end_time' => '06:00',
+            'crosses_midnight' => true, 'working_days' => [0, 1, 2, 3, 4, 5, 6]]);
+        $open('2026-10-14', $night, '21:57:00');
+        app(TenantContext::class)->clear();
+        Carbon::setTestNow(Carbon::parse('2026-10-14 22:30', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        Carbon::setTestNow(Carbon::parse('2026-10-15 06:05', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertSame(2, $countReminders());
+
+        // Sin turno: entrada + 8 h + 45 min de descanso
+        $open('2026-10-16', null, '09:00:00');
+        app(TenantContext::class)->clear();
+        Carbon::setTestNow(Carbon::parse('2026-10-16 17:49', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertSame(2, $countReminders());
+        Carbon::setTestNow(Carbon::parse('2026-10-16 17:50', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertSame(3, $countReminders());
+
+        // Quien apagó los recordatorios no recibe el push
+        $this->emp->update(['notification_preferences' => ['attendance_reminders' => false]]);
+        $open('2026-10-17', $shift, '08:00:00');
+        app(TenantContext::class)->clear();
+        Carbon::setTestNow(Carbon::parse('2026-10-17 17:05', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertSame(3, $countReminders());
         Carbon::setTestNow();
+    }
+
+    private function fakeFcm(): void
+    {
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'ya29.token', 'expires_in' => 3599]),
+            'fcm.googleapis.com/*'        => Http::response(['name' => 'ok']),
+        ]);
     }
 
     public function test_entry_reminder_and_update_are_push_only(): void
