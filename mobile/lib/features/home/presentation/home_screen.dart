@@ -242,7 +242,18 @@ class _ShiftCard extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: Icon(works ? Icons.schedule : Icons.weekend_outlined, size: 32),
-        title: Text(works ? '${s.shiftName ?? 'Turno'} · ${Fmt.clock(s.start)} – ${Fmt.clock(s.end)}' : 'Hoy no tienes turno programado'),
+        // Turno y horario siempre en una línea: con nombres largos se achica
+        title: FittedBox(
+          key: const Key('shift-title'),
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            works ? '${s.shiftName ?? 'Turno'} · ${Fmt.clock(s.start)} – ${Fmt.clock(s.end)}' : 'Hoy no tienes turno programado',
+            maxLines: 1,
+            softWrap: false,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+        ),
         subtitle: Text(works ? (s.branch ?? 'Sucursal asignada') : 'Día libre según tu horario.'),
       ),
     );
