@@ -113,8 +113,8 @@
                             @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])
                         </td>
                         <td class="text-body-secondary">{{ $att->branch->name ?? '—' }}</td>
-                        <td>{{ $att->clock_in_at ? $att->clock_in_at->format('H:i') : '—' }}</td>
-                        <td>{{ $att->clock_out_at ? $att->clock_out_at->format('H:i') : '—' }}</td>
+                        <td>{{ $att->clock_in_at ? $att->clock_in_at->format('h:i a') : '—' }}</td>
+                        <td>{{ $att->clock_out_at ? $att->clock_out_at->format('h:i a') : '—' }}</td>
                         <td class="text-end {{ $att->late_minutes > 0 ? 'text-warning-emphasis fw-semibold' : 'text-body-secondary' }}">{{ $att->late_minutes ?? 0 }} min</td>
                         <td class="text-end fw-semibold">{{ number_format((float) ($att->worked_hours ?? 0), 2) }}</td>
                         <td class="text-end">{{ number_format((float) ($att->overtime_hours ?? 0), 2) }}</td>

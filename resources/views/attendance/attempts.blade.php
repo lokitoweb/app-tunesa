@@ -113,12 +113,12 @@
                             @include('partials.tenant-badge', ['tenantId' => $a->tenant_id])
                         </td>
                         <td class="text-nowrap">
-                            <div class="fw-semibold">{{ $a->created_at->format('d/m/Y H:i:s') }}</div>
+                            <div class="fw-semibold">{{ $a->created_at->format('d/m/Y h:i:s a') }}</div>
                             @if($a->fromApp())
                                 <span class="badge rounded-pill bg-info-subtle text-info-emphasis" title="La app bloqueó la marcación antes de enviarla"><i class="bi bi-phone"></i> Desde la app</span>
                             @endif
                             @if($a->offline)
-                                <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis" title="Hecha sin conexión el {{ $a->offline_recorded_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') }}"><i class="bi bi-wifi-off"></i> Sin conexión</span>
+                                <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis" title="Hecha sin conexión el {{ $a->offline_recorded_at?->timezone(config('app.timezone'))->format('d/m/Y h:i a') }}"><i class="bi bi-wifi-off"></i> Sin conexión</span>
                             @endif
                         </td>
                         <td><x-status-badge type="punch_type" :value="$a->type" /></td>

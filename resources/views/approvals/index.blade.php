@@ -55,7 +55,7 @@
                         <td><div class="fw-semibold">{{ $leave->employee?->full_name }}</div><div class="small text-body-secondary">{{ $leave->employee?->employee_code }}</div> @include('partials.tenant-badge', ['tenantId' => $leave->tenant_id])</td>
                         <td>{{ $leave->type_label }}</td>
                         <td class="text-nowrap">{{ $leave->start_date->format('d/m/Y') }} → {{ $leave->end_date->format('d/m/Y') }}
-                            @if($leave->start_time)<div class="small text-body-secondary">{{ substr($leave->start_time, 0, 5) }}–{{ substr($leave->end_time, 0, 5) }}</div>@endif
+                            @if($leave->start_time)<div class="small text-body-secondary">{{ hora($leave->start_time) }}–{{ hora($leave->end_time) }}</div>@endif
                         </td>
                         <td>{{ rtrim(rtrim((string) $leave->days, '0'), '.') }}</td>
                         <td class="small">{{ $leave->reason }}
@@ -63,7 +63,7 @@
                         </td>
                         <td>
                             <x-status-badge type="leave_status" :value="$leave->status" />
-                            @if($leave->reviewer)<div class="small text-body-secondary">{{ $leave->reviewer->full_name }} · {{ $leave->reviewed_at?->format('d/m H:i') }}</div>@endif
+                            @if($leave->reviewer)<div class="small text-body-secondary">{{ $leave->reviewer->full_name }} · {{ $leave->reviewed_at?->format('d/m h:i a') }}</div>@endif
                             @if($leave->review_notes)<div class="small text-body-secondary">{{ $leave->review_notes }}</div>@endif
                         </td>
                         <td>
@@ -109,7 +109,7 @@
                         @endif
                         <td><div class="fw-semibold">{{ $att->user?->full_name }}</div><div class="small text-body-secondary">{{ $att->user?->employee_code }}</div> @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])</td>
                         <td class="text-nowrap"><a href="{{ route('attendance.show', $att->id) }}">{{ $att->work_date->format('d/m/Y') }}</a><div class="small text-body-secondary">{{ $att->branch?->name }}</div></td>
-                        <td class="small text-nowrap">{{ $att->clock_in_at?->format('H:i') }} – {{ $att->clock_out_at?->format('H:i') }}
+                        <td class="small text-nowrap">{{ $att->clock_in_at?->format('h:i a') }} – {{ $att->clock_out_at?->format('h:i a') }}
                             <div class="text-body-secondary">{{ $hours($att->worked_hours) }} trabajadas{{ $att->shift ? ' · turno de ' . $hours($att->shift->daily_hours) : '' }}</div>
                         </td>
                         <td class="text-end fw-semibold">{{ $hours($att->overtime_hours) }}
@@ -119,7 +119,7 @@
                         </td>
                         <td>
                             <x-status-badge type="overtime_status" :value="$att->overtime_status" />
-                            @if($att->overtimeReviewer)<div class="small text-body-secondary">{{ $att->overtimeReviewer->full_name }} · {{ $att->overtime_reviewed_at?->format('d/m H:i') }}</div>@endif
+                            @if($att->overtimeReviewer)<div class="small text-body-secondary">{{ $att->overtimeReviewer->full_name }} · {{ $att->overtime_reviewed_at?->format('d/m h:i a') }}</div>@endif
                             @if($att->overtime_review_notes)<div class="small text-body-secondary">{{ $att->overtime_review_notes }}</div>@endif
                         </td>
                         <td>

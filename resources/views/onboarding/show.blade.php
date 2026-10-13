@@ -26,7 +26,7 @@
     <div class="alert alert-danger"><i class="bi bi-exclamation-octagon me-1"></i><strong>Observación enviada:</strong> {{ $process->rejection_reason }}</div>
 @endif
 @if($process->isApproved())
-    <div class="alert alert-success"><i class="bi bi-check-circle me-1"></i>Aprobada {{ $process->approved_at ? 'el ' . $process->approved_at->format('d/m/Y H:i') : '' }}{{ $process->reviewer ? ' por ' . $process->reviewer->first_name . ' ' . $process->reviewer->last_name : '' }}. Ya puede marcar.</div>
+    <div class="alert alert-success"><i class="bi bi-check-circle me-1"></i>Aprobada {{ $process->approved_at ? 'el ' . $process->approved_at->format('d/m/Y h:i a') : '' }}{{ $process->reviewer ? ' por ' . $process->reviewer->first_name . ' ' . $process->reviewer->last_name : '' }}. Ya puede marcar.</div>
 @endif
 
 <div class="row g-4">

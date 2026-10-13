@@ -118,7 +118,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
     final r = item.request;
     final theme = Theme.of(context);
     final range = r.startDate == r.endDate ? Fmt.date(r.startDate) : '${Fmt.date(r.startDate)} al ${Fmt.date(r.endDate)}';
-    final hours = r.startTime != null ? ' · ${r.startTime}–${r.endTime}' : '';
+    final hours = r.startTime != null ? ' · ${Fmt.clock(r.startTime)} – ${Fmt.clock(r.endTime)}' : '';
     final days = r.days == r.days.roundToDouble() ? r.days.toInt().toString() : r.days.toString();
 
     return Card(

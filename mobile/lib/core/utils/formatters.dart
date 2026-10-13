@@ -6,7 +6,7 @@ class Fmt {
 
   static final _date = DateFormat('dd/MM/yyyy', 'es');
   static final _dayLong = DateFormat("EEEE d 'de' MMMM", 'es');
-  static final _time = DateFormat('HH:mm', 'es');
+  static final _time = DateFormat('hh:mm', 'es');
   static final _apiDate = DateFormat('yyyy-MM-dd');
   static final _isoLocal = DateFormat("yyyy-MM-dd'T'HH:mm:ss");
 
@@ -16,7 +16,23 @@ class Fmt {
     return s[0].toUpperCase() + s.substring(1);
   }
 
-  static String time(DateTime? d) => d == null ? '--:--' : _time.format(d.toLocal());
+  /// Hora en formato de 12 horas: "08:00 am", "05:30 pm".
+  static String time(DateTime? d) {
+    if (d == null) return '--:--';
+    final local = d.toLocal();
+    return '${_time.format(local)} ${local.hour < 12 ? 'am' : 'pm'}';
+  }
+
+  /// Hora de un turno o break que llega como texto "HH:mm[:ss]" (24 h) en
+  /// formato de 12 horas. Si no se entiende, la devuelve tal cual.
+  static String clock(String? hhmm) {
+    if (hhmm == null || hhmm.isEmpty) return '--:--';
+    final parts = hhmm.split(':');
+    final h = int.tryParse(parts[0]);
+    final m = parts.length > 1 ? int.tryParse(parts[1]) : 0;
+    if (h == null || m == null) return hhmm;
+    return time(DateTime(2000, 1, 1, h, m));
+  }
   static String apiDate(DateTime d) => _apiDate.format(d);
 
   /// ISO 8601 en hora local con desfase: 2026-10-09T08:01:02-05:00.

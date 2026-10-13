@@ -101,7 +101,7 @@ class IntegrationsWebController extends Controller
             'fcm'       => $isGlobal ? self::fcmStatus() : ['configured' => self::fcmStatus()['configured']],
             'geoProbe'  => $this->geoProbe($tenant),
             'userEmail' => $request->user()->email,
-            'updatedAt' => $row->updated_at?->setTimezone(tenant_timezone())->format('d/m/Y H:i'),
+            'updatedAt' => $row->updated_at?->setTimezone(tenant_timezone())->format('d/m/Y h:i a'),
         ]);
     }
 
@@ -251,7 +251,7 @@ class IntegrationsWebController extends Controller
     {
         $zone       = $this->tenantContext->getOrNull()?->timezone ?? config('app.timezone');
         $registered = $user->fcm_token_updated_at
-            ? 'Celular registrado el ' . $user->fcm_token_updated_at->copy()->setTimezone($zone)->format('d/m/Y H:i')
+            ? 'Celular registrado el ' . $user->fcm_token_updated_at->copy()->setTimezone($zone)->format('d/m/Y h:i a')
                 . ' (' . $user->fcm_token_updated_at->diffForHumans() . ').'
             : 'Celular registrado antes de esta versión (sin fecha): pide que abra la app para actualizar el registro.';
 
@@ -284,7 +284,7 @@ class IntegrationsWebController extends Controller
     {
         $tenant = $this->tenantContext->getOrNull();
         $zone   = $tenant?->timezone ?? config('app.timezone');
-        $date   = fn (?Carbon $d) => $d?->copy()->setTimezone($zone)->format('d/m/Y H:i:s');
+        $date   = fn (?Carbon $d) => $d?->copy()->setTimezone($zone)->format('d/m/Y h:i:s a');
 
         $rows = WebhookDelivery::ofTenant($tenant?->id)->latest('id')->limit(20)->get()
             ->map(fn (WebhookDelivery $d) => [

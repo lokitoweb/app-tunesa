@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/picker_field.dart';
 import '../domain/models.dart';
 import 'ethics_providers.dart';
 
@@ -87,14 +88,58 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
           child: ListView(
             padding: pagePadding(context),
             children: [
-              DropdownButtonFormField<String>(
+              // Selector en hoja inferior: el menú desplegable ocupaba toda la
+              // pantalla y se salía de los márgenes con categorías largas
+              FormField<String>(
                 key: const Key('ethics-category'),
                 initialValue: _category,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Tipo de denuncia'),
-                items: [for (final c in list) DropdownMenuItem(value: c.key, child: Text(c.label))],
-                onChanged: (v) => setState(() => _category = v),
                 validator: (v) => v == null ? 'Elige el tipo' : null,
+                builder: (field) {
+                  final selected = list.where((c) => c.key == field.value).firstOrNull;
+                  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    PickerField(
+                      label: 'Tipo de denuncia',
+                      icon: Icons.category_outlined,
+                      value: selected?.label,
+                      placeholder: 'Selecciona una opción',
+                      onTap: () async {
+                        final picked = await showModalBottomSheet<String>(
+                          context: context,
+                          showDragHandle: true,
+                          isScrollControlled: true,
+                          builder: (sheet) => SafeArea(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(maxHeight: MediaQuery.of(sheet).size.height * 0.6),
+                              child: ListView(shrinkWrap: true, children: [
+                                const Padding(
+                                  padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                                  child: Text('Tipo de denuncia', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                                ),
+                                for (final c in list)
+                                  ListTile(
+                                    key: Key('ethics-category-${c.key}'),
+                                    title: Text(c.label),
+                                    trailing: c.key == field.value ? const Icon(Icons.check_rounded) : null,
+                                    onTap: () => Navigator.of(sheet).pop(c.key),
+                                  ),
+                              ]),
+                            ),
+                          ),
+                        );
+                        if (picked == null) return;
+                        field.didChange(picked);
+                        if (field.hasError) field.validate();
+                        setState(() => _category = picked);
+                      },
+                    ),
+                    if (field.hasError)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                        child: Text(field.errorText!,
+                            style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+                      ),
+                  ]);
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(

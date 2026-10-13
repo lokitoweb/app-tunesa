@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tunesa_mobile/core/config/app_config.dart';
 import 'package:tunesa_mobile/core/config/app_config_controller.dart';
@@ -388,5 +389,17 @@ void main() {
     final iso = Fmt.isoWithOffset(DateTime(2026, 10, 9, 8, 1, 2));
     expect(iso, matches(RegExp(r'^2026-10-09T08:01:02[+-]\d{2}:\d{2}$')));
     expect(DateTime.parse(iso).toLocal(), DateTime(2026, 10, 9, 8, 1, 2));
+  });
+
+  test('Fmt muestra las horas en formato de 12 horas', () async {
+    await initializeDateFormatting('es');
+    expect(Fmt.time(DateTime(2026, 10, 9, 8, 0)), '08:00 am');
+    expect(Fmt.time(DateTime(2026, 10, 9, 17, 5)), '05:05 pm');
+    expect(Fmt.time(DateTime(2026, 10, 9, 0, 30)), '12:30 am');
+    expect(Fmt.time(DateTime(2026, 10, 9, 12, 0)), '12:00 pm');
+    expect(Fmt.time(null), '--:--');
+    expect(Fmt.clock('17:00:00'), '05:00 pm');
+    expect(Fmt.clock('08:00'), '08:00 am');
+    expect(Fmt.clock(null), '--:--');
   });
 }

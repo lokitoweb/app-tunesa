@@ -161,7 +161,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
                     child: PickerField(
                       label: 'Desde',
                       icon: Icons.schedule,
-                      value: _startTime == null ? null : _hhmm(_startTime!),
+                      value: _startTime == null ? null : Fmt.clock(_hhmm(_startTime!)),
                       placeholder: '--:--',
                       onTap: () => _pickTime(true),
                     ),
@@ -171,7 +171,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
                     child: PickerField(
                       label: 'Hasta',
                       icon: Icons.schedule,
-                      value: _endTime == null ? null : _hhmm(_endTime!),
+                      value: _endTime == null ? null : Fmt.clock(_hhmm(_endTime!)),
                       placeholder: '--:--',
                       onTap: () => _pickTime(false),
                     ),

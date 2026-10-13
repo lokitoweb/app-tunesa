@@ -129,7 +129,7 @@ class LiveBoardTest extends TestCase
         $this->assertSame(0, $json['counters']['suspicious'], 'Ninguna marcación sospechosa todavía');
 
         $working = collect($json['rows'])->firstWhere('name', 'Working Test');
-        $this->assertSame('08:00', $working['clock_in']);
+        $this->assertSame('08:00 am', $working['clock_in']);
         $this->assertSame('Sede Centro', $working['branch']);
         $this->assertTrue($working['within_geofence']);
         $this->assertEqualsWithDelta(-12.0941, $working['latitude'], 0.0001);

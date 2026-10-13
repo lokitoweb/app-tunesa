@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/attachment_picker.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
-import '../../../core/widgets/status_chip.dart';
+import '../../../core/theme/app_theme.dart';
 import '../domain/models.dart';
 import 'attendance_providers.dart';
+import '../../onboarding/presentation/onboarding_gate_card.dart';
+import '../../onboarding/presentation/onboarding_providers.dart';
 import '../../../core/widgets/page_padding.dart';
 
 /// Historial mensual de asistencia con opción de justificar tardanzas y faltas.
@@ -28,12 +31,26 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Sin incorporación aprobada por RRHH todavía no hay asistencia que ver
+    if (!ref.watch(canPunchProvider)) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Mis asistencias')),
+        body: ListView(padding: pagePadding(context), children: const [OnboardingGateCard()]),
+      );
+    }
     final history = ref.watch(attendanceHistoryProvider(_period));
     final isCurrentMonth = _month.year == DateTime.now().year && _month.month == DateTime.now().month;
     final title = DateFormat('MMMM yyyy', 'es').format(_month);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mi asistencia')),
+      appBar: AppBar(title: const Text('Mis asistencias'), actions: [
+        IconButton(
+          key: const Key('open-overtime'),
+          tooltip: 'Mis horas extra',
+          icon: const Icon(Icons.more_time_rounded),
+          onPressed: () => context.push('/overtime'),
+        ),
+      ]),
       body: Column(children: [
         Material(
           color: Theme.of(context).colorScheme.surface,
@@ -117,50 +134,177 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
+/// Tarjeta de un día: fecha, ENTRADA y SALIDA con su hora (24 h), estado de
+/// la jornada, horas trabajadas y avisos (tardanza, horas extra, justificación).
 class _AttendanceTile extends StatelessWidget {
   const _AttendanceTile({required this.attendance, required this.onJustify});
 
   final Attendance attendance;
   final VoidCallback onJustify;
 
+  /// Etiqueta corta de la jornada, como en el reloj: "Completo" cuando hay
+  /// entrada y salida a tiempo, "En curso" si falta la salida de hoy.
+  static (String, Color) dayState(Attendance a, ColorScheme scheme) {
+    final today = DateUtils.isSameDay(a.workDate, DateTime.now());
+    if (a.status == 'absent') return ('Falta', scheme.error);
+    if (a.status == 'excused') return ('Justificado', Colors.blue.shade700);
+    if (a.clockIn != null && a.clockOut == null) {
+      return today ? ('En curso', AppTheme.skyDeep) : ('Sin salida', Colors.orange.shade800);
+    }
+    if (a.status == 'late') return ('Tardanza', Colors.orange.shade800);
+    if (a.status == 'incomplete' || a.status == 'half_day') return (a.statusLabel, Colors.orange.shade800);
+    if (a.clockIn != null && a.clockOut != null) return ('Completo', Colors.green.shade700);
+    return (a.statusLabel, scheme.onSurfaceVariant);
+  }
+
   @override
   Widget build(BuildContext context) {
     final a = attendance;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final (stateLabel, stateColor) = dayState(a, scheme);
+    final weekday = DateFormat('EEE', 'es').format(a.workDate).replaceAll('.', '').toUpperCase();
     final justification = switch (a.justificationStatus) {
       'pending' => 'Justificación en revisión',
       'approved' => 'Justificación aprobada',
       'rejected' => 'Justificación rechazada',
       _ => null,
     };
+    final notes = [
+      if (a.lateMinutes > 0) '${a.lateMinutes} min tarde',
+      ?a.overtimeLabel,
+      ?justification,
+    ];
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(Fmt.date(a.workDate)),
-        subtitle: Text([
-          '${Fmt.time(a.clockIn)} – ${Fmt.time(a.clockOut)}',
-          if (a.lateMinutes > 0) '${a.lateMinutes} min tarde',
-          ?a.overtimeLabel,
-          ?justification,
-        ].join(' · ')),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            StatusChip(status: a.status, label: a.statusLabel),
-            if (a.canJustify && a.justificationStatus != 'pending')
-              InkWell(
-                onTap: onJustify,
-                child: const Padding(
-                  padding: EdgeInsets.only(top: 4),
-                  child: Text('Justificar', style: TextStyle(decoration: TextDecoration.underline)),
-                ),
-              ),
-          ],
-        ),
+      margin: const EdgeInsets.only(bottom: 10),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(width: 5, color: stateColor),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(
+                    width: 44,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
+                    ),
+                    child: Column(children: [
+                      Text(weekday,
+                          style: theme.textTheme.labelSmall
+                              ?.copyWith(color: scheme.primary, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                      Text('${a.workDate.day}',
+                          style: theme.textTheme.titleLarge
+                              ?.copyWith(color: scheme.primary, fontWeight: FontWeight.w800, height: 1.1)),
+                    ]),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(Fmt.dayLong(a.workDate),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(
+                        [
+                          if (a.workedHours > 0) '${a.workedHours.toStringAsFixed(1)} h trabajadas',
+                          ?a.shiftName,
+                        ].join(' · ').ifEmpty('Sin horas registradas'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    key: ValueKey('day-state-${a.id}'),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: stateColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(stateLabel,
+                        style: TextStyle(color: stateColor, fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: _PunchCell(label: 'ENTRADA', time: a.clockIn, icon: Icons.login_rounded, color: Colors.green.shade700)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _PunchCell(label: 'SALIDA', time: a.clockOut, icon: Icons.logout_rounded, color: AppTheme.skyDeep)),
+                ]),
+                if (notes.isNotEmpty || (a.canJustify && a.justificationStatus != 'pending')) ...[
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(
+                      child: Text(notes.join(' · '),
+                          style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+                    ),
+                    if (a.canJustify && a.justificationStatus != 'pending')
+                      TextButton.icon(
+                        onPressed: onJustify,
+                        icon: const Icon(Icons.edit_note, size: 18),
+                        label: const Text('Justificar'),
+                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                      ),
+                  ]),
+                ],
+              ]),
+            ),
+          ),
+        ]),
       ),
     );
   }
+}
+
+/// Recuadro de una marcación (ENTRADA o SALIDA) con su hora en 24 h.
+class _PunchCell extends StatelessWidget {
+  const _PunchCell({required this.label, required this.time, required this.icon, required this.color});
+
+  final String label;
+  final DateTime? time;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final missing = time == null;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: (missing ? theme.colorScheme.onSurfaceVariant : color).withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+      ),
+      child: Row(children: [
+        Icon(icon, size: 20, color: missing ? theme.colorScheme.onSurfaceVariant : color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+            Text(Fmt.time(time),
+                style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    color: missing ? theme.colorScheme.onSurfaceVariant : null)),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+extension on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }
 
 /// Formulario de justificación: motivo + sustento opcional (PDF/imagen).

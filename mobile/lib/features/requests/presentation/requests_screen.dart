@@ -108,7 +108,7 @@ class _RequestCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final r = request;
     final range = r.startDate == r.endDate ? Fmt.date(r.startDate) : '${Fmt.date(r.startDate)} al ${Fmt.date(r.endDate)}';
-    final hours = r.startTime != null ? ' · ${r.startTime}–${r.endTime}' : '';
+    final hours = r.startTime != null ? ' · ${Fmt.clock(r.startTime)} – ${Fmt.clock(r.endTime)}' : '';
     final days = r.days == r.days.roundToDouble() ? r.days.toInt().toString() : r.days.toString();
 
     return Card(

@@ -27,7 +27,7 @@
                 <div class="flex-grow-1 min-w-0">
                     <div class="d-flex flex-wrap justify-content-between gap-2">
                         <span class="fw-semibold">{{ $n->data['title'] ?? 'Notificación' }}</span>
-                        <span class="small text-body-secondary" title="{{ $n->created_at?->format('d/m/Y H:i') }}">{{ $n->created_at?->diffForHumans() }}</span>
+                        <span class="small text-body-secondary" title="{{ $n->created_at?->format('d/m/Y h:i a') }}">{{ $n->created_at?->diffForHumans() }}</span>
                     </div>
                     <div class="small text-body-secondary">{{ $n->data['body'] ?? '' }}</div>
                 </div>

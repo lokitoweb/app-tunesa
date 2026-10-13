@@ -120,3 +120,24 @@ if (! function_exists('masked')) {
         return \App\Modules\Core\Support\SensitiveFields::maskString($secret);
     }
 }
+
+if (! function_exists('hora')) {
+    /**
+     * Hora para mostrar en formato de 12 horas ("08:00 am", "05:30 pm").
+     * Acepta Carbon/DateTime o un texto "HH:mm[:ss]" (columnas TIME de turnos).
+     * En la base de datos las horas siguen en 24 h; esto es solo presentación.
+     */
+    function hora(\DateTimeInterface|string|null $value, bool $seconds = false): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $format = $seconds ? 'h:i:s a' : 'h:i a';
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format($format);
+        }
+        $parsed = \DateTime::createFromFormat('!H:i:s', strlen($value) === 5 ? $value . ':00' : substr($value, 0, 8));
+
+        return $parsed ? $parsed->format($format) : $value;
+    }
+}

@@ -63,7 +63,7 @@
                 <div class="card-header border-0 pt-3 d-flex justify-content-between align-items-center">
                     <h2 class="h6 fw-semibold mb-0"><i class="bi bi-{{ $m['icon'] }} me-1"></i>{{ $m['title'] }}
                         @if($m['offline'])
-                            <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis ms-1 fw-normal" title="Sincronizada {{ $m['synced'] ? \Illuminate\Support\Carbon::parse($m['synced'])->setTimezone(tenant_timezone())->format('d/m/Y H:i') : '' }}"><i class="bi bi-wifi-off"></i> Sin conexión</span>
+                            <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis ms-1 fw-normal" title="Sincronizada {{ $m['synced'] ? \Illuminate\Support\Carbon::parse($m['synced'])->setTimezone(tenant_timezone())->format('d/m/Y h:i a') : '' }}"><i class="bi bi-wifi-off"></i> Sin conexión</span>
                         @endif
                     </h2>
                     @if($m['at'])
@@ -81,7 +81,7 @@
                                 @php $url = attendance_photo_url($attendance, $key); @endphp
                                 <button type="button" class="btn p-0 border-0 w-100" data-photo="{{ $url }}"
                                         data-photo-title="Selfie de {{ strtolower($m['title']) }}"
-                                        data-photo-meta="Hora: {{ $m['at']?->format('H:i:s') }} · Distancia: {{ $m['distance'] }} m">
+                                        data-photo-meta="Hora: {{ $m['at']?->format('h:i:s a') }} · Distancia: {{ $m['distance'] }} m">
                                     <img src="{{ $url }}" alt="Selfie de {{ strtolower($m['title']) }}" class="img-fluid rounded border border-2 {{ $m['within'] ? 'border-success' : 'border-danger' }}" style="aspect-ratio: 3/4; object-fit: cover;">
                                     <span class="d-block small text-body-secondary mt-1"><i class="bi bi-zoom-in"></i> Ampliar</span>
                                 </button>
@@ -95,7 +95,7 @@
                         </div>
                         <div class="col-7 col-sm-8">
                             <dl class="kv small">
-                                <dt>Hora</dt><dd class="fw-semibold">{{ $m['at']?->format('H:i:s') ?? '--:--:--' }}</dd>
+                                <dt>Hora</dt><dd class="fw-semibold">{{ $m['at']?->format('h:i:s a') ?? '--:--:--' }}</dd>
                                 <dt>Distancia</dt>
                                 @if($m['distance'] !== null)
                                     <dd class="{{ $m['within'] ? 'text-success' : 'text-danger' }}">{{ $m['distance'] }} m <span class="text-body-secondary">de {{ $branch->allowed_radius_meters ?? 50 }} m</span></dd>
@@ -148,9 +148,9 @@
                         @php $tz = tenant_timezone(); @endphp
                         <tr class="{{ $punch->suspicious ? 'table-warning' : '' }}">
                             <td class="text-nowrap"><x-status-badge type="punch_type" :value="$punch->type" /></td>
-                            <td class="text-nowrap">{{ $punch->server_time?->copy()->setTimezone($tz)->format('d/m/Y H:i:s') ?? '—' }}</td>
+                            <td class="text-nowrap">{{ $punch->server_time?->copy()->setTimezone($tz)->format('d/m/Y h:i:s a') ?? '—' }}</td>
                             <td class="text-nowrap">
-                                {{ $punch->device_time?->copy()->setTimezone($tz)->format('H:i:s') ?? '—' }}
+                                {{ $punch->device_time?->copy()->setTimezone($tz)->format('h:i:s a') ?? '—' }}
                                 @if($punch->time_drift_seconds)
                                     <span class="text-body-secondary">({{ $punch->time_drift_seconds > 0 ? '+' : '−' }}{{ abs($punch->time_drift_seconds) }} s)</span>
                                 @endif
@@ -177,7 +177,7 @@
                                 @if($url = $punch->photoUrl())
                                     <button type="button" class="btn btn-sm btn-outline-secondary" data-photo="{{ $url }}"
                                             data-photo-title="Foto: {{ label('punch_type', $punch->type) }}"
-                                            data-photo-meta="{{ $punch->server_time?->copy()->setTimezone($tz)->format('d/m/Y H:i:s') }}{{ $punch->photo_sha256 ? ' · SHA-256 ' . substr($punch->photo_sha256, 0, 12) . '…' : '' }}">
+                                            data-photo-meta="{{ $punch->server_time?->copy()->setTimezone($tz)->format('d/m/Y h:i:s a') }}{{ $punch->photo_sha256 ? ' · SHA-256 ' . substr($punch->photo_sha256, 0, 12) . '…' : '' }}">
                                         <i class="bi bi-image"></i><span class="visually-hidden">Ver foto</span>
                                     </button>
                                 @elseif($punch->photo_purged_at)
@@ -233,7 +233,7 @@
                             <div class="fw-semibold">Justificación {{ $attendance->justification_status === 'approved' ? 'aprobada' : 'rechazada' }}</div>
                             <div class="small">
                                 Por {{ $attendance->reviewer ? $attendance->reviewer->first_name . ' ' . $attendance->reviewer->last_name : 'Administrador' }}
-                                el {{ $attendance->reviewed_at?->format('d/m/Y H:i') }}
+                                el {{ $attendance->reviewed_at?->format('d/m/Y h:i a') }}
                             </div>
                         </div>
                     @else

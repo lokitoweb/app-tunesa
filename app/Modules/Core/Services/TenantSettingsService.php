@@ -24,7 +24,7 @@ class TenantSettingsService
 {
     private const HEX     = 'regex:/^#[0-9A-Fa-f]{6}$/';
     private const SEMVER  = 'regex:/^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/';
-    public const BOOLEANS = ['force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'lunch_paid', 'fcm_enabled'];
+    public const BOOLEANS = ['force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'lunch_paid', 'fcm_enabled', 'self_password_change'];
 
     public function __construct(private readonly AuditLogger $audit) {}
 
@@ -179,6 +179,7 @@ class TenantSettingsService
             'selfie_required'         => ['sometimes', 'nullable', 'boolean'],
             'face_detection_required' => ['sometimes', 'nullable', 'boolean'],
             'offline_mode_enabled'    => ['sometimes', 'nullable', 'boolean'],
+            'self_password_change'    => ['sometimes', 'nullable', 'boolean'],
             'offline_max_hours'       => ['sometimes', 'nullable', 'integer', 'between:1,72'],
             'max_gps_accuracy_meters' => ['sometimes', 'nullable', 'integer', 'between:10,1000'],
             'mock_location_policy'    => ['sometimes', 'nullable', Rule::in(TenantSetting::MOCK_LOCATION_POLICIES)],

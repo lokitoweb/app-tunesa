@@ -34,7 +34,7 @@ class SecurityAlert extends AppNotification
 
     public function body(): string
     {
-        $when = $this->at ? Carbon::parse($this->at)->format('d/m/Y H:i') : null;
+        $when = $this->at ? Carbon::parse($this->at)->format('d/m/Y h:i a') : null;
 
         return $this->kind === 'new_device'
             ? sprintf('Se inició sesión en %s%s. Si no fuiste tú, cambia tu contraseña y cierra esa sesión en Mi perfil › Mis dispositivos.',

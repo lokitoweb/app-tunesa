@@ -89,7 +89,7 @@
                                  class="selfie-thumb {{ $att->clock_in_within_geofence ? '' : 'is-outside' }}"
                                  data-photo="{{ attendance_photo_url($att, 'in') }}"
                                  data-photo-title="{{ $att->user->first_name }} {{ $att->user->last_name }}"
-                                 data-photo-meta="Hora: {{ $att->clock_in_at->format('H:i:s') }} · Distancia: {{ $att->clock_in_distance_meters }} m">
+                                 data-photo-meta="Hora: {{ $att->clock_in_at->format('h:i:s a') }} · Distancia: {{ $att->clock_in_distance_meters }} m">
                         @else
                             <span class="avatar">{{ mb_substr($att->user->first_name ?? 'U', 0, 1) }}{{ mb_substr($att->user->last_name ?? '', 0, 1) }}</span>
                         @endif
@@ -102,7 +102,7 @@
                             </div>
                         </div>
                         <div class="text-end">
-                            <div class="fw-semibold">{{ $att->clock_in_at?->format('H:i') ?? '--:--' }}</div>
+                            <div class="fw-semibold">{{ $att->clock_in_at?->format('h:i a') ?? '--:--' }}</div>
                             @include('partials.attendance-status', ['status' => $att->status])
                         </div>
                     </div>

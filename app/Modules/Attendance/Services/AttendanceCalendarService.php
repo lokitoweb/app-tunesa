@@ -333,8 +333,8 @@ class AttendanceCalendarService
             return $this->make($state, $shift + [
                 'attendance_id' => $record->id,
                 'suspicious'    => $records->contains(fn (Attendance $a) => $a->is_suspicious),
-                'clock_in'      => $worked?->clock_in_at?->format('H:i'),
-                'clock_out'     => $records->last(fn (Attendance $a) => $a->clock_out_at !== null)?->clock_out_at?->format('H:i'),
+                'clock_in'      => hora($worked?->clock_in_at),
+                'clock_out'     => hora($records->last(fn (Attendance $a) => $a->clock_out_at !== null)?->clock_out_at),
                 'late_minutes'  => $lateMinutes,
                 'worked_hours'  => (float) $records->sum(fn (Attendance $a) => (float) $a->worked_hours),
                 'note'          => $leave && $state === 'excused' ? $leave->type_label : null,

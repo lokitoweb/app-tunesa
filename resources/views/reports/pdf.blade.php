@@ -97,7 +97,7 @@
             </td>
             <td style="text-align: right; vertical-align: top;">
                 <div class="meta-text">TuneSA Multi-Tenant GPS Platform</div>
-                <div class="meta-text">Fecha de Emisión: {{ date('d/m/Y H:i') }}</div>
+                <div class="meta-text">Fecha de Emisión: {{ date('d/m/Y h:i a') }}</div>
                 <div class="meta-text">Total Registros: {{ $attendances->count() }}</div>
             </td>
         </tr>
@@ -126,8 +126,8 @@
                     <td>{{ $att->user->employee_code ?? 'EMP' }}</td>
                     <td><strong>{{ $att->user->first_name ?? '' }} {{ $att->user->last_name ?? '' }}</strong></td>
                     <td>{{ $att->branch->name ?? '' }}</td>
-                    <td>{{ $att->clock_in_at ? $att->clock_in_at->format('H:i') : '--' }}</td>
-                    <td>{{ $att->clock_out_at ? $att->clock_out_at->format('H:i') : '--' }}</td>
+                    <td>{{ $att->clock_in_at ? $att->clock_in_at->format('h:i a') : '--' }}</td>
+                    <td>{{ $att->clock_out_at ? $att->clock_out_at->format('h:i a') : '--' }}</td>
                     <td>{{ $att->late_minutes ? $att->late_minutes . ' min' : '-' }}</td>
                     <td style="text-align: right;">{{ number_format((float) ($att->worked_hours ?? 0), 2) }}</td>
                     <td style="text-align: right;">{{ number_format((float) ($att->overtime_hours ?? 0), 2) }}</td>

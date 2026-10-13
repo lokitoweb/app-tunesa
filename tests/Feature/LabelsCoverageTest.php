@@ -162,7 +162,7 @@ class LabelsCoverageTest extends TestCase
         $this->assertSame('••••••••1234', Labels::value('maps_api_key', 'AIzaSy-abcdef1234'));
         $this->assertSame('(cambiado)', Labels::value('fcm_service_account_json', '{"type":"service_account"}'));
         $this->assertSame('Lunes, Martes y Viernes', Labels::value('working_days', [1, 2, 5]));
-        $this->assertSame('09/10/2026 07:30', Labels::value('published_at', '2026-10-09T12:30:00+00:00', timezone: 'America/Lima'));
+        $this->assertSame('09/10/2026 07:30 am', Labels::value('published_at', '2026-10-09T12:30:00+00:00', timezone: 'America/Lima'));
         $this->assertSame('Aprobada', Labels::value('status', 'approved', 'LeaveRequest'));
         $this->assertSame('Publicada', Labels::value('status', 'published', 'Payslip'));
         $this->assertSame('Activa', Labels::enum('branch_status', true));

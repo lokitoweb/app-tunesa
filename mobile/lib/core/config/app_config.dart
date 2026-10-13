@@ -132,6 +132,7 @@ class MobileConfig {
     this.maxTimeDriftSeconds,
     this.geocodingProvider,
     this.fcmEnabled = true,
+    this.selfPasswordChange = true,
   });
 
   final String? apiBaseUrl;
@@ -162,6 +163,9 @@ class MobileConfig {
   /// La empresa envía notificaciones push (si es false no se registra el token).
   final bool fcmEnabled;
 
+  /// El colaborador puede cambiar su contraseña desde Mi perfil (panel de la empresa).
+  final bool selfPasswordChange;
+
   factory MobileConfig.fromJson(Object? raw) {
     final json = _map(raw);
     final hours = _int(json['offline_max_hours']);
@@ -183,6 +187,7 @@ class MobileConfig {
       maxTimeDriftSeconds: drift != null && drift > 0 ? drift : null,
       geocodingProvider: _str(json['geocoding_provider']),
       fcmEnabled: _bool(json['fcm_enabled'], true),
+      selfPasswordChange: _bool(json['self_password_change'], true),
     );
   }
 
@@ -202,6 +207,7 @@ class MobileConfig {
         'max_time_drift_seconds': maxTimeDriftSeconds,
         'geocoding_provider': geocodingProvider,
         'fcm_enabled': fcmEnabled,
+        'self_password_change': selfPasswordChange,
       };
 }
 

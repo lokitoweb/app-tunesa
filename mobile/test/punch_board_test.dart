@@ -54,8 +54,8 @@ void main() {
     for (final label in ['Entrada', 'Inicio break', 'Fin break', 'Salida']) {
       expect(find.text(label), findsOneWidget);
     }
-    expect(find.text('08:13'), findsOneWidget);
-    expect(find.text('12:03'), findsOneWidget);
+    expect(find.text('08:13 am'), findsOneWidget);
+    expect(find.text('12:03 pm'), findsOneWidget);
     expect(find.text('--:--'), findsNWidgets(2));
 
     // Salida sin terminar el break: aviso, no abre la pantalla de marcación

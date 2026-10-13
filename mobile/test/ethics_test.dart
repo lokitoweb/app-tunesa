@@ -169,5 +169,13 @@ void main() {
     expect(find.text('Elige el tipo'), findsOneWidget);
     expect(find.text('Escribe al menos 5 caracteres'), findsOneWidget);
     expect(find.textContaining('mínimo 20 caracteres'), findsOneWidget);
+
+    // El tipo se elige en una hoja inferior (no en un menú que tapa la pantalla)
+    await tester.tap(find.text('Selecciona una opción'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ethics-category-harassment')));
+    await tester.pumpAndSettle();
+    expect(find.text('Acoso laboral o sexual'), findsOneWidget);
+    expect(find.text('Elige el tipo'), findsNothing);
   });
 }

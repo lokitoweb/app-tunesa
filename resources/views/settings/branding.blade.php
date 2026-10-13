@@ -6,7 +6,7 @@
 @php
     // Pestaña a abrir: la pedida, o la del primer campo con error
     $fieldTabs = [
-        'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters'],
+        'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'self_password_change'],
         'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds'],
     ];
     // Campos que dependen de columnas nuevas de tenant_settings: solo se muestran si existen
@@ -256,6 +256,7 @@
                                 'selfie_required'         => ['Selfie obligatoria', 'Pide una foto al marcar entrada y salida.'],
                                 'face_detection_required' => ['Detección de rostro', 'La app verifica que haya un rostro en la selfie antes de enviarla.'],
                                 'offline_mode_enabled'    => ['Marcación sin conexión', 'Sin internet la app guarda la marcación y la envía al recuperar la señal.'],
+                                'self_password_change'    => ['Cambio de contraseña desde la app', 'El colaborador puede cambiar su contraseña en Mi perfil cuando quiera. Apagado, solo RRHH la restablece.'],
                             ] as $flag => [$label, $desc])
                                 <li class="list-group-item py-3">
                                     @include('settings.partials.bool-setting', ['flag' => $flag, 'label' => $label, 'desc' => $desc])
@@ -414,7 +415,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
         <span class="small text-body-secondary">
             @if($row->updated_at)
-                Último cambio: {{ $row->updated_at->setTimezone(tenant_timezone())->format('d/m/Y H:i') }}
+                Último cambio: {{ $row->updated_at->setTimezone(tenant_timezone())->format('d/m/Y h:i a') }}
             @endif
         </span>
         <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Guardar cambios</button>

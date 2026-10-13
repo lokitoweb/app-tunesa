@@ -77,7 +77,7 @@
 
                     <button class="btn btn-primary w-100 mt-4">Guardar configuración</button>
                     @if($config->updated_at)
-                        <p class="small text-body-secondary mt-2 mb-0">Último cambio: {{ $config->updated_at->format('d/m/Y H:i') }}</p>
+                        <p class="small text-body-secondary mt-2 mb-0">Último cambio: {{ $config->updated_at->format('d/m/Y h:i a') }}</p>
                     @endif
                 </div>
             </div>

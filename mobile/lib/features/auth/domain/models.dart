@@ -116,6 +116,13 @@ class AppUser {
   /// Puede ver la asistencia en vivo de su equipo (attendance.view_team).
   bool get canViewTeam => _flag(const ['attendance.view_team']) ?? _managerRoles.contains(role);
 
+  /// Administra la empresa (RRHH o administrador): ve herramientas técnicas
+  /// como la prueba de avisos en este teléfono.
+  bool get isAdmin => const {'hr_manager', 'company_admin', 'super_admin'}.contains(role);
+
+  /// Incorporación aprobada por RRHH: recién entonces puede marcar asistencia.
+  bool get isOnboarded => onboardingStatus == 'approved';
+
   /// Muestra la sección "Mi equipo" en Inicio.
   bool get hasTeamArea => canApproveRequests || canViewTeam;
 

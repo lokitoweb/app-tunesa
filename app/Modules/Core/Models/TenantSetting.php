@@ -51,6 +51,8 @@ class TenantSetting extends Model
         // Encendido por defecto: solo envía si la plataforma cargó la cuenta de
         // servicio de Firebase (fcmEnabled()). Una empresa puede apagarlo.
         'fcm_enabled'             => true,
+        // El colaborador puede cambiar su contraseña desde la app (Mi perfil)
+        'self_password_change'    => true,
         // Correo de acceso de los colaboradores: [DNI]@dominio
         'login_email_domain'      => 'turismonegreiros.com',
     ];
@@ -67,7 +69,7 @@ class TenantSetting extends Model
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius',
         'webhook_url', 'notification_endpoint',
-        'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled',
+        'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled', 'self_password_change',
     ];
 
     /** Imágenes guardadas en esta tabla (el logo claro de una empresa vive en tenants.logo_path) */
@@ -99,7 +101,7 @@ class TenantSetting extends Model
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius',
         'webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint',
-        'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_service_account_json', 'fcm_enabled',
+        'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_service_account_json', 'fcm_enabled', 'self_password_change',
     ];
 
     protected $hidden = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json'];
@@ -119,6 +121,7 @@ class TenantSetting extends Model
         'maps_api_key'            => 'encrypted',
         'fcm_service_account_json' => 'encrypted',
         'fcm_enabled'             => 'boolean',
+        'self_password_change'    => 'boolean',
         'max_time_drift_seconds'  => 'integer',
     ];
 
@@ -547,6 +550,7 @@ class TenantSetting extends Model
             'max_time_drift_seconds'  => $this->maxTimeDriftSeconds(),
             'geocoding_provider'      => $this->geocodingProvider(),
             'fcm_enabled'             => $this->fcmEnabled(),
+            'self_password_change'    => (bool) $this->self_password_change,
         ];
     }
 

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/version_gate.dart';
@@ -26,9 +29,25 @@ final attemptReporterProvider = Provider<AttemptReporter>(
 );
 
 /// Estado del día (registro, acciones disponibles y turno programado).
-final todayStatusProvider = FutureProvider.autoDispose<TodayStatus>(
-  (ref) => ref.watch(attendanceRepositoryProvider).today(),
-);
+///
+/// Inicio queda abierto en memoria: sin esto, al pasar la medianoche seguía
+/// mostrando las marcaciones del día anterior. Se recarga solo al cambiar de
+/// día (a las 00:00 o al volver a la app) y si pasaron más de 5 min fuera.
+final todayStatusProvider = FutureProvider.autoDispose<TodayStatus>((ref) {
+  final loadedAt = DateTime.now();
+  final midnight = DateTime(loadedAt.year, loadedAt.month, loadedAt.day + 1);
+  final timer = Timer(midnight.difference(loadedAt) + const Duration(seconds: 2), ref.invalidateSelf);
+  final lifecycle = AppLifecycleListener(onResume: () {
+    final now = DateTime.now();
+    final otherDay = now.day != loadedAt.day || now.month != loadedAt.month || now.year != loadedAt.year;
+    if (otherDay || now.difference(loadedAt) > const Duration(minutes: 5)) ref.invalidateSelf();
+  });
+  ref.onDispose(() {
+    timer.cancel();
+    lifecycle.dispose();
+  });
+  return ref.watch(attendanceRepositoryProvider).today();
+});
 
 /// Historial por mes: (mes, año).
 final attendanceHistoryProvider = FutureProvider.autoDispose.family<AttendanceHistory, (int, int)>(

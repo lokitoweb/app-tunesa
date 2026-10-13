@@ -249,7 +249,7 @@
                     <option value="">Sin turno asignado</option>
                     @foreach($shifts as $s)
                         <option value="{{ $s->id }}" @selected(old('shift_id', $activeShiftId) == $s->id)>
-                            {{ $s->name }} ({{ substr($s->start_time, 0, 5) }} – {{ substr($s->end_time, 0, 5) }})
+                            {{ $s->name }} ({{ hora($s->start_time) }} – {{ hora($s->end_time) }})
                         </option>
                     @endforeach
                 </select>

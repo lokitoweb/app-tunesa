@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/push/push_controller.dart';
 import '../../../core/push/push_options.dart';
+import '../../auth/presentation/auth_controller.dart';
 
 /// Permiso de notificaciones de este teléfono (se vuelve a leer al regresar a la app).
 final pushPermissionProvider = FutureProvider.autoDispose<PushPermission>((ref) async {
@@ -84,6 +85,11 @@ class _PushStatusCardState extends ConsumerState<PushStatusCard> {
   Widget build(BuildContext context) {
     final status = ref.watch(pushControllerProvider);
     final permission = ref.watch(pushPermissionProvider).value;
+    // Al colaborador solo se le muestra si el teléfono bloquea los avisos (para
+    // permitirlos); el estado y la prueba de envío quedan para RRHH/administración.
+    final isAdmin = ref.watch(authControllerProvider.select((s) => s.user?.isAdmin ?? false));
+    final blocked = permission == PushPermission.denied || permission == PushPermission.notDetermined;
+    if (!isAdmin && !blocked) return const SizedBox.shrink();
 
     return PushStatusView(
       status: status,

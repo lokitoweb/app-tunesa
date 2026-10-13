@@ -141,7 +141,16 @@ class _Greeting extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('$greeting, $name', style: TextStyle(color: scheme.onPrimary, fontSize: 22, fontWeight: FontWeight.w700)),
+            // Siempre en una línea: con nombres largos el texto se reduce
+            FittedBox(
+              key: const Key('greeting-text'),
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text('$greeting, $name',
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(color: scheme.onPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
+            ),
             const SizedBox(height: 4),
             Text(Fmt.dayLong(DateTime.now()), style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85))),
           ]),
@@ -233,7 +242,7 @@ class _ShiftCard extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: Icon(works ? Icons.schedule : Icons.weekend_outlined, size: 32),
-        title: Text(works ? '${s.shiftName ?? 'Turno'} · ${s.start}–${s.end}' : 'Hoy no tienes turno programado'),
+        title: Text(works ? '${s.shiftName ?? 'Turno'} · ${Fmt.clock(s.start)} – ${Fmt.clock(s.end)}' : 'Hoy no tienes turno programado'),
         subtitle: Text(works ? (s.branch ?? 'Sucursal asignada') : 'Día libre según tu horario.'),
       ),
     );

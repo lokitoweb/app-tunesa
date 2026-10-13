@@ -17,6 +17,7 @@ Future<void> main() async {
   final info = await PackageInfo.fromPlatform();
 
   runApp(ProviderScope(
+    retry: providerRetry,
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
       appVersionProvider.overrideWithValue(info.version),
