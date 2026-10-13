@@ -180,10 +180,10 @@ class TrainingWebController extends Controller
                 'max_attempts' => $e->setRelation('course', $course)->allowedAttempts(),
                 'locked'       => $e->isLocked(),
                 'history'      => $e->quizAttempts->take(10)->map(fn ($a) => [
-                    'score' => $a->score, 'passed' => $a->passed, 'at' => $a->created_at?->format('d/m/Y H:i'),
+                    'score' => $a->score, 'passed' => $a->passed, 'at' => $a->created_at?->format('d/m/Y h:i a'),
                 ])->values(),
                 'due_date'     => $e->due_date?->format('d/m/Y'),
-                'completed_at' => $e->completed_at?->format('d/m/Y H:i'),
+                'completed_at' => $e->completed_at?->format('d/m/Y h:i a'),
             ]);
 
         $all = TrainingEnrollment::where('course_id', $course->id);
@@ -242,7 +242,7 @@ class TrainingWebController extends Controller
                 fputcsv($out, [
                     $e->user?->employee_code, $e->user?->document_number, $e->user?->full_name, $e->user?->position,
                     TrainingEnrollment::STATUS_LABELS[$e->status()], $e->progress, $e->score, $e->attempts, $e->setRelation('course', $course)->allowedAttempts(),
-                    $e->due_date?->format('d/m/Y'), $e->completed_at?->format('d/m/Y H:i'),
+                    $e->due_date?->format('d/m/Y'), $e->completed_at?->format('d/m/Y h:i a'),
                 ]);
             }
             fclose($out);

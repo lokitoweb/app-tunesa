@@ -94,7 +94,7 @@
                         <div class="small text-truncate mt-1" style="max-width: 220px;" title="{{ $doc->original_name }}">{{ $doc->original_name }}</div>
                         <div class="small text-body-secondary font-monospace" title="SHA-256 {{ $doc->sha256 }}">{{ number_format($doc->size_bytes / 1024, 0) }} KB · {{ substr($doc->sha256, 0, 10) }}…</div>
                     </td>
-                    <td class="small text-body-secondary text-nowrap">{{ $doc->created_at->format('d/m/Y H:i') }}</td>
+                    <td class="small text-body-secondary text-nowrap">{{ $doc->created_at->format('d/m/Y h:i a') }}</td>
                     <td>
                         <x-status-badge type="document_status" :value="$doc->status" />
                         @if($doc->rejection_reason)<div class="small text-body-secondary" style="max-width: 220px;">{{ $doc->rejection_reason }}</div>@endif
@@ -114,7 +114,7 @@
                                 </button>
                             </form>
                         @else
-                            <span class="small text-body-secondary">{{ $doc->reviewed_at?->format('d/m/Y H:i') }}</span>
+                            <span class="small text-body-secondary">{{ $doc->reviewed_at?->format('d/m/Y h:i a') }}</span>
                         @endif
                     </td>
                 </tr>

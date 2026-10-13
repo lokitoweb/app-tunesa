@@ -31,7 +31,7 @@
                         <dd>{{ $user->position }}</dd>
                     @endif
                     <dt>Último acceso</dt>
-                    <dd>{{ $user->last_login_at?->format('d/m/Y H:i') ?? '—' }}</dd>
+                    <dd>{{ $user->last_login_at?->format('d/m/Y h:i a') ?? '—' }}</dd>
                 </dl>
             </div>
         </div>

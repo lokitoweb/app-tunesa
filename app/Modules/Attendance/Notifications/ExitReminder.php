@@ -30,7 +30,7 @@ class ExitReminder extends AppNotification
 
     public function body(): string
     {
-        return sprintf('Tu jornada terminó a las %s y aún no registras tu salida. Márcala desde la app.', $this->expectedEnd->format('H:i'));
+        return sprintf('Tu jornada terminó a las %s y aún no registras tu salida. Márcala desde la app.', hora($this->expectedEnd));
     }
 
     public function payload(): array

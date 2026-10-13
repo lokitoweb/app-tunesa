@@ -14,6 +14,8 @@ import '../../features/training/presentation/trainings_screen.dart';
 import '../../features/attendance/domain/models.dart';
 import '../../features/attendance/presentation/clock_screen.dart';
 import '../../features/attendance/presentation/history_screen.dart';
+import '../../features/attendance/presentation/overtime_screen.dart';
+import '../../features/onboarding/presentation/onboarding_providers.dart';
 import '../../features/attendance/presentation/offline_sync.dart';
 import '../../features/attendance/presentation/rejected_punches_screen.dart';
 import '../../features/auth/presentation/auth_controller.dart';
@@ -81,8 +83,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // (documentos, datos y cursos), no al inicio de marcación
       final landing = (auth.user?.onboardingStatus ?? 'approved') == 'approved' ? '/home' : '/onboarding';
 
-      // Fuera de ese caso la app no cambia contraseñas: lo hace RRHH desde el panel.
-      // Recién cambiada la temporal, sigue el primer ingreso.
+      // Recién cambiada la temporal, sigue el primer ingreso (el cambio
+      // voluntario va por /profile/password).
       if (loc == '/change-password') return auth.status == AuthStatus.authenticated ? landing : '/login';
 
       return switch (auth.status) {
@@ -110,6 +112,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/change-password',
         builder: (_, _) => const ChangePasswordScreen(),
       ),
+      // Cambio voluntario desde Mi perfil (el obligatorio usa /change-password)
+      GoRoute(parentNavigatorKey: _rootKey, path: '/overtime', builder: (_, _) => const OvertimeScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/profile/password', builder: (_, _) => const ChangePasswordScreen()),
       GoRoute(parentNavigatorKey: _rootKey, path: '/profile/documents', builder: (_, _) => const DocumentsScreen()),
       GoRoute(
         parentNavigatorKey: _rootKey,
@@ -128,7 +133,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         parentNavigatorKey: _rootKey,
         path: '/clock/:action',
-        redirect: (_, state) => ClockAction.fromApi(state.pathParameters['action']) == null ? '/home' : null,
+        // Sin incorporación aprobada por RRHH no se marca (el servidor también lo bloquea)
+        redirect: (_, state) =>
+            ClockAction.fromApi(state.pathParameters['action']) == null || !ref.read(canPunchProvider) ? '/home' : null,
         builder: (_, state) => ClockScreen(action: ClockAction.fromApi(state.pathParameters['action'])!),
       ),
       GoRoute(

@@ -127,7 +127,7 @@
                 <div class="fw-semibold">{{ $case->assignee ? $case->assignee->first_name . ' ' . $case->assignee->last_name : 'Sin asignar (se asigna a quien responda primero)' }}</div>
                 @if($case->closed_at)
                     <div class="text-body-secondary mt-2">Cerrada</div>
-                    <div class="fw-semibold">{{ $case->closed_at->format('d/m/Y H:i') }}</div>
+                    <div class="fw-semibold">{{ $case->closed_at->format('d/m/Y h:i a') }}</div>
                 @endif
             </div>
         </div>

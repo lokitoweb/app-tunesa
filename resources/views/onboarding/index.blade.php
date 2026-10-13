@@ -76,7 +76,7 @@
                             @endif
                         </td>
                         <td><x-status-badge type="onboarding_status" :value="$p->status" /></td>
-                        <td class="small text-nowrap">{{ $p->submitted_at?->format('d/m/Y H:i') ?? '—' }}</td>
+                        <td class="small text-nowrap">{{ $p->submitted_at?->format('d/m/Y h:i a') ?? '—' }}</td>
                         <td class="text-end">
                             <a href="{{ route('onboarding.show', $p->user_id) }}" class="btn btn-sm {{ $p->status === 'submitted' ? 'btn-primary' : 'btn-outline-secondary' }}">
                                 {{ $p->status === 'submitted' ? 'Revisar' : 'Ver' }}

@@ -200,7 +200,7 @@ class PushEventsTest extends TestCase
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         $this->assertSame(1, $countReminders());
-        $this->assertStringContainsString('17:00', collect($this->pushes())->firstWhere('data.type', 'attendance.exit_reminder')['notification']['body']);
+        $this->assertStringContainsString('05:00 pm', collect($this->pushes())->firstWhere('data.type', 'attendance.exit_reminder')['notification']['body']);
 
         // Si ya marcó salida: nada
         $att->update(['clock_out_at' => '2026-10-12 17:30:00']);

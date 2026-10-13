@@ -62,9 +62,9 @@
     <div class="col-6 col-xl-3">
         <div class="card border-0 h-100 kpi-card"><div class="card-body">
             <div class="kpi-label">Último acceso</div>
-            <div class="fs-6 fw-bold">{{ $employee->last_login_at?->format('d/m/Y H:i') ?? 'Nunca' }}</div>
+            <div class="fs-6 fw-bold">{{ $employee->last_login_at?->format('d/m/Y h:i a') ?? 'Nunca' }}</div>
             <div class="small {{ $employee->isLocked() ? 'text-danger' : 'text-body-secondary' }}">
-                {{ $employee->isLocked() ? 'Bloqueado hasta ' . $employee->locked_until->format('H:i') : ($employee->must_change_password ? 'Con contraseña temporal' : 'Acceso normal') }}
+                {{ $employee->isLocked() ? 'Bloqueado hasta ' . $employee->locked_until->format('h:i a') : ($employee->must_change_password ? 'Con contraseña temporal' : 'Acceso normal') }}
             </div>
         </div></div>
     </div>
@@ -95,7 +95,7 @@
                     <dt>Domicilio</dt><dd>{{ $profile->address ?? '—' }} {{ $profile->district }}</dd>
                     <dt>Emergencia</dt><dd>{{ $profile->emergency_contact_name ?? '—' }} {{ $profile->emergency_contact_phone }}</dd>
                     @if($profile->payment_verified_at)
-                        <dt>Verificado por</dt><dd>{{ $profile->verifier?->full_name }} · {{ $profile->payment_verified_at->format('d/m/Y H:i') }}</dd>
+                        <dt>Verificado por</dt><dd>{{ $profile->verifier?->full_name }} · {{ $profile->payment_verified_at->format('d/m/Y h:i a') }}</dd>
                     @endif
                     @if($profile->payment_rejection_reason)
                         <dt>Observación</dt><dd class="text-danger">{{ $profile->payment_rejection_reason }}</dd>

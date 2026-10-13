@@ -247,6 +247,7 @@ final class Labels
         'selfie_required'         => 'Selfie obligatoria al marcar',
         'face_detection_required' => 'Detección de rostro obligatoria',
         'offline_mode_enabled'    => 'Marcación sin conexión',
+        'self_password_change'    => 'Cambio de contraseña desde la app',
         'offline_max_hours'       => 'Máximo sin conexión (h)',
         'max_gps_accuracy_meters' => 'Precisión GPS máxima (m)',
         'default_grace_minutes'   => 'Tolerancia por defecto (min)',
@@ -888,6 +889,7 @@ final class Labels
         'force_update'       => 'bool',
         'lunch_paid'         => 'bool',
         'offline_mode_enabled' => 'bool',
+        'self_password_change' => 'bool',
         'within_geofence'    => 'bool',
         'clock_in_within_geofence'  => 'bool',
         'clock_out_within_geofence' => 'bool',
@@ -1074,7 +1076,7 @@ final class Labels
             return self::text($value);
         }
 
-        return $date->setTimezone($timezone ?: self::timezone())->format('d/m/Y H:i');
+        return $date->setTimezone($timezone ?: self::timezone())->format('d/m/Y h:i a');
     }
 
     public static function date(mixed $value): string

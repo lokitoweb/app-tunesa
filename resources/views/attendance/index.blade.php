@@ -120,7 +120,7 @@
                             @endif
                         </td>
                         <td class="text-nowrap">
-                            <span class="fw-semibold">{{ $att->clock_in_at?->format('H:i:s') ?? '--:--:--' }}</span>
+                            <span class="fw-semibold">{{ $att->clock_in_at?->format('h:i:s a') ?? '--:--:--' }}</span>
                             @if(data_get($att->clock_in_meta, 'offline'))
                                 <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis ms-1" title="Marcada sin conexión y sincronizada después"><i class="bi bi-wifi-off"></i> Sin conexión</span>
                             @endif
@@ -137,7 +137,7 @@
                                 <span class="small text-body-secondary">No registrado</span>
                             @endif
                         </td>
-                        <td class="text-nowrap">{{ $att->clock_out_at?->format('H:i:s') ?? '--:--:--' }}
+                        <td class="text-nowrap">{{ $att->clock_out_at?->format('h:i:s a') ?? '--:--:--' }}
                             @if(data_get($att->clock_out_meta, 'offline'))
                                 <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis ms-1" title="Salida marcada sin conexión"><i class="bi bi-wifi-off"></i> Sin conexión</span>
                             @endif

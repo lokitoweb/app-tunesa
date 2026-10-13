@@ -61,7 +61,7 @@ class PunchAttemptWebController extends Controller
                     'lat' => (float) $a->latitude, 'lng' => (float) $a->longitude,
                     'name' => trim(($a->user->first_name ?? '') . ' ' . ($a->user->last_name ?? '')),
                     'code' => label('punch_attempt_code', $a->error_code),
-                    'at' => $a->created_at->format('d/m/Y H:i'),
+                    'at' => $a->created_at->format('d/m/Y h:i a'),
                     'mock' => (bool) $a->mock_location_detected,
                 ])->values(),
             'codes'     => Labels::options('punch_attempt_code'),

@@ -109,6 +109,13 @@ class ProfileBody extends StatelessWidget {
           done: file.steps['contact'] == true,
           onTap: () => context.push('/profile/contact'),
         ),
+        _SectionTile(
+          key: const Key('section-overtime'),
+          icon: Icons.more_time_rounded,
+          title: 'Mis horas extra',
+          subtitle: 'Horas extra del mes y su aprobación',
+          onTap: () => context.push('/overtime'),
+        ),
         const _TrainingsTile(),
         const _EthicsTile(),
         const SizedBox(height: 10),
@@ -316,6 +323,8 @@ class _AccountSection extends ConsumerWidget {
     final mode = ref.watch(themeModeProvider);
     final auth = ref.watch(authControllerProvider);
     final company = auth.user?.companyName ?? auth.branding?.companyName;
+    // La empresa puede apagarlo en el panel (Configuración > App)
+    final canChangePassword = ref.watch(appConfigProvider.select((s) => s.config.mobile.selfPasswordChange));
 
     return Card(
       child: Column(children: [
@@ -347,6 +356,17 @@ class _AccountSection extends ConsumerWidget {
           ]),
         ),
         const Divider(),
+        if (canChangePassword) ...[
+          ListTile(
+            key: const Key('account-password'),
+            leading: const Icon(Icons.lock_reset_rounded),
+            title: const Text('Cambiar contraseña'),
+            subtitle: const Text('Actualiza tu clave de acceso'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.push('/profile/password'),
+          ),
+          const Divider(),
+        ],
         ListTile(
           key: const Key('account-devices'),
           leading: const Icon(Icons.devices_rounded),

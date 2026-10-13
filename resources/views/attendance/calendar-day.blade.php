@@ -97,7 +97,7 @@
 @forelse($groups as $shiftName => $rows)
     <div class="card border-0 mb-3">
         <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-            <h3 class="h6 mb-0">{{ $shiftName }}@if($rows->first()['cell']['shift_start']) <span class="text-body-secondary fw-normal">· entrada {{ $rows->first()['cell']['shift_start'] }}</span>@endif</h3>
+            <h3 class="h6 mb-0">{{ $shiftName }}@if($rows->first()['cell']['shift_start']) <span class="text-body-secondary fw-normal">· entrada {{ hora($rows->first()['cell']['shift_start']) }}</span>@endif</h3>
             <span class="small text-body-secondary">{{ $rows->where('outcome', 'marked')->count() }} de {{ $rows->count() }} marcaron</span>
         </div>
         <div class="table-responsive">

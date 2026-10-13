@@ -41,10 +41,10 @@ class AttendanceOutsideSchedule extends AppNotification
 
         if ($this->forSupervisor) {
             return sprintf('%s marcó %s a las %s, fuera de su horario%s.',
-                $this->employee?->full_name ?? 'Un colaborador', mb_strtolower($moment), $time?->format('H:i'), $window);
+                $this->employee?->full_name ?? 'Un colaborador', mb_strtolower($moment), hora($time), $window);
         }
 
-        return sprintf('%s registrada a las %s, fuera de tu horario%s. RRHH la revisará.', $moment, $time?->format('H:i'), $window);
+        return sprintf('%s registrada a las %s, fuera de tu horario%s. RRHH la revisará.', $moment, hora($time), $window);
     }
 
     public function payload(): array

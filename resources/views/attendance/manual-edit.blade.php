@@ -79,7 +79,7 @@
                     </dl>
                     @if($a->manual_edited_at)
                         <div class="alert alert-warning mt-3 mb-0">
-                            <i class="bi bi-pencil-square me-1"></i> Corregida a mano por {{ $a->manualEditor?->full_name ?? 'alguien' }} el {{ $a->manual_edited_at->format('d/m/Y H:i') }}.
+                            <i class="bi bi-pencil-square me-1"></i> Corregida a mano por {{ $a->manualEditor?->full_name ?? 'alguien' }} el {{ $a->manual_edited_at->format('d/m/Y h:i a') }}.
                             <div class="text-body-secondary">{{ $a->manual_edit_reason }}</div>
                         </div>
                     @endif

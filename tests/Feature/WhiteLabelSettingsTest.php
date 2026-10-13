@@ -302,7 +302,7 @@ class WhiteLabelSettingsTest extends TestCase
         // Exactamente estas secciones, sin datos de integraciones
         $this->assertSame(['tenant', 'branding', 'mobile', 'rules', 'contact', 'modules', 'legal'], array_keys($res->json('data')));
         $this->assertSame(['config_version'], array_keys($res->json('meta')));
-        $this->assertCount(15, $res->json('data.mobile'));
+        $this->assertCount(16, $res->json('data.mobile'));
         $res->assertDontSee('whsec_super_secreto')->assertDontSee('AIzaClaveMapas')->assertDontSee('webhook');
         $this->assertNotFalse(Carbon::parse($res->json('meta.config_version')));
 

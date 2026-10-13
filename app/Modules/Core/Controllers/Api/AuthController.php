@@ -401,8 +401,9 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        // Solo el cambio obligatorio de la contraseña temporal: el resto lo hace RRHH
-        if (! $user->must_change_password) {
+        // La contraseña temporal siempre se cambia; fuera de eso, solo si la
+        // empresa permite el cambio desde la app (si no, lo hace RRHH)
+        if (! $user->must_change_password && ! \App\Modules\Core\Models\TenantSetting::forTenant($user->tenant)->self_password_change) {
             return response()->json([
                 'success' => false,
                 'code'    => 'PASSWORD_CHANGE_BY_ADMIN',

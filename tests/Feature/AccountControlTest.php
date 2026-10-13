@@ -58,7 +58,7 @@ class AccountControlTest extends TestCase
         $this->assertSame(1, $ana->notifications()->get()->filter(fn ($n) => str_contains($n->data['body'], 'Teléfono Android'))->count());
     }
 
-    public function test_only_the_forced_password_change_is_allowed_and_it_does_not_warn(): void
+    public function test_password_change_from_the_app_follows_the_company_setting(): void
     {
         $acme = $this->makeTenant('acme');
         $ana  = $this->makeUser($acme, 'employee', ['email' => 'ana@acme.pe', 'must_change_password' => true]);
@@ -71,8 +71,14 @@ class AccountControlTest extends TestCase
         $change('Secret123', 'Nueva1234')->assertOk();
         $this->assertSame([], $this->securityAlerts($ana));
 
-        $change('Nueva1234', 'Otra12345')->assertForbidden()->assertJsonPath('code', 'PASSWORD_CHANGE_BY_ADMIN');
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('Nueva1234', $ana->fresh()->password));
+        // Cambio voluntario desde Mi perfil: permitido por defecto
+        $change('Nueva1234', 'Otra12345')->assertOk();
+        $change('Equivocada1', 'Otra99999')->assertStatus(422)->assertJsonValidationErrors('current_password');
+
+        // Si la empresa lo apaga en el panel, solo RRHH la restablece
+        \App\Modules\Core\Models\TenantSetting::query()->updateOrCreate(['tenant_id' => $acme->id], ['self_password_change' => false]);
+        $change('Otra12345', 'Final12345')->assertForbidden()->assertJsonPath('code', 'PASSWORD_CHANGE_BY_ADMIN');
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('Otra12345', $ana->fresh()->password));
     }
 
     public function test_logout_others_keeps_only_the_current_device(): void

@@ -325,8 +325,8 @@ class AttendanceReportService
             }
         }
 
-        $row['clock_in']  = self::wallClock($first->clock_in_at)?->format('H:i');
-        $row['clock_out'] = $last->clock_out_at ? self::wallClock($last->clock_out_at)->format('H:i') : null;
+        $row['clock_in']  = hora(self::wallClock($first->clock_in_at));
+        $row['clock_out'] = $last->clock_out_at ? hora(self::wallClock($last->clock_out_at)) : null;
         $row['branch']    = $first->branch?->name;
         $row['shift']     = ($first->shift ?? $assignedShift)?->name;
         $row['open']      = $records->contains(fn (Attendance $a) => $a->clock_out_at === null);

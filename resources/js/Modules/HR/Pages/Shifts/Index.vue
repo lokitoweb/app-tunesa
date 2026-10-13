@@ -14,6 +14,12 @@ const props = defineProps({
     canAssign: Boolean,
 });
 
+// Horas del turno en 12 h ("08:00 am"); la base guarda 24 h
+const hora = (t) => {
+    if (!t) return '';
+    const [h, m] = t.split(':').map(Number);
+    return `${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+};
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const activeShifts = computed(() => props.shifts.filter((s) => s.is_active));
 
@@ -79,7 +85,7 @@ function unassign(assignment) {
                             </td>
                             <td><span class="badge text-bg-light border">{{ shift.type === 'rotating' ? 'Rotativo' : 'Fijo' }}</span></td>
                             <td class="text-nowrap">
-                                {{ shift.start_time }} – {{ shift.end_time }}
+                                {{ hora(shift.start_time) }} – {{ hora(shift.end_time) }}
                                 <span v-if="shift.crosses_midnight" class="small text-body-secondary">(+1 día)</span>
                             </td>
                             <td>
@@ -114,7 +120,7 @@ function unassign(assignment) {
                             <div class="mb-3">
                                 <label for="assign_shift" class="form-label">Turno</label>
                                 <select id="assign_shift" v-model="assign.shift_id" class="form-select" :class="{ 'is-invalid': assign.errors.shift_id }" required>
-                                    <option v-for="shift in activeShifts" :key="shift.id" :value="shift.id">{{ shift.name }} ({{ shift.start_time }}–{{ shift.end_time }})</option>
+                                    <option v-for="shift in activeShifts" :key="shift.id" :value="shift.id">{{ shift.name }} ({{ hora(shift.start_time) }} – {{ hora(shift.end_time) }})</option>
                                 </select>
                             </div>
                             <div class="mb-3">

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tunesa_mobile/core/config/env.dart';
 import 'package:tunesa_mobile/core/location/location_service.dart';
 import 'package:tunesa_mobile/core/network/api_exception.dart';
+import 'package:tunesa_mobile/core/providers.dart';
 import 'package:tunesa_mobile/core/theme/app_theme.dart';
 
 DioException _response(int status, Object? data) {
@@ -98,5 +99,11 @@ void main() {
       expect(AppTheme.parseHex('#FFF'), isNull);
       expect(AppTheme.parseHex('#GGGGGG'), isNull);
     });
+  });
+
+  test('providerRetry: un error del servidor (p. ej. código ético incorrecto) se muestra sin reintentar', () {
+    expect(providerRetry(0, const ApiException('No encontrado', statusCode: 404)), isNull);
+    expect(providerRetry(0, const ApiException('Sin conexión', code: 'NETWORK')), isNotNull);
+    expect(providerRetry(1, const ApiException('Sin conexión', code: 'NETWORK')), isNull);
   });
 }

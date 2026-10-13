@@ -129,7 +129,7 @@
                             @if($emp->isLocked())
                                 <form method="POST" action="{{ route('employees.unlock', $emp->id) }}" class="d-inline">
                                     @csrf @method('PATCH')
-                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Bloqueado por intentos fallidos hasta {{ $emp->locked_until->format('H:i') }}. Desbloquear." aria-label="Desbloquear a {{ $emp->first_name }}"><i class="bi bi-unlock"></i></button>
+                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Bloqueado por intentos fallidos hasta {{ $emp->locked_until->format('h:i a') }}. Desbloquear." aria-label="Desbloquear a {{ $emp->first_name }}"><i class="bi bi-unlock"></i></button>
                                 </form>
                             @endif
                             <form method="POST" action="{{ route('employees.toggle-status', $emp->id) }}" class="d-inline">

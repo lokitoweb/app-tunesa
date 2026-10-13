@@ -14,11 +14,11 @@ class PunchBoard extends StatelessWidget {
   final TodayStatus status;
   final ValueChanged<ClockAction> onPunch;
 
-  /// Hora registrada de [action] (HH:mm) o null si aún no se marca.
+  /// Hora registrada de [action] (12 h) o null si aún no se marca.
   static String? timeOf(ClockAction action, Attendance? a) => switch (action) {
         ClockAction.clockIn => a?.clockIn == null ? null : Fmt.time(a!.clockIn),
-        ClockAction.breakStart => a?.breakStart,
-        ClockAction.breakEnd => a?.breakEnd,
+        ClockAction.breakStart => a?.breakStart == null ? null : Fmt.clock(a!.breakStart),
+        ClockAction.breakEnd => a?.breakEnd == null ? null : Fmt.clock(a!.breakEnd),
         ClockAction.clockOut => a?.clockOut == null ? null : Fmt.time(a!.clockOut),
       };
 
@@ -214,7 +214,10 @@ class _PunchTile extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 2),
-        Text(time ?? '--:--', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: timeColor)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(time ?? '--:--', maxLines: 1, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: timeColor)),
+        ),
       ]),
     );
   }

@@ -91,7 +91,7 @@ class AttendanceCalendarTest extends TestCase
         $state = fn (string $d) => $row['cells'][$d]['state'] ?? null;
 
         $this->assertSame('present', $state('2026-09-01'));
-        $this->assertSame(['T', 12, '08:22'], [$row['cells']['2026-09-02']['letter'], $row['cells']['2026-09-02']['late_minutes'], $row['cells']['2026-09-02']['clock_in']]);
+        $this->assertSame(['T', 12, '08:22 am'], [$row['cells']['2026-09-02']['letter'], $row['cells']['2026-09-02']['late_minutes'], $row['cells']['2026-09-02']['clock_in']]);
         $this->assertSame('incomplete', $state('2026-09-03'));
         $this->assertSame('absent', $state('2026-09-04'));
         $this->assertSame('rest', $state('2026-09-05'), 'sábado sin turno');
@@ -182,7 +182,7 @@ class AttendanceCalendarTest extends TestCase
 
         $this->actingAs($hr)->get(route('attendance.calendar', ['month' => '2026-09']))->assertOk()
             ->assertSee('Calendario de asistencia')->assertSee('Quispe, Rosa')
-            ->assertSee('Tardanza · Entrada 08:22 · Salida 17:00 · 12 min tarde')
+            ->assertSee('Tardanza · Entrada 08:22 am · Salida 05:00 pm · 12 min tarde')
             ->assertSee('openEvidence(', false);
 
         $response = $this->actingAs($hr)->get(route('attendance.calendar.excel', ['month' => '2026-09', 'q' => 'Quispe']))->assertOk();
@@ -237,7 +237,7 @@ class AttendanceCalendarTest extends TestCase
         $other = $this->employee('Ajeno', 'Lima', $this->makeBranch($this->acme, ['name' => 'Lima']));
 
         $response = $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', ['id' => $this->emp->id, 'month' => '2026-09']))
-            ->assertOk()->assertSee('Rosa Quispe')->assertSee('08:22 – 17:00')->assertSee('12 min tarde');
+            ->assertOk()->assertSee('Rosa Quispe')->assertSee('08:22 am – 05:00 pm')->assertSee('12 min tarde');
         $weeks = $response->viewData('weeks');
         $this->assertSame([null, '2026-09-01'], array_slice($weeks[0], 0, 2), 'septiembre 2026 empieza en martes');
         $this->assertSame('2026-09-30', last(last($weeks)));

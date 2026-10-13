@@ -106,7 +106,7 @@
                         <td><x-status-badge type="payslip_status" :value="$p->status ?? 'draft'" /></td>
                         <td class="small">
                             @if($p->read_at)
-                                <span class="text-success"><i class="bi bi-check2-all"></i> {{ $p->read_at->format('d/m/Y H:i') }}</span>
+                                <span class="text-success"><i class="bi bi-check2-all"></i> {{ $p->read_at->format('d/m/Y h:i a') }}</span>
                             @else
                                 <span class="text-body-secondary">No leída</span>
                             @endif
