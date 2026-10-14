@@ -120,6 +120,8 @@ class CompanyConfiguration extends Model
                 // Canal ético: módulo del ERP (se apaga por empresa en Empresas)
                 'ethics'       => \App\Modules\ModuleRegistry::enabledFor($tenant, 'Ethics'),
                 'benefits'     => \App\Modules\ModuleRegistry::enabledFor($tenant, 'Benefits'),
+                // Solicitudes (vacaciones, permisos): módulo HR
+                'requests'     => \App\Modules\ModuleRegistry::enabledFor($tenant, 'HR'),
                 'birthdays'    => \App\Modules\ModuleRegistry::enabledFor($tenant, 'Birthdays'),
                 'company_documents' => \App\Modules\ModuleRegistry::enabledFor($tenant, 'CompanyDocs'),
             ],

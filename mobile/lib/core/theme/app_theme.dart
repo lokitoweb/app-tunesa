@@ -22,6 +22,10 @@ class AppTheme {
   /// Esquinas de tarjetas, campos y botones.
   static const double radius = 10;
 
+  /// Verde de "hecho / correcto" (marcaciones completas, avances).
+  static const Color success = Color(0xFF10B981);
+  static const Color successDeep = Color(0xFF047857);
+
   static ThemeData light({Color? primary, Color? secondary, Color? accent, Color? navbar}) =>
       _build(Brightness.light, primary: primary, secondary: secondary, accent: accent, navbar: navbar);
 
@@ -127,8 +131,9 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 8,
         shadowColor: scheme.shadow,
-        indicatorColor: barAccent.withValues(alpha: 0.14),
-        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+        // Sin fondo detrás del ícono activo: solo cambia de color
+        indicatorColor: Colors.transparent,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(
             color: states.contains(WidgetState.selected) ? barAccent : barForeground.withValues(alpha: 0.6))),
         labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
