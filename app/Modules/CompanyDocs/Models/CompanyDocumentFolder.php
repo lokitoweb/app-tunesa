@@ -35,7 +35,7 @@ class CompanyDocumentFolder extends Model
 
     public static function ensureDefaults(): void
     {
-        if (! current_tenant_id() || static::exists()) {
+        if (! current_tenant_id_or_null() || static::exists()) {
             return;
         }
         foreach (self::DEFAULTS as $i => [$name, $description, $icon]) {

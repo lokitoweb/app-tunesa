@@ -27,7 +27,7 @@ class BirthdayWebController extends Controller
 
     public function index(Request $request): Response
     {
-        $tenantId = current_tenant_id();
+        $tenantId = current_tenant_id_or_null();
         $today    = now(tenant_timezone());
         $month    = max(1, min(12, $request->integer('month') ?: $today->month));
         $branch   = $request->integer('branch') ?: null;
@@ -57,14 +57,15 @@ class BirthdayWebController extends Controller
             'scopes'   => BirthdaySettings::SCOPES,
             'sentThisYear' => $tenantId ? BirthdayGreeting::where('year', $today->year)->count() : 0,
             'filters'  => ['branch' => $branch, 'search' => $search],
-            'canEdit'  => $request->user()->can('company.configure'),
+            'canEdit'  => $tenantId !== null && $request->user()->can('company.configure'),
+            'needsTenant' => $tenantId === null,
         ]);
     }
 
     public function settings(Request $request, AuditLogger $audit): RedirectResponse
     {
         abort_unless($request->user()->can('company.configure'), 403);
-        $tenant = Tenant::findOrFail(current_tenant_id());
+        $tenant = Tenant::findOrFail(current_tenant_id_or_null());
         $data = $request->validate([
             'notify_colleagues' => ['required', Rule::in(array_keys(BirthdaySettings::SCOPES))],
             'greet_celebrant'   => ['boolean'],
@@ -79,8 +80,9 @@ class BirthdayWebController extends Controller
     /** CSV del mes (para RRHH: tortas, saludos, presupuesto) */
     public function export(Request $request): StreamedResponse
     {
+        abort_unless($tenantId = current_tenant_id_or_null(), 422, 'Elige una empresa en el selector para exportar sus cumpleaños.');
         $month  = max(1, min(12, $request->integer('month') ?: now()->month));
-        $people = $this->birthdays->month(current_tenant_id(), $month, now(tenant_timezone()));
+        $people = $this->birthdays->month($tenantId, $month, now(tenant_timezone()));
 
         return response()->streamDownload(function () use ($people) {
             $out = fopen('php://output', 'w');

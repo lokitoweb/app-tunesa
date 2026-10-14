@@ -5,7 +5,7 @@ import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 
 const props = defineProps({
     people: Array, month: Number, months: Array, todayPeople: Array, upcoming: Array, missing: Number,
-    branches: Array, settings: Object, scopes: Object, sentThisYear: Number, filters: Object, canEdit: Boolean,
+    branches: Array, settings: Object, scopes: Object, sentThisYear: Number, filters: Object, canEdit: Boolean, needsTenant: Boolean,
 });
 
 const search = ref(props.filters.search ?? '');
@@ -31,6 +31,8 @@ const hourLabel = (h) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'a. m.' : 'p. m.'
             </div>
             <a :href="`/birthdays/export?month=${month}`" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Exportar mes</a>
         </div>
+
+        <div v-if="needsTenant" class="alert alert-info"><i class="bi bi-info-circle me-1"></i>Estás en la vista de todas las empresas: elige una empresa en el selector para ver sus cumpleaños.</div>
 
         <div v-if="missing" class="alert alert-warning d-flex align-items-center gap-2">
             <i class="bi bi-exclamation-triangle"></i>
