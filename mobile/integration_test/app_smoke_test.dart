@@ -23,7 +23,8 @@ Future<void> waitFor(WidgetTester tester, Finder finder, {Duration timeout = con
     await tester.pump(const Duration(milliseconds: 200));
     if (finder.evaluate().isNotEmpty) return;
   }
-  throw TestFailure('No apareció: $finder');
+  final visible = find.byType(Text).evaluate().map((e) => (e.widget as Text).data).whereType<String>().take(40).join(' | ');
+  throw TestFailure('No apareció: $finder\nEn pantalla: $visible');
 }
 
 /// Deja que la pantalla termine de cargar y comprueba que no muestra un error.
@@ -48,7 +49,7 @@ Future<void> tapText(WidgetTester tester, String text) async {
 /// reciente no siempre lo usa.
 Future<void> goBack(WidgetTester tester) async {
   await Navigator.of(tester.element(find.byType(AppBar).last)).maybePop();
-  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 /// Abre una pantalla desde la actual, la revisa y vuelve atrás.
@@ -71,6 +72,7 @@ Future<void> login(WidgetTester tester, String email, String password) async {
 }
 
 Future<void> logout(WidgetTester tester) async {
+  await waitFor(tester, find.text('Mi perfil'), timeout: const Duration(seconds: 10));
   await tapText(tester, 'Mi perfil');
   await waitFor(tester, find.widgetWithText(AppBar, 'Mi perfil'));
   await tapText(tester, 'Cerrar sesión');
