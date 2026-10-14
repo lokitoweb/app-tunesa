@@ -353,6 +353,42 @@ class DatabaseSeeder extends Seeder
         $this->command->info("✅ Capacitación demo: Inducción Tunesa (todo el personal)");
 
         // =====================================================================
+        // CUMPLEAÑOS Y BENEFICIOS DEMO (fechas relativas a hoy: siempre hay algo que ver)
+        // =====================================================================
+        $today = now($tenant->timezone ?? config('app.timezone'));
+        $birthdays = [
+            [$employeeUsers[0], $today->copy()->subYears(28)],                  // Ana: hoy
+            [$employeeUsers[1], $today->copy()->subYears(31)->addDays(3)],      // Luis: en 3 días
+            [$employeeUsers[2], $today->copy()->subYears(25)->addDays(12)],     // Rosa: en 12 días
+            [$supervisor, $today->copy()->subYears(35)->subDays(4)],            // Supervisor: hace poco
+            [$hrManager, $today->copy()->subYears(40)->addMonths(2)],
+        ];
+        foreach ($birthdays as [$person, $date]) {
+            $person->update(['birth_date' => $date->toDateString()]);
+        }
+
+        $categories = [];
+        foreach (\App\Modules\Benefits\Models\BenefitCategory::DEFAULTS as $i => [$name, $icon, $color]) {
+            $categories[$name] = \App\Modules\Benefits\Models\BenefitCategory::create(['tenant_id' => $tenant->id, 'name' => $name, 'icon' => $icon, 'color' => $color, 'position' => $i]);
+        }
+        $demoBenefits = [
+            ['Salud y bienestar', 'Gimnasio con 30% de descuento', 'Smart Fit', '30% dscto', 'TUNESA30', true],
+            ['Alimentación', '2x1 en almuerzos los viernes', 'La Lucha Sanguchería', '2x1', null, false],
+            ['Educación', 'Inglés con beca parcial', 'ICPNA', '40% beca', null, false],
+        ];
+        foreach ($demoBenefits as [$category, $title, $partner, $highlight, $code, $featured]) {
+            $benefit = \App\Modules\Benefits\Models\Benefit::create([
+                'tenant_id' => $tenant->id, 'category_id' => $categories[$category]->id, 'title' => $title, 'partner' => $partner,
+                'highlight' => $highlight, 'promo_code' => $code, 'summary' => "Beneficio exclusivo para el personal de {$tenant->company_name}.",
+                'how_to_use' => 'Muestra tu fotocheck y menciona el convenio con tu empresa.', 'is_featured' => $featured,
+                'valid_until' => $today->copy()->addMonths(6)->toDateString(), 'status' => 'published', 'published_at' => now(), 'created_by' => $hrManager->id,
+            ]);
+            $benefit->syncAudience([['type' => 'all']]);
+        }
+
+        $this->command->info("✅ Cumpleaños y beneficios demo");
+
+        // =====================================================================
         // RESUMEN FINAL
         // =====================================================================
         $this->command->newLine();

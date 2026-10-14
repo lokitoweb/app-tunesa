@@ -4,7 +4,7 @@ import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 
 const props = defineProps({
-    people: Array, month: Number, months: Array, today: Array, upcoming: Array, missing: Number,
+    people: Array, month: Number, months: Array, todayPeople: Array, upcoming: Array, missing: Number,
     branches: Array, settings: Object, scopes: Object, sentThisYear: Number, filters: Object, canEdit: Boolean,
 });
 
@@ -42,12 +42,12 @@ const hourLabel = (h) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'a. m.' : 'p. m.'
                 <div class="card border-0 h-100">
                     <div class="card-header border-0 pt-3"><h2 class="h6 fw-semibold mb-0"><i class="bi bi-balloon-heart me-1 text-danger"></i>Hoy</h2></div>
                     <div class="card-body">
-                        <div v-for="p in today" :key="p.id" class="d-flex align-items-center gap-3 mb-2">
+                        <div v-for="p in todayPeople" :key="p.id" class="d-flex align-items-center gap-3 mb-2">
                             <img v-if="p.avatar_url" :src="p.avatar_url" :alt="p.name" class="rounded-circle" width="44" height="44" style="object-fit: cover">
                             <span v-else class="rounded-circle d-inline-flex align-items-center justify-content-center bg-danger-subtle text-danger-emphasis fw-bold" style="width: 44px; height: 44px">{{ p.initials }}</span>
                             <div><div class="fw-semibold">{{ p.name }}</div><div class="small text-body-secondary">{{ p.position ?? '—' }}<span v-if="p.branch"> · {{ p.branch }}</span></div></div>
                         </div>
-                        <p v-if="!today.length" class="text-body-secondary small mb-0">Nadie cumple años hoy.</p>
+                        <p v-if="!todayPeople.length" class="text-body-secondary small mb-0">Nadie cumple años hoy.</p>
                     </div>
                 </div>
             </div>

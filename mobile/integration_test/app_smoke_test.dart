@@ -37,7 +37,14 @@ Future<void> settleScreen(WidgetTester tester, String name) async {
   expect(find.byType(ErrorView), findsNothing, reason: '$name muestra un error');
 }
 
+/// Lista vertical de la pantalla (las grillas y carruseles horizontales no cuentan).
+final _verticalList = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down);
+
 Future<void> tapText(WidgetTester tester, String text) async {
+  // Las listas se arman al desplazarse: si la opción aún no existe, se busca bajando
+  if (find.text(text).evaluate().isEmpty && _verticalList.evaluate().isNotEmpty) {
+    await tester.scrollUntilVisible(find.text(text), 300, scrollable: _verticalList.first);
+  }
   final finder = find.text(text).first;
   await tester.ensureVisible(finder);
   await tester.pump();
@@ -75,9 +82,7 @@ Future<void> logout(WidgetTester tester) async {
   await waitFor(tester, find.text('Mi perfil'), timeout: const Duration(seconds: 10));
   await tapText(tester, 'Mi perfil');
   await waitFor(tester, find.widgetWithText(AppBar, 'Mi perfil'));
-  // La lista se arma a medida que se desplaza: con más opciones (supervisor)
-  // el botón queda fuera de pantalla y aún no existe.
-  await tester.scrollUntilVisible(find.text('Cerrar sesión'), 300, scrollable: find.byType(Scrollable).last);
+  // Con muchas opciones el botón queda abajo: tapText baja hasta encontrarlo
   await tapText(tester, 'Cerrar sesión');
   await waitFor(tester, find.byType(AlertDialog));
   await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Cerrar sesión')));

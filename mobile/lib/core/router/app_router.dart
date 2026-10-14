@@ -12,6 +12,11 @@ import '../../features/training/presentation/quiz_screen.dart';
 import '../../features/training/presentation/training_detail_screen.dart';
 import '../../features/training/presentation/trainings_screen.dart';
 import '../../features/attendance/domain/models.dart';
+import '../../features/benefits/presentation/benefit_detail_screen.dart';
+import '../../features/benefits/presentation/benefits_screen.dart';
+import '../../features/birthdays/presentation/birthdays_screen.dart';
+import '../../features/company_docs/presentation/company_document_viewer_screen.dart';
+import '../../features/company_docs/presentation/company_documents_screen.dart';
 import '../../features/attendance/presentation/clock_screen.dart';
 import '../../features/attendance/presentation/history_screen.dart';
 import '../../features/attendance/presentation/overtime_screen.dart';
@@ -38,6 +43,7 @@ import '../../features/profile/presentation/profile_providers.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/profile/presentation/uniforms_screen.dart';
 import '../../features/payslips/presentation/payslips_screen.dart';
+import '../../features/requests/domain/models.dart' show LeaveType;
 import '../../features/requests/presentation/new_request_screen.dart';
 import '../../features/requests/presentation/requests_screen.dart';
 import '../../features/team/presentation/approvals_screen.dart';
@@ -146,7 +152,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         parentNavigatorKey: _rootKey,
         path: '/requests/new',
-        builder: (_, _) => const NewRequestScreen(),
+        builder: (_, state) => NewRequestScreen(
+          initialType: state.uri.queryParameters['type'] == null ? null : LeaveType.fromApi(state.uri.queryParameters['type']),
+        ),
       ),
       GoRoute(parentNavigatorKey: _rootKey, path: '/notifications', builder: (_, _) => const NotificationsScreen()),
       GoRoute(parentNavigatorKey: _rootKey, path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
@@ -179,6 +187,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/team',
         redirect: (_, _) => (ref.read(authControllerProvider).user?.canViewTeam ?? false) ? null : '/home',
         builder: (_, _) => const TeamLiveScreen(),
+      ),
+      // Beneficios, cumpleaños y documentos de la empresa
+      GoRoute(parentNavigatorKey: _rootKey, path: '/benefits', builder: (_, _) => const BenefitsScreen()),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/benefits/:id',
+        builder: (_, state) => BenefitDetailScreen(id: int.parse(state.pathParameters['id']!)),
+      ),
+      GoRoute(parentNavigatorKey: _rootKey, path: '/birthdays', builder: (_, _) => const BirthdaysScreen()),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/company-documents',
+        builder: (_, state) => CompanyDocumentsScreen(initialTab: state.uri.queryParameters['tab'] == 'pending' ? 1 : 0),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/company-documents/folders/:id',
+        builder: (_, state) => FolderDocumentsScreen(folderId: int.parse(state.pathParameters['id']!), title: state.extra as String?),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/company-documents/:id',
+        builder: (_, state) => CompanyDocumentViewerScreen(id: int.parse(state.pathParameters['id']!)),
       ),
       // Capacitaciones
       GoRoute(parentNavigatorKey: _rootKey, path: '/trainings', builder: (_, _) => const TrainingsScreen()),

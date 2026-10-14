@@ -49,7 +49,7 @@ class BirthdayWebController extends Controller
             'people'   => $people,
             'month'    => $month,
             'months'   => collect(BirthdayService::MONTHS)->map(fn ($name, $m) => ['value' => $m, 'label' => ucfirst($name), 'count' => $countsByMonth[$m] ?? 0])->values(),
-            'today'    => $tenantId ? $this->birthdays->upcoming($tenantId, $today, 0)->values() : [],
+            'todayPeople' => $tenantId ? $this->birthdays->upcoming($tenantId, $today, 0)->values() : [],
             'upcoming' => $tenantId ? $this->birthdays->upcoming($tenantId, $today, 7)->reject(fn ($p) => $p['is_today'])->values() : [],
             'missing'  => $tenantId ? User::where('status', 'active')->whereNull('birth_date')->whereIn('role', User::CLOCKING_ROLES)->count() : 0,
             'branches' => Branch::orderBy('name')->get(['id', 'name']),
