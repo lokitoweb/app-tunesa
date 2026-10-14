@@ -75,6 +75,9 @@ Future<void> logout(WidgetTester tester) async {
   await waitFor(tester, find.text('Mi perfil'), timeout: const Duration(seconds: 10));
   await tapText(tester, 'Mi perfil');
   await waitFor(tester, find.widgetWithText(AppBar, 'Mi perfil'));
+  // La lista se arma a medida que se desplaza: con más opciones (supervisor)
+  // el botón queda fuera de pantalla y aún no existe.
+  await tester.scrollUntilVisible(find.text('Cerrar sesión'), 300, scrollable: find.byType(Scrollable).last);
   await tapText(tester, 'Cerrar sesión');
   await waitFor(tester, find.byType(AlertDialog));
   await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Cerrar sesión')));
