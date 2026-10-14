@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Cabeceras de seguridad de toda respuesta del panel web:
+ * Cabeceras de seguridad de toda respuesta (panel web, API y páginas de error):
  *  - no se puede incrustar en un iframe de otro sitio (clickjacking),
  *  - el navegador no adivina tipos de archivo,
  *  - no se filtra la URL completa a sitios externos,

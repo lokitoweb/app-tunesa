@@ -60,7 +60,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Aplicado automáticamente a todas las rutas en routes/api.php
         // =====================================================================
         // Panel web: datos compartidos y protocolo de las pantallas Vue (Inertia)
-        $middleware->web(append: [HandleInertiaRequests::class, SecurityHeaders::class]);
+        $middleware->web(append: [HandleInertiaRequests::class]);
+
+        // Cabeceras de seguridad en toda respuesta (panel, API y errores)
+        $middleware->append(SecurityHeaders::class);
 
         // Cadena de toda ruta autenticada de la app móvil (ver Core/Routes/api.php)
         $middleware->group('api.tenant', ['tenant', 'app.version', 'auth:sanctum', 'tenant.scope', 'password.fresh']);

@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:tunesa_mobile/core/widgets/async_views.dart';
+import 'package:tunesa_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:tunesa_mobile/main.dart' as app;
 
 /// Bombea cuadros hasta que [finder] aparece (las pantallas cargan por red y
@@ -22,7 +23,8 @@ Future<void> waitFor(WidgetTester tester, Finder finder, {Duration timeout = con
     await tester.pump(const Duration(milliseconds: 200));
     if (finder.evaluate().isNotEmpty) return;
   }
-  throw TestFailure('No apareció: $finder');
+  final visible = find.byType(Text).evaluate().map((e) => (e.widget as Text).data).whereType<String>().take(40).join(' | ');
+  throw TestFailure('No apareció: $finder\nEn pantalla: $visible');
 }
 
 /// Deja que la pantalla termine de cargar y comprueba que no muestra un error.
@@ -42,12 +44,20 @@ Future<void> tapText(WidgetTester tester, String text) async {
   await tester.tap(finder);
 }
 
+/// Vuelve a la pantalla anterior, como el botón atrás de la barra. No usa
+/// tester.pageBack(): busca un BackButton por tipo y la barra de Flutter
+/// reciente no siempre lo usa.
+Future<void> goBack(WidgetTester tester) async {
+  await Navigator.of(tester.element(find.byType(AppBar).last)).maybePop();
+  await tester.pump(const Duration(milliseconds: 600));
+}
+
 /// Abre una pantalla desde la actual, la revisa y vuelve atrás.
 Future<void> visit(WidgetTester tester, String tile, String title) async {
   await tapText(tester, tile);
   await waitFor(tester, find.widgetWithText(AppBar, title));
   await settleScreen(tester, title);
-  await tester.pageBack();
+  await goBack(tester);
   await tester.pump(const Duration(milliseconds: 600));
 }
 
@@ -62,8 +72,12 @@ Future<void> login(WidgetTester tester, String email, String password) async {
 }
 
 Future<void> logout(WidgetTester tester) async {
+  await waitFor(tester, find.text('Mi perfil'), timeout: const Duration(seconds: 10));
   await tapText(tester, 'Mi perfil');
   await waitFor(tester, find.widgetWithText(AppBar, 'Mi perfil'));
+  // La lista se arma a medida que se desplaza: con más opciones (supervisor)
+  // el botón queda fuera de pantalla y aún no existe.
+  await tester.scrollUntilVisible(find.text('Cerrar sesión'), 300, scrollable: find.byType(Scrollable).last);
   await tapText(tester, 'Cerrar sesión');
   await waitFor(tester, find.byType(AlertDialog));
   await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Cerrar sesión')));
@@ -79,14 +93,15 @@ void main() {
     // --- Colaborador ---------------------------------------------------------
     await login(tester, 'ana.torres@empresa-demo.com', 'Employee2024!');
 
-    await tester.tap(find.byTooltip('Notificaciones').first);
+    // La campana dice "Notificaciones (N sin leer)" si hay avisos pendientes
+    await tester.tap(find.byType(NotificationBell).first);
     await waitFor(tester, find.widgetWithText(AppBar, 'Notificaciones'));
     await settleScreen(tester, 'Notificaciones (bandeja)');
-    await tester.pageBack();
+    await goBack(tester);
     await tester.pump(const Duration(milliseconds: 600));
 
     await tapText(tester, 'Asistencia');
-    await waitFor(tester, find.widgetWithText(AppBar, 'Mi asistencia'));
+    await waitFor(tester, find.widgetWithText(AppBar, 'Mis asistencias'));
     await settleScreen(tester, 'Mi asistencia');
 
     await tapText(tester, 'Solicitudes');

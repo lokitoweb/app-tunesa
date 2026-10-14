@@ -75,6 +75,7 @@ cada PR que toca `mobile/`).
 3. Super Admin inicial: define `SEED_SUPERADMIN_EMAIL` y `SEED_SUPERADMIN_PASSWORD` (12+ caracteres) y corre `php artisan db:seed --force`. En producción el seeder no crea la empresa demo ni usuarios con contraseñas conocidas; luego borra la contraseña del `.env`. Al entrar se pedirá cambiarla.
 4. Asigna el supervisor de cada sucursal (Sucursales → Editar): define a quién ve cada supervisor.
 5. `php artisan storage:link` para servir logos, favicon y splash (disco `public`).
+6. `php artisan app:check-production`: revisa `APP_DEBUG`, HTTPS, cookie segura, cola, correo, base de datos y webhooks internos. Termina con error si algo bloquea la salida a producción (úsalo en el pipeline de despliegue).
 
 Programar el scheduler para el control de faltas (`attendance:mark-absences`, 01:30 cada día) y la
 limpieza de tokens vencidos (`sanctum:prune-expired`, diario), ambos en `routes/console.php`:
