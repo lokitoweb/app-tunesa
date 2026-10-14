@@ -41,3 +41,6 @@ if (config('queue.work_from_scheduler')) {
 
 // Capacitaciones: asigna cursos a quien le corresponden y avisa los que vencen pronto
 Schedule::command('training:sync')->dailyAt('06:00')->withoutOverlapping()->onOneServer();
+
+// Cumpleaños: saludo y aviso a los compañeros (cada empresa a su hora local; un aviso por persona y año)
+Schedule::command('birthdays:notify')->hourlyAt(5)->withoutOverlapping()->onOneServer();

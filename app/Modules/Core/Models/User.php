@@ -146,6 +146,14 @@ class User extends Authenticatable
             }
         });
 
+        // Mes y día del cumpleaños (MMDD) para buscar por fecha sin funciones
+        // de fecha propias de cada motor de base de datos (índice tenant_id, birth_md)
+        static::saving(function (User $user) {
+            if ($user->isDirty('birth_date')) {
+                $user->birth_md = $user->birth_date ? (int) $user->birth_date->format('nd') : null;
+            }
+        });
+
         static::updated(function (User $user) {
             if ($user->wasChanged('status') && $user->status !== 'active') {
                 $user->tokens()->delete();

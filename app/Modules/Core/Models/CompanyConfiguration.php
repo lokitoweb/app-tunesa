@@ -119,6 +119,9 @@ class CompanyConfiguration extends Model
                     $tenant = ($this->tenant_id ? \App\Modules\Core\Models\Tenant::find($this->tenant_id) : null), 'Training'),
                 // Canal ético: módulo del ERP (se apaga por empresa en Empresas)
                 'ethics'       => \App\Modules\ModuleRegistry::enabledFor($tenant, 'Ethics'),
+                'benefits'     => \App\Modules\ModuleRegistry::enabledFor($tenant, 'Benefits'),
+                'birthdays'    => \App\Modules\ModuleRegistry::enabledFor($tenant, 'Birthdays'),
+                'company_documents' => \App\Modules\ModuleRegistry::enabledFor($tenant, 'CompanyDocs'),
             ],
             'permissions' => [
                 'upload_documents'  => $this->allows('mobile_documents_upload'),

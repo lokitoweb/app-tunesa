@@ -20,6 +20,9 @@ final class NotificationPreferences
         'shifts'               => ['Turnos y horarios', 'Cuando te asignan o cambian el turno.', ['shift.']],
         'trainings'            => ['Capacitaciones', 'Cursos nuevos y los que están por vencer.', ['training.']],
         'documents'            => ['Legajo', 'Cuando revisan un documento de tu legajo.', ['document.']],
+        'company_documents'    => ['Documentos de la empresa', 'Políticas, reglamentos y otros documentos nuevos o por confirmar.', ['company_document.']],
+        'benefits'             => ['Beneficios', 'Descuentos, convenios y promociones nuevos para ti.', ['benefit.']],
+        'birthdays'            => ['Cumpleaños', 'Tu saludo de cumpleaños y los cumpleaños de tus compañeros.', ['birthday.']],
         'app_updates'          => ['Nuevas versiones de la app', 'Cuando hay una actualización disponible.', ['app.']],
         'reports'              => ['Reportes', 'Reportes mensuales listos para descargar.', ['report.']],
     ];
