@@ -19,6 +19,10 @@ import '../../team/presentation/team_providers.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../../training/presentation/training_home_card.dart';
 import '../../training/presentation/training_providers.dart';
+import '../../birthdays/presentation/birthday_home_card.dart';
+import '../../birthdays/presentation/birthday_providers.dart';
+import '../../company_docs/presentation/company_document_providers.dart';
+import 'quick_actions.dart';
 
 /// Inicio del colaborador: turno de hoy, estado de la jornada y botones de marcación.
 /// Para supervisores / RRHH agrega la sección "Mi equipo".
@@ -50,6 +54,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.invalidate(pendingApprovalsCountProvider);
     ref.invalidate(trainingsProvider);
     ref.invalidate(onboardingProvider);
+    ref.invalidate(upcomingBirthdaysProvider);
+    ref.invalidate(documentLibraryProvider);
   }
 
   @override
@@ -77,6 +83,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 16),
             if (canPunch) const _OnboardingBanner(),
             const TrainingHomeCard(),
+            const _PendingDocumentsCard(),
             if (user != null && user.hasTeamArea) ...[
               _TeamSection(canApprove: user.canApproveRequests, canViewTeam: user.canViewTeam),
               const SizedBox(height: 16),
@@ -96,6 +103,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            const BirthdayHomeCard(),
+            const QuickActions(),
           ],
         ),
       ),
@@ -200,6 +210,34 @@ class _TeamSection extends ConsumerWidget {
             onTap: () => context.push('/team'),
           ),
       ]),
+    );
+  }
+}
+
+/// Aviso de documentos de la empresa por leer y confirmar (RIT, políticas...).
+class _PendingDocumentsCard extends ConsumerWidget {
+  const _PendingDocumentsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(companyDocumentsEnabledProvider)) return const SizedBox.shrink();
+    final pending = ref.watch(documentLibraryProvider).value?.pendingAcknowledgement ?? 0;
+    if (pending == 0) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Card(
+        child: ListTile(
+          key: const Key('home-pending-documents'),
+          leading: CircleAvatar(backgroundColor: scheme.error.withValues(alpha: 0.12), foregroundColor: scheme.error, child: const Icon(Icons.task_alt_rounded)),
+          title: Text(pending == 1 ? 'Tienes 1 documento por confirmar' : 'Tienes $pending documentos por confirmar',
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: const Text('Léelos y marca "Leído y conforme".'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/company-documents?tab=pending'),
+        ),
+      ),
     );
   }
 }

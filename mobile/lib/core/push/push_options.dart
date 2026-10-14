@@ -82,6 +82,9 @@ String pushRouteFor(Map<String, dynamic> data) {
     'home' || 'app_update' => '/home',
     'profile' => '/profile',
     'trainings' || 'training' => '/trainings',
+    'benefits' || 'benefit' => '/benefits',
+    'birthdays' || 'birthday' => '/birthdays',
+    'company_documents' || 'company_document' => '/company-documents',
     'devices' => '/profile/devices',
     _ => null,
   };

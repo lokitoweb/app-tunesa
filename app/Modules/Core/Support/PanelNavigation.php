@@ -53,6 +53,11 @@ class PanelNavigation
                 ['Payroll', 'payslips.manage', 'payslips.index', [], 'file-earmark-text', 'Boletas de pago', $request->routeIs('payslips*')],
                 ['Training', 'training.manage', 'training.index', [], 'mortarboard', 'Capacitaciones', $request->routeIs('training.*'), null, true],
             ],
+            'Comunidad' => [
+                ['Benefits', 'benefits.manage', 'benefits.index', [], 'gift', 'Beneficios', $request->routeIs('benefits.*'), null, true],
+                ['Birthdays', 'birthdays.manage', 'birthdays.index', [], 'balloon-heart', 'Cumpleaños', $request->routeIs('birthdays.*'), null, true],
+                ['CompanyDocs', 'company_docs.manage', 'company-docs.index', [], 'folder2-open', 'Documentos de la empresa', $request->routeIs('company-docs.*'), null, true],
+            ],
             'Legajo y planilla' => [
                 ['HR', 'documents.review', 'documents.index', [], 'folder-check', 'Legajos digitales', $request->routeIs('documents*', 'employees.file*'), fn () => $hasTenant ? EmployeeDocument::where('status', 'pending')->count() : 0],
                 ['HR', 'uniforms.manage', 'uniforms.index', [], 'bag', 'Dotación y tallas', $request->routeIs('uniforms*')],

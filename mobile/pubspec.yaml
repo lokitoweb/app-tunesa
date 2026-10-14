@@ -35,6 +35,7 @@ dependencies:
   url_launcher: ^6.3.2
   sqflite_sqlcipher: ^3.4.1
   uuid: ^4.6.0
+  share_plus: ^13.3.1
 
 # connectivity_plus 7.3 (nm) exige dbus 0.8 y flutter_local_notifications_linux
 # declara ^0.7.8. dbus solo se usa en Linux de escritorio (no se compila).

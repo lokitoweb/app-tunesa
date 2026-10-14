@@ -13,7 +13,10 @@ import 'requests_screen.dart';
 
 /// Nueva solicitud: tipo, fechas, horas (permisos por horas), motivo y sustento.
 class NewRequestScreen extends ConsumerStatefulWidget {
-  const NewRequestScreen({super.key});
+  const NewRequestScreen({super.key, this.initialType});
+
+  /// Tipo preseleccionado (accesos directos de Inicio: "Pedir vacaciones").
+  final LeaveType? initialType;
 
   @override
   ConsumerState<NewRequestScreen> createState() => _NewRequestScreenState();
@@ -23,7 +26,7 @@ class _NewRequestScreenState extends ConsumerState<NewRequestScreen> {
   final _formKey = GlobalKey<FormState>();
   final _reason = TextEditingController();
 
-  LeaveType _type = LeaveType.vacation;
+  late LeaveType _type = widget.initialType ?? LeaveType.vacation;
   DateTimeRange? _range;
   bool _byHours = false;
   TimeOfDay? _startTime;

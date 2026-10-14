@@ -90,6 +90,21 @@ class ApiEndpoints {
   static String trainingQuiz(int course) => '/trainings/$course/quiz';
   static String trainingCertificate(int course) => '/trainings/$course/certificate';
 
+  // Beneficios
+  static const benefits = '/benefits';
+  static String benefit(int id) => '/benefits/$id';
+
+  // Cumpleaños
+  static const birthdays = '/birthdays';
+  static const birthdaysUpcoming = '/birthdays/upcoming';
+  static String birthday(int id) => '/birthdays/$id';
+
+  // Documentos de la empresa
+  static const companyDocuments = '/company-documents';
+  static String companyDocument(int id) => '/company-documents/$id';
+  static String companyDocumentFile(int id) => '/company-documents/$id/file';
+  static String companyDocumentAcknowledge(int id) => '/company-documents/$id/acknowledge';
+
   // Autoservicio: legajo, datos de pago y dotación
   static const employeeConfig = '/employee/config';
   static const employeeProfile = '/employee/profile';

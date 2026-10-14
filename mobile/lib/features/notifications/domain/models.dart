@@ -36,6 +36,9 @@ class AppNotification {
       'approval' || 'approvals' => '/approvals',
       'shift' || 'app' => '/home',
       'training' => '/trainings',
+      'benefit' => '/benefits',
+      'birthday' => '/birthdays',
+      'company_document' => '/company-documents',
       // onboarding.submitted es para RRHH (se revisa en el panel)
       'onboarding' => type == 'onboarding.submitted' ? null : '/onboarding',
       'security' => '/profile/devices',

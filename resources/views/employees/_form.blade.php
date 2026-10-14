@@ -67,6 +67,12 @@
                         <label for="phone" class="form-label">Teléfono / WhatsApp</label>
                         <input type="tel" id="phone" name="phone" value="{{ $val('phone') }}" class="form-control">
                     </div>
+                    <div class="col-md-4">
+                        <label for="birth_date" class="form-label">Fecha de nacimiento</label>
+                        <input type="date" id="birth_date" name="birth_date" value="{{ old('birth_date', isset($employee) ? $employee->birth_date?->format('Y-m-d') : '') }}" max="{{ now()->subDay()->format('Y-m-d') }}" class="form-control @error('birth_date') is-invalid @enderror" aria-describedby="birth_date_help">
+                        <div id="birth_date_help" class="form-text">Para el módulo de cumpleaños (en la app solo se muestran día y mes).</div>
+                        @error('birth_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
                 </div>
             </div>
         </div>

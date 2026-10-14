@@ -15,6 +15,9 @@ import 'profile_providers.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../../ethics/presentation/ethics_providers.dart';
 import '../../training/presentation/training_providers.dart';
+import '../../benefits/presentation/benefit_providers.dart';
+import '../../birthdays/presentation/birthday_providers.dart';
+import '../../company_docs/presentation/company_document_providers.dart';
 
 /// "Mi perfil": foto, avance de la ficha y acceso a Mis documentos,
 /// Información de pagos, Uniforme y tallas y Datos de contacto. Cada sección
@@ -117,6 +120,7 @@ class ProfileBody extends StatelessWidget {
           onTap: () => context.push('/overtime'),
         ),
         const _TrainingsTile(),
+        const _CommunityTiles(),
         const _EthicsTile(),
         const SizedBox(height: 10),
         const _GroupTitle('Cuenta y ajustes'),
@@ -226,6 +230,44 @@ class _TrainingsTile extends ConsumerWidget {
       done: list != null && list.isNotEmpty && pending == 0,
       onTap: () => context.push('/trainings'),
     );
+  }
+}
+
+/// Documentos de la empresa, beneficios y cumpleaños (según los módulos de la empresa).
+class _CommunityTiles extends ConsumerWidget {
+  const _CommunityTiles();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final docs = ref.watch(companyDocumentsEnabledProvider);
+    final pending = docs ? (ref.watch(documentLibraryProvider).value?.pendingAcknowledgement ?? 0) : 0;
+
+    return Column(children: [
+      if (docs)
+        _SectionTile(
+          key: const Key('section-company-documents'),
+          icon: Icons.folder_open_outlined,
+          title: 'Documentos de la empresa',
+          subtitle: pending > 0 ? '$pending por leer y confirmar' : 'Políticas, reglamentos y manuales',
+          onTap: () => context.push('/company-documents'),
+        ),
+      if (ref.watch(benefitsEnabledProvider))
+        _SectionTile(
+          key: const Key('section-benefits'),
+          icon: Icons.card_giftcard_outlined,
+          title: 'Beneficios',
+          subtitle: 'Descuentos, convenios y promociones',
+          onTap: () => context.push('/benefits'),
+        ),
+      if (ref.watch(birthdaysEnabledProvider))
+        _SectionTile(
+          key: const Key('section-birthdays'),
+          icon: Icons.cake_outlined,
+          title: 'Cumpleaños',
+          subtitle: 'Celebra a tus compañeros',
+          onTap: () => context.push('/birthdays'),
+        ),
+    ]);
   }
 }
 

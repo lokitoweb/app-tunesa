@@ -285,6 +285,9 @@ class ModulesConfig {
     this.uniforms = true,
     this.trainings = true,
     this.ethics = true,
+    this.benefits = true,
+    this.birthdays = true,
+    this.companyDocuments = true,
   });
 
   final bool payslips;
@@ -298,6 +301,15 @@ class ModulesConfig {
   /// Canal ético (módulo Ethics de la empresa).
   final bool ethics;
 
+  /// Beneficios para el personal (módulo Benefits).
+  final bool benefits;
+
+  /// Cumpleaños del personal (módulo Birthdays).
+  final bool birthdays;
+
+  /// Documentos de la empresa: políticas, reglamentos... (módulo CompanyDocs).
+  final bool companyDocuments;
+
   factory ModulesConfig.fromJson(Object? raw) {
     final json = _map(raw);
     return ModulesConfig(
@@ -307,11 +319,19 @@ class ModulesConfig {
       uniforms: _bool(json['uniforms'], true),
       trainings: _bool(json['trainings'], true),
       ethics: _bool(json['ethics'], true),
+      benefits: _bool(json['benefits'], true),
+      birthdays: _bool(json['birthdays'], true),
+      companyDocuments: _bool(json['company_documents'], true),
     );
   }
 
   Map<String, dynamic> toJson() =>
-      {'payslips': payslips, 'documents': documents, 'payment_info': paymentInfo, 'uniforms': uniforms, 'trainings': trainings, 'ethics': ethics};
+      {'payslips': payslips, 'documents': documents, 'payment_info': paymentInfo, 'uniforms': uniforms, 'trainings': trainings,
+        'ethics': ethics,
+        'benefits': benefits,
+        'birthdays': birthdays,
+        'company_documents': companyDocuments,
+      };
 }
 
 /// Páginas públicas que piden Google Play y App Store (`legal`).

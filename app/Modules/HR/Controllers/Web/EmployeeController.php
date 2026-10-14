@@ -114,6 +114,7 @@ class EmployeeController extends Controller
             'department'      => ['nullable', 'string', 'max:100'],
             'base_salary'     => ['nullable', 'numeric', 'min:0'],
             'hire_date'       => ['nullable', 'date'],
+            'birth_date'      => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             'branch_ids'      => ['required', 'array', 'min:1'],
             'branch_ids.*'    => ['integer', Rule::exists('branches', 'id')->where('tenant_id', $tenantId)],
             'primary_branch_id' => ['required', 'integer', 'in_array:branch_ids.*'],
@@ -150,6 +151,7 @@ class EmployeeController extends Controller
                 'department'      => $validated['department'] ?? null,
                 'base_salary'     => $validated['base_salary'] ?? 0,
                 'hire_date'       => $validated['hire_date'] ?? Carbon::today(),
+                'birth_date'      => $validated['birth_date'] ?? null,
                 'avatar_path'     => $avatarPath,
             ], $this->orgData($validated, $request)));
             // Contraseña temporal: vence en 72 h y se exige cambiarla en el primer ingreso
@@ -227,6 +229,7 @@ class EmployeeController extends Controller
             'department'      => ['nullable', 'string', 'max:100'],
             'base_salary'     => ['nullable', 'numeric', 'min:0'],
             'hire_date'       => ['nullable', 'date'],
+            'birth_date'      => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             'branch_ids'      => ['required', 'array', 'min:1'],
             'branch_ids.*'    => ['integer', Rule::exists('branches', 'id')->where('tenant_id', $tenantId)],
             'primary_branch_id' => ['required', 'integer', 'in_array:branch_ids.*'],
@@ -257,6 +260,7 @@ class EmployeeController extends Controller
                 'department'      => $validated['department'] ?? null,
                 'base_salary'     => $validated['base_salary'] ?? 0,
                 'hire_date'       => $validated['hire_date'] ?? $employee->hire_date,
+                'birth_date'      => $validated['birth_date'] ?? null,
             ], $this->orgData($validated, $request));
 
             if ($request->hasFile('avatar')) {
