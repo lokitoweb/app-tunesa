@@ -158,4 +158,15 @@ class BirthdaysTest extends TestCase
 
         $this->actingAs($admin)->get("/employees/{$emp->id}/edit")->assertOk()->assertSee('birth_date', false);
     }
+
+    public function test_super_admin_global_view_opens_every_new_panel_page(): void
+    {
+        $root = $this->makeUser(null, 'super_admin');
+        foreach (['/birthdays', '/benefits', '/benefits/categories', '/company-documents', '/company-documents/folders'] as $path) {
+            $this->actingAs($root)->get($path)->assertOk();
+        }
+        $this->get('/benefits/create')->assertRedirect('/benefits');
+        $this->get('/company-documents/create')->assertRedirect('/company-documents');
+        $this->get('/birthdays/export')->assertStatus(422);
+    }
 }

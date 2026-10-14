@@ -70,7 +70,7 @@ class BenefitWebController extends Controller
 
     public function create(): Response|RedirectResponse
     {
-        if (! current_tenant_id()) {
+        if (! current_tenant_id_or_null()) {
             return redirect()->route('benefits.index')->with('error', 'Elige una empresa en el selector para crear un beneficio.');
         }
         BenefitCategory::ensureDefaults();
@@ -85,7 +85,7 @@ class BenefitWebController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        abort_unless(current_tenant_id(), 422, 'Elige una empresa para crear el beneficio.');
+        abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa para crear el beneficio.');
         $benefit = $this->benefits->save(new Benefit(), $this->validated($request), $request->user(), $request->file('image'));
         $this->audit->logCreated('benefit.created', $benefit, ['title' => $benefit->title]);
 
@@ -144,7 +144,7 @@ class BenefitWebController extends Controller
 
     public function storeCategory(Request $request): RedirectResponse
     {
-        abort_unless(current_tenant_id(), 422, 'Elige una empresa.');
+        abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa.');
         $category = BenefitCategory::create($this->validatedCategory($request) + ['position' => (int) BenefitCategory::max('position') + 1]);
         $this->audit->logCreated('benefit_category.created', $category, ['name' => $category->name]);
 
@@ -210,7 +210,7 @@ class BenefitWebController extends Controller
             'title'        => ['required', 'string', 'max:150'],
             'summary'      => ['nullable', 'string', 'max:200'],
             'description'  => ['nullable', 'string', 'max:10000'],
-            'category_id'  => ['nullable', 'integer', Rule::exists('benefit_categories', 'id')->where('tenant_id', current_tenant_id())],
+            'category_id'  => ['nullable', 'integer', Rule::exists('benefit_categories', 'id')->where('tenant_id', current_tenant_id_or_null())],
             'partner'      => ['nullable', 'string', 'max:120'],
             'highlight'    => ['nullable', 'string', 'max:40'],
             'promo_code'   => ['nullable', 'string', 'max:60'],
@@ -231,7 +231,7 @@ class BenefitWebController extends Controller
             'valid_until.after_or_equal' => 'La fecha de fin debe ser igual o posterior a la de inicio.',
             'image.max'                  => 'La imagen no puede pesar más de 4 MB.',
         ]);
-        Audience::validateIds($data['targets'] ?? [], current_tenant_id());
+        Audience::validateIds($data['targets'] ?? [], current_tenant_id_or_null());
 
         return $data;
     }
@@ -239,7 +239,7 @@ class BenefitWebController extends Controller
     private function validatedCategory(Request $request, ?int $ignore = null): array
     {
         return $request->validate([
-            'name'  => ['required', 'string', 'max:80', Rule::unique('benefit_categories', 'name')->where('tenant_id', current_tenant_id())->ignore($ignore)],
+            'name'  => ['required', 'string', 'max:80', Rule::unique('benefit_categories', 'name')->where('tenant_id', current_tenant_id_or_null())->ignore($ignore)],
             'icon'  => ['required', Rule::in(array_keys(BenefitCategory::ICONS))],
             'color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'position' => ['nullable', 'integer', 'between:0,999'],

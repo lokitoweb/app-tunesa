@@ -38,7 +38,7 @@ class BenefitCategory extends Model
     /** Crea las categorías iniciales la primera vez que la empresa usa el módulo */
     public static function ensureDefaults(): void
     {
-        if (! current_tenant_id() || static::exists()) {
+        if (! current_tenant_id_or_null() || static::exists()) {
             return;
         }
         foreach (self::DEFAULTS as $i => [$name, $icon, $color]) {

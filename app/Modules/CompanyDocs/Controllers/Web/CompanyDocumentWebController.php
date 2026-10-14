@@ -68,7 +68,7 @@ class CompanyDocumentWebController extends Controller
 
     public function create(Request $request): Response|RedirectResponse
     {
-        if (! current_tenant_id()) {
+        if (! current_tenant_id_or_null()) {
             return redirect()->route('company-docs.index')->with('error', 'Elige una empresa en el selector para subir un documento.');
         }
         CompanyDocumentFolder::ensureDefaults();
@@ -83,7 +83,7 @@ class CompanyDocumentWebController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        abort_unless(current_tenant_id(), 422, 'Elige una empresa para subir el documento.');
+        abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa para subir el documento.');
         $document = $this->documents->save(new CompanyDocument(), $this->validated($request, true), $request->user(), $request->file('file'));
         $this->audit->logCreated('company_document.created', $document, ['title' => $document->title]);
 
@@ -230,7 +230,7 @@ class CompanyDocumentWebController extends Controller
 
     public function storeFolder(Request $request): RedirectResponse
     {
-        abort_unless(current_tenant_id(), 422, 'Elige una empresa.');
+        abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa.');
         $folder = CompanyDocumentFolder::create($this->validatedFolder($request) + ['position' => (int) CompanyDocumentFolder::max('position') + 1]);
         $this->audit->logCreated('company_document_folder.created', $folder, ['name' => $folder->name]);
 
@@ -288,7 +288,7 @@ class CompanyDocumentWebController extends Controller
             'title'          => ['required', 'string', 'max:200'],
             'description'    => ['nullable', 'string', 'max:5000'],
             'version'        => ['nullable', 'string', 'max:30'],
-            'folder_id'      => ['required', 'integer', Rule::exists('company_document_folders', 'id')->where('tenant_id', current_tenant_id())],
+            'folder_id'      => ['required', 'integer', Rule::exists('company_document_folders', 'id')->where('tenant_id', current_tenant_id_or_null())],
             'file'           => [$creating ? 'required' : 'nullable', 'file', 'mimes:pdf', 'extensions:pdf', 'max:20480'],
             'requires_acknowledgement' => ['boolean'],
             'acknowledge_by' => ['nullable', 'date', 'after_or_equal:today'],
@@ -301,7 +301,7 @@ class CompanyDocumentWebController extends Controller
             'folder_id.required' => 'Elige una carpeta.',
             'acknowledge_by.after_or_equal' => 'La fecha límite no puede ser anterior a hoy.',
         ]);
-        Audience::validateIds($data['targets'] ?? [], current_tenant_id());
+        Audience::validateIds($data['targets'] ?? [], current_tenant_id_or_null());
 
         return $data;
     }
@@ -309,7 +309,7 @@ class CompanyDocumentWebController extends Controller
     private function validatedFolder(Request $request, ?int $ignore = null): array
     {
         return $request->validate([
-            'name'        => ['required', 'string', 'max:100', Rule::unique('company_document_folders', 'name')->where('tenant_id', current_tenant_id())->ignore($ignore)],
+            'name'        => ['required', 'string', 'max:100', Rule::unique('company_document_folders', 'name')->where('tenant_id', current_tenant_id_or_null())->ignore($ignore)],
             'description' => ['nullable', 'string', 'max:255'],
             'icon'        => ['required', Rule::in(array_keys(CompanyDocumentFolder::ICONS))],
             'color'       => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
