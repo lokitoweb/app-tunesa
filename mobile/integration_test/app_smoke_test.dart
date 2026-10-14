@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:tunesa_mobile/core/widgets/async_views.dart';
+import 'package:tunesa_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:tunesa_mobile/main.dart' as app;
 
 /// Bombea cuadros hasta que [finder] aparece (las pantallas cargan por red y
@@ -79,14 +80,15 @@ void main() {
     // --- Colaborador ---------------------------------------------------------
     await login(tester, 'ana.torres@empresa-demo.com', 'Employee2024!');
 
-    await tester.tap(find.byTooltip('Notificaciones').first);
+    // La campana dice "Notificaciones (N sin leer)" si hay avisos pendientes
+    await tester.tap(find.byType(NotificationBell).first);
     await waitFor(tester, find.widgetWithText(AppBar, 'Notificaciones'));
     await settleScreen(tester, 'Notificaciones (bandeja)');
     await tester.pageBack();
     await tester.pump(const Duration(milliseconds: 600));
 
     await tapText(tester, 'Asistencia');
-    await waitFor(tester, find.widgetWithText(AppBar, 'Mi asistencia'));
+    await waitFor(tester, find.widgetWithText(AppBar, 'Mis asistencias'));
     await settleScreen(tester, 'Mi asistencia');
 
     await tapText(tester, 'Solicitudes');
