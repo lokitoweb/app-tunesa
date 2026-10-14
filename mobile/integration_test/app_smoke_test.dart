@@ -43,12 +43,20 @@ Future<void> tapText(WidgetTester tester, String text) async {
   await tester.tap(finder);
 }
 
+/// Vuelve a la pantalla anterior, como el botón atrás de la barra. No usa
+/// tester.pageBack(): busca un BackButton por tipo y la barra de Flutter
+/// reciente no siempre lo usa.
+Future<void> goBack(WidgetTester tester) async {
+  await Navigator.of(tester.element(find.byType(AppBar).last)).maybePop();
+  await tester.pump();
+}
+
 /// Abre una pantalla desde la actual, la revisa y vuelve atrás.
 Future<void> visit(WidgetTester tester, String tile, String title) async {
   await tapText(tester, tile);
   await waitFor(tester, find.widgetWithText(AppBar, title));
   await settleScreen(tester, title);
-  await tester.pageBack();
+  await goBack(tester);
   await tester.pump(const Duration(milliseconds: 600));
 }
 
@@ -84,7 +92,7 @@ void main() {
     await tester.tap(find.byType(NotificationBell).first);
     await waitFor(tester, find.widgetWithText(AppBar, 'Notificaciones'));
     await settleScreen(tester, 'Notificaciones (bandeja)');
-    await tester.pageBack();
+    await goBack(tester);
     await tester.pump(const Duration(milliseconds: 600));
 
     await tapText(tester, 'Asistencia');
