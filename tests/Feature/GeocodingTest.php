@@ -203,4 +203,19 @@ class GeocodingTest extends TestCase
         (new ReverseGeocodePunch(999_999))->handle(app(GeocodingService::class));
         $this->assertTrue(true);
     }
+
+    public function test_reverse_addresses_are_short_and_skip_plus_codes(): void
+    {
+        $this->assertSame('Av. Javier Prado Este 2578, San Isidro, Lima', \App\Modules\Integrations\Services\Geocoding\NominatimGeocoder::compact([
+            'road' => 'Av. Javier Prado Este', 'house_number' => '2578', 'suburb' => 'San Isidro', 'city' => 'Lima',
+            'state' => 'Lima', 'postcode' => '15036', 'country' => 'Perú',
+        ]));
+        $this->assertNull(\App\Modules\Integrations\Services\Geocoding\NominatimGeocoder::compact(['country' => 'Perú']));
+
+        \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response(['status' => 'OK', 'results' => [
+            ['formatted_address' => '8Q7X+2C Lima', 'types' => ['plus_code']],
+            ['formatted_address' => 'Av. Arequipa 1200, Lince 15046, Perú', 'types' => ['street_address']],
+        ]])]);
+        $this->assertSame('Av. Arequipa 1200, Lince 15046, Perú', (new \App\Modules\Integrations\Services\Geocoding\GoogleGeocoder('k'))->reverse(-12.08, -77.03));
+    }
 }

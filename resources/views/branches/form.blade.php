@@ -146,7 +146,7 @@
                                     <span class="input-group-text">m</span>
                                 </div>
                                 @error('max_gps_accuracy_meters')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                                <div class="form-text">Lecturas menos precisas se rechazan. Sube el valor en sedes techadas.</div>
+                                <div class="form-text">Lecturas menos precisas se aceptan solo si todo su margen de error queda dentro del radio; si no, se rechazan. En sedes techadas sube este valor o el radio.</div>
                             </div>
                             <div class="col-12">
                                 <label for="policyInput" class="form-label">Fuera del radio</label>

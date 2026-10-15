@@ -276,7 +276,7 @@
                                     <input type="number" id="max_gps_accuracy_meters" name="max_gps_accuracy_meters" min="10" max="1000" value="{{ $val('max_gps_accuracy_meters') }}" placeholder="{{ $inherited->maxGpsAccuracy() }}" class="form-control @error('max_gps_accuracy_meters') is-invalid @enderror">
                                     <span class="input-group-text">m</span>
                                 </div>
-                                <div class="form-text">Si el GPS del celular tiene un error mayor, la marcación se rechaza.</div>
+                                <div class="form-text">Si el error del GPS es mayor, la marcación se acepta solo cuando todo el margen de error cae dentro de la geocerca (es seguro que está en la sede); si no, se rechaza. Decisión automática, sin revisión manual. Ej.: con radio de 300 m, una lectura de ±78 m a 150 m del centro se acepta.</div>
                             </li>
                         </ul>
                     </div>

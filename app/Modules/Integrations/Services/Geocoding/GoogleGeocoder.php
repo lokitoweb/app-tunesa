@@ -33,7 +33,9 @@ class GoogleGeocoder implements Geocoder
     public function reverse(float $lat, float $lng): ?string
     {
         $results = $this->get(['latlng' => sprintf('%.7F,%.7F', $lat, $lng)]);
-        $address = trim((string) ($results[0]['formatted_address'] ?? ''));
+        // La más precisa que no sea un "plus code" (p. ej. "8Q7X+2C Lima")
+        $best = collect($results)->first(fn ($r) => ! in_array('plus_code', (array) ($r['types'] ?? []), true)) ?? ($results[0] ?? []);
+        $address = trim((string) ($best['formatted_address'] ?? ''));
 
         return $address !== '' ? $address : null;
     }
