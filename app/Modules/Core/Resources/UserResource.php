@@ -43,14 +43,15 @@ class UserResource extends JsonResource
                 'currency'     => $this->tenant?->currency,
             ]),
 
-            // Permisos derivados del rol
+            // Permisos de su rol (matriz de RolesAndPermissionsSeeder)
             'permissions'    => [
-                'can_view_dashboard'    => in_array($this->role, ['company_admin', 'hr_manager', 'supervisor']),
-                'can_manage_employees'  => in_array($this->role, ['company_admin', 'hr_manager']),
-                'can_manage_shifts'     => in_array($this->role, ['company_admin', 'hr_manager']),
-                'can_upload_payslips'   => in_array($this->role, ['company_admin', 'hr_manager']),
-                'can_approve_requests'  => in_array($this->role, ['company_admin', 'hr_manager', 'supervisor']),
+                'can_view_dashboard'    => $this->resource->hasPermission('dashboard.view'),
+                'can_manage_employees'  => $this->resource->hasPermission('users.manage'),
+                'can_manage_shifts'     => $this->resource->hasPermission('shifts.manage'),
+                'can_upload_payslips'   => $this->resource->hasPermission('payslips.manage'),
+                'can_approve_requests'  => $this->resource->hasPermission('leave.approve_team') || $this->resource->hasPermission('leave.approve_all'),
                 'can_view_all_tenants'  => $this->role === 'super_admin',
+                'attendance.view_team'  => $this->resource->hasPermission('attendance.view_team'),
             ],
         ];
     }

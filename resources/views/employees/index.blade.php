@@ -47,7 +47,7 @@
                 <label for="role" class="form-label small">Rol</label>
                 <select id="role" name="role" class="form-select">
                     <option value="">Todos</option>
-                    @foreach(['employee', 'supervisor', 'hr_manager', 'company_admin'] as $r)
+                    @foreach(['employee', 'supervisor', 'accountant', 'hr_manager', 'manager', 'company_admin'] as $r)
                         <option value="{{ $r }}" @selected(request('role') == $r)>{{ $roleLabels[$r] }}</option>
                     @endforeach
                 </select>

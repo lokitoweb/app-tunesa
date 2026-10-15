@@ -97,7 +97,7 @@ class AppUser {
 
   /// Roles que ven el área de equipo según RolesAndPermissionsSeeder
   /// (respaldo para sesiones guardadas antes de leer los permisos).
-  static const _managerRoles = {'supervisor', 'hr_manager', 'company_admin'};
+  static const _managerRoles = {'supervisor', 'hr_manager', 'manager', 'company_admin'};
 
   bool? _flag(List<String> keys) {
     bool? result;

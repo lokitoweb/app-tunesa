@@ -640,6 +640,8 @@ final class Labels
             'super_admin'   => ['Super Admin', 'dark'],
             'company_admin' => ['Administrador', 'primary'],
             'hr_manager'    => ['RRHH', 'info'],
+            'manager'       => ['Gerencia', 'primary'],
+            'accountant'    => ['Contabilidad', 'info'],
             'supervisor'    => ['Supervisor', 'secondary'],
             'employee'      => ['Colaborador', 'light'],
         ],
