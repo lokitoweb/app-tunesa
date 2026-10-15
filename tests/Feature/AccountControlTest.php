@@ -39,7 +39,7 @@ class AccountControlTest extends TestCase
         return $user->notifications()->get()->pluck('data.type')->filter(fn ($t) => str_starts_with($t, 'security.'))->values()->all();
     }
 
-    public function test_login_from_a_new_device_warns_the_user_but_not_the_first_or_same_device(): void
+    public function test_logins_never_fill_the_inbox_with_alerts(): void
     {
         $acme = $this->makeTenant('acme');
         $ana  = $this->makeUser($acme, 'employee', ['email' => 'ana@acme.pe']);
@@ -49,13 +49,11 @@ class AccountControlTest extends TestCase
         $this->login('Pixel 8')->assertOk();   // mismo equipo: tampoco
         $this->assertSame([], $this->securityAlerts($ana));
 
+        // Otro teléfono o reinstalar la app: tampoco (las sesiones se ven en Mis dispositivos)
         $this->login('iPhone de alguien')->assertOk();
-        $this->assertSame(['security.new_device'], $this->securityAlerts($ana));
-        $this->assertStringContainsString('iPhone de alguien', $ana->notifications()->first()->data['body']);
-
-        // La app manda app_<plataforma>_<instalación>: el aviso lo nombra legible
         $this->login('app_android_9f2c')->assertOk();
-        $this->assertSame(1, $ana->notifications()->get()->filter(fn ($n) => str_contains($n->data['body'], 'Teléfono Android'))->count());
+        $this->assertSame(0, $ana->notifications()->count());
+        $this->assertSame('Teléfono Android', \App\Modules\Core\Controllers\Api\AuthController::deviceLabel('app_android_9f2c'));
     }
 
     public function test_password_change_from_the_app_follows_the_company_setting(): void
