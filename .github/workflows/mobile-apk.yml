@@ -120,6 +120,15 @@ jobs:
           path: |
             mobile/build/dist/*.apk
             mobile/build/dist/*.aab
+            !mobile/build/dist/*-arm64.apk
+          retention-days: 14
+
+      # Descarga liviana para probar en el celular (arm64, la mayoría de Android)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tunesa-apk-${{ env.ENV_NAME }}-${{ env.BUILD_MODE }}-arm64-liviano
+          path: mobile/build/dist/*-arm64.apk
+          compression-level: 0
           retention-days: 14
 
       # Símbolos del código ofuscado: sin ellos las trazas de errores son ilegibles

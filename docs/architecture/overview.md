@@ -86,14 +86,18 @@ administra empresas en `/api/superadmin/tenants` (crear, editar, suspender, acti
 
 ## Roles y permisos
 
-Roles (`users.role`): `super_admin`, `company_admin`, `hr_manager`, `supervisor`, `employee`.
-La matriz está en `database/seeders/RolesAndPermissionsSeeder.php`:
+Roles (`users.role`): `super_admin`, `company_admin`, `hr_manager`, `manager` (Gerencia),
+`accountant` (Contabilidad), `supervisor`, `employee`. La matriz está en
+`database/seeders/RolesAndPermissionsSeeder.php` y el detalle por pantalla en
+[roles-and-permissions.md](roles-and-permissions.md):
 
 | Rol | Permisos |
 |---|---|
 | Super Admin | todos (`*`) |
 | Administrador de empresa | todos menos `tenants.manage` |
 | RRHH | todos menos `tenants.manage`, `tenants.branding`, `company.configure`, `audit.view` |
+| Gerencia | solo lectura de toda la empresa (colaboradores, sedes, turnos, asistencia), dashboard, reportes y exportación; aprueba solicitudes |
+| Contabilidad | boletas (`payslips.manage`), cruce con planilla (`payroll.export`), asistencia de toda la empresa, dashboard y reportes |
 | Supervisor | ver colaboradores/sucursales/turnos, marcar, ver asistencia propia y de su equipo, dashboard, reportes, pedir y aprobar solicitudes de su equipo, ver sus boletas, su legajo |
 | Colaborador | ver sus turnos, marcar, ver su asistencia, pedir solicitudes, ver sus boletas, su legajo |
 
