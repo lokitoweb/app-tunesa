@@ -79,6 +79,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'birthdays.manage'        => ['Ver el calendario de cumpleaños en el panel', 'birthdays'],
         'company_docs.view_own'   => ['Leer los documentos de la empresa en la app', 'company_docs'],
         'company_docs.manage'     => ['Subir documentos de la empresa y ver quién los leyó', 'company_docs'],
+        'announcements.view_own'  => ['Recibir y leer los comunicados de RR. HH. en la app', 'announcements'],
+        'announcements.manage'    => ['Enviar comunicados (toda la empresa, sede, área o persona)', 'announcements'],
 
         // Incorporación (onboarding)
         'onboarding.review'       => ['Revisar y aprobar la incorporación de colaboradores', 'onboarding'],
@@ -115,7 +117,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'dashboard.view', 'reports.view',
                 'leave.request', 'leave.approve_team',
                 'payslips.view_own', 'profile.manage_own', 'training.view_own',
-                'benefits.view_own', 'birthdays.view', 'company_docs.view_own',
+                'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],
         ],
         Role::EMPLOYEE => [
@@ -124,7 +126,7 @@ class RolesAndPermissionsSeeder extends Seeder
             [
                 'shifts.view_own', 'attendance.mark', 'attendance.view_own',
                 'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
-                'benefits.view_own', 'birthdays.view', 'company_docs.view_own',
+                'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],
         ],
     ];

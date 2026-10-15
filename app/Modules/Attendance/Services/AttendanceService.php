@@ -514,19 +514,32 @@ class AttendanceService
 
     /**
      * Precisión GPS máxima de la sede de la marcación (o de la empresa si la
-     * sede no define la suya): una lectura menos precisa se rechaza.
+     * sede no define la suya). Decisión automática, sin revisión manual:
+     *  - precisión dentro del máximo → sigue;
+     *  - precisión peor, pero todo el círculo de error (distancia + precisión)
+     *    cae dentro del radio de la sede → es seguro que está en la sede: sigue;
+     *  - si no → se rechaza (GPS_ACCURACY_TOO_LOW).
      */
     private function enforceAccuracy(PunchData $data, TenantSetting $settings, ?Branch $branch): void
     {
         $maxAccuracy = $branch ? $branch->maxGpsAccuracy($settings) : $settings->maxGpsAccuracy();
-        if ($maxAccuracy > 0 && $data->accuracyMeters !== null && $data->accuracyMeters > $maxAccuracy) {
-            $shown = rtrim(rtrim(number_format($data->accuracyMeters, 2, '.', ''), '0'), '.');
-
-            throw new AttendanceException(
-                "La precisión del GPS es baja ({$shown} m). Sal a un lugar despejado e intenta de nuevo.",
-                'GPS_ACCURACY_TOO_LOW',
-            );
+        if ($maxAccuracy <= 0 || $data->accuracyMeters === null || $data->accuracyMeters <= $maxAccuracy) {
+            return;
         }
+
+        if ($branch && $branch->latitude !== null && $branch->longitude !== null) {
+            $distance = $this->geofence->calculateDistance($data->latitude, $data->longitude, (float) $branch->latitude, (float) $branch->longitude);
+            if ($distance + $data->accuracyMeters <= (float) $branch->allowed_radius_meters) {
+                return;
+            }
+        }
+
+        $shown = rtrim(rtrim(number_format($data->accuracyMeters, 2, '.', ''), '0'), '.');
+
+        throw new AttendanceException(
+            "La precisión del GPS es baja ({$shown} m). Sal a un lugar despejado e intenta de nuevo.",
+            'GPS_ACCURACY_TOO_LOW',
+        );
     }
 
     /**

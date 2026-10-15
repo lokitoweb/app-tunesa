@@ -88,4 +88,21 @@ void main() {
       expect(effectiveMaxAccuracy(null, const []), isNull);
     });
   });
+
+  group('GPS impreciso: sí solo si todo el círculo de error cae en la sede', () {
+    const site = (lat: -12.09418, lng: -77.03560, radius: 300.0);
+
+    test('en el centro con ±78 m dentro de 300 m: confirmado', () {
+      expect(LocationService.confirmedInside(_pos(78), const [site]), isTrue);
+    });
+
+    test('cerca del borde con ±78 m: no se confirma', () {
+      // ~250 m al norte: 250 + 78 > 300
+      expect(LocationService.confirmedInside(_pos(78, lat: -12.09193), const [site]), isFalse);
+    });
+
+    test('sin sedes no se confirma nada', () {
+      expect(LocationService.confirmedInside(_pos(5), const []), isFalse);
+    });
+  });
 }

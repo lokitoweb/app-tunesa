@@ -100,25 +100,31 @@ class LocationIntegrityChannel {
 ///    precisa y corta antes si una baja de [goodEnoughMeters].
 /// 4. Ubicaciones simuladas (mock GPS / apps de GPS falso) según la política
 ///    de la empresa: `reject` las bloquea, `flag` las deja pasar marcadas.
-/// 5. Rechaza lecturas con precisión peor que `max_gps_accuracy_meters` de
-///    la configuración de la empresa (respaldo: [Env.maxGpsAccuracyMeters]).
+/// 5. Precisión peor que `max_gps_accuracy_meters` (respaldo:
+///    [Env.maxGpsAccuracyMeters]): se acepta solo si todo el círculo de error
+///    cae dentro de alguna de [sites] (es seguro que está en la sede); si no,
+///    se rechaza. Decisión automática: sí o no, igual que el backend.
 ///
 /// El backend vuelve a validar mock, precisión y geocerca (Haversine).
+/// Centro y radio de una sede (para confirmar la ubicación con GPS impreciso).
+typedef GeoSite = ({double lat, double lng, double radius});
+
 class LocationService {
   LocationService({this._integrity = const LocationIntegrityChannel()});
 
   static const double _earthRadiusMeters = 6371000;
 
   /// Lecturas por marcación, ventana para tomarlas y precisión que ya basta.
-  static const int maxSamples = 3;
-  static const Duration sampleWindow = Duration(seconds: 8);
-  static const double goodEnoughMeters = 10;
+  static const int maxSamples = 6;
+  static const Duration sampleWindow = Duration(seconds: 20);
+  static const double goodEnoughMeters = 15;
 
   final LocationIntegrityChannel _integrity;
 
   Future<LocationFix> getVerifiedFix({
     int? maxAccuracyMeters,
     MockLocationPolicy mockPolicy = MockLocationPolicy.reject,
+    List<GeoSite> sites = const [],
   }) async {
     final maxAccuracy = maxAccuracyMeters ?? Env.maxGpsAccuracyMeters;
     if (!await Geolocator.isLocationServiceEnabled()) {
@@ -148,7 +154,7 @@ class LocationService {
     final List<Position> samples;
     final simulated = _integrity.isSimulated();
     try {
-      samples = await _sample();
+      samples = await _sample(maxAccuracy: maxAccuracy, sites: sites);
     } on Exception catch (e) {
       if (e is LocationServiceDisabledException) {
         throw const LocationException(LocationFailure.serviceDisabled, 'El GPS se desactivó durante la lectura.');
@@ -172,7 +178,7 @@ class LocationService {
       );
     }
 
-    if (position.accuracy > maxAccuracy) {
+    if (position.accuracy > maxAccuracy && !confirmedInside(position, sites)) {
       throw LocationException(
         LocationFailure.lowAccuracy,
         'La señal GPS es imprecisa (±${position.accuracy.round()} m). Acércate a una ventana o sal al exterior y reintenta.',
@@ -191,10 +197,17 @@ class LocationService {
   /// La primera lectura espera hasta [Env.gpsTimeout] (si falla, falla la
   /// marcación); las siguientes solo lo que quede de [sampleWindow] y su
   /// error se ignora: ya hay una lectura válida.
-  Future<List<Position>> _sample() async {
+  /// Sigue leyendo mientras la mejor lectura no sea aceptable (precisión
+  /// dentro del máximo o círculo de error dentro de la sede).
+  Future<List<Position>> _sample({required int maxAccuracy, required List<GeoSite> sites}) async {
     final samples = [await Geolocator.getCurrentPosition(locationSettings: _settings(Env.gpsTimeout))];
     final deadline = DateTime.now().add(sampleWindow);
-    while (samples.length < maxSamples && bestSample(samples).accuracy > goodEnoughMeters) {
+    bool settled() {
+      final best = bestSample(samples);
+      return best.accuracy <= goodEnoughMeters || (best.accuracy <= maxAccuracy && samples.length >= 2) || confirmedInside(best, sites);
+    }
+
+    while (samples.length < maxSamples && !settled()) {
       final left = deadline.difference(DateTime.now());
       if (left <= Duration.zero) break;
       try {
@@ -206,6 +219,11 @@ class LocationService {
     return samples;
   }
 
+  /// ¿Todo el círculo de error de la lectura cae dentro de alguna sede?
+  /// (distancia al centro + precisión ≤ radio). Misma regla que el backend.
+  static bool confirmedInside(Position p, List<GeoSite> sites) =>
+      sites.any((s) => haversineMeters(p.latitude, p.longitude, s.lat, s.lng) + p.accuracy <= s.radius);
+
   /// La lectura más precisa (menor `accuracy`); ante empate, la más reciente.
   @visibleForTesting
   static Position bestSample(List<Position> samples) =>
@@ -213,10 +231,11 @@ class LocationService {
 
   LocationSettings _settings(Duration timeLimit) {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return AndroidSettings(accuracy: LocationAccuracy.best, timeLimit: timeLimit);
+      // bestForNavigation: GPS + Wi-Fi + redes (fused) con la máxima prioridad
+      return AndroidSettings(accuracy: LocationAccuracy.bestForNavigation, timeLimit: timeLimit);
     }
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      return AppleSettings(accuracy: LocationAccuracy.best, timeLimit: timeLimit);
+      return AppleSettings(accuracy: LocationAccuracy.bestForNavigation, timeLimit: timeLimit);
     }
     return LocationSettings(accuracy: LocationAccuracy.best, timeLimit: timeLimit);
   }

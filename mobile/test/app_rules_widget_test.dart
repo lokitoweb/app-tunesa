@@ -36,6 +36,7 @@ class _NoGps extends LocationService {
   Future<LocationFix> getVerifiedFix({
     int? maxAccuracyMeters,
     MockLocationPolicy mockPolicy = MockLocationPolicy.reject,
+    List<GeoSite> sites = const [],
   }) async => throw const LocationException(LocationFailure.timeout, 'Sin GPS en pruebas');
 }
 
@@ -47,6 +48,7 @@ class _CountingGps extends LocationService {
   Future<LocationFix> getVerifiedFix({
     int? maxAccuracyMeters,
     MockLocationPolicy mockPolicy = MockLocationPolicy.reject,
+    List<GeoSite> sites = const [],
   }) async {
     calls++;
     throw const LocationException(LocationFailure.timeout, 'Sin GPS en pruebas');
@@ -64,6 +66,7 @@ class _FixedGps extends LocationService {
   Future<LocationFix> getVerifiedFix({
     int? maxAccuracyMeters,
     MockLocationPolicy mockPolicy = MockLocationPolicy.reject,
+    List<GeoSite> sites = const [],
   }) async => LocationFix(
     Position(
       latitude: lat,

@@ -399,7 +399,7 @@ class WhiteLabelSettingsTest extends TestCase
         $emp  = $this->employeeWithBranch($acme);
         $this->setRow($acme, ['max_gps_accuracy_meters' => 30, 'face_detection_required' => true]);
 
-        $this->actingIn($emp, $acme)->post('/api/attendance/clock-in', $this->clockPayload(['accuracy_meters' => 50]))
+        $this->actingIn($emp, $acme)->post('/api/attendance/clock-in', $this->clockPayload(['accuracy_meters' => 150]) /* círculo de error mayor que la geocerca */)
             ->assertStatus(422)->assertJsonPath('code', 'GPS_ACCURACY_TOO_LOW');
         $this->actingIn($emp, $acme)->post('/api/attendance/clock-in', $this->clockPayload(['face_detected' => 0]))
             ->assertStatus(422)->assertJsonPath('code', 'FACE_NOT_DETECTED');

@@ -100,6 +100,24 @@ class GeofenceToleranceTest extends TestCase
         $this->clockIn(['accuracy_meters' => 120])->assertCreated();
     }
 
+    public function test_imprecise_gps_is_accepted_only_when_the_whole_error_circle_is_inside(): void
+    {
+        // Sede grande (300 m) con máximo de precisión 50 m; lectura ±78 m
+        $this->branch->update(['allowed_radius_meters' => 300, 'max_gps_accuracy_meters' => 50]);
+
+        // En el centro: 0 + 78 ≤ 300 → es seguro que está en la sede: sí
+        $this->clockIn(['accuracy_meters' => 78])->assertCreated()->assertJsonPath('punch.suspicious', false);
+    }
+
+    public function test_imprecise_gps_near_the_border_is_rejected(): void
+    {
+        $this->branch->update(['allowed_radius_meters' => 300, 'max_gps_accuracy_meters' => 50]);
+
+        // ~250 m del centro: 250 + 78 > 300 → podría estar fuera: no
+        $this->clockIn(['latitude' => -12.09193, 'accuracy_meters' => 78])
+            ->assertStatus(422)->assertJsonPath('code', 'GPS_ACCURACY_TOO_LOW');
+    }
+
     public function test_impossible_travel_is_flagged(): void
     {
         $this->emp->update(['roaming_attendance_enabled' => true]);

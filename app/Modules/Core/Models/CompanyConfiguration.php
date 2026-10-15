@@ -124,6 +124,7 @@ class CompanyConfiguration extends Model
                 'requests'     => \App\Modules\ModuleRegistry::enabledFor($tenant, 'HR'),
                 'birthdays'    => \App\Modules\ModuleRegistry::enabledFor($tenant, 'Birthdays'),
                 'company_documents' => \App\Modules\ModuleRegistry::enabledFor($tenant, 'CompanyDocs'),
+                'announcements' => \App\Modules\ModuleRegistry::enabledFor($tenant, 'Announcements'),
             ],
             'permissions' => [
                 'upload_documents'  => $this->allows('mobile_documents_upload'),

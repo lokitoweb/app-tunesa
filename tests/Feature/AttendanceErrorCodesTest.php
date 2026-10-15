@@ -131,7 +131,7 @@ class AttendanceErrorCodesTest extends TestCase
         // Mismos controles que la entrada: GPS simulado y precisión de Marca y app
         $this->actingIn($emp, $tokyo)->postJson('/api/attendance/break-start', $this->gps(['is_mocked' => true]))
             ->assertStatus(422)->assertJsonPath('code', 'MOCK_LOCATION_DETECTED');
-        $this->actingIn($emp, $tokyo)->postJson('/api/attendance/break-start', $this->gps(['accuracy_meters' => 80]))
+        $this->actingIn($emp, $tokyo)->postJson('/api/attendance/break-start', $this->gps(['accuracy_meters' => 150]) /* círculo de error mayor que la geocerca */)
             ->assertStatus(422)->assertJsonPath('code', 'GPS_ACCURACY_TOO_LOW');
 
         $this->travel(2)->hours(); // 12:00 Tokio

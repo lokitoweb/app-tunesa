@@ -121,6 +121,9 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
           .getVerifiedFix(
             maxAccuracyMeters: effectiveMaxAccuracy(_mobile.maxGpsAccuracyMeters, ref.read(myBranchesProvider).value ?? const []),
             mockPolicy: _mobile.mockLocationPolicy,
+            sites: [
+              for (final b in ref.read(myBranchesProvider).value ?? const <BranchGeofence>[]) (lat: b.lat, lng: b.lng, radius: b.radius),
+            ],
           );
       return (fix, null);
     } on LocationException catch (e) {
