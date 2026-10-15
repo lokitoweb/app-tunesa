@@ -82,6 +82,7 @@ String pushRouteFor(Map<String, dynamic> data) {
     'home' || 'app_update' => '/home',
     'profile' => '/profile',
     'trainings' || 'training' => '/trainings',
+    'announcements' || 'announcement' => _announcementRoute(data),
     'benefits' || 'benefit' => '/benefits',
     'birthdays' || 'birthday' => '/birthdays',
     'company_documents' || 'company_document' => '/company-documents',
@@ -110,3 +111,9 @@ PushPermission pushPermissionFrom(AuthorizationStatus status) => switch (status)
       AuthorizationStatus.denied || AuthorizationStatus.deniedPermanently => PushPermission.denied,
       AuthorizationStatus.notDetermined => PushPermission.notDetermined,
     };
+
+/// Con id, directo al comunicado; si no, a la lista.
+String _announcementRoute(Map<String, dynamic> data) {
+  final id = int.tryParse(data['announcement_id']?.toString() ?? '');
+  return id == null ? '/announcements' : '/announcements/$id';
+}

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_views.dart';
+import '../../announcements/presentation/announcement_home_card.dart';
+import '../../announcements/presentation/announcement_providers.dart';
 import '../../attendance/domain/models.dart';
 import '../../attendance/presentation/attendance_providers.dart';
 import '../../attendance/presentation/offline_sync.dart';
@@ -55,6 +57,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.invalidate(onboardingProvider);
     ref.invalidate(upcomingBirthdaysProvider);
     ref.invalidate(documentLibraryProvider);
+    ref.invalidate(announcementFeedProvider);
   }
 
   @override
@@ -80,6 +83,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             HomeGreeting(name: auth.user?.firstName ?? '', initials: auth.user?.initials ?? '?', avatarUrl: auth.user?.avatarUrl),
             const SizedBox(height: 16),
+            const AnnouncementHomeCard(),
             const TrainingHomeCard(),
             const _PendingDocumentsCard(),
             if (user != null && user.hasTeamArea) ...[

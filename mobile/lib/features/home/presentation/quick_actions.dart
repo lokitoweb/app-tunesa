@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config_controller.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../announcements/presentation/announcement_providers.dart';
 import '../../benefits/presentation/benefit_providers.dart';
 import '../../company_docs/presentation/company_document_providers.dart';
 
@@ -18,10 +19,13 @@ class QuickActions extends ConsumerWidget {
     final docsOn = ref.watch(companyDocumentsEnabledProvider);
     final pendingDocs = docsOn ? (ref.watch(documentLibraryProvider).value?.pendingAcknowledgement ?? 0) : 0;
     final requestsOn = ref.watch(appConfigProvider.select((s) => s.config.modules.requests));
+    final newsOn = ref.watch(announcementsEnabledProvider);
+    final unreadNews = newsOn ? (ref.watch(announcementFeedProvider).value?.unread ?? 0) : 0;
 
     final actions = <_Action>[
       if (requestsOn) const _Action('Pedir', 'Vacaciones', Icons.beach_access_rounded, AppTheme.success, '/requests/new?type=vacation'),
       _Action('Mis', 'Horas extra', Icons.more_time_rounded, scheme.primary, '/overtime'),
+      if (newsOn) _Action('Ver', 'Comunicados', Icons.campaign_rounded, const Color(0xFFF59E0B), '/announcements', badge: unreadNews),
       if (ref.watch(benefitsEnabledProvider)) const _Action('Mis', 'Beneficios', Icons.card_giftcard_rounded, Color(0xFF0EA5A4), '/benefits'),
       if (docsOn) _Action('Ver', 'Documentos', Icons.folder_copy_rounded, Color.lerp(scheme.primary, Colors.black, 0.2)!, '/company-documents', badge: pendingDocs),
     ];

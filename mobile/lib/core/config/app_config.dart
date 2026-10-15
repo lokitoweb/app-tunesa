@@ -289,6 +289,7 @@ class ModulesConfig {
     this.birthdays = true,
     this.companyDocuments = true,
     this.requests = true,
+    this.announcements = true,
   });
 
   final bool payslips;
@@ -314,6 +315,9 @@ class ModulesConfig {
   /// Solicitudes de vacaciones y permisos (módulo HR).
   final bool requests;
 
+  /// Comunicados de RR. HH. (módulo Announcements).
+  final bool announcements;
+
   factory ModulesConfig.fromJson(Object? raw) {
     final json = _map(raw);
     return ModulesConfig(
@@ -327,6 +331,7 @@ class ModulesConfig {
       birthdays: _bool(json['birthdays'], true),
       companyDocuments: _bool(json['company_documents'], true),
       requests: _bool(json['requests'], true),
+      announcements: _bool(json['announcements'], true),
     );
   }
 
@@ -337,6 +342,7 @@ class ModulesConfig {
         'birthdays': birthdays,
         'company_documents': companyDocuments,
         'requests': requests,
+        'announcements': announcements,
       };
 }
 

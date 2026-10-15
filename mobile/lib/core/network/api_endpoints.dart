@@ -91,6 +91,8 @@ class ApiEndpoints {
   static String trainingCertificate(int course) => '/trainings/$course/certificate';
 
   // Beneficios
+  static const announcements = '/announcements';
+  static String announcement(int id) => '/announcements/$id';
   static const benefits = '/benefits';
   static String benefit(int id) => '/benefits/$id';
 
