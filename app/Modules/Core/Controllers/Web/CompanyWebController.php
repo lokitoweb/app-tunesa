@@ -70,7 +70,7 @@ class CompanyWebController extends Controller
     {
         return view('companies.form', ['company' => new Tenant([
             'plan' => 'trial', 'status' => 'active', 'timezone' => 'America/Lima',
-            'primary_color' => '#1E40AF', 'secondary_color' => '#F59E0B',
+            'primary_color' => '#3C729E', 'secondary_color' => '#F59E0B',
         ]), 'isEdit' => false]);
     }
 

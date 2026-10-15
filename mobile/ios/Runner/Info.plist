@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Tunesa usa tu ubicación para verificar que estás dentro de la sucursal al marcar asistencia.</string>
+	<string>Grupo Negreiros usa tu ubicación para verificar que estás dentro de la sucursal al marcar asistencia.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Tunesa necesita la cámara frontal para tomar la selfie obligatoria de cada marcación.</string>
+	<string>Grupo Negreiros necesita la cámara frontal para tomar la selfie obligatoria de cada marcación.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Tunesa te permite elegir fotos de tu galería para adjuntar sustentos y documentos de tu legajo.</string>
+	<string>Grupo Negreiros te permite elegir fotos de tu galería para adjuntar sustentos y documentos de tu legajo.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
@@ -24,7 +24,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Tunesa</string>
+	<string>Grupo Negreiros</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -32,7 +32,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Tunesa</string>
+	<string>Grupo Negreiros</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

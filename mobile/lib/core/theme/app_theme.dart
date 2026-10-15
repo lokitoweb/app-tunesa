@@ -10,8 +10,8 @@ import '../config/app_config.dart';
 class AppTheme {
   const AppTheme._();
 
-  /// Azul y celeste del logo de Tunesa (cuando la empresa no definió colores).
-  static const Color defaultPrimary = Color(0xFF0050A0);
+  /// Azul y celeste de la marca (cuando la empresa no definió colores).
+  static const Color defaultPrimary = Color(0xFF3C729E); // azul del logo de Grupo Negreiros
   static const Color defaultSecondary = Color(0xFF00A0D0);
 
   /// Celeste (azul cielo) de las marcaciones: tablero del día y sus botones.

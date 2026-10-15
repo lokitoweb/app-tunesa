@@ -65,16 +65,21 @@ class AccountWebTest extends TestCase
         Notification::assertSentTo($admin, SecurityAlert::class, fn (SecurityAlert $n) => $n->kind === 'password_changed');
     }
 
-    public function test_login_shows_the_logo_inside_the_card_and_a_theme_toggle(): void
+    public function test_login_has_brand_panel_logo_and_self_hosted_assets(): void
     {
         $html = $this->get('/login')->assertOk()->assertSee('authThemeToggle', false)->getContent();
 
-        // El logo va dentro de la tarjeta, antes del título "Iniciar sesión"
-        $card = strpos($html, 'card-body');
-        $logo = strpos($html, 'class="auth-brand"');
-        $title = strpos($html, 'Iniciar sesión</h1>');
-        $this->assertTrue($card < $logo && $logo < $title);
-        // Sin logo oscuro subido, el claro no se oculta en el tema oscuro
-        $this->assertStringNotContainsString('has-dark', substr($html, $logo, 400));
+        // Panel de marca (escritorio) con el logo blanco y el ERP; logo arriba del formulario (celular)
+        $this->assertStringContainsString('class="gn-hero"', $html);
+        $this->assertStringContainsString('grupo-negreiros-logo-white.png', $html);
+        $this->assertStringContainsString('ERP empresarial', $html);
+        $logo = strpos($html, 'class="gn-brand"');
+        $title = strpos($html, 'Bienvenido</h1>');
+        $this->assertTrue($logo !== false && $logo < $title);
+        // En oscuro se usa la versión blanca del logo por defecto
+        $this->assertStringContainsString('has-dark', substr($html, $logo, 400));
+        // Sin CDN: Bootstrap e íconos se sirven desde el propio servidor
+        $this->assertStringNotContainsString('cdn.jsdelivr.net', $html);
+        $this->assertStringContainsString('vendor/bootstrap/bootstrap.min.css', $html);
     }
 }

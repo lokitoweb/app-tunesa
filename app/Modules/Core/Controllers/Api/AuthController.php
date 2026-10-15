@@ -9,7 +9,6 @@ use App\Modules\Core\Resources\UserResource;
 use App\Modules\Core\Models\Role;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\LoginGuard;
-use App\Modules\Core\Notifications\SecurityAlert;
 use App\Modules\Core\Support\NotificationPreferences;
 use Illuminate\Support\Str;
 use Illuminate\Http\JsonResponse;
@@ -128,7 +127,6 @@ class AuthController extends Controller
 
         // ¿Dispositivo nuevo para una cuenta que ya había entrado antes? → aviso de seguridad
         $deviceName  = $request->input('device_name', 'mobile_app');
-        $isNewDevice = $user->last_login_at !== null && ! $user->tokens()->where('name', $deviceName)->exists();
 
         $this->guard->registerSuccess($user, $request);
 
@@ -144,10 +142,8 @@ class AuthController extends Controller
 
         $this->pruneDevices($user);
 
-        // Inicio de sesión en otro teléfono: queda en la bandeja (registro de seguridad), sin push
-        if ($isNewDevice) {
-            $this->notifySafely($user, (new SecurityAlert('new_device', self::deviceLabel((string) $deviceName), now($user->tenant?->timezone ?: config('app.timezone'))->toDateTimeString()))->withoutPush());
-        }
+        // Los inicios de sesión no generan avisos (llenaban la bandeja sin aportar):
+        // la persona ve y cierra sus sesiones en Mi perfil › Mis dispositivos.
 
         // Actualizar FCM token si se proporcionó
         if (is_string($fcmToken = $request->input('fcm_token')) && $fcmToken !== '') {
@@ -506,16 +502,6 @@ class AuthController extends Controller
         }
 
         return Str::limit($name, 60);
-    }
-
-    /** Un aviso que falla (correo, cola) no debe tumbar el login */
-    private function notifySafely(User $user, SecurityAlert $alert): void
-    {
-        try {
-            $user->notify($alert);
-        } catch (\Throwable $e) {
-            report($e);
-        }
     }
 
     private function pruneDevices(User $user): void

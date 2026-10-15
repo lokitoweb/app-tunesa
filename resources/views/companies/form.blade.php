@@ -136,7 +136,7 @@
                     <div class="row g-3">
                         <div class="col-6">
                             <label for="primary_color" class="form-label">Color primario</label>
-                            <input type="color" id="primary_color" name="primary_color" value="{{ old('primary_color', $company->primary_color ?? '#1E40AF') }}" class="form-control form-control-color w-100 @error('primary_color') is-invalid @enderror">
+                            <input type="color" id="primary_color" name="primary_color" value="{{ old('primary_color', $company->primary_color ?? '#3C729E') }}" class="form-control form-control-color w-100 @error('primary_color') is-invalid @enderror">
                         </div>
                         <div class="col-6">
                             <label for="secondary_color" class="form-label">Color secundario</label>

@@ -1135,7 +1135,7 @@ final class Labels
         };
 
         $client = match (true) {
-            (bool) preg_match('/TuneSA|okhttp|Dart|Expo|ReactNative|CFNetwork/i', $ua) => 'App móvil',
+            (bool) preg_match('/TuneSA|Negreiros|okhttp|Dart|Expo|ReactNative|CFNetwork/i', $ua) => 'App móvil',
             (bool) preg_match('/Edg\//i', $ua)            => 'Edge',
             (bool) preg_match('/OPR\/|Opera/i', $ua)      => 'Opera',
             (bool) preg_match('/SamsungBrowser/i', $ua)   => 'Samsung Internet',

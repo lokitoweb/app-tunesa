@@ -11,6 +11,9 @@
 @endphp
 @if($favicon = $brandSettings->faviconUrl())
     <link rel="icon" href="{{ $favicon }}">
+@else
+    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+    <link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
 @endif
 <meta name="theme-color" content="{{ $bsPrimary }}">
 <style>

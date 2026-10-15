@@ -2,8 +2,10 @@
 
 @section('title', 'Eliminar mi cuenta')
 
+@section('wide', '1')
+
 @section('content')
-<div class="auth-card" style="max-width: 560px;">
+<div class="gn-legal">
     @include('auth._brand')
 
     <div class="card border-0 shadow-sm">

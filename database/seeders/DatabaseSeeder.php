@@ -66,7 +66,7 @@ class DatabaseSeeder extends Seeder
             'status'       => 'active',
             'timezone'     => 'America/Lima',
             'currency'     => 'PEN',
-            'primary_color'   => '#1E40AF',
+            'primary_color'   => '#3C729E',
             'secondary_color' => '#F59E0B',
         ]);
 

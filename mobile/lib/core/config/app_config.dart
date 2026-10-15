@@ -388,7 +388,7 @@ class AppConfig {
   final LegalConfig legal;
   final String? configVersion;
 
-  String get displayName => tenant?.displayName ?? 'Tunesa';
+  String get displayName => tenant?.displayName ?? 'Grupo Negreiros';
 
   /// Acepta la respuesta completa (`{success, data, meta}`) o solo `data`.
   factory AppConfig.fromJson(Map<String, dynamic> json) {

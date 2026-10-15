@@ -10,6 +10,7 @@ import 'package:tunesa_mobile/features/announcements/presentation/announcement_d
 import 'package:tunesa_mobile/features/announcements/presentation/announcement_home_card.dart';
 import 'package:tunesa_mobile/features/announcements/presentation/announcement_providers.dart';
 import 'package:tunesa_mobile/features/announcements/presentation/announcements_screen.dart';
+import 'package:tunesa_mobile/features/home/presentation/quick_actions.dart';
 import 'package:tunesa_mobile/features/notifications/domain/models.dart';
 
 Map<String, dynamic> _item(int id, String title, {String category = 'general', bool important = false, bool read = false}) => {
@@ -53,6 +54,13 @@ void main() {
     expect(pushRouteFor({'screen': 'announcements'}), '/announcements');
     expect(AppNotification.routeFor('announcement.urgent', {'announcement_id': '4'}), '/announcements/4');
     expect(AppNotification.routeFor('announcement.published'), '/announcements');
+  });
+
+  test('Inicio: máximo 4 accesos y en número par', () {
+    expect(visibleQuickActions([1, 2, 3, 4, 5]), [1, 2, 3, 4]);
+    expect(visibleQuickActions([1, 2, 3]), [1, 2]);
+    expect(visibleQuickActions([1]), [1]);
+    expect(visibleQuickActions(<int>[]), isEmpty);
   });
 
   testWidgets('Lista de comunicados con tipo y fecha del evento', (tester) async {

@@ -22,14 +22,17 @@ class QuickActions extends ConsumerWidget {
     final newsOn = ref.watch(announcementsEnabledProvider);
     final unreadNews = newsOn ? (ref.watch(announcementFeedProvider).value?.unread ?? 0) : 0;
 
+    // En orden de importancia: se muestran las primeras 4 (grilla 2x2, sin
+    // huecos). Lo demás sigue en Mi perfil y en las pestañas.
     final actions = <_Action>[
       if (requestsOn) const _Action('Pedir', 'Vacaciones', Icons.beach_access_rounded, AppTheme.success, '/requests/new?type=vacation'),
-      _Action('Mis', 'Horas extra', Icons.more_time_rounded, scheme.primary, '/overtime'),
       if (newsOn) _Action('Ver', 'Comunicados', Icons.campaign_rounded, const Color(0xFFF59E0B), '/announcements', badge: unreadNews),
-      if (ref.watch(benefitsEnabledProvider)) const _Action('Mis', 'Beneficios', Icons.card_giftcard_rounded, Color(0xFF0EA5A4), '/benefits'),
       if (docsOn) _Action('Ver', 'Documentos', Icons.folder_copy_rounded, Color.lerp(scheme.primary, Colors.black, 0.2)!, '/company-documents', badge: pendingDocs),
+      _Action('Mis', 'Horas extra', Icons.more_time_rounded, scheme.primary, '/overtime'),
+      if (ref.watch(benefitsEnabledProvider)) const _Action('Mis', 'Beneficios', Icons.card_giftcard_rounded, Color(0xFF0EA5A4), '/benefits'),
     ];
-    if (actions.isEmpty) return const SizedBox.shrink();
+    final visible = visibleQuickActions(actions);
+    if (visible.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -43,7 +46,7 @@ class QuickActions extends ConsumerWidget {
           crossAxisSpacing: 12,
           mainAxisExtent: 112 + 28 * (MediaQuery.textScalerOf(context).scale(1) - 1).clamp(0, 2),
         ),
-        children: [for (final a in actions) _ActionTile(action: a)],
+        children: [for (final a in visible) _ActionTile(action: a)],
       ),
     );
   }
@@ -108,4 +111,12 @@ class _ActionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Máximo 4 accesos y siempre en número par: la grilla de 2 columnas nunca
+/// deja una tarjeta sola con un espacio vacío al lado.
+@visibleForTesting
+List<T> visibleQuickActions<T>(List<T> actions, {int max = 4}) {
+  final count = actions.length >= max ? max : actions.length - actions.length % 2;
+  return actions.take(count < 2 ? actions.length.clamp(0, 1) : count).toList();
 }

@@ -46,7 +46,7 @@ class HoursReportExporter
         $companies   = $withCompany ? Tenant::pluck('company_name', 'id')->all() : [];
 
         $book = new Spreadsheet();
-        $book->getProperties()->setTitle('Reporte de horas y faltas')->setCreator('TuneSA');
+        $book->getProperties()->setTitle('Reporte de horas y faltas')->setCreator(config('app.name'));
 
         $summary = $book->getActiveSheet()->setTitle('Resumen');
         $detail  = $book->createSheet()->setTitle('Detalle diario');
@@ -153,7 +153,7 @@ class HoursReportExporter
         $last  = $sheet->getHighestColumn();
         $style = $sheet->getStyle("A1:{$last}1");
         $style->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
-        $style->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('1E40AF');
+        $style->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('3C729E');
         $style->getAlignment()->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
         $sheet->getRowDimension(1)->setRowHeight(30);
         $sheet->freezePane('A2');

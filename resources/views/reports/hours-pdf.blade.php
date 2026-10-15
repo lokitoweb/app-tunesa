@@ -30,7 +30,7 @@
         Horas nocturnas: 22:00–06:00 · HE = horas extra sobre la jornada del turno
     </div>
 </header>
-<footer>Generado el {{ $generatedAt->format('d/m/Y h:i a') }} · TuneSA</footer>
+<footer>Generado el {{ $generatedAt->format('d/m/Y h:i a') }} · Grupo Negreiros</footer>
 
 <table>
     <thead>

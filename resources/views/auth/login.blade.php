@@ -3,65 +3,59 @@
 @section('title', 'Iniciar sesión')
 
 @section('content')
-<div class="auth-card">
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-4">
-            @include('auth._brand')
-            <h1 class="h4 fw-bold mb-4 text-center">Iniciar sesión</h1>
+@include('auth._brand')
+<div class="gn-head">
+    <h1>Bienvenido</h1>
+    <p>Ingresa con tu correo corporativo para continuar.</p>
+</div>
 
-            @if($errors->any())
-                <div class="alert alert-danger small" role="alert">
-                    <i class="bi bi-exclamation-octagon"></i>
-                    <div>
-                        <strong class="toast-title">No pudimos iniciar tu sesión</strong>
-                        @foreach($errors->all() as $error)
-                            <span class="toast-text">{{ $error }}</span>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
-            @if(session('status'))
-                <div class="alert alert-success small" role="status"><i class="bi bi-check-circle"></i><div>{{ session('status') }}</div></div>
-            @endif
-
-            @if(session('info'))
-                <div class="alert alert-info small" role="status"><i class="bi bi-info-circle"></i><div>{{ session('info') }}</div></div>
-            @endif
-
-            <form method="POST" action="{{ route('login.post') }}" novalidate id="loginForm">
-                @csrf
-                <div class="mb-3">
-                    <label class="form-label" for="email">Correo electrónico</label>
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-                        <input type="email" id="email" name="email" class="form-control @error('email') is-invalid @enderror"
-                               placeholder="nombre@empresa.com" value="{{ old('email') }}" required autofocus autocomplete="username">
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-baseline">
-                        <label class="form-label" for="password">Contraseña</label>
-                        <a href="{{ route('password.request') }}" class="small text-decoration-none">¿Olvidaste tu contraseña?</a>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                        <input type="password" id="password" name="password" class="form-control" required autocomplete="current-password">
-                        <button type="button" class="btn btn-outline-secondary" id="togglePassword" aria-label="Mostrar la contraseña" aria-pressed="false" title="Mostrar la contraseña">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="form-check mb-4">
-                    <input class="form-check-input" type="checkbox" name="remember" value="1" id="remember">
-                    <label class="form-check-label small" for="remember">Recordar mi sesión</label>
-                </div>
-                <button type="submit" class="btn btn-primary w-100 fw-semibold auth-submit" id="loginSubmit">Ingresar</button>
-            </form>
+@if($errors->any())
+    <div class="gn-alert gn-alert-danger" role="alert">
+        <i class="bi bi-exclamation-circle"></i>
+        <div>
+            <strong>No pudimos iniciar tu sesión</strong>
+            @foreach($errors->all() as $error)
+                <span>{{ $error }}</span>
+            @endforeach
         </div>
     </div>
+@endif
+@if(session('status'))
+    <div class="gn-alert gn-alert-success" role="status"><i class="bi bi-check-circle"></i><div>{{ session('status') }}</div></div>
+@endif
+@if(session('info'))
+    <div class="gn-alert gn-alert-info" role="status"><i class="bi bi-info-circle"></i><div>{{ session('info') }}</div></div>
+@endif
 
-</div>
+<form method="POST" action="{{ route('login.post') }}" novalidate id="loginForm" class="gn-form">
+    @csrf
+    <div class="gn-field">
+        <label for="email">Correo electrónico</label>
+        <div class="gn-input">
+            <i class="bi bi-envelope"></i>
+            <input type="email" id="email" name="email" class="@error('email') is-invalid @enderror"
+                   placeholder="nombre@empresa.com" value="{{ old('email') }}" required autofocus autocomplete="username">
+        </div>
+    </div>
+    <div class="gn-field">
+        <div class="gn-label-row">
+            <label for="password">Contraseña</label>
+            <a href="{{ route('password.request') }}">¿Olvidaste tu contraseña?</a>
+        </div>
+        <div class="gn-input">
+            <i class="bi bi-lock"></i>
+            <input type="password" id="password" name="password" placeholder="Tu contraseña" required autocomplete="current-password">
+            <button type="button" class="gn-eye" id="togglePassword" aria-label="Mostrar la contraseña" aria-pressed="false" title="Mostrar la contraseña">
+                <i class="bi bi-eye"></i>
+            </button>
+        </div>
+    </div>
+    <div class="form-check gn-remember">
+        <input class="form-check-input" type="checkbox" name="remember" value="1" id="remember">
+        <label class="form-check-label" for="remember">Recordar mi sesión</label>
+    </div>
+    <button type="submit" class="btn btn-primary gn-submit" id="loginSubmit">Ingresar</button>
+</form>
 
 <script>
     (function () {

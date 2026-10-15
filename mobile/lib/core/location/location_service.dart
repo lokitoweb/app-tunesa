@@ -141,7 +141,7 @@ class LocationService {
     if (permission == LocationPermission.deniedForever) {
       throw const LocationException(
         LocationFailure.permissionDeniedForever,
-        'El permiso de ubicación está bloqueado. Habilítalo en Ajustes > Aplicaciones > TuneSA.',
+        'El permiso de ubicación está bloqueado. Habilítalo en Ajustes > Aplicaciones > Grupo Negreiros.',
       );
     }
     if (permission == LocationPermission.denied || permission == LocationPermission.unableToDetermine) {

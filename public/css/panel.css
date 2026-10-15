@@ -1,5 +1,5 @@
 /* =============================================================================
- * TuneSA — Panel administrativo (Bootstrap 5.3)
+ * Grupo Negreiros — Panel administrativo (Bootstrap 5.3)
  *
  * Solo complementa a Bootstrap: layout fijo (sidebar + contenido), paleta
  * corporativa clara, modo oscuro neutro (slate) y piezas propias del panel
@@ -9,8 +9,8 @@
 
 :root,
 [data-bs-theme="light"] {
-    --brand: #1E40AF;
-    --brand-rgb: 30, 64, 175;
+    --brand: #3C729E;
+    --brand-rgb: 60, 114, 158;
     --bs-body-font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --bs-body-bg: #f8f9fa;
     --bs-body-color: #212529;

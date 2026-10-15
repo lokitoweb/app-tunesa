@@ -11,8 +11,8 @@
     <meta name="referrer" content="no-referrer">
     <title>Canal ético — {{ $brandSettings->tradeName() }}</title>
     @include('layouts.partials.theme-boot')
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     @include('layouts.partials.brand-head', ['brandSettings' => $brandSettings])
     <style>
         body { background: var(--bs-tertiary-bg); }

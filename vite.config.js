@@ -18,7 +18,9 @@ export default defineConfig({
         sourcemap: false,
         rollupOptions: {
             output: {
-                manualChunks: (id) => (id.includes('node_modules') ? 'vendor' : moduleChunk(id)),
+                // El CSS de Bootstrap va con el del panel (mismo archivo y orden): así
+                // panel.css le gana y los botones toman el color de la marca
+                manualChunks: (id) => (id.includes('node_modules') && !id.endsWith('.css') ? 'vendor' : moduleChunk(id)),
                 chunkFileNames: 'assets/[name]-[hash].js',
             },
         },

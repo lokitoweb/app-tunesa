@@ -96,7 +96,7 @@
                 <div class="meta-text">Periodo auditado: {{ $startDate }} al {{ $endDate }}</div>
             </td>
             <td style="text-align: right; vertical-align: top;">
-                <div class="meta-text">TuneSA Multi-Tenant GPS Platform</div>
+                <div class="meta-text">Grupo Negreiros · Control de asistencia</div>
                 <div class="meta-text">Fecha de Emisión: {{ date('d/m/Y h:i a') }}</div>
                 <div class="meta-text">Total Registros: {{ $attendances->count() }}</div>
             </td>
@@ -165,7 +165,7 @@
             <td style="width: 50%; text-align: center;">
                 <div class="signature-line" style="margin: 0 auto;">
                     Firma Gerencia General / Auditoría<br>
-                    Validado satelitalmente con TuneSA
+                    Validado satelitalmente (GPS)
                 </div>
             </td>
         </tr>
