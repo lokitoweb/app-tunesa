@@ -72,7 +72,7 @@ class AuthController extends Controller
         if (! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view')) {
             return back()
                 ->withInput($request->only('email'))
-                ->withErrors(['email' => 'Los empleados de campo deben registrarse a través de la aplicación móvil TuneSA.']);
+                ->withErrors(['email' => 'Los empleados de campo deben registrarse a través de la aplicación móvil Grupo Negreiros.']);
         }
 
         app(LoginGuard::class)->registerSuccess($user, $request);

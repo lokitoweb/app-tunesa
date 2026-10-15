@@ -26,8 +26,8 @@ class TenantSetting extends Model
 {
     /** Valores de fábrica si ni la empresa ni la plataforma definieron nada */
     public const DEFAULTS = [
-        'trade_name'              => 'Tunesa',
-        'primary_color'           => '#1E40AF',
+        'trade_name'              => 'Grupo Negreiros',
+        'primary_color'           => '#3C729E',
         'secondary_color'         => '#F59E0B',
         'accent_color'            => '#10B981',
         'navbar_color'            => '#0F172A',
@@ -369,7 +369,7 @@ class TenantSetting extends Model
     }
 
     /** Logo incluido con la plataforma: se usa mientras nadie suba el suyo en "Marca y app" */
-    public const DEFAULT_LOGO = 'img/tunesa-logo.webp';
+    public const DEFAULT_LOGO = 'img/grupo-negreiros-logo.png';
 
     /** Logo a pintar en el panel: el subido (empresa o plataforma) o el de la plataforma por defecto */
     public function displayLogoUrl(): string

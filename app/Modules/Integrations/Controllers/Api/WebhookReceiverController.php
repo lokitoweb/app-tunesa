@@ -43,7 +43,7 @@ class WebhookReceiverController extends Controller
 
         return response()->json([
             'ok'              => true,
-            'message'         => 'Recibido por TuneSA: firma válida.',
+            'message'         => 'Recibido por ' . config('app.name') . ': firma válida.',
             'event'           => $request->header('X-Tunesa-Event') ?? $request->json('event'),
             'signature_valid' => true,
         ]);

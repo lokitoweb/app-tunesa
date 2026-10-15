@@ -124,7 +124,7 @@ void main() {
         'data': {'tenant': null},
       });
       expect(c.tenant, isNull);
-      expect(c.displayName, 'Tunesa');
+      expect(c.displayName, 'Grupo Negreiros');
       expect(c.branding.primaryColor, isNull);
       expect(c.branding.logoFor(dark: true), isNull);
       expect(c.mobile.selfieRequired, isTrue);

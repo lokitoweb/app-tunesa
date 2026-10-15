@@ -166,7 +166,7 @@ class _FallbackLogo extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     // Logo de la plataforma incluido en la app; el icono queda solo si faltara el archivo
     return Image.asset(
-      'assets/branding/tunesa-logo.webp',
+      'assets/branding/brand-logo.png',
       height: size,
       fit: BoxFit.contain,
       errorBuilder: (_, _, _) => Container(

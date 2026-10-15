@@ -22,7 +22,7 @@ class PushService {
   final FirebaseOptions options;
 
   static const _channelId = 'tunesa_default';
-  static const _channelName = 'Avisos de TuneSA';
+  static const _channelName = 'Avisos de Grupo Negreiros';
 
   /// Ícono blanco de la barra de estado (res/drawable/ic_stat_notification.xml).
   static const _smallIcon = 'ic_stat_notification';

@@ -166,7 +166,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     const BRANCHES = @json($mapBranches);
     const POINTS = @json($mapPoints);
-    const brand = Panel.cssVar('--brand') || '#1E40AF';
+    const brand = Panel.cssVar('--brand') || '#3C729E';
     const map = L.map('attemptsMap', { scrollWheelZoom: false });
     Panel.tiles(map);
     const bounds = [];

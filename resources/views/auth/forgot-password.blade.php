@@ -3,39 +3,33 @@
 @section('title', 'Recuperar contraseña')
 
 @section('content')
-<div class="auth-card">
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-4">
-            @include('auth._brand')
-            <h1 class="h5 fw-semibold mb-1">¿Olvidaste tu contraseña?</h1>
-            <p class="small text-body-secondary mb-3">Escribe el correo con el que ingresas al panel. Te enviaremos un enlace para crear una nueva contraseña. Si usas la app, pide a RRHH que restablezca tu acceso.</p>
+@include('auth._brand')
+<div class="gn-head">
+    <h1>¿Olvidaste tu contraseña?</h1>
+    <p>Escribe el correo con el que ingresas al panel y te enviaremos un enlace para crear una nueva. Si usas la app, pide a RR. HH. que restablezca tu acceso.</p>
+</div>
 
-            @if(session('status'))
-                <div class="alert alert-success small" role="status"><i class="bi bi-envelope-check me-1"></i>{{ session('status') }}</div>
-            @endif
+@if(session('status'))
+    <div class="gn-alert gn-alert-success" role="status"><i class="bi bi-envelope-check"></i><div>{{ session('status') }}</div></div>
+@endif
+@if($errors->any())
+    <div class="gn-alert gn-alert-danger" role="alert"><i class="bi bi-exclamation-circle"></i>
+        <div>@foreach($errors->all() as $error)<span>{{ $error }}</span>@endforeach</div>
+    </div>
+@endif
 
-            @if($errors->any())
-                <div class="alert alert-danger small" role="alert">
-                    @foreach($errors->all() as $error)
-                        <div>{{ $error }}</div>
-                    @endforeach
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('password.email') }}" novalidate>
-                @csrf
-                <div class="mb-4">
-                    <label class="form-label" for="email">Correo electrónico</label>
-                    <input type="email" id="email" name="email" class="form-control @error('email') is-invalid @enderror"
-                           placeholder="tucorreo@empresa.com" value="{{ old('email') }}" required autofocus autocomplete="username">
-                </div>
-                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Enviar enlace</button>
-            </form>
+<form method="POST" action="{{ route('password.email') }}" novalidate class="gn-form">
+    @csrf
+    <div class="gn-field">
+        <label for="email">Correo electrónico</label>
+        <div class="gn-input">
+            <i class="bi bi-envelope"></i>
+            <input type="email" id="email" name="email" class="@error('email') is-invalid @enderror"
+                   placeholder="tucorreo@empresa.com" value="{{ old('email') }}" required autofocus autocomplete="username">
         </div>
     </div>
+    <button type="submit" class="btn btn-primary gn-submit">Enviar enlace</button>
+</form>
 
-    <p class="text-center small mt-3 mb-0">
-        <a href="{{ route('login') }}" class="text-decoration-none"><i class="bi bi-arrow-left me-1"></i>Volver al inicio de sesión</a>
-    </p>
-</div>
+<a href="{{ route('login') }}" class="gn-back"><i class="bi bi-arrow-left"></i> Volver al inicio de sesión</a>
 @endsection

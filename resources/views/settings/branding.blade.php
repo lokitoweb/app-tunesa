@@ -86,8 +86,8 @@
                             <label for="trade_name" class="form-label">Nombre comercial</label>
                             <input type="text" id="trade_name" name="trade_name" maxlength="200" value="{{ $val('trade_name') }}"
                                    class="form-control @error('trade_name') is-invalid @enderror"
-                                   placeholder="{{ $isGlobal ? 'TuneSA' : $tenant->company_name }}">
-                            <div class="form-text">Se muestra en el título del panel, el login y la app. Vacío: {{ $isGlobal ? 'TuneSA' : 'la razón social de la empresa' }}.</div>
+                                   placeholder="{{ $isGlobal ? 'Grupo Negreiros' : $tenant->company_name }}">
+                            <div class="form-text">Se muestra en el título del panel, el login y la app. Vacío: {{ $isGlobal ? 'Grupo Negreiros' : 'la razón social de la empresa' }}.</div>
                         </div>
                     </div>
 

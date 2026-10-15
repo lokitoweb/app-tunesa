@@ -138,7 +138,7 @@
         }
         if (evidenceLayer) evidenceLayer.remove();
         evidenceLayer = L.featureGroup().addTo(evidenceMap);
-        const brand = Panel.cssVar('--brand') || '#1E40AF';
+        const brand = Panel.cssVar('--brand') || '#3C729E';
 
         if (d.branch) {
             L.circle([d.branch.latitude, d.branch.longitude], { radius: d.branch.radius, color: brand, fillColor: brand, fillOpacity: .15, weight: 2 })

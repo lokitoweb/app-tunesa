@@ -85,7 +85,7 @@ function submit(status) {
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="promo_code" class="form-label">Código promocional</label>
-                                    <input id="promo_code" v-model="form.promo_code" class="form-control font-monospace" maxlength="60" placeholder="Ej.: TUNESA20">
+                                    <input id="promo_code" v-model="form.promo_code" class="form-control font-monospace" maxlength="60" placeholder="Ej.: NEGREIROS20">
                                 </div>
                                 <div class="col-md-6">
                                     <label for="url" class="form-label">Enlace</label>

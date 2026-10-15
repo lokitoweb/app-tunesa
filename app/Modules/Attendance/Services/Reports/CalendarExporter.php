@@ -31,7 +31,7 @@ class CalendarExporter
         $days = $this->calendar->days($f);
 
         $book = new Spreadsheet();
-        $book->getProperties()->setTitle("Calendario de asistencia {$f->month}")->setCreator('TuneSA');
+        $book->getProperties()->setTitle("Calendario de asistencia {$f->month}")->setCreator(config('app.name'));
         $sheet = $book->getActiveSheet()->setTitle('Calendario ' . $f->month);
 
         $headers = array_merge(self::LEAD, array_map(fn ($d) => "{$d['weekday']} {$d['day']}", array_values($days)), self::TOTALS);

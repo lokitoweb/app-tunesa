@@ -332,7 +332,7 @@ class IntegrationsWebController extends Controller
             'event'       => $event,
             'occurred_at' => Carbon::now($tenant?->timezone ?? config('app.timezone'))->toIso8601String(),
             'tenant'      => ['slug' => $tenant?->slug],
-            'data'        => ['message' => 'Prueba desde TuneSA'],
+            'data'        => ['message' => 'Prueba desde ' . config('app.name')],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 
         $delivery = $this->sender->open($tenant?->id, $target, $event, $url, $body);

@@ -270,7 +270,7 @@ class WhiteLabelSettingsTest extends TestCase
 
         $this->get('http://asistencia.acme.pe/login')->assertOk()
             ->assertSee('Acme Asistencia')->assertSee('--brand: #112233', false);
-        $this->get('http://localhost/login')->assertOk()->assertDontSee('Acme Asistencia')->assertSee('--brand: #1E40AF', false);
+        $this->get('http://localhost/login')->assertOk()->assertDontSee('Acme Asistencia')->assertSee('--brand: #3C729E', false);
     }
 
     // =========================================================================

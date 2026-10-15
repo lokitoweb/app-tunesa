@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const point = @json($mapPoint);
     const within = @json((bool) $attendance->clock_in_within_geofence);
     const distance = @json($attendance->clock_in_distance_meters);
-    const brand = Panel.cssVar('--brand') || '#1E40AF';
+    const brand = Panel.cssVar('--brand') || '#3C729E';
 
     // Leaflet necesita una vista antes de agregar círculos (getBounds los proyecta)
     const center = point ? [point.lat, point.lng] : (branch ? [branch.lat, branch.lng] : [-12.046374, -77.042793]);
