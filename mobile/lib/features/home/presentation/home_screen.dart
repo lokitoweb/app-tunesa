@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_views.dart';
+import '../../../core/widgets/brand_hero.dart';
 import '../../announcements/presentation/announcement_home_card.dart';
 import '../../announcements/presentation/announcement_providers.dart';
 import '../../attendance/domain/models.dart';
@@ -131,75 +132,44 @@ class HomeGreeting extends StatelessWidget {
     final hour = DateTime.now().hour;
     final greeting = hour < 12 ? 'Buenos días' : (hour < 19 ? 'Buenas tardes' : 'Buenas noches');
 
-    // Azul de la marca, profundo, con un brillo verde (color de acento de la empresa)
     const accent = AppTheme.success;
-    final deep = Color.lerp(scheme.primary, Colors.black, 0.35)!;
 
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        gradient: LinearGradient(colors: [scheme.primary, deep], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        boxShadow: [BoxShadow(color: scheme.primary.withValues(alpha: 0.25), blurRadius: 18, offset: const Offset(0, 8))],
-      ),
-      child: Stack(children: [
-        Positioned(
-          right: -40,
-          top: -50,
-          child: Container(
-            width: 160,
-            height: 160,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: accent.withValues(alpha: 0.22)),
+    return BrandHero(
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(2.5),
+          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+          child: CircleAvatar(
+            key: const Key('greeting-avatar'),
+            radius: 28,
+            backgroundColor: scheme.primaryContainer,
+            foregroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl!),
+            // Si la foto no carga, quedan las iniciales debajo
+            onForegroundImageError: avatarUrl == null ? null : (_, _) {},
+            child: Text(initials, style: TextStyle(color: scheme.onPrimaryContainer, fontSize: 20, fontWeight: FontWeight.w700)),
           ),
         ),
-        Positioned(
-          right: 40,
-          bottom: -60,
-          child: Container(
-            width: 110,
-            height: 110,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.07)),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(children: [
-            Container(
-              padding: const EdgeInsets.all(2.5),
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-              child: CircleAvatar(
-                key: const Key('greeting-avatar'),
-                radius: 28,
-                backgroundColor: scheme.primaryContainer,
-                foregroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl!),
-                // Si la foto no carga, quedan las iniciales debajo
-                onForegroundImageError: avatarUrl == null ? null : (_, _) {},
-                child: Text(initials, style: TextStyle(color: scheme.onPrimaryContainer, fontSize: 20, fontWeight: FontWeight.w700)),
-              ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Siempre en una línea: con nombres largos el texto se reduce
+            FittedBox(
+              key: const Key('greeting-text'),
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text('$greeting, $name',
+                  maxLines: 1, softWrap: false, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // Siempre en una línea: con nombres largos el texto se reduce
-                FittedBox(
-                  key: const Key('greeting-text'),
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text('$greeting, $name',
-                      maxLines: 1, softWrap: false, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(6)),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.calendar_today_rounded, size: 13, color: accent.withValues(alpha: 0.95)),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(Fmt.dayLong(DateTime.now()),
-                          overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
-                    ),
-                  ]),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(6)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.calendar_today_rounded, size: 13, color: accent.withValues(alpha: 0.95)),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(Fmt.dayLong(DateTime.now()),
+                      overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
                 ),
               ]),
             ),

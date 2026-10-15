@@ -212,7 +212,7 @@ class _AttendanceTile extends StatelessWidget {
                           style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                       Text(
                         [
-                          if (a.workedHours > 0) '${a.workedHours.toStringAsFixed(1)} h trabajadas',
+                          if (a.workedHours > 0) '${a.regularHours.toStringAsFixed(1)} h de jornada',
                           ?a.shiftName,
                         ].join(' · ').ifEmpty('Sin horas registradas'),
                         maxLines: 1,

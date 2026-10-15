@@ -218,6 +218,24 @@ class Attendance extends Model
     // =========================================================================
 
     /**
+     * Horas de jornada: lo trabajado con la jornada del turno como tope (p. ej.
+     * 8 h aunque se quede más). El exceso son horas extra y solo cuentan si se
+     * aprueban (payableHours).
+     */
+    public function regularHours(): float
+    {
+        return round(max(0, (float) $this->worked_hours - (float) $this->overtime_hours), 2);
+    }
+
+    /** Horas a pagar del día: jornada + horas extra aprobadas (igual que la planilla) */
+    public function payableHours(): float
+    {
+        $approved = $this->overtime_status === self::OVERTIME_APPROVED ? (float) $this->overtime_approved_hours : 0.0;
+
+        return round($this->regularHours() + $approved, 2);
+    }
+
+    /**
      * Verifica si el empleado ya marcó entrada pero no salida.
      */
     public function isOpen(): bool
