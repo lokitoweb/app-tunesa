@@ -102,7 +102,8 @@ class AttendanceController extends Controller
                 : "⚠️ Entrada registrada fuera del radio de la sucursal ({$a->clock_in_distance_meters} m). RRHH la revisará.",
             'break_start' => '☕ Descanso iniciado.',
             'break_end'   => '🔄 Regreso de descanso registrado.',
-            'clock_out'   => '🏁 Salida registrada. Horas trabajadas hoy: ' . number_format((float) $a->worked_hours, 1) . 'h.'
+            'clock_out'   => '🏁 Salida registrada. Jornada de hoy: ' . number_format($a->regularHours(), 1) . ' h.'
+                . ((float) $a->overtime_hours > 0 ? ' +' . number_format((float) $a->overtime_hours, 1) . ' h extra por aprobar.' : '')
                 . ($a->clock_out_within_geofence ? '' : ' ⚠️ Marcada fuera del radio de la sucursal; RRHH la revisará.'),
         };
     }
@@ -168,7 +169,8 @@ class AttendanceController extends Controller
             'present'        => $attendances->where('status', 'present')->count(),
             'late'           => $attendances->where('status', 'late')->count(),
             'absent'         => $attendances->where('status', 'absent')->count(),
-            'total_hours'    => round($attendances->sum('worked_hours'), 1),
+            // Jornada (tope del turno) + horas extra aprobadas: lo mismo que paga la planilla
+            'total_hours'    => round($attendances->sum(fn ($a) => $a->payableHours()), 1),
             'overtime_hours' => round($attendances->sum('overtime_hours'), 1),
             'late_minutes'   => $attendances->sum('late_minutes'),
         ];

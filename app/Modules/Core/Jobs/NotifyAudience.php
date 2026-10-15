@@ -39,7 +39,7 @@ class NotifyAudience implements ShouldQueue
     public function handle(): void
     {
         $subject = $this->modelClass::withoutGlobalScope(TenantScope::class)->find($this->modelId);
-        if (! $subject || ($subject->status ?? 'published') !== 'published') {
+        if (! $subject || ! in_array($subject->status ?? 'published', ['published', 'sent'], true)) {
             return;
         }
 

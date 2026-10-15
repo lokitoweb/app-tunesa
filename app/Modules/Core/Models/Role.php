@@ -20,6 +20,8 @@ class Role extends Model
     public const SUPER_ADMIN   = 'super_admin';
     public const COMPANY_ADMIN = 'company_admin';
     public const HR_MANAGER    = 'hr_manager';
+    public const MANAGER       = 'manager';
+    public const ACCOUNTANT    = 'accountant';
     public const SUPERVISOR    = 'supervisor';
     public const EMPLOYEE      = 'employee';
 
@@ -27,6 +29,8 @@ class Role extends Model
         self::SUPER_ADMIN,
         self::COMPANY_ADMIN,
         self::HR_MANAGER,
+        self::MANAGER,
+        self::ACCOUNTANT,
         self::SUPERVISOR,
         self::EMPLOYEE,
     ];

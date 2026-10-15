@@ -57,6 +57,10 @@ class Attendance {
   final bool isOnBreak;
   final int lateMinutes;
   final double workedHours;
+
+  /// Horas de jornada: lo trabajado con el turno como tope (8 h aunque se
+  /// quede más). El exceso va en [overtimeHours] y cuenta solo si se aprueba.
+  double get regularHours => (workedHours - overtimeHours).clamp(0, double.infinity).toDouble();
   final String? branchName;
   final String? shiftName;
   final String? justificationStatus;

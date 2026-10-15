@@ -121,6 +121,15 @@ if [[ "$MODE" == "release" ]]; then
   python3 scripts/check_play_requirements.py "$OUT"
 fi
 
+# APK liviano solo para celulares de 64 bits (casi todos los Android actuales):
+# pesa ~40 % menos y se descarga e instala más rápido para pruebas
+if [[ "${BUILD_ARM64:-1}" == "1" ]]; then
+  flutter build apk "--${MODE}" --split-per-abi --target-platform android-arm64 --dart-define-from-file="$ENV_FILE" ${OBFUSCATE[@]+"${OBFUSCATE[@]}"} ${EXTRA_DEFINES[@]+"${EXTRA_DEFINES[@]}"}
+  ARM64_OUT="$OUT_DIR/tunesa-${VERSION%%+*}-${ENV_NAME}-${MODE}-arm64.apk"
+  cp "build/app/outputs/flutter-apk/app-arm64-v8a-${MODE}.apk" "$ARM64_OUT"
+  echo "APK liviano (arm64): $ARM64_OUT ($(du -h "$ARM64_OUT" | cut -f1))"
+fi
+
 # Google Play solo acepta Android App Bundle (.aab) para apps nuevas
 if [[ "${BUILD_AAB:-0}" == "1" && "$MODE" == "release" ]]; then
   flutter build appbundle --release --dart-define-from-file="$ENV_FILE" ${OBFUSCATE[@]+"${OBFUSCATE[@]}"} ${EXTRA_DEFINES[@]+"${EXTRA_DEFINES[@]}"}

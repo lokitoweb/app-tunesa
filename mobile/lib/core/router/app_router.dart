@@ -12,6 +12,8 @@ import '../../features/training/presentation/quiz_screen.dart';
 import '../../features/training/presentation/training_detail_screen.dart';
 import '../../features/training/presentation/trainings_screen.dart';
 import '../../features/attendance/domain/models.dart';
+import '../../features/announcements/presentation/announcement_detail_screen.dart';
+import '../../features/announcements/presentation/announcements_screen.dart';
 import '../../features/benefits/presentation/benefit_detail_screen.dart';
 import '../../features/benefits/presentation/benefits_screen.dart';
 import '../../features/birthdays/presentation/birthdays_screen.dart';
@@ -188,7 +190,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (_, _) => (ref.read(authControllerProvider).user?.canViewTeam ?? false) ? null : '/home',
         builder: (_, _) => const TeamLiveScreen(),
       ),
-      // Beneficios, cumpleaños y documentos de la empresa
+      // Comunicados, beneficios, cumpleaños y documentos de la empresa
+      GoRoute(parentNavigatorKey: _rootKey, path: '/announcements', builder: (_, _) => const AnnouncementsScreen()),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/announcements/:id',
+        builder: (_, state) => AnnouncementDetailScreen(id: int.parse(state.pathParameters['id']!)),
+      ),
       GoRoute(parentNavigatorKey: _rootKey, path: '/benefits', builder: (_, _) => const BenefitsScreen()),
       GoRoute(
         parentNavigatorKey: _rootKey,

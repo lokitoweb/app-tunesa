@@ -144,8 +144,9 @@ class AuthController extends Controller
 
         $this->pruneDevices($user);
 
+        // Inicio de sesión en otro teléfono: queda en la bandeja (registro de seguridad), sin push
         if ($isNewDevice) {
-            $this->notifySafely($user, new SecurityAlert('new_device', self::deviceLabel((string) $deviceName), now($user->tenant?->timezone ?: config('app.timezone'))->toDateTimeString()));
+            $this->notifySafely($user, (new SecurityAlert('new_device', self::deviceLabel((string) $deviceName), now($user->tenant?->timezone ?: config('app.timezone'))->toDateTimeString()))->withoutPush());
         }
 
         // Actualizar FCM token si se proporcionó

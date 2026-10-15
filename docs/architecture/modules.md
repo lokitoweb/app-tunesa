@@ -13,6 +13,13 @@ y una empresa puede tener módulos apagados.
 | `HR` | Colaboradores, turnos y asignaciones, feriados, solicitudes y aprobaciones, legajo digital y dotación. |
 | `Integrations` | Webhooks firmados (HMAC), receptor de la plataforma, geocodificación (OpenStreetMap / Google) y push (FCM). |
 | `Payroll` | Boletas de pago y exportación para planilla. |
+| `Training` | Capacitaciones, evaluaciones con intentos y constancias. |
+| `Onboarding` | Incorporación del colaborador por etapas, aprobada por RRHH. |
+| `Ethics` | Canal ético (denuncias anónimas o identificadas). |
+| `Announcements` | Comunicados de RR. HH. (avisos, reuniones, actualizaciones) a toda la empresa, sede, área, cargo o persona; envío inmediato o programado (`announcements:dispatch` cada minuto) y lectura por persona. |
+| `Benefits` | Beneficios para el personal por categoría y público. |
+| `Birthdays` | Cumpleaños: saludo y aviso a compañeros (`birthdays:notify`). |
+| `CompanyDocs` | Documentos de la empresa (PDF en carpetas) con confirmación de lectura. |
 
 ## Estructura de un módulo (backend)
 
@@ -85,6 +92,7 @@ resources/js/
 |---|---|---|
 | Turnos y horarios (listado, asignaciones, formulario) | `HR/Pages/Shifts/Index.vue`, `Form.vue` | `HR\Controllers\Web\ShiftWebController` |
 | Bitácora de auditoría | `Core/Pages/Audit/Index.vue` | `Core\Controllers\Web\AuditLogWebController` |
+| Comunicados (listado, formulario, detalle con lecturas) | `Announcements/Pages/Announcements/Index.vue`, `Form.vue`, `Show.vue` | `Announcements\Controllers\Web\AnnouncementWebController` |
 | Integraciones (`/settings/integrations`, antes pestaña de "Marca y app") | `Integrations/Pages/Settings/Index.vue` | `Integrations\Controllers\Web\IntegrationsWebController` |
 
 El resto del panel sigue en Blade (`resources/views/`) con el mismo aspecto: ambos layouts usan

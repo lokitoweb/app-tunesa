@@ -36,6 +36,10 @@ class AppNotification {
       'approval' || 'approvals' => '/approvals',
       'shift' || 'app' => '/home',
       'training' => '/trainings',
+      'announcement' => switch (int.tryParse(data['announcement_id']?.toString() ?? '')) {
+          final int id => '/announcements/$id',
+          null => '/announcements',
+        },
       'benefit' => '/benefits',
       'birthday' => '/birthdays',
       'company_document' => '/company-documents',

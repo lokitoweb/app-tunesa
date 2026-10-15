@@ -16,7 +16,7 @@ use RuntimeException;
  * Crea:
  * - 1 Super Admin global
  * - 1 Tenant de demostración "Empresa Demo S.A."
- * - Company Admin, HR Manager, Supervisor y 3 Empleados
+ * - Company Admin, HR Manager, Gerencia, Contabilidad, Supervisor y 3 Empleados
  * - 2 Sucursales con geocercas reales (Lima, Perú)
  * - 3 Turnos de trabajo (Mañana, Tarde, Noche)
  *
@@ -388,6 +388,18 @@ class DatabaseSeeder extends Seeder
 
         $this->command->info("✅ Cumpleaños y beneficios demo");
 
+        // Gerencia y Contabilidad (paneles de solo lectura / planilla)
+        foreach ([
+            ['manager', 'Jorge', 'Salas', 'gerencia@empresa-demo.com', 'Gerencia2024!', 'Gerente de Operaciones', 'EMP-010'],
+            ['accountant', 'Lucía', 'Paredes', 'contabilidad@empresa-demo.com', 'Contabilidad2024!', 'Contadora', 'EMP-011'],
+        ] as [$role, $first, $last, $email, $password, $position, $code]) {
+            $user = User::firstOrCreate(['email' => $email], [
+                'tenant_id' => $tenant->id, 'first_name' => $first, 'last_name' => $last, 'password' => Hash::make($password),
+                'role' => $role, 'status' => 'active', 'position' => $position, 'employee_code' => $code, 'hire_date' => '2022-02-01',
+            ]);
+            $user->branches()->syncWithoutDetaching([$branch1->id => ['is_primary' => true, 'assigned_from' => '2022-02-01']]);
+        }
+
         // =====================================================================
         // RESUMEN FINAL
         // =====================================================================
@@ -398,6 +410,8 @@ class DatabaseSeeder extends Seeder
                 ['Super Admin',    'superadmin@tunesa.app',          'SuperAdmin2024!'],
                 ['Company Admin',  'admin@empresa-demo.com',         'Admin2024!'],
                 ['HR Manager',     'rrhh@empresa-demo.com',          'RRHH2024!'],
+                ['Gerencia',       'gerencia@empresa-demo.com',      'Gerencia2024!'],
+                ['Contabilidad',   'contabilidad@empresa-demo.com',  'Contabilidad2024!'],
                 ['Supervisor',     'supervisor@empresa-demo.com',     'Supervisor2024!'],
                 ['Employee 1',     'ana.torres@empresa-demo.com',     'Employee2024!'],
                 ['Employee 2',     'luis.mendoza@empresa-demo.com',   'Employee2024!'],

@@ -43,6 +43,13 @@ void main() {
       'branch': {'id': 1, 'name': 'Sede Central'},
     };
 
+    test('la jornada cuenta como máximo el turno; el exceso es hora extra', () {
+      final long = Map<String, dynamic>.from(json)..['summary'] = {'worked_hours': 10.0, 'overtime_hours': 2.0};
+      expect(Attendance.fromJson(long).regularHours, 8.0);
+      final short = Map<String, dynamic>.from(json)..['summary'] = {'worked_hours': 6.5, 'overtime_hours': 0};
+      expect(Attendance.fromJson(short).regularHours, 6.5);
+    });
+
     test('lee horas, tardanza y sucursal', () {
       final a = Attendance.fromJson(json);
       expect(a.id, 7);

@@ -63,65 +63,76 @@ class PunchBoard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final dark = theme.brightness == Brightness.dark;
-    final started = status.attendance?.clockIn != null;
+    final a = status.attendance;
+    final started = a?.clockIn != null;
+    final done = ClockAction.values.where((x) => timeOf(x, a) != null).length;
 
-    // Completa: celeste intenso · incompleta: celeste · sin marcar: neutro
+    // Completa: verde · en curso: color de la marca · sin marcar: neutro
     final (label, color, icon) = status.isDayComplete
-        ? ('Marcación completa', dark ? AppTheme.sky : AppTheme.skyDeep, Icons.task_alt_rounded)
+        ? ('Marcación completa', AppTheme.success, Icons.task_alt_rounded)
         : started
-            ? ('Marcación incompleta', AppTheme.sky, Icons.timelapse_rounded)
-            : ('Sin marcaciones', scheme.outline, Icons.radio_button_unchecked_rounded);
+            ? ('Marcación incompleta', scheme.primary, Icons.timelapse_rounded)
+            : ('Sin marcaciones', scheme.onSurfaceVariant, Icons.schedule_rounded);
 
-    // Tarjeta azul cielo con blanco
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radius + 4),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: dark
-              ? [AppTheme.sky.withValues(alpha: 0.22), scheme.surfaceContainerHigh]
-              : const [AppTheme.skySoft, Colors.white],
-        ),
-        border: Border.all(color: AppTheme.sky.withValues(alpha: dark ? 0.35 : 0.3)),
-        boxShadow: dark
-            ? null
-            : [BoxShadow(color: AppTheme.sky.withValues(alpha: 0.14), blurRadius: 14, offset: const Offset(0, 6))],
+        color: dark ? scheme.surfaceContainerHigh : Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: dark ? 0.5 : 0.35)),
+        boxShadow: dark ? null : [BoxShadow(color: scheme.primary.withValues(alpha: 0.08), blurRadius: 18, offset: const Offset(0, 6))],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: dark ? scheme.surface : Colors.white,
-              border: Border.all(color: color, width: 3),
-            ),
-            child: Icon(icon, color: color, size: 22),
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Marcaciones de hoy', style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant)),
-              Text(label, style: theme.textTheme.titleMedium?.copyWith(color: color, fontWeight: FontWeight.w700)),
+              Text(label, style: theme.textTheme.titleMedium?.copyWith(color: dark ? null : scheme.onSurface, fontWeight: FontWeight.w800)),
             ]),
           ),
-          if (status.attendance != null && status.attendance!.lateMinutes > 0)
-            Text('${status.attendance!.lateMinutes} min tarde',
-                style: theme.textTheme.labelMedium?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+            child: Text('$done/4', style: TextStyle(color: color, fontWeight: FontWeight.w800)),
+          ),
         ]),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: done / 4,
+            minHeight: 6,
+            backgroundColor: scheme.outlineVariant.withValues(alpha: 0.35),
+            valueColor: const AlwaysStoppedAnimation(AppTheme.success),
+          ),
+        ),
+        if (a != null && a.lateMinutes > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(children: [
+              Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
+              const SizedBox(width: 4),
+              Text('${a.lateMinutes} min de tardanza',
+                  style: theme.textTheme.labelMedium?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
+            ]),
+          ),
         const SizedBox(height: 16),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           for (final action in ClockAction.values) ...[
-            if (action != ClockAction.clockIn) const SizedBox(width: 8),
+            if (action != ClockAction.clockIn) const SizedBox(width: 10),
             Expanded(
               child: _PunchTile(
                 key: Key('punch-${action.apiName}'),
                 label: _labels[action]!,
                 icon: _icons[action]!,
-                time: timeOf(action, status.attendance),
+                time: timeOf(action, a),
                 available: status.actions.contains(action),
                 onTap: () => _tap(context, action),
               ),
@@ -155,14 +166,18 @@ class _PunchTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final dark = theme.brightness == Brightness.dark;
     final done = time != null;
-    final white = dark ? scheme.surface : Colors.white;
-    // Hecha: celeste relleno · disponible: blanco con borde celeste · bloqueada: blanco apagado
-    final foreground = done
-        ? Colors.white
+    // Hecha: verde · siguiente: color de la marca, relleno · bloqueada: gris suave
+    final background = done
+        ? AppTheme.success.withValues(alpha: dark ? 0.25 : 0.12)
         : available
-            ? AppTheme.sky
+            ? scheme.primary
+            : scheme.onSurface.withValues(alpha: dark ? 0.08 : 0.04);
+    final foreground = done
+        ? (dark ? AppTheme.success : AppTheme.successDeep)
+        : available
+            ? scheme.onPrimary
             : scheme.onSurfaceVariant.withValues(alpha: 0.45);
-    final timeColor = done ? (dark ? AppTheme.sky : AppTheme.skyDeep) : scheme.onSurfaceVariant.withValues(alpha: 0.6);
+    final timeColor = done ? (dark ? AppTheme.success : AppTheme.successDeep) : scheme.onSurfaceVariant.withValues(alpha: 0.6);
 
     return Semantics(
       button: true,
@@ -173,31 +188,18 @@ class _PunchTile extends StatelessWidget {
           aspectRatio: 1,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTheme.radius + 2),
-              color: done ? null : (available ? white : white.withValues(alpha: dark ? 0.5 : 0.7)),
-              gradient: done
-                  ? const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppTheme.sky, AppTheme.skyDeep],
-                    )
-                  : null,
-              border: done
-                  ? null
-                  : Border.all(
-                      color: available ? AppTheme.sky : AppTheme.sky.withValues(alpha: 0.2),
-                      width: available ? 2 : 1,
-                    ),
-              boxShadow: available || done
-                  ? [BoxShadow(color: AppTheme.sky.withValues(alpha: 0.22), blurRadius: 8, offset: const Offset(0, 3))]
+              borderRadius: BorderRadius.circular(8),
+              color: background,
+              boxShadow: available && !done
+                  ? [BoxShadow(color: scheme.primary.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))]
                   : null,
             ),
             child: Material(
               type: MaterialType.transparency,
               child: InkWell(
-                borderRadius: BorderRadius.circular(AppTheme.radius + 2),
+                borderRadius: BorderRadius.circular(8),
                 onTap: onTap,
-                child: Icon(done ? Icons.check_rounded : icon, color: foreground, size: 28),
+                child: Icon(done ? Icons.check_circle_rounded : icon, color: foreground, size: 28),
               ),
             ),
           ),

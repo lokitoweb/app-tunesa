@@ -54,6 +54,7 @@ class PanelNavigation
                 ['Training', 'training.manage', 'training.index', [], 'mortarboard', 'Capacitaciones', $request->routeIs('training.*'), null, true],
             ],
             'Comunidad' => [
+                ['Announcements', 'announcements.manage', 'announcements.index', [], 'megaphone', 'Comunicados', $request->routeIs('announcements.*'), null, true],
                 ['Benefits', 'benefits.manage', 'benefits.index', [], 'gift', 'Beneficios', $request->routeIs('benefits.*'), null, true],
                 ['Birthdays', 'birthdays.manage', 'birthdays.index', [], 'balloon-heart', 'Cumpleaños', $request->routeIs('birthdays.*'), null, true],
                 ['CompanyDocs', 'company_docs.manage', 'company-docs.index', [], 'folder2-open', 'Documentos de la empresa', $request->routeIs('company-docs.*'), null, true],

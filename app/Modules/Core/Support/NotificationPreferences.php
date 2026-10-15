@@ -20,6 +20,7 @@ final class NotificationPreferences
         'shifts'               => ['Turnos y horarios', 'Cuando te asignan o cambian el turno.', ['shift.']],
         'trainings'            => ['Capacitaciones', 'Cursos nuevos y los que están por vencer.', ['training.']],
         'documents'            => ['Legajo', 'Cuando revisan un documento de tu legajo.', ['document.']],
+        'announcements'        => ['Comunicados de RR. HH.', 'Avisos, reuniones y actualizaciones de la empresa. Los urgentes siempre llegan.', ['announcement.']],
         'company_documents'    => ['Documentos de la empresa', 'Políticas, reglamentos y otros documentos nuevos o por confirmar.', ['company_document.']],
         'benefits'             => ['Beneficios', 'Descuentos, convenios y promociones nuevos para ti.', ['benefit.']],
         'birthdays'            => ['Cumpleaños', 'Tu saludo de cumpleaños y los cumpleaños de tus compañeros.', ['birthday.']],
@@ -30,7 +31,8 @@ final class NotificationPreferences
     /** Categoría de un tipo de aviso, o null si no se puede apagar */
     public static function categoryFor(string $type): ?string
     {
-        if (str_starts_with($type, 'security.')) {
+        // Seguridad y comunicados urgentes siempre llegan
+        if (str_starts_with($type, 'security.') || $type === 'announcement.urgent') {
             return null;
         }
         foreach (self::CATEGORIES as $key => [, , $prefixes]) {

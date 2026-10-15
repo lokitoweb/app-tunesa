@@ -7,6 +7,7 @@ import '../../../core/config/version_gate.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../app_update/presentation/update_screen.dart';
 import '../../../core/theme/theme_mode_controller.dart';
+import '../../../core/widgets/brand_hero.dart';
 import '../../../core/widgets/async_views.dart';
 import 'profile_avatar.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -140,22 +141,18 @@ class _Header extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final initials = file.fullName.trim().split(RegExp(r'\s+')).take(2).map((p) => p.isEmpty ? '' : p[0]).join().toUpperCase();
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        gradient: LinearGradient(
-          colors: [scheme.primary, Color.lerp(scheme.primary, scheme.secondary, 0.7)!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+    // Mismos colores que el saludo de Inicio: azul de la marca y acento verde
+    return BrandHero(
       child: Row(children: [
-        ProfileAvatar(initials: initials),
+        Container(
+          padding: const EdgeInsets.all(2.5),
+          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+          child: ProfileAvatar(initials: initials),
+        ),
         const SizedBox(width: 16),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(file.fullName, style: TextStyle(color: scheme.onPrimary, fontSize: 19, fontWeight: FontWeight.w700)),
+            Text(file.fullName, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
             const SizedBox(height: 2),
             Text(
               [file.position, file.employeeCode].whereType<String>().join(' · '),
@@ -164,8 +161,15 @@ class _Header extends StatelessWidget {
             if (file.hireDate != null)
               Text('Ingreso: ${file.hireDate}', style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85), fontSize: 13)),
             const SizedBox(height: 6),
-            Text('Toca tu foto para cambiarla',
-                style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.7), fontSize: 12, fontStyle: FontStyle.italic)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(6)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.photo_camera_outlined, size: 13, color: AppTheme.success.withValues(alpha: 0.95)),
+                const SizedBox(width: 6),
+                const Flexible(child: Text('Toca tu foto para cambiarla', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
+              ]),
+            ),
           ]),
         ),
       ]),

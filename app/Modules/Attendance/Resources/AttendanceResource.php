@@ -59,6 +59,9 @@ class AttendanceResource extends JsonResource
                 'late_minutes'    => $this->late_minutes,
                 'break_minutes'   => $this->break_minutes,
                 'worked_hours'    => (float) $this->worked_hours,
+                // Jornada con tope (8 h) y lo que se paga (jornada + extra aprobadas)
+                'regular_hours'   => $this->resource->regularHours(),
+                'payable_hours'   => $this->resource->payableHours(),
                 'overtime_hours'  => (float) $this->overtime_hours,
                 // Aprobación por jefatura: null (no aplica) | pending | approved | rejected
                 'overtime_status'         => $this->overtime_status,

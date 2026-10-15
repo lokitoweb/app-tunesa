@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_views.dart';
+import '../../../core/widgets/brand_hero.dart';
+import '../../announcements/presentation/announcement_home_card.dart';
+import '../../announcements/presentation/announcement_providers.dart';
 import '../../attendance/domain/models.dart';
 import '../../attendance/presentation/attendance_providers.dart';
 import '../../attendance/presentation/offline_sync.dart';
@@ -14,7 +17,6 @@ import '../../notifications/presentation/notifications_providers.dart';
 import '../../onboarding/presentation/onboarding_gate_card.dart';
 import '../../onboarding/presentation/onboarding_providers.dart';
 import '../../notifications/presentation/notifications_screen.dart';
-import '../../profile/presentation/profile_providers.dart';
 import '../../team/presentation/team_providers.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../../training/presentation/training_home_card.dart';
@@ -56,6 +58,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.invalidate(onboardingProvider);
     ref.invalidate(upcomingBirthdaysProvider);
     ref.invalidate(documentLibraryProvider);
+    ref.invalidate(announcementFeedProvider);
   }
 
   @override
@@ -79,9 +82,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: ListView(
           padding: pagePadding(context),
           children: [
-            _Greeting(name: auth.user?.firstName ?? '', initials: auth.user?.initials ?? '?', avatarUrl: auth.user?.avatarUrl),
+            HomeGreeting(name: auth.user?.firstName ?? '', initials: auth.user?.initials ?? '?', avatarUrl: auth.user?.avatarUrl),
             const SizedBox(height: 16),
-            if (canPunch) const _OnboardingBanner(),
+            const AnnouncementHomeCard(),
             const TrainingHomeCard(),
             const _PendingDocumentsCard(),
             if (user != null && user.hasTeamArea) ...[
@@ -113,8 +116,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _Greeting extends StatelessWidget {
-  const _Greeting({required this.name, required this.initials, this.avatarUrl});
+/// Saludo de Inicio: foto, nombre y fecha sobre el azul de la marca.
+class HomeGreeting extends StatelessWidget {
+  const HomeGreeting({super.key, required this.name, required this.initials, this.avatarUrl});
 
   final String name;
   final String initials;
@@ -128,25 +132,22 @@ class _Greeting extends StatelessWidget {
     final hour = DateTime.now().hour;
     final greeting = hour < 12 ? 'Buenos días' : (hour < 19 ? 'Buenas tardes' : 'Buenas noches');
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        gradient: LinearGradient(
-          colors: [scheme.primary, Color.lerp(scheme.primary, scheme.secondary, 0.7)!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+    const accent = AppTheme.success;
+
+    return BrandHero(
       child: Row(children: [
-        CircleAvatar(
-          key: const Key('greeting-avatar'),
-          radius: 28,
-          backgroundColor: scheme.onPrimary.withValues(alpha: 0.2),
-          foregroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl!),
-          // Si la foto no carga, quedan las iniciales debajo
-          onForegroundImageError: avatarUrl == null ? null : (_, _) {},
-          child: Text(initials, style: TextStyle(color: scheme.onPrimary, fontSize: 20, fontWeight: FontWeight.w700)),
+        Container(
+          padding: const EdgeInsets.all(2.5),
+          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+          child: CircleAvatar(
+            key: const Key('greeting-avatar'),
+            radius: 28,
+            backgroundColor: scheme.primaryContainer,
+            foregroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl!),
+            // Si la foto no carga, quedan las iniciales debajo
+            onForegroundImageError: avatarUrl == null ? null : (_, _) {},
+            child: Text(initials, style: TextStyle(color: scheme.onPrimaryContainer, fontSize: 20, fontWeight: FontWeight.w700)),
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -157,12 +158,21 @@ class _Greeting extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
               child: Text('$greeting, $name',
-                  maxLines: 1,
-                  softWrap: false,
-                  style: TextStyle(color: scheme.onPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
+                  maxLines: 1, softWrap: false, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
             ),
-            const SizedBox(height: 4),
-            Text(Fmt.dayLong(DateTime.now()), style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85))),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(6)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.calendar_today_rounded, size: 13, color: accent.withValues(alpha: 0.95)),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(Fmt.dayLong(DateTime.now()),
+                      overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                ),
+              ]),
+            ),
           ]),
         ),
       ]),
@@ -236,31 +246,6 @@ class _PendingDocumentsCard extends ConsumerWidget {
           subtitle: const Text('Léelos y marca "Leído y conforme".'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/company-documents?tab=pending'),
-        ),
-      ),
-    );
-  }
-}
-
-/// Recordatorio para completar la ficha de ingreso (legajo, cuenta, tallas).
-class _OnboardingBanner extends ConsumerWidget {
-  const _OnboardingBanner();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final file = ref.watch(employeeFileProvider).value;
-    if (file == null || !file.config.hasEmployeeFile || file.progress >= 100) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Card(
-        color: Theme.of(context).colorScheme.secondaryContainer,
-        child: ListTile(
-          leading: const Icon(Icons.assignment_ind_outlined),
-          title: Text('Completa tu ficha (${file.progress}%)'),
-          subtitle: const Text('Sube tus documentos, tu cuenta de pago y tus tallas.'),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => context.go('/profile'),
         ),
       ),
     );

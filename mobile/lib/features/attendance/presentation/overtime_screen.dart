@@ -151,7 +151,7 @@ class _OvertimeTile extends StatelessWidget {
       child: ListTile(
         leading: Icon(icon, color: color),
         title: Text(Fmt.dayLong(a.workDate)),
-        subtitle: Text('${Fmt.time(a.clockIn)} – ${Fmt.time(a.clockOut)} · ${a.workedHours.toStringAsFixed(1)} h trabajadas'),
+        subtitle: Text('${Fmt.time(a.clockIn)} – ${Fmt.time(a.clockOut)} · ${a.regularHours.toStringAsFixed(1)} h de jornada'),
         trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(_OvertimeScreenState.hours(shown), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),

@@ -9,7 +9,7 @@ use Illuminate\Database\Seeder;
 /**
  * RolesAndPermissionsSeeder
  *
- * Crea los 5 roles del sistema y su matriz de permisos. Es idempotente:
+ * Crea los 7 roles del sistema y su matriz de permisos. Es idempotente:
  * se puede volver a ejecutar tras agregar permisos nuevos.
  *
  *   php artisan db:seed --class=RolesAndPermissionsSeeder
@@ -79,6 +79,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'birthdays.manage'        => ['Ver el calendario de cumpleaños en el panel', 'birthdays'],
         'company_docs.view_own'   => ['Leer los documentos de la empresa en la app', 'company_docs'],
         'company_docs.manage'     => ['Subir documentos de la empresa y ver quién los leyó', 'company_docs'],
+        'announcements.view_own'  => ['Recibir y leer los comunicados de RR. HH. en la app', 'announcements'],
+        'announcements.manage'    => ['Enviar comunicados (toda la empresa, sede, área o persona)', 'announcements'],
 
         // Incorporación (onboarding)
         'onboarding.review'       => ['Revisar y aprobar la incorporación de colaboradores', 'onboarding'],
@@ -106,6 +108,30 @@ class RolesAndPermissionsSeeder extends Seeder
             'Gestiona colaboradores, turnos, solicitudes y nómina.',
             ['*', '-tenants.manage', '-tenants.branding', '-company.configure', '-audit.view'],
         ],
+        Role::MANAGER => [
+            'Gerencia',
+            'Ve indicadores, reportes y asistencia de toda la empresa; aprueba solicitudes. No edita datos.',
+            [
+                'users.view', 'branches.view', 'shifts.view', 'shifts.view_own',
+                'attendance.mark', 'attendance.view_own', 'attendance.view_team', 'attendance.view_all',
+                'dashboard.view', 'reports.view', 'reports.export',
+                'leave.request', 'leave.approve_team', 'leave.approve_all',
+                'payslips.view_own', 'profile.manage_own', 'training.view_own',
+                'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
+            ],
+        ],
+        Role::ACCOUNTANT => [
+            'Contabilidad',
+            'Boletas de pago, cruce con planilla y reportes de horas, tardanzas y horas extra.',
+            [
+                'users.view', 'branches.view', 'attendance.view_all',
+                'attendance.mark', 'attendance.view_own', 'shifts.view_own',
+                'dashboard.view', 'reports.view', 'reports.export',
+                'payslips.manage', 'payroll.export',
+                'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
+                'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
+            ],
+        ],
         Role::SUPERVISOR => [
             'Supervisor',
             'Supervisa la asistencia y solicitudes de su equipo.',
@@ -115,7 +141,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'dashboard.view', 'reports.view',
                 'leave.request', 'leave.approve_team',
                 'payslips.view_own', 'profile.manage_own', 'training.view_own',
-                'benefits.view_own', 'birthdays.view', 'company_docs.view_own',
+                'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],
         ],
         Role::EMPLOYEE => [
@@ -124,7 +150,7 @@ class RolesAndPermissionsSeeder extends Seeder
             [
                 'shifts.view_own', 'attendance.mark', 'attendance.view_own',
                 'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
-                'benefits.view_own', 'birthdays.view', 'company_docs.view_own',
+                'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],
         ],
     ];

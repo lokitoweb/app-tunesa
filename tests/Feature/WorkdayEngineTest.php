@@ -80,6 +80,23 @@ class WorkdayEngineTest extends TestCase
         $this->assertNull($day->overtime_status);
     }
 
+    public function test_four_punches_count_at_most_the_shift_hours_and_the_rest_is_overtime(): void
+    {
+        // 4 marcaciones (entrada, descanso, regreso, salida) y se queda 2 h más:
+        // la jornada cuenta 8 h; las 2 h son extra y solo se pagan si se aprueban
+        $day = $this->workDay($this->employee(), 10 * 60 + 60, markedBreak: 60);
+        $this->assertEquals(8.0, $day->regularHours());
+        $this->assertEquals(2.0, (float) $day->overtime_hours);
+        $this->assertEquals(8.0, $day->payableHours());
+
+        $day->update(['overtime_status' => Attendance::OVERTIME_APPROVED, 'overtime_approved_hours' => 1.5]);
+        $this->assertEquals(9.5, $day->fresh()->payableHours());
+
+        $this->actingIn($day->user, $this->acme)->getJson('/api/attendance/history?year=2026&month=10')
+            ->assertOk()->assertJsonPath('summary.total_hours', 9.5)
+            ->assertJsonPath('data.0.summary.regular_hours', 8);
+    }
+
     public function test_longer_marked_break_is_deducted_instead_of_the_fixed_one(): void
     {
         // 9 h de permanencia con 60 min de descanso marcado: 8 h

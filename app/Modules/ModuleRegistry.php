@@ -16,6 +16,7 @@ final class ModuleRegistry
 
     /** Nombre comercial de cada módulo (formulario de empresas) */
     public const LABELS = [
+        'Announcements' => 'Comunicados',
         'Attendance'   => 'Asistencia',
         'Benefits'     => 'Beneficios',
         'Birthdays'    => 'Cumpleaños',

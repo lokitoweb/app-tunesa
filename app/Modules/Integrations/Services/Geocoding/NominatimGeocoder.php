@@ -61,7 +61,7 @@ class NominatimGeocoder implements Geocoder
             'lon'             => $lng,
             'format'          => 'jsonv2',
             'zoom'            => 18,
-            'addressdetails'  => 0,
+            'addressdetails'  => 1,
             'accept-language' => 'es',
             'email'           => config('services.nominatim.email'),
         ], fn ($v) => $v !== null && $v !== ''));
@@ -71,9 +71,29 @@ class NominatimGeocoder implements Geocoder
             return null;
         }
 
-        $address = trim((string) ($json['display_name'] ?? ''));
+        $address = self::compact((array) ($json['address'] ?? [])) ?? trim((string) ($json['display_name'] ?? ''));
 
         return $address !== '' ? $address : null;
+    }
+
+    /**
+     * Dirección corta y legible desde addressdetails: "Av. Javier Prado Este
+     * 2578, San Isidro, Lima" (sin código postal, provincia ni país).
+     * null si no hay calle ni lugar: se usa display_name.
+     */
+    public static function compact(array $a): ?string
+    {
+        $street = $a['road'] ?? $a['pedestrian'] ?? $a['footway'] ?? $a['amenity'] ?? $a['building'] ?? null;
+        if ($street === null) {
+            return null;
+        }
+        if (! empty($a['house_number'])) {
+            $street .= ' ' . $a['house_number'];
+        }
+        $district = $a['suburb'] ?? $a['city_district'] ?? $a['neighbourhood'] ?? $a['quarter'] ?? null;
+        $city     = $a['city'] ?? $a['town'] ?? $a['village'] ?? $a['municipality'] ?? $a['state'] ?? null;
+
+        return implode(', ', array_values(array_unique(array_filter([$street, $district, $city]))));
     }
 
     public static function userAgent(): string

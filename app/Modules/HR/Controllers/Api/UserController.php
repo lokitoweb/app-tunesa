@@ -82,7 +82,7 @@ class UserController extends Controller
             'email'           => ['required_without:document_number', 'nullable', 'email', 'unique:users,email'],
             'document_type'   => ['sometimes', Rule::in(['dni', 'ce', 'passport'])],
             'document_number' => ['required_without:email', 'nullable', 'string', 'max:30'],
-            'role'          => ['required', 'in:company_admin,hr_manager,supervisor,employee'],
+            'role'          => ['required', 'in:company_admin,hr_manager,manager,accountant,supervisor,employee'],
             'position'      => ['sometimes', 'nullable', 'string', 'max:150'],
             'position_id'   => ['sometimes', 'nullable', 'integer', Rule::exists('positions', 'id')->where('tenant_id', current_tenant_id())],
             'department'    => ['sometimes', 'nullable', 'string', 'max:100'],
