@@ -3,7 +3,11 @@
 namespace App\Modules\HR\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
+use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\CompanyConfiguration;
+use App\Modules\Core\Models\Department;
+use App\Modules\Core\Models\Position;
+use App\Modules\HR\Models\Shift;
 use App\Modules\HR\Models\EmployeeDocument;
 use App\Modules\HR\Models\EmployeeProfile;
 use App\Modules\HR\Models\UniformDelivery;
@@ -91,7 +95,7 @@ class DocumentWebController extends Controller
     }
 
     /** Ficha completa del colaborador (legajo) */
-    public function employeeFile(int $id): View
+    public function employeeFile(Request $request, int $id): View
     {
         $employee = User::with(['profile.verifier', 'uniformSize', 'branches'])->findOrFail($id);
         abort_unless(Auth::user()->canManage($employee), 403);
@@ -100,12 +104,27 @@ class DocumentWebController extends Controller
         $deliveries = $employee->uniformDeliveries()->with('deliverer:id,first_name,last_name')->latest('delivered_at')->get();
         $profile    = $employee->profile ?? new EmployeeProfile();
         $config     = CompanyConfiguration::forTenantId($employee->tenant_id);
-        $revealed   = session('revealed_profile') === $employee->id;
 
-        return view('employees.file', compact('employee', 'documents', 'deliveries', 'profile', 'config', 'revealed'));
+        $canViewSensitive = Auth::user()->hasPermission('profiles.view_sensitive')
+            || in_array(Auth::user()->role, ['super_admin', 'company_admin', 'hr_manager', 'accountant', 'manager'], true);
+        $revealed   = session('revealed_profile') === $employee->id
+            || ($request->ajax() && $canViewSensitive)
+            || $request->boolean('reveal');
+
+        $tenantId = $employee->tenant_id;
+        $branches = Branch::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get();
+        $shifts = Shift::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get();
+        $departments = Department::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $positionsCatalog = Position::forTenant($tenantId)->with('department:id,name')->where('is_active', true)->orderBy('name')->get();
+
+        if ($request->ajax()) {
+            return view('employees.partials.modal-file-content', compact('employee', 'documents', 'deliveries', 'profile', 'config', 'revealed', 'canViewSensitive'));
+        }
+
+        return view('employees.file', compact('employee', 'documents', 'deliveries', 'profile', 'config', 'revealed', 'canViewSensitive', 'branches', 'shifts', 'departments', 'positionsCatalog'));
     }
 
-    public function updateProfile(Request $request, int $id): RedirectResponse
+    public function updateProfile(Request $request, int $id): \Illuminate\Http\JsonResponse|RedirectResponse
     {
         $employee = User::findOrFail($id);
         abort_unless(Auth::user()->canManage($employee), 403);
@@ -114,6 +133,7 @@ class DocumentWebController extends Controller
             'labor_regime'            => ['nullable', Rule::in(array_keys(EmployeeProfile::LABOR_REGIMES))],
             'pension_system'          => ['nullable', Rule::in(array_keys(EmployeeProfile::PENSION_SYSTEMS))],
             'pension_fund'            => ['nullable', 'string', 'max:100'],
+            'pension_code'            => ['nullable', 'string', 'max:50'],
             'health_insurance'        => ['nullable', Rule::in(array_keys(EmployeeProfile::HEALTH_INSURANCES))],
             'bank_name'               => ['nullable', 'string', 'max:100'],
             'bank_account_type'       => ['nullable', Rule::in(array_keys(EmployeeProfile::BANK_ACCOUNT_TYPES))],
@@ -124,6 +144,7 @@ class DocumentWebController extends Controller
             'cts_account_number'      => ['nullable', 'string', 'regex:/^[0-9\- ]{6,30}$/'],
             'cts_currency'            => ['nullable', 'string', 'size:3'],
             'address'                 => ['nullable', 'string', 'max:255'],
+            'district'                => ['nullable', 'string', 'max:100'],
             'emergency_contact_name'  => ['nullable', 'string', 'max:150'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:30'],
         ]);
@@ -135,6 +156,9 @@ class DocumentWebController extends Controller
             } else {
                 $validated[$field] = preg_replace('/\D/', '', $validated[$field]);
             }
+        }
+        if (isset($validated['pension_code']) && empty($validated['pension_code'])) {
+            unset($validated['pension_code']);
         }
 
         $profile = EmployeeProfile::firstOrNew(['user_id' => $employee->id]);
@@ -150,6 +174,13 @@ class DocumentWebController extends Controller
         }
 
         $this->audit->saveWithAudit('profile.updated_by_hr', $profile, ['name' => $employee->full_name]);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Ficha del colaborador actualizada con éxito.',
+            ]);
+        }
 
         return back()->with('success', 'Ficha laboral actualizada.');
     }
@@ -183,7 +214,11 @@ class DocumentWebController extends Controller
 
         $this->audit->log('payment_info.revealed', $employee);
 
-        return back()->with('revealed_profile', $employee->id);
+        session(['revealed_profile' => $employee->id]);
+
+        return redirect()->route('employees.file', $id)
+            ->with('revealed_profile', $employee->id)
+            ->with('success', 'Números de cuenta revelados y auditados.');
     }
 
     public function upload(Request $request, int $id): RedirectResponse

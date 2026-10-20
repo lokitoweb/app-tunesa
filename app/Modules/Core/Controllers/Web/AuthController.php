@@ -10,14 +10,13 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
 /**
  * AuthController (Web)
  *
  * Gestiona el acceso al panel web para administradores, RRHH y supervisores.
- * Soporta autenticación contextual por tenant (empresa).
+ * Seguridad reforzada: Anti-inyección, Anti-fuerza bruta, Honeypot y mensajes en español.
  */
 class AuthController extends Controller
 {
@@ -26,27 +25,43 @@ class AuthController extends Controller
      */
     public function showLoginForm(Request $request): View
     {
-        // Marca blanca: si se entra por el subdominio o dominio propio de una
-        // empresa se muestra su logo y nombre. Nunca se lista a las empresas.
         $tenant = $this->tenantFromHost($request->getHost());
 
         return view('auth.login', compact('tenant'));
     }
 
     /**
-     * Procesa la solicitud de login.
+     * Procesa la solicitud de login con validaciones de seguridad estrictas.
      */
     public function login(Request $request): RedirectResponse
     {
+        // 1. Trampa Honeypot contra bots y escaneos automáticos
+        if ($request->filled('_auth_token_verify')) {
+            sleep(1);
+            return back()->withErrors(['email' => 'Acceso denegado por seguridad.']);
+        }
+
+        // 2. Sanitización contra inyecciones y caracteres nulos
+        $rawEmail = (string) $request->input('email', '');
+        $cleanEmail = trim(str_replace(["\0", "\r", "\n"], '', $rawEmail));
+        $request->merge(['email' => $cleanEmail]);
+
+        // 3. Validación estricta con mensajes en español
         $credentials = $request->validate([
-            'email'     => ['required', 'email'],
-            'password'  => ['required', 'string'],
+            'email'     => ['required', 'string', 'email', 'max:180'],
+            'password'  => ['required', 'string', 'max:128'],
             'remember'  => ['nullable', 'boolean'],
+        ], [
+            'email.required'    => 'El correo corporativo es obligatorio.',
+            'email.email'       => 'Ingresa un formato de correo electrónico válido.',
+            'email.max'         => 'El correo corporativo no puede exceder los 180 caracteres.',
+            'password.required' => 'La contraseña es obligatoria.',
+            'password.max'      => 'La contraseña no puede exceder los 128 caracteres.',
         ]);
 
         $remember = $request->boolean('remember');
 
-        // Búsqueda del usuario con sus credenciales
+        // 4. Consulta parametrizada segura (Protección contra SQL Injection)
         $userQuery = User::where('email', $credentials['email'])
             ->where('status', 'active');
 
@@ -57,7 +72,7 @@ class AuthController extends Controller
 
         $user = $userQuery->first();
 
-        // Mismo bloqueo por fuerza bruta que la API (LoginGuard)
+        // 5. Bloqueo por fuerza bruta (LoginGuard)
         try {
             $user = app(LoginGuard::class)->attempt($request, $user, $hostTenant?->id ?? $user?->tenant_id);
         } catch (ValidationException $e) {
@@ -68,16 +83,16 @@ class AuthController extends Controller
                     : collect($e->errors())->flatten()->first()]);
         }
 
-        // Validar que el rol tenga acceso al panel web
+        // 6. Validar que el rol tenga acceso al panel web
         if (! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view')) {
             return back()
                 ->withInput($request->only('email'))
-                ->withErrors(['email' => 'Los empleados de campo deben registrarse a través de la aplicación móvil Grupo Negreiros.']);
+                ->withErrors(['email' => 'Los colaboradores de campo deben ingresar mediante la aplicación móvil Grupo Negreiros.']);
         }
 
         app(LoginGuard::class)->registerSuccess($user, $request);
 
-        // Iniciar sesión
+        // 7. Iniciar sesión y regenerar ID de sesión (Protección contra Session Fixation & Hijacking)
         Auth::login($user, $remember);
         $request->session()->regenerate();
 
@@ -86,8 +101,32 @@ class AuthController extends Controller
             $request->session()->put('current_tenant_id', $user->tenant_id);
         }
 
-        return redirect()->intended(route('dashboard'))
+        // Evitar que un url.intended residual redirija a logout, login o acciones POST
+        $intended = $request->session()->pull('url.intended', route('dashboard'));
+        if (! $intended || str_contains($intended, '/logout') || str_contains($intended, '/login') || str_contains($intended, '/reveal') || str_contains($intended, '/_test')) {
+            $intended = route('dashboard');
+        }
+
+        return redirect()->to($intended)
             ->with('success', "¡Bienvenido de nuevo, {$user->first_name}!");
+    }
+
+    /**
+     * Cierra la sesión del usuario.
+     */
+    public function logout(Request $request): RedirectResponse
+    {
+        $wasExpired = $request->boolean('expired');
+        $request->session()->forget('url.intended');
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        if ($wasExpired) {
+            return redirect()->route('login')->with('info', 'Tu sesión se cerró por inactividad. Por favor, ingresa tus credenciales para continuar.');
+        }
+
+        return redirect()->route('login');
     }
 
     /**
@@ -96,19 +135,5 @@ class AuthController extends Controller
     private function tenantFromHost(string $host): ?Tenant
     {
         return Tenant::fromHost($host);
-    }
-
-    /**
-     * Cierra la sesión activa.
-     */
-    public function logout(Request $request): RedirectResponse
-    {
-        Auth::logout();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return redirect()->route('login')
-            ->with('info', 'Has cerrado sesión exitosamente.');
     }
 }

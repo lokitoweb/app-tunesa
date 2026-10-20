@@ -7,7 +7,8 @@ const page = usePage();
 </script>
 
 <template>
-    <span v-if="page.props.globalView && tenantId" class="badge rounded-pill text-bg-primary bg-opacity-10 text-primary-emphasis border border-primary-subtle fw-medium tenant-badge" title="Empresa">
-        {{ page.props.tenantNames[tenantId] ?? `Empresa #${tenantId}` }}
+    <span v-if="page.props.globalView && tenantId" class="tenant-badge" title="Empresa">
+        <i class="bi bi-buildings"></i>
+        <span>{{ page.props.tenantNames[tenantId] ?? `Empresa #${tenantId}` }}</span>
     </span>
 </template>

@@ -11,6 +11,7 @@ Route::middleware(['auth', 'web.tenant', 'can:ethics.investigate'])->prefix('eth
     Route::post('/{case}/identity', [EthicsWebController::class, 'identity'])->name('identity')->whereNumber('case')->middleware('can:ethics.view_identity');
     Route::post('/{case}/reply', [EthicsWebController::class, 'reply'])->name('reply')->whereNumber('case');
     Route::put('/{case}/status', [EthicsWebController::class, 'status'])->name('status')->whereNumber('case');
+    Route::put('/{case}/assign', [EthicsWebController::class, 'assign'])->name('assign')->whereNumber('case');
     Route::get('/{case}/photos/{attachment}', [EthicsWebController::class, 'photo'])->name('photo')->whereNumber(['case', 'attachment']);
 });
 

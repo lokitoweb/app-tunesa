@@ -4,80 +4,83 @@
 
 @section('styles')
 <style>
-    .live-counter { cursor: pointer; transition: box-shadow .15s ease, transform .15s ease; }
-    .live-counter:hover, .live-counter:focus-visible { transform: translateY(-1px); box-shadow: 0 .25rem .75rem rgba(0,0,0,.08); }
-    .live-counter.active { outline: 2px solid var(--brand, #1E40AF); outline-offset: -2px; }
-    .live-counter .kpi-value { font-size: 1.6rem; }
-    .live-thumb { width: 44px; height: 44px; border-radius: .5rem; object-fit: cover; flex-shrink: 0; background: var(--bs-secondary-bg); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; color: var(--bs-secondary-color); border: 0; padding: 0; }
-    #liveBoardMap { height: 360px; }
-    @media (max-width: 767.98px) { #liveBoardMap { height: 260px; } }
-    .live-row { gap: .75rem; }
-    .live-row .min-w-0 { min-width: 0; }
+    #liveBoardMap { height: 460px; border-radius: 10px; border: 1px solid var(--border-color); }
+    @media (max-width: 767.98px) { #liveBoardMap { height: 300px; } }
+    #liveList { max-height: 520px; overflow-y: auto; scrollbar-width: thin; }
+    #liveList::-webkit-scrollbar { width: 5px; }
+    #liveList::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); border-radius: 4px; }
     .live-times { font-variant-numeric: tabular-nums; }
-    #liveList { max-height: 640px; overflow-y: auto; }
 </style>
 @endsection
 
 @section('content')
-<div class="page-header">
+<!-- Header del Tablero en Vivo -->
+<div class="live-board-header">
     <div>
-        <h1>Tablero en vivo</h1>
-        <p>Quién está trabajando ahora, en descanso, por llegar o ausente{{ ($globalView ?? false) ? ' en todas las empresas' : '' }}.</p>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <h1 class="h2 fw-bold mb-0" style="color: var(--text-primary); letter-spacing: -0.02em;">Tablero en vivo</h1>
+        </div>
+        <p class="mb-0" style="color: var(--text-muted); font-size: 0.875rem;">Quién está trabajando ahora, en descanso, por llegar o ausente{{ ($globalView ?? false) ? ' en todas las empresas' : '' }}.</p>
     </div>
-    <div class="d-flex align-items-center gap-2 small fw-semibold" aria-live="polite">
-        <span class="live-dot" id="liveDot"></span>
-        <span id="liveUpdated" class="text-success">Cargando…</span>
+
+    <!-- Indicador de En Vivo & Botón de Actualizar -->
+    <div class="d-flex align-items-center gap-2">
+        <div class="live-pulse-badge" id="livePulseBadge" title="Transmisión activa">
+            <span class="live-pulse-dot" id="liveDot"></span>
+            <span id="liveUpdated">En vivo</span>
+        </div>
+        <button type="button" id="btnManualPoll" class="live-refresh-btn" title="Actualizar ahora" aria-label="Actualizar">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
     </div>
 </div>
 
-{{-- Contadores (clic = filtrar por ese estado) --}}
+{{-- Contadores Interactivos (KPI Status Cards) --}}
 @php
     $counterCards = [
-        ['working', 'Trabajando', 'person-workspace', 'success'],
-        ['on_break', 'En descanso', 'cup-hot', 'info'],
-        ['not_arrived', 'No ha llegado', 'person-x', 'danger'],
-        ['upcoming', 'Por llegar', 'hourglass-split', 'secondary'],
-        ['left', 'Salió', 'box-arrow-right', 'dark'],
-        ['on_leave', 'Con permiso', 'calendar2-check', 'primary'],
+        ['working', 'Trabajando', 'person-workspace', 'rgba(16, 185, 129, 0.1)', '#10b981'],
+        ['on_break', 'En descanso', 'cup-hot', 'rgba(245, 158, 11, 0.1)', '#f59e0b'],
+        ['not_arrived', 'No ha llegado', 'person-x', 'rgba(239, 68, 68, 0.1)', '#ef4444'],
+        ['upcoming', 'Por llegar', 'hourglass-split', 'rgba(100, 116, 139, 0.1)', '#64748b'],
+        ['left', 'Salió', 'box-arrow-right', 'rgba(71, 85, 105, 0.1)', '#475569'],
+        ['on_leave', 'Con permiso', 'calendar2-check', 'rgba(2, 132, 199, 0.1)', '#0284c7'],
     ];
     if ($hasSuspicious) {
-        $counterCards[] = ['suspicious', 'Sospechosas', 'shield-exclamation', 'warning'];
+        $counterCards[] = ['suspicious', 'Sospechosas', 'shield-exclamation', 'rgba(217, 119, 6, 0.1)', '#d97706'];
     }
 @endphp
 <div class="row g-2 g-md-3 mb-4">
-    @foreach($counterCards as [$key, $label, $icon, $tone])
+    @foreach($counterCards as [$key, $label, $icon, $bgColor, $iconColor])
         <div class="col-6 col-md-4 col-xl">
-            <div class="card border-0 h-100 kpi-card live-counter" role="button" tabindex="0" data-status="{{ $key }}" aria-label="Filtrar: {{ $label }}">
-                <div class="card-body py-3">
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                        <span class="kpi-label">{{ $label }}</span>
-                        <span class="kpi-icon bg-{{ $tone }}-subtle text-{{ $tone }}-emphasis"><i class="bi bi-{{ $icon }}"></i></span>
-                    </div>
-                    <div class="kpi-value" data-counter="{{ $key }}">–</div>
+            <div class="card border-0 h-100 live-status-card live-counter" role="button" tabindex="0" data-status="{{ $key }}" aria-label="Filtrar por: {{ $label }}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="live-status-label">{{ $label }}</span>
+                    <span class="live-status-icon" style="background: {{ $bgColor }}; color: {{ $iconColor }};">
+                        <i class="bi bi-{{ $icon }}"></i>
+                    </span>
                 </div>
+                <div class="live-status-val" data-counter="{{ $key }}">–</div>
             </div>
         </div>
     @endforeach
 </div>
 
 <div class="row g-3">
-    {{-- Lista filtrable --}}
+    {{-- Columna Izquierda: Lista Filtrable de Colaboradores --}}
     <div class="col-12 col-xl-7">
-        <div class="card border-0 h-100">
-            <div class="card-header border-0 pt-3">
-                <form class="row g-2" id="liveFilters" onsubmit="return false">
-                    <div class="col-12 col-md-4">
-                        <label for="liveBranch" class="visually-hidden">Sucursal</label>
-                        <select id="liveBranch" class="form-select form-select-sm">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border: 1px solid var(--border-color) !important; background: var(--bg-surface); overflow: hidden;">
+            <div class="card-header border-bottom p-3" style="background: var(--bg-surface); border-color: var(--border-color) !important;">
+                <form class="row g-2 align-items-center" id="liveFilters" onsubmit="return false">
+                    <div class="col-12 col-sm-4">
+                        <select id="liveBranch" class="form-select form-select-sm" style="border-radius: 8px; border-color: var(--border-color); background-color: var(--bg-surface); color: var(--text-primary); height: 36px; font-size: 0.825rem;">
                             <option value="">Todas las sucursales</option>
                             @foreach($branches as $b)
                                 <option value="{{ $b->id }}">{{ $b->name }}@if($globalView ?? false) · {{ $tenantNames[$b->tenant_id] ?? '' }}@endif</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-6 col-md-4">
-                        <label for="liveStatus" class="visually-hidden">Estado</label>
-                        <select id="liveStatus" class="form-select form-select-sm">
+                    <div class="col-6 col-sm-3">
+                        <select id="liveStatus" class="form-select form-select-sm" style="border-radius: 8px; border-color: var(--border-color); background-color: var(--bg-surface); color: var(--text-primary); height: 36px; font-size: 0.825rem;">
                             <option value="">Todos los estados</option>
                             @foreach($statuses as $key => $label)
                                 <option value="{{ $key }}">{{ $label }}</option>
@@ -85,32 +88,63 @@
                             @if($hasSuspicious)<option value="suspicious">Sospechosas</option>@endif
                         </select>
                     </div>
-                    <div class="col-6 col-md-4">
-                        <label for="liveSearch" class="visually-hidden">Buscar</label>
-                        <input type="search" id="liveSearch" class="form-control form-control-sm" placeholder="Buscar nombre o código">
+                    <div class="col-6 col-sm-5">
+                        <div class="company-search-wrapper" style="width: 100%;">
+                            <i class="bi bi-search search-icon"></i>
+                            <input type="search" id="liveSearch" class="company-search-input" style="height: 36px;" placeholder="Buscar colaborador o código...">
+                        </div>
                     </div>
                 </form>
             </div>
+
+            <!-- Listado en vivo con scroll suave -->
             <div class="list-group list-group-flush" id="liveList" aria-live="polite">
-                <div class="empty-state"><i class="bi bi-hourglass"></i>Cargando…</div>
+                <div class="text-center py-5">
+                    <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                    <div class="text-secondary small fw-medium">Sincronizando estado en vivo…</div>
+                </div>
             </div>
-            <div class="card-footer bg-transparent small text-body-secondary" id="liveCount"></div>
+
+            <!-- Contador de personas en footer -->
+            <div class="card-footer border-top px-3 py-2 d-flex align-items-center justify-content-between small text-secondary" style="background: var(--bg-surface); border-color: var(--border-color) !important;">
+                <span id="liveCount"><i class="bi bi-people me-1"></i>0 colaboradores</span>
+                <span class="text-muted" style="font-size: 0.75rem;">Monitoreo en vivo cada 10s</span>
+            </div>
         </div>
     </div>
 
-    {{-- Mapa de las entradas de hoy --}}
+    {{-- Columna Derecha: Mapa de Marcaciones en Tiempo Real --}}
     <div class="col-12 col-xl-5">
-        <div class="card border-0 h-100">
-            <div class="card-header border-0 pt-3">
-                <h2 class="h6 fw-semibold mb-0">Entradas de hoy</h2>
-                <small class="text-body-secondary">Punto GPS de la marcación de entrada</small>
+        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border: 1px solid var(--border-color) !important; background: var(--bg-surface); overflow: hidden;">
+            <div class="card-header border-bottom p-3 d-flex align-items-center justify-content-between" style="background: var(--bg-surface); border-color: var(--border-color) !important;">
+                <div>
+                    <h2 class="h6 fw-bold mb-0 d-flex align-items-center gap-2" style="color: var(--text-primary);">
+                        <i class="bi bi-geo-alt-fill text-primary"></i>
+                        <span>Entradas por Ubicación</span>
+                    </h2>
+                    <small class="text-muted" style="font-size: 0.75rem;">Puntos GPS y ubicaciones autorizadas de hoy</small>
+                </div>
+                <button type="button" id="btnCenterMap" class="btn btn-sm d-inline-flex align-items-center gap-1" style="border-radius: 8px; font-size: 0.775rem; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-muted);" title="Reencuadrar mapa en sucursales">
+                    <i class="bi bi-crosshair"></i>
+                    <span class="d-none d-sm-inline">Centrar</span>
+                </button>
             </div>
-            <div class="card-body">
-                <div id="liveBoardMap" class="map-frame rounded"></div>
-                <div class="d-flex flex-wrap gap-3 small text-body-secondary mt-2">
-                    <span><i class="bi bi-circle-fill text-primary"></i> Geocerca</span>
-                    <span><i class="bi bi-circle-fill text-success"></i> Dentro</span>
-                    <span><i class="bi bi-circle-fill text-danger"></i> Fuera</span>
+            <div class="card-body p-3" style="background: var(--bg-surface);">
+                <div id="liveBoardMap"></div>
+                <!-- Leyenda de colores -->
+                <div class="d-flex flex-wrap align-items-center gap-3 small text-muted mt-2 px-1" style="font-size: 0.775rem;">
+                    <span class="d-inline-flex align-items-center gap-1">
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:#0284c7;"></span>
+                        <span>Ubicación autorizada</span>
+                    </span>
+                    <span class="d-inline-flex align-items-center gap-1">
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:#10b981;"></span>
+                        <span>Dentro de ubicación</span>
+                    </span>
+                    <span class="d-inline-flex align-items-center gap-1">
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:#ef4444;"></span>
+                        <span>Fuera de ubicación</span>
+                    </span>
                 </div>
             </div>
         </div>
@@ -126,7 +160,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const GLOBAL_VIEW = @json((bool) ($globalView ?? false));
     const BASE_DELAY = 10000;     // sondeo normal: 10 s
     const MAX_DELAY = 300000;     // tope del reintento: 5 min
-    const TONES = { working: 'success', on_break: 'info', not_arrived: 'danger', upcoming: 'secondary', left: 'dark', on_leave: 'primary' };
+    const TONES = { 
+        working: 'success', 
+        on_break: 'warning', 
+        not_arrived: 'danger', 
+        upcoming: 'secondary', 
+        left: 'dark', 
+        on_leave: 'primary' 
+    };
 
     const els = {
         list: document.getElementById('liveList'),
@@ -136,27 +177,61 @@ document.addEventListener('DOMContentLoaded', () => {
         branch: document.getElementById('liveBranch'),
         status: document.getElementById('liveStatus'),
         search: document.getElementById('liveSearch'),
+        btnManualPoll: document.getElementById('btnManualPoll'),
+        btnCenterMap: document.getElementById('btnCenterMap'),
     };
 
     let etag = null, payload = null, lastOk = null, failures = 0, timer = null, inFlight = false;
 
-    // ---- Mapa ----
-    const brand = Panel.cssVar('--brand') || '#1E40AF';
-    const map = L.map('liveBoardMap', { scrollWheelZoom: false }).setView([-12.046374, -77.042793], 11);
+    // ---- Mapa Leaflet ----
+    const brand = Panel.cssVar('--brand') || '#0284c7';
+    const map = L.map('liveBoardMap', { scrollWheelZoom: false }).setView([-8.1118, -79.0287], 12);
     Panel.tiles(map);
     const branchBounds = [];
     BRANCHES.forEach((b) => {
         if (!b.latitude || !b.longitude) return;
         const center = [parseFloat(b.latitude), parseFloat(b.longitude)];
-        L.circle(center, { radius: parseInt(b.allowed_radius_meters, 10) || 50, color: brand, fillColor: brand, fillOpacity: .1, weight: 2 })
-            .addTo(map).bindPopup(`<strong>${Panel.esc(b.name)}</strong>`);
+        L.circle(center, { 
+            radius: parseInt(b.allowed_radius_meters, 10) || 50, 
+            color: '#0284c7', 
+            fillColor: '#0284c7', 
+            fillOpacity: .12, 
+            weight: 2 
+        }).addTo(map).bindPopup(`<strong style="font-size:0.9rem;">${Panel.esc(b.name)}</strong><br><small class="text-muted">Radio permitido: ${b.allowed_radius_meters || 50}m</small>`);
         branchBounds.push(center);
     });
-    if (branchBounds.length) map.fitBounds(branchBounds, { padding: [30, 30], maxZoom: 15 });
+
+    if (branchBounds.length) {
+        map.fitBounds(branchBounds, { padding: [35, 35], maxZoom: 15 });
+    }
     const markerLayer = L.layerGroup().addTo(map);
     let fitted = false;
 
-    // ---- Sondeo con ETag, reintento exponencial y pausa en segundo plano ----
+    let currentMarkerPoints = [];
+
+    function centerMap() {
+        const allPoints = [];
+        if (currentMarkerPoints && currentMarkerPoints.length) {
+            allPoints.push(...currentMarkerPoints);
+        }
+        if (branchBounds && branchBounds.length) {
+            allPoints.push(...branchBounds);
+        }
+        map.invalidateSize();
+        if (allPoints.length > 1) {
+            map.fitBounds(allPoints, { padding: [40, 40], maxZoom: 15, animate: true });
+        } else if (allPoints.length === 1) {
+            map.setView(allPoints[0], 14, { animate: true });
+        } else {
+            map.setView([-8.1118, -79.0287], 12, { animate: true });
+        }
+    }
+
+    if (els.btnCenterMap) {
+        els.btnCenterMap.addEventListener('click', centerMap);
+    }
+
+    // ---- Sondeo con ETag y pausa en segundo plano ----
     function schedule() {
         clearTimeout(timer);
         if (document.visibilityState === 'hidden') return;
@@ -193,15 +268,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    if (els.btnManualPoll) {
+        els.btnManualPoll.addEventListener('click', () => {
+            etag = null;
+            poll();
+        });
+    }
+
     function updateAgo() {
         if (!lastOk) {
-            els.updated.textContent = failures ? 'Sin conexión, reintentando…' : 'Cargando…';
+            els.updated.textContent = failures ? 'Sin conexión' : 'En vivo';
             return;
         }
         const s = Math.max(0, Math.round((Date.now() - lastOk) / 1000));
         const ago = s < 60 ? `${s} s` : `${Math.floor(s / 60)} min`;
-        els.updated.textContent = (failures ? 'Sin conexión, reintentando · ' : '') + `Actualizado hace ${ago}`;
-        els.updated.className = failures ? 'text-danger' : (s > 30 ? 'text-warning-emphasis' : 'text-success');
+        
+        // El texto visible siempre es "En vivo" como solicitó el usuario, y el tiempo va en el title
+        els.updated.textContent = failures ? 'Reintentando…' : 'En vivo';
+        els.updated.className = failures ? 'text-danger fw-bold' : 'text-success fw-bold';
+        document.getElementById('livePulseBadge')?.setAttribute('title', failures ? 'Sin conexión al servidor' : `Transmisión activa · Sincronizado hace ${ago}`);
         els.dot.style.visibility = failures ? 'hidden' : 'visible';
     }
     setInterval(updateAgo, 1000);
@@ -210,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.visibilityState === 'hidden') { clearTimeout(timer); } else { poll(); }
     });
 
-    // ---- Pintado ----
+    // ---- Renderizado ----
     function initials(name) {
         return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
     }
@@ -225,31 +310,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function rowHtml(r) {
         const tone = TONES[r.status] || 'secondary';
-        const thumb = r.photo_url
-            ? `<button type="button" class="live-thumb" data-photo="${Panel.esc(r.photo_url)}" data-photo-title="${Panel.esc(r.name)}" data-photo-meta="Entrada ${Panel.esc(r.clock_in || '')} · ${Panel.esc(r.branch || '')}" aria-label="Ver selfie de ${Panel.esc(r.name)}"><img src="${Panel.esc(r.photo_url)}" alt="" class="live-thumb" loading="lazy"></button>`
-            : `<span class="live-thumb" aria-hidden="true">${Panel.esc(initials(r.name))}</span>`;
-        const company = GLOBAL_VIEW && r.company ? `<span class="badge rounded-pill text-bg-primary bg-opacity-10 text-primary-emphasis border border-primary-subtle fw-medium ms-1">${Panel.esc(r.company)}</span>` : '';
-        const geo = r.within_geofence === null ? ''
-            : (r.within_geofence
-                ? `<span class="text-success" title="Dentro de la geocerca"><i class="bi bi-geo-alt-fill"></i> ${Panel.esc(r.distance_meters ?? '-')} m</span>`
-                : `<span class="text-danger fw-semibold" title="Fuera de la geocerca"><i class="bi bi-exclamation-triangle-fill"></i> ${Panel.esc(r.distance_meters ?? '-')} m</span>`);
-        const times = [
-            r.clock_in ? `Entrada ${Panel.esc(r.clock_in)}` : (r.shift_start ? `Turno ${Panel.esc(r.shift_start)}` : ''),
-            r.break_start && r.status === 'on_break' ? `Descanso ${Panel.esc(r.break_start)}` : '',
-            r.clock_out ? `Salida ${Panel.esc(r.clock_out)}` : '',
-            r.late_minutes > 0 ? `<span class="text-warning-emphasis">+${r.late_minutes} min</span>` : '',
-        ].filter(Boolean).join(' · ');
-        const suspicious = r.suspicious ? '<span class="badge text-bg-warning ms-1"><i class="bi bi-shield-exclamation"></i> Sospechosa</span>' : '';
-        const name = r.detail_url ? `<a href="${Panel.esc(r.detail_url)}" class="text-reset">${Panel.esc(r.name)}</a>` : Panel.esc(r.name);
+        const photoSrc = r.photo_url || r.avatar_url;
+        const init = initials(r.name);
+        
+        // Avatar: Foto de marcación o perfil si existe, o iniciales estilizadas
+        const thumb = photoSrc
+            ? `<div class="live-collab-avatar has-photo" data-photo="${Panel.esc(photoSrc)}" data-photo-title="${Panel.esc(r.name)}" data-photo-meta="${Panel.esc(r.branch || '')} · ${Panel.esc(r.clock_in ? 'Marcación ' + r.clock_in : 'Perfil')}" title="Clic para ampliar foto">
+                   <img src="${Panel.esc(photoSrc)}" alt="${Panel.esc(r.name)}" onerror="this.onerror=null; this.parentElement.classList.remove('has-photo'); this.parentElement.innerHTML='${Panel.esc(init)}';">
+               </div>`
+            : `<div class="live-collab-avatar" title="${Panel.esc(r.name)}">${Panel.esc(init)}</div>`;
+        
+        const nameLink = r.detail_url 
+            ? `<a href="${Panel.esc(r.detail_url)}" class="live-collab-name text-decoration-none fw-bold">${Panel.esc(r.name)}</a>` 
+            : `<span class="live-collab-name fw-bold">${Panel.esc(r.name)}</span>`;
+        
+        const suspiciousBadge = r.suspicious 
+            ? '<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-2 ms-1" style="font-size:0.7rem;"><i class="bi bi-shield-exclamation"></i> Sospechosa</span>' 
+            : '';
 
-        return `<div class="list-group-item d-flex align-items-center live-row">
-            ${thumb}
-            <div class="min-w-0 flex-grow-1">
-                <div class="fw-semibold text-truncate">${name}${company}${suspicious}</div>
-                <div class="small text-body-secondary text-truncate">${Panel.esc(r.branch || 'Sin sucursal')}${r.shift ? ' · ' + Panel.esc(r.shift) : ''}</div>
-                <div class="small live-times">${times} ${geo}</div>
+        // Horarios: ABAJO DE LA SEDE PRINCIPAL (como en la Imagen 2)
+        let timeMain = '';
+        if (r.clock_in) {
+            timeMain = `<i class="bi bi-box-arrow-in-right text-success me-1"></i><span class="fw-semibold" style="color: var(--text-primary);">${Panel.esc(r.clock_in)}</span>`;
+        } else if (r.shift_start) {
+            timeMain = `<i class="bi bi-clock me-1 text-muted"></i><span>Turno ${Panel.esc(r.shift_start)}</span>`;
+        }
+
+        const lateTag = r.late_minutes > 0 
+            ? `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-2 px-1.5 py-0 ms-1" style="font-size:0.675rem;">+${r.late_minutes} min tarde</span>` 
+            : '';
+
+        // Empresa (DONDE EL USUARIO PIDIÓ MOVERLA, EN EL CENTRO)
+        const companyName = Panel.esc(r.company || 'Empresa');
+        const companyHtml = `
+            <div class="live-collab-company-cell">
+                <span class="live-company-badge" title="Empresa: ${companyName}">
+                    <i class="bi bi-building text-muted me-1"></i>${companyName}
+                </span>
             </div>
-            <span class="badge bg-${tone}-subtle text-${tone}-emphasis border border-${tone}-subtle flex-shrink-0">${Panel.esc(r.status_label)}</span>
+        `;
+
+        // Ubicación (NO GEOCERCA, BADGE RECTANGULAR CON BORDES SUAVES, NADA DE PILL REDONDA)
+        let locationBadge = '';
+        if (r.within_geofence !== null) {
+            if (r.within_geofence) {
+                locationBadge = `<span class="live-location-badge in-range" title="Marcación en ubicación autorizada (${Panel.esc(r.distance_meters ?? 0)} m)"><i class="bi bi-geo-alt-fill"></i>En ubicación (${Panel.esc(r.distance_meters ?? 0)} m)</span>`;
+            } else {
+                locationBadge = `<span class="live-location-badge out-range" title="Marcación fuera de la ubicación autorizada (${Panel.esc(r.distance_meters ?? '-')} m)"><i class="bi bi-exclamation-triangle-fill"></i>Fuera de ubicación (${Panel.esc(r.distance_meters ?? '-')} m)</span>`;
+            }
+        }
+
+        return `
+        <div class="live-collab-row">
+            ${thumb}
+            
+            <!-- Columna 1: Colaborador + Sede/Turno + Hora (Abajo, exactamente como en Imagen 2) -->
+            <div class="live-collab-primary min-w-0">
+                <div class="d-flex align-items-center gap-1 flex-wrap mb-0.5">
+                    ${nameLink}
+                    ${suspiciousBadge}
+                </div>
+                <div class="live-collab-subtitle text-truncate">
+                    <i class="bi bi-building text-muted me-1"></i>${Panel.esc(r.branch || 'Sin sucursal')}${r.shift ? ' · <i class="bi bi-calendar2-week text-muted me-1"></i>' + Panel.esc(r.shift) : ''}
+                </div>
+                <div class="live-collab-time-line text-truncate">
+                    ${timeMain}${lateTag}
+                </div>
+            </div>
+
+            <!-- Columna 2: Empresa (donde estaba la línea roja) -->
+            ${companyHtml}
+
+            <!-- Columna 3: Ubicación (Badges no redondeados tipo pill) -->
+            <div class="live-collab-location-cell flex-shrink-0 text-end">
+                ${locationBadge}
+            </div>
+
+            <!-- Columna 4: Estado -->
+            <div class="live-collab-status text-end flex-shrink-0">
+                <span class="badge bg-${tone}-subtle text-${tone}-emphasis border border-${tone}-subtle rounded-2 px-2.5 py-1.5 fw-semibold" style="font-size:0.75rem;">
+                    ${Panel.esc(r.status_label)}
+                </span>
+            </div>
         </div>`;
     }
 
@@ -264,20 +406,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const rows = payload.rows.filter(matches);
         els.list.innerHTML = rows.length
             ? rows.map(rowHtml).join('')
-            : '<div class="empty-state"><i class="bi bi-inbox"></i>Nadie coincide con los filtros.</div>';
-        els.count.textContent = `${rows.length} de ${payload.rows.length} personas`;
+            : '<div class="text-center py-5 text-muted small"><i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>No hay colaboradores que coincidan con los filtros.</div>';
+        
+        els.count.innerHTML = `<i class="bi bi-people me-1 text-primary"></i><strong>${rows.length}</strong> de ${payload.rows.length} colaboradores`;
 
         markerLayer.clearLayers();
         const pts = [];
         payload.rows.filter((r) => r.latitude && r.longitude).forEach((r) => {
-            const color = r.within_geofence ? '#198754' : '#dc3545';
-            const icon = L.divIcon({ className: '', html: `<div class="emp-marker" style="width:16px;height:16px;background:${color}"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
+            const color = r.within_geofence ? '#10b981' : '#ef4444';
+            const icon = L.divIcon({ 
+                className: '', 
+                html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #ffffff;box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>`, 
+                iconSize: [14, 14], 
+                iconAnchor: [7, 7] 
+            });
             L.marker([r.latitude, r.longitude], { icon }).addTo(markerLayer).bindPopup(
-                `<strong>${Panel.esc(r.name)}</strong><br><small>${Panel.esc(r.branch || '')} · ${Panel.esc(r.clock_in || '--')}</small><br><small>${Panel.esc(r.status_label)}</small>`);
+                `<strong style="font-size:0.9rem;">${Panel.esc(r.name)}</strong><br><small class="text-muted"><i class="bi bi-building me-1"></i>${Panel.esc(r.branch || '')}</small><br><small class="fw-semibold text-primary"><i class="bi bi-clock me-1"></i>Entrada: ${Panel.esc(r.clock_in || '--')}</small><br><span class="badge bg-${r.within_geofence ? 'success' : 'danger'}-subtle text-${r.within_geofence ? 'success' : 'danger'} border rounded-2 px-1.5 py-0.5 mt-1" style="font-size:0.7rem;">${r.within_geofence ? 'Dentro de ubicación' : 'Fuera de ubicación'}</span>`);
             pts.push([r.latitude, r.longitude]);
         });
+        currentMarkerPoints = pts;
         if (!fitted && pts.length) {
-            map.fitBounds(pts.concat(branchBounds), { padding: [30, 30], maxZoom: 16 });
+            centerMap();
             fitted = true;
         }
     }

@@ -87,6 +87,14 @@ class CompanyWebTest extends TestCase
 
         $this->actingAs($admin)->get("/companies/{$acme->id}/edit")->assertOk()->assertSee('jefe@acme.pe');
 
+        // Test modal async JSON endpoint
+        $jsonResp = $this->actingAs($admin)->getJson("/companies/{$acme->id}/edit");
+        $jsonResp->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('company.id', $acme->id)
+            ->assertJsonPath('company.slug', 'acme')
+            ->assertJsonPath('admins.0.email', 'jefe@acme.pe');
+
         $this->put("/companies/{$acme->id}", $this->payload([
             'company_name' => 'Acme Perú', 'slug' => 'acme', 'email' => 'acme@example.test',
             'status' => 'suspended', 'custom_domain' => 'asistencia.acme.pe', 'timezone' => 'America/Bogota',
@@ -97,6 +105,14 @@ class CompanyWebTest extends TestCase
         $this->assertSame('suspended', $acme->status);
         $this->assertSame('asistencia.acme.pe', $acme->custom_domain);
         $this->assertSame('America/Bogota', $acme->timezone);
+
+        // Test index contains the expanded modal and KPI stats
+        $indexResp = $this->actingAs($admin)->get('/companies');
+        $indexResp->assertOk()
+            ->assertSee('companyModal')
+            ->assertSee('modal-xl')
+            ->assertSee('Total Empresas')
+            ->assertSee('btn-table-action');
     }
 
     public function test_only_super_admin_can_manage_companies(): void

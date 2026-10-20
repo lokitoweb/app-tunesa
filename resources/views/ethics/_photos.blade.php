@@ -1,9 +1,14 @@
 @if($photos->isNotEmpty())
-    <div class="d-flex flex-wrap gap-2 mt-2">
+    <div class="ethics-photo-grid mt-2">
         @foreach($photos as $photo)
-            <a href="{{ route('ethics.photo', [$case->id, $photo->id]) }}" target="_blank" rel="noopener">
-                <img src="{{ route('ethics.photo', [$case->id, $photo->id]) }}" alt="Foto adjunta" class="rounded border" style="width: 96px; height: 96px; object-fit: cover" loading="lazy">
-            </a>
+            <div class="ethics-photo-card" 
+                 onclick="previewEthicsPhoto('{{ route('ethics.photo', [$case->id, $photo->id]) }}', 'Foto adjunta — Caso #{{ $case->public_code }}')" 
+                 title="Clic para ampliar foto ({{ number_format($photo->size / 1024, 1) }} KB)">
+                <img src="{{ route('ethics.photo', [$case->id, $photo->id]) }}" alt="Foto adjunta" loading="lazy">
+                <div class="photo-overlay">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                </div>
+            </div>
         @endforeach
     </div>
 @endif

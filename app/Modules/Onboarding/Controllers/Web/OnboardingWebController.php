@@ -33,6 +33,9 @@ class OnboardingWebController extends Controller
 
         $base   = OnboardingProcess::forTenant($tenantId)->whereHas('user');
         $counts = (clone $base)->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
+        $counts['all'] = (clone $base)->count();
+
+        $perPage = in_array((int) $request->input('per_page'), [10, 20, 50, 100], true) ? (int) $request->input('per_page') : 20;
 
         $processes = (clone $base)
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
@@ -43,7 +46,7 @@ class OnboardingWebController extends Controller
             }))
             ->with(['user.branches', 'reviewer:id,first_name,last_name'])
             ->orderByRaw('submitted_at is null')->latest('submitted_at')->latest('id')
-            ->paginate(20)->withQueryString();
+            ->paginate($perPage)->withQueryString();
 
         $stages = $processes->getCollection()
             ->mapWithKeys(fn (OnboardingProcess $p) => [$p->id => $p->isApproved() ? [] : $this->onboarding->evaluate($p->user)]);
@@ -51,17 +54,23 @@ class OnboardingWebController extends Controller
         return view('onboarding.index', compact('processes', 'counts', 'status', 'stages'));
     }
 
-    public function show(int $user): View
+    public function show(Request $request, int $user): View
     {
-        $employee = $this->employee($user);
+        $employee = $this->employee($user)->load('branches');
         $process  = $this->onboarding->processFor($employee)->load('reviewer:id,first_name,last_name');
 
-        return view('onboarding.show', [
+        $data = [
             'employee' => $employee,
             'process'  => $process,
             'stages'   => $this->onboarding->evaluate($employee),
             'canAct'   => Auth::id() !== $employee->id,
-        ]);
+        ];
+
+        if ($request->ajax()) {
+            return view('onboarding.partials.modal-detail', $data);
+        }
+
+        return view('onboarding.show', $data);
     }
 
     public function approve(int $user): RedirectResponse
@@ -96,24 +105,49 @@ class OnboardingWebController extends Controller
             ->with('success', "Observaste la incorporación de {$employee->full_name}. Le avisamos en la app.");
     }
 
-    public function settings(): View
+    public function settings(Request $request): View
     {
         $tenantId = current_tenant_id_or_null();
-        abort_if($tenantId === null, 404, 'Elige una empresa para configurar su incorporación.');
+        if ($tenantId === null && $request->filled('tenant_id')) {
+            $tenantId = (int) $request->input('tenant_id');
+        }
 
-        return view('onboarding.settings', [
+        $tenants = [];
+        if (current_tenant_id_or_null() === null) {
+            $tenants = \App\Modules\Core\Models\Tenant::where('status', 'active')->orderBy('company_name')->get(['id', 'company_name']);
+            if ($tenantId === null && $tenants->isNotEmpty()) {
+                $tenantId = $tenants->first()->id;
+            }
+        }
+
+        abort_if($tenantId === null, 404, 'No hay empresas registradas para configurar su incorporación.');
+
+        $data = [
+            'tenantId'      => $tenantId,
+            'tenants'       => $tenants,
+            'currentTenant' => \App\Modules\Core\Models\Tenant::find($tenantId),
             'stages'        => $this->onboarding->stagesFor($tenantId)->load('course'),
             'documents'     => array_map(fn ($t) => EmployeeDocument::TYPES[$t] ?? $t, CompanyConfiguration::forTenantId($tenantId)->requiredDocuments()),
             'courses'       => TrainingCourse::forTenant($tenantId)->where('status', 'published')->orderBy('title')->get(['id', 'title', 'category']),
-        ]);
+        ];
+
+        if ($request->ajax()) {
+            return view('onboarding.partials.modal-settings', $data);
+        }
+
+        return view('onboarding.settings', $data);
     }
 
     public function updateSettings(Request $request): RedirectResponse
     {
         $tenantId = current_tenant_id_or_null();
-        abort_if($tenantId === null, 404);
+        if ($tenantId === null && $request->filled('tenant_id')) {
+            $tenantId = (int) $request->input('tenant_id');
+        }
+        abort_if($tenantId === null, 404, 'No se encontró la empresa a configurar.');
 
         $data = $request->validate([
+            'tenant_id'       => ['nullable', 'integer', 'exists:tenants,id'],
             'required'        => ['array'],
             'required.*'      => [Rule::in(array_keys(OnboardingStage::KEYS))],
             'course_id'       => ['nullable', 'integer', Rule::exists('training_courses', 'id')->where('tenant_id', $tenantId)->where('status', 'published')],
@@ -129,6 +163,7 @@ class OnboardingWebController extends Controller
         }
 
         app(AuditLogger::class)->log('onboarding.stages_updated', null, [
+            'tenant_id' => $tenantId,
             'required'  => $required,
             'course_id' => $data['course_id'] ?? null,
         ]);

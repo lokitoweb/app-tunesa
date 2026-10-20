@@ -52,12 +52,23 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update')->middleware('throttle:5,1');
 });
 
+// Logout accesible siempre (incluso con sesión expirada o sin autenticación)
+Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->name('logout');
+
 Route::middleware(['auth', 'web.tenant'])->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/keep-alive', function () {
+        return response()->json([
+            'status'     => 'alive',
+            'csrf_token' => csrf_token(),
+            'timestamp'  => now()->timestamp,
+        ]);
+    })->name('session.keep-alive');
 
     // Dashboard en tiempo real
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/dashboard/live-stream', [DashboardController::class, 'liveStream'])->name('dashboard.live-stream');
+    Route::get('/dashboard/live-stream', [DashboardController::class, 'liveStream'])
+        ->name('dashboard.live-stream')
+        ->middleware('throttle:60,1');
     Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
 
     // Mi cuenta: datos personales y cambio de contraseña

@@ -15,6 +15,7 @@ use App\Modules\Core\Models\User;
 use App\Modules\Core\Models\Zone;
 use App\Modules\HR\Models\Shift;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -123,26 +124,73 @@ class CalendarWebController extends Controller
     }
 
     /** Calendario de una persona: su mes en cuadrícula con el detalle de cada día */
-    public function person(Request $request, int $id): View
+    public function person(Request $request, string|int $id): View|RedirectResponse
     {
         $this->authorizeCalendar($request);
-        $filters = CalendarFilters::fromRequest($request, current_tenant_id_or_null(), userId: $id);
+        $tenantId = current_tenant_id_or_null();
+        $employee = null;
+
+        if (is_numeric($id)) {
+            $employee = User::forTenant($tenantId)->find((int) $id);
+        } else {
+            // Revisar patrón slug con id al final (e.g. fidel-alvarez-5)
+            if (preg_match('/-(\d+)$/', $id, $matches)) {
+                $employee = User::forTenant($tenantId)->find((int) $matches[1]);
+            }
+            // Revisar por employee_code (e.g. EMP-003)
+            if (!$employee) {
+                $employee = User::forTenant($tenantId)->where('employee_code', $id)->first();
+            }
+            // Revisar por slug del nombre completo
+            if (!$employee) {
+                $users = User::forTenant($tenantId)->get();
+                $employee = $users->first(function ($u) use ($id) {
+                    $s1 = \Illuminate\Support\Str::slug("{$u->first_name} {$u->last_name}");
+                    $s2 = \Illuminate\Support\Str::slug("{$u->last_name} {$u->first_name}");
+                    return $s1 === $id || $s2 === $id;
+                });
+            }
+        }
+
+        abort_unless($employee, 404, 'No se encontró el colaborador solicitado.');
+
+        // Si el usuario es de rol administrativo y no marca asistencia
+        if (!in_array($employee->role, User::CLOCKING_ROLES, true)) {
+            return redirect()->route('employees.index')
+                ->with('warning', "El colaborador {$employee->first_name} {$employee->last_name} cuenta con rol administrativo (" . label('user_role', $employee->role) . ") y no registra asistencia en el calendario operativo.");
+        }
+
+        $numericId = $employee->id;
+        $friendlySlug = \Illuminate\Support\Str::slug("{$employee->first_name} {$employee->last_name}");
+        if (empty($friendlySlug)) {
+            $friendlySlug = (string) $numericId;
+        }
+
+        // Si se seleccionó una fecha específica desde la vista diaria
+        $selectedDate = $request->query('date');
+        if ($selectedDate && !$request->has('month') && preg_match('/^\d{4}-\d{2}/', $selectedDate, $m)) {
+            $request->merge(['month' => $m[0]]);
+        }
+
+        $filters = CalendarFilters::fromRequest($request, $tenantId, userId: $numericId);
 
         // Fuera del alcance de quien mira (otro equipo u otra empresa): no existe
         $row = $this->calendar->paginate($filters, 1)->first();
-        abort_unless($row, 404);
+        abort_unless($row, 404, 'No se encontraron registros de calendario para el colaborador seleccionado en este periodo.');
 
         $first = CarbonImmutable::createFromFormat('!Y-m', $filters->month);
 
         return view('attendance.calendar-person', [
-            'filters'  => $filters,
-            'row'      => $row,
-            'employee' => $employee = User::forTenant(current_tenant_id_or_null())->findOrFail($id),
-            'weeks'    => array_chunk(array_merge(array_fill(0, $first->dayOfWeekIso - 1, null), array_keys($row['cells'])), 7),
-            'states'   => AttendanceCalendarService::STATES,
-            'today'    => now(tenant_timezone())->toDateString(),
-            'canOpen'  => $request->user()->can('attendance.view_all'),
-            'canEdit'  => app(ManualAttendanceEdit::class)->canEdit($request->user(), $employee),
+            'filters'      => $filters,
+            'row'          => $row,
+            'employee'     => $employee,
+            'friendlySlug' => $friendlySlug,
+            'selectedDate' => $selectedDate,
+            'weeks'        => array_chunk(array_merge(array_fill(0, $first->dayOfWeekIso - 1, null), array_keys($row['cells'])), 7),
+            'states'       => AttendanceCalendarService::STATES,
+            'today'        => now(tenant_timezone())->toDateString(),
+            'canOpen'      => $request->user()->can('attendance.view_all'),
+            'canEdit'      => app(ManualAttendanceEdit::class)->canEdit($request->user(), $employee),
         ]);
     }
 

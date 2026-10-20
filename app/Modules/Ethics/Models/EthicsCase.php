@@ -100,4 +100,73 @@ class EthicsCase extends Model
     {
         return is_string($token) && $token !== '' && hash_equals($this->token_hash, hash('sha256', $token));
     }
+
+    public function categoryIcon(): string
+    {
+        return match($this->category) {
+            'harassment'           => 'shield-slash',
+            'hostility'            => 'exclamation-diamond',
+            'mistreatment'         => 'emoji-frown',
+            'theft'                => 'cash-stack',
+            'discrimination'       => 'slash-circle',
+            'fraud'                => 'bank',
+            'safety'               => 'heart-pulse',
+            'conflict_of_interest' => 'arrow-left-right',
+            'abuse_of_authority'   => 'person-slash',
+            default                => 'shield-exclamation',
+        };
+    }
+
+    public function categoryTone(): string
+    {
+        return match($this->category) {
+            'harassment', 'theft', 'fraud' => 'danger',
+            'hostility', 'discrimination', 'abuse_of_authority' => 'warning',
+            'safety' => 'info',
+            'mistreatment' => 'danger',
+            default => 'secondary',
+        };
+    }
+
+    public function isFromApp(): bool
+    {
+        return (bool) $this->identified;
+    }
+
+    public function isAnonymousWeb(): bool
+    {
+        return ! $this->identified;
+    }
+
+    public function originLabel(): string
+    {
+        return $this->identified ? 'App móvil (Identidad reservada)' : 'Web anónima (Sin rastro)';
+    }
+
+    public function tenantName(): string
+    {
+        return $this->tenant?->company_name ?? 'Empresa';
+    }
+
+    public function statusTone(): string
+    {
+        return match($this->status) {
+            'received'   => 'primary',
+            'in_review'  => 'warning',
+            'needs_info' => 'info',
+            'closed'     => 'success',
+            default      => 'secondary',
+        };
+    }
+
+    public function statusIcon(): string
+    {
+        return match($this->status) {
+            'received'   => 'inbox-fill',
+            'in_review'  => 'search',
+            'needs_info' => 'question-circle-fill',
+            'closed'     => 'check-circle-fill',
+            default      => 'circle',
+        };
+    }
 }

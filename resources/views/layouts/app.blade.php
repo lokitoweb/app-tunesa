@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/panel.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/panel.css') }}?v={{ filemtime(public_path('css/panel.css')) }}">
 
     @include('layouts.partials.brand-head', ['brandSettings' => $brandSettings])
 
@@ -32,21 +32,18 @@
 @endphp
 
 <div class="panel-shell">
-    {{-- SIDEBAR: fijo en escritorio (lg+), offcanvas en móvil --}}
-    <aside id="sidebar" class="offcanvas-lg offcanvas-start panel-sidebar" tabindex="-1" aria-labelledby="sidebarLabel">
-        <div class="sidebar-brand">
-            <a href="{{ route('dashboard') }}" class="sidebar-logo" aria-label="{{ $brandSettings->tradeName() }}: ir al inicio">
-                @php $logoUrl = $brandSettings->displayLogoUrl(); $logoDarkUrl = $brandSettings->logoDarkUrl(); @endphp
-                <img src="{{ $logoUrl }}" alt="{{ $brandSettings->tradeName() }}" class="brand-logo brand-logo-light {{ $logoDarkUrl && $logoDarkUrl !== $logoUrl ? 'has-dark' : '' }} {{ $brandSettings->usesDefaultLogo() ? 'is-default' : '' }}">
-                @if($logoDarkUrl && $logoDarkUrl !== $logoUrl)
-                    <img src="{{ $logoDarkUrl }}" alt="{{ $brandSettings->tradeName() }}" class="brand-logo brand-logo-dark">
-                @endif
-                <span id="sidebarLabel" class="visually-hidden">{{ $brandSettings->tradeName() }}</span>
+    {{-- SIDEBAR: Dock colapsable con auto-expansión al pasar el mouse o al hacer clic --}}
+    <aside id="sidebar" class="panel-sidebar" tabindex="-1" aria-label="Menú principal">
+        <div class="sidebar-header">
+            <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Expandir / Contraer menú" aria-label="Expandir o contraer menú">
+                <i class="bi bi-layout-sidebar"></i>
+            </button>
+            <a href="{{ route('dashboard') }}" class="sidebar-logo-link" title="{{ $brandSettings->tradeName() }}">
+                <img src="{{ $brandSettings->displayLogoUrl() }}" alt="{{ $brandSettings->tradeName() }}" class="sidebar-logo-img">
             </a>
-            <button type="button" class="btn-close d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Cerrar menú"></button>
         </div>
 
-        <nav class="sidebar-nav" aria-label="Menú principal">
+        <nav class="sidebar-nav" aria-label="Navegación del ERP">
             @foreach(\App\Modules\Core\Support\PanelNavigation::for($navUser, request()) as $section)
                 <div class="nav-heading">{{ $section['heading'] }}</div>
                 @foreach($section['items'] as $item)
@@ -55,64 +52,108 @@
             @endforeach
         </nav>
 
+        <div class="sidebar-footer">
+            <div class="sidebar-shield-btn" title="ERP Verificado · Conexión Cifrada SSL">
+                <i class="bi bi-shield-check"></i>
+            </div>
+        </div>
     </aside>
 
     {{-- CONTENIDO --}}
     <div class="panel-main">
         <header class="panel-topbar">
-            <div class="d-flex align-items-center gap-2 min-w-0">
-                <button class="btn btn-light border d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Abrir menú">
+            <div class="topbar-left">
+                <button class="sidebar-toggle-btn d-lg-none" type="button" id="sidebarMobileToggle" aria-label="Abrir menú">
                     <i class="bi bi-list"></i>
                 </button>
-                {{-- El Super Admin elige la empresa en el filtro; el resto ve el nombre de la suya --}}
-                @unless($navUser->isSuperAdmin())
-                    <span class="topbar-company text-truncate d-none d-sm-inline-block">{{ $brand->company_name ?? '' }}</span>
-                @endunless
                 @if($navUser->isSuperAdmin())
-                    <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0 tenant-filter">
-                        <i class="bi bi-buildings" aria-hidden="true"></i>
-                        @csrf
-                        <select name="tenant_id" class="form-select form-select-sm tenant-switch" onchange="this.form.submit()" aria-label="Empresa a administrar">
-                            <option value="">Todas las empresas</option>
-                            @foreach(\App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
-                                <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
-                            @endforeach
-                        </select>
-                    </form>
+                    @if(!request()->routeIs('dashboard*'))
+                        <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0">
+                            @csrf
+                            <div class="topbar-tenant-selector" title="Filtrar vista por empresa">
+                                <span class="tenant-selector-icon">
+                                    <i class="bi bi-buildings"></i>
+                                </span>
+                                <select name="tenant_id" class="tenant-selector-select" onchange="this.form.submit()" aria-label="Empresa a administrar">
+                                    <option value="" @selected(!$brand)>Todas las empresas</option>
+                                    @foreach(\App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
+                                        <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
+                                    @endforeach
+                                </select>
+                                <i class="bi bi-chevron-down tenant-selector-arrow"></i>
+                            </div>
+                        </form>
+                    @endif
+                @else
+                    <span class="topbar-company text-truncate">
+                        <i class="bi bi-building text-primary me-1"></i> {{ $brand->company_name ?? '' }}
+                    </span>
                 @endif
             </div>
-            <div class="d-flex align-items-center gap-2">
-                @can('users.manage')
-                    <form method="GET" action="{{ route('employees.index') }}" class="topbar-search d-none d-xl-flex" role="search">
-                        <i class="bi bi-search" aria-hidden="true"></i>
-                        <input type="search" name="search" class="form-control form-control-sm" placeholder="Buscar colaborador…" aria-label="Buscar colaborador" value="{{ request()->routeIs('employees.index') ? request('search') : '' }}">
-                    </form>
-                @endcan
-                <span class="small text-body-secondary d-none d-md-inline">{{ now()->isoFormat('dddd D [de] MMMM') }}</span>
-                @include('layouts.partials.notifications-bell')
-                <button type="button" class="btn btn-light border btn-sm" id="themeToggle" aria-label="Cambiar tema claro u oscuro" title="Tema claro / oscuro">
-                    <i class="bi bi-moon-stars"></i>
+
+            <div class="topbar-right">
+                {{-- Herramientas Rápidas del ERP --}}
+                <button type="button" class="topbar-icon-btn d-none d-sm-inline-flex" id="fullscreenToggle" title="Pantalla completa" aria-label="Pantalla completa">
+                    <i class="bi bi-fullscreen"></i>
                 </button>
-                <div class="dropdown">
-                    <button type="button" class="user-menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Tu cuenta">
-                        <span class="avatar avatar-sm">{{ strtoupper(mb_substr($navUser->first_name ?? 'U', 0, 1) . mb_substr($navUser->last_name ?? '', 0, 1)) }}</span>
-                        <span class="d-none d-md-block text-start lh-sm">
-                            <span class="d-block fw-semibold small">{{ $navUser->first_name }} {{ $navUser->last_name }}</span>
-                            <span class="d-block user-role">{{ label('user_role', $navUser->role) }}</span>
-                        </span>
-                        <i class="bi bi-chevron-down small text-body-secondary d-none d-md-inline"></i>
+
+                {{-- Buscador Compacto (justo después de pantalla completa, tamaño reducido a la mitad) --}}
+                <div class="topbar-search-container d-none d-md-block">
+                    <button type="button" class="topbar-search-box" onclick="window.openCommandPalette()" title="Buscar en cualquier módulo, colaborador o reporte (Ctrl+K)">
+                        <i class="bi bi-search text-secondary"></i>
+                        <span class="search-box-text">Buscar...</span>
+                        <kbd class="topbar-search-kbd">Ctrl+K</kbd>
                     </button>
-                    <div class="dropdown-menu dropdown-menu-end user-dropdown">
-                        <div class="px-3 py-2">
-                            <div class="fw-semibold">{{ $navUser->first_name }} {{ $navUser->last_name }}</div>
-                            <div class="small text-body-secondary text-truncate">{{ $navUser->email }}</div>
+                </div>
+
+                <button type="button" class="topbar-icon-btn" id="themeToggle" title="Tema claro / oscuro" aria-label="Cambiar tema">
+                    <i class="bi bi-sun"></i>
+                </button>
+
+                @php
+                    $unreadCount = $navUser->unreadNotifications()->count();
+                @endphp
+                <div class="dropdown">
+                    <a href="{{ route('notifications.index') }}" class="topbar-icon-btn" title="Notificaciones del ERP" aria-label="Notificaciones">
+                        <i class="bi bi-bell"></i>
+                        @if($unreadCount > 0)
+                            <span class="badge-count badge-count-red">{{ $unreadCount }}</span>
+                        @endif
+                    </a>
+                </div>
+
+                {{-- Menú de Usuario del ERP (Modo Claro Profesional) --}}
+                <div class="dropdown">
+                    <button type="button" class="topbar-user" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menú de usuario">
+                        <div class="topbar-avatar">
+                            {{ strtoupper(mb_substr($navUser->first_name ?? 'U', 0, 1) . mb_substr($navUser->last_name ?? '', 0, 1)) }}
                         </div>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="{{ route('account.edit') }}"><i class="bi bi-person-gear me-2"></i>Mi cuenta</a>
-                        <a class="dropdown-item" href="{{ route('notifications.index') }}"><i class="bi bi-bell me-2"></i>Notificaciones</a>
+                        <div class="topbar-user-info d-none d-md-block text-start">
+                            <span class="topbar-user-name">{{ $navUser->first_name }} {{ $navUser->last_name }}</span>
+                            <span class="topbar-user-role">{{ label('user_role', $navUser->role) }}</span>
+                        </div>
+                        <i class="bi bi-chevron-down ms-1 text-secondary" style="font-size: 0.7rem;"></i>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end shadow-lg user-profile-dropdown">
+                        <div class="px-3 py-2 border-bottom user-profile-header">
+                            <div class="fw-bold user-profile-name small">{{ $navUser->first_name }} {{ $navUser->last_name }}</div>
+                            <div class="user-profile-email small text-truncate">{{ $navUser->email }}</div>
+                        </div>
+                        <a class="dropdown-item py-2 d-flex align-items-center gap-2 user-profile-item" href="{{ route('account.edit') }}">
+                            <i class="bi bi-person-gear"></i> <span>Mi cuenta</span>
+                        </a>
+                        <a class="dropdown-item py-2 d-flex align-items-center gap-2 user-profile-item" href="{{ route('notifications.index') }}">
+                            <i class="bi bi-bell"></i> <span>Notificaciones</span>
+                            @if($unreadCount > 0)
+                                <span class="badge bg-danger ms-auto">{{ $unreadCount }}</span>
+                            @endif
+                        </a>
+                        <div class="dropdown-divider user-profile-divider"></div>
                         <form method="POST" action="{{ route('logout') }}" class="m-0">
                             @csrf
-                            <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión</button>
+                            <button type="submit" class="dropdown-item py-2 d-flex align-items-center gap-2 text-danger user-profile-logout">
+                                <i class="bi bi-box-arrow-right"></i> <span>Cerrar sesión</span>
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -120,10 +161,9 @@
         </header>
 
         <main id="main-content" class="panel-content">
-            {{-- En el dashboard el aviso "Plataforma" ya lo dice --}}
-            @if(($globalView ?? false) && ! request()->routeIs('dashboard'))
-                <div class="alert alert-primary d-flex align-items-start gap-2 global-view-banner" role="status">
-                    <i class="bi bi-globe2"></i>
+            @if(($globalView ?? false) && !request()->routeIs('dashboard*') && !request()->routeIs('attendance.attempts*') && !request()->routeIs('approvals*') && !request()->routeIs('onboarding*') && !request()->routeIs('documents*'))
+                <div class="alert alert-primary d-flex align-items-center gap-2 global-view-banner mb-4" role="status" style="border-radius: 10px;">
+                    <i class="bi bi-globe2 fs-5 global-view-icon"></i>
                     <div>Vista global: mostrando registros de todas las empresas. Para crear o editar, elige una empresa en el selector superior.</div>
                 </div>
             @endif
@@ -132,35 +172,99 @@
             <div class="toast-stack" aria-live="polite">
             @foreach(['success' => 'success', 'info' => 'info', 'error' => 'danger'] as $key => $variant)
                 @if(session($key))
-                    <div class="alert alert-{{ $variant }} alert-dismissible" role="alert">
-                        <i class="bi {{ $variant === 'success' ? 'bi-check-circle' : ($variant === 'danger' ? 'bi-exclamation-octagon' : 'bi-info-circle') }}"></i>
-                        <div>
-                            <strong class="toast-title">{{ ['success' => 'Listo', 'info' => 'Aviso', 'error' => 'No se pudo completar'][$key] }}</strong>
+                    <div class="alert alert-{{ $variant }} toast-item toast-{{ $variant }}" role="alert">
+                        <div class="toast-icon-badge toast-badge-{{ $variant }}">
+                            <i class="bi {{ $variant === 'success' ? 'bi-check-lg' : ($variant === 'danger' ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill') }}"></i>
+                        </div>
+                        <div class="toast-content">
+                            <strong class="toast-title">{{ ['success' => 'Listo', 'info' => 'Aviso', 'error' => 'Atención'][$key] }}</strong>
                             <span class="toast-text">{{ session($key) }}</span>
                         </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                        <button type="button" class="toast-close-btn" data-bs-dismiss="alert" aria-label="Cerrar">
+                            <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                        </button>
                     </div>
                 @endif
             @endforeach
 
             @if($errors->any())
-                <div class="alert alert-danger alert-dismissible" role="alert">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    <div>
-                        <strong class="toast-title">Revisa los datos del formulario</strong>
-                        <ul class="mb-0 toast-text">
-                            @foreach($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
+                <div class="alert alert-danger toast-item toast-danger" role="alert">
+                    <div class="toast-icon-badge toast-badge-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
                     </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    <div class="toast-content">
+                        <strong class="toast-title">Revisa los datos</strong>
+                        <span class="toast-text">{{ $errors->first() }}</span>
+                    </div>
+                    <button type="button" class="toast-close-btn" data-bs-dismiss="alert" aria-label="Cerrar">
+                        <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                    </button>
                 </div>
             @endif
             </div>
 
             @yield('content')
         </main>
+    </div>
+</div>
+
+{{-- Modal Global de Búsqueda Rápida / Command Palette (Ctrl+K) --}}
+<div class="modal fade" id="commandPaletteModal" tabindex="-1" aria-labelledby="commandPaletteTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content command-palette-content">
+            <div class="command-palette-header">
+                <i class="bi bi-search command-palette-search-icon"></i>
+                <input type="text" id="commandPaletteInput" class="command-palette-input" placeholder="Buscar módulo, colaborador, sede o reporte..." autocomplete="off">
+                <kbd class="command-palette-kbd-esc">ESC</kbd>
+            </div>
+            <div class="command-palette-body" id="commandPaletteResults">
+                <div class="command-palette-section-title">Navegación del Sistema</div>
+                <div class="command-palette-list" id="commandPaletteList">
+                    @foreach(\App\Modules\Core\Support\PanelNavigation::for($navUser, request()) as $sec)
+                        @foreach($sec['items'] as $item)
+                            <a href="{{ $item['href'] }}" class="command-palette-item" data-label="{{ strtolower($item['label'] . ' ' . $sec['heading']) }}">
+                                <div class="d-flex align-items-center gap-3">
+                                    <span class="command-item-icon"><i class="bi bi-{{ $item['icon'] }}"></i></span>
+                                    <div>
+                                        <div class="command-item-title">{{ $item['label'] }}</div>
+                                        <div class="command-item-sub">{{ $sec['heading'] }}</div>
+                                    </div>
+                                </div>
+                                <i class="bi bi-chevron-right command-item-arrow"></i>
+                            </a>
+                        @endforeach
+                    @endforeach
+                    <a href="{{ route('account.edit') }}" class="command-palette-item" data-label="mi cuenta perfil usuario credenciales">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="command-item-icon"><i class="bi bi-person-gear"></i></span>
+                            <div>
+                                <div class="command-item-title">Mi cuenta</div>
+                                <div class="command-item-sub">Perfil y preferencias del usuario</div>
+                            </div>
+                        </div>
+                        <i class="bi bi-chevron-right command-item-arrow"></i>
+                    </a>
+                    <a href="{{ route('notifications.index') }}" class="command-palette-item" data-label="notificaciones avisos bandeja alertas">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="command-item-icon"><i class="bi bi-bell"></i></span>
+                            <div>
+                                <div class="command-item-title">Notificaciones</div>
+                                <div class="command-item-sub">Avisos y solicitudes del ERP</div>
+                            </div>
+                        </div>
+                        <i class="bi bi-chevron-right command-item-arrow"></i>
+                    </a>
+                </div>
+                <div id="commandPaletteEmpty" class="text-center py-4 d-none text-muted small">
+                    <i class="bi bi-search fs-3 d-block mb-1 text-secondary"></i>
+                    No se encontraron coincidencias para su búsqueda.
+                </div>
+            </div>
+            <div class="command-palette-footer">
+                <span><kbd class="command-palette-kbd">↑</kbd> <kbd class="command-palette-kbd">↓</kbd> para navegar</span>
+                <span><kbd class="command-palette-kbd">ENTER</kbd> para seleccionar</span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -180,11 +284,15 @@
     </div>
 </div>
 
+{{-- Diálogo Guardián de Sesión por Inactividad --}}
+@include('layouts.partials.session-expiry-modal')
+
 <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script src="{{ asset('vendor/chartjs/chart.umd.min.js') }}"></script>
 <script src="{{ asset('js/panel.js') }}"></script>
 
 @yield('scripts')
+@stack('scripts')
 </body>
 </html>

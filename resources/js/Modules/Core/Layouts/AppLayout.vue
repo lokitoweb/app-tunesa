@@ -1,13 +1,13 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 
 defineProps({ title: { type: String, default: 'Panel' } });
 
 const page = usePage();
-const auth = computed(() => page.props.auth);
-const brand = computed(() => page.props.brand);
-const bell = computed(() => page.props.notifications);
+const auth = computed(() => page.props.auth || {});
+const brand = computed(() => page.props.brand || {});
+const bell = computed(() => page.props.notifications || { unread: 0, latest: [] });
 const errors = computed(() => Object.values(page.props.errors ?? {}));
 
 // Toasts cerrados; los de éxito e información se cierran solos a los 6 s
@@ -21,132 +21,201 @@ watch(() => page.props.flash, (flash) => {
 watch(() => page.props.errors, () => dismissed.delete('errors'));
 
 const FLASH = {
-    success: ['success', 'bi-check-circle', 'Listo'],
-    info: ['info', 'bi-info-circle', 'Aviso'],
-    error: ['danger', 'bi-exclamation-octagon', 'No se pudo completar'],
+    success: ['success', 'bi-check-lg', 'Listo'],
+    info: ['info', 'bi-info-circle-fill', 'Aviso'],
+    error: ['danger', 'bi-exclamation-triangle-fill', 'Atención'],
 };
 
 // Tema claro / oscuro guardado en el navegador (misma clave que el layout Blade)
 const theme = ref('light');
-onMounted(() => { theme.value = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light'; });
+onMounted(() => {
+    theme.value = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
+});
 function toggleTheme() {
     theme.value = theme.value === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-bs-theme', theme.value);
     try { localStorage.setItem('panel-theme', theme.value); } catch (e) { /* almacenamiento bloqueado */ }
 }
+
+// Sidebar Dock Colapsable / Deslizante (Sincronizado con Blade)
+const isExpanded = ref(false);
+function toggleSidebar() {
+    isExpanded.value = !isExpanded.value;
+}
+
+// Pantalla Completa
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch((err) => console.warn(err));
+    } else {
+        document.exitFullscreen().catch((err) => console.warn(err));
+    }
+}
+
+// Modal Global Command Palette (Ctrl+K)
+const showPalette = ref(false);
+const paletteQuery = ref('');
+const paletteInput = ref(null);
+
+const flattenedNav = computed(() => {
+    const list = [];
+    for (const section of page.props.nav || []) {
+        for (const item of section.items || []) {
+            list.push({ ...item, heading: section.heading });
+        }
+    }
+    return list;
+});
+
+const filteredNav = computed(() => {
+    const q = (paletteQuery.value || '').toLowerCase().trim();
+    if (!q) return flattenedNav.value;
+    return flattenedNav.value.filter(item => 
+        (item.label || '').toLowerCase().includes(q) || 
+        (item.heading || '').toLowerCase().includes(q)
+    );
+});
+
+function openCommandPalette() {
+    showPalette.value = true;
+    paletteQuery.value = '';
+    setTimeout(() => paletteInput.value?.focus(), 150);
+}
+function closeCommandPalette() {
+    showPalette.value = false;
+}
+
+function handleGlobalKeydown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openCommandPalette();
+    }
+}
+
+onMounted(() => {
+    window.addEventListener('keydown', handleGlobalKeydown);
+});
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleGlobalKeydown);
+});
 </script>
 
 <template>
-    <Head :title="`${title} — ${brand.trade_name}`" />
+    <Head :title="`${title} — ${brand.trade_name || 'Grupo Negreiros'}`" />
 
     <div class="panel-shell">
-        <!-- SIDEBAR: fijo en escritorio (lg+), offcanvas en móvil -->
-        <aside id="sidebar" class="offcanvas-lg offcanvas-start panel-sidebar" tabindex="-1" aria-labelledby="sidebarLabel">
-            <div class="sidebar-brand">
-                <a href="/dashboard" class="sidebar-logo" :aria-label="`${brand.trade_name}: ir al inicio`">
-                    <img :src="brand.logo_url" :alt="brand.trade_name" class="brand-logo brand-logo-light" :class="{ 'has-dark': brand.logo_dark_url, 'is-default': brand.default_logo }">
-                    <img v-if="brand.logo_dark_url" :src="brand.logo_dark_url" :alt="brand.trade_name" class="brand-logo brand-logo-dark">
-                    <span id="sidebarLabel" class="visually-hidden">{{ brand.trade_name }}</span>
+        <!-- SIDEBAR: Dock colapsable con auto-expansión al pasar el mouse o al hacer clic -->
+        <aside id="sidebar" class="panel-sidebar" :class="{ 'is-expanded': isExpanded }" tabindex="-1" aria-label="Menú principal">
+            <div class="sidebar-header">
+                <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Expandir / Contraer menú" aria-label="Expandir o contraer menú" @click="toggleSidebar">
+                    <i class="bi bi-layout-sidebar"></i>
+                </button>
+                <a href="/dashboard" class="sidebar-logo-link" :title="brand.trade_name">
+                    <img :src="brand.logo_url" :alt="brand.trade_name" class="sidebar-logo-img">
                 </a>
-                <button type="button" class="btn-close d-lg-none" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Cerrar menú"></button>
             </div>
 
-            <nav class="sidebar-nav" aria-label="Menú principal">
+            <nav class="sidebar-nav" aria-label="Navegación del ERP">
                 <template v-for="section in page.props.nav" :key="section.heading">
                     <div class="nav-heading">{{ section.heading }}</div>
-                    <!-- Pantallas ya migradas navegan sin recargar; las Blade, con enlace normal -->
                     <component :is="item.spa ? Link : 'a'" v-for="item in section.items" :key="item.label" :href="item.href"
-                               class="sidebar-link" :class="{ active: item.active }" :aria-current="item.active ? 'page' : null">
+                               class="sidebar-link" :class="{ active: item.active }" :aria-current="item.active ? 'page' : null" :title="item.label">
                         <i class="bi" :class="`bi-${item.icon}`"></i>
-                        <span class="flex-grow-1">{{ item.label }}</span>
-                        <span v-if="item.badge > 0" class="badge rounded-pill text-bg-danger">{{ item.badge }}</span>
+                        <span class="link-label">{{ item.label }}</span>
+                        <span v-if="item.badge > 0" class="badge rounded-pill text-bg-danger ms-auto" style="font-size: 0.65rem;">{{ item.badge }}</span>
                     </component>
                 </template>
             </nav>
 
+            <div class="sidebar-footer">
+                <div class="sidebar-shield-btn" title="ERP Verificado · Conexión Cifrada SSL">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+            </div>
         </aside>
 
+        <!-- CONTENIDO -->
         <div class="panel-main">
             <header class="panel-topbar">
-                <div class="d-flex align-items-center gap-2 min-w-0">
-                    <button class="btn btn-light border d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Abrir menú">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle-btn d-lg-none" type="button" id="sidebarMobileToggle" aria-label="Abrir menú" @click="toggleSidebar">
                         <i class="bi bi-list"></i>
                     </button>
-                    <!-- El Super Admin elige la empresa en el filtro; el resto ve el nombre de la suya -->
-                    <span v-if="!auth.is_super_admin" class="topbar-company text-truncate d-none d-sm-inline-block">{{ brand.company_name }}</span>
-                    <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0 tenant-filter">
-                        <i class="bi bi-buildings" aria-hidden="true"></i>
+                    <!-- Selector de empresa del Super Admin -->
+                    <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0">
                         <input type="hidden" name="_token" :value="page.props.csrf">
-                        <select name="tenant_id" class="form-select form-select-sm tenant-switch" aria-label="Empresa a administrar" @change="$event.target.form.submit()">
-                            <option value="">Todas las empresas</option>
-                            <option v-for="t in page.props.tenants" :key="t.id" :value="t.id" :selected="t.id === brand.tenant_id">{{ t.company_name }}</option>
-                        </select>
-                    </form>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <form v-if="auth.can_search" method="GET" action="/employees" class="topbar-search d-none d-xl-flex" role="search">
-                        <i class="bi bi-search" aria-hidden="true"></i>
-                        <input type="search" name="search" class="form-control form-control-sm" placeholder="Buscar colaborador…" aria-label="Buscar colaborador">
-                    </form>
-                    <span class="small text-body-secondary d-none d-md-inline">{{ page.props.today }}</span>
-
-                    <div class="dropdown">
-                        <button type="button" class="btn btn-light border btn-sm position-relative" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
-                                :aria-label="bell.unread ? `Notificaciones (${bell.unread} sin leer)` : 'Notificaciones'" title="Notificaciones">
-                            <i class="bi bi-bell"></i>
-                            <span v-if="bell.unread > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger notif-count">{{ bell.unread > 99 ? '99+' : bell.unread }}</span>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end p-0 notif-menu shadow">
-                            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
-                                <span class="fw-semibold small">Notificaciones</span>
-                                <form v-if="bell.unread > 0" method="POST" action="/notifications/read-all" class="m-0">
-                                    <input type="hidden" name="_token" :value="page.props.csrf">
-                                    <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none">Marcar todas como leídas</button>
-                                </form>
-                            </div>
-                            <div class="notif-list">
-                                <form v-for="n in bell.latest" :key="n.id" method="POST" :action="`/notifications/${n.id}/read`" class="m-0">
-                                    <input type="hidden" name="_token" :value="page.props.csrf">
-                                    <button type="submit" class="dropdown-item d-flex gap-2 py-2 text-wrap" :class="{ 'notif-unread': !n.read }">
-                                        <i class="bi text-body-secondary mt-1" :class="`bi-${n.icon}`"></i>
-                                        <span class="min-w-0">
-                                            <span class="d-block small fw-semibold">{{ n.title }}</span>
-                                            <span class="d-block small text-body-secondary">{{ n.body }}</span>
-                                            <span class="d-block text-body-tertiary" style="font-size: .72rem;">{{ n.ago }}</span>
-                                        </span>
-                                    </button>
-                                </form>
-                                <div v-if="!bell.latest.length" class="px-3 py-4 text-center small text-body-secondary">
-                                    <i class="bi bi-bell-slash d-block fs-4 mb-1 opacity-50"></i>No tienes notificaciones.
-                                </div>
-                            </div>
-                            <a href="/notifications" class="d-block text-center small py-2 border-top text-decoration-none">Ver todas</a>
+                        <div class="topbar-tenant-selector" title="Filtrar vista por empresa">
+                            <span class="tenant-selector-icon">
+                                <i class="bi bi-buildings"></i>
+                            </span>
+                            <select name="tenant_id" class="tenant-selector-select" aria-label="Empresa a administrar" @change="$event.target.form.submit()">
+                                <option value="" :selected="!brand.tenant_id">Todas las empresas</option>
+                                <option v-for="t in page.props.tenants" :key="t.id" :value="t.id" :selected="t.id === brand.tenant_id">{{ t.company_name }}</option>
+                            </select>
+                            <i class="bi bi-chevron-down tenant-selector-arrow"></i>
                         </div>
+                    </form>
+                    <span v-else class="topbar-company text-truncate">
+                        <i class="bi bi-building text-primary me-1"></i> {{ brand.company_name }}
+                    </span>
+                </div>
+
+                <div class="topbar-right">
+                    <!-- Herramientas Rápidas del ERP: Pantalla Completa -->
+                    <button type="button" class="topbar-icon-btn d-none d-sm-inline-flex" id="fullscreenToggle" title="Pantalla completa" aria-label="Pantalla completa" @click="toggleFullscreen">
+                        <i class="bi bi-fullscreen"></i>
+                    </button>
+
+                    <!-- Buscador Compacto (Ctrl+K) -->
+                    <div class="topbar-search-container d-none d-md-block">
+                        <button type="button" class="topbar-search-box" title="Buscar en cualquier módulo, colaborador o reporte (Ctrl+K)" @click="openCommandPalette">
+                            <i class="bi bi-search text-secondary"></i>
+                            <span class="search-box-text">Buscar...</span>
+                            <kbd class="topbar-search-kbd">Ctrl+K</kbd>
+                        </button>
                     </div>
 
-                    <button type="button" class="btn btn-light border btn-sm" aria-label="Cambiar tema claro u oscuro" title="Tema claro / oscuro" @click="toggleTheme">
+                    <!-- Botón de Tema Claro / Oscuro -->
+                    <button type="button" class="topbar-icon-btn" id="themeToggle" title="Tema claro / oscuro" aria-label="Cambiar tema" @click="toggleTheme">
                         <i class="bi" :class="theme === 'dark' ? 'bi-sun' : 'bi-moon-stars'"></i>
                     </button>
+
+                    <!-- Notificaciones -->
                     <div class="dropdown">
-                        <button type="button" class="user-menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Tu cuenta">
-                            <span class="avatar avatar-sm">{{ auth.initials }}</span>
-                            <span class="d-none d-md-block text-start lh-sm">
-                                <span class="d-block fw-semibold small">{{ auth.name }}</span>
-                                <span class="d-block user-role">{{ auth.role_label }}</span>
-                            </span>
-                            <i class="bi bi-chevron-down small text-body-secondary d-none d-md-inline"></i>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end user-dropdown">
-                            <div class="px-3 py-2">
-                                <div class="fw-semibold">{{ auth.name }}</div>
-                                <div class="small text-body-secondary text-truncate">{{ auth.email }}</div>
+                        <a href="/notifications" class="topbar-icon-btn position-relative" title="Notificaciones del ERP" aria-label="Notificaciones">
+                            <i class="bi bi-bell"></i>
+                            <span v-if="bell.unread > 0" class="badge-count badge-count-red">{{ bell.unread }}</span>
+                        </a>
+                    </div>
+
+                    <!-- Menú de Usuario -->
+                    <div class="dropdown">
+                        <button type="button" class="topbar-user" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Menú de usuario">
+                            <div class="topbar-avatar">{{ auth.initials }}</div>
+                            <div class="topbar-user-info d-none d-md-block text-start">
+                                <span class="topbar-user-name">{{ auth.name }}</span>
+                                <span class="topbar-user-role">{{ auth.role_label }}</span>
                             </div>
-                            <div class="dropdown-divider"></div>
-                            <a class="dropdown-item" href="/account"><i class="bi bi-person-gear me-2"></i>Mi cuenta</a>
-                            <a class="dropdown-item" href="/notifications"><i class="bi bi-bell me-2"></i>Notificaciones</a>
+                            <i class="bi bi-chevron-down ms-1 text-secondary" style="font-size: 0.7rem;"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end shadow-lg user-profile-dropdown">
+                            <div class="px-3 py-2 border-bottom user-profile-header">
+                                <div class="fw-bold user-profile-name small">{{ auth.name }}</div>
+                                <div class="user-profile-email small text-truncate">{{ auth.email }}</div>
+                            </div>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2 user-profile-item" href="/account">
+                                <i class="bi bi-person-gear"></i> <span>Mi cuenta</span>
+                            </a>
+                            <a class="dropdown-item py-2 d-flex align-items-center gap-2 user-profile-item" href="/notifications">
+                                <i class="bi bi-bell"></i> <span>Notificaciones</span>
+                                <span v-if="bell.unread > 0" class="badge bg-danger ms-auto">{{ bell.unread }}</span>
+                            </a>
+                            <div class="dropdown-divider user-profile-divider"></div>
                             <form method="POST" action="/logout" class="m-0">
                                 <input type="hidden" name="_token" :value="page.props.csrf">
-                                <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión</button>
+                                <button type="submit" class="dropdown-item py-2 d-flex align-items-center gap-2 text-danger user-profile-logout">
+                                    <i class="bi bi-box-arrow-right"></i> <span>Cerrar sesión</span>
+                                </button>
                             </form>
                         </div>
                     </div>
@@ -154,38 +223,102 @@ function toggleTheme() {
             </header>
 
             <main id="main-content" class="panel-content">
-                <div v-if="page.props.globalView" class="alert alert-primary d-flex align-items-start gap-2 global-view-banner" role="status">
-                    <i class="bi bi-globe2"></i>
+                <!-- Banner de Vista Global -->
+                <div v-if="page.props.globalView" class="alert alert-primary d-flex align-items-center gap-2 global-view-banner mb-4" role="status" style="border-radius: 10px;">
+                    <i class="bi bi-globe2 fs-5 global-view-icon"></i>
                     <div>Vista global: mostrando registros de todas las empresas. Para crear o editar, elige una empresa en el selector superior.</div>
                 </div>
 
-                <!-- Avisos flotantes (toasts): arriba a la derecha, no empujan el contenido -->
+                <!-- Avisos flotantes (toasts) -->
                 <div class="toast-stack" aria-live="polite">
-                <template v-for="(text, key) in page.props.flash" :key="key + text">
-                    <div v-if="!dismissed.has(key + text)" class="alert alert-dismissible" :class="`alert-${FLASH[key][0]}`" role="alert">
-                        <i class="bi" :class="FLASH[key][1]"></i>
-                        <div>
-                            <strong class="toast-title">{{ FLASH[key][2] }}</strong>
-                            <span class="toast-text">{{ text }}</span>
+                    <template v-for="(text, key) in page.props.flash" :key="key + text">
+                        <div v-if="!dismissed.has(key + text) && FLASH[key]" class="alert toast-item" :class="`alert-${FLASH[key][0]} toast-${FLASH[key][0]}`" role="alert">
+                            <div class="toast-icon-badge" :class="`toast-badge-${FLASH[key][0]}`">
+                                <i class="bi" :class="FLASH[key][1]"></i>
+                            </div>
+                            <div class="toast-content">
+                                <strong class="toast-title">{{ FLASH[key][2] }}</strong>
+                                <span class="toast-text">{{ text }}</span>
+                            </div>
+                            <button type="button" class="toast-close-btn" aria-label="Cerrar" @click="dismissed.add(key + text)">
+                                <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                            </button>
                         </div>
-                        <button type="button" class="btn-close" aria-label="Cerrar" @click="dismissed.add(key + text)"></button>
-                    </div>
-                </template>
+                    </template>
 
-                <div v-if="errors.length && !dismissed.has('errors')" class="alert alert-danger alert-dismissible" role="alert">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    <div>
-                        <strong class="toast-title">Revisa los datos del formulario</strong>
-                        <ul class="mb-0 toast-text">
-                            <li v-for="error in errors" :key="error">{{ error }}</li>
-                        </ul>
+                    <div v-if="errors.length && !dismissed.has('errors')" class="alert alert-danger toast-item toast-danger" role="alert">
+                        <div class="toast-icon-badge toast-badge-danger">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                        </div>
+                        <div class="toast-content">
+                            <strong class="toast-title">Revisa los datos</strong>
+                            <ul class="mb-0 toast-text ps-3">
+                                <li v-for="error in errors" :key="error">{{ error }}</li>
+                            </ul>
+                        </div>
+                        <button type="button" class="toast-close-btn" aria-label="Cerrar" @click="dismissed.add('errors')">
+                            <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                        </button>
                     </div>
-                    <button type="button" class="btn-close" aria-label="Cerrar" @click="dismissed.add('errors')"></button>
-                </div>
                 </div>
 
                 <slot />
             </main>
+        </div>
+    </div>
+
+    <!-- Modal Global Command Palette (Ctrl+K) -->
+    <div v-if="showPalette" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5); z-index: 1060;" @click.self="closeCommandPalette">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content command-palette-content">
+                <div class="command-palette-header">
+                    <i class="bi bi-search command-palette-search-icon"></i>
+                    <input ref="paletteInput" v-model="paletteQuery" type="text" class="command-palette-input" placeholder="Buscar módulo, colaborador, sede o reporte..." autocomplete="off" @keydown.esc="closeCommandPalette">
+                    <kbd class="command-palette-kbd-esc" @click="closeCommandPalette">ESC</kbd>
+                </div>
+                <div class="command-palette-body">
+                    <div class="command-palette-section-title">Navegación del Sistema</div>
+                    <div class="command-palette-list">
+                        <component :is="item.spa ? Link : 'a'" v-for="item in filteredNav" :key="item.label" :href="item.href" class="command-palette-item" @click="closeCommandPalette">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="command-item-icon"><i class="bi" :class="`bi-${item.icon}`"></i></span>
+                                <div>
+                                    <div class="command-item-title">{{ item.label }}</div>
+                                    <div class="command-item-sub">{{ item.heading }}</div>
+                                </div>
+                            </div>
+                            <i class="bi bi-chevron-right command-item-arrow"></i>
+                        </component>
+                        <a href="/account" class="command-palette-item" @click="closeCommandPalette">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="command-item-icon"><i class="bi bi-person-gear"></i></span>
+                                <div>
+                                    <div class="command-item-title">Mi cuenta</div>
+                                    <div class="command-item-sub">Perfil y preferencias del usuario</div>
+                                </div>
+                            </div>
+                            <i class="bi bi-chevron-right command-item-arrow"></i>
+                        </a>
+                        <a href="/notifications" class="command-palette-item" @click="closeCommandPalette">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="command-item-icon"><i class="bi bi-bell"></i></span>
+                                <div>
+                                    <div class="command-item-title">Notificaciones</div>
+                                    <div class="command-item-sub">Avisos y solicitudes del ERP</div>
+                                </div>
+                            </div>
+                            <i class="bi bi-chevron-right command-item-arrow"></i>
+                        </a>
+                    </div>
+                    <div v-if="!filteredNav.length" class="text-center py-4 text-muted small">
+                        <i class="bi bi-search fs-3 d-block mb-1 text-secondary"></i>
+                        No se encontraron coincidencias para su búsqueda.
+                    </div>
+                </div>
+                <div class="command-palette-footer">
+                    <span><kbd class="command-palette-kbd">ESC</kbd> para cerrar</span>
+                </div>
+            </div>
         </div>
     </div>
 </template>

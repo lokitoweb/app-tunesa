@@ -1,6 +1,6 @@
 {
   "ENV_NAME": "tunnel",
-  "API_BASE_URL": "https://CAMBIA-ESTE-SUBDOMINIO.trycloudflare.com",
+  "API_BASE_URL": "https://rather-inner-inherited-produces.trycloudflare.com",
   "DEFAULT_TENANT": "",
   "MAX_GPS_ACCURACY": "100",
   "FIREBASE_API_KEY": "",

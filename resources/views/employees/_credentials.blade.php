@@ -11,13 +11,13 @@
                 <dd><code id="credPassword">{{ $credentials['password'] }}</code></dd>
             </dl>
             <span class="small">Vence en {{ \App\Modules\Core\Services\CredentialProvisioner::TEMP_TTL_HOURS }} horas y deberá cambiarla al ingresar. No se volverá a mostrar.</span>
-            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="credCopy"><i class="bi bi-clipboard me-1"></i>Copiar</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-2 d-inline-flex align-items-center" style="gap: 6px;" id="credCopy"><i class="bi bi-clipboard"></i><span>Copiar</span></button>
         </div>
     </div>
     <script>
         document.getElementById('credCopy').addEventListener('click', function () {
             var text = 'Correo: ' + document.getElementById('credEmail').textContent + '\nContraseña temporal: ' + document.getElementById('credPassword').textContent;
-            navigator.clipboard && navigator.clipboard.writeText(text).then(() => { this.innerHTML = '<i class="bi bi-check2 me-1"></i>Copiado'; });
+            navigator.clipboard && navigator.clipboard.writeText(text).then(() => { this.innerHTML = '<i class="bi bi-check2"></i><span>Copiado</span>'; });
         });
     </script>
 @endif

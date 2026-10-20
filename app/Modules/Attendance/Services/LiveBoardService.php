@@ -141,6 +141,8 @@ class LiveBoardService
                 'name'            => trim("{$user->first_name} {$user->last_name}"),
                 'employee_code'   => $user->employee_code,
                 'position'        => $user->position,
+                'avatar_path'     => $user->avatar_path,
+                'avatar_url'      => $user->avatar_path ? asset('storage/' . $user->avatar_path) : null,
                 'branch'          => $current?->branch?->name ?? $branchNames->get($user->id),
                 'shift'           => $shift?->name,
                 'shift_start'     => hora($shift?->start_time),

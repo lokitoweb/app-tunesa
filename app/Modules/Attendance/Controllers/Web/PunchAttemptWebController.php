@@ -36,39 +36,57 @@ class PunchAttemptWebController extends Controller
             }));
 
         $byCode = (clone $base)->selectRaw('error_code, count(*) as total')->groupBy('error_code')->pluck('total', 'error_code');
+        $total = $byCode->sum();
+        $mockCount = (clone $base)->where('mock_location_detected', true)->count();
+        $appCount = (clone $base)->where('source', AttendancePunchAttempt::SOURCE_APP)->count();
+        $uniqueUsersCount = (clone $base)->distinct('user_id')->count('user_id');
+
+        $perPage = in_array((int) $request->input('per_page'), [10, 25, 50, 100], true) ? (int) $request->input('per_page') : 25;
 
         $attempts = (clone $base)
             ->when($request->input('code'), fn ($q, $code) => $q->where('error_code', $code))
-            ->with(['user:id,first_name,last_name,employee_code,tenant_id', 'branch:id,name'])
+            ->with(['user:id,first_name,last_name,employee_code,avatar_path,position,document_number,tenant_id', 'branch:id,name'])
             ->latest('created_at')->latest('id')
-            ->paginate(25)->withQueryString();
+            ->paginate($perPage)->withQueryString();
 
         $branches = Branch::forTenant($tenantId)->orderBy('name')
             ->get(['id', 'name', 'latitude', 'longitude', 'allowed_radius_meters', 'geofence_tolerance_meters']);
 
         return view('attendance.attempts', [
-            'attempts'  => $attempts,
-            'branches'  => $branches,
+            'attempts'         => $attempts,
+            'branches'         => $branches,
             // Mapa: las sedes con su radio y los intentos de esta página que trajeron coordenadas
-            'mapBranches' => $branches->filter(fn ($b) => $b->latitude !== null && $b->longitude !== null)
+            'mapBranches'      => $branches->filter(fn ($b) => $b->latitude !== null && $b->longitude !== null)
                 ->when($request->input('branch_id'), fn ($c, $id) => $c->where('id', (int) $id))
                 ->map(fn ($b) => [
-                    'name' => $b->name, 'lat' => (float) $b->latitude, 'lng' => (float) $b->longitude,
-                    'radius' => (int) $b->allowed_radius_meters, 'tolerance' => $b->edgeToleranceMeters(),
+                    'name'      => $b->name,
+                    'lat'       => (float) $b->latitude,
+                    'lng'       => (float) $b->longitude,
+                    'radius'    => (int) $b->allowed_radius_meters,
+                    'tolerance' => $b->edgeToleranceMeters(),
                 ])->values(),
-            'mapPoints' => $attempts->getCollection()->filter(fn ($a) => $a->latitude !== null && $a->longitude !== null)
+            'mapPoints'        => $attempts->getCollection()->filter(fn ($a) => $a->latitude !== null && $a->longitude !== null)
                 ->map(fn ($a) => [
-                    'lat' => (float) $a->latitude, 'lng' => (float) $a->longitude,
-                    'name' => trim(($a->user->first_name ?? '') . ' ' . ($a->user->last_name ?? '')),
-                    'code' => label('punch_attempt_code', $a->error_code),
-                    'at' => $a->created_at->format('d/m/Y h:i a'),
-                    'mock' => (bool) $a->mock_location_detected,
+                    'id'       => $a->id,
+                    'lat'      => (float) $a->latitude,
+                    'lng'      => (float) $a->longitude,
+                    'name'     => trim(($a->user->first_name ?? '') . ' ' . ($a->user->last_name ?? '')),
+                    'code'     => label('punch_attempt_code', $a->error_code),
+                    'code_raw' => $a->error_code,
+                    'at'       => $a->created_at->format('d/m/Y h:i a'),
+                    'mock'     => (bool) $a->mock_location_detected,
+                    'distance' => $a->distance_meters,
+                    'allowed'  => $a->allowed_radius,
+                    'accuracy' => $a->accuracy_meters,
                 ])->values(),
-            'codes'     => Labels::options('punch_attempt_code'),
-            'byCode'    => $byCode,
-            'total'     => $byCode->sum(),
-            'startDate' => $startDate->toDateString(),
-            'endDate'   => $endDate->toDateString(),
+            'codes'            => Labels::options('punch_attempt_code'),
+            'byCode'           => $byCode,
+            'total'            => $total,
+            'mockCount'        => $mockCount,
+            'appCount'         => $appCount,
+            'uniqueUsersCount' => $uniqueUsersCount,
+            'startDate'        => $startDate->toDateString(),
+            'endDate'          => $endDate->toDateString(),
         ]);
     }
 

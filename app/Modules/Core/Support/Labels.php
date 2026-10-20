@@ -166,6 +166,7 @@ final class Labels
         'ethics.replied'                     => ['Respuesta al denunciante', 'info', 'chat-left-text'],
         'ethics.status_changed'              => ['Estado de denuncia cambiado', 'primary', 'shield-check'],
         'ethics.identity_viewed'             => ['Identidad del denunciante consultada', 'warning', 'person-lock'],
+        'ethics.assigned'                    => ['Investigador asignado', 'info', 'person-badge'],
 
         // Dotación
         'uniform.delivered'                  => ['Uniforme entregado', 'info', 'bag-check'],

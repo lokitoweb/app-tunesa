@@ -12,6 +12,7 @@ use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\TenantContext;
 use App\Modules\ModuleRegistry;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -63,7 +64,19 @@ class CompanyWebController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('companies.index', compact('companies'));
+        $stats = [
+            'total'          => Tenant::count(),
+            'active'         => Tenant::where('status', 'active')->count(),
+            'total_users'    => User::withoutGlobalScope(TenantScope::class)->where('role', '!=', Role::SUPER_ADMIN)->count(),
+            'custom_domains' => Tenant::whereNotNull('custom_domain')->where('custom_domain', '!=', '')->count(),
+        ];
+        $plans           = self::PLANS;
+        $statuses        = self::STATUSES;
+        $timezones       = \DateTimeZone::listIdentifiers();
+        $optionalModules = ModuleRegistry::optional();
+        $moduleLabels    = ModuleRegistry::LABELS;
+
+        return view('companies.index', compact('companies', 'stats', 'plans', 'statuses', 'timezones', 'optionalModules', 'moduleLabels'));
     }
 
     public function create(): View
@@ -114,7 +127,7 @@ class CompanyWebController extends Controller
             ->with('success', "Empresa {$tenant->company_name} creada. Su administrador ({$validated['admin_email']}) deberá cambiar la contraseña temporal al ingresar.");
     }
 
-    public function edit(int $id): View
+    public function edit(int $id): View|JsonResponse
     {
         $company = Tenant::findOrFail($id);
         $admins  = User::withoutGlobalScope(TenantScope::class)
@@ -122,6 +135,21 @@ class CompanyWebController extends Controller
             ->where('role', Role::COMPANY_ADMIN)
             ->orderBy('first_name')
             ->get();
+
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'success' => true,
+                'company' => $company,
+                'admins'  => $admins->map(fn ($a) => [
+                    'id'     => $a->id,
+                    'name'   => $a->full_name,
+                    'email'  => $a->email,
+                    'status' => $a->status,
+                ]),
+                'logo_url' => $company->logo_path ? asset('storage/' . $company->logo_path) : null,
+                'enabled_modules' => array_values(array_filter(ModuleRegistry::optional(), fn ($m) => ModuleRegistry::enabledFor($company, $m))),
+            ]);
+        }
 
         return view('companies.form', ['company' => $company, 'isEdit' => true, 'admins' => $admins]);
     }

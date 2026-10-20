@@ -1,7 +1,7 @@
-<a href="{{ $href }}" class="sidebar-link {{ $active ? 'active' : '' }}" @if($active) aria-current="page" @endif>
+<a href="{{ $href }}" class="sidebar-link {{ $active ? 'active' : '' }}" @if($active) aria-current="page" @endif title="{{ $label }}">
     <i class="bi bi-{{ $icon }}"></i>
-    <span class="flex-grow-1">{{ $label }}</span>
+    <span class="link-label">{{ $label }}</span>
     @if($badge > 0)
-        <span class="badge rounded-pill text-bg-danger">{{ $badge }}</span>
+        <span class="badge rounded-pill text-bg-danger ms-auto" style="font-size: 0.65rem;">{{ $badge }}</span>
     @endif
 </a>

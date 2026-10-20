@@ -170,4 +170,49 @@ class Phase3WebPanelTest extends TestCase
         $this->assertStringContainsString(',1,7.5,0,0,7.5,1,20,1,0,', $line, 'horas extra aprobadas, por aprobar y a pagar');
         $this->assertDatabaseHas('audit_logs', ['action' => 'payroll.exported']);
     }
+
+    public function test_admin_updates_employee_profile_via_ajax_and_modal_renders_executive_button(): void
+    {
+        $acme  = $this->makeTenant('acme');
+        $admin = $this->makeUser($acme, 'company_admin');
+        $ana   = $this->makeUser($acme);
+        EmployeeProfile::create(['tenant_id' => $acme->id, 'user_id' => $ana->id]);
+
+        // 1. Modal renders with executive button
+        $this->actingAs($admin)
+            ->get("/employees/{$ana->id}/file", ['X-Requested-With' => 'XMLHttpRequest'])
+            ->assertOk()
+            ->assertSee('legajo-btn-primary')
+            ->assertSee('Modificar Ficha')
+            ->assertSee('window.toggleEmployeeProfileEdit()', false);
+
+        // 2. Profile update via AJAX
+        $res = $this->actingAs($admin)->putJson("/employees/{$ana->id}/file/profile", [
+            'bank_name' => 'BCP',
+            'bank_account_type' => 'payroll',
+            'bank_account_currency' => 'PEN',
+            'bank_account_number' => '19112345678012',
+            'labor_regime' => 'general',
+            'pension_system' => 'afp',
+            'pension_fund' => 'AFP Integra',
+            'pension_code' => '612345AT0EA1',
+            'address' => 'Av. Arequipa 1234',
+            'district' => 'Lince',
+            'emergency_contact_name' => 'Carmen Torres',
+            'emergency_contact_phone' => '987654321',
+        ]);
+
+        $res->assertOk()->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('employee_profiles', [
+            'user_id' => $ana->id,
+            'bank_name' => 'BCP',
+            'bank_account_type' => 'payroll',
+            'district' => 'Lince',
+            'emergency_contact_name' => 'Carmen Torres',
+        ]);
+
+        $this->assertSame('612345AT0EA1', $ana->fresh()->profile->pension_code);
+        $this->assertSame('19112345678012', $ana->fresh()->profile->bank_account_number);
+    }
 }

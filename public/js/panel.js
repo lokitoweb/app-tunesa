@@ -1,10 +1,6 @@
 /**
- * TuneSA — utilidades compartidas del panel.
- *
- * - Panel.tiles(map): capa base OpenStreetMap (gratuita, sin API key).
- * - Panel.esc(texto): escapa HTML antes de insertarlo con innerHTML.
- * - Panel.openPhoto(url, título, meta): selfie ampliada en un modal.
- * - Tema claro / oscuro guardado en el navegador.
+ * Grupo Negreiros — Futuristic Operations & Telemetry Panel Engine
+ * Live telemetry, dynamic time greeting, collapsible dock, toast alerts
  */
 (function () {
     'use strict';
@@ -29,49 +25,296 @@
     function openPhoto(url, title, meta) {
         const modal = document.getElementById('photoModal');
         if (!modal) return;
-        document.getElementById('photoModalImg').src = url;
-        document.getElementById('photoModalTitle').textContent = title || 'Evidencia de marcación';
-        document.getElementById('photoModalMeta').textContent = meta || '';
+        const img = document.getElementById('photoModalImg');
+        const titleEl = document.getElementById('photoModalTitle');
+        const metaEl = document.getElementById('photoModalMeta');
+        if (img) img.src = url;
+        if (titleEl) titleEl.textContent = title || 'Evidencia de marcación';
+        if (metaEl) metaEl.textContent = meta || '';
         bootstrap.Modal.getOrCreateInstance(modal).show();
     }
 
-    // Tema claro / oscuro
+    // Modern Floating Toast Notification Engine
+    const Toast = {
+        getStack() {
+            let stack = document.querySelector('.toast-stack');
+            if (!stack) {
+                stack = document.createElement('div');
+                stack.className = 'toast-stack';
+                stack.setAttribute('aria-live', 'polite');
+                document.body.appendChild(stack);
+            }
+            return stack;
+        },
+
+        show({ type = 'info', title = '', message = '', duration = 4000 }) {
+            const stack = this.getStack();
+            const alert = document.createElement('div');
+            
+            const variantMap = {
+                success: { icon: 'bi-check-lg', defTitle: 'Operación exitosa' },
+                error:   { icon: 'bi-exclamation-triangle-fill', defTitle: 'Error del sistema' },
+                warning: { icon: 'bi-exclamation-circle-fill', defTitle: 'Advertencia' },
+                info:    { icon: 'bi-info-circle-fill', defTitle: 'Información del ERP' },
+            };
+            const config = variantMap[type] || variantMap.info;
+
+            alert.className = `alert alert-${type} toast-item toast-${type}`;
+            alert.setAttribute('role', 'alert');
+
+            alert.innerHTML = `
+                <div class="toast-icon-badge toast-badge-${type}">
+                    <i class="bi ${config.icon}"></i>
+                </div>
+                <div class="toast-content">
+                    <strong class="toast-title">${esc(title || config.defTitle)}</strong>
+                    ${message ? `<span class="toast-text">${esc(message)}</span>` : ''}
+                </div>
+                <button type="button" class="toast-close-btn" aria-label="Cerrar">
+                    <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                </button>
+            `;
+
+            const closeBtn = alert.querySelector('.toast-close-btn');
+            const dismiss = () => {
+                alert.classList.add('is-leaving');
+                setTimeout(() => alert.remove(), 260);
+            };
+
+            if (closeBtn) closeBtn.addEventListener('click', dismiss);
+
+            let timer = null;
+            if (duration > 0) {
+                timer = setTimeout(dismiss, duration);
+                alert.addEventListener('mouseenter', () => clearTimeout(timer));
+                alert.addEventListener('mouseleave', () => {
+                    timer = setTimeout(dismiss, 2500);
+                });
+            }
+
+            stack.appendChild(alert);
+            return alert;
+        },
+
+        success(message, title = 'Operación completada') {
+            return this.show({ type: 'success', title, message });
+        },
+        error(message, title = 'Atención requerida') {
+            return this.show({ type: 'error', title, message, duration: 8000 });
+        },
+        warning(message, title = 'Aviso de telemetría') {
+            return this.show({ type: 'warning', title, message, duration: 6000 });
+        },
+        info(message, title = 'Información') {
+            return this.show({ type: 'info', title, message });
+        }
+    };
+
+    // Dark / Light Theme
     function currentTheme() {
         return document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light';
     }
+    
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-bs-theme', theme);
-        try { localStorage.setItem('panel-theme', theme); } catch (e) { /* almacenamiento bloqueado */ }
+        try { localStorage.setItem('panel-theme', theme); } catch (e) { /* local storage blocked */ }
         const icon = document.querySelector('#themeToggle .bi');
         if (icon) icon.className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
         document.dispatchEvent(new CustomEvent('panel:theme', { detail: theme }));
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const toggle = document.getElementById('themeToggle');
-        if (toggle) {
-            applyTheme(currentTheme());
-            toggle.addEventListener('click', () => applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
+    // Dynamic Time Greeting and Live Clock
+    function startLiveClock() {
+        const titleEl = document.getElementById('liveGreetingTitle');
+        const clockEl = document.getElementById('liveClockText');
+
+        function update() {
+            const now = new Date();
+            const hours = now.getHours();
+
+            let greeting = 'BUENAS NOCHES';
+            if (hours >= 6 && hours < 12) {
+                greeting = 'BUENOS DÍAS';
+            } else if (hours >= 12 && hours < 19) {
+                greeting = 'BUENAS TARDES';
+            }
+
+            if (titleEl && titleEl.dataset.userName) {
+                titleEl.textContent = `${greeting}, ${titleEl.dataset.userName.toUpperCase()}`;
+            }
+
+            if (clockEl) {
+                const timeStr = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                const dateStr = now.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                const formattedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+                clockEl.textContent = `${timeStr} • ${formattedDate}`;
+            }
         }
 
-        // Toasts: los de éxito e información se cierran solos a los 6 s; los de error, al cerrarlos
-        document.querySelectorAll('.toast-stack > .alert-success, .toast-stack > .alert-info').forEach((el) => {
+        update();
+        setInterval(update, 1000);
+    }
+
+    // Command Palette (Ctrl+K)
+    function openCommandPalette() {
+        const modalEl = document.getElementById('commandPaletteModal');
+        if (!modalEl) return;
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+
+        const input = document.getElementById('commandPaletteInput');
+        if (input) {
+            input.value = '';
+            setTimeout(() => input.focus(), 150);
+            filterPaletteItems('');
+        }
+    }
+
+    function filterPaletteItems(query) {
+        const q = (query || '').toLowerCase().trim();
+        const items = document.querySelectorAll('.command-palette-item');
+        const emptyState = document.getElementById('commandPaletteEmpty');
+        let visibleCount = 0;
+
+        items.forEach(item => {
+            const label = ((item.dataset.label || '') + ' ' + item.textContent).toLowerCase();
+            const matches = !q || label.includes(q);
+            item.style.display = matches ? 'flex' : 'none';
+            item.classList.remove('is-selected');
+            if (matches) visibleCount++;
+        });
+
+        if (emptyState) {
+            emptyState.classList.toggle('d-none', visibleCount > 0);
+        }
+
+        if (visibleCount > 0) {
+            const firstVisible = Array.from(items).find(el => el.style.display !== 'none');
+            if (firstVisible) firstVisible.classList.add('is-selected');
+        }
+    }
+
+    function setupCommandPalette() {
+        const input = document.getElementById('commandPaletteInput');
+        if (input) {
+            input.addEventListener('input', (e) => {
+                filterPaletteItems(e.target.value);
+            });
+
+            input.addEventListener('keydown', (e) => {
+                const visibleItems = Array.from(document.querySelectorAll('.command-palette-item')).filter(el => el.style.display !== 'none');
+                if (!visibleItems.length) return;
+
+                const currentIndex = visibleItems.findIndex(el => el.classList.contains('is-selected'));
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const nextIndex = (currentIndex + 1) % visibleItems.length;
+                    visibleItems.forEach(el => el.classList.remove('is-selected'));
+                    visibleItems[nextIndex].classList.add('is-selected');
+                    visibleItems[nextIndex].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prevIndex = (currentIndex - 1 + visibleItems.length) % visibleItems.length;
+                    visibleItems.forEach(el => el.classList.remove('is-selected'));
+                    visibleItems[prevIndex].classList.add('is-selected');
+                    visibleItems[prevIndex].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (currentIndex >= 0 && visibleItems[currentIndex]) {
+                        visibleItems[currentIndex].click();
+                    } else if (visibleItems[0]) {
+                        visibleItems[0].click();
+                    }
+                }
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Theme initialization (Light mode standard)
+        const toggle = document.getElementById('themeToggle');
+        let initialTheme = 'light';
+        try {
+            initialTheme = localStorage.getItem('panel-theme') || 'light';
+        } catch (e) {}
+        applyTheme(initialTheme);
+
+        if (toggle) {
+            toggle.addEventListener('click', () => {
+                const nextTheme = currentTheme() === 'dark' ? 'light' : 'dark';
+                applyTheme(nextTheme);
+            });
+        }
+
+        // Live Clock
+        startLiveClock();
+
+        // Setup Command Palette
+        setupCommandPalette();
+
+        // Sidebar Collapse / Expand Toggle
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarMobileToggle = document.getElementById('sidebarMobileToggle');
+
+        if (sidebar && sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('is-expanded');
+            });
+        }
+        if (sidebar && sidebarMobileToggle) {
+            sidebarMobileToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('is-expanded');
+            });
+        }
+
+        // Fullscreen toggle
+        const fullscreenBtn = document.getElementById('fullscreenToggle');
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => console.warn(err));
+                } else {
+                    document.exitFullscreen().catch(err => console.warn(err));
+                }
+            });
+        }
+
+        // Auto-dismiss and close handler for Blade-rendered toasts
+        document.querySelectorAll('.toast-stack > .alert').forEach((el) => {
+            const closeBtn = el.querySelector('.toast-close-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    el.classList.add('is-leaving');
+                    setTimeout(() => el.remove(), 260);
+                });
+            }
             setTimeout(() => {
                 el.classList.add('is-leaving');
                 setTimeout(() => el.remove(), 260);
-            }, 6000);
+            }, 5000);
         });
 
-        // Miniaturas con data-photo abren el modal de selfie
+        // Click on thumbnail with data-photo opens evidence modal
         document.addEventListener('click', (e) => {
             const el = e.target.closest('[data-photo]');
             if (!el) return;
             e.preventDefault();
             openPhoto(el.dataset.photo, el.dataset.photoTitle, el.dataset.photoMeta);
         });
+
+        // Global Keyboard Shortcut: Ctrl+K or Cmd+K opens Command Palette
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                openCommandPalette();
+            }
+        });
     });
 
     window.Panel = { esc, tiles, cssVar, openPhoto };
-    // Compatibilidad con vistas antiguas
+    window.Toast = Toast;
     window.openPhotoModal = openPhoto;
+    window.openCommandPalette = openCommandPalette;
 })();

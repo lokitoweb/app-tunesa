@@ -213,4 +213,51 @@ class PanelFlowsTest extends TestCase
         // RRHH sigue viendo toda la empresa
         $this->actingAs($hr)->get('/reports')->assertOk()->assertViewHas('totalRecords', 2);
     }
+
+    public function test_ajax_employee_creation_and_table_pagination(): void
+    {
+        $acme   = $this->makeTenant('acme');
+        $admin  = $this->makeUser($acme, 'company_admin');
+        $branch = $this->makeBranch($acme);
+        $shift  = $this->makeShift($acme);
+
+        // 1. AJAX Store en modal dialog retorna JSON con credenciales
+        $response = $this->actingAs($admin)->postJson('/employees', [
+            'first_name'        => 'Carlos',
+            'last_name'         => 'Mendoza',
+            'email'             => 'carlos@acme.pe',
+            'role'              => 'employee',
+            'document_type'     => 'dni',
+            'document_number'   => '44889900',
+            'branch_ids'        => [$branch->id],
+            'primary_branch_id' => $branch->id,
+            'shift_id'          => $shift->id,
+        ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'credentials' => [
+                    'name'  => 'Carlos Mendoza',
+                    'email' => 'carlos@acme.pe',
+                ],
+            ]);
+
+        $this->assertNotEmpty($response->json('credentials.password'));
+
+        // 2. Petición AJAX al index retorna la vista parcial de la tabla
+        $ajaxIndex = $this->get('/employees', ['X-Requested-With' => 'XMLHttpRequest']);
+        $ajaxIndex->assertOk()
+            ->assertSee('Carlos Mendoza')
+            ->assertSee('44889900');
+
+        // 3. Endpoint de opciones por empresa para modal de Super Admin
+        $super = $this->makeUser(null, 'super_admin');
+        $this->actingAs($super)->getJson("/employees/tenant-options/{$acme->id}")
+            ->assertOk()
+            ->assertJsonStructure([
+                'branches', 'shifts', 'positions', 'departments', 'zones', 'login_domain'
+            ]);
+    }
 }
+

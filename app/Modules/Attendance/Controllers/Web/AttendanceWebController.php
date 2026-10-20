@@ -66,7 +66,8 @@ class AttendanceWebController extends Controller
             });
         }
 
-        $attendances = $query->paginate(20)->withQueryString();
+        $perPage = in_array((int) $request->input('per_page'), [10, 20, 50, 100], true) ? (int) $request->input('per_page') : 20;
+        $attendances = $query->paginate($perPage)->withQueryString();
         $branches = Branch::forTenant($tenantId)->get();
 
         // Conteo rápido para cabecera de filtros

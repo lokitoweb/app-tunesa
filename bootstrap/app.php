@@ -76,6 +76,25 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions) {
 
+        // Nunca flashear campos sensibles a la sesión
+        $exceptions->dontFlash([
+            'current_password',
+            'password',
+            'password_confirmation',
+        ]);
+
+        // Ciberseguridad: censurar parámetros confidenciales de la petición antes de cualquier volcado o pantalla de error
+        $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
+            $sensitiveKeys = ['password', 'password_confirmation', 'current_password', 'secret', 'token', 'access_token', 'refresh_token', 'credit_card', 'cvv'];
+            foreach ($sensitiveKeys as $key) {
+                if ($request->has($key)) {
+                    $request->request->set($key, '********');
+                    $request->query->set($key, '********');
+                }
+            }
+            return null; // Continuar con la cadena habitual de excepciones
+        });
+
         // Personalizar respuestas JSON para excepciones comunes
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
             if ($request->is('api/*')) {

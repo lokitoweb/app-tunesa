@@ -225,4 +225,20 @@ class LiveBoardTest extends TestCase
     {
         $this->actingAs($this->supervisor)->get('/dashboard')->assertOk()->assertSee('Tablero en vivo');
     }
+
+    public function test_live_board_dark_mode_does_not_contain_hardcoded_light_classes(): void
+    {
+        $res = $this->actingAs($this->supervisor)->get('/live')->assertOk();
+        $content = $res->getContent();
+
+        // Must not contain hardcoded light background utilities in headers or footers
+        $this->assertStringNotContainsString('card-header bg-white', $content);
+        $this->assertStringNotContainsString('card-footer bg-light', $content);
+        $this->assertStringNotContainsString('text-dark', $content);
+
+        // Must use tokenized variables
+        $this->assertStringContainsString('var(--border-color)', $content);
+        $this->assertStringContainsString('var(--bg-surface)', $content);
+        $this->assertStringContainsString('var(--text-primary)', $content);
+    }
 }

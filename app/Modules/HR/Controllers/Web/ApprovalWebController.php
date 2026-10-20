@@ -48,27 +48,29 @@ class ApprovalWebController extends Controller
             'overtime'       => $this->overtime->pendingCount($user),
         ];
 
+        $perPage = in_array((int) $request->input('per_page'), [10, 20, 50, 100], true) ? (int) $request->input('per_page') : 20;
+
         if ($tab === 'overtime') {
             $items = $this->overtime->query($user)
                 ->where('overtime_status', $status)
-                ->with(['user:id,first_name,last_name,employee_code', 'branch:id,name', 'shift:id,name,daily_hours', 'overtimeReviewer:id,first_name,last_name'])
+                ->with(['user:id,first_name,last_name,employee_code,avatar_path', 'branch:id,name', 'shift:id,name,daily_hours', 'overtimeReviewer:id,first_name,last_name'])
                 ->orderBy($status === 'pending' ? 'work_date' : 'overtime_reviewed_at', $status === 'pending' ? 'asc' : 'desc')
                 ->orderBy('id')
-                ->paginate(30)
+                ->paginate($perPage)
                 ->withQueryString();
         } elseif ($tab === 'justifications') {
             $items = Attendance::where('justification_status', $status === 'cancelled' ? 'none' : $status)
-                ->with(['user:id,first_name,last_name,employee_code', 'branch:id,name', 'reviewer:id,first_name,last_name'])
+                ->with(['user:id,first_name,last_name,employee_code,avatar_path', 'branch:id,name', 'reviewer:id,first_name,last_name'])
                 ->orderByDesc('work_date')
-                ->paginate(20)
+                ->paginate($perPage)
                 ->withQueryString();
         } else {
             $items = $this->leaveQuery($user)
                 ->where('status', $status)
                 ->when($request->type, fn ($q) => $q->where('type', $request->type))
-                ->with(['employee:id,first_name,last_name,employee_code', 'reviewer:id,first_name,last_name'])
+                ->with(['employee:id,first_name,last_name,employee_code,avatar_path', 'reviewer:id,first_name,last_name'])
                 ->orderBy('start_date')
-                ->paginate(20)
+                ->paginate($perPage)
                 ->withQueryString();
         }
 

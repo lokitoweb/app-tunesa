@@ -1,49 +1,90 @@
 {{--
     Visor de marcación: selfie ampliada, hora exacta, sucursal y mapa con el
-    punto GPS contra el radio de la geocerca. Uso: openEvidence(attendanceId).
+    punto GPS contra el radio de ubicación. Uso: openEvidence(attendanceId).
     Los datos llegan de attendance.evidence (JSON) y la selfie con URL firmada.
 --}}
 <div class="modal fade" id="evidenceModal" tabindex="-1" aria-labelledby="evidenceTitle" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-lg-down">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-lg-down">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="min-w-0">
-                    <h2 class="modal-title fs-6 fw-semibold text-truncate" id="evidenceTitle">Marcación</h2>
-                    <small class="text-body-secondary" id="evidenceSubtitle"></small>
+                <div class="d-flex align-items-center gap-2 min-w-0">
+                    <div class="evidence-header-icon">
+                        <i class="bi bi-geo-alt-fill"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="modal-title fs-6 fw-bold text-truncate mb-0" id="evidenceTitle" style="color: var(--text-primary, #0f172a);">Marcación</h2>
+                        <small style="font-size: 0.775rem; color: var(--text-muted, #64748b);" id="evidenceSubtitle"></small>
+                    </div>
                 </div>
                 <div class="ms-auto d-flex align-items-center gap-2">
-                    <a id="evidenceFullLink" class="btn btn-sm btn-outline-primary" href="#"><i class="bi bi-box-arrow-up-right me-1"></i>Auditoría completa</a>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <a id="evidenceFullLink" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 shadow-sm" href="#" style="border-radius: 6px; font-weight: 600; font-size: 0.775rem; padding: 4px 10px;">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                        <span>Auditoría completa</span>
+                    </a>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar" style="font-size: 0.75rem;"></button>
                 </div>
             </div>
             <div class="modal-body">
-                <div class="row g-4">
-                    <div class="col-12 col-lg-5">
-                        <div class="btn-group w-100 mb-3" role="group" aria-label="Momento de la marcación">
-                            <button type="button" class="btn btn-outline-primary active" data-moment="in">Entrada</button>
-                            <button type="button" class="btn btn-outline-primary" data-moment="out">Salida</button>
+                <div class="row g-3 align-items-stretch">
+                    <!-- Columna izquierda: Tabs + Selfie + Ficha forense con progreso adentro -->
+                    <div class="col-12 col-lg-5 d-flex flex-column" style="height: 504px;">
+                        <!-- Selector de momento (Entrada / Salida) estilo segmentado moderno -->
+                        <div class="evidence-moment-tabs mb-2" role="group" aria-label="Momento de la marcación">
+                            <button type="button" class="evidence-moment-tab active" data-moment="in">
+                                <i class="bi bi-box-arrow-in-right"></i>
+                                <span>Entrada</span>
+                            </button>
+                            <button type="button" class="evidence-moment-tab" data-moment="out">
+                                <i class="bi bi-box-arrow-right"></i>
+                                <span>Salida</span>
+                            </button>
                         </div>
-                        <div id="evidenceAltered" class="alert alert-danger py-2 small d-none" role="alert">
+
+                        <!-- Alerta de integridad si corresponde -->
+                        <div id="evidenceAltered" class="alert alert-danger py-1 px-2 small d-none mb-2" style="border-radius: 6px; font-size: 0.725rem;" role="alert">
                             <i class="bi bi-shield-exclamation me-1"></i><strong>Evidencia alterada:</strong> <span id="evidenceAlteredText"></span>
                         </div>
-                        <div class="ratio ratio-4x3 bg-body-tertiary rounded overflow-hidden mb-3">
+
+                        <!-- Contenedor amplio de Selfie (proporción óptima para fotos verticales) -->
+                        <div class="evidence-selfie-box mb-2">
                             <img id="evidencePhoto" alt="Selfie de la marcación" class="w-100 h-100 object-fit-contain d-none" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
-                            <div id="evidenceNoPhoto" class="d-flex align-items-center justify-content-center text-body-secondary">
-                                <span><i class="bi bi-camera-video-off me-1"></i><span id="evidenceNoPhotoText">Sin selfie</span></span>
+                            <div id="evidenceNoPhoto" class="d-flex flex-column align-items-center justify-content-center text-secondary h-100 p-2">
+                                <div class="evidence-no-photo-icon">
+                                    <i class="bi bi-camera-video-off"></i>
+                                </div>
+                                <span class="fw-medium" style="font-size: 0.8rem;" id="evidenceNoPhotoText">Sin selfie</span>
                             </div>
                         </div>
-                        <dl class="kv small" id="evidenceFacts"></dl>
-                        <div class="mt-3">
-                            <div class="d-flex justify-content-between small text-body-secondary mb-1">
-                                <span>Distancia vs. radio permitido</span><span id="evidenceUsage"></span>
+
+                        <!-- Ficha de datos forenses con la barra de radio integrada adentro del cuadro -->
+                        <div class="evidence-facts-box flex-grow-1">
+                            <!-- Barra de consumo de radio de ubicación DENTRO del cuadro -->
+                            <div class="evidence-radius-usage mb-3">
+                                <div class="d-flex justify-content-between small text-secondary mb-1 fw-medium" style="font-size: 0.72rem;">
+                                    <span>Distancia vs. radio permitido</span>
+                                    <span id="evidenceUsage" class="fw-bold" style="color: var(--text-primary, #0f172a);"></span>
+                                </div>
+                                <div class="progress" role="progressbar" aria-label="Uso del radio de ubicación" style="height: 6px; border-radius: 3px; background: rgba(148, 163, 184, 0.25);">
+                                    <div class="progress-bar bg-success" id="evidenceBar" style="width: 0%; border-radius: 3px;"></div>
+                                </div>
                             </div>
-                            <div class="progress" role="progressbar" aria-label="Uso del radio de la geocerca" style="height: 8px;">
-                                <div class="progress-bar bg-success" id="evidenceBar" style="width: 0%"></div>
+                            
+                            <!-- Lista con scroll interno fino -->
+                            <div class="evidence-facts-scroll">
+                                <dl class="evidence-facts-grid" id="evidenceFacts"></dl>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Columna derecha: Mapa satelital/vectorial con altura exacta y recentrar -->
                     <div class="col-12 col-lg-7">
-                        <div id="evidenceMap" class="map-frame rounded" style="height: 100%; min-height: 380px;"></div>
+                        <div class="position-relative evidence-map-wrapper" style="height: 504px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color, #cbd5e1);">
+                            <div id="evidenceMap" style="height: 100%; width: 100%;"></div>
+                            <button type="button" id="btnCenterEvidenceMap" class="btn btn-sm shadow-sm evidence-map-recenter-btn" title="Recentrar mapa">
+                                <i class="bi bi-crosshair"></i>
+                                <span>Recentrar</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -105,14 +146,14 @@
         const facts = p ? [
             ['Hora exacta', p.time],
             ['Sucursal', d.branch?.name || '—'],
-            ['Geocerca', p.within_geofence ? 'Dentro del radio' : 'Fuera del radio'],
+            ['Ubicación', p.within_geofence ? 'Dentro del radio permitido' : 'Fuera del radio permitido'],
             ['Distancia', (p.distance_meters ?? '—') + ' m de ' + radius + ' m permitidos'],
             ['Precisión GPS', p.gps_accuracy ? '± ' + p.gps_accuracy + ' m' : '—'],
             ['Ubicación simulada', p.is_mocked ? 'Sí (sospechoso)' : 'No'],
             ['Rostro detectado', p.face_detected === null || p.face_detected === undefined ? '—' : (p.face_detected ? 'Sí' : 'No')],
             ['Hora del celular', p.time_drift_seconds == null ? '—' : (p.time_drift_seconds === 0 ? 'Sincronizada' : 'Desfase de ' + Math.abs(p.time_drift_seconds) + ' s')],
-            ['Motivos de sospecha', (p.suspicion_labels || []).length ? p.suspicion_labels.join(', ') : 'Ninguno'],
-            ['Seguridad del teléfono', (p.device_flags || []).length ? p.device_flags.join(', ') : 'Sin alertas'],
+            ['Motivos sospecha', (p.suspicion_labels || []).length ? p.suspicion_labels.join(', ') : 'Ninguno'],
+            ['Seguridad móvil', (p.device_flags || []).length ? p.device_flags.join(', ') : 'Sin alertas'],
             ['Coordenadas', p.latitude != null ? Number(p.latitude).toFixed(6) + ', ' + Number(p.longitude).toFixed(6) : '—'],
             ['Dispositivo', p.device || '—'],
         ] : [];
@@ -132,7 +173,6 @@
     function drawMap(d, p) {
         if (!window.L) return;
         if (!evidenceMap) {
-            // Vista inicial antes de agregar capas: los círculos la necesitan para calcular límites
             evidenceMap = L.map('evidenceMap').setView([-12.046374, -77.042793], 12);
             Panel.tiles(evidenceMap);
         }
@@ -170,9 +210,18 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         const modalEl = el('evidenceModal');
-        // El mapa necesita el tamaño final del modal para pintarse completo
-        modalEl.addEventListener('shown.bs.modal', fitMap);
+        modalEl.addEventListener('shown.bs.modal', () => {
+            setTimeout(fitMap, 150);
+        });
         modalEl.querySelectorAll('[data-moment]').forEach((b) => b.addEventListener('click', () => showMoment(b.dataset.moment)));
+
+        const btnCenter = el('btnCenterEvidenceMap');
+        if (btnCenter) {
+            btnCenter.addEventListener('click', (e) => {
+                e.preventDefault();
+                fitMap();
+            });
+        }
     });
 })();
 </script>

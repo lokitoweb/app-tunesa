@@ -19,6 +19,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::put('/{id}', [EmployeeController::class, 'update'])->name('update')->whereNumber('id');
         Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status')->whereNumber('id');
         Route::patch('/{id}/unlock', [EmployeeController::class, 'unlock'])->name('unlock')->whereNumber('id');
+        Route::get('/tenant-options/{id}', [EmployeeController::class, 'tenantOptions'])->name('tenant-options')->whereNumber('id');
         Route::post('/{id}/reset-access', [EmployeeController::class, 'resetAccess'])->name('reset-access')->whereNumber('id')->middleware('throttle:10,1');
     });
 
@@ -32,7 +33,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [DocumentWebController::class, 'employeeFile'])->name('');
         Route::put('/profile', [DocumentWebController::class, 'updateProfile'])->name('.profile');
         Route::post('/payment-review', [DocumentWebController::class, 'reviewPayment'])->name('.payment-review');
-        Route::post('/reveal', [DocumentWebController::class, 'reveal'])->name('.reveal')->middleware('can:profiles.view_sensitive');
+        Route::match(['get', 'post'], '/reveal', [DocumentWebController::class, 'reveal'])->name('.reveal')->middleware('can:profiles.view_sensitive');
         Route::post('/documents', [DocumentWebController::class, 'upload'])->name('.upload')->middleware('can:documents.review');
     });
 

@@ -5,6 +5,7 @@ namespace App\Modules\Attendance\Services;
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Services\SecureFileUrl;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Holiday;
 use App\Modules\HR\Models\LeaveRequest;
@@ -215,6 +216,27 @@ class AttendanceCalendarService
 
         $today = $this->todayByTenant($tenantIds);
 
+        $secureUrls = app(SecureFileUrl::class);
+        $userSelfies = Attendance::withoutGlobalScopes()
+            ->whereIn('user_id', $ids)
+            ->where(fn ($q) => $q->whereNotNull('clock_in_photo')->orWhereNotNull('clock_out_photo'))
+            ->orderByDesc('work_date')
+            ->get(['id', 'user_id', 'clock_in_photo', 'clock_out_photo'])
+            ->unique('user_id')
+            ->keyBy('user_id');
+
+        $avatarUrls = [];
+        foreach ($users as $u) {
+            if ($u->avatar_path) {
+                $avatarUrls[$u->id] = asset('storage/' . $u->avatar_path);
+            } elseif ($selfie = $userSelfies->get($u->id)) {
+                $moment = $selfie->clock_in_photo ? 'in' : 'out';
+                $avatarUrls[$u->id] = $secureUrls->thumb("selfie-{$moment}", $selfie->id, 1440);
+            } else {
+                $avatarUrls[$u->id] = null;
+            }
+        }
+
         return $users->map(fn (User $user) => $this->row(
             $user,
             $f,
@@ -223,6 +245,7 @@ class AttendanceCalendarService
             $leaves->get($user->id, collect()),
             $holidays[$user->tenant_id] ?? [],
             $today[$user->tenant_id] ?? CarbonImmutable::now(config('app.timezone'))->toDateString(),
+            $avatarUrls[$user->id] ?? null,
         ))->values()->all();
     }
 
@@ -230,7 +253,7 @@ class AttendanceCalendarService
     // CÁLCULO
     // =========================================================================
 
-    private function row(User $user, CalendarFilters $f, Collection $attendances, Collection $assignments, Collection $leaves, array $holidays, string $today): array
+    private function row(User $user, CalendarFilters $f, Collection $attendances, Collection $assignments, Collection $leaves, array $holidays, string $today, ?string $avatarUrl = null): array
     {
         $totals = ['absent' => 0, 'late' => 0, 'late_minutes' => 0, 'excused' => 0, 'worked_hours' => 0.0, 'suspicious' => 0,
             'overtime_approved' => 0.0, 'overtime_pending' => 0.0];
@@ -266,6 +289,7 @@ class AttendanceCalendarService
             'last_name'     => $user->last_name,
             'name'          => trim("{$user->first_name} {$user->last_name}"),
             'position'      => $user->position,
+            'avatar_url'    => $avatarUrl,
             'cells'         => $cells,
             'totals'        => $totals,
         ];

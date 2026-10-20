@@ -5,7 +5,7 @@
     $bellLatest  = $bellUser->notifications()->limit(8)->get();
 @endphp
 <div class="dropdown">
-    <button type="button" class="btn btn-light border btn-sm position-relative" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+    <button type="button" class="topbar-btn position-relative" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
             aria-label="Notificaciones{{ $bellUnread ? " ({$bellUnread} sin leer)" : '' }}" title="Notificaciones">
         <i class="bi bi-bell"></i>
         @if($bellUnread > 0)

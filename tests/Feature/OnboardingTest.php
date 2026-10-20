@@ -164,6 +164,8 @@ class OnboardingTest extends TestCase
         // Panel: aparece en «Por revisar» y RRHH la aprueba
         $this->web($this->hr)->get(route('onboarding.index'))->assertOk()->assertSee('Rosa Quispe')->assertSee('Revisar');
         $this->actingAs($this->hr)->get(route('onboarding.show', $rosa->id))->assertOk()->assertSee('Aprobar incorporación');
+        $this->actingAs($this->hr)->get(route('onboarding.show', $rosa->id), ['X-Requested-With' => 'XMLHttpRequest'])
+            ->assertOk()->assertSee('Rosa Quispe')->assertSee('Etapas de incorporación')->assertSee('Aprobar incorporación');
         $this->actingAs($this->hr)->post(route('onboarding.approve', $rosa->id))->assertRedirect(route('onboarding.index'));
 
         $this->assertSame('approved', $rosa->fresh()->onboarding_status);
@@ -211,6 +213,8 @@ class OnboardingTest extends TestCase
         $course = TrainingCourse::withoutGlobalScopes()->create(['tenant_id' => $this->acme->id, 'title' => 'Bienvenida Tunesa', 'category' => 'general', 'status' => 'published']);
 
         $this->actingAs($this->admin)->get(route('onboarding.settings'))->assertOk()->assertSee('Etapas de incorporación')->assertSee('Bienvenida Tunesa');
+        $this->actingAs($this->admin)->get(route('onboarding.settings'), ['X-Requested-With' => 'XMLHttpRequest'])
+            ->assertOk()->assertSee('Etapas de incorporación')->assertSee('Bienvenida Tunesa')->assertSee('modal_req_');
         $this->actingAs($this->hr)->get(route('onboarding.settings'))->assertOk();
         $this->actingAs($this->makeUser($this->acme, 'supervisor'))->get(route('onboarding.settings'))->assertForbidden();
 

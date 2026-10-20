@@ -139,6 +139,21 @@ class EthicsService
         $this->pushToReporter($case);
     }
 
+    public function assign(EthicsCase $case, User $by, ?int $assigneeId): void
+    {
+        $case->assigned_to = $assigneeId;
+        $case->save();
+
+        $assigneeUser = $assigneeId ? User::find($assigneeId) : null;
+        $assigneeName = $assigneeUser ? "{$assigneeUser->first_name} {$assigneeUser->last_name}" : 'Sin asignar';
+
+        app(AuditLogger::class)->log('ethics.assigned', $case, [
+            'code'        => $case->public_code,
+            'assigned_to' => $assigneeName,
+            'by'          => "{$by->first_name} {$by->last_name}",
+        ]);
+    }
+
     /**
      * Identidad reservada de quien denunció desde la app. La lectura queda en la bitácora
      * y solo la hace quien tiene ethics.view_identity.

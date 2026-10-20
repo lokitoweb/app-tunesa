@@ -45,7 +45,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::get('/attendance-calendar', [CalendarWebController::class, 'index'])->name('attendance.calendar');
     Route::get('/attendance-calendar/excel', [CalendarWebController::class, 'excel'])->name('attendance.calendar.excel');
     Route::get('/attendance-calendar/day', [CalendarWebController::class, 'day'])->name('attendance.calendar.day');
-    Route::get('/attendance-calendar/person/{id}', [CalendarWebController::class, 'person'])->name('attendance.calendar.person')->whereNumber('id');
+    Route::get('/attendance-calendar/person/{id}', [CalendarWebController::class, 'person'])->name('attendance.calendar.person');
 
     // Corrección manual de una jornada (RRHH: toda la empresa; supervisor: su equipo)
     Route::middleware('can:attendance.edit')->group(function () {

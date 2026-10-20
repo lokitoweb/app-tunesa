@@ -63,11 +63,16 @@ class SetWebTenant
 
     /** Rutas de escritura permitidas en la vista global (no crean registros de empresa) */
     public const GLOBAL_WRITE_ROUTES = [
-        'logout', 'admin.tenant.switch', 'notifications.read', 'notifications.read-all',
+        'logout', 'session.keep-alive', 'admin.tenant.switch', 'notifications.read', 'notifications.read-all',
         // Sin empresa elegida edita los valores por defecto de la plataforma (tenant_settings global)
         'settings.branding.update', 'settings.integrations.update',
         // Pruebas de integraciones de la plataforma (no crean registros de empresa)
         'settings.branding.test-webhook', 'settings.branding.test-notification', 'settings.branding.test-push',
+        'employees.file.reveal',
+        'ethics.identity',
+        'ethics.reply',
+        'ethics.status',
+        'ethics.assign',
     ];
 
     /**
@@ -76,6 +81,9 @@ class SetWebTenant
      */
     public const GLOBAL_TENANT_PICKER_ROUTES = [
         'branches.create', 'branches.store', 'branches.edit', 'branches.update', 'branches.destroy',
+        'employees.store', 'employees.edit', 'employees.update',
+        'employees.file', 'employees.file.profile', 'employees.file.payment-review', 'employees.file.reveal', 'employees.file.upload',
+        'employees.toggle-status', 'employees.unlock', 'employees.reset-access',
         // Las empresas mismas (Super Admin): no pertenecen a ninguna empresa
         'companies.create', 'companies.store', 'companies.edit', 'companies.update',
     ];

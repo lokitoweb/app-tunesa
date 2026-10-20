@@ -1,9 +1,16 @@
-{{-- Aplica el tema antes de pintar (sin parpadeo): el elegido en el panel o, si nunca se eligió, el del sistema --}}
+{{-- Aplica el tema LIGHT por defecto --}}
 <script>
     (function () {
-        var t = null;
-        try { t = localStorage.getItem('panel-theme'); } catch (e) {}
-        if (t !== 'dark' && t !== 'light') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        var t = 'light';
+        try {
+            var saved = localStorage.getItem('panel-theme');
+            if (saved === 'dark' || saved === 'light') {
+                t = saved;
+            } else {
+                localStorage.setItem('panel-theme', 'light');
+            }
+        } catch (e) {}
         document.documentElement.setAttribute('data-bs-theme', t);
     })();
 </script>
+

@@ -4,14 +4,19 @@ namespace App\Modules\HR\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\Department;
 use App\Modules\Core\Models\Position;
 use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\Zone;
 use App\Modules\Core\Services\CredentialProvisioner;
 use App\Modules\Core\Services\OrgScope;
+use App\Modules\Core\Services\TenantContext;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Shift;
 use App\Modules\Core\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,9 +34,9 @@ use Illuminate\View\View;
 class EmployeeController extends Controller
 {
     /**
-     * Listado de empleados con filtros avanzados y paginación.
+     * Listado de empleados con filtros avanzados y paginación AJAX.
      */
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $tenantId = current_tenant_id_or_null();
 
@@ -74,33 +79,99 @@ class EmployeeController extends Controller
             $query->where('position_id', $positionId);
         }
 
-        $employees = $query->paginate(15)->withQueryString();
-        $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
-        $positions = Position::forTenant($tenantId)->orderBy('name')->get(['id', 'name']);
+        $perPage = max(5, min(100, $request->integer('per_page', 10)));
+        $employees = $query->paginate($perPage)->withQueryString();
 
-        return view('employees.index', compact('employees', 'branches', 'positions'));
+        $stats = [
+            'total'       => User::forTenant($tenantId)->whereNotNull('tenant_id')->count(),
+            'active'      => User::forTenant($tenantId)->whereNotNull('tenant_id')->where('status', 'active')->count(),
+            'with_shift'  => User::forTenant($tenantId)->whereNotNull('tenant_id')->whereHas('employeeShifts', fn($q) => $q->where('is_active', true))->count(),
+            'with_branch' => User::forTenant($tenantId)->whereNotNull('tenant_id')->whereHas('branches')->count(),
+        ];
+
+        // Petición AJAX (paginador o filtros internos sin recargar URL)
+        if ($request->ajax()) {
+            return view('employees.partials.table', compact('employees', 'stats'));
+        }
+
+        $branches = Branch::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get();
+        $positions = Position::forTenant($tenantId)->orderBy('name')->get(['id', 'name']);
+        $shifts = Shift::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get();
+        $departments = Department::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $zones = Zone::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $positionsCatalog = Position::forTenant($tenantId)->with('department:id,name')->where('is_active', true)->orderBy('name')->get();
+        $companies = $tenantId ? null : Tenant::where('is_active', true)->orderBy('company_name')->get(['id', 'company_name', 'trade_name']);
+        $tenantObj = $tenantId ? Tenant::find($tenantId) : null;
+        $loginDomain = TenantSetting::forTenant($tenantObj)->loginEmailDomain();
+
+        return view('employees.index', compact(
+            'employees', 'branches', 'positions', 'stats', 'shifts',
+            'departments', 'zones', 'positionsCatalog', 'companies', 'loginDomain'
+        ));
     }
 
     /**
-     * Muestra el formulario para crear un nuevo empleado.
+     * Opciones dependientes de empresa para Super Admin en modal dialog.
+     */
+    public function tenantOptions(int $id): JsonResponse
+    {
+        $tenant = Tenant::findOrFail($id);
+        $branches = Branch::forTenant($id)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $shifts = Shift::forTenant($id)->where('is_active', true)->orderBy('name')->get(['id', 'name', 'start_time', 'end_time']);
+        $positions = Position::forTenant($id)->with('department:id,name')->where('is_active', true)->orderBy('name')->get(['id', 'name', 'department_id', 'is_roaming']);
+        $departments = Department::forTenant($id)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $zones = Zone::forTenant($id)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $loginDomain = TenantSetting::forTenant($tenant)->loginEmailDomain();
+
+        return response()->json([
+            'branches'    => $branches,
+            'shifts'      => $shifts,
+            'positions'   => $positions,
+            'departments' => $departments,
+            'zones'       => $zones,
+            'login_domain'=> $loginDomain,
+        ]);
+    }
+
+    /**
+     * Muestra el formulario para crear un nuevo empleado (fallback tradicional).
      */
     public function create(): View
     {
         $tenantId = current_tenant_id_or_null();
-        $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
-        $shifts = Shift::forTenant($tenantId)->where('is_active', true)->get();
+        $branches = Branch::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get();
+        $shifts = Shift::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get();
+        $positions = Position::forTenant($tenantId)->orderBy('name')->get(['id', 'name']);
+        $departments = Department::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $zones = Zone::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $positionsCatalog = Position::forTenant($tenantId)->with('department:id,name')->where('is_active', true)->orderBy('name')->get();
+        $tenantObj = $tenantId ? Tenant::find($tenantId) : null;
+        $loginDomain = TenantSetting::forTenant($tenantObj)->loginEmailDomain();
 
-        return view('employees.create', compact('branches', 'shifts'));
+        return view('employees.create', compact('branches', 'shifts', 'positions', 'departments', 'zones', 'positionsCatalog', 'loginDomain'));
     }
 
     /**
      * Almacena un nuevo empleado en la base de datos con asignaciones.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
-        $tenantId = current_tenant_id_or_null();
+        $tenantId = current_tenant_id_or_null()
+            ?? ($request->filled('tenant_id') ? (int) $request->input('tenant_id') : null);
+
+        if (! $tenantId) {
+            $msg = 'Debes seleccionar una empresa para registrar al colaborador.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'message' => $msg,
+                    'errors'  => ['tenant_id' => [$msg]],
+                ], 422);
+            }
+            return back()->withErrors(['tenant_id' => $msg]);
+        }
 
         $validated = $request->validate([
+            'tenant_id'       => [$tenantId ? 'nullable' : 'required', 'integer', 'exists:tenants,id'],
             'first_name'      => ['required', 'string', 'max:100'],
             'last_name'       => ['required', 'string', 'max:100'],
             // Vacío: se genera [DNI]@dominio (Marca y app). La contraseña siempre la genera el sistema.
@@ -125,10 +196,11 @@ class EmployeeController extends Controller
         abort_unless(Auth::user()->canAssignRole($validated['role']), 403, 'No puedes crear usuarios con un rol igual o superior al tuyo.');
 
         $credentials = app(CredentialProvisioner::class);
-        $email = ($validated['email'] ?? null) ?: $credentials->emailFor(Tenant::find($tenantId), $validated['document_number']);
+        $tenant = Tenant::findOrFail($tenantId);
+        $email = ($validated['email'] ?? null) ?: $credentials->emailFor($tenant, $validated['document_number']);
         $temporaryPassword = $credentials->temporaryPassword();
 
-        DB::transaction(function () use ($validated, $tenantId, $request, $email, $temporaryPassword, $credentials) {
+        $user = DB::transaction(function () use ($validated, $tenantId, $request, $email, $temporaryPassword, $credentials) {
             $avatarPath = null;
             if ($request->hasFile('avatar')) {
                 $avatarPath = $request->file('avatar')->store('avatars', 'public');
@@ -180,7 +252,25 @@ class EmployeeController extends Controller
                     'is_active'            => true,
                 ]);
             }
+
+            return $user;
         });
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Colaborador {$validated['first_name']} {$validated['last_name']} creado exitosamente.",
+                'employee' => [
+                    'id'   => $user->id,
+                    'name' => "{$validated['first_name']} {$validated['last_name']}",
+                ],
+                'credentials' => [
+                    'name'     => "{$validated['first_name']} {$validated['last_name']}",
+                    'email'    => $email,
+                    'password' => $temporaryPassword,
+                ],
+            ]);
+        }
 
         return redirect()->route('employees.index')
             ->with('success', "Empleado {$validated['first_name']} {$validated['last_name']} creado exitosamente.")
@@ -188,17 +278,50 @@ class EmployeeController extends Controller
     }
 
     /**
-     * Muestra el formulario de edición de empleado.
+     * Muestra el formulario de edición de empleado (o JSON para modal dialog).
      */
-    public function edit(int $id): View
+    public function edit(Request $request, int $id): View|JsonResponse
     {
         $tenantId = current_tenant_id_or_null();
         $employee = User::forTenant($tenantId)
             ->with(['branches', 'employeeShifts' => fn($q) => $q->where('is_active', true)->with('shift')])
             ->findOrFail($id);
 
-        $branches = Branch::forTenant($tenantId)->where('is_active', true)->get();
-        $shifts = Shift::forTenant($tenantId)->where('is_active', true)->get();
+        $effectiveTenantId = $employee->tenant_id ?? $tenantId;
+
+        if ($request->ajax() || $request->wantsJson()) {
+            $currentShift = $employee->employeeShifts->first();
+            return response()->json([
+                'employee' => [
+                    'id'                         => $employee->id,
+                    'first_name'                 => $employee->first_name,
+                    'last_name'                  => $employee->last_name,
+                    'email'                      => $employee->email,
+                    'role'                       => $employee->role,
+                    'status'                     => $employee->status,
+                    'document_type'              => $employee->document_type,
+                    'document_number'            => $employee->document_number,
+                    'phone'                      => $employee->phone,
+                    'employee_code'              => $employee->employee_code,
+                    'position_id'                => $employee->position_id,
+                    'department_id'              => $employee->department_id,
+                    'roaming_attendance_enabled' => (bool) $employee->roaming_attendance_enabled,
+                    'scope_type'                 => $employee->scope_type ?? 'global',
+                    'scope_zone_id'              => $employee->scope_zone_id,
+                    'scope_branch_id'            => $employee->scope_branch_id,
+                    'base_salary'                => $employee->base_salary,
+                    'hire_date'                  => $employee->hire_date?->format('Y-m-d'),
+                    'birth_date'                 => $employee->birth_date?->format('Y-m-d'),
+                    'primary_branch_id'          => $employee->branches->firstWhere('pivot.is_primary', true)?->id,
+                    'branch_ids'                 => $employee->branches->pluck('id')->all(),
+                    'shift_id'                   => $currentShift?->shift_id,
+                    'avatar_url'                 => $employee->avatar_path ? asset('storage/' . $employee->avatar_path) : null,
+                ],
+            ]);
+        }
+
+        $branches = Branch::forTenant($effectiveTenantId)->where('is_active', true)->get();
+        $shifts = Shift::forTenant($effectiveTenantId)->where('is_active', true)->get();
         $currentShift = $employee->employeeShifts->first();
 
         return view('employees.edit', compact('employee', 'branches', 'shifts', 'currentShift'));
@@ -207,17 +330,18 @@ class EmployeeController extends Controller
     /**
      * Actualiza la información del empleado.
      */
-    public function update(Request $request, int $id): RedirectResponse
+    public function update(Request $request, int $id): RedirectResponse|JsonResponse
     {
         $tenantId = current_tenant_id_or_null();
         $employee = User::forTenant($tenantId)->findOrFail($id);
+        $effectiveTenantId = $employee->tenant_id ?? $tenantId;
 
         $validated = $request->validate([
             'first_name'      => ['required', 'string', 'max:100'],
             'last_name'       => ['required', 'string', 'max:100'],
             'email'           => [
                 'required', 'email', 'max:150',
-                Rule::unique('users')->where(fn($q) => $q->where('tenant_id', $tenantId))->ignore($employee->id)
+                Rule::unique('users')->where(fn($q) => $q->where('tenant_id', $effectiveTenantId))->ignore($employee->id)
             ],
             'role'            => ['required', 'in:company_admin,hr_manager,manager,accountant,supervisor,employee'],
             'status'          => ['required', 'in:active,inactive,suspended'],
@@ -231,11 +355,11 @@ class EmployeeController extends Controller
             'hire_date'       => ['nullable', 'date'],
             'birth_date'      => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             'branch_ids'      => ['required', 'array', 'min:1'],
-            'branch_ids.*'    => ['integer', Rule::exists('branches', 'id')->where('tenant_id', $tenantId)],
+            'branch_ids.*'    => ['integer', Rule::exists('branches', 'id')->where('tenant_id', $effectiveTenantId)],
             'primary_branch_id' => ['required', 'integer', 'in_array:branch_ids.*'],
-            'shift_id'        => ['nullable', 'integer', Rule::exists('shifts', 'id')->where('tenant_id', $tenantId)],
+            'shift_id'        => ['nullable', 'integer', Rule::exists('shifts', 'id')->where('tenant_id', $effectiveTenantId)],
             'avatar'          => ['nullable', 'image', 'max:2048'],
-        ] + $this->orgRules($tenantId));
+        ] + $this->orgRules($effectiveTenantId));
 
         $actor = Auth::user();
         abort_unless($actor->canManage($employee), 403, 'No puedes editar a un usuario de rango igual o superior.');
@@ -305,6 +429,18 @@ class EmployeeController extends Controller
             }
         });
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success'  => true,
+                'message'  => "Datos de {$employee->first_name} actualizados correctamente.",
+                'employee' => [
+                    'id'     => $employee->id,
+                    'name'   => "{$employee->first_name} {$employee->last_name}",
+                    'status' => $validated['status'],
+                ],
+            ]);
+        }
+
         return redirect()->route('employees.index')
             ->with('success', "Datos de {$employee->first_name} actualizados correctamente.");
     }
@@ -344,7 +480,7 @@ class EmployeeController extends Controller
     /**
      * Alterna el estado activo / inactivo del colaborador.
      */
-    public function toggleStatus(int $id): RedirectResponse
+    public function toggleStatus(Request $request, int $id): RedirectResponse|JsonResponse
     {
         $tenantId = current_tenant_id_or_null();
         $employee = User::forTenant($tenantId)->findOrFail($id);
@@ -354,6 +490,16 @@ class EmployeeController extends Controller
         app(\App\Modules\Core\Services\AuditLogger::class)->updateWithAudit('employee.updated', $employee, ['status' => $newStatus], ['name' => $employee->full_name]);
 
         $statusMsg = $newStatus === 'active' ? 'activado' : 'desactivado';
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success'    => true,
+                'status'     => $newStatus,
+                'status_lbl' => $newStatus === 'active' ? 'Activo' : 'Inactivo',
+                'message'    => "Colaborador {$employee->first_name} ha sido {$statusMsg}.",
+            ]);
+        }
+
         return back()->with('success', "Colaborador {$employee->first_name} ha sido {$statusMsg}.");
     }
     /** Área, marcación itinerante y alcance territorial (zona / sede) */
