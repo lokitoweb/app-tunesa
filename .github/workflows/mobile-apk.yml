@@ -196,8 +196,19 @@ jobs:
           flutter-version: 3.47.7
           cache: true
 
-      - name: Versiones de Xcode y CocoaPods
+      # connectivity_plus 7.3 usa NWPath.isUltraConstrained (SDK de iOS 26): con Xcode 16
+      # no compila. Se elige el Xcode 26 más nuevo instalado en la imagen.
+      - name: Elegir Xcode 26 o superior
         run: |
+          XCODE=$(ls -d /Applications/Xcode_2[6-9]*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            XCODE=$(ls -d /Applications/Xcode_2[6-9]*.app 2>/dev/null | sort -V | tail -1)
+          fi
+          if [ -z "$XCODE" ]; then
+            echo "::error::La imagen no tiene Xcode 26 o superior (instalados: $(ls -d /Applications/Xcode*.app | xargs -n1 basename | tr '\n' ' '))."
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE/Contents/Developer"
           xcodebuild -version
           pod --version
 
