@@ -105,11 +105,14 @@ class DocumentWebController extends Controller
         $profile    = $employee->profile ?? new EmployeeProfile();
         $config     = CompanyConfiguration::forTenantId($employee->tenant_id);
 
-        $canViewSensitive = Auth::user()->hasPermission('profiles.view_sensitive')
-            || in_array(Auth::user()->role, ['super_admin', 'company_admin', 'hr_manager', 'accountant', 'manager'], true);
-        $revealed   = session('revealed_profile') === $employee->id
-            || ($request->ajax() && $canViewSensitive)
-            || $request->boolean('reveal');
+        // Los números de cuenta completos solo con profiles.view_sensitive (matriz de roles),
+        // y cada vez que se muestran queda en la bitácora.
+        $canViewSensitive = Auth::user()->hasPermission('profiles.view_sensitive');
+        $revealed = session('revealed_profile') === $employee->id;
+        if (! $revealed && $canViewSensitive && ($request->ajax() || $request->boolean('reveal'))) {
+            $revealed = true;
+            $this->audit->log('payment_info.revealed', $employee);
+        }
 
         $tenantId = $employee->tenant_id;
         $branches = Branch::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get();

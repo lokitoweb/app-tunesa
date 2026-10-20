@@ -278,16 +278,7 @@ class User extends Authenticatable
      */
     public function hasPermission(string $permission): bool
     {
-        if ($this->isSuperAdmin()) {
-            return true;
-        }
-
-        if (in_array($permission, ['profiles.manage', 'profiles.view_sensitive'], true)
-            && in_array($this->role, ['company_admin', 'hr_manager', 'accountant', 'manager'], true)) {
-            return true;
-        }
-
-        return in_array($permission, $this->permissionSlugs(), true);
+        return $this->isSuperAdmin() || in_array($permission, $this->permissionSlugs(), true);
     }
 
     /**

@@ -187,6 +187,14 @@ void main() {
       await tester.tap(find.descendant(of: find.byType(FilledButton), matching: find.text('Cerrar sesión')));
       await tester.pumpAndSettle();
       expect(await result, isTrue);
+
+      // Con marcaciones sin enviar avisa que quedan guardadas en el teléfono
+      result = confirmLogout(ctx, pending: 2);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('2 marcaciones sin enviar'), findsOneWidget);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(await result, isFalse);
     });
   });
 

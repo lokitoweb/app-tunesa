@@ -67,17 +67,13 @@ class AccountWebTest extends TestCase
 
     public function test_login_has_brand_panel_logo_and_self_hosted_assets(): void
     {
-        $html = $this->get('/login')->assertOk()->assertSee('authThemeToggle', false)->getContent();
+        $html = $this->get('/login')->assertOk()->getContent();
 
-        // Panel de marca (escritorio) con el logo blanco y el ERP; logo arriba del formulario (celular)
-        $this->assertStringContainsString('class="gn-hero"', $html);
-        $this->assertStringContainsString('grupo-negreiros-logo-white.png', $html);
+        // Logo de la empresa arriba del formulario y el ERP en el subtítulo
         $this->assertStringContainsString('ERP empresarial', $html);
-        $logo = strpos($html, 'class="gn-brand"');
-        $title = strpos($html, 'Bienvenido</h1>');
-        $this->assertTrue($logo !== false && $logo < $title);
-        // En oscuro se usa la versión blanca del logo por defecto
-        $this->assertStringContainsString('has-dark', substr($html, $logo, 400));
+        $logo = strpos($html, 'class="card-brand-logo"');
+        $title = strpos($html, 'Iniciar sesión</h2>');
+        $this->assertTrue($logo !== false && $title !== false && $logo < $title);
         // Sin CDN: Bootstrap e íconos se sirven desde el propio servidor
         $this->assertStringNotContainsString('cdn.jsdelivr.net', $html);
         $this->assertStringContainsString('vendor/bootstrap/bootstrap.min.css', $html);

@@ -10,7 +10,7 @@
 # (opcional, sobrescribe env/<entorno>.json). Túnel de pruebas: entorno "tunnel" + api_base_url.
 # scripts/build_apk.sh exige la llave para prod; ALLOW_DEBUG_SIGNING=1 mantiene el APK de prueba
 # firmado con la llave debug cuando no hay secrets, salvo al publicar un tag v*.
-# Manual: además compila iOS sin firma (macos-latest) y sube Runner.app como artefacto.
+# Manual: además compila iOS (macos-15): .ipa sin firma siempre y firmada si hay secrets IOS_* (ver job ios).
 # Push (opcional): FIREBASE_API_KEY, FIREBASE_APP_ID, FIREBASE_MESSAGING_SENDER_ID, FIREBASE_PROJECT_ID,
 # FIREBASE_IOS_APP_ID y FIREBASE_IOS_BUNDLE_ID como secrets o variables de repositorio. Solo los no
 # vacíos se pasan como --dart-define; sin ellos el APK compila igual con el push apagado.
@@ -42,6 +42,10 @@ on:
         type: choice
         options: [release, debug]
         default: release
+      build_ios:
+        description: "Compilar también iOS (.ipa) en macOS"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -152,10 +156,20 @@ jobs:
         run: rm -f android/key.properties android/app/upload-keystore.jks
 
   ios:
-    # Solo manual: verifica que iOS compila (sin firma, no instalable).
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: macos-latest
-    timeout-minutes: 60
+    # Solo manual (Run workflow con "Compilar iOS" marcado). macOS cuesta 10 veces más minutos.
+    # Sin secrets de Apple sale una .ipa SIN FIRMA (sirve para verificar que compila; para
+    # instalarla hay que firmarla). Con los secrets IOS_* sale además la .ipa firmada:
+    #   IOS_CERTIFICATE_P12_BASE64   certificado "Apple Distribution" exportado como .p12, en base64
+    #   IOS_CERTIFICATE_PASSWORD     contraseña del .p12
+    #   IOS_PROVISIONING_PROFILE_BASE64  perfil .mobileprovision (Ad Hoc o App Store) en base64
+    #   IOS_TEAM_ID                  Team ID de la cuenta de Apple Developer (10 caracteres)
+    # Variable de repositorio IOS_EXPORT_METHOD: ad-hoc (por defecto) o app-store-connect.
+    if: github.event_name == 'workflow_dispatch' && inputs.build_ios
+    # Etiqueta fija: macos-latest cambia de imagen sin aviso y en horas pico GitHub
+    # no le asigna runner ("The job was not acquired by Runner"). Si vuelve a pasar,
+    # se reintenta con Run workflow; no es un error del código.
+    runs-on: macos-15
+    timeout-minutes: 75
     defaults:
       run:
         working-directory: mobile
@@ -168,6 +182,11 @@ jobs:
       FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID || vars.FIREBASE_PROJECT_ID }}
       FIREBASE_IOS_APP_ID: ${{ secrets.FIREBASE_IOS_APP_ID || vars.FIREBASE_IOS_APP_ID }}
       FIREBASE_IOS_BUNDLE_ID: ${{ secrets.FIREBASE_IOS_BUNDLE_ID || vars.FIREBASE_IOS_BUNDLE_ID }}
+      IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+      IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+      IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+      IOS_EXPORT_METHOD: ${{ vars.IOS_EXPORT_METHOD || 'ad-hoc' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -177,23 +196,124 @@ jobs:
           flutter-version: 3.47.7
           cache: true
 
+      # connectivity_plus 7.3 usa NWPath.isUltraConstrained (SDK de iOS 26): con Xcode 16
+      # no compila. Se elige el Xcode 26 más nuevo instalado en la imagen.
+      - name: Elegir Xcode 26 o superior
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_2[6-9]*.app 2>/dev/null | grep -v -i beta | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            XCODE=$(ls -d /Applications/Xcode_2[6-9]*.app 2>/dev/null | sort -V | tail -1)
+          fi
+          if [ -z "$XCODE" ]; then
+            echo "::error::La imagen no tiene Xcode 26 o superior (instalados: $(ls -d /Applications/Xcode*.app | xargs -n1 basename | tr '\n' ' '))."
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+          pod --version
+
+      - name: Dependencias (Dart y CocoaPods)
+        run: |
+          flutter pub get
+          cd ios && pod install --repo-update
+
+      - name: Defines de compilación
+        run: |
+          EXTRA=""
+          if [ -n "$API_BASE_URL" ]; then EXTRA="$EXTRA --dart-define=API_BASE_URL=$API_BASE_URL"; fi
+          for VAR in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_IOS_APP_ID FIREBASE_IOS_BUNDLE_ID; do
+            if [ -n "${!VAR}" ]; then EXTRA="$EXTRA --dart-define=$VAR=${!VAR}"; fi
+          done
+          echo "IOS_DEFINES=$EXTRA" >> "$GITHUB_ENV"
+
       - name: Compilar iOS sin firma
         run: |
-          EXTRA=()
-          if [ -n "$API_BASE_URL" ]; then EXTRA+=("--dart-define=API_BASE_URL=$API_BASE_URL"); fi
-          for VAR in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_IOS_APP_ID FIREBASE_IOS_BUNDLE_ID; do
-            if [ -n "${!VAR}" ]; then EXTRA+=("--dart-define=$VAR=${!VAR}"); fi
-          done
-          flutter pub get
-          flutter build ios --release --no-codesign --obfuscate --split-debug-info=build/debug-info/ios --dart-define-from-file="env/$ENV_NAME.json" ${EXTRA[@]+"${EXTRA[@]}"}
+          # shellcheck disable=SC2086
+          flutter build ios --release --no-codesign --obfuscate --split-debug-info=build/debug-info/ios \
+            --dart-define-from-file="env/$ENV_NAME.json" $IOS_DEFINES
 
-      - name: Comprimir Runner.app
+      # .ipa sin firma: Payload/Runner.app comprimido (no se instala hasta firmarla)
+      - name: Empaquetar .ipa sin firma
         run: |
-          mkdir -p build/dist
-          ditto -c -k --sequesterRsrc --keepParent build/ios/iphoneos/Runner.app "build/dist/tunesa-ios-${ENV_NAME}-unsigned.zip"
+          mkdir -p build/dist build/ipa-unsigned/Payload
+          cp -R build/ios/iphoneos/Runner.app build/ipa-unsigned/Payload/
+          (cd build/ipa-unsigned && zip -qry "../dist/tunesa-ios-${ENV_NAME}-unsigned.ipa" Payload)
+          ls -lh build/dist
+
+      - name: Certificado y perfil de Apple (si hay secrets)
+        id: signing
+        run: |
+          if [ -z "$IOS_CERTIFICATE_P12_BASE64" ] || [ -z "$IOS_PROVISIONING_PROFILE_BASE64" ] || [ -z "$IOS_TEAM_ID" ]; then
+            echo "::notice::Sin secrets IOS_*: solo se entrega la .ipa sin firma."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/tunesa.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$IOS_CERTIFICATE_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/profile.plist")
+          APP_ID=$(/usr/libexec/PlistBuddy -c 'Print Entitlements:application-identifier' "$RUNNER_TEMP/profile.plist")
+          BUNDLE_ID="${APP_ID#*.}"
+          PROJECT_BUNDLE_ID=$(grep -m1 -o 'PRODUCT_BUNDLE_IDENTIFIER = [^;.]*\.[^;]*;' ios/Runner.xcodeproj/project.pbxproj | grep -v RunnerTests | sed 's/PRODUCT_BUNDLE_IDENTIFIER = //; s/;//')
+          if [ "$BUNDLE_ID" != "$PROJECT_BUNDLE_ID" ]; then
+            echo "::error::El perfil es para $BUNDLE_ID pero la app es $PROJECT_BUNDLE_ID. Crea el perfil con ese Bundle ID en developer.apple.com."
+            exit 1
+          fi
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+          # Firma manual solo en CI (Flutter/Release.xcconfig lo incluye si existe; está en .gitignore)
+          cat > ios/Flutter/Signing.xcconfig <<XCCONFIG
+          DEVELOPMENT_TEAM=$IOS_TEAM_ID
+          CODE_SIGN_STYLE=Manual
+          CODE_SIGN_IDENTITY=Apple Distribution
+          CODE_SIGN_IDENTITY[sdk=iphoneos*]=Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER=$UUID
+          XCCONFIG
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>$IOS_EXPORT_METHOD</string>
+            <key>teamID</key><string>$IOS_TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key><dict><key>$BUNDLE_ID</key><string>$UUID</string></dict>
+          </dict></plist>
+          PLIST
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Compilar .ipa firmada
+        if: steps.signing.outputs.enabled == 'true'
+        run: |
+          # shellcheck disable=SC2086
+          flutter build ipa --release --obfuscate --split-debug-info=build/debug-info/ios \
+            --export-options-plist="$RUNNER_TEMP/ExportOptions.plist" \
+            --dart-define-from-file="env/$ENV_NAME.json" $IOS_DEFINES
+          cp build/ios/ipa/*.ipa "build/dist/tunesa-ios-${ENV_NAME}-${IOS_EXPORT_METHOD}.ipa"
+          ls -lh build/dist
 
       - uses: actions/upload-artifact@v4
         with:
-          name: tunesa-ios-${{ env.ENV_NAME }}-unsigned
-          path: mobile/build/dist/*.zip
+          name: tunesa-ios-${{ env.ENV_NAME }}
+          path: mobile/build/dist/*.ipa
+          compression-level: 0
           retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tunesa-ios-symbols-${{ env.ENV_NAME }}-${{ github.sha }}
+          path: mobile/build/debug-info/ios/
+          retention-days: 90
+
+      - name: Borrar certificado y perfil
+        if: always()
+        run: |
+          rm -f ios/Flutter/Signing.xcconfig "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist"
+          security delete-keychain "$RUNNER_TEMP/tunesa.keychain-db" 2>/dev/null || true

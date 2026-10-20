@@ -182,7 +182,7 @@
                             <span class="fw-bold text-dark" style="font-size: 0.875rem;">{{ $att->clock_in_at?->format('h:i:s a') ?? '--:--:--' }}</span>
                             @if(data_get($att->clock_in_meta, 'offline'))
                                 <span class="badge rounded-2 bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size: 0.7rem;" title="Marcada sin conexión y sincronizada después">
-                                    <i class="bi bi-wifi-off"></i> Offline
+                                    <i class="bi bi-wifi-off"></i> Sin conexión
                                 </span>
                             @endif
                             @if($att->late_minutes > 0)
@@ -212,7 +212,7 @@
                             <span class="text-dark" style="font-size: 0.85rem;">{{ $att->clock_out_at?->format('h:i:s a') ?? '--:--:--' }}</span>
                             @if(data_get($att->clock_out_meta, 'offline'))
                                 <span class="badge rounded-2 bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size: 0.7rem;" title="Salida marcada sin conexión">
-                                    <i class="bi bi-wifi-off"></i> Offline
+                                    <i class="bi bi-wifi-off"></i> Sin conexión
                                 </span>
                             @endif
                         </td>

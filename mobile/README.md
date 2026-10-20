@@ -114,9 +114,23 @@ Permisos declarados en `ios/Runner/Info.plist` (textos en español): cámara (se
 ubicación en uso (geocerca) y galería (adjuntar sustentos). iOS solo permite HTTPS; `http`
 se admite únicamente en red local (`NSAllowsLocalNetworking`) para desarrollo.
 
-En GitHub Actions, *Run workflow* compila además iOS **sin firma** en `macos-latest`
-(`flutter build ios --release --no-codesign`) y deja `Runner.app` comprimido como artefacto,
-útil para verificar que compila; no se puede instalar sin firmar.
+En GitHub Actions, *Run workflow* (con "Compilar también iOS" marcado) compila iOS en `macos-15`
+y deja como artefacto `tunesa-ios-<entorno>`:
+
+- `tunesa-ios-<entorno>-unsigned.ipa`: siempre. Sirve para verificar que compila; no se instala
+  sin firmar.
+- `tunesa-ios-<entorno>-ad-hoc.ipa` (o `app-store-connect`): solo si existen los secrets
+  `IOS_CERTIFICATE_P12_BASE64`, `IOS_CERTIFICATE_PASSWORD`, `IOS_PROVISIONING_PROFILE_BASE64` e
+  `IOS_TEAM_ID` (certificado *Apple Distribution* y perfil del Bundle ID `pe.tunesa.tunesaMobile`,
+  con Push Notifications). La variable `IOS_EXPORT_METHOD` elige `ad-hoc` (por defecto, instalación
+  directa en iPhones registrados) o `app-store-connect` (TestFlight / App Store).
+
+Si el job falla con "The job was not acquired by Runner", GitHub no tenía equipos macOS libres:
+se vuelve a lanzar, no es un error del código.
+
+Textos de propósito además de los anteriores: `NSLocationAlwaysAndWhenInUseUsageDescription` y
+`NSMicrophoneUsageDescription` (los plugins enlazan esas API aunque la app no las usa; sin el texto
+App Store rechaza la subida) e `ITSAppUsesNonExemptEncryption = false`.
 
 ## Estructura
 
