@@ -115,6 +115,9 @@ class EmployeeController extends Controller
      */
     public function tenantOptions(int $id): JsonResponse
     {
+        // Un usuario de empresa solo ve las opciones de la suya
+        $actor = Auth::user();
+        abort_unless($actor->isSuperAdmin() || (int) $actor->tenant_id === $id, 403);
         $tenant = Tenant::findOrFail($id);
         $branches = Branch::forTenant($id)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $shifts = Shift::forTenant($id)->where('is_active', true)->orderBy('name')->get(['id', 'name', 'start_time', 'end_time']);

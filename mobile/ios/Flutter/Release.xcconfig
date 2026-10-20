@@ -1,2 +1,4 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+// Firma manual de la .ipa en GitHub Actions (el workflow lo crea y lo borra; no se versiona)
+#include? "Signing.xcconfig"

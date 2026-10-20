@@ -11,6 +11,7 @@ import '../../../core/widgets/brand_hero.dart';
 import '../../../core/widgets/async_views.dart';
 import 'profile_avatar.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../attendance/presentation/offline_sync.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
 import '../../../core/widgets/page_padding.dart';
@@ -451,7 +452,12 @@ class _AccountSection extends ConsumerWidget {
             style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
           onTap: () async {
-            final ok = await confirmLogout(context);
+            // Antes de salir se intenta enviar lo marcado sin conexión; lo que quede
+            // sigue guardado en el teléfono y se envía cuando este colaborador vuelva a entrar.
+            final sync = ref.read(offlineSyncProvider.notifier);
+            await sync.sync(force: true);
+            if (!context.mounted) return;
+            final ok = await confirmLogout(context, pending: ref.read(offlineSyncProvider).pending);
             if (ok == true) await ref.read(authControllerProvider.notifier).logout();
           },
         ),
@@ -486,7 +492,8 @@ class _AppVersionTile extends ConsumerWidget {
 }
 
 /// Confirmación de cierre de sesión. Devuelve true si el usuario confirma.
-Future<bool?> confirmLogout(BuildContext context) {
+/// Con [pending] > 0 avisa que hay marcaciones sin enviar.
+Future<bool?> confirmLogout(BuildContext context, {int pending = 0}) {
   final scheme = Theme.of(context).colorScheme;
   return showDialog<bool>(
     context: context,
@@ -497,8 +504,12 @@ Future<bool?> confirmLogout(BuildContext context) {
         child: Icon(Icons.logout_rounded, color: scheme.onErrorContainer),
       ),
       title: const Text('¿Cerrar sesión?'),
-      content: const Text(
-        'Tendrás que ingresar tu correo y contraseña para volver a entrar.',
+      content: Text(
+        pending > 0
+            ? 'Tienes ${pending == 1 ? '1 marcación' : '$pending marcaciones'} sin enviar por falta de conexión. '
+                'Quedan guardadas en este teléfono y se enviarán cuando vuelvas a ingresar con tu cuenta.\n\n'
+                'Tendrás que ingresar tu correo y contraseña para volver a entrar.'
+            : 'Tendrás que ingresar tu correo y contraseña para volver a entrar.',
         textAlign: TextAlign.center,
       ),
       actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),

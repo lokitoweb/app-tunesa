@@ -8,6 +8,16 @@
 	<string>Grupo Negreiros necesita la cámara frontal para tomar la selfie obligatoria de cada marcación.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Grupo Negreiros te permite elegir fotos de tu galería para adjuntar sustentos y documentos de tu legajo.</string>
+	<!-- geolocator y camera enlazan las API de ubicación "siempre" y de micrófono aunque la app
+	     no las usa (solo ubicación al marcar y selfie sin audio). App Store rechaza la subida
+	     (ITMS-90683) si el binario las referencia sin texto de propósito. -->
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Grupo Negreiros usa tu ubicación solo al marcar asistencia, para verificar que estás dentro de la sucursal. No te ubica en segundo plano.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Grupo Negreiros no graba audio. La cámara se usa solo para la selfie de cada marcación.</string>
+	<!-- Solo cifrado estándar del sistema (HTTPS, Keychain, SQLCipher para la cola local): exento de la declaración de exportación -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

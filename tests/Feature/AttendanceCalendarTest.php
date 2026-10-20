@@ -222,13 +222,13 @@ class AttendanceCalendarTest extends TestCase
         $this->assertSame(['Mañana', 'Tarde'], $response->viewData('groups')->keys()->all());
         $response->assertSeeInOrder(['Mañana', 'Alva, Luis', '08:30', '140 m', 'Fuera del radio', 'Bravo, Ana', 'No ha llegado'])
             ->assertSee('Por llegar')->assertSee('Vacaciones')
-            ->assertSee('location.reload', false);
+            ->assertSee('Hoy: recarga cada minuto', false);
 
         // Filtro por turno y un día pasado (sin recarga; quien no marcó es "No marcó")
         $this->actingAs($hr)->get(route('attendance.calendar.day', ['date' => '2026-09-16', 'shift_id' => $tarde->id]))
             ->assertOk()->assertSee('Cano, Eva')->assertDontSee('Alva, Luis');
         $this->actingAs($hr)->get(route('attendance.calendar.day', ['date' => '2026-09-15']))
-            ->assertOk()->assertSee('No marcó')->assertDontSee('location.reload', false);
+            ->assertOk()->assertSee('No marcó')->assertDontSee('Hoy: recarga cada minuto', false);
     }
 
     public function test_person_calendar_shows_the_month_and_respects_scope(): void

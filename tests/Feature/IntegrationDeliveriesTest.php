@@ -258,7 +258,7 @@ class IntegrationDeliveriesTest extends TestCase
                 && $request->hasHeader('X-Tunesa-Signature', 'sha256=' . hash_hmac('sha256', $request->body(), self::SECRET))
                 && $json['event'] === 'ping'
                 && $json['tenant'] === ['slug' => 'acme']
-                && $json['data'] === ['message' => 'Prueba desde TuneSA']
+                && $json['data'] === ['message' => 'Prueba desde ' . config('app.name')]
                 && isset($json['occurred_at']);
         });
         Http::assertNotSent(fn (Request $r) => $r->url() === self::HOOK);

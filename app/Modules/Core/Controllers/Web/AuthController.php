@@ -87,7 +87,8 @@ class AuthController extends Controller
         if (! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view')) {
             return back()
                 ->withInput($request->only('email'))
-                ->withErrors(['email' => 'Los colaboradores de campo deben ingresar mediante la aplicación móvil Grupo Negreiros.']);
+                ->withErrors(['email' => 'Los colaboradores de campo deben ingresar mediante la aplicación móvil '
+                    . \App\Modules\Core\Models\TenantSetting::forTenant($user->tenant)->tradeName() . '.']);
         }
 
         app(LoginGuard::class)->registerSuccess($user, $request);

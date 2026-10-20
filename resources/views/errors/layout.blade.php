@@ -1,6 +1,10 @@
 @php
-    $errBrand = app(\App\Modules\Core\Services\TenantContext::class)->getOrNull() ?? Auth::user()?->tenant;
-    $errBrandSettings = \App\Modules\Core\Models\TenantSetting::forTenant($errBrand);
+    try {
+        $errBrand = app(\App\Modules\Core\Services\TenantContext::class)->getOrNull() ?? Auth::user()?->tenant;
+    } catch (\Throwable) {
+        $errBrand = null; // sin base de datos: la página de error igual se muestra
+    }
+    $errBrandSettings = \App\Modules\Core\Models\TenantSetting::forTenantOrDefaults($errBrand);
 @endphp
 <!DOCTYPE html>
 <html lang="es" data-bs-theme="light">

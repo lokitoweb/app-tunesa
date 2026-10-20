@@ -246,6 +246,25 @@ class TenantSetting extends Model
      * Configuración efectiva: fila de la empresa sobre la fila global sobre
      * los valores de fábrica. Sin empresa = valores de la plataforma.
      */
+    /**
+     * Como forTenant(), pero nunca falla: las páginas de error se dibujan aunque
+     * la base de datos no responda (caída, migraciones pendientes). Sin base de
+     * datos devuelve la marca por defecto.
+     */
+    public static function forTenantOrDefaults(?Tenant $tenant): self
+    {
+        try {
+            return static::forTenant($tenant);
+        } catch (\Throwable) {
+            $effective = new static();
+            $effective->setRawAttributes(['tenant_id' => null] + self::DEFAULTS, true);
+            $effective->exists      = false;
+            $effective->isEffective = true;
+
+            return $effective;
+        }
+    }
+
     public static function forTenant(?Tenant $tenant): self
     {
         $global    = static::rowFor(null);

@@ -193,9 +193,10 @@ class NotificationsTest extends TestCase
         LeaveRequest::create(['tenant_id' => $acme->id, 'user_id' => $emp->id, 'type' => 'vacation',
             'start_date' => '2026-11-02', 'end_date' => '2026-11-03', 'days' => 2, 'reason' => 'x', 'status' => 'pending']);
 
+        // La campana del topbar lleva a la bandeja y muestra las no leídas
         $this->actingAs($supervisor)->get('/dashboard')->assertOk()
-            ->assertSee('Nueva solicitud por aprobar')->assertSee('Marcar todas como leídas');
-        $this->get('/notifications')->assertOk()->assertSee('Nueva solicitud por aprobar');
+            ->assertSee(route('notifications.index'), false)->assertSee('<span class="badge-count badge-count-red">1</span>', false);
+        $this->get('/notifications')->assertOk()->assertSee('Nueva solicitud por aprobar')->assertSee('Marcar todas como leídas');
 
         $n = $supervisor->notifications()->first();
         $this->post("/notifications/{$n->id}/read")->assertRedirect(route('approvals.index'));

@@ -82,6 +82,9 @@ Future<void> logout(WidgetTester tester) async {
   await waitFor(tester, find.text('Mi perfil'), timeout: const Duration(seconds: 10));
   await tapText(tester, 'Mi perfil');
   await waitFor(tester, find.widgetWithText(AppBar, 'Mi perfil'));
+  // La barra aparece antes que el legajo: sin esperar, la lista aún no existe
+  // y "Cerrar sesión" no se encuentra (pasaba en emuladores lentos)
+  await settleScreen(tester, 'Mi perfil');
   // Con muchas opciones el botón queda abajo: tapText baja hasta encontrarlo
   await tapText(tester, 'Cerrar sesión');
   await waitFor(tester, find.byType(AlertDialog));

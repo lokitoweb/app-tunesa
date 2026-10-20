@@ -120,10 +120,16 @@ class EthicsWebController extends Controller
     {
         $case = EthicsCase::findOrFail($case);
         $data = $request->validate([
-            'assigned_to' => ['nullable', 'exists:users,id'],
+            'assigned_to' => ['nullable', 'integer'],
         ]);
 
         $assigneeId = !empty($data['assigned_to']) ? (int) $data['assigned_to'] : null;
+        // Solo investigadores de la empresa del caso (nunca un usuario de otra empresa)
+        if ($assigneeId && ! $this->ethics->investigators($case->tenant_id)->contains('id', $assigneeId)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'assigned_to' => 'Elige un investigador del canal ético de esta empresa.',
+            ]);
+        }
         $this->ethics->assign($case, Auth::user(), $assigneeId);
 
         $msg = $assigneeId ? 'Investigador asignado correctamente.' : 'Caso marcado como sin asignar.';
