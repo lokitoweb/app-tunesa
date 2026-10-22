@@ -124,7 +124,8 @@ void main() {
         'data': {'tenant': null},
       });
       expect(c.tenant, isNull);
-      expect(c.displayName, 'Grupo Negreiros');
+      expect(c.displayName, 'Asistencia');
+      expect(AppConfig.fromJson({'data': {'tenant': null, 'platform_name': 'Mi ERP'}}).displayName, 'Mi ERP');
       expect(c.branding.primaryColor, isNull);
       expect(c.branding.logoFor(dark: true), isNull);
       expect(c.mobile.selfieRequired, isTrue);
@@ -357,7 +358,9 @@ void main() {
           'https://abc.trycloudflare.com');
       expect(ServerUrl.validate('http://192.168.1.20:8000', allowHttp: false).isValid, isFalse);
       expect(ServerUrl.validate('http://192.168.1.20:8000', allowHttp: true).url, 'http://192.168.1.20:8000');
-      expect(ServerUrl.validate('abc.com', allowHttp: true).isValid, isFalse);
+      expect(ServerUrl.validate('abc.com', allowHttp: true).url, 'https://abc.com');
+      expect(ServerUrl.validate('erp.miempresa.pe/api', allowHttp: false).url, 'https://erp.miempresa.pe');
+      expect(ServerUrl.validate('no es dominio', allowHttp: true).isValid, isFalse);
       expect(ServerUrl.validate('', allowHttp: true).isValid, isFalse);
       expect(ServerUrl.validate('ftp://x.com', allowHttp: true).isValid, isFalse);
     });

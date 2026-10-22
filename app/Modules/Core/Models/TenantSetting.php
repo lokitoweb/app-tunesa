@@ -621,6 +621,7 @@ class TenantSetting extends Model
                 'company_name' => $tenant->company_name,
                 'trade_name'   => $this->tradeName(),
             ] : null,
+            'platform_name' => $tenant ? static::forTenantOrDefaults(null)->tradeName() : $this->tradeName(),
             'branding' => $this->branding(),
             'mobile'   => $this->mobile(),
             'rules'    => $this->rules(),

@@ -39,6 +39,14 @@ class AppConfigController extends Controller
             }
         }
 
+        // Sin código: si la app entró por el dominio propio de una empresa, se usa su marca
+        if (! $tenant && ! filled($slug)) {
+            $tenant = Tenant::where('custom_domain', strtolower($request->getHost()))->first();
+            if ($tenant && ! $tenant->isActive()) {
+                $tenant = null;
+            }
+        }
+
         $effective = TenantSetting::forTenant($tenant);
 
         return response()->json([

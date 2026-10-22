@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/brand_logo.dart';
+import '../../server/server_connection_dialog.dart';
 import 'auth_controller.dart';
 
 /// Acceso: solo correo y contraseña; la empresa y la sede las reconoce el servidor.
@@ -87,7 +88,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const BrandLogo(height: 104),
+                  GestureDetector(
+                    onLongPress: () => showServerConnectionDialog(context),
+                    child: const BrandLogo(height: 104),
+                  ),
                   const SizedBox(height: 28),
                   Text('Iniciar sesión',
                       textAlign: TextAlign.center,
@@ -144,6 +148,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: _loading
                         ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
                         : const Text('Ingresar'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    key: const Key('connect-company'),
+                    onPressed: () => showServerConnectionDialog(context),
+                    icon: const Icon(Icons.apartment_outlined, size: 18),
+                    label: const Text('¿Otra empresa o servidor? Conectar'),
                   ),
                 ],
               ),

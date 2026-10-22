@@ -99,4 +99,22 @@ class LocalChangesHardeningTest extends TestCase
         $this->actingAs($hr)->getJson('/holidays?year=2027')->assertOk()->assertJsonCount(0, 'holidays');
         $this->assertSame(0, \App\Modules\HR\Models\Holiday::withoutGlobalScopes()->count());
     }
+
+    public function test_app_config_resolves_company_by_its_own_domain(): void
+    {
+        $acme = $this->makeTenant('acme', ['custom_domain' => 'asistencia.acme.pe', 'company_name' => 'Acme SAC']);
+        TenantSetting::platform()->forceFill(['trade_name' => 'Mi ERP'])->save();
+
+        // En el dominio de la plataforma, sin código: marca de la plataforma
+        $this->getJson('/api/v1/app/config')->assertOk()
+            ->assertJsonPath('data.tenant', null)
+            ->assertJsonPath('data.platform_name', 'Mi ERP');
+
+        $this->getJson('http://asistencia.acme.pe/api/v1/app/config')->assertOk()
+            ->assertJsonPath('data.tenant.slug', 'acme')
+            ->assertJsonPath('data.platform_name', 'Mi ERP');
+
+        // El código de empresa sigue mandando
+        $this->getJson('http://asistencia.acme.pe/api/v1/app/config?tenant_slug=nada')->assertNotFound();
+    }
 }

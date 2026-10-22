@@ -374,6 +374,7 @@ class AppConfig {
     this.modules = const ModulesConfig(),
     this.legal = const LegalConfig(),
     this.configVersion,
+    this.platformName,
   });
 
   /// Valores de la plataforma sin empresa ni red (primer arranque offline).
@@ -388,7 +389,10 @@ class AppConfig {
   final LegalConfig legal;
   final String? configVersion;
 
-  String get displayName => tenant?.displayName ?? 'Grupo Negreiros';
+  /// Nombre comercial de la plataforma (panel > Marca), para la pantalla sin empresa
+  final String? platformName;
+
+  String get displayName => tenant?.displayName ?? platformName ?? 'Asistencia';
 
   /// Acepta la respuesta completa (`{success, data, meta}`) o solo `data`.
   factory AppConfig.fromJson(Map<String, dynamic> json) {
@@ -403,6 +407,7 @@ class AppConfig {
       modules: ModulesConfig.fromJson(data['modules']),
       legal: LegalConfig.fromJson(data['legal']),
       configVersion: _str(meta['config_version']) ?? _str(data['config_version']),
+      platformName: _str(data['platform_name']),
     );
   }
 
@@ -421,6 +426,7 @@ class AppConfig {
           'contact': contact.toJson(),
           'modules': modules.toJson(),
           'legal': legal.toJson(),
+          'platform_name': platformName,
         },
         'meta': {'config_version': configVersion},
       };

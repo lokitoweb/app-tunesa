@@ -22,11 +22,15 @@ class ServerUrl {
 
   /// Exige https; `http://` solo si [allowHttp] (builds dev).
   static ServerUrlCheck validate(String input, {bool? allowHttp}) {
-    final raw = input.trim();
+    var raw = input.trim();
     if (raw.isEmpty) return const ServerUrlCheck.invalid('Escribe la URL del servidor.');
+    // Solo el dominio ("erp.miempresa.com"): se asume https
+    if (!raw.contains('://') && RegExp(r'^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+(:\d+)?(/.*)?$').hasMatch(raw)) {
+      raw = 'https://$raw';
+    }
     final uri = Uri.tryParse(raw);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
-      return const ServerUrlCheck.invalid('URL inválida. Ejemplo: https://xxxx.trycloudflare.com');
+      return const ServerUrlCheck.invalid('Dominio inválido. Ejemplo: erp.miempresa.com');
     }
     final http = allowHttp ?? Env.allowsHttp;
     if (uri.scheme != 'https' && !(http && uri.scheme == 'http')) {

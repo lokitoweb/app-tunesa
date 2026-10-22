@@ -5,9 +5,10 @@ import '../../core/config/app_config_controller.dart';
 import '../../core/config/env.dart';
 import '../../core/network/server_url.dart';
 
-/// "Conexión del servidor": diálogo oculto (mantener presionado el logo en
-/// la pantalla de empresa o de login) para que los testers apunten la app a
-/// otro backend, por ejemplo un túnel https://xxxx.trycloudflare.com.
+/// "Conectar con tu empresa" (enlace en el login o mantener presionado el
+/// logo): un mismo APK sirve a cualquier empresa. Se escribe el dominio del
+/// servidor (erp.miempresa.com) o el código de la empresa; la app comprueba
+/// que responda, guarda el servidor y aplica la marca de esa empresa.
 Future<void> showServerConnectionDialog(BuildContext context) =>
     showDialog<void>(context: context, builder: (_) => const ServerConnectionDialog());
 
@@ -30,6 +31,11 @@ class _ServerConnectionDialogState extends ConsumerState<ServerConnectionDialog>
     super.dispose();
   }
 
+  /// Un código de empresa no tiene puntos ni esquema ("acme", "grupo-norte")
+  static final _codePattern = RegExp(r'^[a-z0-9][a-z0-9_-]{1,49}$');
+
+  bool get _isCompanyCode => _codePattern.hasMatch(_url.text.trim().toLowerCase());
+
   String? _validated() {
     final check = ServerUrl.validate(_url.text);
     setState(() {
@@ -50,7 +56,29 @@ class _ServerConnectionDialogState extends ConsumerState<ServerConnectionDialog>
     }
   }
 
+  /// Código de empresa: se busca en el servidor actual. Si la empresa tiene
+  /// su propio servidor (`mobile.api_base_url`), la app se cambia sola.
+  Future<void> _connectCompany() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+      _healthy = null;
+    });
+    try {
+      final config = await ref.read(appConfigProvider.notifier).loadForTenant(_url.text.trim().toLowerCase());
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      Navigator.of(context).pop();
+      messenger?.showSnackBar(SnackBar(content: Text('Conectado con ${config.displayName}.')));
+    } catch (_) {
+      if (mounted) setState(() => _error = 'No encontramos una empresa activa con ese código.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _save() async {
+    if (_isCompanyCode) return _connectCompany();
     final url = _validated();
     if (url == null) return;
     if (!await _test(url)) return;
@@ -73,7 +101,7 @@ class _ServerConnectionDialogState extends ConsumerState<ServerConnectionDialog>
 
     return AlertDialog(
       icon: const Icon(Icons.dns_outlined),
-      title: const Text('Conexión del servidor'),
+      title: const Text('Conectar con tu empresa'),
       content: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('En uso: $current${controller.hasOverride ? '' : ' (predeterminado)'}',
@@ -84,8 +112,9 @@ class _ServerConnectionDialogState extends ConsumerState<ServerConnectionDialog>
             keyboardType: TextInputType.url,
             autocorrect: false,
             decoration: InputDecoration(
-              labelText: 'URL del servidor',
-              hintText: Env.allowsHttp ? 'https://… o http://…' : 'https://xxxx.trycloudflare.com',
+              labelText: 'Dominio del servidor o código de empresa',
+              hintText: Env.allowsHttp ? 'erp.miempresa.com, http://… o acme' : 'erp.miempresa.com o acme',
+              helperText: 'Te lo da RRHH de tu empresa.',
               errorText: _error,
             ),
             onChanged: (_) => setState(() => _healthy = null),
@@ -108,6 +137,10 @@ class _ServerConnectionDialogState extends ConsumerState<ServerConnectionDialog>
           onPressed: _busy
               ? null
               : () {
+                  if (_isCompanyCode) {
+                    _connectCompany();
+                    return;
+                  }
                   final url = _validated();
                   if (url != null) _test(url);
                 },
