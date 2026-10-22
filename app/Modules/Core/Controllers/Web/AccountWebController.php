@@ -18,7 +18,45 @@ class AccountWebController extends Controller
 {
     public function edit(Request $request): View
     {
-        return view('account.edit', ['user' => $request->user()]);
+        $user = $request->user();
+        $activeTokensCount = $user->tokens()->count();
+        $primaryBranch = $user->branches()->wherePivot('is_primary', true)->first();
+
+        return view('account.edit', compact('user', 'activeTokensCount', 'primaryBranch'));
+    }
+
+    public function updateProfile(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'phone'  => ['nullable', 'string', 'max:25'],
+            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,webp,jpg', 'max:3072'],
+        ], [
+            'avatar.image' => 'El archivo debe ser una imagen válida (JPG, PNG o WEBP).',
+            'avatar.max'   => 'La foto de perfil no debe superar los 3 MB.',
+        ]);
+
+        if ($request->hasFile('avatar')) {
+            $path = $request->file('avatar')->store('avatars', 'public');
+            $user->avatar_path = $path;
+        }
+
+        if (array_key_exists('phone', $validated)) {
+            $user->phone = $validated['phone'];
+        }
+
+        $user->save();
+
+        return redirect()->route('account.edit')->with('success', 'Datos de perfil actualizados correctamente.');
+    }
+
+    public function revokeTokens(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $user->tokens()->delete();
+
+        return redirect()->route('account.edit')->with('success', 'Se cerraron todas las sesiones activas en tus dispositivos móviles.');
     }
 
     public function updatePassword(Request $request): RedirectResponse

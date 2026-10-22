@@ -71,14 +71,18 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         ->middleware('throttle:60,1');
     Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
 
-    // Mi cuenta: datos personales y cambio de contraseña
+    // Mi cuenta: datos personales, seguridad y sesiones
     Route::get('/account', [AccountWebController::class, 'edit'])->name('account.edit');
     Route::put('/account/password', [AccountWebController::class, 'updatePassword'])->name('account.password')->middleware('throttle:6,1');
+    Route::put('/account/profile', [AccountWebController::class, 'updateProfile'])->name('account.profile');
+    Route::post('/account/revoke-tokens', [AccountWebController::class, 'revokeTokens'])->name('account.revoke-tokens');
 
-    // Notificaciones personales (campana del topbar)
+    // Notificaciones personales (campana del topbar y bandeja)
     Route::get('/notifications', [NotificationWebController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationWebController::class, 'readAll'])->name('notifications.read-all');
     Route::post('/notifications/{id}/read', [NotificationWebController::class, 'read'])->name('notifications.read')->whereUuid('id');
+    Route::post('/notifications/{id}/toggle-read', [NotificationWebController::class, 'toggleRead'])->name('notifications.toggle-read')->whereUuid('id');
+    Route::delete('/notifications/{id}', [NotificationWebController::class, 'destroy'])->name('notifications.destroy')->whereUuid('id');
 
     // Panel de control de visibilidad de la app móvil
     Route::prefix('settings/mobile')->name('settings.mobile')->middleware('can:company.configure')->group(function () {
