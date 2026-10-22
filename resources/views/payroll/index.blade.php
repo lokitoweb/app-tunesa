@@ -424,7 +424,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let html = '';
-        pageItems.forEach(r => {
+        // Escapa los textos de cada fila antes de armar el HTML (evita XSS con datos del colaborador)
+        const escRow = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'string' ? Panel.esc(v) : v]));
+        pageItems.map(escRow).forEach(r => {
             const payStatusBadge = r.payment_status === 'Verificado'
                 ? '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill" style="margin-right: 5px !important;"></i>Verificado</span>'
                 : '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-clock-history" style="margin-right: 5px !important;"></i>Por verificar</span>';

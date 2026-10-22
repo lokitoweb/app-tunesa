@@ -15,6 +15,9 @@ return [
 
     'name' => env('APP_NAME', 'Grupo Negreiros'),
 
+    // Dominio de respaldo para los correos de acceso ([DNI]@dominio) si la plataforma no lo configuró en el panel
+    'login_email_domain' => env('LOGIN_EMAIL_DOMAIN'),
+
     /*
     |--------------------------------------------------------------------------
     | Dominio base (multi-tenant)

@@ -115,7 +115,7 @@
                                 Habilita al colaborador para comenzar a registrar su asistencia con geolocalización.
                             </p>
                         </div>
-                        <form method="POST" action="{{ route('onboarding.approve', $employee->id) }}" onsubmit="return confirm('¿Aprobar la incorporación de {{ e($employee->first_name) }}? Podrá marcar desde ahora.');">
+                        <form method="POST" action="{{ route('onboarding.approve', $employee->id) }}" data-confirm="{{ $employee->first_name }} podrá marcar desde ahora." data-confirm-title="¿Aprobar la incorporación?" data-confirm-button="Aprobar">
                             @csrf
                             <button type="submit" class="btn btn-sm btn-success w-100 d-inline-flex align-items-center justify-content-center gap-2 shadow-sm" style="border-radius: 6px; font-weight: 600; padding: 8px 16px;">
                                 <i class="bi bi-person-check-fill fs-6"></i>

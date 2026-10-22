@@ -38,7 +38,7 @@ class _PunchDisclosureDialog extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           const _Point(
             icon: Icons.location_on_outlined,
-            text: 'Grupo Negreiros usa tu ubicación precisa solo mientras estás en esta pantalla y al registrar la marcación, '
+            text: 'Esta app usa tu ubicación precisa solo mientras estás en esta pantalla y al registrar la marcación, '
                 'para comprobar que estás en tu sede. No la usa en segundo plano.',
           ),
           if (selfie)

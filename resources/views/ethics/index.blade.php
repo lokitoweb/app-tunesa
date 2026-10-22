@@ -629,7 +629,7 @@ function bindModalFormEvents(container, caseId) {
                 if (data.success) {
                     openEthicsQuickModal(caseId, 'tab-ethics-comunicacion-btn'); // Mantener pestaña de chat
                 } else {
-                    alert(data.message || 'Error al enviar respuesta');
+                    Panel.toast(data.message || 'Error al enviar respuesta', 'error');
                     if (btn) { btn.disabled = false; btn.innerHTML = originalBtn; }
                 }
             })
@@ -662,7 +662,7 @@ function bindModalFormEvents(container, caseId) {
                 if (data.success) {
                     openEthicsQuickModal(caseId, 'tab-ethics-gestion-btn'); // Mantener pestaña de gestión
                 } else {
-                    alert(data.message || 'Error al actualizar estado');
+                    Panel.toast(data.message || 'Error al actualizar estado', 'error');
                     if (btn) { btn.disabled = false; btn.innerHTML = originalBtn; }
                 }
             })
@@ -695,7 +695,7 @@ function bindModalFormEvents(container, caseId) {
                 if (data.success) {
                     openEthicsQuickModal(caseId, 'tab-ethics-gestion-btn'); // Mantener pestaña de gestión
                 } else {
-                    alert(data.message || 'Error al asignar');
+                    Panel.toast(data.message || 'Error al asignar', 'error');
                     if (btn) { btn.disabled = false; btn.innerHTML = originalBtn; }
                 }
             })
@@ -809,12 +809,12 @@ window.revealEthicsIdentity = function(caseId, btn) {
                 btn.outerHTML = badgeHtml;
             }
         } else {
-            alert(data.message || 'No se pudo obtener la identidad.');
+            Panel.toast(data.message || 'No se pudo obtener la identidad.', 'error');
             if (btn) { btn.disabled = false; btn.innerHTML = originalBtn; }
         }
     })
     .catch(err => {
-        alert('Error al consultar identidad: ' + err.message);
+        Panel.toast('Error al consultar identidad: ' + err.message, 'error');
         if (btn) { btn.disabled = false; btn.innerHTML = originalBtn; }
     });
 };

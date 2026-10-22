@@ -245,3 +245,16 @@ if (! function_exists('formato_horas_minutos')) {
     }
 }
 
+if (! function_exists('brand_name')) {
+    /**
+     * Nombre comercial de la empresa actual (o el de la plataforma), para pies de reportes y textos.
+     */
+    function brand_name(): string
+    {
+        $tenant = app()->bound(\App\Modules\Core\Services\TenantContext::class)
+            ? app(\App\Modules\Core\Services\TenantContext::class)->getOrNull()
+            : null;
+
+        return \App\Modules\Core\Models\TenantSetting::forTenantOrDefaults($tenant)->tradeName();
+    }
+}

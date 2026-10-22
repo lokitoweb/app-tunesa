@@ -94,13 +94,13 @@ class WhiteLabelSettingsTest extends TestCase
 
         $this->actingAs($admin)->get('/settings/branding')->assertOk()
             ->assertSee('Marca y apariencia')->assertSee('App móvil')->assertSee('Reglas operativas')->assertSee('Integraciones')
-            ->assertSee('trycloudflare.com')->assertSee('Rechazar la marcación')->assertDontSee('Valores por defecto de la plataforma.');
+            ->assertSee('trycloudflare.com')->assertSee('Rechazar la marcación')->assertDontSee('Valores por defecto de la plataforma');
         $this->actingAs($admin)->get('/dashboard')->assertSee(route('settings.branding'));
         $this->actingAs($hr)->get('/settings/branding')->assertForbidden();
 
-        $this->actingAs($root)->get('/settings/branding')->assertOk()->assertSee('Valores por defecto de la plataforma.');
+        $this->actingAs($root)->get('/settings/branding')->assertOk()->assertSee('Valores por defecto de la plataforma');
         $this->actingAs($root)->post('/admin/switch-tenant', ['tenant_id' => $acme->id]);
-        $this->get('/settings/branding')->assertOk()->assertSee('Acme')->assertDontSee('Valores por defecto de la plataforma.');
+        $this->get('/settings/branding')->assertOk()->assertSee('Acme')->assertDontSee('Valores por defecto de la plataforma');
     }
 
     public function test_company_admin_uploads_logos_and_replacing_deletes_the_old_file(): void

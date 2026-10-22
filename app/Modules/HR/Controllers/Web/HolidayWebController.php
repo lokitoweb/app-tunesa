@@ -27,33 +27,6 @@ class HolidayWebController extends Controller
 
         $tenantId = current_tenant_id_or_null();
 
-        if (! app()->runningUnitTests()) {
-            $existingDates = Holiday::forTenant($tenantId)
-                ->whereYear('date', $year)
-                ->pluck('date')
-                ->map(fn ($d) => $d->toDateString())
-                ->flip();
-
-            $peruNational = Holiday::peruNational($year);
-            $toInsert = [];
-
-            foreach ($peruNational as $date => $name) {
-                if (! isset($existingDates[$date])) {
-                    $toInsert[] = [
-                        'tenant_id'  => $tenantId,
-                        'date'       => $date,
-                        'name'       => $name,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
-            }
-
-            if (! empty($toInsert)) {
-                Holiday::insert($toInsert);
-            }
-        }
-
         $peruList = Holiday::peruNational($year);
 
         $holidays = Holiday::forTenant($tenantId)

@@ -117,6 +117,11 @@ class AuthController extends Controller
      */
     public function logout(Request $request): RedirectResponse
     {
+        // Un GET (p. ej. un enlace externo) no cierra una sesión viva: solo el POST con CSRF
+        if ($request->isMethod('get') && Auth::check()) {
+            return redirect()->route('dashboard');
+        }
+
         $wasExpired = $request->boolean('expired');
         $request->session()->forget('url.intended');
         Auth::logout();

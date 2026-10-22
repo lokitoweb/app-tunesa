@@ -15,17 +15,6 @@
     @inertiaHead
 </head>
 <body>
-    @if(isset($page['props']['loadPeruLabel']))
-        <span class="d-none">{{ $page['props']['loadPeruLabel'] }}</span>
-    @endif
-    @if(isset($page['props']['holidays']) && is_array($page['props']['holidays']))
-        <div class="d-none" aria-hidden="true">
-            @foreach($page['props']['holidays'] as $h)
-                <span>{{ $h['name'] ?? '' }}</span>
-                <span>{{ $h['formatted_date'] ?? '' }}</span>
-            @endforeach
-        </div>
-    @endif
     @inertia
 </body>
 </html>

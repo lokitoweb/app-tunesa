@@ -251,13 +251,24 @@ class TenantSetting extends Model
      * la base de datos no responda (caída, migraciones pendientes). Sin base de
      * datos devuelve la marca por defecto.
      */
+    /** DEFAULTS con los respaldos del servidor (.env): nombre y dominio de acceso propios de la instalación */
+    public static function defaults(): array
+    {
+        $defaults = self::DEFAULTS;
+        if ($domain = config('app.login_email_domain')) {
+            $defaults['login_email_domain'] = strtolower(ltrim((string) $domain, '@'));
+        }
+
+        return $defaults;
+    }
+
     public static function forTenantOrDefaults(?Tenant $tenant): self
     {
         try {
             return static::forTenant($tenant);
         } catch (\Throwable) {
             $effective = new static();
-            $effective->setRawAttributes(['tenant_id' => null] + self::DEFAULTS, true);
+            $effective->setRawAttributes(['tenant_id' => null] + self::defaults(), true);
             $effective->exists      = false;
             $effective->isEffective = true;
 
@@ -270,7 +281,7 @@ class TenantSetting extends Model
         $global    = static::rowFor(null);
         $tenantRow = $tenant ? static::rowFor($tenant) : null;
 
-        $values = self::DEFAULTS;
+        $values = self::defaults();
         foreach (self::overrides($global) as $key => $value) {
             $values[$key] = $value;
         }
@@ -326,7 +337,7 @@ class TenantSetting extends Model
     /** Dominio del correo de acceso [DNI]@dominio (en minúsculas, sin @) */
     public function loginEmailDomain(): string
     {
-        return strtolower(ltrim(trim((string) ($this->login_email_domain ?: self::DEFAULTS['login_email_domain'])), '@'));
+        return strtolower(ltrim(trim((string) ($this->login_email_domain ?: self::defaults()['login_email_domain'])), '@'));
     }
 
     public function tradeName(): string

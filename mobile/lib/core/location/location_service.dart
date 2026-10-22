@@ -141,7 +141,7 @@ class LocationService {
     if (permission == LocationPermission.deniedForever) {
       throw const LocationException(
         LocationFailure.permissionDeniedForever,
-        'El permiso de ubicación está bloqueado. Habilítalo en Ajustes > Aplicaciones > Grupo Negreiros.',
+        'El permiso de ubicación está bloqueado. Habilítalo para esta app en los ajustes del teléfono.',
       );
     }
     if (permission == LocationPermission.denied || permission == LocationPermission.unableToDetermine) {

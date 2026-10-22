@@ -24,9 +24,9 @@
                         <span class="spinner-border spinner-border-sm d-none me-1" id="spinnerKeepAlive" role="status" aria-hidden="true"></span>
                         <span id="textKeepAlive">Seguir conectado</span>
                     </button>
-                    <a href="{{ route('logout') }}?expired=1" class="btn btn-outline-secondary px-3 py-2.5 fw-semibold" style="border-radius: 10px; font-size: 0.885rem; min-height: 42px;">
+                    <button type="button" onclick="window.sessionExpiryLogout()" class="btn btn-outline-secondary px-3 py-2.5 fw-semibold" style="border-radius: 10px; font-size: 0.885rem; min-height: 42px;">
                         Cerrar sesión ahora
-                    </a>
+                    </button>
                 </div>
             </div>
         </div>
@@ -40,6 +40,17 @@
 </div>
 
 <script>
+    // Cierra la sesión por POST (con CSRF) y luego abre el login con el aviso de inactividad.
+    // Si la sesión ya murió en el servidor, el POST falla y el GET final igual lleva al login.
+    window.sessionExpiryLogout = function () {
+        const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const body = new FormData();
+        body.append('_token', token);
+        fetch("{{ route('logout') }}", { method: 'POST', body, credentials: 'same-origin', redirect: 'manual' })
+            .catch(() => {})
+            .finally(() => { window.location.href = "{{ route('logout') }}?expired=1"; });
+    };
+
 (function() {
     // Configuración de tiempos de inactividad
     // Inactividad antes de advertir: 20 minutos (1200000 ms)
@@ -107,7 +118,7 @@
 
             if (countdownLeft <= 0) {
                 clearInterval(countdownInterval);
-                window.location.href = "{{ route('logout') }}?expired=1";
+                window.sessionExpiryLogout();
             }
         }, 1000);
     }
@@ -164,7 +175,7 @@
                 resetInactivityTimer();
             } else {
                 // Si la sesión ya murió en el servidor (401/419)
-                window.location.href = "{{ route('logout') }}?expired=1";
+                window.sessionExpiryLogout();
             }
         } catch (err) {
             console.error('Error renovando sesión:', err);

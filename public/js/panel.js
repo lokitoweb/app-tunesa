@@ -1,5 +1,5 @@
 /**
- * Grupo Negreiros — Futuristic Operations & Telemetry Panel Engine
+ * Panel ERP — Futuristic Operations & Telemetry Panel Engine
  * Live telemetry, dynamic time greeting, collapsible dock, toast alerts
  */
 (function () {
@@ -313,7 +313,65 @@
         });
     });
 
-    window.Panel = { esc, tiles, cssVar, openPhoto };
+    // Confirmación con modal del tema (reemplaza confirm() nativo)
+    function confirmDialog(message, { title = '¿Confirmas esta acción?', confirmText = 'Confirmar', cancelText = 'Cancelar', danger = false } = {}) {
+        return new Promise((resolve) => {
+            if (typeof bootstrap === 'undefined') {
+                resolve(window.confirm(message));
+                return;
+            }
+            const wrap = document.createElement('div');
+            wrap.className = 'modal fade';
+            wrap.tabIndex = -1;
+            wrap.setAttribute('aria-modal', 'true');
+            wrap.setAttribute('role', 'dialog');
+            wrap.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-body p-4 text-center">
+                            <div class="mb-3"><i class="bi ${danger ? 'bi-exclamation-octagon-fill text-danger' : 'bi-question-circle-fill text-primary'}" style="font-size: 2.25rem;"></i></div>
+                            <h2 class="h5 fw-bold mb-2">${esc(title)}</h2>
+                            <p class="text-body-secondary mb-0">${esc(message)}</p>
+                        </div>
+                        <div class="modal-footer border-0 justify-content-center pt-0 pb-4 gap-2">
+                            <button type="button" class="btn btn-outline-secondary px-4" data-action="cancel">${esc(cancelText)}</button>
+                            <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'} px-4" data-action="ok">${esc(confirmText)}</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(wrap);
+            const modal = new bootstrap.Modal(wrap);
+            let answer = false;
+            wrap.querySelector('[data-action="ok"]').addEventListener('click', () => { answer = true; modal.hide(); });
+            wrap.querySelector('[data-action="cancel"]').addEventListener('click', () => modal.hide());
+            wrap.addEventListener('hidden.bs.modal', () => { wrap.remove(); resolve(answer); });
+            modal.show();
+        });
+    }
+
+    function toast(message, type = 'info', title = '') {
+        return Toast.show({ type: type === 'danger' ? 'error' : type, title, message, duration: type === 'error' || type === 'danger' ? 8000 : 4000 });
+    }
+
+    // <form data-confirm="..."> y <a|button data-confirm="..."> piden confirmación con el modal
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (!(form instanceof HTMLFormElement) || !form.dataset.confirm || form.dataset.confirmed === '1') return;
+        e.preventDefault();
+        const submitter = e.submitter;
+        confirmDialog(form.dataset.confirm, {
+            title: form.dataset.confirmTitle || undefined,
+            confirmText: form.dataset.confirmButton || undefined,
+            danger: form.dataset.confirmDanger === '1',
+        }).then((ok) => {
+            if (!ok) return;
+            form.dataset.confirmed = '1';
+            form.requestSubmit ? form.requestSubmit(submitter || undefined) : form.submit();
+            delete form.dataset.confirmed;
+        });
+    }, true);
+
+    window.Panel = { esc, tiles, cssVar, openPhoto, confirm: confirmDialog, toast };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;
     window.openCommandPalette = openCommandPalette;

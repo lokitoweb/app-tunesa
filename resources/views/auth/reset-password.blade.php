@@ -12,7 +12,7 @@
 
         <!-- Logo Oficial Centrado -->
         <div class="card-brand-logo-wrap">
-            <img src="{{ asset('img/grupo-negreiros-logo.png') }}" alt="{{ $brandSettings->tradeName() }}" class="card-brand-logo">
+            <img src="{{ $brandSettings->displayLogoUrl() }}" alt="{{ $brandSettings->tradeName() }}" class="card-brand-logo">
         </div>
 
         <!-- Badge de Seguridad + Título -->

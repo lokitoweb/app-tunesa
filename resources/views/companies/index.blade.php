@@ -754,7 +754,7 @@
 
         } catch (err) {
             console.error(err);
-            alert('No se pudo cargar la información de la empresa.');
+            Panel.toast('No se pudo cargar la información de la empresa.', 'error');
             const modal = getCompanyModalInstance();
             modal && modal.hide();
         }

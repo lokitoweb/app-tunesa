@@ -47,7 +47,7 @@ Route::middleware(['tenant'])->group(function () {
         Route::post('forgot-password', [AuthController::class, 'passwordResetByAdmin'])->middleware('throttle:5,1');
         Route::post('reset-password',  [AuthController::class, 'passwordResetByAdmin'])->middleware('throttle:5,1');
     });
-    Route::get('tenant/branding', [TenantController::class, 'branding']);
+    Route::get('tenant/branding', [TenantController::class, 'branding'])->middleware('throttle:60,1');
 });
 
 Route::middleware('api.tenant')->group(function () {

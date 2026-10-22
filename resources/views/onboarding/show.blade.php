@@ -61,7 +61,7 @@
                     <h2 class="h6">Aprobar</h2>
                     <p class="small text-body-secondary">Revisa que los documentos del legajo sean correctos. Al aprobar, el colaborador ya puede marcar.</p>
                     <form method="POST" action="{{ route('onboarding.approve', $employee->id) }}"
-                          onsubmit="return confirm('¿Aprobar la incorporación de {{ e($employee->first_name) }}? Podrá marcar desde ahora.');">
+                          data-confirm="{{ $employee->first_name }} podrá marcar desde ahora." data-confirm-title="¿Aprobar la incorporación?" data-confirm-button="Aprobar">
                         @csrf
                         <button type="submit" class="btn btn-success w-100"><i class="bi bi-person-check me-1"></i>Aprobar incorporación</button>
                     </form>

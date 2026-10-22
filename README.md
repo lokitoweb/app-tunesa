@@ -61,6 +61,11 @@ cada PR que toca `mobile/`).
 
 ## Despliegue
 
+- Servidor nuevo (hosting o VPS) sin consola: sube el proyecto con `vendor/` y `public/build`, apunta el dominio a
+  `public/` y abre `https://tu-dominio/install`. El asistente revisa PHP, extensiones y permisos; pide la base MySQL
+  (con botón *Probar conexión*), crea tablas, roles y permisos sin datos de prueba, y el Super Admin con el nombre de
+  la plataforma y el dominio de los correos de acceso. Al terminar escribe `storage/app/installed.lock` y `/install`
+  responde 404. Un servidor que ya tiene Super Admin se detecta solo y nunca ve el asistente.
 - Producción del backend: ver la sección siguiente.
 - Probar la app en un celular real sin servidor: [Cloudflare Tunnel](docs/deployment/mobile-cloudflare-tunnel.md).
   Detrás de un proxy, `TRUSTED_PROXIES` (por defecto `127.0.0.1,::1`) hace que Laravel genere

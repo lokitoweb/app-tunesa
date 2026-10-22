@@ -30,8 +30,11 @@ class HolidayTest extends TestCase
         $hr    = $this->makeUser($acme, 'hr_manager');
         Holiday::create(['tenant_id' => $other->id, 'date' => '2026-12-31', 'name' => 'Cierre de Other']);
 
-        $this->actingAs($hr)->get('/holidays?year=2026')->assertOk()->assertSee('Cargar feriados nacionales de Perú 2026')
-            ->assertDontSee('Cierre de Other');
+        $this->actingAs($hr)->get('/holidays?year=2026')->assertOk()
+            ->assertInertia(fn ($p) => $p->component('HR/Pages/Holidays/Index')->has('holidays', 0))
+            ->assertPageSees('Cargar feriados nacionales de Perú 2026')->assertPageMisses('Cierre de Other');
+        // Abrir la pantalla no crea feriados por su cuenta
+        $this->assertSame(0, Holiday::where('tenant_id', $acme->id)->count());
 
         $this->post('/holidays', ['date' => '2026-11-15', 'name' => 'Aniversario Acme'])
             ->assertRedirect(route('holidays.index', ['year' => 2026]))->assertSessionHasNoErrors();
@@ -41,7 +44,8 @@ class HolidayTest extends TestCase
 
         $holiday = Holiday::where('tenant_id', $acme->id)->sole();
         $this->assertSame($acme->id, $holiday->tenant_id);
-        $this->get('/holidays?year=2026')->assertSee('Aniversario Acme')->assertSee('15/11/2026');
+        $this->get('/holidays?year=2026')->assertPageSees('Aniversario Acme')->assertPageSees('15/11/2026');
+        $this->getJson('/holidays?year=2026')->assertOk()->assertJsonPath('holidays.0.name', 'Aniversario Acme');
 
         // No puede borrar el de otra empresa
         $foreign = Holiday::withoutGlobalScopes()->where('tenant_id', $other->id)->sole();

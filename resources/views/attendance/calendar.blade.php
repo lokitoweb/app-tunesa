@@ -5,7 +5,7 @@
 @section('styles')
 <style>
 /* ==========================================================================
-   CALENDARIO EJECUTIVO DE ASISTENCIA — GRUPO NEGREIROS
+   CALENDARIO EJECUTIVO DE ASISTENCIA
    Diseño de Alta Fidelidad, Contraste Perfecto, Modo Claro & Oscuro Adaptativo
    ========================================================================== */
 .cal-app-shell,

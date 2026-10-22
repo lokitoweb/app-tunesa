@@ -91,7 +91,7 @@ class OvertimeApprovalTest extends TestCase
         $day2 = $this->workDay($this->emp, '2026-10-06', 9 * 60 + 30);  // 1.5 h extra, queda por aprobar
 
         $this->actingAs($this->supervisor)->get(route('approvals.index', ['tab' => 'overtime']))->assertOk()
-            ->assertSee('Horas extra')->assertSee('Rosa Quispe')->assertSee('2.5 h');
+            ->assertSee('Horas extra')->assertSee('Rosa Quispe')->assertSee('2 h 30 min');
 
         $this->actingAs($this->supervisor)->post(route('approvals.overtime.review', $day1->id), ['decision' => 'approved', 'hours' => 2])
             ->assertRedirect()->assertSessionHas('success');

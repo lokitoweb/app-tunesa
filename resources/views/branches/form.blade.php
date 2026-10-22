@@ -475,10 +475,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
 
     document.getElementById('myLocation').addEventListener('click', () => {
-        if (!navigator.geolocation) return alert('Tu navegador no permite obtener la ubicación.');
+        if (!navigator.geolocation) return Panel.toast('Tu navegador no permite obtener la ubicación.', 'warning');
         navigator.geolocation.getCurrentPosition(
             (pos) => { moveTo(pos.coords.latitude, pos.coords.longitude, true); reverseGeocode(); },
-            () => alert('No se pudo obtener la ubicación del navegador.'),
+            () => Panel.toast('No se pudo obtener la ubicación del navegador.', 'warning'),
             { enableHighAccuracy: true, timeout: 10000 }
         );
     });

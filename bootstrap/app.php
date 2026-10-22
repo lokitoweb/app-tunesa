@@ -62,6 +62,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Panel web: datos compartidos y protocolo de las pantallas Vue (Inertia)
         $middleware->web(append: [HandleInertiaRequests::class]);
 
+        // Sin instalar, todo va al asistente /install (y /install se cierra al terminar)
+        $middleware->prepend(\App\Installer\Http\RedirectToInstaller::class);
+
         // Cabeceras de seguridad en toda respuesta (panel, API y errores)
         $middleware->append(SecurityHeaders::class);
 

@@ -28,7 +28,7 @@
 
 {{-- Fuera del formulario principal: un formulario no puede ir dentro de otro --}}
 <form method="POST" action="{{ route('employees.reset-access', $employee->id) }}" id="resetAccessForm"
-      onsubmit="return confirm('Se generará una contraseña temporal nueva y se cerrarán sus sesiones en la app. ¿Continuar?');">
+      data-confirm="Se generará una contraseña temporal nueva y se cerrarán sus sesiones en la app." data-confirm-title="¿Restablecer la contraseña?" data-confirm-button="Restablecer" data-confirm-danger="1">
     @csrf
 </form>
 

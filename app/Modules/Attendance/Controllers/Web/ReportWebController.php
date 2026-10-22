@@ -94,15 +94,24 @@ class ReportWebController extends Controller
             $baseQuery->where('branch_id', $branchId);
         }
 
-        // Estadísticas y contadores para los badges del periodo seleccionado (sobre la consulta base)
-        $allBaseRecords  = (clone $baseQuery)->get();
-        $totalRecords    = $allBaseRecords->count();
-        $onTimeCount     = $allBaseRecords->filter(fn($r) => $r->status === 'present' && ($r->late_minutes ?? 0) == 0)->count();
-        $lateCount       = $allBaseRecords->filter(fn($r) => $r->status === 'late' || ($r->late_minutes ?? 0) > 0)->count();
-        $absentCount     = $allBaseRecords->filter(fn($r) => $r->status === 'absent' && ($r->justification_status ?? 'none') !== 'approved')->count();
-        $excusedCount    = $allBaseRecords->filter(fn($r) => in_array($r->status, ['excused', 'justified'], true) || ($r->justification_status ?? 'none') === 'approved')->count();
-        $totalHours      = (float) $allBaseRecords->sum('worked_hours');
-        $overtimeHours   = (float) $allBaseRecords->sum('overtime_hours');
+        // Estadísticas y contadores para los badges del periodo (una sola consulta agregada, sin cargar filas)
+        $stats = (clone $baseQuery)->setEagerLoads([])->toBase()->selectRaw("
+                COUNT(*) AS total,
+                SUM(CASE WHEN status = 'present' AND COALESCE(late_minutes, 0) <= 0 THEN 1 ELSE 0 END) AS on_time,
+                SUM(CASE WHEN status = 'late' OR COALESCE(late_minutes, 0) > 0 THEN 1 ELSE 0 END) AS late,
+                SUM(CASE WHEN status = 'absent' AND COALESCE(justification_status, 'none') <> 'approved' THEN 1 ELSE 0 END) AS absent,
+                SUM(CASE WHEN status IN ('excused', 'justified') OR justification_status = 'approved' THEN 1 ELSE 0 END) AS excused,
+                COALESCE(SUM(worked_hours), 0) AS hours,
+                COALESCE(SUM(overtime_hours), 0) AS overtime
+            ")->first();
+
+        $totalRecords  = (int) ($stats->total ?? 0);
+        $onTimeCount   = (int) ($stats->on_time ?? 0);
+        $lateCount     = (int) ($stats->late ?? 0);
+        $absentCount   = (int) ($stats->absent ?? 0);
+        $excusedCount  = (int) ($stats->excused ?? 0);
+        $totalHours    = (float) ($stats->hours ?? 0);
+        $overtimeHours = (float) ($stats->overtime ?? 0);
 
         $punctualityRate = $totalRecords > 0 ? round(($onTimeCount / $totalRecords) * 100, 1) : 0;
 
@@ -134,6 +143,7 @@ class ReportWebController extends Controller
         }
 
         if ($search) {
+            $search = mb_substr(trim((string) $search), 0, 80);
             $query->whereHas('user', function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
                   ->orWhere('last_name', 'like', "%{$search}%")

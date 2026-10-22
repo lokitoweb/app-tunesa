@@ -96,7 +96,7 @@
                 <div class="meta-text">Periodo auditado: {{ $startDate }} al {{ $endDate }}</div>
             </td>
             <td style="text-align: right; vertical-align: top;">
-                <div class="meta-text">Grupo Negreiros · Control de asistencia</div>
+                <div class="meta-text">{{ brand_name() }} · Control de asistencia</div>
                 <div class="meta-text">Fecha de Emisión: {{ date('d/m/Y h:i a') }}</div>
                 <div class="meta-text">Total Registros: {{ $attendances->count() }}</div>
             </td>

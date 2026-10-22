@@ -56,16 +56,20 @@ class AuthController extends Notifier<AuthState> {
     final result = await _repo.login(email: email, password: password);
     var branding = state.branding;
 
-    if (ref.read(sessionStorageProvider).tenantSlug != result.tenantSlug || branding == null) {
-      try {
-        final config = await ref.read(appConfigProvider.notifier).loadForTenant(result.tenantSlug);
-        branding = Branding.fromConfig(result.tenantSlug, config);
-        await _repo.saveTenant(result.tenantSlug, branding);
-      } catch (_) {
-        // Sin la marca no hay sesión a medias: se vuelve a pedir el ingreso
+    final sameTenant = ref.read(sessionStorageProvider).tenantSlug == result.tenantSlug && branding != null;
+    try {
+      // Se refresca siempre: si la empresa cambió su logo o colores en el panel,
+      // la app los toma en el siguiente ingreso.
+      final config = await ref.read(appConfigProvider.notifier).loadForTenant(result.tenantSlug);
+      branding = Branding.fromConfig(result.tenantSlug, config);
+      await _repo.saveTenant(result.tenantSlug, branding);
+    } catch (_) {
+      if (!sameTenant) {
+        // Sin la marca de otra empresa no hay sesión a medias: se vuelve a pedir el ingreso
         await ref.read(sessionStorageProvider).clearSession();
         rethrow;
       }
+      // Misma empresa: sigue con la marca guardada
     }
 
     state = AuthState(status: AuthStatus.authenticated, branding: branding, user: result.user);

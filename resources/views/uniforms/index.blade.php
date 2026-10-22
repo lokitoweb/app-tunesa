@@ -538,7 +538,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let html = '';
-        pageItems.forEach(r => {
+        // Escapa los textos de cada fila antes de armar el HTML (evita XSS con datos del colaborador)
+        const escRow = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'string' ? Panel.esc(v) : v]));
+        pageItems.map(escRow).forEach(r => {
             const initials = (r.full_name || 'C').split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
             const safeName = (r.full_name || '').replace(/'/g, "\\'");
 
@@ -647,7 +649,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let html = '';
-        pageItems.forEach(d => {
+        // Escapa los textos de cada fila antes de armar el HTML (evita XSS con datos del colaborador)
+        const escRow = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'string' ? Panel.esc(v) : v]));
+        pageItems.map(escRow).forEach(d => {
             html += `
                 <tr>
                     <td class="ps-3">
