@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/attachment_picker.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/list_filters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../../../core/theme/app_theme.dart';
 import '../domain/models.dart';
@@ -23,14 +24,16 @@ class HistoryScreen extends ConsumerStatefulWidget {
 }
 
 class _HistoryScreenState extends ConsumerState<HistoryScreen> {
-  DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  // El mes elegido se conserva al navegar o minimizar la app (MonthFilter)
+  DateTime get _month => ref.read(monthFilterProvider('history'));
 
   (int, int) get _period => (_month.month, _month.year);
 
-  void _shift(int delta) => setState(() => _month = DateTime(_month.year, _month.month + delta));
+  void _shift(int delta) => ref.read(monthFilterProvider('history').notifier).shift(delta);
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(monthFilterProvider('history'));
     // Sin incorporación aprobada por RRHH todavía no hay asistencia que ver
     if (!ref.watch(canPunchProvider)) {
       return Scaffold(

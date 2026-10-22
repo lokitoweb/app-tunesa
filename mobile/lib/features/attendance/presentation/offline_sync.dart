@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config_controller.dart';
+import '../../../core/network/server_url.dart';
 import '../../../core/providers.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../data/face_detection_service.dart';
@@ -83,12 +84,15 @@ class OfflineSyncController extends Notifier<OfflineSyncState> {
 
   int? get _userId => ref.read(authControllerProvider).user?.id;
 
+  /// Servidor en uso: la cola solo se envía (y se cuenta) en el servidor donde se marcó.
+  String get _server => ref.read(baseUrlProvider);
+
   Future<void> refreshCounts() async {
     try {
       await _queue.ready();
       final store = _queue.store;
-      final pending = await store.count(userId: _userId);
-      final rejected = (await store.rejected(userId: _userId)).length;
+      final pending = await store.count(userId: _userId, server: _server);
+      final rejected = (await store.rejected(userId: _userId, server: _server)).length;
       final lastSync = await store.lastSyncAt();
       if (ref.mounted) state = state.copyWith(pending: pending, rejected: rejected, lastSyncAt: lastSync);
     } catch (_) {
@@ -99,7 +103,7 @@ class OfflineSyncController extends Notifier<OfflineSyncState> {
   /// Guarda la marcación (con la foto cifrada) y la cuenta como pendiente.
   Future<void> enqueue(PunchCapture capture) async {
     await _queue.ready();
-    final item = await ref.read(attendanceRepositoryProvider).toQueued(capture, _queue.vault, userId: _userId);
+    final item = await ref.read(attendanceRepositoryProvider).toQueued(capture, _queue.vault, userId: _userId, server: _server);
     await _queue.store.insert(item);
     await refreshCounts();
   }
@@ -109,7 +113,7 @@ class OfflineSyncController extends Notifier<OfflineSyncState> {
     try {
       await _queue.ready();
       final auth = ref.read(authControllerProvider);
-      if (auth.status != AuthStatus.authenticated || await _queue.store.count(userId: auth.user?.id) == 0) {
+      if (auth.status != AuthStatus.authenticated || await _queue.store.count(userId: auth.user?.id, server: _server) == 0) {
         await refreshCounts();
         return null;
       }
@@ -119,10 +123,11 @@ class OfflineSyncController extends Notifier<OfflineSyncState> {
         transport: ref.read(attendanceRepositoryProvider),
         maxAge: Duration(hours: hours),
         userId: auth.user?.id,
+        server: _server,
         force: force,
       );
       if (!ref.mounted) return result;
-      final rejected = (await _queue.store.rejected(userId: auth.user?.id)).length;
+      final rejected = (await _queue.store.rejected(userId: auth.user?.id, server: _server)).length;
       state = OfflineSyncState(
         pending: result.remaining,
         rejected: rejected,
@@ -141,7 +146,7 @@ class OfflineSyncController extends Notifier<OfflineSyncState> {
 
   Future<List<RejectedPunch>> rejectedList() async {
     await _queue.ready();
-    return _queue.store.rejected(userId: _userId);
+    return _queue.store.rejected(userId: _userId, server: _server);
   }
 
   Future<void> dismissRejected(String clientUuid) async {
@@ -150,7 +155,7 @@ class OfflineSyncController extends Notifier<OfflineSyncState> {
   }
 
   Future<void> clearRejected() async {
-    await _queue.store.clearRejected(userId: _userId);
+    await _queue.store.clearRejected(userId: _userId, server: _server);
     await refreshCounts();
   }
 }

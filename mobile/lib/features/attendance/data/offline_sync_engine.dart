@@ -91,17 +91,20 @@ class OfflineSyncEngine {
   }
 
   /// Envía lo pendiente. Llamadas simultáneas comparten el mismo envío.
-  /// Con [userId] solo se envían las de ese colaborador (y las sin usuario).
+  /// Con [userId] solo se envían las de ese colaborador (y las sin usuario);
+  /// con [server], solo las marcadas en ese servidor (y las sin servidor).
   /// [force] ignora la espera entre reintentos (deslizar / "Enviar ahora").
   Future<OfflineSyncResult> sync({
     required PunchTransport transport,
     required Duration maxAge,
     int? userId,
+    String? server,
     bool force = false,
   }) =>
-      _syncing ??= _sync(transport, maxAge, userId, force).whenComplete(() => _syncing = null);
+      _syncing ??= _sync(transport, maxAge, userId, server, force).whenComplete(() => _syncing = null);
 
-  Future<OfflineSyncResult> _sync(PunchTransport transport, Duration maxAge, int? userId, bool force) async {
+  Future<OfflineSyncResult> _sync(
+      PunchTransport transport, Duration maxAge, int? userId, String? server, bool force) async {
     final now = _now().toUtc();
     final sent = <QueuedPunch>[];
     final expired = <QueuedPunch>[];
@@ -122,6 +125,7 @@ class OfflineSyncEngine {
         continue;
       }
       if (userId != null && item.userId != null && item.userId != userId) continue;
+      if (server != null && item.server != null && item.server != server) continue;
       final next = item.nextAttemptAt;
       if (!force && next != null && next.isAfter(now)) continue;
       due.add(item);
@@ -193,7 +197,7 @@ class OfflineSyncEngine {
       duplicates: duplicates,
       expired: expired,
       rejected: rejected,
-      remaining: await store.count(userId: userId),
+      remaining: await store.count(userId: userId, server: server),
       networkFailed: networkFailed,
       syncedAt: syncedAt,
     );
@@ -220,6 +224,7 @@ class OfflineSyncEngine {
       code: code,
       rejectedAt: _now().toUtc(),
       userId: item.userId,
+      server: item.server,
     ));
     if (item.photoPath != null) await vault.delete(item.photoPath!);
   }

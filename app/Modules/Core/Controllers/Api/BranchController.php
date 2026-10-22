@@ -9,6 +9,7 @@ use App\Modules\Core\Services\BranchStaffing;
 use App\Modules\Attendance\Services\GeofenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * BranchController
@@ -58,7 +59,7 @@ class BranchController extends Controller
             'latitude'               => ['required', 'numeric', 'between:-90,90'],
             'longitude'              => ['required', 'numeric', 'between:-180,180'],
             'allowed_radius_meters'  => ['required', 'integer', 'min:10', 'max:5000'],
-            'supervisor_id'          => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'supervisor_id'          => ['sometimes', 'nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', current_tenant_id())->whereNull('deleted_at')],
             'timezone'               => ['sometimes', 'nullable', 'timezone'],
             'is_active'              => ['sometimes', 'boolean'],
         ]);
@@ -98,7 +99,7 @@ class BranchController extends Controller
             'latitude'               => ['sometimes', 'numeric', 'between:-90,90'],
             'longitude'              => ['sometimes', 'numeric', 'between:-180,180'],
             'allowed_radius_meters'  => ['sometimes', 'integer', 'min:10', 'max:5000'],
-            'supervisor_id'          => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'supervisor_id'          => ['sometimes', 'nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', current_tenant_id())->whereNull('deleted_at')],
             'is_active'              => ['sometimes', 'boolean'],
         ]);
 

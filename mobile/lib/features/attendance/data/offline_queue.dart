@@ -52,6 +52,7 @@ Future<cipher.Database> openEncryptedDatabase(LocalKeys keys) async {
         password: password,
         version: OfflinePunchStore.schemaVersion,
         onCreate: OfflinePunchStore.createSchema,
+        onUpgrade: OfflinePunchStore.upgradeSchema,
       );
   try {
     final db = await open();

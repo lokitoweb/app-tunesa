@@ -78,6 +78,10 @@ return [
             'root' => storage_path('app/public'),
             'url' => env('APP_URL').'/storage',
             'visibility' => 'public',
+            // Respaldo si `storage:link` no se pudo crear (hostings sin symlinks):
+            // Laravel sirve /storage/{path} desde este disco. Con el enlace creado,
+            // el servidor web entrega el archivo directo y esta ruta no se usa.
+            'serve' => true,
             'throw' => false,
             'report' => false,
         ],

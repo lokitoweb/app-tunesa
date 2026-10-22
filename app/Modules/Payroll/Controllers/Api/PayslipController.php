@@ -8,6 +8,7 @@ use App\Modules\Payroll\Services\PayslipImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 /**
  * PayslipController
@@ -76,7 +77,7 @@ class PayslipController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'user_id'       => ['required', 'integer', 'exists:users,id'],
+            'user_id'       => ['required', 'integer', Rule::exists('users', 'id')->where('tenant_id', current_tenant_id())],
             'period_month'  => ['required', 'integer', 'between:1,12'],
             'period_year'   => ['required', 'integer', 'min:2020'],
             'file'          => ['required', 'file', 'mimes:pdf', 'max:10240'], // 10MB

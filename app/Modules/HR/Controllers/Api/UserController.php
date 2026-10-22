@@ -165,7 +165,7 @@ class UserController extends Controller
         $user = User::where('tenant_id', current_tenant_id())->findOrFail($id);
 
         $request->validate([
-            'branch_id'      => ['required', 'integer', 'exists:branches,id'],
+            'branch_id'      => ['required', 'integer', Rule::exists('branches', 'id')->where('tenant_id', current_tenant_id())->whereNull('deleted_at')],
             'is_primary'     => ['sometimes', 'boolean'],
             'assigned_from'  => ['sometimes', 'date'],
             'assigned_until' => ['sometimes', 'nullable', 'date', 'after:assigned_from'],
@@ -199,8 +199,8 @@ class UserController extends Controller
         $user = User::where('tenant_id', current_tenant_id())->findOrFail($id);
 
         $request->validate([
-            'shift_id'       => ['required', 'integer', 'exists:shifts,id'],
-            'branch_id'      => ['required', 'integer', 'exists:branches,id'],
+            'shift_id'       => ['required', 'integer', Rule::exists('shifts', 'id')->where('tenant_id', current_tenant_id())->whereNull('deleted_at')],
+            'branch_id'      => ['required', 'integer', Rule::exists('branches', 'id')->where('tenant_id', current_tenant_id())->whereNull('deleted_at')],
             'effective_from' => ['required', 'date'],
             'effective_until'=> ['sometimes', 'nullable', 'date', 'after:effective_from'],
             'notes'          => ['sometimes', 'nullable', 'string'],

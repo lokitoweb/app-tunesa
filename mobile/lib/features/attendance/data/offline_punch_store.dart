@@ -7,13 +7,17 @@ import '../domain/punch.dart';
 ///
 /// Tablas: `punches` (pendientes), `rejected_punches` ("Marcaciones no
 /// aceptadas") y `meta` (última sincronización).
+///
+/// Cada fila guarda el servidor (`server`) en que se marcó: con la app
+/// multiempresa el teléfono puede cambiar de servidor, y un mismo `user_id`
+/// puede existir en otro servidor. Solo se envía al servidor de origen.
 class OfflinePunchStore {
   OfflinePunchStore(this._open);
 
   final Future<Database> Function() _open;
   Future<Database>? _db;
 
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
   static const lastSyncKey = 'last_sync_at';
 
   Future<Database> get _database => _db ??= _open().catchError((Object e) {
@@ -41,7 +45,8 @@ class OfflinePunchStore {
           photo_mime TEXT,
           attempts INTEGER NOT NULL DEFAULT 0,
           next_attempt_at TEXT,
-          last_error TEXT
+          last_error TEXT,
+          server TEXT
         )''')
       ..execute('''
         CREATE TABLE rejected_punches (
@@ -51,28 +56,51 @@ class OfflinePunchStore {
           message TEXT NOT NULL,
           code TEXT,
           rejected_at TEXT NOT NULL,
-          user_id INTEGER
+          user_id INTEGER,
+          server TEXT
         )''')
       ..execute('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)');
     await batch.commit(noResult: true);
   }
 
-  // Marcaciones del usuario, o sin usuario (anteriores a la sesión).
-  static (String?, List<Object?>?) _userFilter(int? userId) =>
-      userId == null ? (null, null) : ('user_id IS NULL OR user_id = ?', [userId]);
+  /// v1 → v2: columna `server` (las filas anteriores quedan sin servidor).
+  static Future<void> upgradeSchema(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      final batch = db.batch()
+        ..execute('ALTER TABLE punches ADD COLUMN server TEXT')
+        ..execute('ALTER TABLE rejected_punches ADD COLUMN server TEXT');
+      await batch.commit(noResult: true);
+    }
+  }
+
+  // Marcaciones del usuario, o sin usuario (anteriores a la sesión), y del
+  // servidor indicado (o sin servidor: anteriores a la v2).
+  static (String?, List<Object?>?) _userFilter(int? userId, [String? server]) {
+    final where = <String>[];
+    final args = <Object?>[];
+    if (userId != null) {
+      where.add('(user_id IS NULL OR user_id = ?)');
+      args.add(userId);
+    }
+    if (server != null) {
+      where.add('(server IS NULL OR server = ?)');
+      args.add(server);
+    }
+    return where.isEmpty ? (null, null) : (where.join(' AND '), args);
+  }
 
   Future<void> insert(QueuedPunch punch) async =>
       (await _database).insert('punches', punch.toRow(), conflictAlgorithm: ConflictAlgorithm.replace);
 
   /// Pendientes en orden cronológico (de todos los usuarios si [userId] es null).
-  Future<List<QueuedPunch>> all({int? userId}) async {
-    final (where, args) = _userFilter(userId);
+  Future<List<QueuedPunch>> all({int? userId, String? server}) async {
+    final (where, args) = _userFilter(userId, server);
     final rows = await (await _database).query('punches', where: where, whereArgs: args, orderBy: 'device_time ASC');
     return [for (final r in rows) ?QueuedPunch.fromRow(r)];
   }
 
-  Future<int> count({int? userId}) async {
-    final (where, args) = _userFilter(userId);
+  Future<int> count({int? userId, String? server}) async {
+    final (where, args) = _userFilter(userId, server);
     final rows = await (await _database).query('punches', columns: ['COUNT(*) AS n'], where: where, whereArgs: args);
     return (rows.first['n'] as num?)?.toInt() ?? 0;
   }
@@ -101,8 +129,8 @@ class OfflinePunchStore {
     });
   }
 
-  Future<List<RejectedPunch>> rejected({int? userId}) async {
-    final (where, args) = _userFilter(userId);
+  Future<List<RejectedPunch>> rejected({int? userId, String? server}) async {
+    final (where, args) = _userFilter(userId, server);
     final rows =
         await (await _database).query('rejected_punches', where: where, whereArgs: args, orderBy: 'rejected_at DESC');
     return [for (final r in rows) ?RejectedPunch.fromRow(r)];
@@ -111,8 +139,8 @@ class OfflinePunchStore {
   Future<void> dismissRejected(String clientUuid) async =>
       (await _database).delete('rejected_punches', where: 'client_uuid = ?', whereArgs: [clientUuid]);
 
-  Future<void> clearRejected({int? userId}) async {
-    final (where, args) = _userFilter(userId);
+  Future<void> clearRejected({int? userId, String? server}) async {
+    final (where, args) = _userFilter(userId, server);
     await (await _database).delete('rejected_punches', where: where, whereArgs: args);
   }
 

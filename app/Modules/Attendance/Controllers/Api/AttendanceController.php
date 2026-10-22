@@ -19,6 +19,7 @@ use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Validation\Rule;
 
 /**
  * AttendanceController
@@ -243,8 +244,8 @@ class AttendanceController extends Controller
         $request->validate([
             'from'      => ['required', 'date'],
             'to'        => ['required', 'date', 'after_or_equal:from'],
-            'branch_id' => ['sometimes', 'integer', 'exists:branches,id'],
-            'user_id'   => ['sometimes', 'integer', 'exists:users,id'],
+            'branch_id' => ['sometimes', 'integer', Rule::exists('branches', 'id')->where('tenant_id', current_tenant_id())],
+            'user_id'   => ['sometimes', 'integer', Rule::exists('users', 'id')->where('tenant_id', current_tenant_id())],
             'status'    => ['sometimes', 'string', 'in:present,late,absent,excused,half_day,incomplete'],
         ]);
 

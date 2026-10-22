@@ -296,6 +296,33 @@ void main() {
       expect((await store.all()).single.clientUuid, 'ajena');
     });
 
+    test('app multiempresa: solo envía al servidor donde se marcó (mismo user_id en otro servidor)', () async {
+      const a = 'https://erp.empresa-a.com';
+      const b = 'https://erp.empresa-b.com';
+      QueuedPunch at(String uuid, String? server) => QueuedPunch(
+            clientUuid: uuid,
+            action: ClockAction.clockIn,
+            latitude: -12.04,
+            longitude: -77.03,
+            accuracy: 12,
+            deviceTime: now.subtract(const Duration(hours: 1)),
+            userId: 7,
+            server: server,
+          );
+      await store.insert(at('en-a', a));
+      await store.insert(at('en-b', b));
+      await store.insert(at('antigua', null));
+
+      final transport = _FakeTransport();
+      final result = await engine.sync(transport: transport, maxAge: const Duration(hours: 24), userId: 7, server: b);
+
+      expect(transport.batches.single.map((o) => o.punch.clientUuid), ['en-b', 'antigua']);
+      expect(result.remaining, 0);
+      expect((await store.all()).single.clientUuid, 'en-a');
+      expect(await store.count(userId: 7, server: a), 1);
+      expect((await store.get('en-a'))!.server, a);
+    });
+
     test('dos sincronizaciones simultáneas no envían dos veces', () async {
       await store.insert(punch('a', const Duration(hours: 1)));
       final transport = _FakeTransport();
@@ -422,6 +449,50 @@ void main() {
       expect(await other.read(path), isNull);
       await real.delete(path);
       expect(await File(path).exists(), isFalse);
+    });
+
+    test('actualiza la base v1 a v2 sin perder las pendientes', () async {
+      final dir = await Directory.systemTemp.createTemp('schema_test');
+      addTearDown(() => dir.delete(recursive: true));
+      final path = '${dir.path}/cola.db';
+      final v1 = await databaseFactoryFfi.openDatabase(path,
+          options: OpenDatabaseOptions(
+            version: 1,
+            onCreate: (db, _) async {
+              await db.execute('CREATE TABLE punches (client_uuid TEXT PRIMARY KEY, action TEXT NOT NULL, '
+                  'latitude REAL NOT NULL, longitude REAL NOT NULL, accuracy REAL NOT NULL, device_time TEXT NOT NULL, '
+                  'user_id INTEGER, is_mocked INTEGER NOT NULL DEFAULT 0, face_detected INTEGER, device_id TEXT, '
+                  'device_os TEXT, app_version TEXT, photo_path TEXT, photo_mime TEXT, '
+                  'attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT, last_error TEXT)');
+              await db.execute('CREATE TABLE rejected_punches (client_uuid TEXT PRIMARY KEY, action TEXT NOT NULL, '
+                  'device_time TEXT NOT NULL, message TEXT NOT NULL, code TEXT, rejected_at TEXT NOT NULL, user_id INTEGER)');
+              await db.execute('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)');
+            },
+          ));
+      await v1.insert('punches', {
+        'client_uuid': 'vieja',
+        'action': 'clock_in',
+        'latitude': -12.0,
+        'longitude': -77.0,
+        'accuracy': 10,
+        'device_time': '2026-10-09T13:00:00Z',
+        'user_id': 7,
+      });
+      await v1.close();
+
+      final v2 = await databaseFactoryFfi.openDatabase(path,
+          options: OpenDatabaseOptions(
+            version: OfflinePunchStore.schemaVersion,
+            onCreate: OfflinePunchStore.createSchema,
+            onUpgrade: OfflinePunchStore.upgradeSchema,
+          ));
+      addTearDown(v2.close);
+      final upgraded = OfflinePunchStore(() async => v2);
+      final item = (await upgraded.all(userId: 7, server: 'https://erp.empresa.com')).single;
+      expect(item.clientUuid, 'vieja');
+      expect(item.server, isNull);
+      await upgraded.insert(punch('nueva', const Duration(minutes: 5), userId: 7));
+      expect(await upgraded.count(), 2);
     });
 
     test('LocalKeys crea la llave una sola vez', () async {

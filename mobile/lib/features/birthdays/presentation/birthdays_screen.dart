@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/list_filters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
@@ -20,7 +21,8 @@ class BirthdaysScreen extends ConsumerStatefulWidget {
 class _BirthdaysScreenState extends ConsumerState<BirthdaysScreen> {
   static const _months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-  int _month = DateTime.now().month;
+  // El mes elegido se conserva al navegar o minimizar la app (MonthFilter)
+  int get _month => ref.read(monthFilterProvider('birthdays')).month;
   String _search = '';
   bool _searching = false;
   final _searchCtrl = TextEditingController();
@@ -48,6 +50,7 @@ class _BirthdaysScreenState extends ConsumerState<BirthdaysScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(monthFilterProvider('birthdays'));
     final data = ref.watch(birthdayMonthProvider(_query));
     final theme = Theme.of(context);
 
@@ -111,7 +114,9 @@ class _BirthdaysScreenState extends ConsumerState<BirthdaysScreen> {
                   labelStyle: TextStyle(fontWeight: FontWeight.w600, color: _month == i + 1 ? theme.colorScheme.onPrimary : null),
                   selectedColor: theme.colorScheme.primary,
                   shape: const StadiumBorder(),
-                  onSelected: (_) => setState(() => _month = i + 1),
+                  onSelected: (_) => ref
+                      .read(monthFilterProvider('birthdays').notifier)
+                      .select(DateTime(DateTime.now().year, i + 1)),
                 ),
               ),
             ),

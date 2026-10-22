@@ -118,6 +118,7 @@ class QueuedPunch {
     this.attempts = 0,
     this.nextAttemptAt,
     this.lastError,
+    this.server,
   });
 
   final String clientUuid;
@@ -142,6 +143,9 @@ class QueuedPunch {
   final DateTime? nextAttemptAt;
   final String? lastError;
 
+  /// Servidor (dominio) en que se marcó; null en filas anteriores a la v2.
+  final String? server;
+
   String get timeLabel => '${Fmt.date(deviceTime)} ${Fmt.time(deviceTime)}';
 
   static QueuedPunch fromCapture(
@@ -151,6 +155,7 @@ class QueuedPunch {
     required String deviceOs,
     required String appVersion,
     String? photoPath,
+    String? server,
   }) =>
       QueuedPunch(
         clientUuid: c.clientUuid,
@@ -167,6 +172,7 @@ class QueuedPunch {
         appVersion: appVersion,
         photoPath: photoPath,
         photoMime: photoPath == null ? null : c.photo?.mimeType,
+        server: server,
       );
 
   Map<String, Object?> toRow() => {
@@ -187,6 +193,7 @@ class QueuedPunch {
         'attempts': attempts,
         'next_attempt_at': nextAttemptAt == null ? null : isoUtc(nextAttemptAt!),
         'last_error': lastError,
+        'server': server,
       };
 
   static QueuedPunch? fromRow(Map<String, Object?> row) {
@@ -213,6 +220,7 @@ class QueuedPunch {
       attempts: (row['attempts'] as num?)?.toInt() ?? 0,
       nextAttemptAt: DateTime.tryParse(row['next_attempt_at']?.toString() ?? '')?.toUtc(),
       lastError: row['last_error'] as String?,
+      server: row['server'] as String?,
     );
   }
 
@@ -244,6 +252,7 @@ class RejectedPunch {
     required this.rejectedAt,
     this.code,
     this.userId,
+    this.server,
   });
 
   final String clientUuid;
@@ -253,6 +262,7 @@ class RejectedPunch {
   final String? code;
   final DateTime rejectedAt;
   final int? userId;
+  final String? server;
 
   String get timeLabel => '${Fmt.date(deviceTime)} ${Fmt.time(deviceTime)}';
 
@@ -264,6 +274,7 @@ class RejectedPunch {
         'code': code,
         'rejected_at': isoUtc(rejectedAt),
         'user_id': userId,
+        'server': server,
       };
 
   static RejectedPunch? fromRow(Map<String, Object?> row) {
@@ -278,6 +289,7 @@ class RejectedPunch {
       code: row['code'] as String?,
       rejectedAt: DateTime.tryParse(row['rejected_at']?.toString() ?? '')?.toUtc() ?? time.toUtc(),
       userId: (row['user_id'] as num?)?.toInt(),
+      server: row['server'] as String?,
     );
   }
 }

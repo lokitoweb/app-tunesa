@@ -106,7 +106,7 @@ class AttendanceRepository implements PunchTransport {
 
   /// Copia de la marcación para la cola offline: la selfie (ya comprimida)
   /// se guarda cifrada en los documentos privados de la app.
-  Future<QueuedPunch> toQueued(PunchCapture capture, PhotoVault vault, {int? userId}) async {
+  Future<QueuedPunch> toQueued(PunchCapture capture, PhotoVault vault, {int? userId, String? server}) async {
     final photo = capture.photo;
     final path = photo == null ? null : await vault.save(capture.clientUuid, photo.bytes);
     return QueuedPunch.fromCapture(
@@ -116,6 +116,7 @@ class AttendanceRepository implements PunchTransport {
       deviceOs: deviceOs,
       appVersion: appVersion,
       photoPath: path,
+      server: server,
     );
   }
 

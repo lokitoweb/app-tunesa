@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/list_filters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
@@ -21,16 +22,18 @@ class OvertimeScreen extends ConsumerStatefulWidget {
 }
 
 class _OvertimeScreenState extends ConsumerState<OvertimeScreen> {
-  DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  // El mes elegido se conserva al navegar o minimizar la app (MonthFilter)
+  DateTime get _month => ref.read(monthFilterProvider('overtime'));
 
   (int, int) get _period => (_month.month, _month.year);
 
-  void _shift(int delta) => setState(() => _month = DateTime(_month.year, _month.month + delta));
+  void _shift(int delta) => ref.read(monthFilterProvider('overtime').notifier).shift(delta);
 
   static String hours(double v) => '${v.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '')} h';
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(monthFilterProvider('overtime'));
     if (!ref.watch(canPunchProvider)) {
       return Scaffold(
         appBar: AppBar(title: const Text('Mis horas extra')),
