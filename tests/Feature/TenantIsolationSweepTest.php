@@ -194,12 +194,24 @@ class TenantIsolationSweepTest extends TestCase
         $checks = $this->enumChecks($table);
         $row    = ['tenant_id' => $tenant->id];
 
+        $parents = collect(Schema::getForeignKeys($table))
+            ->filter(fn ($fk) => count($fk['columns']) === 1)
+            ->mapWithKeys(fn ($fk) => [$fk['columns'][0] => $fk['foreign_table']]);
+
         foreach (Schema::getColumns($table) as $col) {
             $name = $col['name'];
             if ($name === 'id' || array_key_exists($name, $row) || $col['auto_increment']) {
                 continue;
             }
             $required = ! $col['nullable'] && $col['default'] === null;
+
+            // Llave foránea obligatoria sin referencia fija: una fila real de la misma empresa
+            // (MySQL valida las FK y los ids no vuelven a 1 entre pruebas)
+            if ($required && isset($parents[$name]) && ! in_array($name, ['user_id', 'branch_id', 'shift_id'], true)
+                && ! str_ends_with($name, '_by') && $name !== 'supervisor_id') {
+                $row[$name] = $this->parentId($parents[$name], $tenant);
+                continue;
+            }
 
             $row[$name] = match (true) {
                 $name === 'user_id'                                => $refs['user'],
@@ -210,10 +222,18 @@ class TenantIsolationSweepTest extends TestCase
                 isset($checks[$name])                              => $checks[$name][0],
                 in_array($name, ['created_at', 'updated_at'], true) => now(),
                 str_contains($col['type'], 'int') || str_contains($col['type'], 'numeric') || str_contains($col['type'], 'decimal') || str_contains($col['type'], 'float') => 1,
+                str_starts_with($col['type'], 'year')            => 2030,
+                str_contains($col['type'], 'datetime') || str_contains($col['type'], 'timestamp') => now()->toDateTimeString(),
                 str_contains($col['type'], 'date') || str_contains($col['type'], 'time') => str_ends_with($name, '_time') ? '08:00:00' : now()->toDateString(),
-                str_contains($col['type'], 'json') || in_array($name, ['working_days', 'required_documents', 'meta'], true) => '[]',
+                // MariaDB guarda JSON como longtext utf8mb4_bin con CHECK (json_valid)
+                str_contains($col['type'], 'json') || ($col['collation'] ?? null) === 'utf8mb4_bin' || in_array($name, ['working_days', 'required_documents', 'meta'], true) => '[]',
                 default                                            => $name . '-' . $tenant->slug . '-' . Str::random(4),
             };
+
+            // MySQL rechaza textos más largos que la columna (varchar(10)); SQLite no mide
+            if (is_string($row[$name]) && preg_match('/char\((\d+)\)/', $col['type'], $len)) {
+                $row[$name] = substr($row[$name], -(int) $len[1]);
+            }
 
             if ($row[$name] === null) {
                 unset($row[$name]);
@@ -228,9 +248,31 @@ class TenantIsolationSweepTest extends TestCase
         return DB::table($table)->insertGetId($row);
     }
 
-    /** Valores permitidos de los enums de SQLite: "col" varchar check ("col" in ('a', 'b')) */
+    private function parentId(string $table, Tenant $tenant): int|string
+    {
+        $query = DB::table($table);
+        if (Schema::hasColumn($table, 'tenant_id')) {
+            $query->where('tenant_id', $tenant->id);
+        }
+
+        return $query->value('id') ?? $this->insertRow($table, $tenant);
+    }
+
+    /** Valores permitidos de los enums: SQLite "col" varchar check ("col" in ('a', 'b')); MySQL enum('a','b') */
     private function enumChecks(string $table): array
     {
+        if (DB::getDriverName() !== 'sqlite') {
+            $checks = [];
+            foreach (Schema::getColumns($table) as $col) {
+                if (preg_match('/^enum\((.*)\)$/i', $col['type'], $list)) {
+                    preg_match_all("/'([^']*)'/", $list[1], $values);
+                    $checks[$col['name']] = $values[1];
+                }
+            }
+
+            return $checks;
+        }
+
         $sql = (string) DB::table('sqlite_master')->where('type', 'table')->where('name', $table)->value('sql');
         preg_match_all('/"(\w+)" in \(([^)]*)\)/', $sql, $m, PREG_SET_ORDER);
 

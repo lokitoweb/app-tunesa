@@ -424,8 +424,8 @@ class DatabaseSeeder extends Seeder
     /** Producción: Super Admin con credenciales del entorno, sin datos demo */
     private function seedProductionSuperAdmin(): void
     {
-        $email    = env('SEED_SUPERADMIN_EMAIL');
-        $password = (string) env('SEED_SUPERADMIN_PASSWORD');
+        $email    = config('app.seed_superadmin.email');
+        $password = (string) config('app.seed_superadmin.password');
 
         if (! $email || strlen($password) < 12) {
             throw new RuntimeException('Define SEED_SUPERADMIN_EMAIL y SEED_SUPERADMIN_PASSWORD (12+ caracteres) en el .env antes de sembrar producción.');

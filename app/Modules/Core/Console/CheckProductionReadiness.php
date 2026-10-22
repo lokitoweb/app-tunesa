@@ -57,7 +57,7 @@ class CheckProductionReadiness extends Command
         if (config('integrations.allow_private_urls')) {
             $errors[] = 'INTEGRATIONS_ALLOW_PRIVATE_URLS=true permite webhooks hacia la red interna (SSRF).';
         }
-        if (filled(env('SEED_SUPERADMIN_PASSWORD'))) {
+        if (filled(config('app.seed_superadmin.password'))) {
             $warnings[] = 'SEED_SUPERADMIN_PASSWORD sigue en el .env: bórrala después de sembrar.';
         }
 

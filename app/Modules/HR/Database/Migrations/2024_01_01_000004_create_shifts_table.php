@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -46,8 +47,10 @@ return new class extends Migration
 
             // Días laborables (almacenado como JSON: [1,2,3,4,5] = Lun-Vie)
             // 0=Domingo, 1=Lunes, ..., 6=Sábado
+            // Default como expresión: MySQL 8 no acepta un literal en columnas JSON (error 1101);
+            // ('...') vale en MySQL 8.0.13+, MariaDB, SQLite y PostgreSQL.
             $table->json('working_days')
-                ->default('[1,2,3,4,5]')
+                ->default(DB::raw("('[1,2,3,4,5]')"))
                 ->comment('Array de días: 0=Dom, 1=Lun, 2=Mar, 3=Mié, 4=Jue, 5=Vie, 6=Sáb');
 
             // Horas laborables por día (para cálculo de nómina)

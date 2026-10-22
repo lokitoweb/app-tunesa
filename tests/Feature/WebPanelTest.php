@@ -276,6 +276,20 @@ class WebPanelTest extends TestCase
         $this->get('/employees')->assertOk()->assertSee('Lucia')->assertSee('Ajena');
     }
 
+    public function test_global_view_new_employee_form_lists_active_companies(): void
+    {
+        // Antes filtraba por tenants.is_active (no existe): SQLite lo tomaba como texto y la lista salía
+        // vacía; MySQL respondía 500. Las empresas activas son status = 'active'.
+        $acme = $this->makeTenant('acme', ['company_name' => 'Acme Activa SAC']);
+        $off  = $this->makeTenant('off', ['company_name' => 'Suspendida SAC']);
+        $off->update(['status' => 'suspended']);
+        $root = $this->makeUser(null, 'super_admin');
+
+        $this->actingAs($root)->get('/employees')->assertOk()
+            ->assertViewHas('companies', fn ($companies) => $companies->pluck('id')->all() === [$acme->id])
+            ->assertSee('Acme Activa SAC');
+    }
+
     public function test_company_admin_dashboard_only_counts_its_own_tenant(): void
     {
         $acme  = $this->makeTenant('acme');

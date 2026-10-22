@@ -100,7 +100,7 @@ class EmployeeController extends Controller
         $departments = Department::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $zones = Zone::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $positionsCatalog = Position::forTenant($tenantId)->with('department:id,name')->where('is_active', true)->orderBy('name')->get();
-        $companies = $tenantId ? null : Tenant::where('is_active', true)->orderBy('company_name')->get(['id', 'company_name', 'trade_name']);
+        $companies = $tenantId ? null : Tenant::where('status', 'active')->orderBy('company_name')->get(['id', 'company_name']);
         $tenantObj = $tenantId ? Tenant::find($tenantId) : null;
         $loginDomain = TenantSetting::forTenant($tenantObj)->loginEmailDomain();
 

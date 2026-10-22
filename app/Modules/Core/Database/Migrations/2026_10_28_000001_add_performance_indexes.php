@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
@@ -42,8 +43,17 @@ return new class extends Migration
     {
         foreach (self::INDEXES as $table => $indexes) {
             foreach (array_keys($indexes) as $name) {
-                if (Schema::hasTable($table) && Schema::hasIndex($table, $name)) {
+                if (! Schema::hasTable($table) || ! Schema::hasIndex($table, $name)) {
+                    continue;
+                }
+                try {
                     Schema::table($table, fn (Blueprint $t) => $t->dropIndex($name));
+                } catch (QueryException $e) {
+                    // MySQL/MariaDB (1553): InnoDB adoptó el índice para una llave foránea
+                    // (tenant_id) y borró el suyo implícito; se queda, no estorba.
+                    if ((int) ($e->errorInfo[1] ?? 0) !== 1553) {
+                        throw $e;
+                    }
                 }
             }
         }

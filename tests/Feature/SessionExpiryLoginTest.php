@@ -138,6 +138,9 @@ class SessionExpiryLoginTest extends TestCase
 
     public function test_sqlite_waits_briefly_for_locks_instead_of_hanging(): void
     {
+        if (DB::getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('Solo aplica a SQLite.');
+        }
         $this->assertSame(5000, (int) DB::selectOne('pragma busy_timeout')->timeout);
     }
 }

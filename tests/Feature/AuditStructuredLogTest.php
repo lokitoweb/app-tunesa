@@ -58,7 +58,7 @@ class AuditStructuredLogTest extends TestCase
         $byField = collect($log->meta['changes'])->keyBy('field');
 
         $this->assertSame(['default_grace_minutes', 'lunch_paid', 'webhook_secret', 'maps_api_key', 'fcm_service_account_json'], $byField->keys()->all());
-        $this->assertSame(['field' => 'default_grace_minutes', 'old' => 5, 'new' => 10], $byField['default_grace_minutes']);
+        $this->assertSameChange(['field' => 'default_grace_minutes', 'old' => 5, 'new' => 10], $byField['default_grace_minutes']);
         $this->assertSame('••••••••9876', $byField['webhook_secret']['new']);
         $this->assertNull($byField['webhook_secret']['old']);
         $this->assertSame('••••••••0001', $byField['maps_api_key']['old']);
@@ -79,19 +79,19 @@ class AuditStructuredLogTest extends TestCase
         // Antes de guardar: getDirty/getOriginal
         $branch->allowed_radius_meters = 250;
         $audit->logModelUpdate('branch.updated', $branch);
-        $this->assertSame([['field' => 'allowed_radius_meters', 'old' => 100, 'new' => 250]], AuditLog::latest('id')->first()->meta['changes']);
+        $this->assertSameChange([['field' => 'allowed_radius_meters', 'old' => 100, 'new' => 250]], AuditLog::latest('id')->first()->meta['changes']);
         $branch->save();
 
         // Después de guardar: getChanges + snapshot previo
         $before = AuditLogger::snapshot($branch);
         $branch->update(['is_active' => false]);
         $audit->logModelUpdate('branch.updated', $branch, [], $before);
-        $this->assertSame([['field' => 'is_active', 'old' => true, 'new' => false]], AuditLog::latest('id')->first()->meta['changes']);
+        $this->assertSameChange([['field' => 'is_active', 'old' => true, 'new' => false]], AuditLog::latest('id')->first()->meta['changes']);
 
         // updateWithAudit = fill + save + bitácora
         $audit->updateWithAudit('branch.updated', $branch, ['name' => 'Sede Norte']);
         $this->assertSame('Sede Norte', $branch->fresh()->name);
-        $this->assertSame([['field' => 'name', 'old' => 'Sede Centro', 'new' => 'Sede Norte']], AuditLog::latest('id')->first()->meta['changes']);
+        $this->assertSameChange([['field' => 'name', 'old' => 'Sede Centro', 'new' => 'Sede Norte']], AuditLog::latest('id')->first()->meta['changes']);
     }
 
     public function test_company_settings_panel_logs_before_and_after(): void
@@ -106,7 +106,7 @@ class AuditStructuredLogTest extends TestCase
 
         $log     = AuditLog::where('action', 'company_configuration.updated')->latest('id')->first();
         $changes = collect($log->meta['changes'])->keyBy('field');
-        $this->assertSame(['old' => 'reject', 'new' => 'flag'], collect($changes['geofence_policy'])->only('old', 'new')->all());
+        $this->assertSameChange(['old' => 'reject', 'new' => 'flag'], collect($changes['geofence_policy'])->only('old', 'new')->all());
         $this->assertSame(5, $changes['max_upload_mb']['old']);
         $this->assertSame(8, (int) $changes['max_upload_mb']['new']);
         $this->assertArrayNotHasKey('mobile_payslips_enabled', $changes->all()); // no cambió
@@ -269,5 +269,22 @@ class AuditStructuredLogTest extends TestCase
         $pairs = AuditLogPresenter::make(AuditLog::where('action', 'payslip.deleted')->first(), $admin)->contextPairs();
         $this->assertSame('Carlos Ramírez', (string) $pairs['Colaborador']);
         $this->assertArrayNotHasKey('Registro de la bitácora de marcaciones', $pairs);
+    }
+
+    /**
+     * Igual que assertSame pero sin depender del orden de las llaves: MySQL guarda las columnas JSON
+     * normalizadas (ordena las llaves), SQLite las guarda tal cual.
+     */
+    private function assertSameChange(array $expected, array $actual): void
+    {
+        $sort = function (array $a) use (&$sort): array {
+            if (! array_is_list($a)) {
+                ksort($a);
+            }
+
+            return array_map(fn ($v) => is_array($v) ? $sort($v) : $v, $a);
+        };
+
+        $this->assertSame($sort($expected), $sort($actual));
     }
 }

@@ -53,8 +53,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // cloudflared entrega la petición desde 127.0.0.1 con X-Forwarded-Proto=https:
         // confiar en él hace que Laravel genere URLs https (selfies firmadas,
         // assets) y vea la IP real del usuario. TRUSTED_PROXIES='*' para PaaS.
+        // La lista sale de config('app.trusted_proxies') en AppServiceProvider::boot():
+        // aquí .env no está cargado cuando la config está en caché (config:cache).
         // =====================================================================
-        $middleware->trustProxies(at: env('TRUSTED_PROXIES', '127.0.0.1,::1'));
 
         // =====================================================================
         // GRUPO DE MIDDLEWARE 'api'

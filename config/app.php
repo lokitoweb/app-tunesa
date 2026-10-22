@@ -82,6 +82,16 @@ return [
 
     'timezone' => env('APP_TIMEZONE', 'America/Lima'),
 
+    // Proxies de confianza (Cloudflare Tunnel, Nginx, balanceadores). Se lee aquí y no con env() en
+    // bootstrap/app.php para que siga valiendo con `php artisan config:cache` (ahí .env ya no se carga).
+    'trusted_proxies' => env('TRUSTED_PROXIES', '127.0.0.1,::1'),
+
+    // Solo para `php artisan db:seed --force` en producción (Super Admin inicial). Bórralos del .env después.
+    'seed_superadmin' => [
+        'email'    => env('SEED_SUPERADMIN_EMAIL'),
+        'password' => env('SEED_SUPERADMIN_PASSWORD'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

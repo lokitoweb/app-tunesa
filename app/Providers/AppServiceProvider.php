@@ -16,6 +16,7 @@ use App\Modules\Training\Services\TrainingEnrollmentService;
 use App\Modules\Integrations\Services\IntegrationDispatcher;
 use App\Modules\Core\Services\NotificationDispatcher;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Events\NotificationSent;
@@ -42,6 +43,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // El panel web usa Bootstrap 5
         Paginator::useBootstrapFive();
+
+        // Proxies de confianza (ver config/app.php): vale también con config:cache
+        TrustProxies::at(config('app.trusted_proxies'));
 
         // Límite usado por el grupo 'api' en bootstrap/app.php (ThrottleRequests:api)
         RateLimiter::for('api', function (Request $request) {

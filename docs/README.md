@@ -25,6 +25,7 @@ workflows). Si algo no coincide con el código, manda el código: avisa y se cor
 
 | Documento | Qué explica |
 |---|---|
+| [deployment/produccion-servidor.md](deployment/produccion-servidor.md) | Servidor de producción (Ubuntu, Nginx, PHP 8.3, MySQL), `.env` de producción, permisos, HTTPS, cron y despliegue automático en cada push a `master` (GitHub Actions por SSH o cron en el servidor), y cómo apuntar la app al dominio final. |
 | [deployment/mobile-cloudflare-tunnel.md](deployment/mobile-cloudflare-tunnel.md) | Probar la app en un celular real con el backend en tu PC expuesto por Cloudflare Tunnel, paso a paso, con solución de problemas. |
 | [deployment/integrations-queue.md](deployment/integrations-queue.md) | Worker de la cola, reintentos e historial de envíos del webhook y del endpoint de notificaciones; variables `INTEGRATIONS_*`. |
 
