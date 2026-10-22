@@ -52,6 +52,13 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update')->middleware('throttle:5,1');
 });
 
+// Token CSRF vigente de la sesión: el login lo pide antes de enviar si la página
+// quedó abierta mucho rato (evita el 419). Solo lo puede leer el propio sitio.
+Route::get('/csrf-token', function () {
+    return response()->json(['token' => csrf_token()])
+        ->header('Cache-Control', 'no-store, private');
+})->name('csrf.refresh')->middleware('throttle:30,1');
+
 // Logout accesible siempre (incluso con sesión expirada o sin autenticación)
 Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->name('logout');
 

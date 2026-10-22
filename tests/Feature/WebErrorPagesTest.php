@@ -24,7 +24,7 @@ class WebErrorPagesTest extends TestCase
         $response->assertStatus(404);
         $response->assertSee('Código HTTP 404', false);
         $response->assertSee('Página o recurso no encontrado', false);
-        $response->assertSee('Volver al Dashboard', false);
+        $response->assertSee('Iniciar sesión', false); // invitado: la acción principal es entrar
     }
 
     public function test_403_page_renders_executive_template(): void
@@ -45,7 +45,8 @@ class WebErrorPagesTest extends TestCase
         $response = $this->get('/_test/abort-500');
         $response->assertStatus(500);
         $response->assertSee('Código HTTP 500', false);
-        $response->assertSee('Incidencia interna del servidor', false);
+        $response->assertSee('Algo salió mal de nuestro lado', false);
+        $response->assertSee($response->headers->get('X-Request-Id'), false);
     }
 
     public function test_419_page_renders_executive_template(): void
@@ -55,8 +56,8 @@ class WebErrorPagesTest extends TestCase
         $response = $this->get('/_test/abort-419');
         $response->assertStatus(419);
         $response->assertSee('Código HTTP 419', false);
-        $response->assertSee('Sesión o formulario expirado', false);
-        $response->assertSee('Recargar Página', false);
+        $response->assertSee('Tu sesión expiró', false);
+        $response->assertSee('Iniciar sesión', false);
     }
 
     public function test_admin_user_calendar_redirects_gracefully_instead_of_404(): void

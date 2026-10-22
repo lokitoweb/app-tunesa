@@ -114,7 +114,7 @@ class SecretsAndErrorLeaksTest extends TestCase
         Route::middleware('web')->get('_test/boom', fn () => throw new \RuntimeException('Connection refused (10.0.3.17:3306)'));
 
         $this->get('/_test/boom')->assertStatus(500)
-            ->assertSee('Ocurrió un error inesperado')
+            ->assertSee('el incidente quedó registrado')
             ->assertDontSee('10.0.3.17')->assertDontSee('Connection refused')->assertDontSee('RuntimeException');
     }
 }

@@ -5,12 +5,26 @@
         $errBrand = null; // sin base de datos: la página de error igual se muestra
     }
     $errBrandSettings = \App\Modules\Core\Models\TenantSetting::forTenantOrDefaults($errBrand);
+
+    // Sesión iniciada (sin romper la página si la base de datos no responde)
+    try {
+        $errAuthed = Auth::check();
+    } catch (\Throwable) {
+        $errAuthed = false;
+    }
+    $errHomeUrl   = $errAuthed ? route('dashboard') : route('login');
+    $errHomeLabel = $errAuthed ? 'Ir al inicio' : 'Iniciar sesión';
+    $errHomeIcon  = $errAuthed ? 'bi-house-door-fill' : 'bi-box-arrow-in-right';
+
+    // Código de referencia real: el mismo que queda en storage/logs (RequestReference)
+    $errRef = request()->attributes->get('ref') ?? strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
 @endphp
 <!DOCTYPE html>
 <html lang="es" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
     <title>@yield('title', 'Error') — {{ $errBrandSettings->tradeName() }}</title>
 
     {{-- Detección instantánea de tema guardado (light / dark) sin parpadeos --}}
@@ -291,6 +305,33 @@
             gap: 0.35rem;
         }
 
+        .err-copy {
+            background: none;
+            border: 0;
+            padding: 0 0.15rem;
+            color: inherit;
+            cursor: pointer;
+            opacity: 0.75;
+        }
+        .err-copy:hover { opacity: 1; }
+        .err-hint {
+            margin: 0.85rem 0 0;
+            font-size: 0.78rem;
+            color: var(--err-text-muted);
+        }
+
+        @media (max-width: 575.98px) {
+            .err-topbar, .err-footer { padding: 1rem; }
+            .err-card { padding: 2rem 1.25rem; border-radius: 16px; }
+            .err-title { font-size: 1.25rem; }
+            .err-actions > * { flex: 1 1 100%; justify-content: center; }
+            .err-telemetry { justify-content: center; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .err-card { animation: none; }
+        }
+
         /* Footer Inferior */
         .err-footer {
             width: 100%;
@@ -307,7 +348,7 @@
 <body>
     {{-- 1. Barra Superior --}}
     <header class="err-topbar">
-        <a href="{{ Auth::check() ? route('dashboard') : url('/') }}" class="err-brand" title="{{ $errBrandSettings->tradeName() }}">
+        <a href="{{ $errHomeUrl }}" class="err-brand" title="{{ $errBrandSettings->tradeName() }}">
             @if($errBrandSettings->usesDefaultLogo())
                 <img src="{{ asset('img/grupo-negreiros-logo.png') }}" alt="{{ $errBrandSettings->tradeName() }}" class="err-brand-logo brand-logo-light">
                 <img src="{{ asset('img/grupo-negreiros-logo-white.png') }}" alt="{{ $errBrandSettings->tradeName() }}" class="err-brand-logo brand-logo-dark">
@@ -347,11 +388,11 @@
             {{-- Botones de Acción --}}
             <div class="err-actions">
                 @section('actions')
-                    <a href="{{ route('dashboard') }}" class="err-btn-primary">
-                        <i class="bi bi-grid-fill"></i>
-                        <span>Volver al Dashboard</span>
+                    <a href="{{ $errHomeUrl }}" class="err-btn-primary">
+                        <i class="bi {{ $errHomeIcon }}"></i>
+                        <span>{{ $errHomeLabel }}</span>
                     </a>
-                    <button type="button" onclick="window.history.back()" class="err-btn-secondary">
+                    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = @js($errHomeUrl))" class="err-btn-secondary">
                         <i class="bi bi-arrow-left"></i>
                         <span>Regresar</span>
                     </button>
@@ -362,7 +403,10 @@
             <div class="err-telemetry">
                 <span class="err-telemetry-tag">
                     <i class="bi bi-fingerprint"></i>
-                    <span>Ref: {{ strtoupper(substr(md5(request()->fullUrl() . now()), 0, 8)) }}</span>
+                    <span>Ref: <strong id="errRef">{{ $errRef }}</strong></span>
+                    <button type="button" class="err-copy" id="errCopyRef" title="Copiar código de referencia" aria-label="Copiar código de referencia">
+                        <i class="bi bi-copy"></i>
+                    </button>
                 </span>
                 <span class="err-telemetry-tag">
                     <i class="bi bi-clock"></i>
@@ -370,9 +414,10 @@
                 </span>
                 <span class="err-telemetry-tag">
                     <i class="bi bi-link-45deg"></i>
-                    <span>{{ \Illuminate\Support\Str::limit(request()->path(), 25) }}</span>
+                    <span>/{{ \Illuminate\Support\Str::limit(ltrim(request()->path(), '/'), 25) }}</span>
                 </span>
             </div>
+            <p class="err-hint">@yield('hint', 'Si el problema continúa, envía este código de referencia a soporte: nos permite encontrar exactamente qué pasó.')</p>
         </div>
     </main>
 
@@ -395,6 +440,16 @@
             }
 
             syncThemeIcon();
+
+            const copyBtn = document.getElementById('errCopyRef');
+            if (copyBtn && navigator.clipboard) {
+                copyBtn.addEventListener('click', function () {
+                    navigator.clipboard.writeText(document.getElementById('errRef').textContent.trim()).then(function () {
+                        copyBtn.innerHTML = '<i class="bi bi-check2"></i>';
+                        setTimeout(function () { copyBtn.innerHTML = '<i class="bi bi-copy"></i>'; }, 1800);
+                    }).catch(function () {});
+                });
+            }
 
             if (toggleBtn) {
                 toggleBtn.addEventListener('click', function () {

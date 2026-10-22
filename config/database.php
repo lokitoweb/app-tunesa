@@ -37,9 +37,13 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
+            // Con la sesión, la caché y la cola en la misma base SQLite, varias
+            // peticiones escriben a la vez. WAL deja leer mientras otro escribe, y
+            // busy_timeout espera como máximo 5 s por un bloqueo (sin él, PDO espera
+            // 60 s y la petición muere por "Maximum execution time" a mitad del login).
+            'busy_timeout' => (int) env('DB_BUSY_TIMEOUT', 5000),
+            'journal_mode' => env('DB_JOURNAL_MODE', 'wal'),
+            'synchronous' => env('DB_SYNCHRONOUS', 'normal'),
         ],
 
         'mysql' => [

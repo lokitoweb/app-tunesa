@@ -197,8 +197,52 @@
             if (now - lastActivityLogged > 2000) {
                 lastActivityLogged = now;
                 resetInactivityTimer();
+                // Quien trabaja mucho rato en una sola pantalla (llenando un formulario)
+                // no hace peticiones: se avisa al servidor para que la sesión no caduque
+                // a escondidas y el "Guardar" no termine en un 419.
+                if (now - lastServerSync > SERVER_SYNC_MS) syncWithServer();
             }
         }, { passive: true });
+    });
+
+    // Sincroniza sesión y token CSRF con el servidor. Si la sesión ya murió (equipo
+    // suspendido, pestaña olvidada), lleva al login de inmediato en vez de dejar
+    // llenar un formulario que fallará al enviarse.
+    const SERVER_SYNC_MS = 10 * 60 * 1000;
+    let lastServerSync = Date.now();
+
+    async function syncWithServer() {
+        lastServerSync = Date.now();
+        try {
+            const res = await fetch("{{ route('session.keep-alive') }}", {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            if (res.status === 401 || res.status === 419) {
+                window.location.href = "{{ route('logout') }}?expired=1";
+                return;
+            }
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.csrf_token) {
+                document.querySelector('meta[name="csrf-token"]')?.setAttribute('content', data.csrf_token);
+                document.querySelectorAll('input[name="_token"]').forEach(input => { input.value = data.csrf_token; });
+            }
+        } catch (e) {
+            // Sin conexión: se reintenta en un minuto
+            lastServerSync = Date.now() - SERVER_SYNC_MS + 60 * 1000;
+        }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && Date.now() - lastServerSync > SERVER_SYNC_MS) {
+            syncWithServer();
+        }
     });
 
     document.addEventListener('DOMContentLoaded', () => {

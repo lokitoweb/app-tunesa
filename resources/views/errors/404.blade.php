@@ -35,7 +35,7 @@
 @section('message')
     @php
         $msg = isset($exception) ? $exception->getMessage() : null;
-        $isInternal = empty($msg) || str_contains($msg, 'No query results') || str_contains($msg, 'App\\') || str_contains($msg, 'Models\\') || str_contains($msg, 'Illuminate\\');
+        $isInternal = empty($msg) || str_contains($msg, 'No query results') || str_contains($msg, 'could not be found') || str_contains($msg, 'The route') || str_contains($msg, 'App\\') || str_contains($msg, 'Models\\') || str_contains($msg, 'Illuminate\\');
     @endphp
     {{ $isInternal ? 'El expediente, registro o recurso solicitado no fue encontrado en el sistema o fue reubicado. Verifica el código e intenta nuevamente.' : $msg }}
 @endsection

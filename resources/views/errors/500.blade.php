@@ -30,8 +30,20 @@
     <i class="bi bi-cpu-fill"></i>
 @endsection
 
-@section('headline', 'Incidencia interna del servidor')
+@section('headline', 'Algo salió mal de nuestro lado')
 
 @section('message')
-    {{ config('app.debug') && $exception->getMessage() ? $exception->getMessage() : 'Ocurrió un error inesperado al procesar la operación en el servidor. El equipo técnico ha sido notificado y el incidente ha sido registrado en la bitácora.' }}
+    No es un error tuyo: el servidor no pudo completar la operación y el incidente quedó registrado.
+    Espera unos segundos y vuelve a intentarlo; si se repite, envía a soporte el código de referencia de abajo.
+@endsection
+
+@section('actions')
+    <button type="button" onclick="location.reload()" class="err-btn-primary">
+        <i class="bi bi-arrow-clockwise"></i>
+        <span>Reintentar</span>
+    </button>
+    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')" class="err-btn-secondary">
+        <i class="bi bi-arrow-left"></i>
+        <span>Regresar</span>
+    </button>
 @endsection

@@ -30,19 +30,40 @@
     <i class="bi bi-speedometer2"></i>
 @endsection
 
-@section('headline', 'Límite de peticiones alcanzado')
+@section('headline', 'Demasiados intentos seguidos')
+
+@php
+    $retryAfter = isset($exception) && method_exists($exception, 'getHeaders') ? (int) ($exception->getHeaders()['Retry-After'] ?? 0) : 0;
+    $retryAfter = max(5, min($retryAfter ?: 60, 3600));
+@endphp
 
 @section('message')
-    Has realizado múltiples solicitudes en un intervalo breve. Por salvaguarda del rendimiento del servicio y prevención contra sobrecarga, te solicitamos aguardar unos segundos antes de realizar una nueva acción.
+    Para proteger la plataforma limitamos cuántas acciones se pueden hacer en poco tiempo.
+    Podrás intentarlo de nuevo en <strong id="errRetryLeft">{{ $retryAfter }}</strong> segundos.
 @endsection
 
 @section('actions')
-    <button type="button" onclick="setTimeout(() => window.location.reload(), 1500)" class="err-btn-primary">
+    <button type="button" id="errRetryBtn" onclick="location.reload()" class="err-btn-primary" disabled style="opacity:.6">
         <i class="bi bi-arrow-clockwise"></i>
-        <span>Reintentar Operación</span>
+        <span>Reintentar</span>
     </button>
-    <a href="{{ route('dashboard') }}" class="err-btn-secondary">
-        <i class="bi bi-grid-fill"></i>
-        <span>Volver al Dashboard</span>
-    </a>
+    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')" class="err-btn-secondary">
+        <i class="bi bi-arrow-left"></i>
+        <span>Regresar</span>
+    </button>
+    <script>
+        (function () {
+            let left = {{ $retryAfter }};
+            const out = document.getElementById('errRetryLeft');
+            const btn = document.getElementById('errRetryBtn');
+            const timer = setInterval(function () {
+                left--;
+                if (out) out.textContent = Math.max(left, 0);
+                if (left <= 0) {
+                    clearInterval(timer);
+                    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+                }
+            }, 1000);
+        })();
+    </script>
 @endsection

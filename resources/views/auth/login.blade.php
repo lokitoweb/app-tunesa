@@ -201,6 +201,9 @@
         // Verificar estado inicial (por si hay valor pre-rellenado via old())
         updateButtonState();
 
+        // Correo ya conservado (p. ej. tras renovar la página): el cursor va a la contraseña
+        if (email && password && email.value.trim()) password.focus();
+
         // Función para disparar notificaciones Toast flotantes en relieve alto
         function triggerToast(title, message, type = 'danger') {
             if (!toastContainer) return;
@@ -287,8 +290,57 @@
                     button.setAttribute('aria-busy', 'true');
                     button.innerHTML = '<span class="erp-spinner" aria-hidden="true"></span><span class="btn-engraved-text">Verificando...</span>';
                 }
+
+                // Página abierta hace rato (o restaurada con "Atrás"): su token CSRF pudo
+                // caducar junto con la sesión. Se pide uno vigente antes de enviar.
+                if (tokenMayBeStale()) {
+                    e.preventDefault();
+                    refreshToken().finally(() => form.submit());
+                }
             });
         }
+
+        // ── Token CSRF siempre vigente (evita "419 — Sesión expirada" al ingresar) ──
+        const TOKEN_MAX_AGE_MS = 5 * 60 * 1000;
+        let tokenLoadedAt = Date.now();
+
+        function tokenMayBeStale() {
+            return Date.now() - tokenLoadedAt > TOKEN_MAX_AGE_MS;
+        }
+
+        function refreshToken() {
+            return fetch(@json(route('csrf.refresh')), {
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            })
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (!data || !data.token) return;
+                    form.querySelectorAll('input[name="_token"]').forEach(input => { input.value = data.token; });
+                    const meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) meta.setAttribute('content', data.token);
+                    tokenLoadedAt = Date.now();
+                })
+                .catch(() => {});
+        }
+
+        // Al volver a la pestaña tras un rato, o al restaurarla desde la caché del navegador
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible' && tokenMayBeStale()) refreshToken();
+        });
+        window.addEventListener('pageshow', function (ev) {
+            if (ev.persisted) {
+                tokenLoadedAt = 0;
+                refreshToken();
+                if (button) {
+                    button.classList.remove('is-loading');
+                    button.removeAttribute('aria-busy');
+                    button.innerHTML = '<span class="btn-engraved-text">Ingresar al sistema</span><span class="btn-engraved-arrow">→</span>';
+                    updateButtonState();
+                }
+            }
+        });
 
         function highlightInput(planeId) {
             const plane = document.getElementById(planeId);

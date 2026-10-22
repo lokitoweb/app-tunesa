@@ -14,6 +14,7 @@ use App\Modules\Core\Middleware\EnforceTenantScope;
 use App\Modules\Core\Middleware\EnsurePasswordChanged;
 use App\Modules\Core\Middleware\EnsureSupportedAppVersion;
 use App\Modules\Core\Middleware\HandleInertiaRequests;
+use App\Modules\Core\Middleware\RequestReference;
 use App\Modules\Core\Middleware\ResolveTenant;
 use App\Modules\Core\Middleware\SecurityHeaders;
 use App\Modules\Core\Middleware\SetWebTenant;
@@ -65,6 +66,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Sin instalar, todo va al asistente /install (y /install se cierra al terminar)
         $middleware->prepend(\App\Installer\Http\RedirectToInstaller::class);
 
+        // Código de referencia por petición (logs + páginas de error) y depuración solo en local
+        $middleware->prepend(RequestReference::class);
+
         // Cabeceras de seguridad en toda respuesta (panel, API y errores)
         $middleware->append(SecurityHeaders::class);
 
@@ -96,6 +100,58 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
             }
             return null; // Continuar con la cadena habitual de excepciones
+        });
+
+        // 419 en el panel web: el token CSRF del formulario caducó (la página quedó
+        // abierta más que la sesión, o se cerró por inactividad). En vez de una
+        // pantalla de error se vuelve al formulario con un aviso, y en el login se
+        // conserva el correo: basta volver a escribir la contraseña. El POST
+        // rechazado no se ejecuta, así que la protección CSRF sigue intacta.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, \Illuminate\Http\Request $request) {
+            if (! $e->getPrevious() instanceof \Illuminate\Session\TokenMismatchException || $request->is('api', 'api/*')) {
+                return null;
+            }
+
+            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+                return response()->json([
+                    'success'    => false,
+                    'message'    => 'La página estuvo inactiva y su código de seguridad caducó. Vuelve a intentarlo.',
+                    'code'       => 'CSRF_EXPIRED',
+                    'csrf_token' => $request->hasSession() ? csrf_token() : null,
+                ], 419);
+            }
+
+            if (! $request->hasSession()) {
+                return null;
+            }
+
+            // Volver a la página anterior solo si es de este mismo sitio (el Referer
+            // lo controla quien envía el POST: sin esto sería un redirect abierto)
+            $back = function (string $fallback) use ($request): string {
+                $previous = url()->previous($fallback);
+                $sameHost = parse_url($previous, PHP_URL_HOST) === $request->getHost();
+                $samePost = rtrim((string) parse_url($previous, PHP_URL_PATH), '/') === rtrim('/' . ltrim($request->path(), '/'), '/');
+
+                return $sameHost && ! $samePost ? $previous : $fallback;
+            };
+
+            $safeInput = $request->except(['password', 'password_confirmation', 'current_password', '_token', '_auth_token_verify']);
+
+            if (! \Illuminate\Support\Facades\Auth::check()) {
+                $message = $request->routeIs('login.post')
+                    ? 'La página de acceso estuvo abierta mucho tiempo y, por seguridad, se renovó. Ingresa tu contraseña otra vez.'
+                    : 'Tu sesión se cerró por inactividad. Ingresa tus credenciales para continuar.';
+
+                $target = $request->routeIs('password.email', 'password.update') ? $back(route('login')) : route('login');
+
+                return redirect()->to($target, 303)
+                    ->withInput($request->routeIs('login.post') ? $request->only('email') : $safeInput)
+                    ->with('info', $message);
+            }
+
+            return redirect()->to($back(route('dashboard')), 303)
+                ->withInput($safeInput)
+                ->with('info', 'El formulario estuvo abierto mucho tiempo y su código de seguridad caducó. Revisa los datos y vuelve a enviarlo.');
         });
 
         // Personalizar respuestas JSON para excepciones comunes

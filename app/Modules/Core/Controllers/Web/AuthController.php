@@ -38,7 +38,7 @@ class AuthController extends Controller
         // 1. Trampa Honeypot contra bots y escaneos automáticos
         if ($request->filled('_auth_token_verify')) {
             sleep(1);
-            return back()->withErrors(['email' => 'Acceso denegado por seguridad.']);
+            return redirect()->route('login')->withErrors(['email' => 'Acceso denegado por seguridad.']);
         }
 
         // 2. Sanitización contra inyecciones y caracteres nulos
@@ -76,7 +76,7 @@ class AuthController extends Controller
         try {
             $user = app(LoginGuard::class)->attempt($request, $user, $hostTenant?->id ?? $user?->tenant_id);
         } catch (ValidationException $e) {
-            return back()
+            return redirect()->route('login')
                 ->withInput($request->only('email'))
                 ->withErrors(['email' => $e->status === 422
                     ? 'Las credenciales proporcionadas no son válidas o la cuenta está inactiva.'
@@ -85,7 +85,7 @@ class AuthController extends Controller
 
         // 6. Validar que el rol tenga acceso al panel web
         if (! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view')) {
-            return back()
+            return redirect()->route('login')
                 ->withInput($request->only('email'))
                 ->withErrors(['email' => 'Los colaboradores de campo deben ingresar mediante la aplicación móvil '
                     . \App\Modules\Core\Models\TenantSetting::forTenant($user->tenant)->tradeName() . '.']);
