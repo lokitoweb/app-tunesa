@@ -5,7 +5,8 @@ import '../../public/css/panel.css';
 import 'bootstrap';
 
 import { createApp, h } from 'vue';
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
+import { installSkeletonNavigation } from './Modules/Core/Composables/useSkeleton';
 
 // Carga diferida: cada pantalla se importa al navegar a ella. El nombre que
 // envía el servidor es la ruta dentro de Modules ("HR/Pages/Shifts/Index").
@@ -22,3 +23,6 @@ createInertiaApp({
     },
     progress: { color: 'var(--brand, #0d6efd)' },
 });
+
+// Skeleton loaders al cambiar de filtro, pestaña o pantalla
+installSkeletonNavigation(router);

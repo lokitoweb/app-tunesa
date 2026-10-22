@@ -6,6 +6,7 @@ import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'training_providers.dart';
 import 'trainings_screen.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Detalle de un curso: avance, lecciones, cuestionario y constancia.
 class TrainingDetailScreen extends ConsumerWidget {
@@ -19,8 +20,8 @@ class TrainingDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Capacitación')),
-      body: detail.when(
-        loading: () => const LoadingView(),
+      body: detail.whenSkeleton(
+        loading: () => const SkeletonDetail(image: true),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(trainingDetailProvider(id))),
         data: (d) => RefreshIndicator(
           onRefresh: () => ref.refresh(trainingDetailProvider(id).future),

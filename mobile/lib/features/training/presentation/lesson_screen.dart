@@ -9,6 +9,7 @@ import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/pdf_bytes_view.dart';
 import '../domain/models.dart';
 import 'training_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 final _lessonPdfProvider = FutureProvider.autoDispose.family<Uint8List, (int, int)>(
   (ref, ids) => ref.watch(trainingRepositoryProvider).lessonPdf(ids.$1, ids.$2),
@@ -88,7 +89,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             LessonType.pdf => Column(children: [
                 _Title(lesson: lesson),
                 Expanded(
-                  child: ref.watch(_lessonPdfProvider((widget.courseId, lesson.id))).when(
+                  child: ref.watch(_lessonPdfProvider((widget.courseId, lesson.id))).whenSkeleton(
                         loading: () => const LoadingView(message: 'Descargando documento…'),
                         error: (e, _) => ErrorView(
                             error: e, onRetry: () => ref.invalidate(_lessonPdfProvider((widget.courseId, lesson.id)))),

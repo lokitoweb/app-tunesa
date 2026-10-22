@@ -996,8 +996,7 @@ async function applyDayFilter(customParams = {}) {
     const params = Object.fromEntries(formData.entries());
     Object.assign(params, customParams);
 
-    const overlay = document.getElementById('cal-day-loading-overlay');
-    if (overlay) overlay.style.display = 'flex';
+    Panel.skeleton.on('#cal-day-dynamic-container');
 
     try {
         const url = new URL('{{ route("attendance.calendar.day") }}', window.location.origin);
@@ -1029,8 +1028,7 @@ async function applyDayFilter(customParams = {}) {
     } catch (e) {
         console.error('Error al actualizar la jornada:', e);
     } finally {
-        const overlay = document.getElementById('cal-day-loading-overlay');
-        if (overlay) overlay.style.display = 'none';
+        Panel.skeleton.off('#cal-day-dynamic-container');
     }
 }
 

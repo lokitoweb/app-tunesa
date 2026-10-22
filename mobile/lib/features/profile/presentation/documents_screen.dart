@@ -12,6 +12,7 @@ import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Mis documentos" (legajo): avance de los obligatorios, estado de cada
 /// documento y subida por foto o PDF.
@@ -24,7 +25,7 @@ class DocumentsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mis documentos')),
-      body: file.when(
+      body: file.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),
         data: (f) {

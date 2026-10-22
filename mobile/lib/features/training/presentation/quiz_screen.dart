@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'training_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Cuestionario final. Las respuestas correctas solo las conoce el servidor.
 class QuizScreen extends ConsumerStatefulWidget {
@@ -56,7 +57,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
     final detail = ref.watch(trainingDetailProvider(widget.courseId));
     return Scaffold(
       appBar: AppBar(title: const Text('Cuestionario')),
-      body: detail.when(
+      body: detail.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(trainingDetailProvider(widget.courseId))),
         data: (d) => d.summary.locked

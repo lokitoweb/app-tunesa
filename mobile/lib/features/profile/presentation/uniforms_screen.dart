@@ -8,6 +8,7 @@ import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Uniforme y tallas": selector de tallas (polo, pantalón, calzado) e historial de entregas.
 class UniformsScreen extends ConsumerWidget {
@@ -19,7 +20,7 @@ class UniformsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Uniforme y tallas')),
-      body: file.when(
+      body: file.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),
         data: (f) => f.config.uniforms

@@ -9,6 +9,7 @@ import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'benefit_providers.dart';
 import 'benefit_widgets.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Detalle del beneficio: cómo se usa, código (se copia con un toque), enlace,
 /// contacto y condiciones.
@@ -23,8 +24,8 @@ class BenefitDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Beneficio')),
-      body: detail.when(
-        loading: () => const LoadingView(),
+      body: detail.whenSkeleton(
+        loading: () => const SkeletonDetail(image: true),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(benefitDetailProvider(id))),
         data: (b) => _Body(benefit: b),
       ),

@@ -14,6 +14,7 @@ import 'attendance_providers.dart';
 import '../../onboarding/presentation/onboarding_gate_card.dart';
 import '../../onboarding/presentation/onboarding_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Historial mensual de asistencia con opción de justificar tardanzas y faltas.
 class HistoryScreen extends ConsumerStatefulWidget {
@@ -67,8 +68,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ]),
         ),
         Expanded(
-          child: history.when(
-            loading: () => const LoadingView(),
+          child: history.whenSkeleton(
+            loading: () => const SkeletonList(header: true, trailing: true),
             error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(attendanceHistoryProvider(_period))),
             data: (data) => RefreshIndicator(
               onRefresh: () => ref.refresh(attendanceHistoryProvider(_period).future),

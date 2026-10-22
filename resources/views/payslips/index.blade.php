@@ -1225,9 +1225,8 @@
 
     async function applyPayslipFilters(page = 1) {
         const tableWrapper = document.getElementById('payslipsTableWrapper');
-        const loader = document.getElementById('tableLoadingOverlay');
-        
-        if (loader) loader.classList.remove('d-none');
+        // Silueta en KPIs y tabla mientras llega el filtro (reemplaza el spinner)
+        Panel.skeleton.on('#main-content');
 
         const year = document.getElementById('filter_year').value;
         const month = document.getElementById('filter_month').value;
@@ -1326,8 +1325,7 @@
         } catch (err) {
             console.error('Error in applyPayslipFilters:', err);
         } finally {
-            const overlay = document.getElementById('tableLoadingOverlay');
-            if (overlay) overlay.classList.add('d-none');
+            Panel.skeleton.off('#main-content');
         }
     }
 

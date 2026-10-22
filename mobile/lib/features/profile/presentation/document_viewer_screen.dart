@@ -7,6 +7,7 @@ import 'package:pdfx/pdfx.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 final _documentBytesProvider = FutureProvider.autoDispose.family<Uint8List, int>(
   (ref, id) => ref.watch(profileRepositoryProvider).documentBytes(id),
@@ -26,7 +27,7 @@ class DocumentViewerScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(document?.typeLabel ?? 'Documento')),
-      body: bytes.when(
+      body: bytes.whenSkeleton(
         loading: () => const LoadingView(message: 'Abriendo documento…'),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(_documentBytesProvider(id))),
         data: (data) => _isPdf(data)

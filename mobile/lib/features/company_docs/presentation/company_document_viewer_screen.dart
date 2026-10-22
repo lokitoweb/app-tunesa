@@ -10,6 +10,7 @@ import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/pdf_bytes_view.dart';
 import '../domain/models.dart';
 import 'company_document_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Lee el PDF dentro de la app. "Descargar" abre el menú del teléfono para
 /// guardarlo en Archivos/Drive o enviarlo. Si el documento lo pide, abajo
@@ -90,7 +91,7 @@ class _CompanyDocumentViewerScreenState extends ConsumerState<CompanyDocumentVie
             IconButton(tooltip: 'Descargar o compartir', icon: const Icon(Icons.download_rounded), onPressed: () => _download(d, bytes)),
         ],
       ),
-      body: pdf.when(
+      body: pdf.whenSkeleton(
         loading: () => const LoadingView(message: 'Abriendo documento…'),
         error: (e, _) => ErrorView(
           error: e,

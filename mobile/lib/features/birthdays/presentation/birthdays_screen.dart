@@ -8,6 +8,7 @@ import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'birthday_providers.dart';
 import 'birthday_widgets.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Cumpleaños: "Mi equipo" (próximos de su sede), meses y, en cada mes, hoy,
 /// próximos y pasados. Al tocar a alguien se ve su ficha.
@@ -123,8 +124,8 @@ class _BirthdaysScreenState extends ConsumerState<BirthdaysScreen> {
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: data.when(
-                loading: () => const Padding(padding: EdgeInsets.all(48), child: LoadingView()),
+              child: data.whenSkeleton(
+                loading: () => const SkeletonList(padding: EdgeInsets.zero, fallbackCount: 5),
                 error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(birthdayMonthProvider(_query))),
                 data: (m) => m.isEmpty
                     ? Padding(

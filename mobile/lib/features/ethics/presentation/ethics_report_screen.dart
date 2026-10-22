@@ -10,6 +10,7 @@ import '../../../core/widgets/page_padding.dart';
 import '../../../core/widgets/picker_field.dart';
 import '../domain/models.dart';
 import 'ethics_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Formulario de denuncia. Al enviarla muestra el código y la clave una sola vez.
 class EthicsReportScreen extends ConsumerStatefulWidget {
@@ -80,7 +81,7 @@ class _EthicsReportScreenState extends ConsumerState<EthicsReportScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Nueva denuncia')),
-      body: categories.when(
+      body: categories.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(ethicsCategoriesProvider)),
         data: (list) => Form(

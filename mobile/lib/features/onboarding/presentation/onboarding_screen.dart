@@ -8,6 +8,7 @@ import '../../../core/widgets/page_padding.dart';
 import '../../profile/presentation/profile_providers.dart';
 import '../domain/models.dart';
 import 'onboarding_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Asistente de incorporación: cada etapa lleva a la pantalla que ya existe
 /// (contacto, datos de pago, tallas, documentos, capacitaciones) y, cuando
@@ -59,7 +60,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(onboardingProvider.future),
-        child: summary.when(
+        child: summary.whenSkeleton(
           loading: () => const LoadingView(),
           error: (e, _) => ListView(children: [
             const SizedBox(height: 80),

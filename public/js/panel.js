@@ -371,7 +371,103 @@
         });
     }, true);
 
-    window.Panel = { esc, tiles, cssVar, openPhoto, confirm: confirmDialog, toast };
+    // Skeleton loaders: Panel.skeleton.on(región) pinta las tablas, KPIs, listas
+    // y gráficos de la región como siluetas (solo una clase CSS: no se inyecta
+    // HTML, así que no hay datos que escapar). El retardo evita el parpadeo en
+    // respuestas rápidas y el tope de seguridad no deja la región "cargando"
+    // si la navegación no ocurre (p. ej. una descarga).
+    const skeletonTimers = new WeakMap();
+    const SKELETON_DELAY = 150;
+    const SKELETON_MAX = 12000;
+
+    function skeletonTargets(target) {
+        if (!target) return [];
+        if (typeof target === 'string') return Array.from(document.querySelectorAll(target));
+        if (target instanceof Element) return [target];
+        return Array.from(target).filter((el) => el instanceof Element);
+    }
+
+    const skeleton = {
+        on(target, { delay = SKELETON_DELAY } = {}) {
+            skeletonTargets(target).forEach((el) => {
+                clearTimeout(skeletonTimers.get(el));
+                el.setAttribute('aria-busy', 'true');
+                skeletonTimers.set(el, setTimeout(() => {
+                    el.classList.add('sk-loading');
+                    skeletonTimers.set(el, setTimeout(() => skeleton.off(el), SKELETON_MAX));
+                }, delay));
+            });
+        },
+        off(target) {
+            skeletonTargets(target).forEach((el) => {
+                clearTimeout(skeletonTimers.get(el));
+                skeletonTimers.delete(el);
+                el.classList.remove('sk-loading');
+                el.removeAttribute('aria-busy');
+            });
+        },
+    };
+
+    const MAIN = '#main-content';
+    // Enlaces que descargan en lugar de navegar: no muestran silueta
+    const DOWNLOAD_HINT = /(export|download|descargar|\.pdf|\.xlsx?|\.csv|format=)/i;
+
+    // Se decide después de que corran los demás manejadores: si una pantalla
+    // resolvió el clic o el envío por AJAX (preventDefault), ella maneja su carga
+    function whenNotHandled(e) {
+        setTimeout(() => { if (!e.defaultPrevented) skeleton.on(MAIN); }, 0);
+    }
+
+    // <select data-autosubmit> envía su formulario (reemplaza onchange="this.form.submit()"
+    // en línea: compatible con una CSP sin 'unsafe-inline' y dispara el evento submit)
+    document.addEventListener('change', (e) => {
+        const field = e.target;
+        if (!(field instanceof Element) || !field.matches('[data-autosubmit]') || !field.form) return;
+        field.form.requestSubmit ? field.form.requestSubmit() : field.form.submit();
+    });
+
+    // Filtros por GET y formularios marcados con data-skeleton (cambio de empresa)
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (e.defaultPrevented || !(form instanceof HTMLFormElement)) return;
+        if (form.target && form.target !== '_self') return;
+        const isGet = (form.getAttribute('method') || 'get').toLowerCase() === 'get';
+        if (!isGet && !form.hasAttribute('data-skeleton')) return;
+        if (e.submitter && DOWNLOAD_HINT.test(`${e.submitter.name}=${e.submitter.value}`)) return;
+        whenNotHandled(e);
+    });
+
+    // Pestañas, paginación y filtros que solo cambian la consulta de la misma pantalla
+    document.addEventListener('click', (e) => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const link = e.target instanceof Element ? e.target.closest('a[href]') : null;
+        if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+        if (link.hasAttribute('data-bs-toggle') || link.hasAttribute('data-photo')) return;
+        let url;
+        try { url = new URL(link.href, window.location.href); } catch (_) { return; }
+        if (url.origin !== window.location.origin || DOWNLOAD_HINT.test(url.pathname + url.search)) return;
+        const samePage = url.pathname === window.location.pathname && url.search !== window.location.search;
+        if (!samePage && !link.hasAttribute('data-skeleton')) return;
+        whenNotHandled(e);
+    });
+
+    // <img data-fallback-initials="J">: si la foto no carga se muestran las
+    // iniciales (con textContent, sin onerror en línea ni HTML armado con datos)
+    document.addEventListener('error', (e) => {
+        const img = e.target;
+        if (!(img instanceof HTMLImageElement) || !img.hasAttribute('data-fallback-initials')) return;
+        const avatar = document.createElement('span');
+        avatar.className = 'topbar-avatar';
+        avatar.style.width = '36px';
+        avatar.style.height = '36px';
+        avatar.textContent = img.getAttribute('data-fallback-initials') || '?';
+        img.replaceWith(avatar);
+    }, true);
+
+    // Volver con el botón Atrás (bfcache) no debe dejar la silueta puesta
+    window.addEventListener('pageshow', () => skeleton.off('.sk-loading, ' + MAIN));
+
+    window.Panel = { esc, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, skeleton };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;
     window.openCommandPalette = openCommandPalette;

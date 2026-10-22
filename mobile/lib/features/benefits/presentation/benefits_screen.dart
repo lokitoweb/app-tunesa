@@ -10,6 +10,7 @@ import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'benefit_providers.dart';
 import 'benefit_widgets.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Beneficios de la persona: destacados arriba, filtro por categoría y la lista.
 class BenefitsScreen extends ConsumerStatefulWidget {
@@ -28,8 +29,8 @@ class _BenefitsScreenState extends ConsumerState<BenefitsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Beneficios')),
-      body: catalog.when(
-        loading: () => const LoadingView(),
+      body: catalog.whenSkeleton(
+        loading: () => const SkeletonList(leading: SkeletonLeading.square, lines: 3),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(benefitCatalogProvider)),
         data: (c) {
           final items = _category == null ? c.items : c.items.where((b) => b.category?.id == _category).toList();

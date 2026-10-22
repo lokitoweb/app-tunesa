@@ -5,6 +5,7 @@ import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'account_providers.dart';
 import 'push_status_card.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Qué avisos llegan como notificación al teléfono. Apagar uno solo quita el
 /// push: el aviso sigue apareciendo en la bandeja.
@@ -39,7 +40,7 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
 
     return Scaffold(
       appBar: AppBar(title: const Text('Notificaciones')),
-      body: prefs.when(
+      body: prefs.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(notificationPreferencesProvider)),
         data: (list) => NotificationPreferencesList(

@@ -5,6 +5,7 @@ import '../../../core/widgets/async_views.dart';
 import '../domain/punch.dart';
 import 'offline_sync.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Marcaciones no aceptadas": marcaciones de la cola offline que el servidor
 /// rechazó o que vencieron sin enviarse, con el motivo. El colaborador las
@@ -33,8 +34,8 @@ class RejectedPunchesScreen extends ConsumerWidget {
             ),
         ],
       ),
-      body: list.when(
-        loading: () => const LoadingView(),
+      body: list.whenSkeleton(
+        loading: () => const SkeletonList(trailing: true),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(rejectedPunchesProvider)),
         data: (items) => items.isEmpty
             ? const Center(

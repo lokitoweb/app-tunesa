@@ -5,6 +5,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'account_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Mis dispositivos": dónde está abierta la cuenta, con opción de cerrar cada
 /// sesión o todas menos esta.
@@ -68,8 +69,8 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mis dispositivos')),
-      body: sessions.when(
-        loading: () => const LoadingView(),
+      body: sessions.whenSkeleton(
+        loading: () => const SkeletonList(leading: SkeletonLeading.square),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(deviceSessionsProvider)),
         data: (list) => DevicesList(
           sessions: list,

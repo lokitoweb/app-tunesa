@@ -1099,7 +1099,7 @@
             </div>
             <div class="toast-content">
                 <strong class="toast-title">${type === 'success' ? 'Completado' : 'Aviso'}</strong>
-                <span class="toast-text">${message}</span>
+                <span class="toast-text">${Panel.esc(message)}</span>
             </div>
         `;
         stack.appendChild(alert);

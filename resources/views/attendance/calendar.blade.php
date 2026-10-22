@@ -1565,7 +1565,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     </div>
 
     <!-- Contenedor con Overlay Scoped: Solo cubre las vistas de grilla/matriz, dejando cabecera y filtros 100% visibles -->
-    <div id="cal-views-wrapper">
+    <div id="cal-views-wrapper" data-sk="grid">
         <div id="cal-loading-overlay">
             <div class="d-flex flex-column align-items-center">
                 <div class="spinner-border text-primary mb-2" role="status" style="width: 2.2rem; height: 2.2rem;"></div>
@@ -1940,8 +1940,8 @@ let currentCalViewMode = 'calendar';
 
 // Función central de búsqueda interna sin cambiar la URL
 async function executeInternalFetch(params) {
-    const overlay = document.getElementById('cal-loading-overlay');
-    if (overlay) overlay.style.display = 'flex';
+    // Silueta de KPIs y grilla mientras llega el mes (reemplaza el spinner)
+    Panel.skeleton.on('#calendar-app-container');
 
     try {
         const url = new URL('{{ route("attendance.calendar") }}', window.location.origin);
@@ -1979,8 +1979,7 @@ async function executeInternalFetch(params) {
     } catch (err) {
         console.error(err);
     } finally {
-        const overlay = document.getElementById('cal-loading-overlay');
-        if (overlay) overlay.style.display = 'none';
+        Panel.skeleton.off('#calendar-app-container');
     }
 }
 
@@ -2107,9 +2106,11 @@ function openDayDetailModal(date, dayNum, weekday) {
             badgeModClass = 'is-excused';
         }
 
-        const initials = ((r.first_name ? r.first_name[0] : '') + (r.last_name ? r.last_name[0] : '')).toUpperCase();
+        // Todo dato del colaborador se escapa: el nombre o el cargo podrían traer HTML
+        const esc = Panel.esc;
+        const initials = esc(((r.first_name ? r.first_name[0] : '') + (r.last_name ? r.last_name[0] : '')).toUpperCase());
         const avatarHtml = r.avatar_url
-            ? `<img src="${r.avatar_url}" alt="${r.first_name}" class="cal-modal-avatar-img" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';"><div class="cal-modal-avatar" style="display: none;">${initials}</div>`
+            ? `<img src="${esc(r.avatar_url)}" alt="${esc(r.first_name)}" class="cal-modal-avatar-img" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';"><div class="cal-modal-avatar" style="display: none;">${initials}</div>`
             : `<div class="cal-modal-avatar">${initials}</div>`;
 
         rowsHtml += `
@@ -2117,11 +2118,11 @@ function openDayDetailModal(date, dayNum, weekday) {
                 <div class="d-flex align-items-center gap-3">
                     ${avatarHtml}
                     <div>
-                        <div class="fw-bold" style="color: var(--cal-text-main); font-size: 0.975rem; line-height: 1.25; margin-bottom: 0.35rem;">${r.last_name}, ${r.first_name}</div>
+                        <div class="fw-bold" style="color: var(--cal-text-main); font-size: 0.975rem; line-height: 1.25; margin-bottom: 0.35rem;">${esc(r.last_name)}, ${esc(r.first_name)}</div>
                         <div class="small d-flex align-items-center gap-2" style="color: var(--cal-text-muted); font-size: 0.8rem;">
-                            <span><i class="bi bi-briefcase me-1" style="color: var(--cal-text-subtle);"></i>${r.position || 'Colaborador'}</span>
+                            <span><i class="bi bi-briefcase me-1" style="color: var(--cal-text-subtle);"></i>${esc(r.position || 'Colaborador')}</span>
                             <span style="opacity: 0.4;">•</span>
-                            <span><i class="bi bi-clock me-1" style="color: var(--cal-text-subtle);"></i>${c.shift || 'Turno Mañana'}</span>
+                            <span><i class="bi bi-clock me-1" style="color: var(--cal-text-subtle);"></i>${esc(c.shift || 'Turno Mañana')}</span>
                         </div>
                     </div>
                 </div>
@@ -2130,12 +2131,12 @@ function openDayDetailModal(date, dayNum, weekday) {
                         <div class="text-end">
                             <div class="cal-modal-clock-box">
                                 <i class="bi bi-box-arrow-in-right text-primary me-1.5"></i>
-                                <span>${c.clock_in} ${c.clock_out ? '– ' + c.clock_out : ''}</span>
+                                <span>${esc(c.clock_in)} ${c.clock_out ? '– ' + esc(c.clock_out) : ''}</span>
                             </div>
                             ${c.late_minutes ? `
                                 <div class="mt-1 text-end">
                                     <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold" style="font-size: 0.7rem; padding: 3px 8px; border-radius: 6px;">
-                                        <i class="bi bi-alarm me-1"></i>+${c.late_minutes} min tarde
+                                        <i class="bi bi-alarm me-1"></i>+${parseInt(c.late_minutes, 10) || 0} min tarde
                                     </span>
                                 </div>
                             ` : ''}
@@ -2143,10 +2144,10 @@ function openDayDetailModal(date, dayNum, weekday) {
                     ` : ''}
                     <span class="cal-modal-status-badge ${badgeModClass}">
                         ${statusIcon}
-                        <span>${c.label}</span>
+                        <span>${esc(c.label)}</span>
                     </span>
                     ${c.attendance_id ? `
-                        <button type="button" class="cal-modal-btn-evidence" onclick="openEvidence(${c.attendance_id})">
+                        <button type="button" class="cal-modal-btn-evidence" onclick="openEvidence(${parseInt(c.attendance_id, 10)})">
                             <i class="bi bi-camera-fill me-1.5"></i>
                             <span>Ver evidencia</span>
                         </button>

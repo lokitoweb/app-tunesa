@@ -9738,3 +9738,164 @@ select.modern-input-control option {
 .tenant-picker-option:has(input:checked) .tenant-picker-check {
     opacity: 1;
 }
+
+/* =============================================================================
+ * Skeleton loaders
+ * Una región con .sk-loading (o aria-busy desde Panel.skeleton) convierte sus
+ * filas de tabla, tarjetas KPI, listas y gráficos en siluetas con brillo, sin
+ * cambiar su tamaño: al llegar los datos no hay saltos. Solo CSS sobre el DOM
+ * que ya existe (no se inyecta HTML) y una sola animación de fondo compartida
+ * (background-attachment: fixed) para que el brillo vaya sincronizado.
+ * ============================================================================= */
+:root,
+[data-bs-theme="light"] {
+    --sk-base: #e8edf3;
+    --sk-shine: #f8fafc;
+}
+
+[data-bs-theme="dark"] {
+    --sk-base: #1a2234;
+    --sk-shine: #26324a;
+}
+
+@keyframes sk-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+}
+
+.sk-bar,
+.sk-loading tbody td::after,
+.sk-loading :is([class*="kpi-card"], .list-group-item, [data-sk])::after,
+.sk-loading div:has(> canvas)::after {
+    background-color: var(--sk-base);
+    background-image: linear-gradient(100deg, var(--sk-base) 35%, var(--sk-shine) 50%, var(--sk-base) 65%);
+    background-size: 200% 100%;
+    background-attachment: fixed;
+    animation: sk-shimmer 1.4s linear infinite;
+}
+
+.sk-bar {
+    display: block;
+    height: .7rem;
+    border-radius: 6px;
+}
+
+.sk-loading {
+    cursor: progress;
+}
+
+/* Mientras carga no se puede pulsar lo que va a cambiar */
+.sk-loading :is(tbody, [class*="kpi-card"], .list-group, [data-sk]) {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Tablas: cada celda es una barra; la fila conserva su alto */
+.sk-loading tbody td {
+    position: relative;
+    color: transparent !important;
+}
+
+.sk-loading tbody td > * {
+    visibility: hidden;
+}
+
+.sk-loading tbody td::after {
+    content: "";
+    position: absolute;
+    left: .75rem;
+    right: 28%;
+    top: 50%;
+    height: .65rem;
+    margin-top: -.325rem;
+    border-radius: 6px;
+}
+
+.sk-loading tbody tr:nth-child(3n+2) td::after { right: 42%; }
+.sk-loading tbody tr:nth-child(3n) td::after { right: 18%; }
+.sk-loading tbody tr td:last-child::after { left: auto; width: 3.5rem; right: .75rem; }
+
+/* Tarjetas KPI y filas de lista: cifra, etiqueta y detalle */
+.sk-loading :is([class*="kpi-card"], .list-group-item, [data-sk]) {
+    position: relative;
+    overflow: hidden;
+}
+
+.sk-loading :is([class*="kpi-card"], .list-group-item, [data-sk]) > * {
+    visibility: hidden;
+}
+
+.sk-loading [class*="kpi-card"]::after {
+    content: "";
+    position: absolute;
+    inset: 1rem;
+    width: auto;
+    height: auto;
+    -webkit-mask:
+        linear-gradient(#000 0 0) 0 0 / 55% .7rem no-repeat,
+        linear-gradient(#000 0 0) 0 1.6rem / 40% 1.8rem no-repeat,
+        linear-gradient(#000 0 0) 0 4.1rem / 75% .6rem no-repeat;
+    mask:
+        linear-gradient(#000 0 0) 0 0 / 55% .7rem no-repeat,
+        linear-gradient(#000 0 0) 0 1.6rem / 40% 1.8rem no-repeat,
+        linear-gradient(#000 0 0) 0 4.1rem / 75% .6rem no-repeat;
+}
+
+/* Fila de lista: avatar redondo y dos líneas */
+.sk-loading .list-group-item::after {
+    content: "";
+    position: absolute;
+    inset: .5rem .5rem .5rem .5rem;
+    -webkit-mask:
+        radial-gradient(circle 18px at 18px 50%, #000 98%, transparent) 0 0 / 36px 100% no-repeat,
+        linear-gradient(#000 0 0) 50px calc(50% - .55rem) / 45% .65rem no-repeat,
+        linear-gradient(#000 0 0) 50px calc(50% + .45rem) / 30% .55rem no-repeat;
+    mask:
+        radial-gradient(circle 18px at 18px 50%, #000 98%, transparent) 0 0 / 36px 100% no-repeat,
+        linear-gradient(#000 0 0) 50px calc(50% - .55rem) / 45% .65rem no-repeat,
+        linear-gradient(#000 0 0) 50px calc(50% + .45rem) / 30% .55rem no-repeat;
+}
+
+/* Gráficos y bloques marcados con data-sk: un panel completo */
+.sk-loading div:has(> canvas) {
+    position: relative;
+}
+
+.sk-loading div:has(> canvas) > canvas {
+    visibility: hidden;
+}
+
+.sk-loading :is(div:has(> canvas), [data-sk])::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: var(--card-radius);
+}
+
+/* Spinners y velos antiguos de las tablas: la silueta los reemplaza */
+.sk-loading :is(.table-loading-overlay, [id$="LoadingOverlay"], [id$="Loader"]) {
+    display: none !important;
+}
+
+/* Los diálogos que viven dentro de la región no se tocan */
+.sk-loading .modal :is(tbody td, [class*="kpi-card"], .list-group-item) {
+    color: inherit !important;
+    pointer-events: auto;
+}
+
+.sk-loading .modal :is(tbody td, [class*="kpi-card"], .list-group-item) > * {
+    visibility: visible;
+}
+
+.sk-loading .modal :is(tbody td, [class*="kpi-card"], .list-group-item)::after {
+    content: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sk-bar,
+    .sk-loading tbody td::after,
+    .sk-loading :is([class*="kpi-card"], .list-group-item, [data-sk])::after,
+    .sk-loading div:has(> canvas)::after {
+        animation: none;
+    }
+}

@@ -1,6 +1,7 @@
 <script setup>
 // Historial de envíos (GET /settings/branding/deliveries): últimos 20, con detalle desplegable
 import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { useSkeleton } from '@/Modules/Core/Composables/useSkeleton';
 
 const props = defineProps({ request: { type: Function, required: true }, subtitle: String });
 
@@ -17,6 +18,7 @@ const pretty = (text) => {
 const rows = ref(null); // null = cargando
 const error = ref('');
 const loading = ref(false);
+const showSkeleton = useSkeleton(loading);
 const open = reactive(new Set());
 const auto = ref(false);
 let timer = null;
@@ -63,7 +65,7 @@ defineExpose({ load });
                 </button>
             </div>
         </div>
-        <div class="table-responsive">
+        <div class="table-responsive" :class="{ 'sk-loading': showSkeleton }" :aria-busy="loading">
             <table class="table table-hover align-middle mb-0 small">
                 <thead class="table-light">
                     <tr>
@@ -83,11 +85,15 @@ defineExpose({ load });
                             <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ error }}
                         </td>
                     </tr>
-                    <tr v-else-if="rows === null">
-                        <td colspan="8" class="text-center text-secondary py-4">
-                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Cargando bitácora de entregas…
-                        </td>
-                    </tr>
+                    <template v-else-if="rows === null">
+                        <!-- Silueta de filas mientras llega la bitácora -->
+                        <tr v-for="n in 3" :key="`sk-${n}`" aria-hidden="true">
+                            <td v-for="c in 8" :key="c" class="py-3" :class="{ 'ps-3': c === 1 }">
+                                <span class="sk-bar" :style="{ width: c === 8 ? '1.5rem' : `${40 + ((n * c * 17) % 45)}%` }"></span>
+                            </td>
+                        </tr>
+                        <tr class="visually-hidden"><td colspan="8">Cargando bitácora de entregas…</td></tr>
+                    </template>
                     <tr v-else-if="!rows.length">
                         <td colspan="8" class="text-center text-secondary py-4">
                             <i class="bi bi-inbox me-1"></i> Todavía no se han registrado transmisiones de webhook.

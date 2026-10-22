@@ -10,6 +10,7 @@ import '../domain/models.dart';
 import 'attendance_providers.dart';
 import '../../onboarding/presentation/onboarding_gate_card.dart';
 import '../../onboarding/presentation/onboarding_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Mis horas extra del mes: cada día con horas extra y su estado de
 /// aprobación (por aprobar, aprobadas o no aprobadas por la jefatura).
@@ -60,8 +61,8 @@ class _OvertimeScreenState extends ConsumerState<OvertimeScreen> {
           ]),
         ),
         Expanded(
-          child: history.when(
-            loading: () => const LoadingView(),
+          child: history.whenSkeleton(
+            loading: () => const SkeletonList(header: true, trailing: true),
             error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(attendanceHistoryProvider(_period))),
             data: (data) {
               final days = data.items.where((a) => a.overtimeStatus != null).toList();

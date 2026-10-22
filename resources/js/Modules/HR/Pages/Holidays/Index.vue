@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import axios from 'axios';
+import { useSkeleton } from '@/Modules/Core/Composables/useSkeleton';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import TenantBadge from '@/Modules/Core/Components/TenantBadge.vue';
 import DateRangePicker from '@/Modules/Core/Components/DateRangePicker.vue';
@@ -32,6 +33,7 @@ const currentYear = ref(props.year);
 const holidaysList = ref([...props.holidays]);
 const loadingYear = ref(false);
 const loadingSync = ref(false);
+const showYearSkeleton = useSkeleton(loadingYear);
 
 // Formulario reactivo para nuevo feriado (vía AJAX)
 const formDate = ref(props.today);
@@ -385,7 +387,8 @@ async function destroyHoliday(holiday) {
                     <div 
                         class="emp-table-responsive flex-grow-1" 
                         style="max-height: 440px; overflow-y: auto; transition: opacity 0.2s ease;"
-                        :class="{ 'opacity-50': loadingYear }"
+                        :class="{ 'sk-loading': showYearSkeleton }"
+                        :aria-busy="loadingYear"
                     >
                         <table class="emp-table align-middle">
                             <thead style="position: sticky; top: 0; z-index: 2; background: var(--bg-surface);">

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
+import { useSkeleton } from '@/Modules/Core/Composables/useSkeleton';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -64,6 +65,7 @@ const currentMonth = ref(props.month);
 const peopleList = ref([...(props.people || [])]);
 const monthsList = ref([...(props.months || [])]);
 const loadingMonth = ref(false);
+const showMonthSkeleton = useSkeleton(loadingMonth);
 
 // Filtros 100% internos reactivos (sin mutar URL)
 const searchQuery = ref(props.filters.search ?? '');
@@ -407,7 +409,7 @@ const hourLabel = (h) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'a. m.' : 'p. m.'
                 </div>
 
                 <!-- Tabla de Resultados -->
-                <div class="table-responsive">
+                <div class="table-responsive" :class="{ 'sk-loading': showMonthSkeleton }" :aria-busy="loadingMonth">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="bg-surface-elevated text-body-secondary small text-uppercase">
                             <tr>

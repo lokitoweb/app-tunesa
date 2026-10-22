@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../network/api_exception.dart';
+import 'skeleton.dart';
 
 /// Mensaje de error con botón de reintento. Distingue falta de conexión y
 /// falta de permisos (403). El 401 ya lo resuelve ApiClient cerrando sesión.
@@ -45,18 +46,17 @@ class ErrorView extends StatelessWidget {
   }
 }
 
+/// Carga genérica con skeleton: con [message] (descargar un PDF) dibuja una
+/// hoja; sin él, una lista de tarjetas. Las pantallas principales usan su
+/// propia silueta (ver skeleton.dart) para calcar su diseño.
 class LoadingView extends StatelessWidget {
   const LoadingView({super.key, this.message});
 
   final String? message;
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const CircularProgressIndicator(),
-          if (message != null) ...[const SizedBox(height: 12), Text(message!)],
-        ]),
-      );
+  Widget build(BuildContext context) =>
+      message != null ? SkeletonDocument(message: message) : const SkeletonList();
 }
 
 class EmptyView extends StatelessWidget {
@@ -138,9 +138,10 @@ class LoadMoreFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
+      // La siguiente página asoma como una tarjeta más, sin spinner
       return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: SizedBox.square(dimension: 28, child: CircularProgressIndicator(strokeWidth: 3))),
+        padding: EdgeInsets.only(top: 10),
+        child: Shimmer(child: SkeletonTile(seed: 3)),
       );
     }
     if (error != null) {

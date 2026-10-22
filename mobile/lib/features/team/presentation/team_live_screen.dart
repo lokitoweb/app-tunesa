@@ -7,6 +7,7 @@ import '../../../core/widgets/status_chip.dart';
 import '../domain/models.dart';
 import 'team_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Mi equipo hoy: quién marcó, tardanzas, descansos y marcaciones fuera de
 /// la geocerca. Se actualiza deslizando hacia abajo.
@@ -30,8 +31,8 @@ class TeamLiveScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(teamOverviewProvider.future),
-        child: overview.when(
-          loading: () => const LoadingView(),
+        child: overview.whenSkeleton(
+          loading: () => const SkeletonList(trailing: true),
           error: (e, _) => ListView(children: [
             const SizedBox(height: 80),
             ErrorView(error: e, onRetry: () => ref.invalidate(teamOverviewProvider)),

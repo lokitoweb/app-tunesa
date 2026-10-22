@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:pdfx/pdfx.dart';
 
 import 'async_views.dart';
+import 'skeleton.dart';
 
 /// PDF en memoria con zoom (no se escribe en el almacenamiento del teléfono).
 class PdfBytesView extends StatefulWidget {
@@ -29,8 +30,8 @@ class _PdfBytesViewState extends State<PdfBytesView> {
         controller: _controller,
         builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
           options: const DefaultBuilderOptions(),
-          documentLoaderBuilder: (_) => const LoadingView(),
-          pageLoaderBuilder: (_) => const LoadingView(),
+          documentLoaderBuilder: (_) => const SkeletonDocument(),
+          pageLoaderBuilder: (_) => const SkeletonDocument(),
           errorBuilder: (_, error) => ErrorView(error: 'No se pudo abrir el PDF: $error'),
         ),
       );

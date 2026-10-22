@@ -573,8 +573,8 @@ window.openEthicsQuickModal = function(caseId, activeTabId = null) {
             <div class="p-4 text-center">
                 <i class="bi bi-exclamation-triangle-fill text-danger fs-2 d-block mb-2"></i>
                 <div class="fw-bold text-body">No se pudo cargar el expediente</div>
-                <div class="text-secondary small mb-3">${err.message}</div>
-                <a href="/ethics/${caseId}" class="btn btn-primary btn-sm">Abrir en página completa</a>
+                <div class="text-secondary small mb-3">${Panel.esc(err.message)}</div>
+                <a href="/ethics/${encodeURIComponent(caseId)}" class="btn btn-primary btn-sm">Abrir en página completa</a>
             </div>
         `;
     });
@@ -768,27 +768,27 @@ window.revealEthicsIdentity = function(caseId, btn) {
                         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem 1.25rem; font-size: 0.8125rem;">
                             <div>
                                 <span class="text-secondary d-block small mb-1" style="font-size: 0.75rem;">Nombre Completo:</span>
-                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${id.name || '—'}</strong>
+                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${Panel.esc(id.name || '—')}</strong>
                             </div>
                             <div>
                                 <span class="text-secondary d-block small mb-1" style="font-size: 0.75rem;">Código Empleado:</span>
-                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${id.employee_code || '—'}</strong>
+                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${Panel.esc(id.employee_code || '—')}</strong>
                             </div>
                             <div>
                                 <span class="text-secondary d-block small mb-1" style="font-size: 0.75rem;">N° Documento:</span>
-                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${id.document ? (id.document.startsWith('DNI') ? id.document : 'DNI ' + id.document) : '—'}</strong>
+                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${Panel.esc(id.document ? (id.document.startsWith('DNI') ? id.document : 'DNI ' + id.document) : '—')}</strong>
                             </div>
                             <div>
                                 <span class="text-secondary d-block small mb-1" style="font-size: 0.75rem;">Puesto / Cargo:</span>
-                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${id.position || '—'}</strong>
+                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${Panel.esc(id.position || '—')}</strong>
                             </div>
                             <div>
                                 <span class="text-secondary d-block small mb-1" style="font-size: 0.75rem;">Correo Electrónico:</span>
-                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600; word-break: break-all;">${id.email || '—'}</strong>
+                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600; word-break: break-all;">${Panel.esc(id.email || '—')}</strong>
                             </div>
                             <div>
                                 <span class="text-secondary d-block small mb-1" style="font-size: 0.75rem;">Teléfono:</span>
-                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${id.phone || '—'}</strong>
+                                <strong class="text-body d-block" style="font-size: 0.8125rem; font-weight: 600;">${Panel.esc(id.phone || '—')}</strong>
                             </div>
                         </div>
                     </div>

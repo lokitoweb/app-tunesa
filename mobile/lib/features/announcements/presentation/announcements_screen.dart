@@ -9,6 +9,7 @@ import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'announcement_providers.dart';
 import 'announcement_widgets.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Comunicados de RR. HH. que le llegaron a la persona (últimos 6 meses).
 class AnnouncementsScreen extends ConsumerWidget {
@@ -22,8 +23,8 @@ class AnnouncementsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Comunicados')),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(announcementFeedProvider.future),
-        child: feed.when(
-          loading: () => const LoadingView(),
+        child: feed.whenSkeleton(
+          loading: () => const SkeletonList(leading: SkeletonLeading.square, lines: 3),
           error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(announcementFeedProvider)),
           data: (f) => f.items.isEmpty
               ? ListView(children: const [

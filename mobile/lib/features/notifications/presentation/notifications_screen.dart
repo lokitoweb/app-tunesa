@@ -8,6 +8,7 @@ import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'notifications_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Pestañas de la navegación inferior: se abren con go() en vez de push().
 const _tabRoutes = {'/home', '/history', '/requests', '/payslips', '/profile'};
@@ -52,7 +53,7 @@ class NotificationsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: notifications.when(
+      body: notifications.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(notificationsProvider)),
         data: (paged) {

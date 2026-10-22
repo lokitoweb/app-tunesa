@@ -7,6 +7,7 @@ import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'team_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Bandeja del supervisor / RRHH: solicitudes pendientes con aprobar y rechazar.
 class ApprovalsScreen extends ConsumerWidget {
@@ -18,8 +19,8 @@ class ApprovalsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Aprobaciones')),
-      body: approvals.when(
-        loading: () => const LoadingView(),
+      body: approvals.whenSkeleton(
+        loading: () => const SkeletonList(trailing: true),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(approvalsProvider)),
         data: (paged) {
           final list = paged.items;

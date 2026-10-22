@@ -10,6 +10,7 @@ import '../../../core/widgets/module_icons.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'company_document_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Documentos: carpetas de la empresa, los que faltan confirmar y acceso a
 /// "Mi legajo" (documentos personales).
@@ -48,7 +49,7 @@ class _CompanyDocumentsScreenState extends ConsumerState<CompanyDocumentsScreen>
           ),
         ),
         Expanded(
-          child: library.when(
+          child: library.whenSkeleton(
             loading: () => const LoadingView(),
             error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(documentLibraryProvider)),
             data: (lib) => RefreshIndicator(
@@ -145,7 +146,7 @@ class FolderDocumentsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(title ?? library.value?.folders.where((f) => f.id == folderId).firstOrNull?.name ?? 'Documentos')),
-      body: library.when(
+      body: library.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(documentLibraryProvider)),
         data: (lib) {

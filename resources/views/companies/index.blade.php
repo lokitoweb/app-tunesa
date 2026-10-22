@@ -29,7 +29,7 @@
             </div>
 
             <!-- Filtro por Estado -->
-            <select id="status_filter" name="status" class="form-select company-status-select" onchange="this.form.submit()">
+            <select id="status_filter" name="status" class="form-select company-status-select" data-autosubmit>
                 <option value="">Todos los estados</option>
                 @foreach($statusesList + ['cancelled' => 'Dada de baja'] as $value => $label)
                     <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
@@ -731,15 +731,15 @@
                     item.innerHTML = `
                         <div class="d-flex align-items-center gap-2">
                             <div class="avatar-sm bg-light text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold">
-                                ${a.name.charAt(0).toUpperCase()}
+                                ${Panel.esc((a.name || '?').charAt(0).toUpperCase())}
                             </div>
                             <div>
-                                <div class="fw-semibold text-dark small">${a.name}</div>
-                                <div class="text-secondary" style="font-size: 0.775rem;">${a.email}</div>
+                                <div class="fw-semibold text-dark small">${Panel.esc(a.name)}</div>
+                                <div class="text-secondary" style="font-size: 0.775rem;">${Panel.esc(a.email)}</div>
                             </div>
                         </div>
                         <span class="badge bg-success-subtle text-success border border-success-subtle fw-medium px-2 py-1" style="font-size: 0.75rem;">
-                            ${a.status === 'active' ? 'Activo' : a.status}
+                            ${a.status === 'active' ? 'Activo' : Panel.esc(a.status)}
                         </span>
                     `;
                     adminListEl.appendChild(item);

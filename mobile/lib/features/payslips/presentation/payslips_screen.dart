@@ -8,6 +8,7 @@ import '../../../core/widgets/async_views.dart';
 import '../data/payslip_repository.dart';
 import '../domain/models.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/skeleton.dart';
 
 final payslipRepositoryProvider = Provider<PayslipRepository>((ref) => PayslipRepository(ref.watch(apiClientProvider)));
 
@@ -22,8 +23,8 @@ class PayslipsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mis boletas')),
-      body: payslips.when(
-        loading: () => const LoadingView(),
+      body: payslips.whenSkeleton(
+        loading: () => const SkeletonList(leading: SkeletonLeading.square, trailing: true),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(payslipsProvider)),
         data: (list) => RefreshIndicator(
           onRefresh: () => ref.refresh(payslipsProvider.future),

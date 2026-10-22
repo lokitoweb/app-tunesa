@@ -6,6 +6,7 @@ import 'package:pdfx/pdfx.dart';
 
 import '../../../core/widgets/async_views.dart';
 import 'payslips_screen.dart';
+import '../../../core/widgets/skeleton.dart';
 
 final _payslipPdfProvider = FutureProvider.autoDispose.family<Uint8List, int>(
   (ref, id) => ref.watch(payslipRepositoryProvider).pdf(id),
@@ -25,7 +26,7 @@ class PayslipViewerScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(title ?? 'Boleta de pago')),
-      body: pdf.when(
+      body: pdf.whenSkeleton(
         loading: () => const LoadingView(message: 'Descargando boleta…'),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(_payslipPdfProvider(id))),
         data: (bytes) => _PdfView(bytes: bytes),
@@ -57,8 +58,8 @@ class _PdfViewState extends State<_PdfView> {
         controller: _controller,
         builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
           options: const DefaultBuilderOptions(),
-          documentLoaderBuilder: (_) => const LoadingView(),
-          pageLoaderBuilder: (_) => const LoadingView(),
+          documentLoaderBuilder: (_) => const SkeletonDocument(),
+          pageLoaderBuilder: (_) => const SkeletonDocument(),
           errorBuilder: (_, error) => ErrorView(error: 'No se pudo abrir el PDF: $error'),
         ),
       );

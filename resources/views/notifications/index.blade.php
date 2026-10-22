@@ -88,7 +88,7 @@
                     <span class="input-group-text bg-surface text-secondary border-end-0" style="border-color: var(--border-color); font-size: 0.8rem;">
                         <i class="bi bi-funnel"></i>
                     </span>
-                    <select name="category" class="form-select form-select-sm border-start-0" onchange="this.form.submit()" style="border-color: var(--border-color); font-size: 0.8rem; min-width: 170px;">
+                    <select name="category" class="form-select form-select-sm border-start-0" data-autosubmit style="border-color: var(--border-color); font-size: 0.8rem; min-width: 170px;">
                         @foreach($categories as $key => $cat)
                             <option value="{{ $key }}" @selected($category === $key)>{{ $cat['label'] }}</option>
                         @endforeach

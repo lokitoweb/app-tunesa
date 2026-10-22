@@ -7,6 +7,7 @@ import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'profile_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Datos de Pago y Previsión": cuenta de abono (banco, tipo, número, CCI /
 /// CLABE / CBU) y fondo de retiro / seguro (AFP, ONP, seguro estatal).
@@ -19,7 +20,7 @@ class PaymentInfoScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Información de pagos')),
-      body: file.when(
+      body: file.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),
         data: (f) => f.config.paymentInfo

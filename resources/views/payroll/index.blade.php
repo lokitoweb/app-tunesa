@@ -281,11 +281,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams({ month, year });
         if (branch) params.append('branch_id', branch);
 
-        if (loadingOverlay) {
-            loadingOverlay.classList.remove('d-none');
-            loadingOverlay.classList.add('d-flex');
-        }
-        tableBody.style.opacity = '0.4';
+        // Silueta en KPIs y tabla mientras llega el periodo (reemplaza el spinner)
+        Panel.skeleton.on('#main-content');
 
         fetch(`/payroll?${params.toString()}`, {
             headers: {
@@ -353,11 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .finally(() => {
             isFetching = false;
-            tableBody.style.opacity = '1';
-            if (loadingOverlay) {
-                loadingOverlay.classList.remove('d-flex');
-                loadingOverlay.classList.add('d-none');
-            }
+            Panel.skeleton.off('#main-content');
         });
     }
 

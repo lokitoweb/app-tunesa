@@ -6,6 +6,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'ethics_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Seguimiento de una denuncia: estado, conversación y respuesta.
 class EthicsCaseScreen extends ConsumerStatefulWidget {
@@ -51,8 +52,8 @@ class _EthicsCaseScreenState extends ConsumerState<EthicsCaseScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.saved.code)),
-      body: detail.when(
-        loading: () => const LoadingView(),
+      body: detail.whenSkeleton(
+        loading: () => const SkeletonDetail(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(ethicsCaseProvider(_key))),
         data: (c) => RefreshIndicator(
           onRefresh: () => ref.refresh(ethicsCaseProvider(_key).future),

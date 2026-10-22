@@ -1088,8 +1088,7 @@ document.addEventListener('DOMContentLoaded', function () {
     async function fetchEmployees(page = 1) {
         currentInternalPage = page;
         if (tableLoader) tableLoader.style.display = 'block';
-        const wrapper = document.getElementById('empTableWrapper');
-        if (wrapper) wrapper.classList.add('is-loading');
+        Panel.skeleton.on(tableContainer);
 
         const params = new URLSearchParams({
             page: page,
@@ -1117,8 +1116,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error('Error fetching employees:', error);
         } finally {
             if (tableLoader) tableLoader.style.display = 'none';
-            const newWrapper = document.getElementById('empTableWrapper');
-            if (newWrapper) newWrapper.classList.remove('is-loading');
+            Panel.skeleton.off(tableContainer);
         }
     }
 
@@ -1403,12 +1401,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         modalBranchesList.innerHTML = data.branches.map((b, idx) => `
                             <div class="emp-branch-option-row">
                                 <div class="form-check d-flex align-items-center gap-2 mb-0">
-                                    <input class="form-check-input branch-check" type="checkbox" name="branch_ids[]" value="${b.id}" id="m_branch_${b.id}" ${idx === 0 ? 'checked' : ''}>
-                                    <label class="form-check-label fw-bold" for="m_branch_${b.id}" style="font-size: 0.825rem; color: var(--text-primary);">${b.name}</label>
+                                    <input class="form-check-input branch-check" type="checkbox" name="branch_ids[]" value="${Panel.esc(b.id)}" id="m_branch_${Panel.esc(b.id)}" ${idx === 0 ? 'checked' : ''}>
+                                    <label class="form-check-label fw-bold" for="m_branch_${Panel.esc(b.id)}" style="font-size: 0.825rem; color: var(--text-primary);">${Panel.esc(b.name)}</label>
                                 </div>
                                 <div class="form-check form-check-inline mb-0">
-                                    <input class="form-check-input primary-branch-radio" type="radio" name="primary_branch_id" value="${b.id}" id="m_primary_${b.id}" ${idx === 0 ? 'checked' : ''}>
-                                    <label class="form-check-label small" for="m_primary_${b.id}" style="font-size: 0.75rem; color: var(--accent-cyan); cursor: pointer;">
+                                    <input class="form-check-input primary-branch-radio" type="radio" name="primary_branch_id" value="${Panel.esc(b.id)}" id="m_primary_${Panel.esc(b.id)}" ${idx === 0 ? 'checked' : ''}>
+                                    <label class="form-check-label small" for="m_primary_${Panel.esc(b.id)}" style="font-size: 0.75rem; color: var(--accent-cyan); cursor: pointer;">
                                         <i class="bi bi-star-fill star-icon me-1"></i>Sede Principal
                                     </label>
                                 </div>
@@ -1420,19 +1418,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Cargar turnos
                 if (modalShiftSelect && data.shifts) {
                     modalShiftSelect.innerHTML = `<option value="">Sin turno asignado (se asignará después)</option>` +
-                        data.shifts.map(s => `<option value="${s.id}">${s.name} (${s.start_time || ''} - ${s.end_time || ''})</option>`).join('');
+                        data.shifts.map(s => `<option value="${Panel.esc(s.id)}">${Panel.esc(s.name)} (${Panel.esc(s.start_time || '')} - ${Panel.esc(s.end_time || '')})</option>`).join('');
                 }
 
                 // Cargar cargos
                 if (modalPosition && data.positions) {
                     modalPosition.innerHTML = `<option value="">Sin cargo asignado</option>` +
-                        data.positions.map(p => `<option value="${p.id}" data-department="${p.department_id || ''}" data-roaming="${p.is_roaming ? '1' : '0'}">${p.name}</option>`).join('');
+                        data.positions.map(p => `<option value="${Panel.esc(p.id)}" data-department="${Panel.esc(p.department_id || '')}" data-roaming="${p.is_roaming ? '1' : '0'}">${Panel.esc(p.name)}</option>`).join('');
                 }
 
                 // Cargar departamentos
                 if (modalDepartment && data.departments) {
                     modalDepartment.innerHTML = `<option value="">Sin área específica</option>` +
-                        data.departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                        data.departments.map(d => `<option value="${Panel.esc(d.id)}">${Panel.esc(d.name)}</option>`).join('');
                 }
             } catch (err) {
                 console.error('Error fetching tenant options:', err);
@@ -2097,7 +2095,7 @@ document.addEventListener('DOMContentLoaded', function () {
             fileModalBody.innerHTML = `
                 <div class="alert alert-danger py-3 px-4 d-flex align-items-center gap-2 m-3">
                     <i class="bi bi-exclamation-triangle-fill fs-5"></i>
-                    <div>${err.message || 'No se pudo cargar el expediente. Por favor inténtalo de nuevo.'}</div>
+                    <div>${Panel.esc(err.message || 'No se pudo cargar el expediente. Por favor inténtalo de nuevo.')}</div>
                 </div>
             `;
         }

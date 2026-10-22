@@ -8,6 +8,7 @@ import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'announcement_providers.dart';
 import 'announcement_widgets.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Comunicado completo. Abrirlo lo marca como leído (RR. HH. ve quién lo leyó).
 class AnnouncementDetailScreen extends ConsumerWidget {
@@ -21,8 +22,8 @@ class AnnouncementDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Comunicado')),
-      body: detail.when(
-        loading: () => const LoadingView(),
+      body: detail.whenSkeleton(
+        loading: () => const SkeletonDetail(image: true),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(announcementDetailProvider(id))),
         data: (a) => _Body(announcement: a),
       ),

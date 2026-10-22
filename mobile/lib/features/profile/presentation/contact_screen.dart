@@ -5,6 +5,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/async_views.dart';
 import 'profile_providers.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Dirección y contacto de emergencia.
 class ContactScreen extends ConsumerStatefulWidget {
@@ -57,7 +58,7 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Datos de contacto')),
-      body: file.when(
+      body: file.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),
         data: (f) {

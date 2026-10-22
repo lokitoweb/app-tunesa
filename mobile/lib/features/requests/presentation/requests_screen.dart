@@ -11,6 +11,7 @@ import '../../../core/widgets/status_chip.dart';
 import '../data/leave_repository.dart';
 import '../domain/models.dart';
 import '../../../core/widgets/page_padding.dart';
+import '../../../core/widgets/skeleton.dart';
 
 final leaveRepositoryProvider = Provider<LeaveRepository>((ref) => LeaveRepository(ref.watch(apiClientProvider)));
 
@@ -42,8 +43,8 @@ class RequestsScreen extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('Nueva'),
       ),
-      body: requests.when(
-        loading: () => const LoadingView(),
+      body: requests.whenSkeleton(
+        loading: () => const SkeletonList(leading: SkeletonLeading.square, trailing: true),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(leaveRequestsProvider)),
         data: (paged) {
           final list = paged.items;

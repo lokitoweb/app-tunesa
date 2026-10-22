@@ -42,11 +42,11 @@
 
     <div class="header-controls">
         @if($navUser->isSuperAdmin())
-            <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0">
+            <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0" data-skeleton>
                 @csrf
                 <div class="header-company-select" title="Filtrar por empresa">
                     <i class="bi bi-buildings text-primary"></i>
-                    <select name="tenant_id" onchange="this.form.submit()" aria-label="Empresa a administrar">
+                    <select name="tenant_id" data-autosubmit aria-label="Empresa a administrar">
                         <option value="">Todas las empresas</option>
                         @foreach(\App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
                             <option value="{{ $t->id }}" @selected($brandTenant?->id === $t->id)>{{ $t->company_name }}</option>
@@ -382,7 +382,7 @@
                                      data-photo="{{ attendance_photo_url($att, 'in') }}"
                                      data-photo-title="{{ $att->user->first_name }} {{ $att->user->last_name }}"
                                      data-photo-meta="Hora: {{ $att->clock_in_at->format('h:i:s a') }} · Distancia: {{ $att->clock_in_distance_meters }} m"
-                                     onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'topbar-avatar\' style=\'width:36px;height:36px;\'>{{ mb_substr($att->user->first_name ?? 'U', 0, 1) }}</span>'">
+                                     data-fallback-initials="{{ mb_substr($att->user->first_name ?? 'U', 0, 1) }}">
                             </div>
                         @else
                             <div class="selfie-wrapper">
@@ -781,7 +781,7 @@ document.addEventListener('DOMContentLoaded', () => {
                       data-photo="${safePhotoUrl}"
                       data-photo-title="${safeUserName}"
                       data-photo-meta="Hora: ${safeClockIn} · Distancia: ${safeDist} m"
-                      onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\\'topbar-avatar\\' style=\\'width:36px;height:36px;\\'>${initialChar}</span>'">
+                      data-fallback-initials="${initialChar}">
                </div>`
             : `<div class="selfie-wrapper">
                  <span class="topbar-avatar" style="width: 36px; height: 36px;">${initialChar}</span>
@@ -852,6 +852,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const seq = ++dashboardFetchSeq;
+        // Filtro elegido por la persona: KPIs, gráficos y lista en silueta.
+        // El sondeo de cada 20 s no la muestra (no parpadea).
+        if (!isAutoPolling) Panel.skeleton.on('#main-content');
         fetch(`{{ route('dashboard.live-stream') }}?${queryParams.toString()}`, {
             headers: { 
                 'Accept': 'application/json',
@@ -1055,6 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         })
         .finally(() => {
+            if (seq === dashboardFetchSeq) Panel.skeleton.off('#main-content');
             if (refreshIcon && !isAutoPolling) {
                 setTimeout(() => {
                     refreshIcon.classList.remove('is-spinning');

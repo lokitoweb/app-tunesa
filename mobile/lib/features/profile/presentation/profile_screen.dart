@@ -20,6 +20,7 @@ import '../../training/presentation/training_providers.dart';
 import '../../benefits/presentation/benefit_providers.dart';
 import '../../birthdays/presentation/birthday_providers.dart';
 import '../../company_docs/presentation/company_document_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// "Mi perfil": foto, avance de la ficha y acceso a Mis documentos,
 /// Información de pagos, Uniforme y tallas y Datos de contacto. Cada sección
@@ -38,8 +39,8 @@ class ProfileScreen extends ConsumerWidget {
           ref.invalidate(companyConfigProvider);
           return ref.refresh(employeeFileProvider.future);
         },
-        child: file.when(
-          loading: () => const LoadingView(),
+        child: file.whenSkeleton(
+          loading: () => const SkeletonProfile(),
           error: (e, _) => ListView(children: [
             const SizedBox(height: 80),
             ErrorView(error: e, onRetry: () => ref.invalidate(employeeFileProvider)),

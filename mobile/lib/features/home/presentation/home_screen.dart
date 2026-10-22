@@ -28,6 +28,7 @@ import '../../birthdays/presentation/birthday_home_card.dart';
 import '../../birthdays/presentation/birthday_providers.dart';
 import '../../company_docs/presentation/company_document_providers.dart';
 import 'quick_actions.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Inicio del colaborador: turno de hoy, estado de la jornada y botones de marcación.
 /// Para supervisores / RRHH agrega la sección "Mi equipo".
@@ -100,15 +101,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             HomeGreeting(name: auth.user?.firstName ?? '', initials: auth.user?.initials ?? '?', avatarUrl: auth.user?.avatarUrl),
             const SizedBox(height: 16),
-            const AnnouncementHomeCard(),
-            const TrainingHomeCard(),
-            const _PendingDocumentsCard(),
+            // Las tarjetas que llegan después crecen suave, sin empujar de golpe
+            const RevealSize(child: AnnouncementHomeCard()),
+            const RevealSize(child: TrainingHomeCard()),
+            const RevealSize(child: _PendingDocumentsCard()),
             if (user != null && user.hasTeamArea) ...[
               _TeamSection(canApprove: user.canApproveRequests, canViewTeam: user.canViewTeam),
               const SizedBox(height: 16),
             ],
-            today.when(
-              loading: () => const Padding(padding: EdgeInsets.all(48), child: LoadingView()),
+            today.whenSkeleton(
+              loading: () => const SkeletonPunchBoard(),
               error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(todayStatusProvider)),
               data: (status) => Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -123,7 +125,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            const BirthdayHomeCard(),
+            const RevealSize(child: BirthdayHomeCard()),
             const QuickActions(),
           ],
         ),

@@ -68,13 +68,13 @@
                 </button>
                 @if($navUser->isSuperAdmin())
                     @if(!request()->routeIs('dashboard*'))
-                        <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0">
+                        <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0" data-skeleton>
                             @csrf
                             <div class="topbar-tenant-selector" title="Filtrar vista por empresa">
                                 <span class="tenant-selector-icon">
                                     <i class="bi bi-buildings"></i>
                                 </span>
-                                <select name="tenant_id" class="tenant-selector-select" onchange="this.form.submit()" aria-label="Empresa a administrar">
+                                <select name="tenant_id" class="tenant-selector-select" data-autosubmit aria-label="Empresa a administrar">
                                     <option value="" @selected(!$brand)>Todas las empresas</option>
                                     @foreach(\App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
                                         <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>

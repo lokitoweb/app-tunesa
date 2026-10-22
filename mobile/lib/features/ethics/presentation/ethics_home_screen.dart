@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../domain/models.dart';
 import 'ethics_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Inicio del canal ético: cómo funciona, nueva denuncia y las guardadas en este celular.
 class EthicsHomeScreen extends ConsumerWidget {
@@ -64,7 +65,7 @@ class EthicsHomeScreen extends ConsumerWidget {
           Text('Guardadas en este celular', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           ...switch (saved.value) {
-            null => const [Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))],
+            null => const [Shimmer(child: SkeletonTile(leading: SkeletonLeading.square))],
             [] => [
                 Text('Ninguna. Si guardas una denuncia, aparecerá aquí para consultarla sin escribir la clave.',
                     style: TextStyle(color: scheme.onSurfaceVariant)),

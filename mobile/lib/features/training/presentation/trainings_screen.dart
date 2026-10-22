@@ -6,6 +6,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'training_providers.dart';
+import '../../../core/widgets/skeleton.dart';
 
 /// Lista de capacitaciones asignadas: pendientes primero, luego completadas.
 class TrainingsScreen extends ConsumerWidget {
@@ -17,7 +18,7 @@ class TrainingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Capacitaciones')),
-      body: trainings.when(
+      body: trainings.whenSkeleton(
         loading: () => const LoadingView(),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(trainingsProvider)),
         data: (list) {
