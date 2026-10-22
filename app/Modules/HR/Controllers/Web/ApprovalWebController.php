@@ -60,7 +60,12 @@ class ApprovalWebController extends Controller
                 ->withQueryString();
         } elseif ($tab === 'justifications') {
             $items = Attendance::where('justification_status', $status === 'cancelled' ? 'none' : $status)
-                ->with(['user:id,first_name,last_name,employee_code,avatar_path', 'branch:id,name', 'reviewer:id,first_name,last_name'])
+                ->with([
+                    'user:id,first_name,last_name,employee_code,avatar_path',
+                    'branch:id,name',
+                    'shift:id,name,start_time,end_time,grace_period_minutes',
+                    'reviewer:id,first_name,last_name',
+                ])
                 ->orderByDesc('work_date')
                 ->paginate($perPage)
                 ->withQueryString();

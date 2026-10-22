@@ -40,6 +40,11 @@ class Phase3WebPanelTest extends TestCase
             $this->actingAs($admin)->get($url)->assertOk();
         }
 
+        $res = $this->actingAs($admin)->getJson('/payroll?year=2026&month=9');
+        $res->assertOk()
+            ->assertJsonStructure(['success', 'rows', 'totals', 'year', 'month', 'branchId'])
+            ->assertJson(['success' => true, 'year' => 2026, 'month' => 9]);
+
         $this->actingAs($hr)->get("/employees/{$ana->id}/file")->assertOk()->assertDontSee('19112345678012');
         $this->actingAs($hr)->get('/settings/mobile')->assertForbidden();
 

@@ -25,12 +25,29 @@ class UniformWebController extends Controller
     {
         $branchId = $request->integer('branch_id') ?: null;
 
+        $recent = UniformDelivery::with('user:id,first_name,last_name,employee_code')
+            ->latest('delivered_at')->latest('id')->limit(50)->get();
+
+        $recentDeliveries = $recent->map(fn ($d) => [
+            'id'           => $d->id,
+            'user_id'      => $d->user_id,
+            'user_name'    => $d->user?->full_name ?? '—',
+            'employee_code'=> $d->user?->employee_code ?? '—',
+            'item'         => $d->item,
+            'item_label'   => UniformDelivery::ITEMS[$d->item] ?? $d->item,
+            'size'         => $d->size ?? '—',
+            'quantity'     => $d->quantity,
+            'delivered_at' => $d->delivered_at?->format('d/m/Y') ?? '—',
+            'notes'        => $d->notes ?? '—',
+        ]);
+
         return view('uniforms.index', [
-            'rows'     => $this->report->rows($branchId),
-            'summary'  => $this->report->summary($branchId),
-            'branches' => Branch::orderBy('name')->get(['id', 'name']),
-            'branchId' => $branchId,
-            'recent'   => UniformDelivery::with('user:id,first_name,last_name')->latest('delivered_at')->latest('id')->limit(10)->get(),
+            'rows'             => $this->report->rows($branchId),
+            'summary'          => $this->report->summary($branchId),
+            'branches'         => Branch::orderBy('name')->get(['id', 'name']),
+            'branchId'         => $branchId,
+            'recent'           => $recent,
+            'recentDeliveries' => $recentDeliveries,
         ]);
     }
 

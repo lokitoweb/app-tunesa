@@ -7,6 +7,7 @@ use App\Modules\Core\Models\Branch;
 use App\Modules\HR\Models\EmployeeProfile;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Payroll\Services\PayrollExportService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -21,7 +22,7 @@ class PayrollWebController extends Controller
         private readonly AuditLogger $audit,
     ) {}
 
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         [$year, $month, $branchId] = $this->period($request);
 
@@ -39,6 +40,17 @@ class PayrollWebController extends Controller
             'missing_bank'  => $rows->whereNull('bank_name')->count(),
             'not_verified'  => $rows->where('payment_status', '!=', 'Verificado')->count(),
         ];
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success'  => true,
+                'rows'     => $rows->values(),
+                'totals'   => $totals,
+                'year'     => $year,
+                'month'    => $month,
+                'branchId' => $branchId,
+            ]);
+        }
 
         return view('payroll.index', [
             'rows'     => $rows,

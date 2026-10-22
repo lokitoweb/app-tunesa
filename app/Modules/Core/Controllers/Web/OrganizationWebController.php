@@ -6,9 +6,12 @@ use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Department;
 use App\Modules\Core\Models\Position;
+use App\Modules\Core\Models\TenantSetting;
+use App\Modules\Core\Models\User;
 use App\Modules\Core\Models\Zone;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\OrgScope;
+use App\Modules\Core\Services\TenantContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,6 +42,8 @@ class OrganizationWebController extends Controller
 
     public function index(Request $request): Response
     {
+        $tenantId = current_tenant_id_or_null();
+
         $branches = Branch::with(['supervisor:id,first_name,last_name', 'positions:id'])
             ->withCount(['employees' => fn ($q) => $q->where('status', 'active')])
             ->orderBy('name')->get();
@@ -52,6 +57,19 @@ class OrganizationWebController extends Controller
             ->get(['employee_branch.branch_id', 'users.department_id', 'users.position_id', 'users.position', DB::raw('count(*) as total')])
             ->groupBy('branch_id');
 
+        $supervisors = User::forTenant($tenantId)
+            ->whereIn('role', ['company_admin', 'hr_manager', 'supervisor'])
+            ->where('status', 'active')
+            ->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name', 'email'])
+            ->map(fn ($u) => [
+                'id'    => $u->id,
+                'name'  => trim("{$u->first_name} {$u->last_name}"),
+                'email' => $u->email,
+            ]);
+
+        $defaultRadius = (int) (TenantSetting::forTenant(app(TenantContext::class)->getOrNull())->default_geofence_radius ?? 100);
+
         return Inertia::render('Core/Pages/Organization/Index', [
             'zones' => Zone::orderBy('name')->get(['id', 'tenant_id', 'name', 'code', 'is_active']),
             'departments' => Department::withCount(['users' => fn ($q) => $q->where('status', 'active')])
@@ -59,30 +77,35 @@ class OrganizationWebController extends Controller
             'positions' => Position::withCount(['users' => fn ($q) => $q->where('status', 'active')])
                 ->orderBy('name')->get(['id', 'tenant_id', 'department_id', 'name', 'code', 'description', 'is_roaming', 'is_active']),
             'branches' => $branches->map(fn (Branch $b) => [
-                'id'         => $b->id,
-                'tenant_id'  => $b->tenant_id,
-                'zone_id'    => $b->zone_id,
-                'name'       => $b->name,
-                'code'       => $b->code,
-                'type'       => $b->branch_type,
-                'city'       => $b->city,
-                'address'    => $b->address,
-                'radius'     => $b->allowed_radius_meters,
-                'is_active'  => $b->is_active,
-                'supervisor' => $b->supervisor?->full_name,
-                'employees'  => $b->employees_count,
-                'staff'      => ($staff[$b->id] ?? collect())->map(fn ($row) => [
+                'id'            => $b->id,
+                'tenant_id'     => $b->tenant_id,
+                'zone_id'       => $b->zone_id,
+                'name'          => $b->name,
+                'code'          => $b->code,
+                'type'          => $b->branch_type,
+                'city'          => $b->city,
+                'address'       => $b->address,
+                'latitude'      => (float) $b->latitude,
+                'longitude'     => (float) $b->longitude,
+                'radius'        => $b->allowed_radius_meters,
+                'is_active'     => $b->is_active,
+                'supervisor_id' => $b->supervisor_id,
+                'supervisor'    => $b->supervisor?->full_name,
+                'employees'     => $b->employees_count,
+                'staff'         => ($staff[$b->id] ?? collect())->map(fn ($row) => [
                     'department_id' => $row->department_id,
                     'position_id'   => $row->position_id,
                     'position'      => $row->position,
                     'total'         => (int) $row->total,
                 ])->values(),
                 // Plantilla: plazas previstas por cargo
-                'plan'       => $b->positions->map(fn (Position $p) => [
+                'plan'          => $b->positions->map(fn (Position $p) => [
                     'position_id' => $p->id,
                     'planned'     => (int) $p->pivot->planned_headcount,
                 ])->values(),
             ]),
+            'supervisors'          => $supervisors,
+            'defaultRadius'        => $defaultRadius,
             'branchTypes'          => Branch::TYPES,
             'suggestedDepartments' => Department::SUGGESTED,
             'suggestedPositions'   => array_column(Position::SUGGESTED, 0),

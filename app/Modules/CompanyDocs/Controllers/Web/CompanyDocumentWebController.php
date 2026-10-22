@@ -8,6 +8,7 @@ use App\Modules\CompanyDocs\Services\CompanyDocumentService;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Support\Audience;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -43,15 +44,19 @@ class CompanyDocumentWebController extends Controller
             ->when($search !== '', fn ($q) => $q->where('title', 'like', "%{$search}%"))
             ->orderByRaw("CASE status WHEN 'published' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END")
             ->latest('updated_at')
-            ->paginate(20)->withQueryString()
+            ->paginate(100)->withQueryString()
             ->through(fn (CompanyDocument $d) => [
                 'id'          => $d->id,
                 'tenant_id'   => $d->tenant_id,
                 'title'       => $d->title,
                 'version'     => $d->version,
+                'description' => $d->description,
                 'folder'      => $d->folder?->name,
+                'folder_id'   => $d->folder_id,
                 'status'      => $d->status,
-                'requires_acknowledgement' => $d->requires_acknowledgement,
+                'file_name'   => $d->file_name,
+                'requires_acknowledgement' => (bool) $d->requires_acknowledgement,
+                'acknowledge_by' => $d->acknowledge_by?->format('Y-m-d'),
                 'read_count'  => $d->read_count,
                 'ack_count'   => $d->ack_count,
                 'size'        => $this->size($d->file_size),
@@ -59,10 +64,18 @@ class CompanyDocumentWebController extends Controller
             ]);
 
         return Inertia::render('CompanyDocs/Pages/Documents/Index', [
-            'documents' => $documents,
-            'folders'   => CompanyDocumentFolder::withCount('documents')->orderBy('position')->get(['id', 'name', 'icon', 'color']),
-            'statuses'  => CompanyDocument::STATUSES,
-            'filters'   => ['status' => $status, 'folder' => $folder, 'search' => $search],
+            'documents'    => $documents,
+            'folders'      => CompanyDocumentFolder::withCount('documents')->orderBy('position')->get(['id', 'name', 'description', 'icon', 'color', 'position']),
+            'folder_icons' => CompanyDocumentFolder::ICONS,
+            'audience'     => Audience::formOptions(),
+            'statuses'     => CompanyDocument::STATUSES,
+            'totals'       => [
+                'published' => CompanyDocument::where('status', 'published')->count(),
+                'draft'     => CompanyDocument::where('status', 'draft')->count(),
+                'archived'  => CompanyDocument::where('status', 'archived')->count(),
+                'total'     => CompanyDocument::count(),
+            ],
+            'filters'      => ['status' => $status, 'folder' => $folder, 'search' => $search],
         ]);
     }
 
@@ -76,9 +89,29 @@ class CompanyDocumentWebController extends Controller
         return $this->form(new CompanyDocument(['status' => 'draft', 'folder_id' => $request->integer('folder') ?: null]));
     }
 
-    public function edit(int $id): Response
+    public function edit(Request $request, int $id): Response|JsonResponse
     {
-        return $this->form(CompanyDocument::with('audienceTargets')->findOrFail($id));
+        $document = CompanyDocument::with('audienceTargets')->findOrFail($id);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'document' => [
+                    'id'          => $document->id,
+                    'title'       => $document->title ?? '',
+                    'description' => $document->description ?? '',
+                    'version'     => $document->version ?? '',
+                    'folder_id'   => $document->folder_id,
+                    'file_name'   => $document->file_name,
+                    'requires_acknowledgement' => (bool) $document->requires_acknowledgement,
+                    'acknowledge_by' => $document->acknowledge_by?->format('Y-m-d'),
+                    'status'      => $document->status,
+                    'notify'      => true,
+                    'targets'     => Audience::toForm($document->audienceTargets),
+                ],
+            ]);
+        }
+
+        return $this->form($document);
     }
 
     public function store(Request $request): RedirectResponse
@@ -87,7 +120,7 @@ class CompanyDocumentWebController extends Controller
         $document = $this->documents->save(new CompanyDocument(), $this->validated($request, true), $request->user(), $request->file('file'));
         $this->audit->logCreated('company_document.created', $document, ['title' => $document->title]);
 
-        return redirect()->route('company-docs.show', $document->id)->with('success', $this->savedMessage($document, 'subido'));
+        return redirect()->route('company-docs.index')->with('success', $this->savedMessage($document, 'subido'));
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -96,7 +129,7 @@ class CompanyDocumentWebController extends Controller
         $this->documents->save($document, $this->validated($request, false), $request->user(), $request->file('file'));
         $this->audit->log('company_document.updated', $document, ['title' => $document->title]);
 
-        return redirect()->route('company-docs.show', $document->id)->with('success', $this->savedMessage($document, 'actualizado'));
+        return redirect()->route('company-docs.index')->with('success', $this->savedMessage($document, 'actualizado'));
     }
 
     public function status(Request $request, int $id): RedirectResponse

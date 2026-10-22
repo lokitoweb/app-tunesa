@@ -1,8 +1,12 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
+import ConfirmModal from '@/Modules/Core/Components/ConfirmModal.vue';
+import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 
 defineProps({ title: { type: String, default: 'Panel' } });
+
+const { confirmState, onConfirm, onCancel } = useConfirm();
 
 const page = usePage();
 const auth = computed(() => page.props.auth || {});
@@ -122,7 +126,7 @@ onUnmounted(() => {
                                class="sidebar-link" :class="{ active: item.active }" :aria-current="item.active ? 'page' : null" :title="item.label">
                         <i class="bi" :class="`bi-${item.icon}`"></i>
                         <span class="link-label">{{ item.label }}</span>
-                        <span v-if="item.badge > 0" class="badge rounded-pill text-bg-danger ms-auto" style="font-size: 0.65rem;">{{ item.badge }}</span>
+                        <span v-if="item.badge > 0" class="badge rounded-pill text-bg-danger sidebar-badge ms-auto">{{ item.badge }}</span>
                     </component>
                 </template>
             </nav>
@@ -321,4 +325,18 @@ onUnmounted(() => {
             </div>
         </div>
     </div>
+
+    <!-- Modal Global de Confirmación Ejecutiva (Reemplazo moderno de confirm()) -->
+    <ConfirmModal 
+        :show="confirmState.show" 
+        :title="confirmState.title" 
+        :message="confirmState.message" 
+        :confirm-text="confirmState.confirmText" 
+        :cancel-text="confirmState.cancelText" 
+        :variant="confirmState.variant" 
+        :icon="confirmState.icon" 
+        @confirm="onConfirm" 
+        @cancel="onCancel" 
+        @close="onCancel" 
+    />
 </template>

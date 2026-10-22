@@ -146,7 +146,7 @@
                             </div>
                             @if($leave->start_time)
                                 <div class="small text-secondary mt-0.5">
-                                    <i class="bi bi-clock text-muted me-1"></i>{{ hora($leave->start_time) }}–{{ hora($leave->end_time) }}
+                                    <i class="bi bi-clock text-muted me-1"></i>{{ hora($leave->start_time) }} – {{ hora($leave->end_time) }}
                                 </div>
                             @endif
                         </td>
@@ -218,7 +218,6 @@
             </tbody>
         </table>
     @elseif($tab === 'overtime')
-        @php $hours = fn ($h) => rtrim(rtrim(number_format((float) $h, 2, '.', ''), '0'), '.') . ' h'; @endphp
         @if($status === 'pending' && $items->isNotEmpty())
             <form method="POST" action="{{ route('approvals.overtime.bulk') }}" id="overtimeBulk" class="appr-bulk-toolbar">
                 @csrf
@@ -288,15 +287,15 @@
                                 {{ $att->clock_in_at?->format('h:i a') }} – {{ $att->clock_out_at?->format('h:i a') }}
                             </div>
                             <div class="text-secondary mt-0.5">
-                                {{ $hours($att->worked_hours) }} trabajadas{{ $att->shift ? ' · turno de ' . $hours($att->shift->daily_hours) : '' }}
+                                {{ formato_horas_minutos($att->worked_hours) }} trabajadas{{ $att->shift ? ' · turno de ' . formato_horas_minutos($att->shift->daily_hours) : '' }}
                             </div>
                         </td>
                         <td class="text-end">
                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.8rem; font-weight: 700;">
-                                +{{ $hours($att->overtime_hours) }}
+                                +{{ formato_horas_minutos($att->overtime_hours) }}
                             </span>
                             @if($att->overtime_status === 'approved' && (float) $att->overtime_approved_hours < (float) $att->overtime_hours)
-                                <div class="small text-secondary fw-normal mt-0.5">{{ $hours($att->overtime_approved_hours) }} aprobadas</div>
+                                <div class="small text-secondary fw-normal mt-0.5">{{ formato_horas_minutos($att->overtime_approved_hours) }} aprobadas</div>
                             @endif
                         </td>
                         <td>
@@ -403,7 +402,12 @@
                         <td>
                             @include('partials.attendance-status', ['status' => $att->status])
                             @if($att->late_minutes)
-                                <div class="small text-secondary mt-0.5">({{ $att->late_minutes }} min tarde)</div>
+                                <div class="small text-secondary mt-0.5 fw-medium">({{ formato_tardanza($att) }})</div>
+                            @endif
+                            @if($att->clock_in_at)
+                                <div class="small text-muted mt-0.5" style="font-size: 0.75rem;">
+                                    <i class="bi bi-clock me-1"></i>Entrada: {{ hora($att->clock_in_at, true) }}
+                                </div>
                             @endif
                         </td>
                         <td>

@@ -35,7 +35,7 @@ class DocumentWebController extends Controller
     ) {}
 
     /** Bandeja de revisión */
-    public function index(Request $request): View
+    public function index(Request $request): View|\Illuminate\Http\Response
     {
         $status = $request->input('status', 'pending');
 
@@ -48,7 +48,7 @@ class DocumentWebController extends Controller
                 ->orWhere('document_number', 'like', "%{$s}%")
                 ->orWhere('employee_code', 'like', "%{$s}%")))
             ->latest()
-            ->paginate(20)
+            ->paginate(15)
             ->withQueryString();
 
         $counts = EmployeeDocument::selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
@@ -60,6 +60,10 @@ class DocumentWebController extends Controller
             ->orderBy('expires_at')
             ->limit(10)
             ->get();
+
+        if ($request->ajax()) {
+            return response()->view('documents.partials.table', compact('documents', 'status'));
+        }
 
         return view('documents.index', compact('documents', 'counts', 'status', 'expiring'));
     }

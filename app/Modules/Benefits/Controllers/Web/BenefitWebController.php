@@ -40,14 +40,14 @@ class BenefitWebController extends Controller
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('title', 'like', "%{$search}%")->orWhere('partner', 'like', "%{$search}%")))
             ->orderByRaw("CASE status WHEN 'published' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END")
             ->orderByDesc('is_featured')->latest('updated_at')
-            ->paginate(20)->withQueryString()
+            ->paginate(100)->withQueryString()
             ->through(fn (Benefit $b) => [
                 'id'          => $b->id,
                 'tenant_id'   => $b->tenant_id,
                 'title'       => $b->title,
                 'partner'     => $b->partner,
                 'highlight'   => $b->highlight,
-                'category'    => $b->category ? ['name' => $b->category->name, 'icon' => $b->category->icon, 'color' => $b->category->color] : null,
+                'category'    => $b->category ? ['id' => $b->category->id, 'name' => $b->category->name, 'icon' => $b->category->icon, 'color' => $b->category->color] : null,
                 'image_url'   => $b->imageUrl(),
                 'status'      => $b->status,
                 'is_featured' => $b->is_featured,
@@ -55,16 +55,28 @@ class BenefitWebController extends Controller
                 'valid_until' => $b->valid_until?->format('d/m/Y'),
             ]);
 
+        $categories = BenefitCategory::withCount('benefits')->orderBy('position')->get(['id', 'name', 'icon', 'color', 'position']);
+
         return Inertia::render('Benefits/Pages/Benefits/Index', [
-            'benefits'   => $benefits,
-            'categories' => BenefitCategory::orderBy('position')->get(['id', 'name']),
-            'statuses'   => Benefit::STATUSES,
-            'totals'     => [
+            'benefits'       => $benefits,
+            'categories'     => $categories,
+            'category_icons' => BenefitCategory::ICONS,
+            'statuses'       => Benefit::STATUSES,
+            'totals'         => [
                 'published' => Benefit::available()->count(),
                 'draft'     => Benefit::where('status', 'draft')->count(),
                 'expired'   => Benefit::published()->whereDate('valid_until', '<', $today)->count(),
+                'archived'  => Benefit::where('status', 'archived')->count(),
+                'total'     => Benefit::count(),
             ],
-            'filters'    => ['status' => $status, 'category' => $category, 'search' => $search],
+            'filters'        => ['status' => $status, 'category' => $category, 'search' => $search],
+            'audience'       => current_tenant_id_or_null() ? Audience::formOptions() : [
+                'types'       => Audience::TYPES,
+                'branches'    => [],
+                'departments' => [],
+                'positions'   => [],
+                'employees'   => [],
+            ],
         ]);
     }
 

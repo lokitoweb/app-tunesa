@@ -61,6 +61,13 @@ class AnnouncementWebController extends Controller
                 'draft'      => Announcement::where('status', 'draft')->count(),
             ],
             'filters'       => ['status' => $status, 'search' => $search],
+            'audience'      => current_tenant_id_or_null() ? Audience::formOptions() : [
+                'types'       => Audience::TYPES,
+                'branches'    => [],
+                'departments' => [],
+                'positions'   => [],
+                'employees'   => [],
+            ],
         ]);
     }
 

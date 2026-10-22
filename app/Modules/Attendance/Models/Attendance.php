@@ -236,6 +236,14 @@ class Attendance extends Model
     }
 
     /**
+     * Tardanza desglosada en horas, minutos y segundos respetando espacios ("3 h 51 min 14 s tarde").
+     */
+    public function formattedLateDuration(bool $showSeconds = true): ?string
+    {
+        return formato_tardanza($this, $showSeconds);
+    }
+
+    /**
      * Verifica si el empleado ya marcó entrada pero no salida.
      */
     public function isOpen(): bool

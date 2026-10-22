@@ -4,7 +4,11 @@ import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 const props = defineProps({ request: { type: Function, required: true }, subtitle: String });
 
-const STATUS = { success: ['success', 'Entregado'], pending: ['warning', 'Pendiente'], failed: ['danger', 'Fallido'] };
+const STATUS = {
+    success: ['success', 'Entregado', 'bi-check-circle-fill'],
+    pending: ['warning', 'Pendiente', 'bi-hourglass-split'],
+    failed: ['danger', 'Fallido', 'bi-x-circle-fill']
+};
 const tone = (status) => (status < 300 ? 'success' : status < 400 ? 'info' : status < 500 ? 'warning' : 'danger');
 const pretty = (text) => {
     try { return JSON.stringify(JSON.parse(text), null, 2); } catch (e) { return text; }
@@ -41,63 +45,97 @@ defineExpose({ load });
 </script>
 
 <template>
-    <div class="card border-0">
-        <div class="card-header border-0 pt-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div class="card border-0 shadow-sm integrations-card overflow-hidden">
+        <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
-                <h2 class="h6 fw-semibold mb-0">Últimos 20 envíos</h2>
-                <small class="text-body-secondary">{{ subtitle }}</small>
+                <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Historial reciente de entregas (Últimos 20)</h2>
+                <small class="settings-helper-text">{{ subtitle }}</small>
             </div>
-            <div class="d-flex align-items-center gap-2">
-                <div class="form-check form-switch mb-0">
-                    <input id="deliveriesAuto" v-model="auto" class="form-check-input" type="checkbox" role="switch">
-                    <label class="form-check-label small" for="deliveriesAuto">Auto (10 s)</label>
+            <div class="d-flex align-items-center gap-3">
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                    <input id="deliveriesAuto" v-model="auto" class="form-check-input" type="checkbox" role="switch" style="cursor: pointer;">
+                    <label class="form-check-label small fw-medium" for="deliveriesAuto">Auto (10 s)</label>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="loading" @click="load">
-                    <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+                <button type="button" class="btn-integration-secondary" :disabled="loading" @click="load">
+                    <span v-if="loading" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                    <i v-else class="bi bi-arrow-clockwise me-2"></i>
+                    Actualizar
                 </button>
             </div>
         </div>
         <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0 small">
-                <thead>
+            <table class="table table-hover align-middle mb-0 small">
+                <thead class="table-light">
                     <tr>
-                        <th>Evento</th><th>Destino</th><th class="text-center">Intento</th><th class="text-center">HTTP</th>
-                        <th class="text-end">Tiempo</th><th>Estado</th><th>Fecha</th><th class="text-end"><span class="visually-hidden">Detalle</span></th>
+                        <th class="ps-3">Evento</th>
+                        <th>Host destino</th>
+                        <th class="text-center">Intento</th>
+                        <th class="text-center">HTTP</th>
+                        <th class="text-end">Latencia</th>
+                        <th>Estado</th>
+                        <th>Fecha de transmisión</th>
+                        <th class="text-center pe-3"><span class="visually-hidden">Detalle</span></th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-if="error"><td colspan="8" class="text-center text-danger py-3">{{ error }}</td></tr>
-                    <tr v-else-if="rows === null"><td colspan="8" class="text-center text-body-secondary py-3">Cargando…</td></tr>
-                    <tr v-else-if="!rows.length"><td colspan="8" class="text-center text-body-secondary py-3">Todavía no hay envíos.</td></tr>
+                    <tr v-if="error">
+                        <td colspan="8" class="text-center text-danger py-4">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ error }}
+                        </td>
+                    </tr>
+                    <tr v-else-if="rows === null">
+                        <td colspan="8" class="text-center text-secondary py-4">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span> Cargando bitácora de entregas…
+                        </td>
+                    </tr>
+                    <tr v-else-if="!rows.length">
+                        <td colspan="8" class="text-center text-secondary py-4">
+                            <i class="bi bi-inbox me-1"></i> Todavía no se han registrado transmisiones de webhook.
+                        </td>
+                    </tr>
                     <template v-for="d in error ? [] : rows ?? []" :key="d.id">
                         <tr>
-                            <td><div class="fw-medium">{{ d.event_label || d.event }}</div><code class="small">{{ d.event }}</code></td>
-                            <td class="text-break">{{ d.host }}</td>
-                            <td class="text-center">{{ d.attempt }}</td>
+                            <td class="ps-3">
+                                <div class="fw-semibold text-primary-emphasis">{{ d.event_label || d.event }}</div>
+                                <code class="small text-secondary">{{ d.event }}</code>
+                            </td>
+                            <td class="text-break font-monospace small">{{ d.host }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis border">{{ d.attempt }}</span>
+                            </td>
                             <td class="text-center">
                                 <span v-if="d.http_status" class="badge" :class="`text-bg-${tone(d.http_status)}`">HTTP {{ d.http_status }}</span>
-                                <template v-else>—</template>
+                                <span v-else class="text-secondary">—</span>
                             </td>
-                            <td class="text-end text-nowrap">{{ d.response_ms != null ? `${d.response_ms} ms` : '—' }}</td>
+                            <td class="text-end text-nowrap font-monospace">{{ d.response_ms != null ? `${d.response_ms} ms` : '—' }}</td>
                             <td>
-                                <span v-if="STATUS[d.status]" class="badge" :class="`text-bg-${STATUS[d.status][0]}`">{{ STATUS[d.status][1] }}</span>
-                                <template v-else>{{ d.status }}</template>
+                                <span v-if="STATUS[d.status]" class="badge d-inline-flex align-items-center gap-1" :class="`bg-${STATUS[d.status][0]}-subtle text-${STATUS[d.status][0]} border border-${STATUS[d.status][0]}-subtle`">
+                                    <i class="bi" :class="STATUS[d.status][2]"></i>
+                                    {{ STATUS[d.status][1] }}
+                                </span>
+                                <span v-else class="badge bg-secondary">{{ d.status }}</span>
                             </td>
-                            <td class="text-nowrap">{{ d.created_at }}</td>
-                            <td class="text-end">
-                                <button type="button" class="btn btn-link btn-sm p-0" :aria-expanded="open.has(d.id)" @click="open.has(d.id) ? open.delete(d.id) : open.add(d.id)">
-                                    <i class="bi" :class="open.has(d.id) ? 'bi-chevron-up' : 'bi-chevron-down'"></i><span class="visually-hidden">Ver respuesta</span>
+                            <td class="text-nowrap text-secondary">{{ d.created_at }}</td>
+                            <td class="text-center pe-3">
+                                <button type="button" class="btn-table-action" :class="{ 'active': open.has(d.id) }" :title="open.has(d.id) ? 'Cerrar detalle' : 'Ver payload y respuesta'" @click="open.has(d.id) ? open.delete(d.id) : open.add(d.id)">
+                                    <i class="bi" :class="open.has(d.id) ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
                                 </button>
                             </td>
                         </tr>
                         <tr v-if="open.has(d.id)">
-                            <td colspan="8" class="bg-body-tertiary-subtle">
+                            <td colspan="8" class="bg-body-tertiary-subtle p-3">
                                 <div class="delivery-detail">
-                                    <div v-if="d.error" class="text-danger mb-1">{{ d.error }}</div>
-                                    <div v-if="d.next_retry_at" class="text-body-secondary mb-1">Próximo reintento: {{ d.next_retry_at }}</div>
-                                    <div class="text-body-secondary mb-1 text-break">{{ d.url }}</div>
-                                    <pre v-if="d.response_body" class="bg-body-tertiary rounded p-2 mb-0 integration-pre">{{ pretty(d.response_body) }}</pre>
-                                    <span v-else class="text-body-secondary">Sin cuerpo de respuesta.</span>
+                                    <div v-if="d.error" class="text-danger mb-2 small fw-semibold">
+                                        <i class="bi bi-exclamation-triangle-fill me-1"></i> Error: {{ d.error }}
+                                    </div>
+                                    <div v-if="d.next_retry_at" class="text-secondary mb-2 small">
+                                        <i class="bi bi-arrow-clockwise me-1"></i> Próximo reintento programado: {{ d.next_retry_at }}
+                                    </div>
+                                    <div class="text-secondary mb-2 small font-monospace text-break">
+                                        <i class="bi bi-link-45deg me-1"></i> URL: {{ d.url }}
+                                    </div>
+                                    <pre v-if="d.response_body" class="bg-body-tertiary border rounded p-3 mb-0 integration-pre font-monospace small">{{ pretty(d.response_body) }}</pre>
+                                    <span v-else class="small text-secondary fst-italic">Sin cuerpo de respuesta registrado.</span>
                                 </div>
                             </td>
                         </tr>
@@ -109,6 +147,5 @@ defineExpose({ load });
 </template>
 
 <style scoped>
-/* El detalle ocupa toda la fila: en pantallas angostas queda fijo al borde visible de la tabla con scroll */
 .delivery-detail { position: sticky; left: .5rem; max-width: calc(100vw - 4rem); }
 </style>

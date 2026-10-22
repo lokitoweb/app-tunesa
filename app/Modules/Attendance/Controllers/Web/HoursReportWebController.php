@@ -27,12 +27,17 @@ class HoursReportWebController extends Controller
         private readonly HoursReportExporter $exporter,
     ) {}
 
-    public function index(Request $request): View
+    public function index(Request $request): View|\Illuminate\Http\JsonResponse|\Illuminate\Http\Response
     {
         $tenantId = current_tenant_id_or_null();
         $filters  = ReportFilters::fromRequest($request, $tenantId);
 
-        $rows   = $this->reports->paginate($filters, 25);
+        $perPage = (int) $request->input('per_page', 25);
+        if (!in_array($perPage, [10, 20, 25, 50, 100], true)) {
+            $perPage = 25;
+        }
+
+        $rows   = $this->reports->paginate($filters, $perPage);
         $totals = $this->reports->totals($filters);
 
         $branches  = Branch::forTenant($tenantId)->visibleTo($request->user())->orderBy('name')->get(['id', 'name', 'tenant_id']);
@@ -41,6 +46,30 @@ class HoursReportWebController extends Controller
             ->orderBy('last_name')->orderBy('first_name')
             ->limit(500)
             ->get(['id', 'first_name', 'last_name', 'tenant_id']);
+
+        if ($request->ajax()) {
+            if ($request->has('tab_content')) {
+                return view('reports.partials.hours-content', compact('filters', 'rows', 'totals', 'branches', 'employees'));
+            }
+
+            $tableHtml = view('reports.partials.hours-table', compact('rows', 'filters'))->render();
+
+            return response()->json([
+                'html' => $tableHtml,
+                'totals' => [
+                    'worked_hours'          => number_format($totals['worked_hours'], 1) . ' h',
+                    'days_worked'           => $totals['days_worked'] . ' jornadas',
+                    'late_minutes'          => $totals['late_minutes'] . ' min',
+                    'late_days'             => $totals['late_days'] . ' días con tardanza',
+                    'overtime_day_hours'    => number_format($totals['overtime_day_hours'], 1) . ' h',
+                    'overtime_night_hours'  => number_format($totals['overtime_night_hours'], 1) . ' h',
+                    'night_hours'           => number_format($totals['night_hours'], 1) . ' h nocturnas en total',
+                    'absences_unjustified'  => (string) $totals['absences_unjustified'],
+                    'absences_justified'    => $totals['absences_justified'] . ' justificadas',
+                ],
+                'totalEmployees' => $rows->total(),
+            ]);
+        }
 
         return view('reports.hours', compact('filters', 'rows', 'totals', 'branches', 'employees'));
     }

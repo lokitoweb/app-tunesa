@@ -168,9 +168,9 @@ function submit() {
                             </button>
                         </div>
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <button v-for="d in ORDERED_DAYS" :key="d.index" type="button" class="btn btn-sm px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" :class="form.working_days.includes(d.index) ? 'btn-primary' : 'btn-outline-secondary'" style="border-radius: 6px; font-size: 0.8rem; transition: all 0.15s ease;" @click="toggleWorkingDay(d.index)">
-                            <i class="bi" :class="form.working_days.includes(d.index) ? 'bi-check-lg' : 'bi-dash'"></i>
+                    <div class="working-days-grid">
+                        <button v-for="d in ORDERED_DAYS" :key="d.index" type="button" class="btn shadow-sm d-inline-flex align-items-center justify-content-center transition day-pill-btn" :class="form.working_days.includes(d.index) ? 'btn-primary' : 'btn-outline-secondary'" @click="toggleWorkingDay(d.index)">
+                            <i class="bi" :class="form.working_days.includes(d.index) ? 'bi-check-circle-fill' : 'bi-circle'"></i>
                             <span>{{ d.label }}</span>
                         </button>
                     </div>

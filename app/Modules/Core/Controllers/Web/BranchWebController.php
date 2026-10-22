@@ -38,12 +38,27 @@ class BranchWebController extends Controller
         $tenantId = current_tenant_id_or_null();
 
         $branches = Branch::forTenant($tenantId)
-            ->with('supervisor')
+            ->with(['supervisor', 'zone', 'tenant'])
             ->withCount(['employees' => fn($q) => $q->where('status', 'active')])
             ->orderBy('name')
             ->get();
 
-        return view('branches.index', compact('branches'));
+        $supervisors = $this->supervisors($tenantId);
+        $zones = $tenantId
+            ? \App\Modules\Core\Models\Zone::where('tenant_id', $tenantId)->orderBy('name')->get()
+            : \App\Modules\Core\Models\Zone::orderBy('name')->get();
+        $companies = $tenantId ? null : Tenant::orderBy('company_name')->pluck('company_name', 'id');
+        $defaultRadius = TenantSetting::forTenant(app(TenantContext::class)->getOrNull())->default_geofence_radius ?? 100;
+        $branchTypes = Branch::TYPES;
+
+        return view('branches.index', compact(
+            'branches',
+            'supervisors',
+            'zones',
+            'companies',
+            'defaultRadius',
+            'branchTypes'
+        ));
     }
 
     /**
@@ -88,8 +103,12 @@ class BranchWebController extends Controller
         $branch = Branch::create($validated);
         app(AuditLogger::class)->logCreated('branch.created', $branch, ['name' => $branch->name]);
 
-        return redirect()->route('branches.index')
-            ->with('success', "Sucursal '{$branch->name}' creada con geocerca de {$branch->allowed_radius_meters}m.");
+        $msg = "Sucursal '{$branch->name}' creada con geocerca de {$branch->allowed_radius_meters}m.";
+        if ($request->header('X-Inertia') || $request->wantsJson()) {
+            return back()->with('success', $msg);
+        }
+
+        return redirect()->route('branches.index')->with('success', $msg);
     }
 
     /**
@@ -119,29 +138,40 @@ class BranchWebController extends Controller
         $validated['is_active'] = $request->boolean('is_active', true);
         app(AuditLogger::class)->updateWithAudit('branch.updated', $branch, $validated, ['name' => $branch->name]);
 
-        return redirect()->route('branches.index')
-            ->with('success', "Sucursal '{$branch->name}' actualizada correctamente.");
+        $msg = "Sucursal '{$branch->name}' actualizada correctamente.";
+        if ($request->header('X-Inertia') || $request->wantsJson()) {
+            return back()->with('success', $msg);
+        }
+
+        return redirect()->route('branches.index')->with('success', $msg);
     }
 
     /**
      * Elimina lógicamente la sucursal; no si aún tiene colaboradores activos asignados.
      */
-    public function destroy(int $id): RedirectResponse
+    public function destroy(Request $request, int $id): RedirectResponse
     {
         $tenantId = current_tenant_id_or_null();
         $branch = Branch::forTenant($tenantId)->findOrFail($id);
 
         $active = $branch->employees()->where('users.status', 'active')->count();
         if ($active > 0) {
-            return redirect()->route('branches.index')->with('error',
-                "No se puede eliminar {$branch->name}: tiene {$active} colaborador(es) activo(s) asignado(s). Reasígnalos a otra sucursal primero.");
+            $msg = "No se puede eliminar {$branch->name}: tiene {$active} colaborador(es) activo(s) asignado(s). Reasígnalos a otra sucursal primero.";
+            if ($request->header('X-Inertia') || $request->wantsJson()) {
+                return back()->with('error', $msg);
+            }
+            return redirect()->route('branches.index')->with('error', $msg);
         }
 
         $branch->delete();
         app(AuditLogger::class)->log('branch.deleted', $branch, ['name' => $branch->name]);
 
-        return redirect()->route('branches.index')
-            ->with('success', "Sucursal eliminada satisfactoriamente.");
+        $msg = "Sucursal eliminada satisfactoriamente.";
+        if ($request->header('X-Inertia') || $request->wantsJson()) {
+            return back()->with('success', $msg);
+        }
+
+        return redirect()->route('branches.index')->with('success', $msg);
     }
 
     /**

@@ -5,6 +5,10 @@ import { Modal } from 'bootstrap';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
 import TenantBadge from '@/Modules/Core/Components/TenantBadge.vue';
+import DateRangePicker from '@/Modules/Core/Components/DateRangePicker.vue';
+import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
+
+const { ask } = useConfirm();
 
 const props = defineProps({
     shifts: Array,
@@ -47,10 +51,10 @@ const PRESET_COLORS = [
 const activeShifts = computed(() => props.shifts.filter((s) => s.is_active));
 
 // =========================================================================
-// GESTIÓN DEL MODAL DIALOG (CREAR Y EDITAR IN-PLACE)
+// 1. MODAL DIALOG: CREAR Y EDITAR TURNO (IN-PLACE)
 // =========================================================================
-const modalElement = ref(null);
-let modalInstance = null;
+const shiftModalElement = ref(null);
+let shiftModalInstance = null;
 const modalEditing = ref(false);
 const editingShiftId = ref(null);
 const modalTab = ref('general'); // 'general' | 'schedule' | 'policies'
@@ -75,9 +79,71 @@ const defaultShiftData = () => ({
 
 const shiftForm = useForm(defaultShiftData());
 
+// =========================================================================
+// 2. MODAL DIALOG: ASIGNAR TURNO A COLABORADORES
+// =========================================================================
+const assignModalElement = ref(null);
+let assignModalInstance = null;
+
+const assign = useForm({
+    shift_id: activeShifts.value[0]?.id ?? null,
+    branch_id: props.branches[0]?.id ?? null,
+    user_ids: [],
+    effective_from: props.today,
+    effective_until: '',
+    rotation_anchor_date: '',
+    replace_current: true,
+});
+
+const employeeSearch = ref('');
+
+const filteredEmployees = computed(() => {
+    if (!employeeSearch.value || !employeeSearch.value.trim()) {
+        return props.employees || [];
+    }
+    const q = employeeSearch.value.toLowerCase().trim();
+    return (props.employees || []).filter((e) => {
+        const fullName = `${e.first_name || ''} ${e.last_name || ''}`.toLowerCase();
+        const reverseName = `${e.last_name || ''} ${e.first_name || ''}`.toLowerCase();
+        const code = (e.employee_code || '').toLowerCase();
+        const doc = (e.document_number || '').toLowerCase();
+        return fullName.includes(q) || reverseName.includes(q) || code.includes(q) || doc.includes(q);
+    });
+});
+
+function toggleEmployee(empId) {
+    const idx = assign.user_ids.indexOf(empId);
+    if (idx > -1) {
+        assign.user_ids.splice(idx, 1);
+    } else {
+        assign.user_ids.push(empId);
+    }
+}
+
+function selectAllFilteredEmployees() {
+    filteredEmployees.value.forEach((e) => {
+        if (!assign.user_ids.includes(e.id)) {
+            assign.user_ids.push(e.id);
+        }
+    });
+}
+
+function clearSelectedEmployees() {
+    assign.user_ids = [];
+}
+
+function getInitials(first, last) {
+    const f = (first || '').trim().charAt(0);
+    const l = (last || '').trim().charAt(0);
+    return (f + l).toUpperCase() || 'E';
+}
+
 onMounted(() => {
-    if (modalElement.value) {
-        modalInstance = Modal.getOrCreateInstance(modalElement.value);
+    if (shiftModalElement.value) {
+        shiftModalInstance = Modal.getOrCreateInstance(shiftModalElement.value);
+    }
+    if (assignModalElement.value) {
+        assignModalInstance = Modal.getOrCreateInstance(assignModalElement.value);
     }
 });
 
@@ -90,7 +156,7 @@ function openCreateModal() {
     Object.keys(defaults).forEach((k) => {
         shiftForm[k] = defaults[k];
     });
-    modalInstance?.show();
+    shiftModalInstance?.show();
 }
 
 function openEditModal(shift) {
@@ -113,7 +179,19 @@ function openEditModal(shift) {
     shiftForm.color = shift.color || '#0284C7';
     shiftForm.is_active = Boolean(shift.is_active);
     shiftForm.description = shift.description || '';
-    modalInstance?.show();
+    shiftModalInstance?.show();
+}
+
+function openAssignModal() {
+    assign.clearErrors();
+    employeeSearch.value = '';
+    if (!assign.shift_id && activeShifts.value.length) {
+        assign.shift_id = activeShifts.value[0].id;
+    }
+    if (!assign.branch_id && props.branches.length) {
+        assign.branch_id = props.branches[0].id;
+    }
+    assignModalInstance?.show();
 }
 
 function nextTab() {
@@ -159,14 +237,14 @@ function submitShiftModal() {
         shiftForm.put(`/shifts/${editingShiftId.value}`, {
             preserveScroll: true,
             onSuccess: () => {
-                modalInstance?.hide();
+                shiftModalInstance?.hide();
             },
         });
     } else {
         shiftForm.post('/shifts', {
             preserveScroll: true,
             onSuccess: () => {
-                modalInstance?.hide();
+                shiftModalInstance?.hide();
                 const defaults = defaultShiftData();
                 Object.keys(defaults).forEach((k) => {
                     shiftForm[k] = defaults[k];
@@ -176,113 +254,124 @@ function submitShiftModal() {
     }
 }
 
-function destroy(shift) {
-    if (confirm(`¿Estás seguro de eliminar el turno "${shift.name}"?`)) {
+function submitAssign() {
+    assign.post('/shifts/assign', {
+        preserveScroll: true,
+        onSuccess: () => {
+            assignModalInstance?.hide();
+            assign.reset('user_ids', 'effective_until', 'rotation_anchor_date');
+        },
+    });
+}
+
+async function destroy(shift) {
+    const ok = await ask({
+        title: '¿Eliminar turno?',
+        message: `¿Estás seguro de eliminar el turno "${shift.name}"? Los colaboradores asignados perderán la asignación asociada a este turno.`,
+        confirmText: 'Sí, eliminar',
+        cancelText: 'Cancelar',
+        variant: 'danger',
+    });
+    if (ok) {
         router.delete(`/shifts/${shift.id}`, { preserveScroll: true });
     }
 }
 
-// =========================================================================
-// FORMULARIO DE ASIGNACIÓN DE TURNO
-// =========================================================================
-const assign = useForm({
-    shift_id: activeShifts.value[0]?.id ?? null,
-    branch_id: props.branches[0]?.id ?? null,
-    user_ids: [],
-    effective_from: props.today,
-    effective_until: '',
-    rotation_anchor_date: '',
-    replace_current: true,
-});
-
-function submitAssign() {
-    assign.post('/shifts/assign', {
-        preserveScroll: true,
-        onSuccess: () => assign.reset('user_ids', 'effective_until', 'rotation_anchor_date'),
+async function unassign(assignment) {
+    const ok = await ask({
+        title: '¿Finalizar asignación?',
+        message: `¿Estás seguro de finalizar la asignación vigente de ${assignment.employee || 'este colaborador'} para hoy?`,
+        confirmText: 'Sí, finalizar',
+        cancelText: 'Cancelar',
+        variant: 'warning',
     });
-}
-
-function unassign(assignment) {
-    if (confirm('¿Finalizar esta asignación hoy?')) {
+    if (ok) {
         router.delete(`/shifts/assignments/${assignment.id}`, { preserveScroll: true });
     }
 }
+
+const selectedAssignShift = computed(() => {
+    return props.shifts.find((s) => s.id === assign.shift_id);
+});
 </script>
 
 <template>
     <AppLayout title="Turnos y horarios">
-        <!-- Header Principal de la Pantalla -->
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+        <!-- Header Principal de la Pantalla con Acciones Claras y Espaciado Amplio -->
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4" style="gap: 1.5rem;">
             <div>
                 <h1 class="h2 fw-bold text-dark mb-1">Turnos y horarios</h1>
                 <p class="text-secondary mb-0" style="font-size: 0.875rem;">
                     Turnos fijos y rotativos, tolerancia de tardanza y asignación de colaboradores.
                 </p>
             </div>
-            <div>
-                <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm" style="height: 40px; border-radius: 8px; font-weight: 600; padding: 0 1.25rem;" @click="openCreateModal">
+            <div class="d-flex align-items-center" style="gap: 14px !important;">
+                <button v-if="canAssign" type="button" class="btn btn-outline-primary d-inline-flex align-items-center shadow-sm" style="height: 42px; border-radius: 8px; font-weight: 600; padding: 0 1.25rem; gap: 8px !important;" @click="openAssignModal">
+                    <i class="bi bi-person-check-fill"></i>
+                    <span>Asignar turno</span>
+                </button>
+                <button type="button" class="btn btn-primary d-inline-flex align-items-center shadow-sm" style="height: 42px; border-radius: 8px; font-weight: 600; padding: 0 1.25rem; gap: 8px !important;" @click="openCreateModal">
                     <i class="bi bi-plus-lg"></i>
                     <span>Nuevo turno</span>
                 </button>
             </div>
         </div>
 
-        <!-- Tabla Principal de Turnos (Espaciosa, Elegante, Squircle Badges) -->
-        <div class="card border-0 mb-5 shadow-sm" style="background: var(--bg-surface); border: 1px solid var(--border-color) !important; border-radius: 12px; overflow: hidden;">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+        <!-- 1. TABLA PRINCIPAL DE TURNOS (Executive Design System: .emp-table-card) -->
+        <div class="emp-table-card mb-5 shadow-sm">
+            <div class="emp-table-responsive">
+                <table class="emp-table align-middle">
                     <thead>
-                        <tr style="border-bottom: 1px solid var(--border-color);">
-                            <th class="ps-4 py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Turno</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Tipo</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Horario</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Días / Ciclo</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Tolerancia</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Asignados</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Estado</th>
-                            <th class="pe-4 py-3 text-secondary text-uppercase fw-semibold text-end" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Acciones</th>
+                        <tr>
+                            <th class="ps-4">Turno</th>
+                            <th>Tipo</th>
+                            <th>Horario</th>
+                            <th>Días / Ciclo</th>
+                            <th>Tolerancia</th>
+                            <th>Asignados</th>
+                            <th>Estado</th>
+                            <th class="pe-4 text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="shift in shifts" :key="shift.id" style="border-bottom: 1px solid #f1f5f9;">
-                            <td class="ps-4 py-3.5">
-                                <div class="d-flex align-items-center gap-2.5">
+                        <tr v-for="shift in shifts" :key="shift.id">
+                            <!-- Turno: Dot + Nombre + Badge Código Inline (Sin amontonamiento) -->
+                            <td class="ps-4 py-3">
+                                <div class="d-flex align-items-center" style="gap: 10px !important;">
                                     <span class="rounded-circle d-inline-block flex-shrink-0 shadow-sm" :style="{ width: '10px', height: '10px', background: shift.color }"></span>
-                                    <div>
-                                        <div class="fw-bold text-dark" style="font-size: 0.875rem;">{{ shift.name }}</div>
-                                        <div v-if="shift.code" class="small text-secondary font-monospace" style="font-size: 0.75rem;">{{ shift.code }}</div>
-                                    </div>
+                                    <span class="fw-bold text-dark" style="font-size: 0.885rem;">{{ shift.name }}</span>
+                                    <span v-if="shift.code" class="badge text-secondary font-monospace" style="background: rgba(100, 116, 139, 0.1); border-radius: 4px; font-size: 0.72rem; padding: 2px 6px; font-weight: 600; letter-spacing: 0.03em;">{{ shift.code }}</span>
                                 </div>
-                                <div class="mt-1">
+                                <div v-if="shift.tenant_id" style="padding-left: 20px; margin-top: 3px;">
                                     <TenantBadge :tenant-id="shift.tenant_id" />
                                 </div>
                             </td>
-                            <td class="py-3.5">
+                            <td class="py-3">
                                 <span class="badge border" :class="shift.type === 'rotating' ? 'bg-primary-subtle text-primary border-primary-subtle' : 'bg-body-secondary text-secondary border-secondary-subtle'" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem; padding: 4px 8px;">
                                     {{ shift.type === 'rotating' ? 'Rotativo' : 'Fijo' }}
                                 </span>
                             </td>
-                            <td class="py-3.5 text-nowrap" style="font-size: 0.85rem; font-weight: 500; color: #334155;">
+                            <td class="py-3 text-nowrap" style="font-size: 0.85rem; font-weight: 500; color: #334155;">
                                 {{ hora(shift.start_time) }} – {{ hora(shift.end_time) }}
                                 <span v-if="shift.crosses_midnight" class="small text-secondary ms-1">(+1 día)</span>
                             </td>
-                            <td class="py-3.5 text-secondary" style="font-size: 0.85rem;">
+                            <td class="py-3 text-secondary" style="font-size: 0.85rem;">
                                 <template v-if="shift.type === 'rotating'">
                                     <span class="fw-semibold text-dark">{{ shift.rotation_work_days }}</span>
-                                    <span class="text-muted mx-1.5">×</span>
+                                    <span class="text-muted mx-1">×</span>
                                     <span class="fw-semibold text-dark">{{ shift.rotation_rest_days }}</span>
                                 </template>
                                 <template v-else>
                                     <span>{{ shift.working_days.map((d) => DAYS[d] ?? d).join(', ') }}</span>
                                 </template>
                             </td>
-                            <td class="py-3.5 text-secondary" style="font-size: 0.85rem;">
+                            <td class="py-3 text-secondary" style="font-size: 0.85rem;">
                                 <span class="fw-semibold text-dark">{{ shift.grace_period_minutes }}</span> min
                             </td>
-                            <td class="py-3.5 text-secondary" style="font-size: 0.85rem;">
+                            <td class="py-3 text-secondary" style="font-size: 0.85rem;">
                                 <span class="fw-semibold text-dark">{{ shift.employees_count }}</span>
                             </td>
-                            <td class="py-3.5">
+                            <td class="py-3">
                                 <span v-if="shift.is_active" class="badge bg-success-subtle text-success border border-success-subtle" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem; padding: 4px 8px;">
                                     Activo
                                 </span>
@@ -290,13 +379,13 @@ function unassign(assignment) {
                                     Inactivo
                                 </span>
                             </td>
-                            <td class="pe-4 py-3.5 text-end text-nowrap">
-                                <div class="d-flex align-items-center justify-content-end gap-1.5">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-2.5 py-1" style="border-radius: 6px; font-size: 0.8rem; font-weight: 500;" @click="openEditModal(shift)">
+                            <!-- Acciones: Solo Iconos Elegantes (btn-table-action estándar del ERP) -->
+                            <td class="pe-4 py-3 text-end text-nowrap">
+                                <div class="emp-table-actions justify-content-end" style="gap: 8px !important;">
+                                    <button type="button" class="btn-table-action" title="Editar turno" @click="openEditModal(shift)">
                                         <i class="bi bi-pencil"></i>
-                                        <span>Editar</span>
                                     </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1" style="width: 32px; height: 32px; border-radius: 6px;" :title="`Eliminar ${shift.name}`" @click="destroy(shift)">
+                                    <button type="button" class="btn-table-action btn-table-delete" :title="`Eliminar ${shift.name}`" @click="destroy(shift)">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
@@ -307,7 +396,7 @@ function unassign(assignment) {
                                 <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-50"></i>
                                 <div class="fw-medium">Aún no hay turnos registrados.</div>
                                 <p class="small text-muted mb-3">Crea el primer horario laboral para asignar a tus colaboradores.</p>
-                                <button type="button" class="btn btn-sm btn-primary" @click="openCreateModal">
+                                <button type="button" class="btn btn-sm btn-primary" style="border-radius: 8px; font-weight: 600;" @click="openCreateModal">
                                     <i class="bi bi-plus-lg me-1"></i>Crear turno
                                 </button>
                             </td>
@@ -317,125 +406,44 @@ function unassign(assignment) {
             </div>
         </div>
 
-        <!-- Sección Inferior: Asignar Turno a Colaboradores (Amplia y Bien Espaciada) -->
-        <div v-if="canAssign" class="card border-0 mb-4 shadow-sm" style="background: var(--bg-surface); border: 1px solid var(--border-color) !important; border-radius: 12px;">
-            <div class="card-header border-bottom bg-transparent py-3 px-4 d-flex align-items-center gap-2">
-                <i class="bi bi-person-check-fill text-primary fs-5"></i>
-                <h2 class="h6 fw-bold mb-0 text-dark">Asignar turno a colaboradores</h2>
-            </div>
-            <div class="card-body p-4">
-                <form @submit.prevent="submitAssign">
-                    <div class="row g-4">
-                        <!-- Columna Izquierda: Parámetros del Turno y Personal -->
-                        <div class="col-12 col-lg-6">
-                            <div class="mb-3">
-                                <label for="assign_shift" class="form-label fw-semibold small text-dark mb-1.5">Turno a asignar <span class="text-danger">*</span></label>
-                                <select id="assign_shift" v-model="assign.shift_id" class="form-select" :class="{ 'is-invalid': assign.errors.shift_id }" required style="border-radius: 8px; height: 42px;">
-                                    <option v-for="shift in activeShifts" :key="shift.id" :value="shift.id">
-                                        {{ shift.name }} ({{ hora(shift.start_time) }} – {{ hora(shift.end_time) }})
-                                    </option>
-                                </select>
-                                <div v-if="assign.errors.shift_id" class="invalid-feedback">{{ assign.errors.shift_id }}</div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="assign_branch" class="form-label fw-semibold small text-dark mb-1.5">Sucursal operativa <span class="text-danger">*</span></label>
-                                <select id="assign_branch" v-model="assign.branch_id" class="form-select" :class="{ 'is-invalid': assign.errors.branch_id }" required style="border-radius: 8px; height: 42px;">
-                                    <option v-for="branch in branches" :key="branch.id" :value="branch.id">{{ branch.name }}</option>
-                                </select>
-                                <div v-if="assign.errors.branch_id" class="invalid-feedback">{{ assign.errors.branch_id }}</div>
-                            </div>
-
-                            <div>
-                                <div class="d-flex align-items-center justify-content-between mb-1.5">
-                                    <label for="assign_users" class="form-label fw-semibold small text-dark mb-0">Seleccionar Colaboradores <span class="text-danger">*</span></label>
-                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace" style="border-radius: 6px; font-size: 0.725rem;">
-                                        {{ assign.user_ids.length }} seleccionados
-                                    </span>
-                                </div>
-                                <select id="assign_users" v-model="assign.user_ids" class="form-select" :class="{ 'is-invalid': assign.errors.user_ids }" multiple size="5" required style="border-radius: 8px; font-size: 0.85rem; padding: 0.5rem;">
-                                    <option v-for="e in employees" :key="e.id" :value="e.id">
-                                        {{ e.last_name }}, {{ e.first_name }}{{ e.employee_code ? ` · ${e.employee_code}` : '' }}
-                                    </option>
-                                </select>
-                                <div class="form-text small text-secondary mt-1.5">
-                                    <i class="bi bi-info-circle me-1"></i>Mantén presionada la tecla Ctrl (o Cmd) para elegir varios colaboradores a la vez.
-                                </div>
-                                <div v-if="assign.errors.user_ids" class="invalid-feedback d-block">{{ assign.errors.user_ids }}</div>
-                            </div>
-                        </div>
-
-                        <!-- Columna Derecha: Fechas de Vigencia y Acción -->
-                        <div class="col-12 col-lg-6 d-flex flex-column justify-content-between">
-                            <div>
-                                <div class="row g-3 mb-3">
-                                    <div class="col-12 col-sm-6">
-                                        <label for="effective_from" class="form-label fw-semibold small text-dark mb-1.5">Fecha de inicio <span class="text-danger">*</span></label>
-                                        <input id="effective_from" v-model="assign.effective_from" type="date" class="form-control" required style="border-radius: 8px; height: 42px;">
-                                    </div>
-                                    <div class="col-12 col-sm-6">
-                                        <label for="effective_until" class="form-label fw-semibold small text-dark mb-1.5">Fecha de fin <span class="text-secondary fw-normal">(opcional)</span></label>
-                                        <input id="effective_until" v-model="assign.effective_until" type="date" class="form-control" :class="{ 'is-invalid': assign.errors.effective_until }" style="border-radius: 8px; height: 42px;">
-                                        <div v-if="assign.errors.effective_until" class="invalid-feedback">{{ assign.errors.effective_until }}</div>
-                                    </div>
-                                    <div class="col-12">
-                                        <label for="rotation_anchor_date" class="form-label fw-semibold small text-dark mb-1.5">Inicio de ciclo rotativo <span class="text-secondary fw-normal">(solo si es rotativo)</span></label>
-                                        <input id="rotation_anchor_date" v-model="assign.rotation_anchor_date" type="date" class="form-control" style="border-radius: 8px; height: 42px;">
-                                        <div class="form-text small text-secondary mt-1">Fecha base desde la cual comenzará a contar el primer día de labor del ciclo.</div>
-                                    </div>
-                                </div>
-
-                                <div class="alert alert-info border-0 d-flex align-items-start gap-2.5 p-3 mb-4" style="background: rgba(2, 132, 199, 0.08); border-radius: 8px; font-size: 0.825rem; color: #0369a1;">
-                                    <i class="bi bi-shield-check fs-5 flex-shrink-0" style="color: #0284c7;"></i>
-                                    <div>
-                                        <strong>Cierre automático de turno previo:</strong> La asignación vigente de cada colaborador seleccionado se cerrará de forma automática el día anterior a la fecha de inicio.
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <button type="submit" class="btn btn-primary w-100 d-inline-flex align-items-center justify-content-center gap-2 shadow-sm" style="height: 44px; border-radius: 8px; font-weight: 600;" :disabled="assign.processing">
-                                    <span v-if="assign.processing" class="spinner-border spinner-border-sm" role="status"></span>
-                                    <i v-else class="bi bi-check2-circle fs-5"></i>
-                                    <span>Asignar Turno a los Colaboradores</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Asignaciones Vigentes (Tabla Completa y Elegante) -->
-        <div class="card border-0 mb-5 shadow-sm" style="background: var(--bg-surface); border: 1px solid var(--border-color) !important; border-radius: 12px; overflow: hidden;">
-            <div class="card-header border-bottom bg-transparent py-3 px-4 d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2">
+        <!-- 2. ASIGNACIONES VIGENTES (Separación Generosa, Tabla Limpia y Espaciosa) -->
+        <div class="emp-table-card mb-5 shadow-sm">
+            <div class="card-header border-bottom bg-transparent py-3 px-4 d-flex align-items-center justify-content-between flex-wrap" style="gap: 1rem;">
+                <div class="d-flex align-items-center" style="gap: 10px !important;">
                     <i class="bi bi-people-fill text-primary fs-5"></i>
                     <h2 class="h6 fw-bold mb-0 text-dark">Asignaciones vigentes</h2>
                 </div>
-                <span class="badge bg-body-secondary text-secondary border px-2.5 py-1" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem;">
-                    {{ assignments.total ?? assignments.data?.length ?? 0 }} asignaciones activas
-                </span>
+                <div class="d-flex align-items-center" style="gap: 12px !important;">
+                    <span class="badge bg-body-secondary text-secondary border px-2.5 py-1" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem;">
+                        {{ assignments.total ?? assignments.data?.length ?? 0 }} asignaciones activas
+                    </span>
+                    <button v-if="canAssign" type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center py-1.5 px-3" style="border-radius: 6px; font-weight: 600; font-size: 0.775rem; gap: 6px !important;" @click="openAssignModal">
+                        <i class="bi bi-plus"></i>
+                        <span>Asignar</span>
+                    </button>
+                </div>
             </div>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
+            <div class="emp-table-responsive">
+                <table class="emp-table align-middle">
                     <thead>
-                        <tr style="border-bottom: 1px solid var(--border-color);">
-                            <th class="ps-4 py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Colaborador</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Turno</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Sucursal</th>
-                            <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Vigencia</th>
-                            <th class="pe-4 py-3 text-secondary text-uppercase fw-semibold text-end" style="font-size: 0.725rem; letter-spacing: 0.05em; background: var(--bg-surface-elevated);">Acción</th>
+                        <tr>
+                            <th class="ps-4">Colaborador</th>
+                            <th>Turno</th>
+                            <th>Sucursal</th>
+                            <th>Vigencia</th>
+                            <th class="pe-4 text-end">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="a in assignments.data" :key="a.id" style="border-bottom: 1px solid #f1f5f9;">
+                        <tr v-for="a in assignments.data" :key="a.id">
                             <td class="ps-4 py-3">
                                 <div class="fw-semibold text-dark">{{ a.employee }}</div>
-                                <TenantBadge :tenant-id="a.tenant_id" />
+                                <div v-if="a.tenant_id" style="margin-top: 2px;">
+                                    <TenantBadge :tenant-id="a.tenant_id" />
+                                </div>
                             </td>
                             <td class="py-3">
-                                <div class="d-flex align-items-center gap-2">
+                                <div class="d-flex align-items-center" style="gap: 8px !important;">
                                     <span class="rounded-circle d-inline-block flex-shrink-0 shadow-sm" :style="{ width: '8px', height: '8px', background: a.color }"></span>
                                     <span class="fw-medium text-dark">{{ a.shift }}</span>
                                 </div>
@@ -462,16 +470,16 @@ function unassign(assignment) {
         </div>
 
         <!-- =========================================================================
-             MODAL DIALOG: NUEVO TURNO / EDITAR TURNO (CON TABS EJECUTIVAS Y RESPIRACIÓN)
+             MODAL 1: CREAR / EDITAR TURNO (CON CLASES ESTÁNDAR EMP-MODAL)
              ========================================================================= -->
-        <div id="shiftModal" ref="modalElement" class="modal fade" tabindex="-1" aria-labelledby="shiftModalTitle" aria-hidden="true" data-bs-backdrop="static">
+        <div id="shiftModal" ref="shiftModalElement" class="modal fade" tabindex="-1" aria-labelledby="shiftModalTitle" aria-hidden="true" data-bs-backdrop="static">
             <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content shadow-lg border" style="border-radius: 14px; overflow: hidden; background: var(--bg-surface);">
+                <div class="modal-content emp-modal-content">
                     <!-- Modal Header -->
-                    <div class="modal-header emp-modal-header px-4 py-3 border-bottom d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="emp-modal-icon shadow-sm" style="width: 40px; height: 40px; border-radius: 10px; font-size: 1.25rem;">
-                                <i :class="modalEditing ? 'bi bi-pencil-square' : 'bi bi-plus-circle-fill'"></i>
+                    <div class="modal-header emp-modal-header">
+                        <div class="d-flex align-items-center" style="gap: 12px !important;">
+                            <div class="emp-modal-icon">
+                                <i :class="modalEditing ? 'bi bi-pencil-square' : 'bi bi-clock-history'"></i>
                             </div>
                             <div>
                                 <h2 id="shiftModalTitle" class="modal-title fs-5 fw-bold text-dark mb-0">
@@ -483,24 +491,24 @@ function unassign(assignment) {
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
 
-                    <!-- Pestañas de Navegación Ejecutiva -->
-                    <div class="emp-modal-nav-wrap px-4 py-2 border-bottom" style="background: var(--bg-surface-elevated);">
-                        <ul class="nav nav-pills emp-modal-tabs" role="tablist">
-                            <li class="nav-item">
+                    <!-- Pestañas de Navegación Ejecutiva con Espacio Amplio -->
+                    <div class="emp-modal-nav-wrap">
+                        <ul class="emp-modal-tabs" role="tablist">
+                            <li>
                                 <button type="button" class="nav-link" :class="{ active: modalTab === 'general' }" @click="modalTab = 'general'">
-                                    <i class="bi bi-clock-history me-1.5"></i>
+                                    <i class="bi bi-clock-history"></i>
                                     <span>1. Horario y Datos</span>
                                 </button>
                             </li>
-                            <li class="nav-item">
+                            <li>
                                 <button type="button" class="nav-link" :class="{ active: modalTab === 'schedule' }" @click="modalTab = 'schedule'">
-                                    <i class="bi bi-calendar3 me-1.5"></i>
+                                    <i class="bi bi-calendar3"></i>
                                     <span>2. Días y Modalidad</span>
                                 </button>
                             </li>
-                            <li class="nav-item">
+                            <li>
                                 <button type="button" class="nav-link" :class="{ active: modalTab === 'policies' }" @click="modalTab = 'policies'">
-                                    <i class="bi bi-sliders2 me-1.5"></i>
+                                    <i class="bi bi-sliders2"></i>
                                     <span>3. Descanso y Estado</span>
                                 </button>
                             </li>
@@ -509,115 +517,148 @@ function unassign(assignment) {
 
                     <!-- Modal Body Form -->
                     <form @submit.prevent="submitShiftModal">
-                        <div class="modal-body p-4" style="background: var(--bg-surface);">
+                        <div class="emp-modal-body">
                             
                             <!-- =========================================================
                                  TAB 1: HORARIO Y DATOS PRINCIPALES
                                  ========================================================= -->
                             <div v-show="modalTab === 'general'">
-                                <div class="row g-3 mb-4">
-                                    <div class="col-12 col-md-7">
-                                        <label for="shift_name" class="form-label fw-semibold small text-dark mb-1.5">Nombre del turno <span class="text-danger">*</span></label>
-                                        <input id="shift_name" v-model="shiftForm.name" class="form-control" :class="{ 'is-invalid': shiftForm.errors.name }" placeholder="ej. Turno Mañana" required style="border-radius: 8px; height: 42px;">
-                                        <div v-if="shiftForm.errors.name" class="invalid-feedback">{{ shiftForm.errors.name }}</div>
+                                <div class="emp-section-card">
+                                    <div class="emp-section-title">
+                                        <i class="bi bi-info-circle-fill"></i>
+                                        <span>Identificación del Turno</span>
                                     </div>
-                                    <div class="col-12 col-md-5">
-                                        <label for="shift_code" class="form-label fw-semibold small text-dark mb-1.5">Código de turno</label>
-                                        <input id="shift_code" v-model="shiftForm.code" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.code }" placeholder="ej. T-MAÑ" style="border-radius: 8px; height: 42px;">
-                                        <div v-if="shiftForm.errors.code" class="invalid-feedback">{{ shiftForm.errors.code }}</div>
-                                    </div>
-                                </div>
-
-                                <div class="mb-4">
-                                    <label class="form-label fw-semibold small text-dark mb-2">Color distintivo en calendario</label>
-                                    <div class="d-flex align-items-center gap-2.5 flex-wrap">
-                                        <input v-model="shiftForm.color" type="color" class="form-control form-control-color p-0 shadow-sm" style="width: 42px; height: 42px; border-radius: 8px; cursor: pointer;">
-                                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                                            <button v-for="c in PRESET_COLORS" :key="c" type="button" class="border shadow-sm p-0 d-inline-flex align-items-center justify-content-center" :style="{ width: '32px', height: '32px', borderRadius: '8px', background: c, outline: shiftForm.color === c ? '2px solid #0284C7' : 'none', outlineOffset: '2px' }" :title="c" @click="shiftForm.color = c">
-                                                <i v-if="shiftForm.color === c" class="bi bi-check-lg text-white" style="font-size: 1rem;"></i>
-                                            </button>
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-7">
+                                            <label for="shift_name" class="form-label fw-semibold small text-dark mb-1.5">Nombre del turno <span class="text-danger">*</span></label>
+                                            <input id="shift_name" v-model="shiftForm.name" class="form-control" :class="{ 'is-invalid': shiftForm.errors.name }" placeholder="ej. Turno Mañana" required style="border-radius: 8px; height: 42px;">
+                                            <div v-if="shiftForm.errors.name" class="invalid-feedback">{{ shiftForm.errors.name }}</div>
+                                        </div>
+                                        <div class="col-12 col-md-5">
+                                            <label for="shift_code" class="form-label fw-semibold small text-dark mb-1.5">Código de turno</label>
+                                            <input id="shift_code" v-model="shiftForm.code" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.code }" placeholder="ej. T-MAÑ" style="border-radius: 8px; height: 42px;">
+                                            <div v-if="shiftForm.errors.code" class="invalid-feedback">{{ shiftForm.errors.code }}</div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row g-3 mb-4">
-                                    <div class="col-12 col-md-6">
-                                        <label for="shift_start" class="form-label fw-semibold small text-dark mb-1.5">Hora de Entrada (24h) <span class="text-danger">*</span></label>
-                                        <input id="shift_start" v-model="shiftForm.start_time" type="text" inputmode="numeric" maxlength="5" placeholder="08:00" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.start_time }" required style="border-radius: 8px; height: 42px; font-size: 0.95rem;" @blur="normalizeTime('start_time')">
-                                        <div class="form-text small text-secondary mt-1">Formato 24 horas (ej. 08:00 o 22:00)</div>
-                                        <div v-if="shiftForm.errors.start_time" class="invalid-feedback">{{ shiftForm.errors.start_time }}</div>
+                                <!-- Color Picker Elegante y Sin Duplicados Confusos -->
+                                <div class="emp-section-card">
+                                    <div class="emp-section-title">
+                                        <i class="bi bi-palette-fill"></i>
+                                        <span>Color distintivo en calendario</span>
                                     </div>
-                                    <div class="col-12 col-md-6">
-                                        <label for="shift_end" class="form-label fw-semibold small text-dark mb-1.5">Hora de Salida (24h) <span class="text-danger">*</span></label>
-                                        <input id="shift_end" v-model="shiftForm.end_time" type="text" inputmode="numeric" maxlength="5" placeholder="17:00" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.end_time }" required style="border-radius: 8px; height: 42px; font-size: 0.95rem;" @blur="normalizeTime('end_time')">
-                                        <div class="form-text small text-secondary mt-1">Formato 24 horas (ej. 17:00 o 06:00)</div>
-                                        <div v-if="shiftForm.errors.end_time" class="invalid-feedback">{{ shiftForm.errors.end_time }}</div>
+                                    <div class="d-flex align-items-center flex-wrap" style="gap: 16px !important;">
+                                        <div style="display: flex; align-items: center; gap: 10px !important; flex-wrap: wrap;">
+                                            <button v-for="c in PRESET_COLORS" :key="c" type="button" 
+                                                    class="shadow-sm p-0 d-inline-flex align-items-center justify-content-center transition" 
+                                                    :style="{ width: '32px', height: '32px', borderRadius: '8px', background: c, border: shiftForm.color === c ? '2px solid #0f172a' : '1px solid rgba(0,0,0,0.1)', transform: shiftForm.color === c ? 'scale(1.1)' : 'scale(1)' }" 
+                                                    :title="c" @click="shiftForm.color = c">
+                                                <i v-if="shiftForm.color === c" class="bi bi-check-lg text-white" style="font-size: 1rem;"></i>
+                                            </button>
+                                        </div>
+                                        <div class="d-flex align-items-center ps-3 border-start" style="gap: 10px !important;">
+                                            <label for="custom_shift_color" class="small text-secondary mb-0 fw-semibold">Personalizado:</label>
+                                            <input id="custom_shift_color" v-model="shiftForm.color" type="color" class="form-control form-control-color p-0 shadow-sm" style="width: 32px; height: 32px; border-radius: 8px; cursor: pointer;">
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div class="row g-3">
-                                    <div class="col-12 col-md-6">
-                                        <label for="shift_grace" class="form-label fw-semibold small text-dark mb-1.5">Tolerancia de tardanza (minutos) <span class="text-danger">*</span></label>
-                                        <input id="shift_grace" v-model="shiftForm.grace_period_minutes" type="number" min="0" max="240" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.grace_period_minutes }" required style="border-radius: 8px; height: 42px;">
-                                        <div class="form-text small text-secondary mt-1">Minutos tras la entrada permitidos antes de marcar tardanza.</div>
-                                        <div v-if="shiftForm.errors.grace_period_minutes" class="invalid-feedback">{{ shiftForm.errors.grace_period_minutes }}</div>
+                                <div class="emp-section-card">
+                                    <div class="emp-section-title">
+                                        <i class="bi bi-clock-fill"></i>
+                                        <span>Horas y Tolerancia</span>
                                     </div>
-                                    <div class="col-12 col-md-6">
-                                        <label for="shift_daily_hours" class="form-label fw-semibold small text-dark mb-1.5">Horas de jornada laboral por día <span class="text-danger">*</span></label>
-                                        <input id="shift_daily_hours" v-model="shiftForm.daily_hours" type="number" step="0.25" min="0.5" max="24" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.daily_hours }" required style="border-radius: 8px; height: 42px;">
-                                        <div class="form-text small text-secondary mt-1">Total de horas efectivas diarias requeridas (ej. 8).</div>
-                                        <div v-if="shiftForm.errors.daily_hours" class="invalid-feedback">{{ shiftForm.errors.daily_hours }}</div>
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-12 col-md-6">
+                                            <label for="shift_start" class="form-label fw-semibold small text-dark mb-1.5">Hora de Entrada (24h) <span class="text-danger">*</span></label>
+                                            <input id="shift_start" v-model="shiftForm.start_time" type="text" inputmode="numeric" maxlength="5" placeholder="08:00" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.start_time }" required style="border-radius: 8px; height: 42px; font-size: 0.95rem;" @blur="normalizeTime('start_time')">
+                                            <div class="form-text small text-secondary mt-1">Formato 24 horas (ej. 08:00 o 22:00)</div>
+                                            <div v-if="shiftForm.errors.start_time" class="invalid-feedback">{{ shiftForm.errors.start_time }}</div>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <label for="shift_end" class="form-label fw-semibold small text-dark mb-1.5">Hora de Salida (24h) <span class="text-danger">*</span></label>
+                                            <input id="shift_end" v-model="shiftForm.end_time" type="text" inputmode="numeric" maxlength="5" placeholder="17:00" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.end_time }" required style="border-radius: 8px; height: 42px; font-size: 0.95rem;" @blur="normalizeTime('end_time')">
+                                            <div class="form-text small text-secondary mt-1">Formato 24 horas (ej. 17:00 o 06:00)</div>
+                                            <div v-if="shiftForm.errors.end_time" class="invalid-feedback">{{ shiftForm.errors.end_time }}</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-6">
+                                            <label for="shift_grace" class="form-label fw-semibold small text-dark mb-1.5">Tolerancia de tardanza (minutos) <span class="text-danger">*</span></label>
+                                            <input id="shift_grace" v-model="shiftForm.grace_period_minutes" type="number" min="0" max="240" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.grace_period_minutes }" required style="border-radius: 8px; height: 42px;">
+                                            <div class="form-text small text-secondary mt-1">Minutos permitidos tras la hora de entrada.</div>
+                                            <div v-if="shiftForm.errors.grace_period_minutes" class="invalid-feedback">{{ shiftForm.errors.grace_period_minutes }}</div>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <label for="shift_daily_hours" class="form-label fw-semibold small text-dark mb-1.5">Horas de jornada laboral por día <span class="text-danger">*</span></label>
+                                            <input id="shift_daily_hours" v-model="shiftForm.daily_hours" type="number" step="0.25" min="0.5" max="24" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.daily_hours }" required style="border-radius: 8px; height: 42px;">
+                                            <div class="form-text small text-secondary mt-1">Total de horas efectivas diarias requeridas (ej. 8).</div>
+                                            <div v-if="shiftForm.errors.daily_hours" class="invalid-feedback">{{ shiftForm.errors.daily_hours }}</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- =========================================================
-                                 TAB 2: DÍAS LABORABLES Y MODALIDAD DE JORNADA
+                                 TAB 2: DÍAS LABORABLES Y MODALIDAD (ESPACIADO GARANTIZADO)
                                  ========================================================= -->
                             <div v-show="modalTab === 'schedule'">
-                                <div class="mb-4">
-                                    <label class="form-label fw-semibold small text-dark mb-2">Selecciona la modalidad de jornada <span class="text-danger">*</span></label>
+                                <div class="emp-section-card">
+                                    <div class="emp-section-title">
+                                        <i class="bi bi-diagram-3-fill"></i>
+                                        <span>Modalidad de jornada de trabajo</span>
+                                    </div>
                                     <div class="row g-3">
                                         <div class="col-12 col-md-6">
-                                            <div class="p-3 border rounded-3 cursor-pointer shadow-sm transition" :style="{ borderColor: shiftForm.type === 'fixed' ? 'var(--brand, #0284C7)' : 'var(--border-color)', background: shiftForm.type === 'fixed' ? 'rgba(2, 132, 199, 0.05)' : 'var(--bg-surface)' }" @click="shiftForm.type = 'fixed'">
-                                                <div class="d-flex align-items-center gap-2 mb-1">
+                                            <div class="p-3 border rounded-3 cursor-pointer shadow-sm transition" :style="{ borderColor: shiftForm.type === 'fixed' ? 'var(--brand, #0284C7)' : 'var(--border-color)', background: shiftForm.type === 'fixed' ? 'rgba(2, 132, 199, 0.06)' : 'var(--bg-surface)' }" @click="shiftForm.type = 'fixed'">
+                                                <div class="d-flex align-items-center" style="gap: 8px !important; margin-bottom: 4px;">
                                                     <i class="bi bi-calendar-check fs-5 text-primary"></i>
-                                                    <div class="fw-bold text-dark">Turno Fijo</div>
+                                                    <div class="fw-bold text-dark">Turno Fijo Semanal</div>
                                                 </div>
-                                                <div class="small text-secondary">Días específicos de la semana fija (ej. Lunes a Viernes o Lunes a Sábado).</div>
+                                                <div class="small text-secondary">Días específicos de la semana (ej. Lunes a Viernes o Lunes a Sábado).</div>
                                             </div>
                                         </div>
                                         <div class="col-12 col-md-6">
-                                            <div class="p-3 border rounded-3 cursor-pointer shadow-sm transition" :style="{ borderColor: shiftForm.type === 'rotating' ? 'var(--brand, #0284C7)' : 'var(--border-color)', background: shiftForm.type === 'rotating' ? 'rgba(2, 132, 199, 0.05)' : 'var(--bg-surface)' }" @click="shiftForm.type = 'rotating'">
-                                                <div class="d-flex align-items-center gap-2 mb-1">
+                                            <div class="p-3 border rounded-3 cursor-pointer shadow-sm transition" :style="{ borderColor: shiftForm.type === 'rotating' ? 'var(--brand, #0284C7)' : 'var(--border-color)', background: shiftForm.type === 'rotating' ? 'rgba(2, 132, 199, 0.06)' : 'var(--bg-surface)' }" @click="shiftForm.type = 'rotating'">
+                                                <div class="d-flex align-items-center" style="gap: 8px !important; margin-bottom: 4px;">
                                                     <i class="bi bi-arrow-repeat fs-5 text-primary"></i>
                                                     <div class="fw-bold text-dark">Turno Rotativo</div>
                                                 </div>
-                                                <div class="small text-secondary">Ciclos continuos de N días de trabajo seguidos de M días de descanso (ej. 4×2 o 6×1).</div>
+                                                <div class="small text-secondary">Ciclos periódicos de trabajo × descanso (ej. 4×2, 6×1 o 14×7).</div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Si es Fijo: Botones de días amplios -->
-                                <div v-if="shiftForm.type === 'fixed'">
-                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                                        <label class="form-label fw-semibold small text-dark mb-0">Días laborables seleccionados:</label>
-                                        <div class="d-flex align-items-center gap-1.5">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2.5" style="border-radius: 6px; font-size: 0.775rem;" @click="setWorkingDaysPreset('weekdays')">
+                                <!-- Si es Fijo: Botones de días CON ESPACIADO GARANTIZADO DE 10PX -->
+                                <div v-if="shiftForm.type === 'fixed'" class="emp-section-card">
+                                    <div class="d-flex align-items-center justify-content-between flex-wrap" style="gap: 10px !important; margin-bottom: 12px;">
+                                        <div class="emp-section-title mb-0">
+                                            <i class="bi bi-calendar-week"></i>
+                                            <span>Días laborables seleccionados</span>
+                                        </div>
+                                        <!-- Presets con espacio garantizado de 8px -->
+                                        <div style="display: flex; align-items: center; gap: 8px !important;">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2.5" style="border-radius: 6px; font-size: 0.775rem; font-weight: 500;" @click="setWorkingDaysPreset('weekdays')">
                                                 Lunes a Viernes
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2.5" style="border-radius: 6px; font-size: 0.775rem;" @click="setWorkingDaysPreset('mon_sat')">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2.5" style="border-radius: 6px; font-size: 0.775rem; font-weight: 500;" @click="setWorkingDaysPreset('mon_sat')">
                                                 Lunes a Sábado
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2.5" style="border-radius: 6px; font-size: 0.775rem;" @click="setWorkingDaysPreset('all')">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2.5" style="border-radius: 6px; font-size: 0.775rem; font-weight: 500;" @click="setWorkingDaysPreset('all')">
                                                 Toda la semana
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div class="d-flex flex-wrap gap-2.5 mb-2">
-                                        <button v-for="d in ORDERED_DAYS" :key="d.index" type="button" class="btn px-3.5 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm" :class="shiftForm.working_days.includes(d.index) ? 'btn-primary' : 'btn-outline-secondary'" style="border-radius: 8px; font-size: 0.875rem;" @click="toggleWorkingDay(d.index)">
+                                    <!-- Botones de días en 1 sola fila horizontal de 7 columnas -->
+                                    <div class="working-days-grid">
+                                        <button v-for="d in ORDERED_DAYS" :key="d.index" type="button" 
+                                                class="btn shadow-sm d-inline-flex align-items-center justify-content-center transition day-pill-btn" 
+                                                :class="shiftForm.working_days.includes(d.index) ? 'btn-primary' : 'btn-outline-secondary'" 
+                                                @click="toggleWorkingDay(d.index)">
                                             <i class="bi" :class="shiftForm.working_days.includes(d.index) ? 'bi-check-circle-fill' : 'bi-circle'"></i>
                                             <span>{{ d.label }}</span>
                                         </button>
@@ -626,8 +667,12 @@ function unassign(assignment) {
                                 </div>
 
                                 <!-- Si es Rotativo: Días de trabajo x Descanso -->
-                                <div v-else>
-                                    <div class="row g-4 mb-4">
+                                <div v-else class="emp-section-card">
+                                    <div class="emp-section-title">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                        <span>Ciclo de Trabajo y Descanso</span>
+                                    </div>
+                                    <div class="row g-4 mb-3">
                                         <div class="col-12 col-md-6">
                                             <label for="rotation_work" class="form-label fw-semibold small text-dark mb-1.5">Días seguidos de labor <span class="text-danger">*</span></label>
                                             <input id="rotation_work" v-model="shiftForm.rotation_work_days" type="number" min="1" max="60" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.rotation_work_days }" required style="border-radius: 8px; height: 42px;">
@@ -639,7 +684,7 @@ function unassign(assignment) {
                                             <div class="form-text small text-secondary mt-1">Ejemplo: 2 días consecutivos de descanso.</div>
                                         </div>
                                     </div>
-                                    <div class="alert alert-info border-0 d-flex align-items-start gap-2.5 p-3 mb-0" style="background: rgba(2, 132, 199, 0.08); border-radius: 8px; font-size: 0.825rem; color: #0369a1;">
+                                    <div class="alert alert-info border-0 d-flex align-items-start p-3 mb-0" style="background: rgba(2, 132, 199, 0.08); border-radius: 8px; font-size: 0.825rem; color: #0369a1; gap: 10px !important;">
                                         <i class="bi bi-info-circle-fill fs-5 flex-shrink-0" style="color: #0284c7;"></i>
                                         <div>
                                             El ciclo rotativo calcula automáticamente los días laborables de cada colaborador tomando como referencia la <strong>fecha de inicio de ciclo</strong> establecida al momento de asignarle el turno.
@@ -652,7 +697,7 @@ function unassign(assignment) {
                                  TAB 3: DESCANSO, POLÍTICAS Y ESTADO
                                  ========================================================= -->
                             <div v-show="modalTab === 'policies'">
-                                <div class="p-3 border rounded-3 mb-4 shadow-sm" style="background: var(--bg-surface);">
+                                <div class="emp-section-card">
                                     <div class="d-flex align-items-center justify-content-between mb-3">
                                         <div>
                                             <div class="fw-bold text-dark mb-0.5">Permite refrigerio / descanso</div>
@@ -669,7 +714,7 @@ function unassign(assignment) {
                                     </div>
                                 </div>
 
-                                <div class="p-3 border rounded-3 mb-4 shadow-sm d-flex align-items-center justify-content-between" style="background: var(--bg-surface);">
+                                <div class="emp-section-card d-flex align-items-center justify-content-between">
                                     <div>
                                         <div class="fw-bold text-dark mb-0.5">Turno activo</div>
                                         <div class="small text-secondary">Permite que este turno aparezca disponible para asignación de colaboradores.</div>
@@ -679,7 +724,7 @@ function unassign(assignment) {
                                     </div>
                                 </div>
 
-                                <div>
+                                <div class="emp-section-card">
                                     <label for="shift_desc" class="form-label fw-semibold small text-dark mb-1.5">Descripción u observaciones internas</label>
                                     <textarea id="shift_desc" v-model="shiftForm.description" class="form-control" rows="3" style="border-radius: 8px; font-size: 0.875rem;" placeholder="Indicaciones para supervisores, sucursales asignadas, etc..."></textarea>
                                 </div>
@@ -687,28 +732,236 @@ function unassign(assignment) {
 
                         </div>
 
-                        <!-- Modal Footer con Navegación Limpia -->
-                        <div class="modal-footer px-4 py-3 border-top d-flex justify-content-between align-items-center" style="background: var(--bg-surface-elevated);">
+                        <!-- Modal Footer con Guardar Siempre Disponible y Espaciado Perfecto -->
+                        <div class="modal-footer emp-modal-footer">
+                            <button type="button" class="btn btn-outline-secondary px-3.5 py-1.5" data-bs-dismiss="modal" style="border-radius: 8px; font-weight: 500;">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary d-inline-flex align-items-center px-4 py-1.5 shadow-sm" style="border-radius: 8px; font-weight: 600; gap: 8px !important;" :disabled="shiftForm.processing">
+                                <span v-if="shiftForm.processing" class="spinner-border spinner-border-sm" role="status"></span>
+                                <i v-else class="bi bi-check2"></i>
+                                <span>{{ modalEditing ? 'Guardar Cambios' : 'Crear Turno' }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             MODAL 2: ASIGNAR TURNO A COLABORADORES (MODAL DIALOG DEDICADO)
+             ========================================================================= -->
+        <div id="assignModal" ref="assignModalElement" class="modal fade" tabindex="-1" aria-labelledby="assignModalTitle" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content emp-modal-content">
+                    <!-- Modal Header -->
+                    <div class="modal-header emp-modal-header">
+                        <div class="d-flex align-items-center" style="gap: 12px !important;">
+                            <div class="emp-modal-icon">
+                                <i class="bi bi-person-check-fill text-primary"></i>
+                            </div>
                             <div>
-                                <button v-if="modalTab !== 'general'" type="button" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-3 py-1.5" style="border-radius: 8px; font-weight: 500;" @click="prevTab">
-                                    <i class="bi bi-arrow-left"></i>
-                                    <span>Anterior</span>
-                                </button>
+                                <h2 id="assignModalTitle" class="modal-title fs-5 fw-bold text-dark mb-0">
+                                    Asignar turno a colaboradores
+                                </h2>
+                                <p class="small text-secondary mb-0">Asocia a tu equipo un horario de trabajo y sucursal con vigencia programada.</p>
                             </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <button type="button" class="btn btn-outline-secondary px-3 py-1.5" data-bs-dismiss="modal" style="border-radius: 8px; font-weight: 500;">
-                                    Cancelar
-                                </button>
-                                <button v-if="modalTab !== 'policies'" type="button" class="btn btn-primary d-inline-flex align-items-center gap-1.5 px-3.5 py-1.5" style="border-radius: 8px; font-weight: 600;" @click="nextTab">
-                                    <span>Siguiente</span>
-                                    <i class="bi bi-arrow-right"></i>
-                                </button>
-                                <button v-else type="submit" class="btn btn-primary d-inline-flex align-items-center gap-2 px-4 py-1.5 shadow-sm" style="border-radius: 8px; font-weight: 600;" :disabled="shiftForm.processing">
-                                    <span v-if="shiftForm.processing" class="spinner-border spinner-border-sm" role="status"></span>
-                                    <i v-else class="bi bi-check2"></i>
-                                    <span>{{ modalEditing ? 'Guardar Cambios' : 'Crear Turno' }}</span>
-                                </button>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+
+                    <!-- Modal Body Form -->
+                    <form @submit.prevent="submitAssign">
+                        <div class="emp-modal-body">
+                            <div class="emp-section-card">
+                                <div class="emp-section-title">
+                                    <i class="bi bi-clock-history"></i>
+                                    <span>Horario y Sucursal</span>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <label for="modal_assign_shift" class="form-label fw-semibold small text-dark mb-1.5">Turno a asignar <span class="text-danger">*</span></label>
+                                        <select id="modal_assign_shift" v-model="assign.shift_id" class="form-select" :class="{ 'is-invalid': assign.errors.shift_id }" required style="border-radius: 8px; height: 42px;">
+                                            <option v-for="shift in activeShifts" :key="shift.id" :value="shift.id">
+                                                {{ shift.name }} ({{ hora(shift.start_time) }} – {{ hora(shift.end_time) }})
+                                            </option>
+                                        </select>
+                                        <div v-if="assign.errors.shift_id" class="invalid-feedback">{{ assign.errors.shift_id }}</div>
+                                    </div>
+
+                                    <div class="col-12 col-md-6">
+                                        <label for="modal_assign_branch" class="form-label fw-semibold small text-dark mb-1.5">Sucursal operativa <span class="text-danger">*</span></label>
+                                        <select id="modal_assign_branch" v-model="assign.branch_id" class="form-select" :class="{ 'is-invalid': assign.errors.branch_id }" required style="border-radius: 8px; height: 42px;">
+                                            <option v-for="branch in branches" :key="branch.id" :value="branch.id">{{ branch.name }}</option>
+                                        </select>
+                                        <div v-if="assign.errors.branch_id" class="invalid-feedback">{{ assign.errors.branch_id }}</div>
+                                    </div>
+                                </div>
                             </div>
+
+                            <!-- SELECCIONAR COLABORADORES CON BÚSQUEDA Y ESPACIADO ELEGANTE (Screenshot 3 Solved) -->
+                            <div class="emp-section-card">
+                                <div class="d-flex align-items-center justify-content-between flex-wrap" style="gap: 10px !important; margin-bottom: 12px;">
+                                    <div class="emp-section-title mb-0">
+                                        <i class="bi bi-people-fill"></i>
+                                        <span>Seleccionar Colaboradores <span class="text-danger">*</span></span>
+                                    </div>
+                                    <div class="d-flex align-items-center" style="gap: 10px !important;">
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace" style="border-radius: 6px; font-size: 0.725rem; padding: 4px 8px;">
+                                            {{ assign.user_ids.length }} seleccionados
+                                        </span>
+                                        <button 
+                                            type="button" 
+                                            class="btn btn-sm btn-link text-decoration-none p-0 text-primary fw-semibold" 
+                                            style="font-size: 0.775rem;" 
+                                            @click="selectAllFilteredEmployees"
+                                        >
+                                            Seleccionar visibles
+                                        </button>
+                                        <span class="text-muted" style="font-size: 0.75rem;">·</span>
+                                        <button 
+                                            v-if="assign.user_ids.length" 
+                                            type="button" 
+                                            class="btn btn-sm btn-link text-decoration-none p-0 text-secondary fw-semibold" 
+                                            style="font-size: 0.775rem;" 
+                                            @click="clearSelectedEmployees"
+                                        >
+                                            Limpiar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Buscador Instantáneo en Tiempo Real -->
+                                <div class="position-relative mb-3">
+                                    <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
+                                    <input 
+                                        v-model="employeeSearch" 
+                                        type="text" 
+                                        class="form-control ps-5 collab-search-input" 
+                                        placeholder="Buscar colaborador por nombre, apellido, código (ej. Alvarez o EMP-003)..." 
+                                        style="height: 42px; border-radius: 8px; font-size: 0.85rem;"
+                                    >
+                                    <button 
+                                        v-if="employeeSearch" 
+                                        type="button" 
+                                        class="btn btn-link p-0 position-absolute end-0 top-50 translate-middle-y me-3 text-muted text-decoration-none" 
+                                        title="Limpiar búsqueda"
+                                        @click="employeeSearch = ''"
+                                    >
+                                        <i class="bi bi-x-circle-fill" style="font-size: 1rem;"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Lista Scrollable con Tarjetas de Colaboradores -->
+                                <div class="collaborator-picker-list">
+                                    <div 
+                                        v-for="e in filteredEmployees" 
+                                        :key="e.id"
+                                        class="collaborator-picker-row"
+                                        :class="{ 'is-selected': assign.user_ids.includes(e.id) }"
+                                        @click="toggleEmployee(e.id)"
+                                    >
+                                        <div class="d-flex align-items-center" style="gap: 12px !important;">
+                                            <!-- Checkbox personalizable -->
+                                            <div class="custom-check-box" :class="{ 'is-checked': assign.user_ids.includes(e.id) }">
+                                                <i v-if="assign.user_ids.includes(e.id)" class="bi bi-check-lg"></i>
+                                            </div>
+
+                                            <!-- Avatar con iniciales -->
+                                            <div class="collab-avatar">
+                                                {{ getInitials(e.first_name, e.last_name) }}
+                                            </div>
+
+                                            <!-- Información del Colaborador -->
+                                            <div class="min-w-0">
+                                                <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem;">
+                                                    {{ e.last_name }}, {{ e.first_name }}
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                    <span v-if="e.employee_code" class="badge text-secondary font-monospace" style="background: rgba(100, 116, 139, 0.1); font-size: 0.685rem; padding: 1px 6px; border-radius: 4px; font-weight: 600;">
+                                                        {{ e.employee_code }}
+                                                    </span>
+                                                    <span v-if="e.document_number" class="small text-muted" style="font-size: 0.725rem;">
+                                                        Doc: {{ e.document_number }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Badge de estado seleccionado -->
+                                        <div class="ps-2">
+                                            <span v-if="assign.user_ids.includes(e.id)" class="badge bg-primary text-white" style="border-radius: 5px; font-size: 0.7rem; font-weight: 600; padding: 3px 7px;">
+                                                <i class="bi bi-check2 me-1"></i>Asignado
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Estado sin resultados -->
+                                    <div v-if="!filteredEmployees.length" class="text-center py-4 text-muted small">
+                                        <i class="bi bi-person-x fs-3 d-block mb-1 opacity-50"></i>
+                                        No se encontraron colaboradores que coincidan con "{{ employeeSearch }}".
+                                    </div>
+                                </div>
+
+                                <div class="form-text small text-secondary mt-2.5">
+                                    <i class="bi bi-info-circle me-1"></i>Haz clic sobre cualquier colaborador para agregarlo o removerlo de la asignación.
+                                </div>
+                                <div v-if="assign.errors.user_ids" class="invalid-feedback d-block mt-1">{{ assign.errors.user_ids }}</div>
+                            </div>
+
+                            <!-- VIGENCIA Y PROGRAMACIÓN CON DATE RANGE PICKER MODERNO (Screenshot 1 & 2 Solved) -->
+                            <div class="emp-section-card">
+                                <div class="emp-section-title">
+                                    <i class="bi bi-calendar-range"></i>
+                                    <span>Vigencia y Programación</span>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <DateRangePicker 
+                                        v-model:startDate="assign.effective_from" 
+                                        v-model:endDate="assign.effective_until" 
+                                        :today="today"
+                                        label="Período de Vigencia"
+                                        :allow-indefinite="true"
+                                        :drop-up="true"
+                                    />
+                                    <div v-if="assign.errors.effective_until" class="invalid-feedback d-block mt-1">
+                                        {{ assign.errors.effective_until }}
+                                    </div>
+                                </div>
+
+                                <div v-if="selectedAssignShift?.type === 'rotating'" class="mb-3">
+                                    <label class="form-label fw-semibold small text-dark mb-1.5">Inicio de ciclo rotativo <span class="text-danger">*</span></label>
+                                    <DateRangePicker 
+                                        v-model:startDate="assign.rotation_anchor_date"
+                                        :single-date="true"
+                                        :today="today"
+                                        label="Fecha Base de Ciclo Rotativo"
+                                        :allow-indefinite="false"
+                                        :drop-up="true"
+                                    />
+                                    <div class="form-text small text-secondary mt-1">Fecha base desde la cual empezará a contar el primer día del ciclo de trabajo rotativo.</div>
+                                </div>
+
+                                <div class="alert alert-info border-0 d-flex align-items-start p-3 mb-0" style="background: rgba(2, 132, 199, 0.08); border-radius: 8px; font-size: 0.825rem; color: #0369a1; gap: 10px !important;">
+                                    <i class="bi bi-shield-check fs-5 flex-shrink-0" style="color: #0284c7;"></i>
+                                    <div>
+                                        <strong>Cierre automático de turno previo:</strong> La asignación vigente de cada colaborador seleccionado se cerrará de forma automática el día anterior a la fecha de inicio indicada.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modal Footer -->
+                        <div class="modal-footer emp-modal-footer">
+                            <button type="button" class="btn btn-outline-secondary px-3.5 py-1.5" data-bs-dismiss="modal" style="border-radius: 8px; font-weight: 500;">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary d-inline-flex align-items-center px-4 py-1.5 shadow-sm" style="border-radius: 8px; font-weight: 600; gap: 8px !important;" :disabled="assign.processing">
+                                <span v-if="assign.processing" class="spinner-border spinner-border-sm" role="status"></span>
+                                <i v-else class="bi bi-check2-circle"></i>
+                                <span>Confirmar Asignación</span>
+                            </button>
                         </div>
                     </form>
                 </div>

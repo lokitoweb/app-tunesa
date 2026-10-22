@@ -4,6 +4,7 @@ import { useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import DeliveriesTable from '../../Components/DeliveriesTable.vue';
 import TestResult from '../../Components/TestResult.vue';
+import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 
 const props = defineProps({
     isGlobal: Boolean,
@@ -20,6 +21,7 @@ const props = defineProps({
 });
 
 const page = usePage();
+const { ask } = useConfirm();
 const PROVIDERS = { nominatim: 'OpenStreetMap / Nominatim — gratis', google: 'Google Maps Geocoding' };
 
 const form = useForm({
@@ -34,7 +36,6 @@ const form = useForm({
 function save() {
     form
         .transform((data) => {
-            // Lo que no existe en este servidor o no aplica a una empresa no se envía
             const out = { ...data, _method: 'put' };
             if (!props.has.geocoding_provider) delete out.geocoding_provider;
             if (!props.has.fcm_enabled) delete out.fcm_enabled;
@@ -56,7 +57,7 @@ function save() {
         });
 }
 
-// Peticiones JSON a los endpoints de prueba (misma sesión, token CSRF del layout)
+// Peticiones JSON a los endpoints de prueba
 async function requestJson(url, options) {
     const res = await fetch(url, { headers: { Accept: 'application/json', 'X-CSRF-TOKEN': page.props.csrf, 'Content-Type': 'application/json' }, ...options });
     let data = null;
@@ -71,7 +72,6 @@ const deliveries = ref(null);
 const busy = reactive({});
 const results = reactive({});
 
-// Prueba al instante con lo escrito en el formulario (aunque no esté guardado)
 async function test(key, url, payload) {
     busy[key] = true;
     results[key] = null;
@@ -88,18 +88,26 @@ async function test(key, url, payload) {
 // Secreto del webhook: mostrar/ocultar, copiar y regenerar
 const showSecret = ref(false);
 const secretNote = ref(null);
+
 async function copySecret() {
     try {
         await navigator.clipboard.writeText(form.webhook_secret);
-        secretNote.value = { ok: true, text: 'Secreto copiado.' };
+        secretNote.value = { ok: true, text: 'Secreto copiado al portapapeles.' };
     } catch (e) {
-        // Sin permiso de portapapeles (http): se muestra para copiarlo a mano
         showSecret.value = true;
-        secretNote.value = { ok: false, text: 'No se pudo copiar: selecciónalo y cópialo a mano.' };
+        secretNote.value = { ok: false, text: 'No se pudo copiar automáticamente: selecciónalo y cópialo a mano.' };
     }
 }
+
 async function regenerateSecret() {
-    if (!confirm('¿Generar un secreto nuevo? Las firmas con el actual dejarán de ser válidas en tu sistema.')) return;
+    const ok = await ask({
+        title: '¿Regenerar secreto del webhook?',
+        message: 'Las firmas de webhook calculadas con el secreto actual dejarán de ser válidas de inmediato en tu sistema.',
+        confirmText: 'Sí, regenerar',
+        tone: 'danger'
+    });
+    if (!ok) return;
+
     busy.secret = true;
     try {
         const data = await requestJson('/settings/branding/regenerate-webhook-secret', { method: 'POST', body: '{}' });
@@ -113,7 +121,6 @@ async function regenerateSecret() {
     }
 }
 
-// Aviso de respaldo a OpenStreetMap si se elige Google sin clave
 const googleWithoutKey = computed(() => {
     const chosen = form.geocoding_provider || props.inherited.geocoding_provider;
     const hasKey = form.maps_api_key.trim() !== '' || (props.maps.any && !form.clear_maps_api_key);
@@ -140,85 +147,207 @@ const pushEmail = ref('');
 </script>
 
 <template>
-    <AppLayout title="Integraciones">
-        <div class="page-header">
-            <div>
-                <h1>Integraciones</h1>
-                <p>Webhook, geocodificación y notificaciones push de {{ isGlobal ? 'la plataforma' : ownerName }}.</p>
+    <AppLayout title="Integraciones y Webhooks">
+        <!-- Header Ejecutivo Moderno con Hub de Navegación -->
+        <div class="settings-header-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="settings-header-icon" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+                        <i class="bi bi-plug-fill"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <h1 class="settings-header-title mb-0">Integraciones y Webhooks</h1>
+                            <span v-if="isGlobal" class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 rounded-pill font-monospace fw-semibold" style="font-size: 0.7rem;">GLOBAL</span>
+                            <span v-else class="badge bg-info-subtle text-info border border-info-subtle px-2 py-0.5 rounded-pill fw-semibold" style="font-size: 0.7rem;">{{ ownerName }}</span>
+                        </div>
+                        <p class="settings-header-subtitle mb-0 mt-0.5">Endpoints de webhook, geocodificación inversa y notificaciones push de {{ isGlobal ? 'la plataforma' : ownerName }}.</p>
+                    </div>
+                </div>
+                <div class="settings-hub-nav">
+                    <a href="/settings/branding" class="settings-hub-btn" title="Configurar identidad y colores">
+                        <i class="bi bi-palette"></i>
+                        <span>Marca y apariencia</span>
+                    </a>
+                    <a href="/settings/mobile" class="settings-hub-btn" title="Configurar app móvil">
+                        <i class="bi bi-phone"></i>
+                        <span>App móvil</span>
+                    </a>
+                    <span class="settings-hub-btn is-active" aria-current="page">
+                        <i class="bi bi-plug-fill text-primary"></i>
+                        <span>Integraciones</span>
+                    </span>
+                </div>
             </div>
-            <a href="/settings/branding" class="btn btn-outline-secondary"><i class="bi bi-palette me-1"></i> Marca y app</a>
         </div>
 
-        <div v-if="isGlobal" class="alert alert-info d-flex align-items-start gap-2" role="status">
-            <i class="bi bi-globe2"></i>
-            <div>
-                <strong>Valores por defecto de la plataforma.</strong>
-                El proveedor de geocodificación, la clave de mapas y el push los heredan las empresas que no definieron los suyos.
-                Para editar una empresa en particular, elígela en el selector superior.
+        <!-- Banner Ejecutivo de Modo Global -->
+        <div v-if="isGlobal" class="settings-global-notice mb-4" role="status">
+            <div class="d-flex align-items-start gap-3">
+                <div class="settings-notice-icon">
+                    <i class="bi bi-globe-americas"></i>
+                </div>
+                <div class="flex-grow-1 min-w-0">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <strong class="settings-notice-title">Valores por defecto de la plataforma</strong>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 font-monospace fw-bold" style="font-size: 0.68rem;">HERENCIA ACTIVA</span>
+                    </div>
+                    <div class="settings-notice-text">
+                        El proveedor de geocodificación, la clave de mapas y las notificaciones push los heredan automáticamente las empresas que no hayan configurado los suyos propios.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPIs Resumen Rápido -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm p-3 integrations-card">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(2, 132, 199, 0.1); color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                            <i class="bi bi-send-check-fill"></i>
+                        </div>
+                        <div>
+                            <div class="fs-6 fw-bold text-primary-emphasis text-truncate" style="max-width: 140px;">
+                                {{ form.webhook_url ? 'Configurado' : 'Sin URL' }}
+                            </div>
+                            <div class="small settings-helper-text">Webhook ERP</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm p-3 integrations-card">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                            <i class="bi bi-geo-alt-fill"></i>
+                        </div>
+                        <div>
+                            <div class="fs-6 fw-bold text-primary-emphasis">
+                                {{ (form.geocoding_provider || inherited.geocoding_provider) === 'google' ? 'Google Maps' : 'OpenStreetMap' }}
+                            </div>
+                            <div class="small settings-helper-text">Geocodificación</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm p-3 integrations-card">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                            <i class="bi bi-bell-fill"></i>
+                        </div>
+                        <div>
+                            <div class="fs-6 fw-bold text-primary-emphasis">
+                                {{ fcm?.configured ? 'Configurado' : 'Pendiente' }}
+                            </div>
+                            <div class="small settings-helper-text">Push Firebase</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm p-3 integrations-card">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(245, 158, 11, 0.1); color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                            <i class="bi bi-shield-lock-fill"></i>
+                        </div>
+                        <div>
+                            <div class="fs-6 fw-bold text-primary-emphasis">HMAC-SHA256</div>
+                            <div class="small settings-helper-text">Firma de seguridad</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <form novalidate @submit.prevent="save">
-            <div class="row g-3">
+            <div class="row g-4">
                 <!-- Webhook y endpoint de notificaciones -->
                 <div class="col-12">
-                    <div class="card border-0">
-                        <div class="card-header border-0 pt-3">
-                            <h2 class="h6 fw-semibold mb-0">Webhook y notificaciones</h2>
-                            <small class="text-body-secondary">Se guardan cifradas. El secreto solo lo ven quienes administran {{ isGlobal ? 'la plataforma' : 'la empresa' }} y nunca se envía a la app.</small>
-                            <small v-if="isGlobal" class="d-block text-body-secondary">El webhook y el endpoint de notificaciones son propios de cada empresa: en la vista global solo sirven para probar la conexión, no se heredan ni reciben eventos.</small>
+                    <div class="card border-0 shadow-sm integrations-card">
+                        <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
+                            <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Webhooks y endpoints de eventos</h2>
+                            <small class="settings-helper-text">Se almacenan cifrados. El secreto solo es visible para administradores y nunca se expone a la app móvil.</small>
+                            <small v-if="isGlobal" class="d-block settings-helper-text mt-1">El webhook y el endpoint son específicos de cada empresa: en la vista global solo sirven para validar conectividad.</small>
                         </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="webhook_url" class="form-label">URL del webhook</label>
-                                    <input id="webhook_url" v-model="form.webhook_url" type="url" maxlength="255" placeholder="https://erp.empresa.com/webhooks/asistencia" class="form-control" :class="{ 'is-invalid': form.errors.webhook_url }">
-                                    <div v-if="form.errors.webhook_url" class="invalid-feedback">{{ form.errors.webhook_url }}</div>
-                                    <div class="form-text">Recibe un POST JSON por cada entrada, inicio y fin de descanso y salida, y por cada cambio de estado de un permiso (para ERP o planilla).</div>
-                                    <div v-if="form.webhook_url === receivers.webhook_url" class="form-text text-info-emphasis"><i class="bi bi-info-circle me-1"></i>Precargada con el receptor de la plataforma, que verifica la firma. Reemplázala por la URL de tu sistema cuando la tengas.</div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" :disabled="busy.webhook" @click="test('webhook', '/settings/branding/test-webhook', { url: form.webhook_url?.trim(), secret: form.webhook_secret })">
-                                        <span v-if="busy.webhook" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span><i v-else class="bi bi-send me-1"></i>Probar Webhook Ahora
+                        <div class="card-body p-3 pt-1">
+                            <div class="row g-4">
+                                <div class="col-12 col-md-6">
+                                    <label for="webhook_url" class="form-label small fw-semibold text-body mb-1">URL del webhook de eventos</label>
+                                    <div class="modern-input-wrapper mb-1">
+                                        <span class="modern-input-icon"><i class="bi bi-link-45deg"></i></span>
+                                        <input id="webhook_url" v-model="form.webhook_url" type="url" maxlength="255" placeholder="https://erp.empresa.com/webhooks/asistencia" class="modern-input-control" :class="{ 'is-invalid': form.errors.webhook_url }">
+                                    </div>
+                                    <div v-if="form.errors.webhook_url" class="text-danger small mt-1">{{ form.errors.webhook_url }}</div>
+                                    <small class="settings-helper-text d-block">Recibe un POST JSON en tiempo real por cada entrada, descanso, salida y cambio en solicitudes.</small>
+                                    <div v-if="form.webhook_url === receivers.webhook_url" class="small text-info-emphasis mt-1">
+                                        <i class="bi bi-info-circle me-1"></i> Precargada con el receptor de la plataforma. Reemplázala por la de tu sistema cuando la tengas.
+                                    </div>
+                                    <button type="button" class="btn-integration-action mt-3" :disabled="busy.webhook" @click="test('webhook', '/settings/branding/test-webhook', { url: form.webhook_url?.trim(), secret: form.webhook_secret })">
+                                        <span v-if="busy.webhook" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                        <i v-else class="bi bi-send-fill me-2"></i>
+                                        Probar webhook ahora
                                     </button>
                                     <TestResult :result="results.webhook" />
                                 </div>
-                                <div class="col-md-6">
-                                    <label for="webhook_secret" class="form-label">Secreto del webhook</label>
-                                    <div class="input-group" :class="{ 'has-validation': form.errors.webhook_secret }">
+
+                                <div class="col-12 col-md-6">
+                                    <label for="webhook_secret" class="form-label small fw-semibold text-body mb-1">Secreto compartido de firma (Secret Key)</label>
+                                    <div class="modern-input-wrapper mb-1">
+                                        <span class="modern-input-icon"><i class="bi bi-key-fill"></i></span>
                                         <input id="webhook_secret" v-model="form.webhook_secret" :type="showSecret ? 'text' : 'password'" maxlength="255" minlength="16" autocomplete="off" spellcheck="false" required
-                                               class="form-control font-monospace" :class="{ 'is-invalid': form.errors.webhook_secret }">
-                                        <button type="button" class="btn btn-outline-secondary" :aria-pressed="showSecret" :title="showSecret ? 'Ocultar el secreto' : 'Mostrar el secreto'" :aria-label="showSecret ? 'Ocultar el secreto' : 'Mostrar el secreto'" @click="showSecret = !showSecret">
-                                            <i class="bi" :class="showSecret ? 'bi-eye-slash' : 'bi-eye'"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary" title="Copiar el secreto" aria-label="Copiar el secreto" @click="copySecret">
-                                            <i class="bi bi-clipboard"></i>
-                                        </button>
-                                        <div v-if="form.errors.webhook_secret" class="invalid-feedback">{{ form.errors.webhook_secret }}</div>
+                                               class="modern-input-control font-monospace pe-5" :class="{ 'is-invalid': form.errors.webhook_secret }">
+                                        <div class="d-flex align-items-center gap-1 pe-2">
+                                            <button type="button" class="btn-input-action" :aria-pressed="showSecret" :title="showSecret ? 'Ocultar el secreto' : 'Mostrar el secreto'" @click="showSecret = !showSecret">
+                                                <i class="bi" :class="showSecret ? 'bi-eye-slash-fill' : 'bi-eye-fill'"></i>
+                                            </button>
+                                            <button type="button" class="btn-input-action" title="Copiar el secreto" @click="copySecret">
+                                                <i class="bi bi-clipboard-fill"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="form-text">Firma cada envío en la cabecera <code>X-Tunesa-Signature: sha256=…</code> (HMAC-SHA256 del cuerpo). Configura este mismo valor en tu sistema para validar la firma.</div>
-                                    <button type="button" class="btn btn-sm btn-outline-warning mt-2" :disabled="busy.secret" @click="regenerateSecret">
-                                        <i class="bi bi-arrow-repeat me-1"></i>Regenerar secreto
+                                    <div v-if="form.errors.webhook_secret" class="text-danger small mt-1">{{ form.errors.webhook_secret }}</div>
+                                    <small class="settings-helper-text d-block">Firma cada envío en la cabecera <code>X-Tunesa-Signature: sha256=…</code> para que tu servidor verifique la autenticidad.</small>
+                                    <button type="button" class="btn-integration-warning mt-3" :disabled="busy.secret" @click="regenerateSecret">
+                                        <i class="bi bi-arrow-repeat me-2"></i> Regenerar secreto
                                     </button>
-                                    <div v-if="secretNote" class="mt-2 small" :class="secretNote.ok ? 'text-success' : 'text-danger'" aria-live="polite">
-                                        <i class="bi me-1" :class="secretNote.ok ? 'bi-check-circle-fill' : 'bi-x-circle-fill'"></i>{{ secretNote.text }}
+                                    <div v-if="secretNote" class="mt-2 small d-flex align-items-center gap-1" :class="secretNote.ok ? 'text-success' : 'text-danger'" aria-live="polite">
+                                        <i class="bi" :class="secretNote.ok ? 'bi-check-circle-fill' : 'bi-x-circle-fill'"></i>
+                                        <span>{{ secretNote.text }}</span>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label for="notification_endpoint" class="form-label">Endpoint de notificaciones</label>
-                                    <input id="notification_endpoint" v-model="form.notification_endpoint" type="url" maxlength="255" placeholder="https://notificaciones.empresa.com/push" class="form-control" :class="{ 'is-invalid': form.errors.notification_endpoint }">
-                                    <div v-if="form.errors.notification_endpoint" class="invalid-feedback">{{ form.errors.notification_endpoint }}</div>
-                                    <div class="form-text">Recibe un POST JSON por cada aviso in-app creado para un usuario de la empresa, con la misma firma que el webhook.</div>
-                                    <div v-if="form.notification_endpoint === receivers.notification_endpoint" class="form-text text-info-emphasis"><i class="bi bi-info-circle me-1"></i>Precargada con el receptor de la plataforma. Reemplázala por la URL de tu sistema cuando la tengas.</div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" :disabled="busy.notification" @click="test('notification', '/settings/branding/test-notification', { url: form.notification_endpoint?.trim(), secret: form.webhook_secret })">
-                                        <span v-if="busy.notification" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span><i v-else class="bi bi-bell me-1"></i>Enviar Notificación de Prueba
+
+                                <div class="col-12 col-md-6">
+                                    <label for="notification_endpoint" class="form-label small fw-semibold text-body mb-1">Endpoint de notificaciones in-app</label>
+                                    <div class="modern-input-wrapper mb-1">
+                                        <span class="modern-input-icon"><i class="bi bi-bell-fill"></i></span>
+                                        <input id="notification_endpoint" v-model="form.notification_endpoint" type="url" maxlength="255" placeholder="https://notificaciones.empresa.com/push" class="modern-input-control" :class="{ 'is-invalid': form.errors.notification_endpoint }">
+                                    </div>
+                                    <div v-if="form.errors.notification_endpoint" class="text-danger small mt-1">{{ form.errors.notification_endpoint }}</div>
+                                    <small class="settings-helper-text d-block">Recibe avisos creados para usuarios de la empresa, firmados con el mismo secreto.</small>
+                                    <div v-if="form.notification_endpoint === receivers.notification_endpoint" class="small text-info-emphasis mt-1">
+                                        <i class="bi bi-info-circle me-1"></i> Precargada con el receptor de la plataforma.
+                                    </div>
+                                    <button type="button" class="btn-integration-action mt-3" :disabled="busy.notification" @click="test('notification', '/settings/branding/test-notification', { url: form.notification_endpoint?.trim(), secret: form.webhook_secret })">
+                                        <span v-if="busy.notification" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                        <i v-else class="bi bi-bell-fill me-2"></i>
+                                        Enviar notificación de prueba
                                     </button>
                                     <TestResult :result="results.notification" />
                                 </div>
-                                <div class="col-md-6">
-                                    <p class="small text-body-secondary mb-0 mt-md-4">
-                                        Las pruebas se envían al instante a la URL escrita arriba (aunque no la hayas guardado) con el evento
-                                        <code>ping</code> o <code>notification.test</code>, firmadas con el secreto del webhook.
-                                        Los eventos reales se envían en segundo plano y se reintentan hasta 5 veces si fallan.
-                                    </p>
+
+                                <div class="col-12 col-md-6">
+                                    <div class="p-3 rounded-3 bg-body-tertiary border h-100 d-flex flex-column justify-content-center">
+                                        <div class="d-flex align-items-center gap-2 mb-2 text-primary fw-semibold small">
+                                            <i class="bi bi-info-circle-fill fs-5"></i>
+                                            <span>Mecanismo de reintentos automáticos</span>
+                                        </div>
+                                        <p class="small text-secondary mb-0">
+                                            Las pruebas se transmiten sincrónicamente con el evento <code>ping</code> o <code>notification.test</code>.
+                                            En producción, los eventos reales se procesan asíncronamente en cola y se reintentan hasta <strong>5 veces</strong> con espera exponencial ante caídas del servidor receptor.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -227,124 +356,152 @@ const pushEmail = ref('');
 
                 <!-- Geocodificación -->
                 <div class="col-12 col-xl-6">
-                    <div class="card border-0 h-100">
-                        <div class="card-header border-0 pt-3">
-                            <h2 class="h6 fw-semibold mb-0">Geocodificación</h2>
-                            <small class="text-body-secondary">Convierte coordenadas en direcciones (y al revés) en el formulario de sucursales.</small>
+                    <div class="card border-0 shadow-sm integrations-card h-100">
+                        <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
+                            <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Geocodificación inversa</h2>
+                            <small class="text-secondary">Convierte automáticamente coordenadas GPS en direcciones de texto en sucursales.</small>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body p-3 pt-1">
                             <div v-if="has.geocoding_provider" class="mb-3">
-                                <label for="geocoding_provider" class="form-label">Proveedor</label>
-                                <select id="geocoding_provider" v-model="form.geocoding_provider" class="form-select" :class="{ 'is-invalid': form.errors.geocoding_provider }">
-                                    <option v-if="!isGlobal" value="">Heredar de la plataforma (actual: {{ PROVIDERS[inherited.geocoding_provider] ?? inherited.geocoding_provider }})</option>
-                                    <option v-for="(label, key) in PROVIDERS" :key="key" :value="key">{{ label }}</option>
-                                </select>
-                                <div v-if="form.errors.geocoding_provider" class="invalid-feedback">{{ form.errors.geocoding_provider }}</div>
+                                <label for="geocoding_provider" class="form-label small fw-semibold text-body mb-1">Proveedor de mapas</label>
+                                <div class="modern-input-wrapper">
+                                    <span class="modern-input-icon"><i class="bi bi-compass"></i></span>
+                                    <select id="geocoding_provider" v-model="form.geocoding_provider" class="modern-input-control" :class="{ 'is-invalid': form.errors.geocoding_provider }">
+                                        <option v-if="!isGlobal" value="">Heredar de la plataforma (actual: {{ PROVIDERS[inherited.geocoding_provider] ?? inherited.geocoding_provider }})</option>
+                                        <option v-for="(label, key) in PROVIDERS" :key="key" :value="key">{{ label }}</option>
+                                    </select>
+                                </div>
+                                <div v-if="form.errors.geocoding_provider" class="text-danger small mt-1">{{ form.errors.geocoding_provider }}</div>
                             </div>
+
                             <div class="mb-3">
-                                <label for="maps_api_key" class="form-label">Clave de API de Google Maps</label>
-                                <input id="maps_api_key" v-model="form.maps_api_key" type="password" maxlength="255" autocomplete="new-password"
-                                       :placeholder="maps.mask ?? (!isGlobal && maps.any ? 'Usa la clave de la plataforma' : 'Sin clave')"
-                                       class="form-control font-monospace" :class="{ 'is-invalid': form.errors.maps_api_key }">
-                                <div class="form-text">Necesaria solo con Google (API "Geocoding" habilitada). Dejar vacío para no cambiar.</div>
-                                <div v-if="googleWithoutKey" class="form-text text-warning-emphasis">
-                                    <i class="bi bi-info-circle me-1"></i>Sin clave de Google se usará OpenStreetMap automáticamente.
+                                <label for="maps_api_key" class="form-label small fw-semibold text-body mb-1">API Key de Google Maps (Geocoding API)</label>
+                                <div class="modern-input-wrapper">
+                                    <span class="modern-input-icon"><i class="bi bi-google"></i></span>
+                                    <input id="maps_api_key" v-model="form.maps_api_key" type="password" maxlength="255" autocomplete="new-password"
+                                           :placeholder="maps.mask ?? (!isGlobal && maps.any ? 'Usa la clave de la plataforma' : 'Sin clave')"
+                                           class="modern-input-control font-monospace" :class="{ 'is-invalid': form.errors.maps_api_key }">
                                 </div>
-                                <div v-if="maps.own" class="form-check mt-1">
+                                <small class="settings-helper-text d-block mt-1">Requerida solo si seleccionas Google Maps. Dejar vacío para no modificar.</small>
+                                <div v-if="googleWithoutKey" class="small text-warning-emphasis mt-1">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Sin clave de Google Maps se utilizará OpenStreetMap automáticamente como respaldo.
+                                </div>
+                                <div v-if="maps.own" class="form-check mt-2">
                                     <input id="clear_maps_api_key" v-model="form.clear_maps_api_key" class="form-check-input" type="checkbox">
-                                    <label class="form-check-label small" for="clear_maps_api_key">Borrar la clave guardada</label>
+                                    <label class="form-check-label small" for="clear_maps_api_key">Eliminar clave personalizada guardada</label>
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary" :disabled="busy.geo" @click="testGeocode">
-                                <i class="bi bi-geo-alt me-1"></i>Probar geocodificación
+
+                            <button type="button" class="btn-integration-action" :disabled="busy.geo" @click="testGeocode">
+                                <span v-if="busy.geo" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                <i v-else class="bi bi-geo-alt-fill me-2"></i>
+                                Probar geocodificación
                             </button>
-                            <span class="small text-body-secondary ms-1">con {{ geoProbe.label }} ({{ geoProbe.lat.toFixed(5) }}, {{ geoProbe.lng.toFixed(5) }})</span>
-                            <div v-if="geo" class="mt-2" aria-live="polite">
+                            <span class="small settings-helper-text ms-2">con {{ geoProbe.label }} ({{ geoProbe.lat.toFixed(4) }}, {{ geoProbe.lng.toFixed(4) }})</span>
+
+                            <div v-if="geo" class="mt-3 p-2 rounded bg-body-tertiary border" aria-live="polite">
                                 <template v-if="geo.ok">
-                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <div class="d-flex align-items-center gap-2">
                                         <i class="bi bi-check-circle-fill text-success"></i>
                                         <span class="badge text-bg-primary">{{ geo.provider }}</span>
-                                        <span class="small text-body-secondary">{{ geo.ms }} ms</span>
+                                        <span class="small text-secondary">{{ geo.ms }} ms</span>
                                     </div>
-                                    <div class="small mt-1">{{ geo.address }}</div>
+                                    <div class="small fw-medium mt-1">{{ geo.address }}</div>
                                 </template>
-                                <div v-else class="small text-danger"><i class="bi bi-x-circle-fill me-1"></i>{{ geo.error }}</div>
+                                <div v-else class="small text-danger d-flex align-items-center gap-1">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                    <span>{{ geo.error }}</span>
+                                </div>
                             </div>
-                            <p class="small text-body-secondary mt-2 mb-0">La prueba usa la configuración guardada: guarda antes si cambiaste el proveedor o la clave.</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Notificaciones push (Firebase Cloud Messaging) -->
                 <div v-if="has.fcm_enabled || has.fcm_account" class="col-12 col-xl-6">
-                    <div class="card border-0 h-100">
-                        <div class="card-header border-0 pt-3">
-                            <h2 class="h6 fw-semibold mb-0">Notificaciones push</h2>
-                            <small class="text-body-secondary">Avisos al celular del colaborador con Firebase Cloud Messaging.</small>
+                    <div class="card border-0 shadow-sm integrations-card h-100">
+                        <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
+                            <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Notificaciones push (Firebase FCM)</h2>
+                            <small class="settings-helper-text">Transmisión de avisos a teléfonos inteligentes mediante Firebase Cloud Messaging.</small>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body p-3 pt-1">
                             <template v-if="has.fcm_enabled">
-                                <!-- Plataforma: interruptor. Empresa: Heredar / Sí / No -->
                                 <div v-if="isGlobal" class="form-check form-switch form-switch-lg d-flex justify-content-between align-items-center gap-3 mb-3 ps-0">
                                     <label class="form-check-label" for="fcm_enabled">
-                                        <span class="d-block fw-semibold">Enviar notificaciones push</span>
-                                        <span class="d-block small text-body-secondary">Además del aviso dentro de la app, se envía una notificación al teléfono.</span>
+                                        <span class="d-block fw-semibold text-body">Habilitar notificaciones push</span>
+                                        <span class="d-block small settings-helper-text">Envía notificaciones nativas a los dispositivos Android/iOS además del aviso in-app.</span>
                                     </label>
-                                    <input id="fcm_enabled" v-model="form.fcm_enabled" class="form-check-input flex-shrink-0 ms-0" type="checkbox" role="switch">
+                                    <input id="fcm_enabled" v-model="form.fcm_enabled" class="form-check-input flex-shrink-0 ms-0" type="checkbox" role="switch" style="width: 2.85em; height: 1.5em; cursor: pointer;">
                                 </div>
                                 <div v-else class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
                                     <label class="form-label mb-0" for="fcm_enabled">
-                                        <span class="d-block fw-semibold">Enviar notificaciones push</span>
-                                        <span class="d-block small text-body-secondary">Además del aviso dentro de la app, se envía una notificación al teléfono.</span>
+                                        <span class="d-block fw-semibold text-body">Habilitar notificaciones push</span>
+                                        <span class="d-block small settings-helper-text">Envía notificaciones nativas a los teléfonos además del aviso in-app.</span>
                                     </label>
-                                    <select id="fcm_enabled" v-model="form.fcm_enabled" class="form-select flex-shrink-0 w-auto" :class="{ 'is-invalid': form.errors.fcm_enabled }">
-                                        <option value="">Heredar de la plataforma (actual: {{ inherited.fcm_enabled ? 'Sí' : 'No' }})</option>
-                                        <option value="1">Sí</option>
-                                        <option value="0">No</option>
-                                    </select>
+                                    <div class="modern-input-wrapper w-auto">
+                                        <select id="fcm_enabled" v-model="form.fcm_enabled" class="modern-input-control" :class="{ 'is-invalid': form.errors.fcm_enabled }">
+                                            <option value="">Heredar de la plataforma (actual: {{ inherited.fcm_enabled ? 'Sí' : 'No' }})</option>
+                                            <option value="1">Sí</option>
+                                            <option value="0">No</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </template>
 
                             <div v-if="has.fcm_account" class="mb-3">
-                                <span class="form-label d-block">Cuenta de servicio de Firebase</span>
+                                <span class="form-label small fw-semibold text-body d-block mb-1">Cuenta de servicio de Google Firebase</span>
                                 <template v-if="fcm.configured">
-                                    <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Configurado{{ isGlobal ? '' : ' por la plataforma' }}</span>
-                                    <span v-if="isGlobal && fcm.project_id" class="small text-body-secondary ms-1">Proyecto <code>{{ fcm.project_id }}</code> · {{ fcm.client_email }}</span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i> Configurado{{ isGlobal ? '' : ' por la plataforma' }}</span>
+                                    <span v-if="isGlobal && fcm.project_id" class="small text-secondary ms-2 font-monospace">{{ fcm.project_id }} · {{ fcm.client_email }}</span>
                                 </template>
-                                <span v-else class="badge text-bg-secondary">No configurado</span>
+                                <span v-else class="badge bg-secondary-subtle text-secondary border px-2 py-1">No configurado</span>
+
                                 <template v-if="isGlobal">
-                                    <textarea id="fcm_service_account_json" v-model="form.fcm_service_account_json" rows="4" spellcheck="false" autocomplete="off"
+                                    <textarea id="fcm_service_account_json" v-model="form.fcm_service_account_json" rows="3" spellcheck="false" autocomplete="off"
                                               class="form-control font-monospace small mt-2" :class="{ 'is-invalid': form.errors.fcm_service_account_json }"
                                               placeholder='{"type": "service_account", "project_id": "…", "private_key": "…", "client_email": "…"}'></textarea>
-                                    <div v-if="form.errors.fcm_service_account_json" class="invalid-feedback">{{ form.errors.fcm_service_account_json }}</div>
+                                    <div v-if="form.errors.fcm_service_account_json" class="text-danger small mt-1">{{ form.errors.fcm_service_account_json }}</div>
                                     <input type="file" accept="application/json,.json" class="form-control form-control-sm mt-2" :class="{ 'is-invalid': form.errors.fcm_service_account_file }"
-                                           aria-label="Subir el archivo JSON de la cuenta de servicio" @input="form.fcm_service_account_file = $event.target.files[0]">
-                                    <div v-if="form.errors.fcm_service_account_file" class="invalid-feedback">{{ form.errors.fcm_service_account_file }}</div>
-                                    <div class="form-text">Pega el JSON o sube el archivo que descargas en Firebase › Configuración del proyecto › Cuentas de servicio. Debe incluir <code>project_id</code>, <code>client_email</code> y <code>private_key</code>. Se guarda cifrado; dejar vacío para no cambiar.</div>
-                                    <div v-if="fcm.configured" class="form-check mt-1">
+                                           aria-label="Subir archivo JSON de credencial Firebase" @input="form.fcm_service_account_file = $event.target.files[0]">
+                                    <small class="settings-helper-text d-block mt-1">Pega el JSON o sube el archivo de credenciales de Firebase. Se almacena cifrado en la base de datos.</small>
+                                    <div v-if="fcm.configured" class="form-check mt-2">
                                         <input id="clear_fcm_service_account_json" v-model="form.clear_fcm_service_account_json" class="form-check-input" type="checkbox">
-                                        <label class="form-check-label small" for="clear_fcm_service_account_json">Borrar la cuenta de servicio guardada</label>
+                                        <label class="form-check-label small" for="clear_fcm_service_account_json">Eliminar credencial guardada</label>
                                     </div>
                                 </template>
-                                <div v-else class="form-text">La cuenta de Firebase la administra la plataforma para todas las empresas.</div>
+                                <div v-else class="small settings-helper-text mt-1">La credencial de Firebase se administra centralizadamente desde la plataforma.</div>
                             </div>
 
-                            <label for="push_email" class="form-label">Probar push</label>
-                            <input id="push_email" v-model="pushEmail" type="email" maxlength="255" :placeholder="userEmail" class="form-control mb-1">
-                            <div class="form-text mb-2">Correo de un usuario que ya inició sesión en la app (vacío: tu propio celular). Se envía aunque el push esté desactivado.</div>
-                            <button type="button" class="btn btn-sm btn-outline-primary" :disabled="busy.push" @click="test('push', '/settings/branding/test-push', { email: pushEmail.trim() })">
-                                <span v-if="busy.push" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span><i v-else class="bi bi-phone-vibrate me-1"></i>Enviar push de prueba
+                            <label for="push_email" class="form-label small fw-semibold text-body mb-1">Destinatario para prueba push</label>
+                            <div class="modern-input-wrapper mb-1">
+                                <span class="modern-input-icon"><i class="bi bi-phone-vibrate"></i></span>
+                                <input id="push_email" v-model="pushEmail" type="email" maxlength="255" :placeholder="userEmail" class="modern-input-control">
+                            </div>
+                            <small class="settings-helper-text d-block mb-2">Correo del usuario registrado en la app (dejar vacío para tu propio dispositivo).</small>
+                            <button type="button" class="btn-integration-action" :disabled="busy.push" @click="test('push', '/settings/branding/test-push', { email: pushEmail.trim() })">
+                                <span v-if="busy.push" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                <i v-else class="bi bi-phone-vibrate-fill me-2"></i>
+                                Enviar push de prueba
                             </button>
                             <TestResult :result="results.push" />
                         </div>
                     </div>
                 </div>
 
-                <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <span class="small text-body-secondary"><template v-if="updatedAt">Último cambio: {{ updatedAt }}</template></span>
-                    <button type="submit" class="btn btn-primary" :disabled="form.processing"><i class="bi bi-check-lg me-1"></i>Guardar cambios</button>
+                <!-- Barra de Guardado -->
+                <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-3 p-3 integrations-card shadow-sm">
+                    <span class="small settings-helper-text">
+                        <template v-if="updatedAt">
+                            <i class="bi bi-clock-history me-1 text-primary"></i> <strong>Último cambio:</strong> {{ updatedAt }}
+                        </template>
+                    </span>
+                    <button type="submit" class="btn btn-primary d-inline-flex align-items-center px-4 py-2.5 fw-bold shadow-sm" style="border-radius: 9px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.28);" :disabled="form.processing">
+                        <span v-if="form.processing" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                        <i v-else class="bi bi-floppy2-fill me-2"></i> Guardar cambios
+                    </button>
                 </div>
 
+                <!-- Historial de Envíos de Webhook -->
                 <div class="col-12">
                     <DeliveriesTable ref="deliveries" :request="requestJson"
                                      :subtitle="isGlobal ? 'Pruebas hechas desde la vista global.' : `Webhook y endpoint de notificaciones de ${ownerName}. Se guardan 30 días.`" />

@@ -1,13 +1,32 @@
-{{-- Pestañas del módulo de reportes --}}
-<ul class="nav nav-tabs mb-4">
-    <li class="nav-item">
-        <a class="nav-link {{ request()->routeIs('reports.index') ? 'active' : '' }}" href="{{ route('reports.index') }}" @if(request()->routeIs('reports.index')) aria-current="page" @endif>
-            <i class="bi bi-list-check me-1"></i> Marcaciones
+{{-- Pestañas ejecutivas del módulo de reportes --}}
+@php
+    $currentTab = $activeTab ?? (request()->routeIs('reports.hours*') ? 'hours' : 'marcaciones');
+@endphp
+<div class="reports-nav-tabs-container mb-4">
+    <div class="reports-nav-tabs" role="tablist" id="moduleMainTabs" aria-label="Secciones de reportería">
+        <a
+            href="{{ route('reports.index') }}"
+            class="reports-nav-tab {{ $currentTab === 'marcaciones' ? 'is-active' : '' }}"
+            data-tab="marcaciones"
+            data-url="{{ route('reports.index') }}"
+            role="tab"
+            aria-selected="{{ $currentTab === 'marcaciones' ? 'true' : 'false' }}"
+            id="tabMarcaciones"
+        >
+            <i class="bi bi-list-check fs-6"></i>
+            <span>Marcaciones</span>
         </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {{ request()->routeIs('reports.hours') ? 'active' : '' }}" href="{{ route('reports.hours') }}" @if(request()->routeIs('reports.hours')) aria-current="page" @endif>
-            <i class="bi bi-hourglass-split me-1"></i> Horas y faltas
+        <a
+            href="{{ route('reports.hours') }}"
+            class="reports-nav-tab {{ $currentTab === 'hours' ? 'is-active' : '' }}"
+            data-tab="hours"
+            data-url="{{ route('reports.hours') }}"
+            role="tab"
+            aria-selected="{{ $currentTab === 'hours' ? 'true' : 'false' }}"
+            id="tabHours"
+        >
+            <i class="bi bi-hourglass-split fs-6"></i>
+            <span>Horas y faltas</span>
         </a>
-    </li>
-</ul>
+    </div>
+</div>

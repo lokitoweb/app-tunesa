@@ -10,6 +10,7 @@ use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\AuditLogger;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -25,7 +26,7 @@ class BirthdayWebController extends Controller
 {
     public function __construct(private readonly BirthdayService $birthdays) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|JsonResponse
     {
         $tenantId = current_tenant_id_or_null();
         $today    = now(tenant_timezone());
@@ -45,7 +46,7 @@ class BirthdayWebController extends Controller
                 ->mapWithKeys(fn ($total, $m) => [(int) $m => (int) $total])
             : collect();
 
-        return Inertia::render('Birthdays/Pages/Birthdays/Index', [
+        $data = [
             'people'   => $people,
             'month'    => $month,
             'months'   => collect(BirthdayService::MONTHS)->map(fn ($name, $m) => ['value' => $m, 'label' => ucfirst($name), 'count' => $countsByMonth[$m] ?? 0])->values(),
@@ -59,7 +60,13 @@ class BirthdayWebController extends Controller
             'filters'  => ['branch' => $branch, 'search' => $search],
             'canEdit'  => $tenantId !== null && $request->user()->can('company.configure'),
             'needsTenant' => $tenantId === null,
-        ]);
+        ];
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json($data);
+        }
+
+        return Inertia::render('Birthdays/Pages/Birthdays/Index', $data);
     }
 
     public function settings(Request $request, AuditLogger $audit): RedirectResponse

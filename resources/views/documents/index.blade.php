@@ -1,170 +1,267 @@
 @extends('layouts.app')
 
-@section('title', 'Legajos digitales')
+@section('title', 'Legajos Digitales')
 
 @section('content')
 @php
     use App\Modules\HR\Models\EmployeeDocument;
-    $tabs = ['pending' => 'Por revisar', 'approved' => 'Aprobados', 'rejected' => 'Rechazados', 'all' => 'Todos'];
+    $tabs = [
+        'pending'  => ['label' => 'Por revisar', 'icon' => 'bi-hourglass-split', 'count' => $counts['pending'] ?? 0],
+        'approved' => ['label' => 'Aprobados',   'icon' => 'bi-check-circle-fill', 'count' => $counts['approved'] ?? 0],
+        'rejected' => ['label' => 'Rechazados',  'icon' => 'bi-x-circle-fill', 'count' => $counts['rejected'] ?? 0],
+        'all'      => ['label' => 'Todos',        'icon' => 'bi-collection-fill', 'count' => array_sum($counts->all() ?? [])],
+    ];
 @endphp
 
-<div class="page-header">
-    <div>
-        <h1>Legajos digitales</h1>
-        <p>Documentos que el personal sube desde la app (DNI, CV, comprobante de domicilio). Aprueba o rechaza con motivo.</p>
-    </div>
-</div>
-
-<div class="row g-3 mb-4">
-    @foreach([['pending', 'Por revisar', 'hourglass-split', 'warning'], ['approved', 'Aprobados', 'check-circle', 'success'], ['rejected', 'Rechazados', 'x-circle', 'danger']] as [$key, $label, $icon, $t])
-        <div class="col-6 col-lg-3">
-            <div class="card border-0 h-100 kpi-card"><div class="card-body d-flex align-items-center gap-3">
-                <span class="kpi-icon bg-{{ $t }}-subtle text-{{ $t }}-emphasis"><i class="bi bi-{{ $icon }}"></i></span>
-                <div><div class="kpi-label">{{ $label }}</div><div class="fs-4 fw-bold">{{ $counts[$key] ?? 0 }}</div></div>
-            </div></div>
+<div class="documents-page-wrapper">
+    <!-- =========================================================================
+         1. CABECERA EJECUTIVA DEL MÓDULO
+         ========================================================================= -->
+    <div class="documents-header-card p-4 mb-4 shadow-sm">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="documents-header-icon shadow-sm">
+                    <i class="bi bi-folder-check"></i>
+                </div>
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                        <h1 class="h4 fw-bold mb-0 text-body">Legajos Digitales</h1>
+                        <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 small">
+                            <i class="bi bi-shield-check me-1"></i>Verificación RRHH
+                        </span>
+                    </div>
+                    <p class="text-body-secondary small mb-0">
+                        Bandeja de revisión y validación de documentos cargados por colaboradores desde la app móvil.
+                    </p>
+                </div>
+            </div>
         </div>
-    @endforeach
-    <div class="col-6 col-lg-3">
-        <div class="card border-0 h-100 kpi-card"><div class="card-body d-flex align-items-center gap-3">
-            <span class="kpi-icon bg-info-subtle text-info-emphasis"><i class="bi bi-calendar-event"></i></span>
-            <div><div class="kpi-label">Vencen en 30 días</div><div class="fs-4 fw-bold {{ $expiring->count() ? 'text-warning-emphasis' : '' }}">{{ $expiring->count() }}</div></div>
-        </div></div>
     </div>
-</div>
 
-<div class="card border-0 mb-4">
-    <div class="card-body">
-        <ul class="nav nav-pills mb-3 flex-nowrap overflow-auto">
-            @foreach($tabs as $key => $label)
-                <li class="nav-item">
-                    <a class="nav-link text-nowrap {{ $status === $key ? 'active' : '' }}" @if($status === $key) aria-current="page" @endif href="{{ request()->fullUrlWithQuery(['status' => $key, 'page' => null]) }}">{{ $label }}</a>
-                </li>
-            @endforeach
-        </ul>
-        <form method="GET" class="row g-2 align-items-end">
-            <input type="hidden" name="status" value="{{ $status }}">
-            <div class="col-sm-5 col-lg-3">
-                <label for="type" class="form-label small">Tipo</label>
-                <select id="type" name="type" class="form-select">
-                    <option value="">Todos los tipos</option>
-                    @foreach(EmployeeDocument::TYPES as $key => $label)
-                        <option value="{{ $key }}" @selected(request('type') === $key)>{{ $label }}</option>
-                    @endforeach
-                </select>
+    <!-- =========================================================================
+         2. TARJETAS DE INDICADORES (KPIS EJECUTIVOS)
+         ========================================================================= -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="documents-kpi-card p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="documents-kpi-pill bg-warning-subtle text-warning-emphasis">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                    <div>
+                        <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">
+                            Por revisar
+                        </div>
+                        <div class="fs-4 fw-bold text-body lh-1 mt-1">{{ $counts['pending'] ?? 0 }}</div>
+                    </div>
+                </div>
             </div>
-            <div class="col-sm-5 col-lg-4">
-                <label for="search" class="form-label small">Colaborador</label>
-                <input type="search" id="search" name="search" value="{{ request('search') }}" placeholder="Nombre, DNI o código" class="form-control">
-            </div>
-            <div class="col-sm-2 col-lg-2 d-grid">
-                <button class="btn btn-outline-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
-            </div>
-        </form>
-    </div>
-</div>
+        </div>
 
-<div class="card border-0 mb-4">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead>
-                <tr>
-                    <th>Colaborador</th>
-                    <th>Documento</th>
-                    <th>Archivo</th>
-                    <th>Subido</th>
-                    <th>Estado</th>
-                    <th class="text-end">Revisión</th>
-                </tr>
-            </thead>
-            <tbody>
-            @forelse($documents as $doc)
-                <tr>
-                    <td>
-                        <a href="{{ route('employees.file', $doc->user_id) }}" class="fw-semibold text-decoration-none">{{ $doc->user?->full_name }}</a>
-                        <div class="small text-body-secondary">{{ $doc->user?->employee_code }} · {{ $doc->user?->document_number }}</div>
-                     @include('partials.tenant-badge', ['tenantId' => $doc->tenant_id])</td>
-                    <td>
-                        {{ label('document_type', $doc->type) }}
-                        @if($doc->expires_at)<div class="small text-body-secondary">Vence {{ $doc->expires_at->format('d/m/Y') }}</div>@endif
-                    </td>
-                    <td>
-                        <a href="{{ route('documents.open', $doc->id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi {{ $doc->isImage() ? 'bi-image' : 'bi-file-earmark-pdf' }} me-1"></i>Ver
-                        </a>
-                        <div class="small text-truncate mt-1" style="max-width: 220px;" title="{{ $doc->original_name }}">{{ $doc->original_name }}</div>
-                        <div class="small text-body-secondary font-monospace" title="SHA-256 {{ $doc->sha256 }}">{{ number_format($doc->size_bytes / 1024, 0) }} KB · {{ substr($doc->sha256, 0, 10) }}…</div>
-                    </td>
-                    <td class="small text-body-secondary text-nowrap">{{ $doc->created_at->format('d/m/Y h:i a') }}</td>
-                    <td>
-                        <x-status-badge type="document_status" :value="$doc->status" />
-                        @if($doc->rejection_reason)<div class="small text-body-secondary" style="max-width: 220px;">{{ $doc->rejection_reason }}</div>@endif
-                        @if($doc->reviewer)<div class="small text-body-secondary">por {{ $doc->reviewer->first_name }}</div>@endif
-                    </td>
-                    <td class="text-end">
-                        @if($doc->status === 'pending')
-                            <form method="POST" action="{{ route('documents.review', $doc->id) }}" class="d-flex gap-2 justify-content-end flex-wrap">
-                                @csrf
-                                @if($doc->type === 'dni')
-                                    <input type="date" name="expires_at" class="form-control form-control-sm" style="max-width: 150px;" title="Vencimiento del documento (opcional)" aria-label="Vencimiento del documento">
-                                @endif
-                                <button name="decision" value="approved" class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i> Aprobar</button>
-                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal"
-                                        data-action="{{ route('documents.review', $doc->id) }}" data-label="{{ label('document_type', $doc->type) }} de {{ $doc->user?->full_name }}">
-                                    Rechazar
-                                </button>
-                            </form>
-                        @else
-                            <span class="small text-body-secondary">{{ $doc->reviewed_at?->format('d/m/Y h:i a') }}</span>
-                        @endif
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="6"><div class="empty-state"><i class="bi bi-inbox"></i>No hay documentos en esta bandeja.</div></td></tr>
-            @endforelse
-            </tbody>
-        </table>
+        <div class="col-6 col-lg-3">
+            <div class="documents-kpi-card p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="documents-kpi-pill bg-success-subtle text-success">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                    <div>
+                        <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">
+                            Aprobados
+                        </div>
+                        <div class="fs-4 fw-bold text-body lh-1 mt-1">{{ $counts['approved'] ?? 0 }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="documents-kpi-card p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="documents-kpi-pill bg-danger-subtle text-danger">
+                        <i class="bi bi-x-circle-fill"></i>
+                    </div>
+                    <div>
+                        <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">
+                            Rechazados
+                        </div>
+                        <div class="fs-4 fw-bold text-body lh-1 mt-1">{{ $counts['rejected'] ?? 0 }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-lg-3">
+            <div class="documents-kpi-card p-3 shadow-sm h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="documents-kpi-pill bg-info-subtle text-info">
+                        <i class="bi bi-calendar-event-fill"></i>
+                    </div>
+                    <div>
+                        <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">
+                            Vencen en 30 días
+                        </div>
+                        <div class="fs-4 fw-bold lh-1 mt-1 {{ $expiring->count() ? 'text-warning' : 'text-body' }}">
+                            {{ $expiring->count() }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    @if($documents->hasPages())
-        <div class="card-footer bg-transparent">{{ $documents->links() }}</div>
+
+    <!-- =========================================================================
+         3. BARRA DE FILTROS 100% INTERNA EN UNA SOLA LÍNEA HORIZONTAL
+         ========================================================================= -->
+    <div class="documents-filter-card p-3 mb-4 shadow-sm">
+        <div class="d-flex flex-wrap flex-xl-nowrap align-items-center justify-content-between gap-3">
+            <!-- Segmented Control de Estados -->
+            <div class="training-segmented-bar flex-shrink-0" role="tablist" id="statusTabs">
+                @foreach($tabs as $key => $tab)
+                    <button
+                        type="button"
+                        class="training-segmented-item {{ $status === $key ? 'is-active' : '' }}"
+                        data-status="{{ $key }}"
+                    >
+                        <i class="bi {{ $tab['icon'] }}" style="margin-right: 6px !important;"></i>
+                        <span>{{ $tab['label'] }}</span>
+                        <span class="training-segmented-pill">{{ $tab['count'] }}</span>
+                    </button>
+                @endforeach
+            </div>
+
+            <!-- Filtros Complementarios: Tipo, Buscador y Limpiar EN UNA SOLA LÍNEA HORIZONTAL -->
+            <div class="d-flex align-items-center flex-nowrap" style="gap: 12px; min-width: 0;">
+                <!-- Selector de Tipo -->
+                <div class="modern-input-wrapper flex-shrink-0" style="width: 210px; min-width: 175px;">
+                    <span class="modern-input-icon"><i class="bi bi-files text-primary"></i></span>
+                    <select id="docTypeSelect" class="modern-input-control" aria-label="Filtrar por tipo de documento">
+                        <option value="">Todos los tipos</option>
+                        @foreach(EmployeeDocument::TYPES as $key => $label)
+                            <option value="{{ $key }}" @selected(request('type') === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Buscador en tiempo real -->
+                <div class="modern-input-wrapper flex-shrink-0" style="width: 280px; min-width: 210px;">
+                    <span class="modern-input-icon"><i class="bi bi-search"></i></span>
+                    <input
+                        id="docSearchInput"
+                        type="search"
+                        class="modern-input-control"
+                        placeholder="Buscar por nombre, DNI o código..."
+                        value="{{ request('search') }}"
+                        aria-label="Buscar colaborador"
+                    >
+                    <button
+                        id="docSearchClearBtn"
+                        type="button"
+                        class="btn btn-sm text-secondary p-0 me-2 border-0 d-none"
+                        style="width: 22px; height: 22px;"
+                        title="Limpiar búsqueda"
+                    >
+                        <i class="bi bi-x-circle-fill"></i>
+                    </button>
+                </div>
+
+                <!-- Botón Limpiar Filtros -->
+                <button
+                    id="docResetBtn"
+                    type="button"
+                    class="btn btn-outline-secondary px-3 py-1 fw-medium d-inline-flex align-items-center flex-shrink-0 text-nowrap"
+                    style="border-radius: 8px; height: 38px;"
+                    title="Restablecer filtros"
+                >
+                    <i class="bi bi-arrow-counterclockwise" style="margin-right: 6px !important;"></i>
+                    <span>Limpiar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         4. CONTENEDOR DE TABLA (ACTUALIZADO DINÁMICAMENTE POR AJAX)
+         ========================================================================= -->
+    <div class="documents-table-card shadow-sm mb-4" id="documentsTableContainer">
+        @include('documents.partials.table', ['documents' => $documents, 'status' => $status])
+    </div>
+
+    <!-- =========================================================================
+         5. DOCUMENTOS POR VENCER
+         ========================================================================= -->
+    @if($expiring->count())
+        <div class="documents-section-card shadow-sm mb-4 p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                <h2 class="h6 fw-bold mb-0 text-body d-flex align-items-center">
+                    <i class="bi bi-clock-history me-2 text-warning fs-5"></i>
+                    Documentos Próximos a Vencer (30 días)
+                </h2>
+                <span class="badge bg-warning-subtle text-warning-emphasis">{{ $expiring->count() }} por vencer</span>
+            </div>
+
+            <div class="row g-2">
+                @foreach($expiring as $doc)
+                    <div class="col-12 col-md-6 col-xl-4">
+                        <div class="p-3 rounded-3 border bg-surface-elevated d-flex align-items-center justify-content-between gap-2">
+                            <div class="min-w-0">
+                                <a href="{{ route('employees.file', $doc->user_id) }}" class="fw-bold text-body text-decoration-none small d-block text-truncate">
+                                    {{ $doc->user?->full_name }}
+                                </a>
+                                <div class="text-body-secondary" style="font-size: 0.75rem;">
+                                    {{ label('document_type', $doc->type) }}
+                                </div>
+                            </div>
+                            <span class="badge rounded-pill flex-shrink-0 {{ $doc->expires_at->isPast() ? 'bg-danger text-white' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' }}">
+                                {{ $doc->expires_at->isPast() ? 'Vencido' : 'Vence: ' . $doc->expires_at->format('d/m/Y') }}
+                            </span>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
     @endif
 </div>
 
-@if($expiring->count())
-    <div class="card border-0">
-        <div class="card-header border-0 pt-3"><h2 class="h6 fw-semibold mb-0">Documentos por vencer</h2></div>
-        <ul class="list-group list-group-flush">
-            @foreach($expiring as $doc)
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                        <a href="{{ route('employees.file', $doc->user_id) }}" class="text-decoration-none">{{ $doc->user?->full_name }} · {{ label('document_type', $doc->type) }}</a>
-                        @include('partials.tenant-badge', ['tenantId' => $doc->tenant_id])
-                    </div>
-                    @include('partials.badge', ['tone' => $doc->expires_at->isPast() ? 'danger' : 'warning', 'label' => ($doc->expires_at->isPast() ? 'Vencido ' : 'Vence ') . $doc->expires_at->format('d/m/Y')])
-                </li>
-            @endforeach
-        </ul>
-    </div>
-@endif
-
-{{-- Rechazo con motivo --}}
+{{-- Modal de Rechazo de Documento --}}
 <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <form method="POST" class="modal-content" id="rejectForm">
+        <form method="POST" class="modal-content shadow-lg border-0" id="rejectForm" style="border-radius: 12px; overflow: hidden;">
             @csrf
             <input type="hidden" name="decision" value="rejected">
-            <div class="modal-header">
-                <h2 class="modal-title fs-6" id="rejectModalTitle">Rechazar documento</h2>
+            <div class="modal-header border-bottom py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge rounded-circle bg-danger-subtle text-danger p-2" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-x-circle-fill fs-6"></i>
+                    </span>
+                    <h2 class="modal-title fs-6 fw-bold text-body mb-0" id="rejectModalTitle">Rechazar Documento</h2>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body">
-                <p class="small text-body-secondary" id="rejectLabel"></p>
-                <label for="rejectReason" class="form-label">Motivo del rechazo</label>
-                <textarea id="rejectReason" name="reason" class="form-control" rows="3" minlength="5" maxlength="255" required aria-describedby="rejectHelp"></textarea>
-                <div id="rejectHelp" class="form-text">El colaborador lo verá en la app para volver a subirlo.</div>
+            <div class="modal-body p-4">
+                <div class="p-3 mb-3 rounded-3 bg-surface-elevated border">
+                    <div class="small text-body-secondary mb-1">Documento a observar:</div>
+                    <div class="fw-bold text-body small" id="rejectLabel"></div>
+                </div>
+
+                <label for="rejectReason" class="modern-field-label">Motivo del rechazo <span class="text-danger">*</span></label>
+                <textarea
+                    id="rejectReason"
+                    name="reason"
+                    class="form-control"
+                    rows="3"
+                    minlength="5"
+                    maxlength="255"
+                    required
+                    style="border-radius: 8px;"
+                    placeholder="Describe de forma clara la razón del rechazo para que el colaborador lo corrija..."
+                ></textarea>
+                <div class="text-body-secondary small mt-1" style="font-size: 0.725rem;">
+                    Este motivo será visible para el colaborador en la app móvil.
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-danger">Rechazar</button>
+            <div class="modal-footer border-top py-2 px-4">
+                <button type="button" class="btn btn-outline-secondary px-3" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger px-4 fw-semibold">Confirmar Rechazo</button>
             </div>
         </form>
     </div>
@@ -173,11 +270,133 @@
 
 @section('scripts')
 <script>
-document.getElementById('rejectModal').addEventListener('show.bs.modal', (e) => {
-    const btn = e.relatedTarget;
-    document.getElementById('rejectForm').action = btn.dataset.action;
-    document.getElementById('rejectLabel').textContent = btn.dataset.label;
-    document.getElementById('rejectReason').value = '';
+document.addEventListener('DOMContentLoaded', () => {
+    // Modal de rechazo
+    const rejectModal = document.getElementById('rejectModal');
+    if (rejectModal) {
+        rejectModal.addEventListener('show.bs.modal', (e) => {
+            const btn = e.relatedTarget;
+            document.getElementById('rejectForm').action = btn.dataset.action;
+            document.getElementById('rejectLabel').textContent = btn.dataset.label;
+            document.getElementById('rejectReason').value = '';
+        });
+    }
+
+    // Estado de filtros 100% internos (sin mutar URL del navegador)
+    let currentStatus = '{{ $status }}';
+    let currentType = document.getElementById('docTypeSelect').value;
+    let currentSearch = document.getElementById('docSearchInput').value;
+    let searchDebounceTimeout = null;
+
+    const tableContainer = document.getElementById('documentsTableContainer');
+    const searchInput = document.getElementById('docSearchInput');
+    const searchClearBtn = document.getElementById('docSearchClearBtn');
+    const typeSelect = document.getElementById('docTypeSelect');
+    const resetBtn = document.getElementById('docResetBtn');
+    const statusTabs = document.querySelectorAll('#statusTabs .training-segmented-item');
+
+    function updateSearchClearVisibility() {
+        if (searchInput.value.trim().length > 0) {
+            searchClearBtn.classList.remove('d-none');
+        } else {
+            searchClearBtn.classList.add('d-none');
+        }
+    }
+    updateSearchClearVisibility();
+
+    // Carga interna por AJAX
+    async function fetchDocuments(page = 1) {
+        tableContainer.style.opacity = '0.5';
+        tableContainer.style.pointerEvents = 'none';
+
+        const params = new URLSearchParams();
+        if (currentStatus) params.append('status', currentStatus);
+        if (currentType) params.append('type', currentType);
+        if (currentSearch) params.append('search', currentSearch);
+        if (page > 1) params.append('page', page);
+
+        try {
+            const response = await fetch(`/documents?${params.toString()}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html'
+                }
+            });
+
+            if (response.ok) {
+                const html = await response.text();
+                tableContainer.innerHTML = html;
+            }
+        } catch (error) {
+            console.error('Error al filtrar documentos:', error);
+        } finally {
+            tableContainer.style.opacity = '1';
+            tableContainer.style.pointerEvents = 'auto';
+        }
+    }
+
+    // Tabs de Estado
+    statusTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            statusTabs.forEach(t => t.classList.remove('is-active'));
+            tab.classList.add('is-active');
+            currentStatus = tab.dataset.status;
+            fetchDocuments(1);
+        });
+    });
+
+    // Selector de Tipo
+    typeSelect.addEventListener('change', () => {
+        currentType = typeSelect.value;
+        fetchDocuments(1);
+    });
+
+    // Buscador predictivo en tiempo real
+    searchInput.addEventListener('input', () => {
+        updateSearchClearVisibility();
+        clearTimeout(searchDebounceTimeout);
+        searchDebounceTimeout = setTimeout(() => {
+            currentSearch = searchInput.value.trim();
+            fetchDocuments(1);
+        }, 300);
+    });
+
+    // Limpiar buscador
+    searchClearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        updateSearchClearVisibility();
+        currentSearch = '';
+        fetchDocuments(1);
+    });
+
+    // Reset general
+    resetBtn.addEventListener('click', () => {
+        statusTabs.forEach(t => t.classList.remove('is-active'));
+        const pendingTab = document.querySelector('#statusTabs [data-status="pending"]');
+        if (pendingTab) pendingTab.classList.add('is-active');
+        currentStatus = 'pending';
+
+        typeSelect.value = '';
+        currentType = '';
+
+        searchInput.value = '';
+        currentSearch = '';
+        updateSearchClearVisibility();
+
+        fetchDocuments(1);
+    });
+
+    // Delegación de eventos para los botones de paginación AJAX
+    tableContainer.addEventListener('click', (e) => {
+        const pageBtn = e.target.closest('.ajax-page-btn');
+        if (pageBtn && !pageBtn.disabled) {
+            e.preventDefault();
+            const page = parseInt(pageBtn.dataset.page, 10);
+            if (page) {
+                fetchDocuments(page);
+            }
+        }
+    });
 });
 </script>
 @endsection

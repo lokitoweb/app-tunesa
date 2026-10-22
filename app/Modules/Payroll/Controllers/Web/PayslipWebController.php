@@ -27,7 +27,7 @@ class PayslipWebController extends Controller
     /**
      * Listado de boletas de pago por periodo mensual.
      */
-    public function index(Request $request): View
+    public function index(Request $request): View|\Illuminate\Http\JsonResponse
     {
         $tenantId = current_tenant_id_or_null();
 
@@ -48,6 +48,19 @@ class PayslipWebController extends Controller
             $query->where('status', $status);
         }
 
+        if ($search = trim((string) $request->input('search'))) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('file_name', 'like', "%{$search}%")
+                  ->orWhereHas('employee', function ($eq) use ($search) {
+                      $eq->where('first_name', 'like', "%{$search}%")
+                         ->orWhere('last_name', 'like', "%{$search}%")
+                         ->orWhere('document_number', 'like', "%{$search}%")
+                         ->orWhere('employee_code', 'like', "%{$search}%");
+                  });
+            });
+        }
+
         $payslips = $query->paginate(20)->withQueryString();
 
         $employees = User::forTenant($tenantId)
@@ -59,9 +72,30 @@ class PayslipWebController extends Controller
         $summary = [
             'total_emitted' => Payslip::forTenant($tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->count(),
             'published'     => Payslip::forTenant($tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->where('status', 'published')->count(),
+            'drafts'        => Payslip::forTenant($tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->where('status', 'draft')->count(),
             'read_count'    => Payslip::forTenant($tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->whereNotNull('read_at')->count(),
             'total_payroll' => Payslip::forTenant($tenantId)->where('period_year', $currentYear)->where('period_month', $currentMonth)->sum('net_salary'),
         ];
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success'       => true,
+                'html_table'    => view('payslips.partials.table', compact('payslips', 'currentYear', 'currentMonth', 'summary'))->render(),
+                'summary'       => [
+                    'total_emitted'     => $summary['total_emitted'],
+                    'published'         => $summary['published'],
+                    'drafts'            => $summary['drafts'],
+                    'read_count'        => $summary['read_count'],
+                    'total_payroll'     => 'S/ ' . number_format((float) $summary['total_payroll'], 2),
+                    'total_payroll_raw' => (float) $summary['total_payroll'],
+                    'pub_percent'       => $summary['total_emitted'] > 0 ? round(($summary['published'] / $summary['total_emitted']) * 100) : 0,
+                    'read_percent'      => $summary['published'] > 0 ? round(($summary['read_count'] / $summary['published']) * 100) : 0,
+                ],
+                'current_year'  => $currentYear,
+                'current_month' => $currentMonth,
+                'total'         => $payslips->total(),
+            ]);
+        }
 
         return view('payslips.index', compact(
             'payslips',
