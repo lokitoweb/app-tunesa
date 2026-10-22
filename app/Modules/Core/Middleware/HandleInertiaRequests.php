@@ -60,7 +60,7 @@ class HandleInertiaRequests extends Middleware
                 ];
             },
             'nav'     => fn () => $user ? PanelNavigation::for($user, $request) : [],
-            'tenants' => fn () => $user?->isSuperAdmin() ? Tenant::orderBy('company_name')->get(['id', 'company_name']) : [],
+            'tenants' => fn () => $user?->isSuperAdmin() ? Tenant::orderBy('company_name')->get(['id', 'company_name', 'ruc', 'status']) : [],
             // Vista global del Super Admin: los listados muestran la empresa de cada registro
             'globalView'  => fn () => (bool) View::shared('globalView', false),
             'tenantNames' => fn () => View::shared('tenantNames', []),

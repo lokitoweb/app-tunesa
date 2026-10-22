@@ -88,7 +88,7 @@
                                 <div class="fw-semibold text-body text-truncate" style="font-size: 0.825rem;">{{ $user->email }}</div>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-link text-secondary p-1 ms-2" onclick="navigator.clipboard.writeText('{{ $user->email }}'); this.innerHTML='<i class=\'bi bi-check2 text-success\'></i>'; setTimeout(() => this.innerHTML='<i class=\'bi bi-clipboard\'></i>', 1800);" title="Copiar correo">
+                        <button type="button" class="btn btn-sm btn-link text-secondary p-1 ms-2" data-copy="{{ $user->email }}" onclick="navigator.clipboard.writeText(this.dataset.copy); this.innerHTML='<i class=\'bi bi-check2 text-success\'></i>'; setTimeout(() => this.innerHTML='<i class=\'bi bi-clipboard\'></i>', 1800);" title="Copiar correo">
                             <i class="bi bi-clipboard"></i>
                         </button>
                     </div>
@@ -185,7 +185,7 @@
                     Dispositivos donde mantienes la sesión iniciada para marcaciones biométricas, notificaciones push de asistencia y boletas de pago.
                 </p>
 
-                <form method="POST" action="{{ route('account.revoke-tokens') }}" onsubmit="return confirm('¿Seguro que deseas cerrar la sesión en todos los dispositivos móviles vinculados?');">
+                <form method="POST" action="{{ route('account.revoke-tokens') }}" data-confirm="Se cerrará la sesión en todos los celulares vinculados a tu cuenta." data-confirm-title="¿Cerrar sesiones móviles?" data-confirm-button="Cerrar sesiones" data-confirm-danger="1">
                     @csrf
                     <button type="submit" class="btn btn-sm btn-outline-danger w-100 d-inline-flex align-items-center justify-content-center gap-2 py-2" style="border-radius: 8px; font-weight: 600;" @disabled($activeTokensCount === 0)>
                         <i class="bi bi-box-arrow-right"></i>

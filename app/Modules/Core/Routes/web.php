@@ -70,6 +70,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         ->name('dashboard.live-stream')
         ->middleware('throttle:60,1');
     Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
+    Route::get('/admin/choose-tenant', [DashboardController::class, 'chooseTenant'])->name('admin.tenant.choose');
 
     // Mi cuenta: datos personales, seguridad y sesiones
     Route::get('/account', [AccountWebController::class, 'edit'])->name('account.edit');

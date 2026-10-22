@@ -10,10 +10,14 @@ final birthdayRepositoryProvider = Provider<BirthdayRepository>((ref) => Birthda
 /// ¿La empresa usa el módulo de cumpleaños?
 final birthdaysEnabledProvider = Provider<bool>((ref) => ref.watch(appConfigProvider.select((s) => s.config.modules.birthdays)));
 
-/// Próximos 30 días para el carrusel de Inicio.
-final upcomingBirthdaysProvider = FutureProvider.autoDispose<UpcomingBirthdays>(
-  (ref) => ref.watch(birthdayRepositoryProvider).upcoming(days: 30, limit: 10),
-);
+/// Carrusel de Inicio: hasta 5 cumpleaños de lo que queda del mes, solo de la
+/// empresa y sede de quien usa la app. Trae también su saludo el día de su cumpleaños.
+const homeBirthdaysLimit = 5;
+
+final upcomingBirthdaysProvider = FutureProvider.autoDispose<UpcomingBirthdays>((ref) async {
+  if (!ref.watch(birthdaysEnabledProvider)) return UpcomingBirthdays.empty;
+  return ref.watch(birthdayRepositoryProvider).upcoming(scope: 'team', thisMonth: true, limit: homeBirthdaysLimit);
+});
 
 /// Consulta de la pantalla de cumpleaños: mes y búsqueda.
 typedef BirthdayQuery = ({int month, String search});

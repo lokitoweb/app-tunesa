@@ -814,6 +814,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 6. SINCRONIZACIÓN Y ACTUALIZACIÓN INTERNA AJAX (Sin recarga de página)
     // 6. SINCRONIZACIÓN Y ACTUALIZACIÓN INTERNA AJAX (Sin recarga de página y SIN modificar URL)
+    // Solo vale la última respuesta: un sondeo lento no pisa un filtro recién elegido
+    let dashboardFetchSeq = 0;
+
     window.fetchDashboardData = function(paramsObj = {}, showToast = true, isAutoPolling = false) {
         const refreshIcon = document.querySelector('#telemetryRefreshBtn .bi-arrow-repeat');
         if (refreshIcon && !isAutoPolling) refreshIcon.classList.add('is-spinning');
@@ -848,18 +851,22 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) { /* ignore */ }
         }
 
+        const seq = ++dashboardFetchSeq;
         fetch(`{{ route('dashboard.live-stream') }}?${queryParams.toString()}`, {
             headers: { 
                 'Accept': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
-            }
+            },
+            cache: 'no-store'
         })
         .then(res => {
+            // Sesión vencida: recargar lleva al login en lugar de fallar en silencio
+            if (res.status === 401 || res.status === 419) { window.location.reload(); return null; }
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             return res.json();
         })
         .then(data => {
-            if (!data.success) return;
+            if (!data || !data.success || seq !== dashboardFetchSeq) return;
 
             if (data.preset) activePreset = data.preset;
             if (data.dateFrom) activeDateFrom = data.dateFrom;
@@ -1044,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(err => {
             console.warn('Sync telemetría error:', err);
             if (showToast && window.Toast) {
-                window.Toast.info('Datos al día', 'Información');
+                window.Toast.info('No se pudo actualizar; se reintentará en unos segundos.', 'Sin conexión');
             }
         })
         .finally(() => {
@@ -1061,10 +1068,14 @@ document.addEventListener('DOMContentLoaded', () => {
         window.fetchDashboardData({}, true, false);
     };
 
-    // Auto-polling en segundo plano cada 20 segundos sin resetear filtros y sin tocar URL
+    // Auto-polling cada 20 segundos sin resetear filtros y sin tocar URL.
+    // Pestaña oculta: no consulta; al volver se actualiza al instante.
     setInterval(() => {
-        window.fetchDashboardData({}, false, true);
+        if (document.visibilityState === 'visible') window.fetchDashboardData({}, false, true);
     }, 20000);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') window.fetchDashboardData({}, false, true);
+    });
 });
 </script>
 @endsection

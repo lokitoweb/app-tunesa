@@ -13,6 +13,7 @@ import 'package:tunesa_mobile/features/benefits/presentation/benefit_detail_scre
 import 'package:tunesa_mobile/features/benefits/presentation/benefit_providers.dart';
 import 'package:tunesa_mobile/features/benefits/presentation/benefits_screen.dart';
 import 'package:tunesa_mobile/features/birthdays/domain/models.dart';
+import 'package:tunesa_mobile/features/birthdays/presentation/birthday_celebration.dart';
 import 'package:tunesa_mobile/features/birthdays/presentation/birthday_home_card.dart';
 import 'package:tunesa_mobile/features/birthdays/presentation/birthday_providers.dart';
 import 'package:tunesa_mobile/features/birthdays/presentation/birthdays_screen.dart';
@@ -109,6 +110,8 @@ void main() {
       expect(b.shortDate, '14 feb');
       expect(Birthday.fromJson(_person(2, 'Hoy', today: true, until: 0)).whenLabel, '¡Hoy!');
       expect(_month.isEmpty, isFalse);
+      expect(BirthdayGreeting.fromJson(null), isNull);
+      expect(BirthdayGreeting.fromJson({'date': '2026-10-22', 'first_name': 'Ana'})!.title, '¡Feliz cumpleaños, Ana!');
     });
 
     test('beneficios y documentos se leen sin datos opcionales', () {
@@ -173,6 +176,66 @@ void main() {
         birthdaysEnabledProvider.overrideWithValue(false),
       ]);
       expect(find.text('Próximos cumpleaños'), findsNothing);
+    });
+
+    testWidgets('Inicio: carrusel horizontal con hasta 5 cumpleaños y aviso si nadie cumple', (tester) async {
+      final seven = [for (var i = 1; i <= 7; i++) Birthday.fromJson(_person(i, 'Persona$i', day: 20 + i, until: i))];
+      await _pump(tester, const Scaffold(body: BirthdayHomeCard()), overrides: [
+        upcomingBirthdaysProvider.overrideWith((ref) async => UpcomingBirthdays(items: seven, total: 9)),
+        birthdaysEnabledProvider.overrideWithValue(true),
+      ]);
+      final carousel = tester.widget<ListView>(find.byKey(const Key('home-birthdays-carousel')));
+      expect(carousel.scrollDirection, Axis.horizontal);
+      expect(find.text('PERSONA5'), findsOneWidget);
+      expect(find.text('PERSONA6'), findsNothing, reason: 'Máximo 5 en Inicio');
+      expect(find.text('4+'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await _pump(tester, const Scaffold(body: BirthdayHomeCard()), overrides: [
+        upcomingBirthdaysProvider.overrideWith((ref) async => UpcomingBirthdays.empty),
+        birthdaysEnabledProvider.overrideWithValue(true),
+      ]);
+      expect(find.byKey(const Key('home-birthdays-empty')), findsOneWidget);
+    });
+
+    testWidgets('Cumpleaños propio: el modal festivo sale una sola vez ese día', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final greeting = BirthdayGreeting.fromJson({
+        'date': '2026-10-22',
+        'first_name': 'Fidel',
+        'company': 'TUNESA',
+        'title': '🎉 ¡Feliz cumpleaños, Fidel!',
+        'body': 'Todo el equipo de TUNESA te desea un día increíble.',
+      })!;
+
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.light(),
+        home: Builder(builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => BirthdayCelebration.maybeShow(context, prefs, 7, greeting),
+            child: const Text('abrir'),
+          ),
+        )),
+      ));
+
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('birthday-celebration')), findsOneWidget);
+      expect(find.text('¡Feliz Cumpleaños, Fidel!'), findsOneWidget);
+      expect(find.text('Con cariño, el equipo de TUNESA'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('birthday-celebration-close')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('birthday-celebration')), findsNothing);
+
+      // Mismo día: ya no vuelve a salir
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('birthday-celebration')), findsNothing);
+      expect(prefs.getString(BirthdayCelebration.prefsKey(7)), '2026-10-22');
+
+      // Otro usuario en el mismo teléfono sí lo ve
+      expect(BirthdayCelebration.alreadyShown(prefs, 8, greeting), isFalse);
     });
 
     testWidgets('Beneficios: destacados y filtro por categoría', (tester) async {

@@ -7,8 +7,11 @@ import Pagination from '@/Modules/Core/Components/Pagination.vue';
 import TenantBadge from '@/Modules/Core/Components/TenantBadge.vue';
 import DateRangePicker from '@/Modules/Core/Components/DateRangePicker.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
+import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
 
 const { ask } = useConfirm();
+const { ensureTenant, consumeIntent, withTenant } = useTenantPicker();
+const editingTenantId = ref(null);
 
 const props = defineProps({
     shifts: Array,
@@ -145,10 +148,17 @@ onMounted(() => {
     if (assignModalElement.value) {
         assignModalInstance = Modal.getOrCreateInstance(assignModalElement.value);
     }
+    // Tras elegir empresa en la vista global, reabre el formulario que se pidió
+    if (consumeIntent('turno')) openCreateModal();
+    if (consumeIntent('asignar')) openAssignModal();
 });
 
 function openCreateModal() {
+    if (!ensureTenant({ intent: 'turno', message: 'Elige la empresa del nuevo turno.' })) {
+        return;
+    }
     modalEditing.value = false;
+    editingTenantId.value = null;
     editingShiftId.value = null;
     modalTab.value = 'general';
     shiftForm.clearErrors();
@@ -162,6 +172,7 @@ function openCreateModal() {
 function openEditModal(shift) {
     modalEditing.value = true;
     editingShiftId.value = shift.id;
+    editingTenantId.value = shift.tenant_id ?? null;
     modalTab.value = 'general';
     shiftForm.clearErrors();
     shiftForm.name = shift.name || '';
@@ -183,6 +194,9 @@ function openEditModal(shift) {
 }
 
 function openAssignModal() {
+    if (!ensureTenant({ intent: 'asignar', message: 'Elige la empresa cuyos colaboradores quieres asignar.' })) {
+        return;
+    }
     assign.clearErrors();
     employeeSearch.value = '';
     if (!assign.shift_id && activeShifts.value.length) {
@@ -234,14 +248,15 @@ function submitShiftModal() {
     normalizeTime('end_time');
 
     if (modalEditing.value) {
-        shiftForm.put(`/shifts/${editingShiftId.value}`, {
+        // Vista global: se guarda en la empresa del turno, sin preguntar
+        shiftForm.transform((data) => withTenant(data, editingTenantId.value)).put(`/shifts/${editingShiftId.value}`, {
             preserveScroll: true,
             onSuccess: () => {
                 shiftModalInstance?.hide();
             },
         });
     } else {
-        shiftForm.post('/shifts', {
+        shiftForm.transform((data) => data).post('/shifts', {
             preserveScroll: true,
             onSuccess: () => {
                 shiftModalInstance?.hide();
@@ -273,7 +288,7 @@ async function destroy(shift) {
         variant: 'danger',
     });
     if (ok) {
-        router.delete(`/shifts/${shift.id}`, { preserveScroll: true });
+        router.delete(`/shifts/${shift.id}`, { data: withTenant({}, shift.tenant_id), preserveScroll: true });
     }
 }
 
@@ -286,7 +301,7 @@ async function unassign(assignment) {
         variant: 'warning',
     });
     if (ok) {
-        router.delete(`/shifts/assignments/${assignment.id}`, { preserveScroll: true });
+        router.delete(`/shifts/assignments/${assignment.id}`, { data: withTenant({}, assignment.tenant_id), preserveScroll: true });
     }
 }
 

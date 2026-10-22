@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import TenantBadge from '@/Modules/Core/Components/TenantBadge.vue';
 import AudiencePicker from '@/Modules/Core/Components/AudiencePicker.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
+import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
 
 const props = defineProps({
     documents: {
@@ -40,6 +41,13 @@ const props = defineProps({
 
 const page = usePage();
 const { ask } = useConfirm();
+const { ensureTenant, consumeIntent } = useTenantPicker();
+
+// Tras elegir empresa en la vista global, reabre el formulario que se pidió
+onMounted(() => {
+    if (consumeIntent('documento')) openCreateDocumentModal();
+    if (consumeIntent('carpetas')) openFoldersModal();
+});
 
 // Datos brutos de documentos del paginador inicial
 const rawList = computed(() => props.documents?.data || []);
@@ -195,15 +203,7 @@ const docForm = useForm({
 });
 
 async function openCreateDocumentModal() {
-    if (page.props.globalView) {
-        await ask({
-            title: 'Elige una empresa',
-            message: 'Estás en la vista global. Para subir un documento institucional, primero selecciona una empresa específica en el selector superior.',
-            confirmText: 'Entendido',
-            cancelText: 'Cerrar',
-            variant: 'warning',
-            icon: 'bi bi-building-exclamation',
-        });
+    if (!ensureTenant({ intent: 'documento', message: 'Elige la empresa del documento.' })) {
         return;
     }
 
@@ -317,15 +317,7 @@ const DEFAULT_FOLDER_ICONS = {
 };
 
 async function openFoldersModal() {
-    if (page.props.globalView) {
-        await ask({
-            title: 'Elige una empresa',
-            message: 'Estás en la vista global. Para administrar las carpetas de documentos, primero selecciona una empresa específica en el selector superior.',
-            confirmText: 'Entendido',
-            cancelText: 'Cerrar',
-            variant: 'warning',
-            icon: 'bi bi-building-exclamation',
-        });
+    if (!ensureTenant({ intent: 'carpetas', message: 'Elige la empresa cuyas carpetas quieres administrar.' })) {
         return;
     }
 

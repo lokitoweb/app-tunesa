@@ -2,7 +2,9 @@
 
 namespace App\Modules\Birthdays\Services;
 
+use App\Modules\Birthdays\Notifications\BirthdayGreeting;
 use App\Modules\Core\Models\Scopes\TenantScope;
+use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Support\Audience;
 use Illuminate\Database\Eloquent\Builder;
@@ -84,6 +86,28 @@ class BirthdayService
     public function today(int $tenantId, Carbon $today): Collection
     {
         return $this->people($tenantId)->whereIn('users.birth_md', $this->mdFor($today))->get();
+    }
+
+    /**
+     * Saludo de la empresa para quien cumple años hoy (modal de la app), o null.
+     * Mismo texto que el aviso push del día (BirthdayGreeting).
+     */
+    public function greetingFor(User $user, Carbon $today): ?array
+    {
+        if (! $user->birth_md || ! in_array((int) $user->birth_md, $this->mdFor($today), true)) {
+            return null;
+        }
+
+        $company = TenantSetting::forTenant($user->tenant)->tradeName();
+        $note    = new BirthdayGreeting((string) $user->first_name, $company);
+
+        return [
+            'date'       => $today->toDateString(),
+            'first_name' => $user->first_name,
+            'company'    => $company,
+            'title'      => $note->title(),
+            'body'       => $note->body(),
+        ];
     }
 
     /** Ficha pública de cumpleaños (sin año ni edad) */

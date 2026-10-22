@@ -6,6 +6,7 @@ use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Notifications\SecurityAlert;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
@@ -38,8 +39,11 @@ class AccountWebController extends Controller
         ]);
 
         if ($request->hasFile('avatar')) {
-            $path = $request->file('avatar')->store('avatars', 'public');
-            $user->avatar_path = $path;
+            // La foto anterior se borra para no dejar archivos huérfanos
+            if ($user->avatar_path) {
+                Storage::disk('public')->delete($user->avatar_path);
+            }
+            $user->avatar_path = $request->file('avatar')->store('avatars', 'public');
         }
 
         if (array_key_exists('phone', $validated)) {

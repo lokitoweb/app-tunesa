@@ -165,8 +165,43 @@ class BirthdaysTest extends TestCase
         foreach (['/birthdays', '/benefits', '/benefits/categories', '/company-documents', '/company-documents/folders'] as $path) {
             $this->actingAs($root)->get($path)->assertOk();
         }
-        $this->get('/benefits/create')->assertRedirect('/benefits');
-        $this->get('/company-documents/create')->assertRedirect('/company-documents');
+        // Una sola empresa activa: crear abre directo en ella
+        $this->get('/benefits/create')->assertOk();
+        $this->assertNull(session('admin_tenant_id'), 'No cambia la vista global');
         $this->get('/birthdays/export')->assertStatus(422);
+
+        // Con varias, pregunta en qué empresa
+        $this->makeTenant('globex');
+        $this->get('/company-documents/create')->assertRedirect(route('admin.tenant.choose', ['next' => '/company-documents/create']));
+    }
+
+    public function test_home_carousel_is_this_month_in_my_branch_and_greets_me_on_my_day(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 10, 22, 9, 0, 0, 'America/Lima'));
+        $me = $this->person('Fidel', '1980-10-22', $this->lima);
+        foreach (range(23, 29) as $day) {
+            $this->person("Lima{$day}", "1990-10-{$day}", $this->lima);
+        }
+        $this->person('OtraSede', '1990-10-24', $this->cusco);
+        $this->person('Noviembre', '1990-11-02', $this->lima);
+        $globex = $this->makeTenant('globex');
+        $this->makeUser($globex, 'employee', ['first_name' => 'Ajeno', 'birth_date' => '1990-10-25']);
+
+        $res = $this->actingIn($me, $this->acme)
+            ->getJson('/api/birthdays/upcoming?period=month&scope=team&limit=5')->assertOk();
+        $names = collect($res->json('data'))->pluck('first_name')->all();
+        $this->assertSame(['Lima23', 'Lima24', 'Lima25', 'Lima26', 'Lima27'], $names, 'Primeros 5 de mi sede, sin mí');
+        $res->assertJsonPath('meta.total', 7)
+            ->assertJsonPath('meta.greeting.first_name', 'Fidel')
+            ->assertJsonPath('meta.greeting.date', '2026-10-22')
+            ->assertJsonPath('meta.greeting.title', '🎉 ¡Feliz cumpleaños, Fidel!');
+        $this->assertStringNotContainsString('1980', $res->getContent());
+
+        // Otro día no hay saludo
+        Carbon::setTestNow(Carbon::create(2026, 10, 23, 9, 0, 0, 'America/Lima'));
+        $this->getJson('/api/birthdays/upcoming?period=month&scope=team&limit=5')->assertOk()
+            ->assertJsonPath('meta.greeting', null)
+            ->assertJsonPath('data.0.first_name', 'Lima23')
+            ->assertJsonPath('data.0.is_today', true);
     }
 }

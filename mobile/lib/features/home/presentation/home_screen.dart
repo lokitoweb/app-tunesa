@@ -21,6 +21,9 @@ import '../../team/presentation/team_providers.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../../training/presentation/training_home_card.dart';
 import '../../training/presentation/training_providers.dart';
+import '../../../core/providers.dart';
+import '../../birthdays/domain/models.dart';
+import '../../birthdays/presentation/birthday_celebration.dart';
 import '../../birthdays/presentation/birthday_home_card.dart';
 import '../../birthdays/presentation/birthday_providers.dart';
 import '../../company_docs/presentation/company_document_providers.dart';
@@ -43,6 +46,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     // Al volver a la app se actualizan los avisos (sin servicio en segundo plano)
     _lifecycle = AppLifecycleListener(onResume: _refreshBadges);
+    // El día de su cumpleaños, el saludo de la empresa (una vez ese día)
+    ref.listenManual(upcomingBirthdaysProvider, (_, next) {
+      final greeting = next.value?.greeting;
+      if (greeting != null) _celebrate(greeting);
+    }, fireImmediately: true);
+  }
+
+  void _celebrate(BirthdayGreeting greeting) {
+    final userId = ref.read(authControllerProvider).user?.id;
+    if (userId == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) BirthdayCelebration.maybeShow(context, ref.read(sharedPreferencesProvider), userId, greeting);
+    });
   }
 
   @override

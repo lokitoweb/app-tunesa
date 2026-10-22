@@ -15,18 +15,40 @@ class BirthdayController extends Controller
 {
     public function __construct(private readonly BirthdayService $birthdays) {}
 
-    /** GET /api/birthdays/upcoming?days=30&limit=10 */
+    /**
+     * GET /api/birthdays/upcoming?days=30&limit=10
+     *
+     * Inicio de la app: ?period=month&scope=team&limit=5 → lo que queda del mes
+     * en la empresa y sede de quien consulta (sin incluirlo). meta.greeting
+     * trae el saludo de la empresa solo el día del cumpleaños de quien consulta.
+     */
     public function upcoming(Request $request): JsonResponse
     {
-        $data  = $request->validate(['days' => ['nullable', 'integer', 'between:1,90'], 'limit' => ['nullable', 'integer', 'between:1,50'], 'scope' => ['nullable', 'in:company,team']]);
+        $data  = $request->validate([
+            'days'   => ['nullable', 'integer', 'between:1,90'],
+            'limit'  => ['nullable', 'integer', 'between:1,50'],
+            'scope'  => ['nullable', 'in:company,team'],
+            'period' => ['nullable', 'in:month'],
+        ]);
         $today = now(tenant_timezone());
-        $all   = $this->birthdays->upcoming(current_tenant_id(), $today, (int) ($data['days'] ?? 30), $request->user(), $data['scope'] ?? 'company');
+        $user  = $request->user();
+        $scope = $data['scope'] ?? 'company';
+        $days  = ($data['period'] ?? null) === 'month'
+            ? (int) $today->copy()->startOfDay()->diffInDays($today->copy()->endOfMonth()->startOfDay())
+            : (int) ($data['days'] ?? 30);
+
+        $all = $this->birthdays->upcoming(current_tenant_id(), $today, $days, $user, $scope)
+            ->when($scope === 'team', fn ($c) => $c->reject(fn ($p) => $p['id'] === $user->id)->values());
         $limit = (int) ($data['limit'] ?? 10);
 
         return response()->json([
             'success' => true,
             'data'    => $all->take($limit)->values(),
-            'meta'    => ['total' => $all->count(), 'today' => $all->where('is_today', true)->count()],
+            'meta'    => [
+                'total'    => $all->count(),
+                'today'    => $all->where('is_today', true)->count(),
+                'greeting' => $this->birthdays->greetingFor($user, $today),
+            ],
         ]);
     }
 

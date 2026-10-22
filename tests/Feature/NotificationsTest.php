@@ -210,7 +210,7 @@ class NotificationsTest extends TestCase
     {
         $admin = $this->makeUser(null, 'super_admin');
 
-        $this->actingAs($admin)->get('/notifications')->assertOk()->assertSee('No tienes notificaciones');
+        $this->actingAs($admin)->get('/notifications')->assertOk()->assertSee('No hay notificaciones en la bandeja');
         $this->post('/notifications/read-all')->assertSessionHas('success');
     }
 }

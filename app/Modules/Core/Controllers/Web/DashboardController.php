@@ -7,6 +7,7 @@ use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Middleware\SetWebTenant;
 use App\Modules\Core\Services\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -146,18 +147,47 @@ class DashboardController extends Controller
 
         $validated = $request->validate([
             'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],
+            'next'      => ['nullable', 'string', 'max:2000'],
         ]);
+
+        // Desde el selector "¿En qué empresa?": vuelve a la pantalla que se quería abrir
+        $target = empty($validated['next']) ? route('dashboard') : SetWebTenant::relativeUrl($validated['next']);
 
         if (empty($validated['tenant_id'])) {
             $request->session()->forget('admin_tenant_id');
 
-            return redirect()->route('dashboard')->with('success', 'Estás viendo el consolidado de la plataforma.');
+            return redirect()->to($target)->with('success', 'Estás viendo el consolidado de la plataforma.');
         }
 
         $tenant = Tenant::findOrFail($validated['tenant_id']);
         $request->session()->put('admin_tenant_id', $tenant->id);
 
-        return redirect()->route('dashboard')->with('success', "Ahora administras {$tenant->company_name}.");
+        return redirect()->to($target)->with('success', "Ahora administras {$tenant->company_name}.");
+    }
+
+    /**
+     * Super Admin en la vista global: "¿En qué empresa?" antes de crear o editar.
+     * Con una sola empresa activa entra directo en ella.
+     */
+    public function chooseTenant(Request $request): View|RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403);
+
+        $next    = SetWebTenant::relativeUrl($request->query('next'));
+        $tenants = SetWebTenant::activeTenants();
+
+        if ($tenants->count() === 1) {
+            $request->session()->put('admin_tenant_id', $tenants->first()->id);
+
+            return redirect()->to($next);
+        }
+
+        return view('tenant-picker', [
+            'tenants' => $tenants,
+            'next'    => $next,
+            'cancel'  => SetWebTenant::indexForUrl($next),
+            'replay'  => null,
+        ]);
     }
 
     /**

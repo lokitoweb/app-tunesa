@@ -239,9 +239,11 @@ class WebPanelTest extends TestCase
         $this->get('/branches')->assertSee('Sede Acme')->assertSee('Sede Other');
         $this->get('/shifts')->assertPageSees('Turno acme')->assertPageSees('Turno other')->assertPageSees('Other SRL');
 
-        // Crear o editar sí necesita empresa: vuelve al listado del módulo, no al dashboard
-        $this->from('/secure-files/selfie-in/1')->get('/employees/create')->assertRedirect(route('employees.index'))->assertSessionHas('error');
-        $this->post('/shifts', ['name' => 'Sin empresa'])->assertRedirect()->assertSessionHas('error');
+        // Crear o editar sí necesita empresa: con varias, pregunta "¿En qué empresa?"
+        $this->from('/secure-files/selfie-in/1')->get('/employees/create')
+            ->assertRedirect(route('admin.tenant.choose', ['next' => '/employees/create']));
+        $this->post('/shifts', ['name' => 'Sin empresa'])->assertStatus(409)
+            ->assertSee('¿En qué empresa?')->assertSee('name="_tenant"', false)->assertSee('value="Sin empresa"', false);
         $this->assertDatabaseMissing('shifts', ['name' => 'Sin empresa']);
 
         // Sucursales eligen la empresa en el propio formulario: sin ella, error de validación

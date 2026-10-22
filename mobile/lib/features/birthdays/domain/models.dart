@@ -94,10 +94,42 @@ class BirthdayMonth {
   }
 }
 
-/// Próximos cumpleaños (Inicio): los primeros y cuántos hay en total.
+/// Próximos cumpleaños (Inicio): los primeros, cuántos hay en total y, solo el
+/// día del cumpleaños de quien usa la app, el saludo de la empresa.
 class UpcomingBirthdays {
-  const UpcomingBirthdays({required this.items, required this.total});
+  const UpcomingBirthdays({required this.items, required this.total, this.greeting});
 
   final List<Birthday> items;
   final int total;
+  final BirthdayGreeting? greeting;
+
+  static const empty = UpcomingBirthdays(items: [], total: 0);
+}
+
+/// Saludo de cumpleaños para quien usa la app (modal de celebración).
+class BirthdayGreeting {
+  const BirthdayGreeting({required this.date, required this.firstName, required this.company, required this.title, required this.body});
+
+  /// Fecha del cumpleaños (yyyy-MM-dd, zona horaria de la empresa).
+  final String date;
+  final String firstName;
+  final String company;
+  final String title;
+  final String body;
+
+  static BirthdayGreeting? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final json = Map<String, dynamic>.from(raw);
+    final date = json['date']?.toString() ?? '';
+    if (date.isEmpty) return null;
+    final first = json['first_name']?.toString() ?? '';
+    final company = json['company']?.toString() ?? '';
+    return BirthdayGreeting(
+      date: date,
+      firstName: first,
+      company: company,
+      title: json['title']?.toString() ?? '¡Feliz cumpleaños, $first!',
+      body: json['body']?.toString() ?? '',
+    );
+  }
 }

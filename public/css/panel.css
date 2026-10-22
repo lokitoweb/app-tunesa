@@ -9619,3 +9619,122 @@ select.modern-input-control option {
 
 
 
+
+/* =============================================================================
+   SELECTOR "¿EN QUÉ EMPRESA?" (Super Admin en la vista global)
+   ============================================================================= */
+.tenant-picker-backdrop-page {
+    min-height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: var(--border-color-light);
+}
+
+.tenant-picker-card {
+    border-radius: var(--card-radius);
+    overflow: hidden;
+    background: var(--bg-surface);
+}
+
+.tenant-picker-search {
+    position: relative;
+}
+
+.tenant-picker-search i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.tenant-picker-search input {
+    padding-left: 34px;
+    height: 40px;
+    border-radius: var(--btn-radius);
+}
+
+.tenant-picker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tenant-picker-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+.tenant-picker-option:hover {
+    border-color: var(--border-color-light);
+    background: var(--bg-surface-elevated);
+}
+
+.tenant-picker-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tenant-picker-option:has(input:checked) {
+    border-color: var(--brand);
+    background: rgba(var(--brand-rgb), .06);
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), .12);
+}
+
+.tenant-picker-option:has(input:focus-visible) {
+    outline: 2px solid var(--border-color-focus);
+    outline-offset: 2px;
+}
+
+.tenant-picker-avatar {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--brand);
+    background: rgba(var(--brand-rgb), .1);
+}
+
+.tenant-picker-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.tenant-picker-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tenant-picker-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.tenant-picker-check {
+    color: var(--brand);
+    opacity: 0;
+    transition: opacity .15s ease;
+}
+
+.tenant-picker-option:has(input:checked) .tenant-picker-check {
+    opacity: 1;
+}

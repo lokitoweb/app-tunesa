@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import TenantBadge from '@/Modules/Core/Components/TenantBadge.vue';
 import AudiencePicker from '@/Modules/Core/Components/AudiencePicker.vue';
 import ModernDatePicker from '@/Modules/Core/Components/ModernDatePicker.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
+import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
 
 const page = usePage();
 
@@ -41,6 +42,13 @@ const props = defineProps({
 });
 
 const { ask } = useConfirm();
+const { ensureTenant, consumeIntent } = useTenantPicker();
+
+// Tras elegir empresa en la vista global, reabre el formulario que se pidió
+onMounted(() => {
+    if (consumeIntent('beneficio')) openCreateBenefitModal();
+    if (consumeIntent('categorias')) openCategoriesModal();
+});
 
 // Datos brutos de beneficios (desde el paginador de servidor)
 const rawList = computed(() => props.benefits?.data || []);
@@ -220,15 +228,7 @@ function onBenefitImage(e) {
 }
 
 async function openCreateBenefitModal() {
-    if (page.props.globalView) {
-        await ask({
-            title: 'Elige una empresa',
-            message: 'Estás en la vista global. Para crear y publicar un beneficio corporativo, primero selecciona una empresa específica en el selector superior.',
-            confirmText: 'Entendido',
-            cancelText: 'Cerrar',
-            variant: 'warning',
-            icon: 'bi bi-building-exclamation',
-        });
+    if (!ensureTenant({ intent: 'beneficio', message: 'Elige la empresa del nuevo beneficio.' })) {
         return;
     }
 
@@ -306,15 +306,7 @@ const DEFAULT_ICONS = {
 const PRESET_COLORS = ['#6C4CE0', '#E0457B', '#F08C2E', '#2E86DE', '#10AC84', '#0E9F9A', '#DC2626', '#2563EB', '#7C3AED', '#059669', '#D97706', '#475569'];
 
 async function openCategoriesModal() {
-    if (page.props.globalView) {
-        await ask({
-            title: 'Elige una empresa',
-            message: 'Estás en la vista global. Para administrar las categorías de beneficios, primero selecciona una empresa específica en el selector superior.',
-            confirmText: 'Entendido',
-            cancelText: 'Cerrar',
-            variant: 'warning',
-            icon: 'bi bi-building-exclamation',
-        });
+    if (!ensureTenant({ intent: 'categorias', message: 'Elige la empresa cuyas categorías quieres administrar.' })) {
         return;
     }
 

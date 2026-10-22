@@ -187,7 +187,7 @@
                         </form>
 
                         {{-- Eliminar Notificación --}}
-                        <form method="POST" action="{{ route('notifications.destroy', $n->id) }}" class="m-0 ms-auto" onsubmit="return confirm('¿Eliminar esta notificación?');">
+                        <form method="POST" action="{{ route('notifications.destroy', $n->id) }}" class="m-0 ms-auto" data-confirm="La notificación se quitará de tu bandeja." data-confirm-title="¿Eliminar notificación?" data-confirm-button="Eliminar" data-confirm-danger="1">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="btn btn-sm btn-link text-muted p-1 hover-danger" title="Eliminar notificación">

@@ -164,7 +164,7 @@
             @if(($globalView ?? false) && !request()->routeIs('dashboard*') && !request()->routeIs('attendance.attempts*') && !request()->routeIs('approvals*') && !request()->routeIs('onboarding*') && !request()->routeIs('documents*') && !request()->routeIs('settings*'))
                 <div class="alert alert-primary d-flex align-items-center gap-2 global-view-banner mb-4" role="status" style="border-radius: 10px;">
                     <i class="bi bi-globe2 fs-5 global-view-icon"></i>
-                    <div>Vista global: mostrando registros de todas las empresas. Para crear o editar, elige una empresa en el selector superior.</div>
+                    <div>Vista global: mostrando registros de todas las empresas. Al crear algo te preguntaremos en qué empresa.</div>
                 </div>
             @endif
 

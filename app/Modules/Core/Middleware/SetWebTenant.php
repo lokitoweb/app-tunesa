@@ -7,6 +7,9 @@ use App\Modules\Core\Services\TenantContext;
 use App\Modules\ModuleRegistry;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
+use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
@@ -24,8 +27,9 @@ use Symfony\Component\HttpFoundation\Response;
  * (sesión `admin_tenant_id`) entra a una empresa y todo queda con su scope.
  * Sin empresa elegida está en la "vista global": puede abrir cualquier módulo
  * y los listados muestran registros de todas las empresas (nunca se le
- * redirige al dashboard). Lo único que exige elegir empresa es crear o
- * editar, porque cada registro tiene que nacer con su tenant_id.
+ * redirige al dashboard). Lo único que exige empresa es crear o editar,
+ * porque cada registro tiene que nacer con su tenant_id: con una sola empresa
+ * activa se usa esa; con varias se abre el selector "¿En qué empresa?".
  */
 class SetWebTenant
 {
@@ -63,7 +67,9 @@ class SetWebTenant
 
     /** Rutas de escritura permitidas en la vista global (no crean registros de empresa) */
     public const GLOBAL_WRITE_ROUTES = [
-        'logout', 'session.keep-alive', 'admin.tenant.switch', 'notifications.read', 'notifications.read-all',
+        'logout', 'session.keep-alive', 'admin.tenant.switch', 'admin.tenant.choose',
+        'notifications.read', 'notifications.read-all', 'notifications.toggle-read', 'notifications.destroy',
+        'account.password', 'account.profile', 'account.revoke-tokens',
         // Sin empresa elegida edita los valores por defecto de la plataforma (tenant_settings global)
         'settings.branding.update', 'settings.integrations.update',
         // Pruebas de integraciones de la plataforma (no crean registros de empresa)
@@ -104,30 +110,126 @@ class SetWebTenant
         }
 
         $request->session()->forget('admin_tenant_id');
+
+        // Reenvío desde el selector de empresa: el formulario vuelve con la empresa elegida
+        if (! $request->isMethodSafe() && $request->filled('_tenant')) {
+            $chosen = Tenant::whereKey((int) $request->input('_tenant'))->where('status', 'active')->first();
+            $request->request->remove('_tenant');
+
+            if ($chosen) {
+                $request->session()->put('admin_tenant_id', $chosen->id);
+                $this->activate($chosen);
+                View::share('globalView', false);
+
+                return $next($request);
+            }
+        }
+
+        if ($this->needsTenantToWrite($request)) {
+            $active = self::activeTenants();
+
+            // Una sola empresa activa: el registro nace en ella sin preguntar
+            if ($active->count() === 1) {
+                $this->activate(Tenant::findOrFail($active->first()->id));
+                View::share('globalView', false);
+
+                return $next($request);
+            }
+
+            return $this->askForTenant($request, $active);
+        }
+
         View::share('globalView', true);
         View::share('tenantNames', Tenant::orderBy('company_name')->pluck('company_name', 'id'));
 
-        if ($this->needsTenantToWrite($request)) {
-            $message = 'Para crear o editar, elige la empresa en el selector superior.';
+        return $next($request);
+    }
 
-            if ($request->expectsJson()) {
-                return response()->json(['message' => $message], 409);
-            }
+    /** Empresas activas, para el selector de "¿en qué empresa?" */
+    public static function activeTenants(): Collection
+    {
+        return Tenant::where('status', 'active')->orderBy('company_name')->get(['id', 'company_name', 'ruc']);
+    }
 
-            // Al listado del módulo, no a back(): la URL previa de la sesión puede ser
-            // un recurso (p. ej. la selfie firmada que pidió un <img>).
-            return redirect()->to($this->moduleIndex($request))->with('error', $message);
+    /**
+     * Vista global con varias empresas: en lugar de un aviso, se pregunta en qué
+     * empresa crear. Un formulario enviado se reenvía con la empresa elegida
+     * (no se pierde lo escrito); una pantalla de crear o editar se abre después
+     * de elegir.
+     */
+    private function askForTenant(Request $request, Collection $tenants): Response
+    {
+        $message = 'Elige la empresa en la que quieres crear o editar.';
+        $isWrite = ! $request->isMethodSafe();
+        $back    = $isWrite ? $this->moduleIndex($request) : $request->fullUrl();
+        $chooser = route('admin.tenant.choose', ['next' => self::relativeUrl($back)]);
+
+        if ($request->header('X-Inertia')) {
+            return Inertia::location($chooser);
         }
 
-        return $next($request);
+        if ($request->expectsJson()) {
+            return response()->json(['message' => $message, 'tenant_required' => true, 'choose_url' => $chooser], 409);
+        }
+
+        // Un formulario con archivos no se puede reenviar: se elige y se vuelve al listado
+        if (! $isWrite) {
+            return redirect()->to($chooser);
+        }
+        if ($request->allFiles()) {
+            return redirect()->to($chooser)->withInput($request->except(['_token', '_method', 'password', 'password_confirmation']));
+        }
+
+        View::share('globalView', true);
+
+        return response()->view('tenant-picker', [
+            'tenants' => $tenants,
+            'next'    => self::relativeUrl($back),
+            'cancel'  => $back,
+            'replay'  => [
+                'action' => $request->fullUrl(),
+                'method' => $request->method(),
+                'fields' => Arr::dot($request->except(['_token', '_method'])),
+            ],
+        ], 409);
+    }
+
+    /** Ruta relativa y del mismo sitio (evita redirecciones abiertas con ?next=) */
+    public static function relativeUrl(?string $url): string
+    {
+        $path = (string) parse_url((string) $url, PHP_URL_PATH);
+        $query = parse_url((string) $url, PHP_URL_QUERY);
+
+        if ($path === '' || ! str_starts_with($path, '/') || str_starts_with($path, '//') || str_contains($path, '\\')) {
+            return '/dashboard';
+        }
+
+        return $path . ($query ? '?' . $query : '');
     }
 
     /** Vuelve al listado del mismo módulo (employees.create → employees.index) */
     private function moduleIndex(Request $request): string
     {
-        $index = Str::before($request->route()?->getName() ?? '', '.') . '.index';
+        return self::indexForRoute($request->route()?->getName());
+    }
+
+    public static function indexForRoute(?string $name): string
+    {
+        $index = Str::before($name ?? '', '.') . '.index';
 
         return Route::has($index) ? route($index) : route('dashboard');
+    }
+
+    /** Listado del módulo de una URL del panel (para "Cancelar" en el selector) */
+    public static function indexForUrl(string $url): string
+    {
+        try {
+            $name = app('router')->getRoutes()->match(Request::create($url))->getName();
+        } catch (\Throwable) {
+            $name = null;
+        }
+
+        return self::indexForRoute($name);
     }
 
     private function needsTenantToWrite(Request $request): bool

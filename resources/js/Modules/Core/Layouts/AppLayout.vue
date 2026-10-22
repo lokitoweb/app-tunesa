@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import ConfirmModal from '@/Modules/Core/Components/ConfirmModal.vue';
+import TenantPickerModal from '@/Modules/Core/Components/TenantPickerModal.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 
 defineProps({ title: { type: String, default: 'Panel' } });
@@ -230,7 +231,7 @@ onUnmounted(() => {
                 <!-- Banner de Vista Global -->
                 <div v-if="page.props.globalView" class="alert alert-primary d-flex align-items-center gap-2 global-view-banner mb-4" role="status" style="border-radius: 10px;">
                     <i class="bi bi-globe2 fs-5 global-view-icon"></i>
-                    <div>Vista global: mostrando registros de todas las empresas. Para crear o editar, elige una empresa en el selector superior.</div>
+                    <div>Vista global: mostrando registros de todas las empresas. Al crear algo te preguntaremos en qué empresa.</div>
                 </div>
 
                 <!-- Avisos flotantes (toasts) -->
@@ -339,4 +340,7 @@ onUnmounted(() => {
         @cancel="onCancel" 
         @close="onCancel" 
     />
+
+    <!-- Super Admin en la vista global: "¿En qué empresa?" antes de crear -->
+    <TenantPickerModal v-if="auth.is_super_admin" />
 </template>

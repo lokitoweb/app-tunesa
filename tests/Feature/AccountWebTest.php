@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Modules\Core\Notifications\SecurityAlert;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
 
@@ -27,7 +29,7 @@ class AccountWebTest extends TestCase
         $acme = $this->makeTenant('acme');
         $admin = $this->makeUser($acme, 'company_admin', ['first_name' => 'Rosa', 'email' => 'rosa@acme.pe']);
 
-        $this->actingAs($admin)->get('/account')->assertOk()->assertSee('Mi cuenta')->assertSee('rosa@acme.pe')->assertSee('Cambiar contraseña');
+        $this->actingAs($admin)->get('/account')->assertOk()->assertSee('Mi cuenta')->assertSee('rosa@acme.pe')->assertSee('Cambio de Contraseña');
         // El menú de la cuenta enlaza aquí y la barra superior trae el buscador de colaboradores
         $this->actingAs($admin)->get('/notifications')->assertOk()->assertSee(route('account.edit'))->assertSee('topbar-search', false);
     }
@@ -77,5 +79,32 @@ class AccountWebTest extends TestCase
         // Sin CDN: Bootstrap e íconos se sirven desde el propio servidor
         $this->assertStringNotContainsString('cdn.jsdelivr.net', $html);
         $this->assertStringContainsString('vendor/bootstrap/bootstrap.min.css', $html);
+    }
+
+    public function test_profile_photo_replaces_the_old_one_and_super_admin_can_edit_in_global_view(): void
+    {
+        Storage::fake('public');
+        $acme  = $this->makeTenant('acme');
+        $this->makeTenant('other');
+        $admin = $this->makeUser($acme, 'company_admin');
+
+        $this->actingAs($admin)->put('/account/profile', ['phone' => '999111222', 'avatar' => UploadedFile::fake()->image('a.jpg')])
+            ->assertRedirect(route('account.edit'));
+        $old = $admin->fresh()->avatar_path;
+        Storage::disk('public')->assertExists($old);
+
+        $this->put('/account/profile', ['avatar' => UploadedFile::fake()->image('b.png')])->assertRedirect(route('account.edit'));
+        Storage::disk('public')->assertMissing($old);
+        Storage::disk('public')->assertExists($admin->fresh()->avatar_path);
+        $this->assertSame('999111222', $admin->fresh()->phone);
+
+        $admin->createToken('app');
+        $this->post('/account/revoke-tokens')->assertRedirect(route('account.edit'));
+        $this->assertSame(0, $admin->tokens()->count());
+
+        // Mi cuenta no es un registro de empresa: el Super Admin la edita sin elegir empresa
+        $root = $this->makeUser(null, 'super_admin');
+        $this->actingAs($root)->put('/account/profile', ['phone' => '988777666'])->assertRedirect(route('account.edit'));
+        $this->assertSame('988777666', $root->fresh()->phone);
     }
 }
