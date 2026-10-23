@@ -35,4 +35,19 @@ abstract class TestCase extends BaseTestCase
             return $this;
         });
     }
+
+    /**
+     * Par RSA de prueba (cuentas de servicio FCM). Pasa su propio openssl.cnf:
+     * PHP en Windows (XAMPP) busca uno que no existe y la generación falla.
+     *
+     * @return array{0: string, 1: string} [llave privada PEM, llave pública PEM]
+     */
+    protected function makeRsaKeyPair(): array
+    {
+        $config = ['config' => __DIR__ . '/Fixtures/openssl.cnf', 'private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA];
+        $key = openssl_pkey_new($config);
+        openssl_pkey_export($key, $pem, null, $config);
+
+        return [$pem, openssl_pkey_get_details($key)['key']];
+    }
 }

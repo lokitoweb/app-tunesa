@@ -36,10 +36,7 @@ class FcmPushTest extends TestCase
         parent::setUp();
         $this->seedRoles();
 
-        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-        openssl_pkey_export($key, $pem);
-        $this->privateKey = $pem;
-        $this->publicKey = openssl_pkey_get_details($key)['key'];
+        [$this->privateKey, $this->publicKey] = $this->makeRsaKeyPair();
 
         $this->acme = $this->makeTenant('acme');
         $this->emp  = $this->makeUser($this->acme, 'employee', ['fcm_token' => 'device-token-123']);

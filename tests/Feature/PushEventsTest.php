@@ -35,8 +35,7 @@ class PushEventsTest extends TestCase
         $this->emp  = $this->makeUser($this->acme, 'employee', ['fcm_token' => 'device-token-123']);
         app(TenantContext::class)->clear();
 
-        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
-        openssl_pkey_export($key, $pem);
+        [$pem] = $this->makeRsaKeyPair();
         // Solo la credencial: fcm_enabled queda en NULL y vale el valor por defecto (encendido)
         TenantSetting::editableRowFor(null)->fill(['fcm_service_account_json' => json_encode([
             'type' => 'service_account', 'project_id' => 'tunesa-app', 'private_key' => $pem,
