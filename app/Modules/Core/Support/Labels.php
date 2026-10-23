@@ -643,6 +643,7 @@ final class Labels
             'hr_manager'    => ['RRHH', 'info'],
             'manager'       => ['Gerencia', 'primary'],
             'accountant'    => ['Contabilidad', 'info'],
+            'logistics'     => ['Logística', 'info'],
             'supervisor'    => ['Supervisor', 'secondary'],
             'employee'      => ['Colaborador', 'light'],
         ],

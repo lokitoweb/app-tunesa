@@ -22,6 +22,7 @@ final class ModuleRegistry
         'Birthdays'    => 'Cumpleaños',
         'CompanyDocs'  => 'Documentos de la empresa',
         'Ethics'       => 'Canal ético',
+        'Finance'      => 'Compras y tesorería',
         'HR'           => 'Recursos humanos',
         'Integrations' => 'Integraciones',
         'Onboarding'   => 'Incorporación',

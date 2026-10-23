@@ -58,7 +58,7 @@ class RolesAndPermissionsTest extends TestCase
         $this->actingIn($this->makeUser($acme, 'hr_manager'), $acme)
             ->getJson('/api/admin/roles')
             ->assertOk()
-            ->assertJsonCount(6, 'data.roles'); // + Gerencia y Contabilidad
+            ->assertJsonCount(7, 'data.roles'); // + Gerencia, Contabilidad y Logística
     }
 
     public function test_every_api_route_points_to_an_existing_controller_method(): void

@@ -23,6 +23,7 @@ class Role extends Model
     public const MANAGER       = 'manager';
     public const ACCOUNTANT    = 'accountant';
     public const SUPERVISOR    = 'supervisor';
+    public const LOGISTICS     = 'logistics';
     public const EMPLOYEE      = 'employee';
 
     public const ALL = [
@@ -32,6 +33,7 @@ class Role extends Model
         self::MANAGER,
         self::ACCOUNTANT,
         self::SUPERVISOR,
+        self::LOGISTICS,
         self::EMPLOYEE,
     ];
 

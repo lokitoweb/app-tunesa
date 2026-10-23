@@ -7,6 +7,7 @@
         'employee'      => 'Empleado (marca con GPS y selfie)',
         'supervisor'    => 'Supervisor de turno u obra',
         'accountant'    => 'Contabilidad (boletas, planilla y reportes)',
+        'logistics'     => 'Logística (proveedores, requerimientos y órdenes)',
         'hr_manager'    => 'Encargado de RRHH',
         'manager'       => 'Gerencia (indicadores y reportes, solo lectura)',
         'company_admin' => 'Administrador de la empresa',

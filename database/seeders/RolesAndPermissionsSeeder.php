@@ -89,6 +89,23 @@ class RolesAndPermissionsSeeder extends Seeder
         // Canal ético
         'ethics.investigate'      => ['Ver e investigar las denuncias del canal ético', 'ethics'],
         'ethics.view_identity'    => ['Ver quién envió una denuncia desde la app (fines legales)', 'ethics'],
+
+        // Compras y tesorería (migrado del ERP de escritorio)
+        'suppliers.view'          => ['Ver proveedores y sus cuentas', 'finance'],
+        'suppliers.manage'        => ['Crear y editar proveedores y cuentas bancarias', 'finance'],
+        'requisitions.create'     => ['Registrar requerimientos', 'finance'],
+        'requisitions.view_all'   => ['Ver los requerimientos de toda la empresa', 'finance'],
+        'requisitions.approve'    => ['Aprobar o rechazar requerimientos', 'finance'],
+        'purchasing.manage'       => ['Cotizaciones, órdenes de compra y de servicio', 'finance'],
+        'treasury.view'           => ['Ver programación de pagos, cuotas y flujo de caja', 'finance'],
+        'treasury.pay'            => ['Programar, pagar y cancelar cuotas', 'finance'],
+        'fixed_costs.manage'      => ['Gestionar costos fijos y caja chica', 'finance'],
+    ];
+
+    /** Permisos de compras y tesorería, para restarlos de los roles con '*' */
+    public const FINANCE = [
+        'suppliers.view', 'suppliers.manage', 'requisitions.create', 'requisitions.view_all', 'requisitions.approve',
+        'purchasing.manage', 'treasury.view', 'treasury.pay', 'fixed_costs.manage',
     ];
 
     /** slug del rol => [nombre, descripción, permisos ('*' = todos)] */
@@ -106,7 +123,9 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::HR_MANAGER => [
             'Recursos Humanos',
             'Gestiona colaboradores, turnos, solicitudes y nómina.',
-            ['*', '-tenants.manage', '-tenants.branding', '-company.configure', '-audit.view'],
+            ['*', '-tenants.manage', '-tenants.branding', '-company.configure', '-audit.view',
+                '-suppliers.manage', '-requisitions.view_all', '-requisitions.approve', '-purchasing.manage',
+                '-treasury.view', '-treasury.pay', '-fixed_costs.manage'],
         ],
         Role::MANAGER => [
             'Gerencia',
@@ -116,6 +135,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'attendance.mark', 'attendance.view_own', 'attendance.view_team', 'attendance.view_all',
                 'dashboard.view', 'reports.view', 'reports.export',
                 'leave.request', 'leave.approve_team', 'leave.approve_all',
+                'suppliers.view', 'requisitions.create', 'requisitions.view_all', 'requisitions.approve', 'treasury.view',
                 'payslips.view_own', 'profile.manage_own', 'training.view_own',
                 'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],
@@ -128,6 +148,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'attendance.mark', 'attendance.view_own', 'shifts.view_own',
                 'dashboard.view', 'reports.view', 'reports.export',
                 'payslips.manage', 'payroll.export',
+                ...self::FINANCE,
                 'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
                 'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],
@@ -141,6 +162,17 @@ class RolesAndPermissionsSeeder extends Seeder
                 'dashboard.view', 'reports.view',
                 'leave.request', 'leave.approve_team',
                 'payslips.view_own', 'profile.manage_own', 'training.view_own',
+                'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
+                'suppliers.view', 'requisitions.create',
+            ],
+        ],
+        Role::LOGISTICS => [
+            'Logística',
+            'Proveedores, productos, requerimientos, cotizaciones y órdenes de compra/servicio.',
+            [
+                'suppliers.view', 'suppliers.manage', 'requisitions.create', 'requisitions.view_all', 'purchasing.manage',
+                'attendance.mark', 'attendance.view_own', 'shifts.view_own',
+                'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
                 'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],
         ],

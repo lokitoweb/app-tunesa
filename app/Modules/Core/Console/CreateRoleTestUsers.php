@@ -36,6 +36,8 @@ class CreateRoleTestUsers extends Command
         Role::HR_MANAGER    => ['rrhh.prueba', 'Prueba', 'Recursos Humanos', 'Analista de RR. HH.'],
         Role::MANAGER       => ['gerencia.prueba', 'Prueba', 'Gerencia', 'Gerente de operaciones'],
         Role::ACCOUNTANT    => ['contabilidad.prueba', 'Prueba', 'Contabilidad', 'Contador'],
+        Role::LOGISTICS     => ['logistica.prueba', 'Prueba', 'Logística', 'Asistente de logística'],
+        Role::LOGISTICS     => ['logistica.prueba', 'Prueba', 'Logística', 'Asistente de logística'],
         Role::SUPERVISOR    => ['supervisor.prueba', 'Prueba', 'Supervisor', 'Supervisor de sede'],
         Role::EMPLOYEE      => ['colaborador.prueba', 'Prueba', 'Colaborador', 'Colaborador'],
     ];

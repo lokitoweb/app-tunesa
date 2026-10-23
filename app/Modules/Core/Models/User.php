@@ -96,6 +96,7 @@ class User extends Authenticatable
         'hr_manager'    => 60,
         'manager'       => 60, // Gerencia: mismo nivel que RRHH (uno no crea al otro)
         'accountant'    => 50,
+        'logistics'     => 50,
         'supervisor'    => 40,
         'employee'      => 20,
     ];

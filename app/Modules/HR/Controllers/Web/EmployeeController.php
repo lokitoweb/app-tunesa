@@ -179,7 +179,7 @@ class EmployeeController extends Controller
             'last_name'       => ['required', 'string', 'max:100'],
             // Vacío: se genera [DNI]@dominio (Marca y app). La contraseña siempre la genera el sistema.
             'email'           => ['nullable', 'email', 'max:150', Rule::unique('users', 'email')],
-            'role'            => ['required', 'in:company_admin,hr_manager,manager,accountant,supervisor,employee'],
+            'role'            => ['required', 'in:company_admin,hr_manager,manager,accountant,logistics,supervisor,employee'],
             'document_type'   => ['required', Rule::in(['dni', 'ce', 'passport'])],
             'document_number' => ['required', 'string', 'max:30'],
             'phone'           => ['nullable', 'string', 'max:30'],
@@ -346,7 +346,7 @@ class EmployeeController extends Controller
                 'required', 'email', 'max:150',
                 Rule::unique('users')->where(fn($q) => $q->where('tenant_id', $effectiveTenantId))->ignore($employee->id)
             ],
-            'role'            => ['required', 'in:company_admin,hr_manager,manager,accountant,supervisor,employee'],
+            'role'            => ['required', 'in:company_admin,hr_manager,manager,accountant,logistics,supervisor,employee'],
             'status'          => ['required', 'in:active,inactive,suspended'],
             'document_type'   => ['required', Rule::in(['dni', 'ce', 'passport'])],
             'document_number' => ['required', 'string', 'max:30'],

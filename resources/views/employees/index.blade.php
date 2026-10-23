@@ -987,7 +987,7 @@ Estilos del Modal Dialog de Nuevo Colaborador
                 <label for="role" class="emp-filter-label">Rol en el Sistema</label>
                 <select id="role" name="role" class="emp-filter-select">
                     <option value="">Todos los roles</option>
-                    @foreach(['employee', 'supervisor', 'accountant', 'hr_manager', 'manager', 'company_admin'] as $r)
+                    @foreach(['employee', 'supervisor', 'accountant', 'logistics', 'hr_manager', 'manager', 'company_admin'] as $r)
                         <option value="{{ $r }}" @selected(request('role') == $r)>{{ $roleLabels[$r] ?? ucfirst($r) }}</option>
                     @endforeach
                 </select>

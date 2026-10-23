@@ -4,6 +4,7 @@
         'employee'      => ['label' => 'Colaborador', 'desc' => 'Personal operativo (marca con GPS y selfie)'],
         'supervisor'    => ['label' => 'Supervisor', 'desc' => 'Supervisor de sede o turno (asistencia de su equipo)'],
         'accountant'    => ['label' => 'Contabilidad', 'desc' => 'Gestión de boletas, adelantos y planillas'],
+        'logistics'     => ['label' => 'Logística', 'desc' => 'Proveedores, requerimientos, cotizaciones y órdenes'],
         'hr_manager'    => ['label' => 'Recursos Humanos', 'desc' => 'Administración de personal, legajos y turnos'],
         'manager'       => ['label' => 'Gerencia', 'desc' => 'Visualización ejecutiva de indicadores y reportes'],
         'company_admin' => ['label' => 'Administrador de Empresa', 'desc' => 'Acceso y administración total de la empresa'],

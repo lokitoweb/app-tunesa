@@ -22,9 +22,9 @@ class RoleTestUsersTest extends TestCase
         $this->artisan('app:role-test-users acme --domain=acme.test')->assertSuccessful();
 
         $users = User::withoutGlobalScopes()->where('email', 'like', '%.prueba@acme.test')->get();
-        $this->assertCount(6, $users);
+        $this->assertCount(7, $users);
         $this->assertEqualsCanonicalizing(
-            ['company_admin', 'hr_manager', 'manager', 'accountant', 'supervisor', 'employee'],
+            ['company_admin', 'hr_manager', 'manager', 'accountant', 'logistics', 'supervisor', 'employee'],
             $users->pluck('role')->all(),
         );
 
