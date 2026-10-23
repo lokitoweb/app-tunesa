@@ -760,14 +760,14 @@
 
 @section('styles')
 <style>
-/* =============================================================================
- * Estilos Profesionales del Módulo de Boletas de Pago
- * ============================================================================= */
+{{-- =============================================================================
+Estilos Profesionales del Módulo de Boletas de Pago
+============================================================================= --}}
 .payslips-page-wrapper {
     width: 100%;
 }
 
-/* Cabecera Ejecutiva */
+{{-- Cabecera Ejecutiva --}}
 .payslips-header-card {
     background: var(--bg-surface, #ffffff);
     border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
@@ -787,7 +787,7 @@
     flex-shrink: 0;
 }
 
-/* Tarjetas KPI */
+{{-- Tarjetas KPI --}}
 .payslips-kpi-card {
     background: var(--bg-surface, #ffffff);
     border: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
@@ -811,7 +811,7 @@
     flex-shrink: 0;
 }
 
-/* Colores pill auxiliares */
+{{-- Colores pill auxiliares --}}
 .bg-emerald-subtle {
     background: rgba(16, 185, 129, 0.12) !important;
 }
@@ -826,7 +826,7 @@
     color: #f59e0b !important;
 }
 
-/* Tarjeta de Filtros */
+{{-- Tarjeta de Filtros --}}
 .payslips-filter-card {
     background: var(--bg-surface, #ffffff);
     border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
@@ -855,7 +855,7 @@
     box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
 }
 
-/* Botón Trigger del Calendario */
+{{-- Botón Trigger del Calendario --}}
 .payslip-calendar-trigger-btn {
     height: 38px;
     border-radius: 6px !important;
@@ -874,7 +874,7 @@
     color: var(--text-primary) !important;
 }
 
-/* Matriz de Meses del Calendario */
+{{-- Matriz de Meses del Calendario --}}
 .calendar-months-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -908,7 +908,7 @@
     box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
 }
 
-/* Botones de Filtro */
+{{-- Botones de Filtro --}}
 .btn-payslip-filter {
     height: 38px;
     padding: 0 16px;
@@ -943,7 +943,7 @@
     font-size: 0.85rem;
 }
 
-/* Tarjeta y Tabla */
+{{-- Tarjeta y Tabla --}}
 .payslips-table-card {
     background: var(--bg-surface, #ffffff);
     border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
@@ -981,7 +981,7 @@
     flex-shrink: 0;
 }
 
-/* Botones de Acción Icon Only */
+{{-- Botones de Acción Icon Only --}}
 .btn-action-btn {
     width: 34px;
     height: 34px;
@@ -1047,7 +1047,7 @@
     color: #ffffff;
 }
 
-/* Empty State */
+{{-- Empty State --}}
 .payslips-empty-icon {
     width: 64px;
     height: 64px;
@@ -1060,7 +1060,7 @@
     font-size: 1.8rem;
 }
 
-/* Modal Icons con Espaciado Garantizado */
+{{-- Modal Icons con Espaciado Garantizado --}}
 .modal-header-icon {
     width: 42px;
     height: 42px;
@@ -1081,7 +1081,7 @@
     justify-content: center;
 }
 
-/* Interruptor Ejecutivo Moderno */
+{{-- Interruptor Ejecutivo Moderno --}}
 .payslip-executive-switch-card {
     background: var(--bg-surface-elevated, #f8fafc);
     border-color: var(--border-color, #e2e8f0) !important;
@@ -1119,7 +1119,7 @@
     box-shadow: 0 0 8px rgba(2, 132, 199, 0.4) !important;
 }
 
-/* Overlay de Carga AJAX */
+{{-- Overlay de Carga AJAX --}}
 .table-loading-overlay {
     position: absolute;
     top: 0;
@@ -1135,9 +1135,9 @@
     backdrop-filter: blur(2px);
 }
 
-/* =============================================================================
- * Modo Oscuro [data-bs-theme="dark"]
- * ============================================================================= */
+{{-- =============================================================================
+Modo Oscuro [data-bs-theme="dark"]
+============================================================================= --}}
 [data-bs-theme="dark"] .payslips-header-card,
 [data-bs-theme="dark"] .payslips-kpi-card,
 [data-bs-theme="dark"] .payslips-filter-card,
@@ -1207,25 +1207,25 @@
 
 @section('scripts')
 <script>
-    // =========================================================================
-    // 1. Constantes y Mapeos de Meses
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 1. Constantes y Mapeos de Meses --}}
+    {{-- ========================================================================= --}}
     const monthNamesMap = {
-        1: 'Enero', 2: 'Febrero', 3 => 'Marzo', 4: 'Abril',
+        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
         5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
         9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
     };
 
     let calendarBrowsingYear = parseInt(document.getElementById('filter_year').value, 10) || new Date().getFullYear();
 
-    // =========================================================================
-    // 2. Motor de Filtrado AJAX Interno (Sin recargar URL)
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 2. Motor de Filtrado AJAX Interno (Sin recargar URL) --}}
+    {{-- ========================================================================= --}}
     let filterDebounceTimer = null;
 
     async function applyPayslipFilters(page = 1) {
         const tableWrapper = document.getElementById('payslipsTableWrapper');
-        // Silueta en KPIs y tabla mientras llega el filtro (reemplaza el spinner)
+        {{-- Silueta en KPIs y tabla mientras llega el filtro (reemplaza el spinner) --}}
         Panel.skeleton.on('#main-content');
 
         const year = document.getElementById('filter_year').value;
@@ -1255,7 +1255,7 @@
 
             const data = await response.json();
             if (data.success) {
-                // 1. Reemplazar tabla HTML
+                {{-- 1. Reemplazar tabla HTML --}}
                 if (tableWrapper) {
                     tableWrapper.innerHTML = `
                         <div id="tableLoadingOverlay" class="table-loading-overlay d-none">
@@ -1267,7 +1267,7 @@
                     `;
                 }
 
-                // 2. Actualizar Métricas KPI reactivas
+                {{-- 2. Actualizar Métricas KPI reactivas --}}
                 const s = data.summary;
                 if (s) {
                     document.getElementById('kpi_total_emitted').textContent = s.total_emitted;
@@ -1278,7 +1278,7 @@
                     document.getElementById('kpi_read_percent').textContent = `(${s.read_percent}% de publicadas)`;
                     document.getElementById('kpi_total_payroll').textContent = s.total_payroll;
 
-                    // Header Badges
+                    {{-- Header Badges --}}
                     const monthLabel = monthNamesMap[data.current_month] || `Mes ${data.current_month}`;
                     document.getElementById('headerPeriodText').textContent = `${monthLabel} ${data.current_year}`;
                     
@@ -1293,7 +1293,7 @@
                         }
                     }
 
-                    // Botón Publicar Todas
+                    {{-- Botón Publicar Todas --}}
                     const publishAllBtn = document.getElementById('btnPublishAllTrigger');
                     const publishBadge = document.getElementById('publishAllCountBadge');
                     const bulkYearInput = document.getElementById('bulkPublishYearInput');
@@ -1329,7 +1329,7 @@
         }
     }
 
-    // Interceptar clics en la paginación dentro de la tabla
+    {{-- Interceptar clics en la paginación dentro de la tabla --}}
     document.addEventListener('click', function (e) {
         const pageLink = e.target.closest('.payslip-ajax-pagination a.page-link');
         if (pageLink) {
@@ -1343,7 +1343,7 @@
         }
     });
 
-    // Auto-filtro al escribir en el buscador predictivo (debounced)
+    {{-- Auto-filtro al escribir en el buscador predictivo (debounced) --}}
     document.getElementById('filter_search')?.addEventListener('input', function () {
         clearTimeout(filterDebounceTimer);
         filterDebounceTimer = setTimeout(() => {
@@ -1351,11 +1351,11 @@
         }, 320);
     });
 
-    // Auto-filtro al cambiar selects
+    {{-- Auto-filtro al cambiar selects --}}
     document.getElementById('filter_user_id')?.addEventListener('change', () => applyPayslipFilters(1));
     document.getElementById('filter_status')?.addEventListener('change', () => applyPayslipFilters(1));
 
-    // Resetear filtros
+    {{-- Resetear filtros --}}
     function resetPayslipFilters() {
         document.getElementById('filter_search').value = '';
         document.getElementById('filter_user_id').value = '';
@@ -1369,9 +1369,9 @@
         applyPayslipFilters(1);
     }
 
-    // =========================================================================
-    // 3. Lógica del Calendario de Periodos
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 3. Lógica del Calendario de Periodos --}}
+    {{-- ========================================================================= --}}
     function setCalendarPeriod(year, month) {
         document.getElementById('filter_year').value = year;
         document.getElementById('filter_month').value = month;
@@ -1381,7 +1381,7 @@
         document.getElementById('selectedPeriodDisplay').textContent = `${mName} ${year}`;
         document.getElementById('calActiveYearDisplay').textContent = year;
 
-        // Actualizar celda seleccionada
+        {{-- Actualizar celda seleccionada --}}
         document.querySelectorAll('.calendar-month-cell').forEach(cell => {
             const m = parseInt(cell.dataset.month, 10);
             if (m === parseInt(month, 10) && calendarBrowsingYear === parseInt(year, 10)) {
@@ -1392,7 +1392,7 @@
         });
     }
 
-    // Navegar años en el calendario
+    {{-- Navegar años en el calendario --}}
     document.getElementById('btnCalPrevYear')?.addEventListener('click', function () {
         calendarBrowsingYear--;
         document.getElementById('calActiveYearDisplay').textContent = calendarBrowsingYear;
@@ -1418,23 +1418,23 @@
         });
     }
 
-    // Clic en un mes del calendario
+    {{-- Clic en un mes del calendario --}}
     document.querySelectorAll('.calendar-month-cell').forEach(cell => {
         cell.addEventListener('click', function () {
             const m = parseInt(this.dataset.month, 10);
             setCalendarPeriod(calendarBrowsingYear, m);
 
-            // Cerrar el popover del calendario
+            {{-- Cerrar el popover del calendario --}}
             const dropdownEl = document.getElementById('payslipPeriodDropdown');
             const dropdown = bootstrap.Dropdown.getInstance(document.getElementById('periodPickerBtn'));
             if (dropdown) dropdown.hide();
 
-            // Filtrar inmediatamente por AJAX
+            {{-- Filtrar inmediatamente por AJAX --}}
             applyPayslipFilters(1);
         });
     });
 
-    // Clic en accesos rápidos del calendario
+    {{-- Clic en accesos rápidos del calendario --}}
     document.querySelectorAll('.calendar-preset-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             const y = parseInt(this.dataset.periodYear, 10);
@@ -1456,10 +1456,10 @@
         applyPayslipFilters(1);
     });
 
-    // =========================================================================
-    // 4. Modales y Switches Reactivos
-    // =========================================================================
-    // Cálculo reactivo en Modal de Subida Individual (Neto = Bruto - Descuentos)
+    {{-- ========================================================================= --}}
+    {{-- 4. Modales y Switches Reactivos --}}
+    {{-- ========================================================================= --}}
+    {{-- Cálculo reactivo en Modal de Subida Individual (Neto = Bruto - Descuentos) --}}
     const grossInput = document.getElementById('modal_grossSalary');
     const dedInput = document.getElementById('modal_deductions');
     const netInput = document.getElementById('modal_netSalary');
@@ -1474,7 +1474,7 @@
     grossInput?.addEventListener('input', updateNetSalary);
     dedInput?.addEventListener('input', updateNetSalary);
 
-    // Feedback visual en el switch ejecutivo
+    {{-- Feedback visual en el switch ejecutivo --}}
     const singleSwitch = document.getElementById('modal_publish_now');
     const singleSwitchBox = document.getElementById('singlePublishSwitchBox');
     if (singleSwitch && singleSwitchBox) {
@@ -1500,7 +1500,7 @@
         });
     }
 
-    // Contador de archivos en Carga Masiva
+    {{-- Contador de archivos en Carga Masiva --}}
     const bulkFilesInput = document.getElementById('bulkFilesInput');
     const bulkFilesNote = document.getElementById('bulkFilesCountNote');
     if (bulkFilesInput && bulkFilesNote) {
@@ -1516,9 +1516,9 @@
         });
     }
 
-    // =========================================================================
-    // 5. Modales de Confirmación y Visor PDF
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 5. Modales de Confirmación y Visor PDF --}}
+    {{-- ========================================================================= --}}
     let pendingPublishId = null;
     window.openConfirmPublishModal = function (id, employeeName, title) {
         pendingPublishId = id;
@@ -1562,7 +1562,7 @@
         if (form) form.submit();
     });
 
-    // Visor Inline en Modal
+    {{-- Visor Inline en Modal --}}
     window.openPdfPreviewModal = function (viewUrl, downloadUrl, title, employeeName) {
         document.getElementById('previewPdfTitle').textContent = title || 'Boleta de Pago';
         document.getElementById('previewPdfSubtitle').textContent = employeeName ? `Colaborador: ${employeeName}` : 'Documento oficial';

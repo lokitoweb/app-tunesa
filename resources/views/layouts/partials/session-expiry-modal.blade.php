@@ -40,8 +40,8 @@
 </div>
 
 <script>
-    // Cierra la sesión por POST (con CSRF) y luego abre el login con el aviso de inactividad.
-    // Si la sesión ya murió en el servidor, el POST falla y el GET final igual lleva al login.
+    {{-- Cierra la sesión por POST (con CSRF) y luego abre el login con el aviso de inactividad. --}}
+    {{-- Si la sesión ya murió en el servidor, el POST falla y el GET final igual lleva al login. --}}
     window.sessionExpiryLogout = function () {
         const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
         const body = new FormData();
@@ -52,9 +52,9 @@
     };
 
 (function() {
-    // Configuración de tiempos de inactividad
-    // Inactividad antes de advertir: 20 minutos (1200000 ms)
-    // Tiempo de cuenta regresiva en el modal: 60 segundos
+    {{-- Configuración de tiempos de inactividad --}}
+    {{-- Inactividad antes de advertir: 20 minutos (1200000 ms) --}}
+    {{-- Tiempo de cuenta regresiva en el modal: 60 segundos --}}
     const INACTIVITY_LIMIT_MS = 20 * 60 * 1000;
     const COUNTDOWN_TOTAL_SEC = 60;
 
@@ -63,14 +63,14 @@
     let countdownLeft = COUNTDOWN_TOTAL_SEC;
     let modalInstance = null;
 
-    // Canal de sincronización multi-pestaña para renovar sesión
+    {{-- Canal de sincronización multi-pestaña para renovar sesión --}}
     let sessionChannel = null;
     if (typeof BroadcastChannel !== 'undefined') {
         try {
             sessionChannel = new BroadcastChannel('erp_session_sync');
             sessionChannel.onmessage = function(ev) {
                 if (ev.data && ev.data.type === 'SESSION_RENEWED') {
-                    // Otra pestaña activa renovó la sesión: cerrar modal y reiniciar timer
+                    {{-- Otra pestaña activa renovó la sesión: cerrar modal y reiniciar timer --}}
                     hideExpiryModal();
                     resetInactivityTimer(false);
                 }
@@ -123,10 +123,10 @@
         }, 1000);
     }
 
-    // Exponer función de prueba o llamada manual en consola para testing
+    {{-- Exponer función de prueba o llamada manual en consola para testing --}}
     window.showSessionExpiryWarning = showExpiryWarning;
 
-    // Acción: Seguir conectado
+    {{-- Acción: Seguir conectado --}}
     window.keepSessionAlive = async function() {
         const btn = document.getElementById('btnKeepSessionAlive');
         const spinner = document.getElementById('spinnerKeepAlive');
@@ -160,12 +160,12 @@
 
                 hideExpiryModal();
 
-                // Notificar a otras pestañas
+                {{-- Notificar a otras pestañas --}}
                 if (sessionChannel) {
                     try { sessionChannel.postMessage({ type: 'SESSION_RENEWED' }); } catch (e) {}
                 }
 
-                // Micro toast de confirmación
+                {{-- Micro toast de confirmación --}}
                 const toast = document.getElementById('sessionKeepAliveToast');
                 if (toast) {
                     toast.classList.add('show');
@@ -174,7 +174,7 @@
 
                 resetInactivityTimer();
             } else {
-                // Si la sesión ya murió en el servidor (401/419)
+                {{-- Si la sesión ya murió en el servidor (401/419) --}}
                 window.sessionExpiryLogout();
             }
         } catch (err) {
@@ -187,7 +187,7 @@
         }
     };
 
-    // Escuchar actividad del usuario para reiniciar el temporizador de inactividad
+    {{-- Escuchar actividad del usuario para reiniciar el temporizador de inactividad --}}
     const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
     let lastActivityLogged = Date.now();
 
@@ -197,17 +197,17 @@
             if (now - lastActivityLogged > 2000) {
                 lastActivityLogged = now;
                 resetInactivityTimer();
-                // Quien trabaja mucho rato en una sola pantalla (llenando un formulario)
-                // no hace peticiones: se avisa al servidor para que la sesión no caduque
-                // a escondidas y el "Guardar" no termine en un 419.
+                {{-- Quien trabaja mucho rato en una sola pantalla (llenando un formulario) --}}
+                {{-- no hace peticiones: se avisa al servidor para que la sesión no caduque --}}
+                {{-- a escondidas y el "Guardar" no termine en un 419. --}}
                 if (now - lastServerSync > SERVER_SYNC_MS) syncWithServer();
             }
         }, { passive: true });
     });
 
-    // Sincroniza sesión y token CSRF con el servidor. Si la sesión ya murió (equipo
-    // suspendido, pestaña olvidada), lleva al login de inmediato en vez de dejar
-    // llenar un formulario que fallará al enviarse.
+    {{-- Sincroniza sesión y token CSRF con el servidor. Si la sesión ya murió (equipo --}}
+    {{-- suspendido, pestaña olvidada), lleva al login de inmediato en vez de dejar --}}
+    {{-- llenar un formulario que fallará al enviarse. --}}
     const SERVER_SYNC_MS = 10 * 60 * 1000;
     let lastServerSync = Date.now();
 
@@ -234,7 +234,7 @@
                 document.querySelectorAll('input[name="_token"]').forEach(input => { input.value = data.csrf_token; });
             }
         } catch (e) {
-            // Sin conexión: se reintenta en un minuto
+            {{-- Sin conexión: se reintenta en un minuto --}}
             lastServerSync = Date.now() - SERVER_SYNC_MS + 60 * 1000;
         }
     }

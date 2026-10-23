@@ -1,6 +1,6 @@
-<!-- =========================================================================
+{{-- =========================================================================
      INDICADORES DEL PERIODO (TOTALES DE HORAS Y FALTAS)
-     ========================================================================= -->
+     ========================================================================= --}}
 <div class="row g-3 mb-4" id="hoursKpiContainer">
     <div class="col-6 col-md-4 col-xl">
         <div class="reports-kpi-card p-3 shadow-sm h-100">
@@ -78,14 +78,14 @@
     </div>
 </div>
 
-<!-- =========================================================================
+{{-- =========================================================================
      BARRA DE FILTROS ADAPTADA Y 100% EN UNA SOLA LÍNEA HORIZONTAL (HORAS Y FALTAS)
-     ========================================================================= -->
+     ========================================================================= --}}
 <div class="reports-filter-card p-2 p-md-3 mb-4 shadow-sm">
     <div class="reports-filter-single-row">
         <div class="reports-filter-inline-controls w-100 justify-content-between">
             <div class="d-flex align-items-center gap-2 flex-nowrap">
-                <!-- Filtro de Calendario Moderno Popover -->
+                {{-- Filtro de Calendario Moderno Popover --}}
                 <div class="dropdown flex-shrink-0" id="hrsCalendarDropdown">
                     <button type="button" class="date-filter-pill dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" id="hrsDateFilterDropdownBtn" title="Seleccionar periodo">
                         <i class="bi bi-calendar3 text-primary"></i>
@@ -97,7 +97,7 @@
                     </button>
                     <div class="dropdown-menu dropdown-menu-start calendar-pro-popover shadow-lg" aria-labelledby="hrsDateFilterDropdownBtn">
                         <div class="calendar-pro-grid">
-                            <!-- Columna Izquierda: ACCESOS RÁPIDOS -->
+                            {{-- Columna Izquierda: ACCESOS RÁPIDOS --}}
                             <div class="calendar-sidebar-presets">
                                 <div class="calendar-presets-heading">ACCESOS RÁPIDOS</div>
                                 <button type="button" class="calendar-preset-btn" data-preset="today">
@@ -126,7 +126,7 @@
                                 </button>
                             </div>
 
-                            <!-- Columna Derecha: Rango y Cuadrícula -->
+                            {{-- Columna Derecha: Rango y Cuadrícula --}}
                             <div class="calendar-content-pane">
                                 <div class="calendar-date-inputs-row">
                                     <div class="calendar-input-field is-active" id="hrsCalFromInputWrapper">
@@ -174,7 +174,7 @@
                     </div>
                 </div>
 
-                <!-- Sucursal (Compacto) -->
+                {{-- Sucursal (Compacto) --}}
                 <div class="modern-input-wrapper flex-shrink-0" style="width: 150px;" title="Filtrar por sucursal">
                     <span class="modern-input-icon"><i class="bi bi-building"></i></span>
                     <select id="hrsBranchSelect" class="modern-input-control" aria-label="Filtrar por sucursal">
@@ -185,7 +185,7 @@
                     </select>
                 </div>
 
-                <!-- Colaborador (Compacto) -->
+                {{-- Colaborador (Compacto) --}}
                 <div class="modern-input-wrapper flex-shrink-0" style="width: 170px;" title="Filtrar por colaborador">
                     <span class="modern-input-icon"><i class="bi bi-person"></i></span>
                     <select id="hrsEmployeeSelect" class="modern-input-control" aria-label="Filtrar por colaborador">
@@ -196,7 +196,7 @@
                     </select>
                 </div>
 
-                <!-- Buscador libre (Compacto) -->
+                {{-- Buscador libre (Compacto) --}}
                 <div class="modern-input-wrapper flex-shrink-0" style="width: 135px;" title="Buscar por nombre, código o DNI">
                     <span class="modern-input-icon"><i class="bi bi-search"></i></span>
                     <input
@@ -210,7 +210,7 @@
                 </div>
             </div>
 
-            <!-- Botón Limpiar -->
+            {{-- Botón Limpiar --}}
             <div class="d-flex align-items-center gap-2 flex-shrink-0">
                 <button
                     id="hrsResetBtn"
@@ -226,9 +226,9 @@
     </div>
 </div>
 
-<!-- =========================================================================
+{{-- =========================================================================
      TABLA DE HORAS Y FALTAS (AJAX)
-     ========================================================================= -->
+     ========================================================================= --}}
 <div class="reports-table-card shadow-sm mb-4 reports-tab-transition" id="hoursTableContainer">
     @include('reports.partials.hours-table', ['rows' => $rows, 'filters' => $filters])
 </div>

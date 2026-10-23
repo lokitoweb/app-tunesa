@@ -12,23 +12,23 @@
     $statusesList = $statuses ?? C::STATUSES;
 @endphp
 
-<!-- Header con barra unificada de filtros y acción principal -->
+{{-- Header con barra unificada de filtros y acción principal --}}
 <div class="company-header-bar">
     <div>
         <h1 class="h2 mb-1 fw-bold text-dark">Empresas</h1>
         <p class="text-secondary mb-0" style="font-size: 0.875rem;">Gestión centralizada de empresas cliente, suscripciones, marca blanca y accesos.</p>
     </div>
     
-    <!-- Filtros integrados al lado del botón Nueva empresa -->
+    {{-- Filtros integrados al lado del botón Nueva empresa --}}
     <div class="company-actions-bar">
         <form method="GET" action="{{ route('companies.index') }}" class="d-flex align-items-center gap-2 m-0 p-0">
-            <!-- Buscador con icono integrado (sin bordes rotos) -->
+            {{-- Buscador con icono integrado (sin bordes rotos) --}}
             <div class="company-search-wrapper">
                 <i class="bi bi-search search-icon"></i>
                 <input type="search" id="search" name="search" value="{{ request('search') }}" class="company-search-input" placeholder="Buscar empresa, RUC, subdominio...">
             </div>
 
-            <!-- Filtro por Estado -->
+            {{-- Filtro por Estado --}}
             <select id="status_filter" name="status" class="form-select company-status-select" data-autosubmit>
                 <option value="">Todos los estados</option>
                 @foreach($statusesList + ['cancelled' => 'Dada de baja'] as $value => $label)
@@ -43,7 +43,7 @@
             @endif
         </form>
 
-        <!-- Botón Nueva empresa -->
+        {{-- Botón Nueva empresa --}}
         <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm text-nowrap" style="height: 38px; border-radius: 8px; font-weight: 600; padding: 0 1.15rem;" onclick="openCreateCompanyModal()">
             <i class="bi bi-plus-lg"></i>
             <span>Nueva empresa</span>
@@ -52,7 +52,7 @@
     </div>
 </div>
 
-<!-- KPI Summary Cards -->
+{{-- KPI Summary Cards --}}
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
         <div class="company-kpi-card">
@@ -100,7 +100,7 @@
     </div>
 </div>
 
-<!-- Table Card -->
+{{-- Table Card --}}
 <div class="card border-0 shadow-sm" style="border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0;">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -200,20 +200,20 @@
     @endif
 </div>
 
-<!-- ========================================================================= -->
-<!-- MODAL EXPANDIDO: CREAR / EDITAR EMPRESA                                   -->
-<!-- ========================================================================= -->
+{{-- ========================================================================= --}}
+{{-- MODAL EXPANDIDO: CREAR / EDITAR EMPRESA --}}
+{{-- ========================================================================= --}}
 <div class="modal fade" id="companyModal" tabindex="-1" aria-labelledby="companyModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-company-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             
-            <!-- Modal Form wraps header, body and footer -->
+            {{-- Modal Form wraps header, body and footer --}}
             <form id="companyForm" method="POST" action="" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="_method" id="companyFormMethod" value="">
                 <input type="hidden" name="modules_submitted" value="1">
 
-                <!-- Modal Header -->
+                {{-- Modal Header --}}
                 <div class="modal-header border-bottom px-4 py-3 bg-white flex-shrink-0">
                     <div class="d-flex align-items-center gap-3">
                         <div id="companyModalHeaderIcon" style="width: 42px; height: 42px; border-radius: 8px; background: rgba(2, 132, 199, 0.1); color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
@@ -227,7 +227,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <!-- Segmented Control Navigation (Modern Pill Tabs) -->
+                {{-- Segmented Control Navigation (Modern Pill Tabs) --}}
                 <div class="modal-segmented-nav flex-shrink-0" id="companyModalTabs" role="tablist">
                     <div class="nav-item" role="presentation">
                         <button class="nav-link active" id="tab-general-btn" data-bs-toggle="tab" data-bs-target="#tab-general" type="button" role="tab" aria-controls="tab-general" aria-selected="true">
@@ -256,7 +256,7 @@
                 </div>
 
                 <div class="modal-body px-4 py-3 flex-grow-1 overflow-auto" style="background: #ffffff;">
-                    <!-- Loading State -->
+                    {{-- Loading State --}}
                     <div id="companyModalLoading" class="text-center py-5 d-none">
                         <div class="spinner-border text-primary mb-3" role="status" style="width: 2.5rem; height: 2.5rem;">
                             <span class="visually-hidden">Cargando...</span>
@@ -265,9 +265,9 @@
                     </div>
 
                     <div id="companyModalContent" class="tab-content">
-                        <!-- TAB 1: DATOS GENERALES -->
+                        {{-- TAB 1: DATOS GENERALES --}}
                         <div class="tab-pane fade show active" id="tab-general" role="tabpanel" aria-labelledby="tab-general-btn">
-                            <!-- Sección: Identificación -->
+                            {{-- Sección: Identificación --}}
                             <div class="modal-section-card">
                                 <div class="modal-section-title">
                                     <i class="bi bi-building-check"></i>
@@ -304,7 +304,7 @@
                                 </div>
                             </div>
 
-                            <!-- Sección: Contacto & Ubicación -->
+                            {{-- Sección: Contacto & Ubicación --}}
                             <div class="modal-section-card">
                                 <div class="modal-section-title">
                                     <i class="bi bi-geo-alt"></i>
@@ -328,7 +328,7 @@
                                 </div>
                             </div>
 
-                            <!-- Sección: Suscripción & Parámetros -->
+                            {{-- Sección: Suscripción & Parámetros --}}
                             <div class="modal-section-card mb-0">
                                 <div class="modal-section-title">
                                     <i class="bi bi-sliders"></i>
@@ -364,10 +364,10 @@
                             </div>
                         </div>
 
-                        <!-- TAB 2: MARCA BLANCA Y DISEÑO -->
+                        {{-- TAB 2: MARCA BLANCA Y DISEÑO --}}
                         <div class="tab-pane fade" id="tab-branding" role="tabpanel" aria-labelledby="tab-branding-btn">
                             <div class="row g-3">
-                                <!-- Logo -->
+                                {{-- Logo --}}
                                 <div class="col-12 col-md-6">
                                     <div class="modal-section-card h-100 mb-0">
                                         <div class="modal-section-title">
@@ -397,7 +397,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Colores -->
+                                {{-- Colores --}}
                                 <div class="col-12 col-md-6">
                                     <div class="modal-section-card h-100 mb-0">
                                         <div class="modal-section-title">
@@ -427,7 +427,7 @@
                             </div>
                         </div>
 
-                        <!-- TAB 3: MÓDULOS DEL SISTEMA -->
+                        {{-- TAB 3: MÓDULOS DEL SISTEMA --}}
                         <div class="tab-pane fade" id="tab-modules" role="tabpanel" aria-labelledby="tab-modules-btn">
                             <div class="alert alert-light border small text-secondary mb-3 d-flex align-items-center gap-2 rounded-3">
                                 <i class="bi bi-info-circle text-primary fs-5"></i>
@@ -452,9 +452,9 @@
                             </div>
                         </div>
 
-                        <!-- TAB 4: ADMINISTRADOR -->
+                        {{-- TAB 4: ADMINISTRADOR --}}
                         <div class="tab-pane fade" id="tab-admin" role="tabpanel" aria-labelledby="tab-admin-btn">
-                            <!-- Modo Crear: Alta del primer administrador -->
+                            {{-- Modo Crear: Alta del primer administrador --}}
                             <div id="adminCreateFields">
                                 <div class="modal-section-card mb-0">
                                     <div class="modal-section-title">
@@ -500,7 +500,7 @@
                                 </div>
                             </div>
 
-                            <!-- Modo Editar: Lista de Administradores Actuales -->
+                            {{-- Modo Editar: Lista de Administradores Actuales --}}
                             <div id="adminEditList" class="d-none">
                                 <div class="modal-section-card mb-0">
                                     <div class="modal-section-title">
@@ -508,7 +508,7 @@
                                         <span>Administradores Asociados a esta Empresa</span>
                                     </div>
                                     <div id="adminsListContent" class="list-group list-group-flush border rounded-3 overflow-hidden">
-                                        <!-- Injected via JavaScript -->
+                                        {{-- Injected via JavaScript --}}
                                     </div>
                                 </div>
                             </div>
@@ -516,7 +516,7 @@
                     </div>
                 </div>
 
-                <!-- Modal Footer Siempre Visible con Alineación Limpia -->
+                {{-- Modal Footer Siempre Visible con Alineación Limpia --}}
                 <div class="modal-company-footer">
                     <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal" style="border-radius: 8px; font-weight: 500;">
                         Cancelar
@@ -547,7 +547,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         getCompanyModalInstance();
 
-        // Live color text syncer
+        {{-- Live color text syncer --}}
         const pColor = document.getElementById('primary_color');
         const pColorText = document.getElementById('primary_color_text');
         if (pColor && pColorText) {
@@ -564,7 +564,7 @@
             });
         }
 
-        // Handle auto-open if validation errors occurred on submit
+        {{-- Handle auto-open if validation errors occurred on submit --}}
         @if($errors->any())
             const isEditing = "{{ old('_method') }}" === 'PUT';
             if (isEditing) {
@@ -606,7 +606,7 @@
         document.getElementById('companySubmitBtnText').textContent = 'Crear empresa';
         document.getElementById('companyModalHeaderIconEl').className = 'bi bi-plus-circle';
 
-        // Admin fields (Create mode)
+        {{-- Admin fields (Create mode) --}}
         document.getElementById('adminCreateFields').classList.remove('d-none');
         document.getElementById('adminEditList').classList.add('d-none');
         document.getElementById('admin_first_name').required = true;
@@ -614,7 +614,7 @@
         document.getElementById('admin_email').required = true;
         document.getElementById('admin_password').required = true;
 
-        // Branding
+        {{-- Branding --}}
         document.getElementById('logoPreviewImg').classList.add('d-none');
         document.getElementById('logoPreviewPlaceholder').classList.remove('d-none');
         document.getElementById('removeLogoWrapper').classList.add('d-none');
@@ -623,17 +623,17 @@
         document.getElementById('secondary_color').value = '#F59E0B';
         document.getElementById('secondary_color_text').value = '#F59E0B';
 
-        // Select defaults
+        {{-- Select defaults --}}
         document.getElementById('plan').value = 'trial';
         document.getElementById('status').value = 'active';
         document.getElementById('timezone').value = 'America/Lima';
 
-        // Check all modules by default for new company
+        {{-- Check all modules by default for new company --}}
         document.querySelectorAll('.module-checkbox').forEach(cb => {
             cb.checked = true;
         });
 
-        // Show content
+        {{-- Show content --}}
         document.getElementById('companyModalLoading').classList.add('d-none');
         document.getElementById('companyModalContent').classList.remove('d-none');
 
@@ -653,7 +653,7 @@
         document.getElementById('companySubmitBtnText').textContent = 'Guardar cambios';
         document.getElementById('companyModalHeaderIconEl').className = 'bi bi-pencil-square';
 
-        // Admin fields (Edit mode: list instead of create fields)
+        {{-- Admin fields (Edit mode: list instead of create fields) --}}
         document.getElementById('adminCreateFields').classList.add('d-none');
         document.getElementById('adminEditList').classList.remove('d-none');
         document.getElementById('admin_first_name').required = false;
@@ -661,7 +661,7 @@
         document.getElementById('admin_email').required = false;
         document.getElementById('admin_password').required = false;
 
-        // Show loading state inside modal
+        {{-- Show loading state inside modal --}}
         document.getElementById('companyModalLoading').classList.remove('d-none');
         document.getElementById('companyModalContent').classList.add('d-none');
         const modal = getCompanyModalInstance();
@@ -691,7 +691,7 @@
             document.getElementById('status').value = c.status || 'active';
             document.getElementById('timezone').value = c.timezone || 'America/Lima';
 
-            // Branding
+            {{-- Branding --}}
             const pColor = c.primary_color || '#0284c7';
             const sColor = c.secondary_color || '#F59E0B';
             document.getElementById('primary_color').value = pColor;
@@ -715,13 +715,13 @@
                 removeWrapper.classList.add('d-none');
             }
 
-            // Modules
+            {{-- Modules --}}
             const enabledMods = data.enabled_modules || [];
             document.querySelectorAll('.module-checkbox').forEach(cb => {
                 cb.checked = enabledMods.includes(cb.value);
             });
 
-            // Admins list
+            {{-- Admins list --}}
             const adminListEl = document.getElementById('adminsListContent');
             adminListEl.innerHTML = '';
             if (data.admins && data.admins.length > 0) {
@@ -748,7 +748,7 @@
                 adminListEl.innerHTML = '<div class="p-3 text-center text-muted small">No hay administradores registrados para esta empresa.</div>';
             }
 
-            // Hide loading, show content
+            {{-- Hide loading, show content --}}
             document.getElementById('companyModalLoading').classList.add('d-none');
             document.getElementById('companyModalContent').classList.remove('d-none');
 

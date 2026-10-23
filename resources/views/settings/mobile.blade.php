@@ -34,7 +34,7 @@
     ];
 @endphp
 
-<!-- Header Ejecutivo Moderno con Hub de Navegación -->
+{{-- Header Ejecutivo Moderno con Hub de Navegación --}}
 <div class="settings-header-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div class="d-flex align-items-center gap-3">
@@ -88,7 +88,7 @@
     </div>
 @else
 
-<!-- KPIs / Tarjetas Rápidas de Estado -->
+{{-- KPIs / Tarjetas Rápidas de Estado --}}
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
         <div class="mobile-kpi-card shadow-sm h-100">
@@ -155,7 +155,7 @@
     @csrf @method('PUT')
 
     <div class="row g-4">
-        <!-- Columna Izquierda: Módulos y Permisos -->
+        {{-- Columna Izquierda: Módulos y Permisos --}}
         <div class="col-12 col-xl-7">
             <div class="card border-0 shadow-sm mobile-settings-card">
                 <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3 d-flex align-items-center justify-content-between">
@@ -198,9 +198,9 @@
             </div>
         </div>
 
-        <!-- Columna Derecha: Legajo Obligatorio & Parámetros -->
+        {{-- Columna Derecha: Legajo Obligatorio & Parámetros --}}
         <div class="col-12 col-xl-5 d-flex flex-column gap-4">
-            <!-- Legajo Obligatorio -->
+            {{-- Legajo Obligatorio --}}
             <div class="card border-0 shadow-sm mobile-settings-card">
                 <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
                     <h2 class="h6 fw-bold mb-0 text-primary-emphasis">
@@ -239,7 +239,7 @@
                 </div>
             </div>
 
-            <!-- Marcación fuera de geocerca -->
+            {{-- Marcación fuera de geocerca --}}
             <div class="card border-0 shadow-sm mobile-settings-card">
                 <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
                     <div class="d-flex align-items-center gap-2">
@@ -263,7 +263,7 @@
                 </div>
             </div>
 
-            <!-- Botón de Guardado Ejecutivo -->
+            {{-- Botón de Guardado Ejecutivo --}}
             <div class="settings-action-bar">
                 <button type="submit" class="btn btn-primary w-100 d-inline-flex align-items-center justify-content-center py-2.5 fw-bold shadow-sm" style="border-radius: 9px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.28);">
                     <i class="bi bi-floppy2-fill me-2"></i> Guardar configuración móvil
@@ -282,7 +282,7 @@
 
 @section('scripts')
 <script>
-    // Un permiso de edición se desactiva si su módulo principal está apagado
+    {{-- Un permiso de edición se desactiva si su módulo principal está apagado --}}
     document.querySelectorAll('[data-parent]').forEach((row) => {
         const parentId = row.dataset.parent;
         if (!parentId) return;

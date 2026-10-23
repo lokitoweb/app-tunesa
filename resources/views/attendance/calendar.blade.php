@@ -4,10 +4,10 @@
 
 @section('styles')
 <style>
-/* ==========================================================================
+{{-- ==========================================================================
    CALENDARIO EJECUTIVO DE ASISTENCIA
    Diseño de Alta Fidelidad, Contraste Perfecto, Modo Claro & Oscuro Adaptativo
-   ========================================================================== */
+   ========================================================================== --}}
 .cal-app-shell,
 #dayDetailModal {
     --cal-bg: var(--bg-surface, #ffffff);
@@ -42,7 +42,7 @@
     max-width: 100%;
 }
 
-/* 1. Header con Título Principal y Exportación */
+{{-- 1. Header con Título Principal y Exportación --}}
 .cal-header-bar {
     display: flex;
     align-items: center;
@@ -66,7 +66,7 @@
     margin: 0;
 }
 
-/* 2. Tarjetas KPI Ejecutivas */
+{{-- 2. Tarjetas KPI Ejecutivas --}}
 .cal-kpis-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -118,7 +118,7 @@
     margin-top: 3px;
 }
 
-/* 3. Barra de Control de Navegación & Filtros Integrados */
+{{-- 3. Barra de Control de Navegación & Filtros Integrados --}}
 .cal-control-panel {
     background: var(--cal-bg);
     border: 1px solid var(--cal-border);
@@ -138,7 +138,7 @@
     gap: 1rem;
 }
 
-/* Navegador de Mes Moderno (Sin confusión con filtros de días) */
+{{-- Navegador de Mes Moderno (Sin confusión con filtros de días) --}}
 .cal-month-nav {
     display: inline-flex;
     align-items: center;
@@ -240,7 +240,7 @@
     box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
 }
 
-/* Fila de Filtros Asíncronos */
+{{-- Fila de Filtros Asíncronos --}}
 .cal-control-row-bottom {
     display: flex;
     align-items: center;
@@ -409,7 +409,7 @@
     border-color: var(--cal-text-subtle);
 }
 
-/* Conmutador de Vistas */
+{{-- Conmutador de Vistas --}}
 .cal-views-group {
     display: flex;
     align-items: center;
@@ -444,9 +444,9 @@
     box-shadow: var(--cal-shadow);
 }
 
-/* ==========================================================================
+{{-- ==========================================================================
    4. TABLERO CALENDARIO (7 COLUMNAS LUN - DOM) — MODO CLARO & OSCURO
-   ========================================================================== */
+   ========================================================================== --}}
 .cal-grid-card {
     background: var(--cal-bg);
     border: 1px solid var(--cal-border);
@@ -485,7 +485,7 @@
     grid-template-columns: repeat(7, 1fr);
 }
 
-/* Celda Diaria */
+{{-- Celda Diaria --}}
 .cal-day-cell {
     min-height: 116px;
     border-right: 1px solid var(--cal-border);
@@ -525,7 +525,7 @@
     cursor: default;
 }
 
-/* Cabecera de la Celda */
+{{-- Cabecera de la Celda --}}
 .cal-cell-head {
     display: flex;
     align-items: center;
@@ -573,7 +573,7 @@
     border-color: rgba(96, 165, 250, 0.3);
 }
 
-/* Píldoras de Asistencia de Alto Contraste */
+{{-- Píldoras de Asistencia de Alto Contraste --}}
 .cal-pills-stack {
     display: flex;
     flex-direction: column;
@@ -598,7 +598,7 @@
     font-size: 0.775rem;
 }
 
-/* Colores Adaptativos Claro & Oscuro */
+{{-- Colores Adaptativos Claro & Oscuro --}}
 .cal-badge-pill.is-present {
     background: #dcfce7;
     border-color: #86efac;
@@ -663,7 +663,7 @@
     color: #94a3b8;
 }
 
-/* Vista Individual del Colaborador */
+{{-- Vista Individual del Colaborador --}}
 .cal-person-stack {
     display: flex;
     flex-direction: column;
@@ -710,7 +710,7 @@
     border-color: rgba(96, 165, 250, 0.3);
 }
 
-/* Indicador de acción al pasar el mouse */
+{{-- Indicador de acción al pasar el mouse --}}
 .cal-hover-action {
     margin-top: auto;
     font-size: 0.7rem;
@@ -732,9 +732,9 @@
     transform: translateY(0);
 }
 
-/* ==========================================================================
+{{-- ==========================================================================
    BOTÓN EXPORTAR EXCEL (ADAPTATIVO Y LUMINOSO)
-   ========================================================================== */
+   ========================================================================== --}}
 .cal-btn-excel {
     height: 38px;
     border-radius: 8px;
@@ -769,9 +769,9 @@
     box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
 }
 
-/* ==========================================================================
+{{-- ==========================================================================
    MODAL DE JORNADA DEL DÍA — MODO CLARO & OSCURO
-   ========================================================================== */
+   ========================================================================== --}}
 #dayDetailModal .modal-dialog {
     max-width: 800px;
     margin: 1.25rem auto;
@@ -935,7 +935,7 @@
     flex-shrink: 0;
 }
 
-/* Status Badges en el Modal con colores naturales */
+{{-- Status Badges en el Modal con colores naturales --}}
 .cal-modal-status-badge {
     display: inline-flex;
     align-items: center;
@@ -1017,7 +1017,7 @@
 }
 [data-bs-theme="dark"] .cal-modal-status-badge.is-incomplete i { color: #facc15; }
 
-/* Botón Ver Evidencia */
+{{-- Botón Ver Evidencia --}}
 .cal-modal-btn-evidence {
     height: 34px;
     padding: 0 14px;
@@ -1122,9 +1122,9 @@
     color: #f8fafc;
 }
 
-/* ==========================================================================
+{{-- ==========================================================================
    5. VISTA MATRIZ TRADICIONAL
-   ========================================================================== */
+   ========================================================================== --}}
 .cal-matrix-scroll {
     max-height: 68vh;
     overflow-x: auto;
@@ -1230,7 +1230,7 @@
     line-height: 1.25;
 }
 
-/* Columnas de Totales en Matriz */
+{{-- Columnas de Totales en Matriz --}}
 .cal-col-tot-f,
 .cal-col-tot-t {
     min-width: 2.2rem;
@@ -1317,7 +1317,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     border-color: rgba(96, 165, 250, 0.3);
 }
 
-/* Overlay AJAX - Solo cubre las vistas de grilla/matriz, dejando cabecera y filtros 100% visibles */
+{{-- Overlay AJAX - Solo cubre las vistas de grilla/matriz, dejando cabecera y filtros 100% visibles --}}
 #cal-views-wrapper {
     position: relative;
     min-height: 420px;
@@ -1338,7 +1338,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     background: rgba(17, 22, 34, 0.82);
 }
 
-/* Barra de Convenciones */
+{{-- Barra de Convenciones --}}
 .cal-legend-bar {
     display: flex;
     align-items: center;
@@ -1419,7 +1419,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
 <div class="cal-app-shell" id="calendar-app-container">
     <script id="calendarDataScript" type="application/json">@json($rows->items())</script>
 
-    <!-- 1. Encabezado Principal y Acción de Exportación -->
+    {{-- 1. Encabezado Principal y Acción de Exportación --}}
     <div class="cal-header-bar">
         <div class="cal-header-title-box">
             <h1 class="h2 mb-1 fw-bold" style="color: var(--cal-text-main);">Calendario de asistencia</h1>
@@ -1433,7 +1433,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
         </div>
     </div>
 
-    <!-- 2. KPIs Ejecutivos (Métricas de Alto Impacto y Definición) -->
+    {{-- 2. KPIs Ejecutivos (Métricas de Alto Impacto y Definición) --}}
     <div class="cal-kpis-grid">
         <div class="cal-kpi-card">
             <div class="cal-kpi-icon-box" style="background: rgba(2, 132, 199, 0.12); color: #0284c7;">
@@ -1476,7 +1476,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
         </div>
     </div>
 
-    <!-- 3. Panel de Control: Navegador de Mes, Filtros Asíncronos y Conmutador de Vistas -->
+    {{-- 3. Panel de Control: Navegador de Mes, Filtros Asíncronos y Conmutador de Vistas --}}
     <div class="cal-control-panel">
         <div class="cal-control-row-top">
             <div class="cal-month-nav">
@@ -1564,7 +1564,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
         </div>
     </div>
 
-    <!-- Contenedor con Overlay Scoped: Solo cubre las vistas de grilla/matriz, dejando cabecera y filtros 100% visibles -->
+    {{-- Contenedor con Overlay Scoped: Solo cubre las vistas de grilla/matriz, dejando cabecera y filtros 100% visibles --}}
     <div id="cal-views-wrapper" data-sk="grid">
         <div id="cal-loading-overlay">
             <div class="d-flex flex-column align-items-center">
@@ -1573,7 +1573,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
             </div>
         </div>
 
-        <!-- 4. VISTA CALENDARIO MENSUAL (7 Columnas Lun - Dom, Alta Definición y Ricos Colores) -->
+        {{-- 4. VISTA CALENDARIO MENSUAL (7 Columnas Lun - Dom, Alta Definición y Ricos Colores) --}}
         <div id="viewCalendarContainer" class="cal-grid-card">
         <div class="cal-grid-header">
             @foreach(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'] as $idx => $wd)
@@ -1613,7 +1613,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                                 @endif
                             </div>
 
-                            <!-- MODO A: VISTA GENERAL (Píldoras Claras, Nítidas y Bien Definidas) -->
+                            {{-- MODO A: VISTA GENERAL (Píldoras Claras, Nítidas y Bien Definidas) --}}
                             <div class="cal-pills-stack cal-content-general">
                                 @if($agg['present'] > 0)
                                     <div class="cal-badge-pill is-present" title="{{ $agg['present'] }} puntuales">
@@ -1641,7 +1641,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                                 @endif
                             </div>
 
-                            <!-- MODO B: VISTA POR COLABORADOR ESPECÍFICO -->
+                            {{-- MODO B: VISTA POR COLABORADOR ESPECÍFICO --}}
                             @foreach($rows as $r)
                                 @php
                                     $c = $r['cells'][$date] ?? null;
@@ -1711,7 +1711,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
         </div>
     </div>
 
-    <!-- 5. VISTA MATRIZ DE EQUIPO (Tabla Completa de 31 Días) -->
+    {{-- 5. VISTA MATRIZ DE EQUIPO (Tabla Completa de 31 Días) --}}
     <div id="viewMatrixContainer" class="cal-grid-card d-none">
         <div class="cal-matrix-scroll">
             <table class="cal-matrix-table">
@@ -1838,7 +1838,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     </div>
     </div>
 
-    <!-- Convenciones / Indicadores -->
+    {{-- Convenciones / Indicadores --}}
     <div class="cal-legend-bar">
         <span class="fw-bold" style="color: var(--cal-text-main);"><i class="bi bi-info-circle text-primary me-1"></i> Convenciones:</span>
         <div class="cal-legend-item">
@@ -1876,11 +1876,11 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
         </div>
     @endif
 
-    <!-- Script de datos embebidos para sincronización garantizada tras AJAX -->
+    {{-- Script de datos embebidos para sincronización garantizada tras AJAX --}}
     <script id="calendarDataScript" type="application/json">@json($rows->items())</script>
 </div>
 
-<!-- Modal de Detalle de Jornada Sincronizado (Adaptativo Claro & Oscuro) -->
+{{-- Modal de Detalle de Jornada Sincronizado (Adaptativo Claro & Oscuro) --}}
 <div class="modal fade" id="dayDetailModal" tabindex="-1" aria-labelledby="dayDetailModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -1898,7 +1898,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
             </div>
             <div class="modal-body p-4">
                 <div id="dayDetailModalContent">
-                    <!-- Contenido dinámico renderizado por JS -->
+                    {{-- Contenido dinámico renderizado por JS --}}
                 </div>
             </div>
             <div class="modal-footer py-3 px-4 d-flex justify-content-between">
@@ -1921,7 +1921,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
 
 @section('scripts')
 <script>
-// Obtener siempre los datos reactivos del DOM (incluso tras actualizaciones AJAX)
+{{-- Obtener siempre los datos reactivos del DOM (incluso tras actualizaciones AJAX) --}}
 function getCalendarRows() {
     const el = document.getElementById('calendarDataScript');
     if (el) {
@@ -1938,9 +1938,9 @@ window.calendarRows = @json($rows->items());
 
 let currentCalViewMode = 'calendar';
 
-// Función central de búsqueda interna sin cambiar la URL
+{{-- Función central de búsqueda interna sin cambiar la URL --}}
 async function executeInternalFetch(params) {
-    // Silueta de KPIs y grilla mientras llega el mes (reemplaza el spinner)
+    {{-- Silueta de KPIs y grilla mientras llega el mes (reemplaza el spinner) --}}
     Panel.skeleton.on('#calendar-app-container');
 
     try {
@@ -1968,12 +1968,12 @@ async function executeInternalFetch(params) {
             document.getElementById('calendar-app-container').innerHTML = newContainer.innerHTML;
             window.calendarRows = getCalendarRows();
             
-            // Restaurar modo matriz si estaba activo
+            {{-- Restaurar modo matriz si estaba activo --}}
             if (currentCalViewMode === 'matrix') {
                 toggleViewMode('matrix');
             }
             
-            // Garantizar que la barra del navegador permanezca limpia: /attendance-calendar
+            {{-- Garantizar que la barra del navegador permanezca limpia: /attendance-calendar --}}
             window.history.replaceState({}, '', '{{ route("attendance.calendar") }}');
         }
     } catch (err) {
@@ -1983,7 +1983,7 @@ async function executeInternalFetch(params) {
     }
 }
 
-// Aplicar filtros internos
+{{-- Aplicar filtros internos --}}
 function applyInternalFilter() {
     const form = document.getElementById('internalFilterForm');
     const formData = new FormData(form);
@@ -1991,7 +1991,7 @@ function applyInternalFilter() {
     executeInternalFetch(params);
 }
 
-// Navegar mes internamente sin cambiar la URL visible
+{{-- Navegar mes internamente sin cambiar la URL visible --}}
 function changeMonthInternal(monthValue) {
     const form = document.getElementById('internalFilterForm');
     const formData = new FormData(form);
@@ -2000,13 +2000,13 @@ function changeMonthInternal(monthValue) {
     executeInternalFetch(params);
 }
 
-// Limpiar filtros internamente
+{{-- Limpiar filtros internamente --}}
 function resetInternalFilter() {
     const month = document.getElementById('monthInput').value;
     executeInternalFetch({ month });
 }
 
-// Alternar entre Vista Calendario y Vista Matriz
+{{-- Alternar entre Vista Calendario y Vista Matriz --}}
 function toggleViewMode(mode) {
     currentCalViewMode = mode;
     const calContainer = document.getElementById('viewCalendarContainer');
@@ -2027,7 +2027,7 @@ function toggleViewMode(mode) {
     }
 }
 
-// Cambiar rápidamente entre vista general y colaborador individual
+{{-- Cambiar rápidamente entre vista general y colaborador individual --}}
 function switchCollaboratorCalendar(userId) {
     const generals = document.querySelectorAll('.cal-content-general');
     const persons = document.querySelectorAll('.cal-content-person');
@@ -2047,14 +2047,14 @@ function switchCollaboratorCalendar(userId) {
     }
 }
 
-// Abrir detalle modal del día seleccionado
+{{-- Abrir detalle modal del día seleccionado --}}
 function openDayDetailModal(date, dayNum, weekday) {
     const modalTitle = document.getElementById('dayDetailModalTitle');
     const modalSubtitle = document.getElementById('dayDetailModalSubtitle');
     const content = document.getElementById('dayDetailModalContent');
     const fullLink = document.getElementById('dayDetailFullLink');
 
-    // Parsear fecha en español completo (Ej: "Viernes, 16 de Octubre de 2026")
+    {{-- Parsear fecha en español completo (Ej: "Viernes, 16 de Octubre de 2026") --}}
     const parts = date.split('-');
     const year = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10);
@@ -2106,7 +2106,7 @@ function openDayDetailModal(date, dayNum, weekday) {
             badgeModClass = 'is-excused';
         }
 
-        // Todo dato del colaborador se escapa: el nombre o el cargo podrían traer HTML
+        {{-- Todo dato del colaborador se escapa: el nombre o el cargo podrían traer HTML --}}
         const esc = Panel.esc;
         const initials = esc(((r.first_name ? r.first_name[0] : '') + (r.last_name ? r.last_name[0] : '')).toUpperCase());
         const avatarHtml = r.avatar_url
@@ -2160,7 +2160,7 @@ function openDayDetailModal(date, dayNum, weekday) {
     modalSubtitle.textContent = `${totalAssigned} colaboradores programados · Auditoría sincronizada de asistencia`;
 
     const html = `
-        <!-- Deck de Métricas del Día -->
+        {{-- Deck de Métricas del Día --}}
         <div class="row g-2 mb-3">
             <div class="col-6 col-md-3">
                 <div class="cal-modal-stat-card">

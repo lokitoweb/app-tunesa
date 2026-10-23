@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let searchDebounceTimeout = null;
 
-    // Helper de formato de fechas DD/MM/AAAA
+    {{-- Helper de formato de fechas DD/MM/AAAA --}}
     function formatToDMY(isoDateStr) {
         if (!isoDateStr) return '';
         const parts = isoDateStr.split('-');
@@ -94,9 +94,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // -------------------------------------------------------------------------
-    // MOTOR REUTILIZABLE DE CALENDARIO MODERNO INTERACTIVO (.calendar-pro-popover)
-    // -------------------------------------------------------------------------
+    {{-- ------------------------------------------------------------------------- --}}
+    {{-- MOTOR REUTILIZABLE DE CALENDARIO MODERNO INTERACTIVO (.calendar-pro-popover) --}}
+    {{-- ------------------------------------------------------------------------- --}}
     function setupInteractiveCalendar(cfg) {
         const dropdownEl = document.getElementById(cfg.dropdownId);
         if (!dropdownEl) return null;
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
             const daysInPrevMonth = new Date(year, month, 0).getDate();
 
-            // Rellenar días anteriores
+            {{-- Rellenar días anteriores --}}
             for (let i = startingDayOfWeek - 1; i > 0; i--) {
                 const dayNum = daysInPrevMonth - i + 1;
                 const cell = document.createElement('div');
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 daysGrid.appendChild(cell);
             }
 
-            // Rellenar días del mes
+            {{-- Rellenar días del mes --}}
             for (let d = 1; d <= daysInCurrentMonth; d++) {
                 const dStr = String(d).padStart(2, '0');
                 const mStr = String(month + 1).padStart(2, '0');
@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 daysGrid.appendChild(cell);
             }
 
-            // Rellenar días siguientes (múltiplo de 7)
+            {{-- Rellenar días siguientes (múltiplo de 7) --}}
             const totalCells = (startingDayOfWeek - 1) + daysInCurrentMonth;
             const remaining = (7 - (totalCells % 7)) % 7;
             for (let nextD = 1; nextD <= remaining; nextD++) {
@@ -329,9 +329,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // -------------------------------------------------------------------------
-    // 1. MANEJO DE PESTAÑAS PRINCIPALES VÍA AJAX
-    // -------------------------------------------------------------------------
+    {{-- ------------------------------------------------------------------------- --}}
+    {{-- 1. MANEJO DE PESTAÑAS PRINCIPALES VÍA AJAX --}}
+    {{-- ------------------------------------------------------------------------- --}}
     function initTabsNavigation() {
         const tabLinks = document.querySelectorAll('#moduleMainTabs .reports-nav-tab');
         tabLinks.forEach(tab => {
@@ -427,9 +427,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // -------------------------------------------------------------------------
-    // 2. LÓGICA DEL MÓDULO DE MARCACIONES (AJAX)
-    // -------------------------------------------------------------------------
+    {{-- ------------------------------------------------------------------------- --}}
+    {{-- 2. LÓGICA DEL MÓDULO DE MARCACIONES (AJAX) --}}
+    {{-- ------------------------------------------------------------------------- --}}
     function initMarcacionesHandlers() {
         const branchSelect = document.getElementById('repBranchSelect');
         const searchInput = document.getElementById('repSearchInput');
@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (branchSelect) marcacionesState.branchId = branchSelect.value;
         if (searchInput) marcacionesState.search = searchInput.value;
 
-        // Inicializar Calendario Moderno de Marcaciones
+        {{-- Inicializar Calendario Moderno de Marcaciones --}}
         const calManager = setupInteractiveCalendar({
             dropdownId: 'repCalendarDropdown',
             triggerBtnId: 'repDateFilterDropdownBtn',
@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Status Tabs click
+        {{-- Status Tabs click --}}
         statusTabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 statusTabs.forEach(t => t.classList.remove('is-active'));
@@ -481,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Sucursal
+        {{-- Sucursal --}}
         if (branchSelect) {
             branchSelect.addEventListener('change', () => {
                 marcacionesState.branchId = branchSelect.value;
@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Búsqueda con debounce
+        {{-- Búsqueda con debounce --}}
         if (searchInput) {
             searchInput.addEventListener('input', () => {
                 clearTimeout(searchDebounceTimeout);
@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Reset
+        {{-- Reset --}}
         if (resetBtn) {
             resetBtn.addEventListener('click', () => {
                 if (branchSelect) branchSelect.value = '';
@@ -529,7 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Paginación y Selector por página delegados
+        {{-- Paginación y Selector por página delegados --}}
         if (tableCard) {
             tableCard.addEventListener('click', (e) => {
                 const pageBtn = e.target.closest('.ajax-report-page-btn');
@@ -585,12 +585,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 const data = await response.json();
 
-                // 1. Actualizar tabla
+                {{-- 1. Actualizar tabla --}}
                 if (tableCard && data.html) {
                     tableCard.innerHTML = data.html;
                 }
 
-                // 2. Actualizar KPIs del periodo
+                {{-- 2. Actualizar KPIs del periodo --}}
                 if (data.kpis) {
                     const elTotal = document.getElementById('kpiTotalRecords');
                     const elRate = document.getElementById('kpiPunctualityRate');
@@ -607,7 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (elOvertime) elOvertime.textContent = data.kpis.overtimeHours + 'h';
                 }
 
-                // 3. Actualizar badges en la barra segmentada de estados
+                {{-- 3. Actualizar badges en la barra segmentada de estados --}}
                 if (data.counts) {
                     const bAll = document.getElementById('badgeCountAll');
                     const bPres = document.getElementById('badgeCountPresent');
@@ -655,9 +655,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // 3. LÓGICA DEL MÓDULO DE HORAS Y FALTAS (AJAX)
-    // -------------------------------------------------------------------------
+    {{-- ------------------------------------------------------------------------- --}}
+    {{-- 3. LÓGICA DEL MÓDULO DE HORAS Y FALTAS (AJAX) --}}
+    {{-- ------------------------------------------------------------------------- --}}
     function initHoursHandlers() {
         const branchSelect = document.getElementById('hrsBranchSelect');
         const empSelect = document.getElementById('hrsEmployeeSelect');
@@ -669,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (empSelect) hoursState.employeeId = empSelect.value;
         if (searchInput) hoursState.q = searchInput.value;
 
-        // Inicializar Calendario Moderno de Horas
+        {{-- Inicializar Calendario Moderno de Horas --}}
         const calManager = setupInteractiveCalendar({
             dropdownId: 'hrsCalendarDropdown',
             triggerBtnId: 'hrsDateFilterDropdownBtn',
@@ -745,7 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Paginación y Selector por página delegados
+        {{-- Paginación y Selector por página delegados --}}
         if (tableCard) {
             tableCard.addEventListener('click', (e) => {
                 const pageBtn = e.target.closest('.ajax-hours-page-btn');
@@ -861,7 +861,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Inicializar listeners según la pestaña inicial
+    {{-- Inicializar listeners según la pestaña inicial --}}
     initTabsNavigation();
     if (activeTabName === 'marcaciones') {
         initMarcacionesHandlers();

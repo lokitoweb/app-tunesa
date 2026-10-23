@@ -39,7 +39,7 @@
     };
 @endphp
 
-<!-- Header Ejecutivo Moderno con Hub de Navegación -->
+{{-- Header Ejecutivo Moderno con Hub de Navegación --}}
 <div class="settings-header-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div class="d-flex align-items-center gap-3">
@@ -76,7 +76,7 @@
 </div>
 
 @if($isGlobal)
-    <!-- Banner Ejecutivo de Modo Global (Valores por Defecto) -->
+    {{-- Banner Ejecutivo de Modo Global (Valores por Defecto) --}}
     <div class="settings-global-notice mb-4" role="status">
         <div class="d-flex align-items-start gap-3">
             <div class="settings-notice-icon">
@@ -99,7 +99,7 @@
     @csrf @method('PUT')
     <input type="hidden" name="tab" id="activeTab" value="{{ $tab }}">
 
-    <!-- Barra de Pestañas Ejecutiva Segmentada -->
+    {{-- Barra de Pestañas Ejecutiva Segmentada --}}
     <div class="d-flex align-items-center mb-4">
         <div class="nav branding-nav-tabs" role="tablist">
             @foreach(['marca' => ['palette', 'Marca y apariencia'], 'app' => ['phone', 'App móvil'], 'reglas' => ['sliders', 'Reglas operativas']] as $key => [$icon, $label])
@@ -116,7 +116,7 @@
         <div class="tab-pane fade {{ $tab === 'marca' ? 'show active' : '' }}" id="pane-marca" role="tabpanel" aria-labelledby="tab-marca" tabindex="0">
             <div class="row g-4">
                 <div class="col-12 col-xl-7 d-flex flex-column gap-4">
-                    <!-- Identidad -->
+                    {{-- Identidad --}}
                     <div class="card border-0 shadow-sm branding-card">
                         <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
                             <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Identidad comercial</h2>
@@ -133,7 +133,7 @@
                         </div>
                     </div>
 
-                    <!-- Imágenes Corporativas -->
+                    {{-- Imágenes Corporativas --}}
                     <div class="card border-0 shadow-sm branding-card">
                         <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
                             <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Imágenes y logos corporativos</h2>
@@ -172,7 +172,7 @@
                         </div>
                     </div>
 
-                    <!-- Datos de Contacto -->
+                    {{-- Datos de Contacto --}}
                     <div class="card border-0 shadow-sm branding-card">
                         <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
                             <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Datos de contacto</h2>
@@ -222,7 +222,7 @@
                 </div>
 
                 <div class="col-12 col-xl-5 d-flex flex-column gap-4">
-                    <!-- Paleta de Colores -->
+                    {{-- Paleta de Colores --}}
                     <div class="card border-0 shadow-sm branding-card">
                         <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
                             <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Paleta de colores</h2>
@@ -258,7 +258,7 @@
                         </div>
                     </div>
 
-                    <!-- Vista Previa de Marca -->
+                    {{-- Vista Previa de Marca --}}
                     <div class="card border-0 shadow-sm branding-card">
                         <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
                             <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Vista previa interactiva</h2>
@@ -294,7 +294,7 @@
         <div class="tab-pane fade {{ $tab === 'app' ? 'show active' : '' }}" id="pane-app" role="tabpanel" aria-labelledby="tab-app" tabindex="0">
             <div class="row g-4">
                 <div class="col-12 col-xl-6 d-flex flex-column gap-4">
-                    <!-- Servidor API -->
+                    {{-- Servidor API --}}
                     <div class="card border-0 shadow-sm branding-card">
                         <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
                             <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Conexión de servidor (API)</h2>
@@ -311,7 +311,7 @@
                         </div>
                     </div>
 
-                    <!-- Versiones y Actualizaciones -->
+                    {{-- Versiones y Actualizaciones --}}
                     <div class="card border-0 shadow-sm branding-card">
                         <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
                             <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Control de versiones</h2>
@@ -350,7 +350,7 @@
                     </div>
                 </div>
 
-                <!-- Políticas de Marcación Móvil -->
+                {{-- Políticas de Marcación Móvil --}}
                 <div class="col-12 col-xl-6">
                     <div class="card border-0 shadow-sm branding-card">
                         <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
@@ -532,7 +532,7 @@
         </div>
     </div>
 
-    <!-- Barra Inferior de Acción y Guardado -->
+    {{-- Barra Inferior de Acción y Guardado --}}
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4 settings-action-bar">
         <span class="small settings-helper-text">
             @if($row->updated_at)
@@ -577,7 +577,7 @@
         preview.style.setProperty('--p-' + vars[key] + '-text', contrastText(hex));
     }
 
-    // Selector de color ↔ texto hexadecimal
+    {{-- Selector de color ↔ texto hexadecimal --}}
     document.querySelectorAll('[data-color-picker]').forEach((picker) => {
         const key = picker.dataset.colorPicker;
         const text = document.querySelector('[data-color-text="' + key + '"]');
@@ -590,7 +590,7 @@
         });
     });
 
-    // Vista previa de imágenes antes de subirlas
+    {{-- Vista previa de imágenes antes de subirlas --}}
     document.querySelectorAll('[data-preview-input]').forEach((input) => {
         const key = input.dataset.previewInput;
         input.addEventListener('change', () => {
@@ -612,7 +612,7 @@
         });
     }
 
-    // Las horas sin conexión solo aplican si la marcación sin conexión está activa
+    {{-- Las horas sin conexión solo aplican si la marcación sin conexión está activa --}}
     const offline = document.getElementById('offline_mode_enabled');
     const hoursRow = document.getElementById('offlineHoursRow');
     if (offline && hoursRow) {
@@ -624,7 +624,7 @@
         syncOffline();
     }
 
-    // Recordar pestaña activa internamente sin mutar la URL en la barra del navegador
+    {{-- Recordar pestaña activa internamente sin mutar la URL en la barra del navegador --}}
     document.querySelectorAll('[data-bs-toggle="tab"]').forEach((btn) => {
         btn.addEventListener('shown.bs.tab', () => {
             const activeTabInput = document.getElementById('activeTab');

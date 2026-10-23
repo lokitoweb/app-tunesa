@@ -14,9 +14,9 @@
 @endphp
 
 <div class="documents-page-wrapper">
-    <!-- =========================================================================
+    {{-- =========================================================================
          1. CABECERA EJECUTIVA DEL MÓDULO
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="documents-header-card p-4 mb-4 shadow-sm">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
             <div class="d-flex align-items-center gap-3">
@@ -38,9 +38,9 @@
         </div>
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          2. TARJETAS DE INDICADORES (KPIS EJECUTIVOS)
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
             <div class="documents-kpi-card p-3 shadow-sm h-100">
@@ -109,12 +109,12 @@
         </div>
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          3. BARRA DE FILTROS 100% INTERNA EN UNA SOLA LÍNEA HORIZONTAL
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="documents-filter-card p-3 mb-4 shadow-sm">
         <div class="d-flex flex-wrap flex-xl-nowrap align-items-center justify-content-between gap-3">
-            <!-- Segmented Control de Estados -->
+            {{-- Segmented Control de Estados --}}
             <div class="training-segmented-bar flex-shrink-0" role="tablist" id="statusTabs">
                 @foreach($tabs as $key => $tab)
                     <button
@@ -129,9 +129,9 @@
                 @endforeach
             </div>
 
-            <!-- Filtros Complementarios: Tipo, Buscador y Limpiar EN UNA SOLA LÍNEA HORIZONTAL -->
+            {{-- Filtros Complementarios: Tipo, Buscador y Limpiar EN UNA SOLA LÍNEA HORIZONTAL --}}
             <div class="d-flex align-items-center flex-nowrap" style="gap: 12px; min-width: 0;">
-                <!-- Selector de Tipo -->
+                {{-- Selector de Tipo --}}
                 <div class="modern-input-wrapper flex-shrink-0" style="width: 210px; min-width: 175px;">
                     <span class="modern-input-icon"><i class="bi bi-files text-primary"></i></span>
                     <select id="docTypeSelect" class="modern-input-control" aria-label="Filtrar por tipo de documento">
@@ -142,7 +142,7 @@
                     </select>
                 </div>
 
-                <!-- Buscador en tiempo real -->
+                {{-- Buscador en tiempo real --}}
                 <div class="modern-input-wrapper flex-shrink-0" style="width: 280px; min-width: 210px;">
                     <span class="modern-input-icon"><i class="bi bi-search"></i></span>
                     <input
@@ -164,7 +164,7 @@
                     </button>
                 </div>
 
-                <!-- Botón Limpiar Filtros -->
+                {{-- Botón Limpiar Filtros --}}
                 <button
                     id="docResetBtn"
                     type="button"
@@ -179,16 +179,16 @@
         </div>
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          4. CONTENEDOR DE TABLA (ACTUALIZADO DINÁMICAMENTE POR AJAX)
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="documents-table-card shadow-sm mb-4" id="documentsTableContainer">
         @include('documents.partials.table', ['documents' => $documents, 'status' => $status])
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          5. DOCUMENTOS POR VENCER
-         ========================================================================= -->
+         ========================================================================= --}}
     @if($expiring->count())
         <div class="documents-section-card shadow-sm mb-4 p-4">
             <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
@@ -271,7 +271,7 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Modal de rechazo
+    {{-- Modal de rechazo --}}
     const rejectModal = document.getElementById('rejectModal');
     if (rejectModal) {
         rejectModal.addEventListener('show.bs.modal', (e) => {
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Estado de filtros 100% internos (sin mutar URL del navegador)
+    {{-- Estado de filtros 100% internos (sin mutar URL del navegador) --}}
     let currentStatus = '{{ $status }}';
     let currentType = document.getElementById('docTypeSelect').value;
     let currentSearch = document.getElementById('docSearchInput').value;
@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateSearchClearVisibility();
 
-    // Carga interna por AJAX
+    {{-- Carga interna por AJAX --}}
     async function fetchDocuments(page = 1) {
         tableContainer.style.opacity = '0.5';
         tableContainer.style.pointerEvents = 'none';
@@ -335,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Tabs de Estado
+    {{-- Tabs de Estado --}}
     statusTabs.forEach(tab => {
         tab.addEventListener('click', () => {
             statusTabs.forEach(t => t.classList.remove('is-active'));
@@ -345,13 +345,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Selector de Tipo
+    {{-- Selector de Tipo --}}
     typeSelect.addEventListener('change', () => {
         currentType = typeSelect.value;
         fetchDocuments(1);
     });
 
-    // Buscador predictivo en tiempo real
+    {{-- Buscador predictivo en tiempo real --}}
     searchInput.addEventListener('input', () => {
         updateSearchClearVisibility();
         clearTimeout(searchDebounceTimeout);
@@ -361,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     });
 
-    // Limpiar buscador
+    {{-- Limpiar buscador --}}
     searchClearBtn.addEventListener('click', () => {
         searchInput.value = '';
         updateSearchClearVisibility();
@@ -369,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchDocuments(1);
     });
 
-    // Reset general
+    {{-- Reset general --}}
     resetBtn.addEventListener('click', () => {
         statusTabs.forEach(t => t.classList.remove('is-active'));
         const pendingTab = document.querySelector('#statusTabs [data-status="pending"]');
@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchDocuments(1);
     });
 
-    // Delegación de eventos para los botones de paginación AJAX
+    {{-- Delegación de eventos para los botones de paginación AJAX --}}
     tableContainer.addEventListener('click', (e) => {
         const pageBtn = e.target.closest('.ajax-page-btn');
         if (pageBtn && !pageBtn.disabled) {

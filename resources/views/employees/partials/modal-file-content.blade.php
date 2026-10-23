@@ -16,9 +16,9 @@
 @endphp
 
 <style>
-/* =============================================================================
- * Expediente y Ficha del Colaborador — Executive Responsive Design
- * ============================================================================= */
+{{-- =============================================================================
+Expediente y Ficha del Colaborador — Executive Responsive Design
+============================================================================= --}}
 .legajo-container {
     display: flex;
     flex-direction: column;
@@ -27,7 +27,7 @@
     font-size: 0.825rem;
 }
 
-/* 1. Header del Colaborador */
+{{-- 1. Header del Colaborador --}}
 .legajo-header {
     display: flex;
     align-items: center;
@@ -76,7 +76,7 @@
     opacity: 0.4;
 }
 
-/* 2. Barra de Métricas Sutil y Compacta (4 KPIs) */
+{{-- 2. Barra de Métricas Sutil y Compacta (4 KPIs) --}}
 .legajo-stat-strip {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -118,7 +118,7 @@
     text-overflow: ellipsis;
 }
 
-/* 3. Pestañas Naturales con Indicador Inferior */
+{{-- 3. Pestañas Naturales con Indicador Inferior --}}
 .legajo-tabs {
     display: flex;
     align-items: center;
@@ -163,7 +163,7 @@
     color: #0284c7;
 }
 
-/* 4. Tab 1: Grid de 3 Columnas Exacto y Adaptable (Cero Espacio Muerto) */
+{{-- 4. Tab 1: Grid de 3 Columnas Exacto y Adaptable (Cero Espacio Muerto) --}}
 .legajo-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -246,7 +246,7 @@
     letter-spacing: 0.02em;
 }
 
-/* Micro-acciones: Copiar y Alternar */
+{{-- Micro-acciones: Copiar y Alternar --}}
 .legajo-copy-btn {
     background: transparent;
     border: none;
@@ -329,7 +329,7 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
-/* Formulario de Modificación de Ficha */
+{{-- Formulario de Modificación de Ficha --}}
 .legajo-form-label {
     font-size: 0.69rem;
     font-weight: 700;
@@ -362,7 +362,7 @@
     margin-bottom: 0;
 }
 
-/* 5. Tab 2 & 3: Tarjetas Contenedoras de Tablas */
+{{-- 5. Tab 2 & 3: Tarjetas Contenedoras de Tablas --}}
 .legajo-card-table {
     background: var(--bg-surface-elevated);
     border: 1px solid var(--border-color);
@@ -419,7 +419,7 @@
     background: rgba(2, 132, 199, 0.08);
 }
 
-/* 6. Chips de Tallas de Uniforme */
+{{-- 6. Chips de Tallas de Uniforme --}}
 .legajo-sizes-row {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -464,7 +464,7 @@
     color: var(--text-primary);
 }
 
-/* 7. Estados Vacíos Elegantes */
+{{-- 7. Estados Vacíos Elegantes --}}
 .legajo-empty-box {
     padding: 2.25rem 1.5rem;
     text-align: center;
@@ -496,7 +496,7 @@
     color: var(--text-muted);
 }
 
-/* 8. Responsividad Adaptable */
+{{-- 8. Responsividad Adaptable --}}
 @media (max-width: 991px) {
     .legajo-grid {
         grid-template-columns: 1fr;
@@ -524,7 +524,7 @@
 </style>
 
 <div class="legajo-container">
-    <!-- 1. Encabezado del Colaborador -->
+    {{-- 1. Encabezado del Colaborador --}}
     <div class="legajo-header">
         <div class="legajo-avatar">
             @if($employee->avatar_path)
@@ -558,7 +558,7 @@
         </div>
     </div>
 
-    <!-- 2. Barra de Métricas (4 KPIs Clave) -->
+    {{-- 2. Barra de Métricas (4 KPIs Clave) --}}
     <div class="legajo-stat-strip">
         <div class="legajo-stat-item">
             <div class="legajo-stat-label">Documentos</div>
@@ -608,7 +608,7 @@
         </div>
     </div>
 
-    <!-- 3. Pestañas de Navegación Claras y Entendibles -->
+    {{-- 3. Pestañas de Navegación Claras y Entendibles --}}
     <div class="legajo-tabs" id="fileModalTabNav" role="tablist">
         <button class="legajo-tab-btn active" id="tab-sub-laboral-btn" data-bs-toggle="tab" data-bs-target="#tab-sub-laboral" type="button" role="tab">
             <i class="bi bi-person-vcard"></i>
@@ -626,13 +626,13 @@
         </button>
     </div>
 
-    <!-- 4. Contenido de las Pestañas -->
+    {{-- 4. Contenido de las Pestañas --}}
     <div class="tab-content" id="fileModalTabContent">
 
-        <!-- SUBTAB 1: FICHA LABORAL Y CUENTAS BANCARIAS -->
+        {{-- SUBTAB 1: FICHA LABORAL Y CUENTAS BANCARIAS --}}
         <div class="tab-pane fade show active" id="tab-sub-laboral" role="tabpanel">
 
-            <!-- Barra Superior de Acciones en la Ficha -->
+            {{-- Barra Superior de Acciones en la Ficha --}}
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="small fw-semibold text-muted d-flex align-items-center gap-1">
                     <i class="bi bi-shield-check text-info"></i>
@@ -654,10 +654,10 @@
                 </div>
             </div>
 
-            <!-- VISTA 1A: LECTURA DE DATOS (3 COLUMNAS SIMÉTRICAS) -->
+            {{-- VISTA 1A: LECTURA DE DATOS (3 COLUMNAS SIMÉTRICAS) --}}
             <div id="profileDetailsView">
                 <div class="legajo-grid">
-                    <!-- Columna 1: Cuentas Bancarias y Haberes -->
+                    {{-- Columna 1: Cuentas Bancarias y Haberes --}}
                     <div class="legajo-section">
                         <div class="legajo-section-header">
                             <div class="legajo-section-title">
@@ -714,7 +714,7 @@
                         </div>
                     </div>
 
-                    <!-- Columna 2: Previsión y Régimen Laboral -->
+                    {{-- Columna 2: Previsión y Régimen Laboral --}}
                     <div class="legajo-section">
                         <div class="legajo-section-header">
                             <div class="legajo-section-title">
@@ -758,7 +758,7 @@
                         </div>
                     </div>
 
-                    <!-- Columna 3: Ubicación y Contacto de Emergencia -->
+                    {{-- Columna 3: Ubicación y Contacto de Emergencia --}}
                     <div class="legajo-section">
                         <div class="legajo-section-header">
                             <div class="legajo-section-title">
@@ -817,7 +817,7 @@
                 </div>
             </div>
 
-            <!-- VISTA 1B: FORMULARIO DE MODIFICACIÓN DE DATOS (OCULTO POR DEFECTO) -->
+            {{-- VISTA 1B: FORMULARIO DE MODIFICACIÓN DE DATOS (OCULTO POR DEFECTO) --}}
             @can('profiles.manage')
             <div id="profileEditFormWrapper" class="d-none">
                 <form id="formUpdateEmployeeProfile" method="POST" action="{{ route('employees.file.profile', $employee->id) }}" onsubmit="return window.submitEmployeeProfileForm(event, this);">
@@ -827,7 +827,7 @@
                     <div class="alert alert-danger py-2 px-3 small d-none mb-3" id="profileFormAlert" role="alert"></div>
 
                     <div class="legajo-grid">
-                        <!-- Columna 1 Form: Cuentas Bancarias -->
+                        {{-- Columna 1 Form: Cuentas Bancarias --}}
                         <div class="legajo-section">
                             <div class="legajo-section-header">
                                 <div class="legajo-section-title">
@@ -880,7 +880,7 @@
                             </div>
                         </div>
 
-                        <!-- Columna 2 Form: Previsión y Régimen -->
+                        {{-- Columna 2 Form: Previsión y Régimen --}}
                         <div class="legajo-section">
                             <div class="legajo-section-header">
                                 <div class="legajo-section-title">
@@ -928,7 +928,7 @@
                             </div>
                         </div>
 
-                        <!-- Columna 3 Form: Ubicación y Emergencias -->
+                        {{-- Columna 3 Form: Ubicación y Emergencias --}}
                         <div class="legajo-section">
                             <div class="legajo-section-header">
                                 <div class="legajo-section-title">
@@ -958,7 +958,7 @@
                         </div>
                     </div>
 
-                    <!-- Botones de Acción del Formulario -->
+                    {{-- Botones de Acción del Formulario --}}
                     <div class="d-flex align-items-center justify-content-end gap-2 mt-3 pt-2 border-top border-secondary-subtle">
                         <button type="button" class="legajo-btn-ghost px-3" id="btnCancelEditProfile" onclick="event.stopPropagation(); window.toggleEmployeeProfileEdit(false);">
                             <i class="bi bi-x-circle me-1"></i><span>Cancelar</span>
@@ -973,7 +973,7 @@
 
         </div>
 
-        <!-- SUBTAB 2: DOCUMENTOS -->
+        {{-- SUBTAB 2: DOCUMENTOS --}}
         <div class="tab-pane fade" id="tab-sub-docs" role="tabpanel">
             <div class="legajo-card-table">
                 <div class="table-responsive mb-0">
@@ -1059,9 +1059,9 @@
             </div>
         </div>
 
-        <!-- SUBTAB 3: UNIFORMES Y DOTACIÓN -->
+        {{-- SUBTAB 3: UNIFORMES Y DOTACIÓN --}}
         <div class="tab-pane fade" id="tab-sub-uniforms" role="tabpanel">
-            <!-- Chips de Tallas -->
+            {{-- Chips de Tallas --}}
             <div class="legajo-sizes-row">
                 <div class="legajo-size-chip">
                     <div class="legajo-size-chip-info">
@@ -1101,7 +1101,7 @@
                 </div>
             </div>
 
-            <!-- Tabla de Entregas -->
+            {{-- Tabla de Entregas --}}
             <div class="legajo-card-table">
                 <div class="table-responsive mb-0">
                     <table class="legajo-table">
@@ -1152,7 +1152,7 @@
     </div>
 </div>
 
-<!-- Datalists para Asistencia Rápida en Formulario -->
+{{-- Datalists para Asistencia Rápida en Formulario --}}
 <datalist id="bankListOptions">
     @foreach($banksList as $b)
         <option value="{{ $b }}">
@@ -1165,7 +1165,7 @@
 </datalist>
 
 <script>
-// Respaldo de seguridad en caso de ser invocado sin layout padre
+{{-- Respaldo de seguridad en caso de ser invocado sin layout padre --}}
 if (typeof window.copyLegajoText !== 'function') {
     window.copyLegajoText = function(text, btn) {
         if (!text || text === '—') return;

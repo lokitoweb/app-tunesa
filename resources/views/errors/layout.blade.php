@@ -75,7 +75,7 @@
             grid-template-columns: minmax(420px, 46%) 1fr;
         }
 
-        /* ── Columna de contenido ─────────────────────────────── */
+        {{-- ── Columna de contenido ─────────────────────────────── --}}
         .x-panel {
             display: flex;
             flex-direction: column;
@@ -189,7 +189,7 @@
 
         .x-foot { font-size: 12.5px; color: var(--x-muted); }
 
-        /* ── Columna visual (foto corporativa del login) ───────── */
+        {{-- ── Columna visual (foto corporativa del login) ───────── --}}
         .x-visual {
             position: relative;
             overflow: hidden;

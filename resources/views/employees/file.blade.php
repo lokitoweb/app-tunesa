@@ -940,12 +940,12 @@ window.openLegajoEditModal = async function(id) {
     const modalInstance = bootstrap.Modal.getOrCreateInstance(editModalEl);
     modalInstance.show();
 
-    // Limpiar errores previos
+    {{-- Limpiar errores previos --}}
     editForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
     editForm.querySelectorAll('.invalid-feedback').forEach(el => el.textContent = '');
     if (editErrorAlert) editErrorAlert.classList.add('d-none');
 
-    // Resetear a primera pestaña
+    {{-- Resetear a primera pestaña --}}
     const tab1Btn = document.getElementById('tab-edit-personal-btn');
     if (tab1Btn) bootstrap.Tab.getOrCreateInstance(tab1Btn).show();
 
@@ -968,7 +968,7 @@ window.openLegajoEditModal = async function(id) {
         const titleEl = document.getElementById('employeeEditModalLabel');
         if (titleEl) titleEl.textContent = `Editar Colaborador: ${emp.first_name} ${emp.last_name}`;
 
-        // Tab 1: Datos Personales
+        {{-- Tab 1: Datos Personales --}}
         if (document.getElementById('edit_first_name')) document.getElementById('edit_first_name').value = emp.first_name || '';
         if (document.getElementById('edit_last_name')) document.getElementById('edit_last_name').value = emp.last_name || '';
         if (document.getElementById('edit_document_type')) document.getElementById('edit_document_type').value = emp.document_type || 'dni';
@@ -978,7 +978,7 @@ window.openLegajoEditModal = async function(id) {
         if (document.getElementById('edit_email')) document.getElementById('edit_email').value = emp.email || '';
         if (document.getElementById('edit_status')) document.getElementById('edit_status').value = emp.status || 'active';
 
-        // Tab 2: Puesto y Rol
+        {{-- Tab 2: Puesto y Rol --}}
         if (document.getElementById('edit_employee_code')) document.getElementById('edit_employee_code').value = emp.employee_code || '';
         if (document.getElementById('edit_position_id')) document.getElementById('edit_position_id').value = emp.position_id || '';
         if (document.getElementById('edit_department_id')) document.getElementById('edit_department_id').value = emp.department_id || '';
@@ -987,7 +987,7 @@ window.openLegajoEditModal = async function(id) {
         if (document.getElementById('edit_roaming_attendance_enabled')) document.getElementById('edit_roaming_attendance_enabled').checked = !!emp.roaming_attendance_enabled;
         if (document.getElementById('edit_role')) document.getElementById('edit_role').value = emp.role || 'employee';
 
-        // Tab 3: Sedes y Turno
+        {{-- Tab 3: Sedes y Turno --}}
         if (document.getElementById('edit_shift_id')) document.getElementById('edit_shift_id').value = emp.shift_id || '';
 
         const branchChecks = document.querySelectorAll('.edit-branch-check');
@@ -1022,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', function() {
         editForm.addEventListener('submit', async function (e) {
             e.preventDefault();
 
-            // Limpiar errores previos
+            {{-- Limpiar errores previos --}}
             editForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             editForm.querySelectorAll('.invalid-feedback').forEach(el => el.textContent = '');
             if (editErrorAlert) editErrorAlert.classList.add('d-none');

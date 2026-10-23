@@ -1,6 +1,6 @@
-<!-- =========================================================================
+{{-- =========================================================================
      INDICADORES DEL PERIODO (KPIS EJECUTIVOS DE MARCACIONES)
-     ========================================================================= -->
+     ========================================================================= --}}
 <div class="row g-3 mb-4" id="reportsKpiContainer">
     <div class="col-6 col-md-4 col-xl">
         <div class="reports-kpi-card p-3 shadow-sm h-100">
@@ -78,12 +78,12 @@
     </div>
 </div>
 
-<!-- =========================================================================
+{{-- =========================================================================
      BARRA DE FILTROS ADAPTADA Y 100% EN UNA SOLA LÍNEA HORIZONTAL
-     ========================================================================= -->
+     ========================================================================= --}}
 <div class="reports-filter-card p-2 p-md-3 mb-4 shadow-sm">
     <div class="reports-filter-single-row">
-        <!-- Segmented Control de Estados -->
+        {{-- Segmented Control de Estados --}}
         <div class="training-segmented-bar reports-segmented-bar flex-shrink-0" role="tablist" id="reportStatusTabs" aria-label="Filtrar por estado">
             <button type="button" class="training-segmented-item {{ empty($status) ? 'is-active' : '' }}" data-status="">
                 <span>Todos</span>
@@ -111,9 +111,9 @@
             </button>
         </div>
 
-        <!-- Controles en la misma línea: Calendario Moderno, Sucursal, Búsqueda y Limpiar -->
+        {{-- Controles en la misma línea: Calendario Moderno, Sucursal, Búsqueda y Limpiar --}}
         <div class="reports-filter-inline-controls">
-            <!-- Filtro de Calendario / Período Interactivo Profesional Popover -->
+            {{-- Filtro de Calendario / Período Interactivo Profesional Popover --}}
             <div class="dropdown flex-shrink-0" id="repCalendarDropdown">
                 <button type="button" class="date-filter-pill dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" id="repDateFilterDropdownBtn" title="Seleccionar periodo">
                     <i class="bi bi-calendar3 text-primary"></i>
@@ -125,7 +125,7 @@
                 </button>
                 <div class="dropdown-menu dropdown-menu-end calendar-pro-popover shadow-lg" aria-labelledby="repDateFilterDropdownBtn">
                     <div class="calendar-pro-grid">
-                        <!-- Columna Izquierda: ACCESOS RÁPIDOS -->
+                        {{-- Columna Izquierda: ACCESOS RÁPIDOS --}}
                         <div class="calendar-sidebar-presets">
                             <div class="calendar-presets-heading">ACCESOS RÁPIDOS</div>
                             <button type="button" class="calendar-preset-btn {{ ($preset ?? '') === 'today' ? 'is-active' : '' }}" data-preset="today">
@@ -154,7 +154,7 @@
                             </button>
                         </div>
 
-                        <!-- Columna Derecha: Rango y Cuadrícula Dinámica -->
+                        {{-- Columna Derecha: Rango y Cuadrícula Dinámica --}}
                         <div class="calendar-content-pane">
                             <div class="calendar-date-inputs-row">
                                 <div class="calendar-input-field is-active" id="repCalFromInputWrapper">
@@ -167,7 +167,7 @@
                                 </div>
                             </div>
 
-                            <!-- Navegación del mes -->
+                            {{-- Navegación del mes --}}
                             <div class="calendar-nav-header">
                                 <button type="button" class="calendar-nav-btn" id="repCalPrevMonthBtn" title="Mes anterior">
                                     <i class="bi bi-chevron-left"></i>
@@ -178,7 +178,7 @@
                                 </button>
                             </div>
 
-                            <!-- Días de la semana -->
+                            {{-- Días de la semana --}}
                             <div class="calendar-days-grid mb-1">
                                 <div class="calendar-day-header">L</div>
                                 <div class="calendar-day-header">M</div>
@@ -189,7 +189,7 @@
                                 <div class="calendar-day-header">D</div>
                             </div>
 
-                            <!-- Días dinámicos del mes -->
+                            {{-- Días dinámicos del mes --}}
                             <div class="calendar-days-grid" id="repCalDaysGrid"></div>
 
                             <div class="calendar-helper-note">
@@ -205,7 +205,7 @@
                 </div>
             </div>
 
-            <!-- Sucursal (Compacto) -->
+            {{-- Sucursal (Compacto) --}}
             <div class="modern-input-wrapper flex-shrink-0" style="width: 150px;" title="Filtrar por sucursal">
                 <span class="modern-input-icon"><i class="bi bi-building"></i></span>
                 <select id="repBranchSelect" class="modern-input-control" aria-label="Filtrar por sucursal">
@@ -216,7 +216,7 @@
                 </select>
             </div>
 
-            <!-- Buscador rápido (Compacto) -->
+            {{-- Buscador rápido (Compacto) --}}
             <div class="modern-input-wrapper flex-shrink-0" style="width: 135px;" title="Buscar colaborador">
                 <span class="modern-input-icon"><i class="bi bi-search"></i></span>
                 <input
@@ -229,7 +229,7 @@
                 >
             </div>
 
-            <!-- Botón Limpiar Filtros -->
+            {{-- Botón Limpiar Filtros --}}
             <button
                 id="repResetBtn"
                 type="button"
@@ -243,9 +243,9 @@
     </div>
 </div>
 
-<!-- =========================================================================
+{{-- =========================================================================
      TABLA DE REGISTROS (AJAX)
-     ========================================================================= -->
+     ========================================================================= --}}
 <div class="reports-table-card shadow-sm mb-4 reports-tab-transition" id="reportsTableContainer">
     @include('reports.partials.table', ['attendances' => $attendances])
 </div>

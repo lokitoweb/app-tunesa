@@ -26,9 +26,9 @@
             </div>
             <div class="modal-body">
                 <div class="row g-3 align-items-stretch">
-                    <!-- Columna izquierda: Tabs + Selfie + Ficha forense con progreso adentro -->
+                    {{-- Columna izquierda: Tabs + Selfie + Ficha forense con progreso adentro --}}
                     <div class="col-12 col-lg-5 d-flex flex-column" style="height: 504px;">
-                        <!-- Selector de momento (Entrada / Salida) estilo segmentado moderno -->
+                        {{-- Selector de momento (Entrada / Salida) estilo segmentado moderno --}}
                         <div class="evidence-moment-tabs mb-2" role="group" aria-label="Momento de la marcación">
                             <button type="button" class="evidence-moment-tab active" data-moment="in">
                                 <i class="bi bi-box-arrow-in-right"></i>
@@ -40,12 +40,12 @@
                             </button>
                         </div>
 
-                        <!-- Alerta de integridad si corresponde -->
+                        {{-- Alerta de integridad si corresponde --}}
                         <div id="evidenceAltered" class="alert alert-danger py-1 px-2 small d-none mb-2" style="border-radius: 6px; font-size: 0.725rem;" role="alert">
                             <i class="bi bi-shield-exclamation me-1"></i><strong>Evidencia alterada:</strong> <span id="evidenceAlteredText"></span>
                         </div>
 
-                        <!-- Contenedor amplio de Selfie (proporción óptima para fotos verticales) -->
+                        {{-- Contenedor amplio de Selfie (proporción óptima para fotos verticales) --}}
                         <div class="evidence-selfie-box mb-2">
                             <img id="evidencePhoto" alt="Selfie de la marcación" class="w-100 h-100 object-fit-contain d-none" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
                             <div id="evidenceNoPhoto" class="d-flex flex-column align-items-center justify-content-center text-secondary h-100 p-2">
@@ -56,9 +56,9 @@
                             </div>
                         </div>
 
-                        <!-- Ficha de datos forenses con la barra de radio integrada adentro del cuadro -->
+                        {{-- Ficha de datos forenses con la barra de radio integrada adentro del cuadro --}}
                         <div class="evidence-facts-box flex-grow-1">
-                            <!-- Barra de consumo de radio de ubicación DENTRO del cuadro -->
+                            {{-- Barra de consumo de radio de ubicación DENTRO del cuadro --}}
                             <div class="evidence-radius-usage mb-3">
                                 <div class="d-flex justify-content-between small text-secondary mb-1 fw-medium" style="font-size: 0.72rem;">
                                     <span>Distancia vs. radio permitido</span>
@@ -69,14 +69,14 @@
                                 </div>
                             </div>
                             
-                            <!-- Lista con scroll interno fino -->
+                            {{-- Lista con scroll interno fino --}}
                             <div class="evidence-facts-scroll">
                                 <dl class="evidence-facts-grid" id="evidenceFacts"></dl>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Columna derecha: Mapa satelital/vectorial con altura exacta y recentrar -->
+                    {{-- Columna derecha: Mapa satelital/vectorial con altura exacta y recentrar --}}
                     <div class="col-12 col-lg-7">
                         <div class="position-relative evidence-map-wrapper" style="height: 504px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color, #cbd5e1);">
                             <div id="evidenceMap" style="height: 100%; width: 100%;"></div>

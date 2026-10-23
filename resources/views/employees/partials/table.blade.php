@@ -22,7 +22,7 @@
                         $allBranchNames = $emp->branches->pluck('name')->implode(', ');
                     @endphp
                     <tr>
-                        <!-- Colaborador -->
+                        {{-- Colaborador --}}
                         <td>
                             <div class="emp-user-cell">
                                 <div class="emp-avatar-box">
@@ -52,7 +52,7 @@
                             </div>
                         </td>
 
-                        <!-- Código y Documento -->
+                        {{-- Código y Documento --}}
                         <td>
                             <div class="emp-code-pill">{{ $emp->employee_code ?? 'EMP-' . $emp->id }}</div>
                             <div class="emp-doc-row" title="{{ label('id_document_type', $emp->document_type) }}: {{ $emp->document_number ?: 'Sin registro' }}">
@@ -61,7 +61,7 @@
                             </div>
                         </td>
 
-                        <!-- Rol -->
+                        {{-- Rol --}}
                         <td>
                             <span class="emp-role-badge">
                                 <i class="bi bi-shield-check"></i>
@@ -69,7 +69,7 @@
                             </span>
                         </td>
 
-                        <!-- Sucursales -->
+                        {{-- Sucursales --}}
                         <td>
                             <div class="d-flex align-items-center flex-wrap gap-1">
                                 @if($primaryBranch)
@@ -92,7 +92,7 @@
                             </div>
                         </td>
 
-                        <!-- Turno -->
+                        {{-- Turno --}}
                         <td>
                             @if($activeShift?->shift)
                                 <div class="emp-shift-tag" title="{{ $activeShift->shift->name }} ({{ hora($activeShift->shift->start_time) }} - {{ hora($activeShift->shift->end_time) }})">
@@ -107,7 +107,7 @@
                             @endif
                         </td>
 
-                        <!-- Estado -->
+                        {{-- Estado --}}
                         <td>
                             <div class="d-inline-flex align-items-center gap-1 status-container" id="status-container-{{ $emp->id }}">
                                 <x-status-badge type="user_status" :value="$emp->status" />
@@ -119,7 +119,7 @@
                             </div>
                         </td>
 
-                        <!-- Acciones -->
+                        {{-- Acciones --}}
                         <td class="text-end text-nowrap">
                             <div class="emp-table-actions">
                                 <button type="button" class="btn-table-action btn-action-edit" data-id="{{ $emp->id }}" data-url="{{ route('employees.edit', $emp->id) }}" title="Editar datos" aria-label="Editar a {{ $emp->first_name }}">
@@ -171,7 +171,7 @@
         </table>
     </div>
 
-    <!-- Paginador AJAX Ejecutivo -->
+    {{-- Paginador AJAX Ejecutivo --}}
     <div class="emp-footer">
         <div class="emp-footer-info">
             @if($employees->total() > 0)

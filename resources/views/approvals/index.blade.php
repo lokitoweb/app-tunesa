@@ -507,7 +507,7 @@
 </div>
 
 <script>
-// Estado reactivo interno de Aprobaciones (Totalmente asíncrono y desacoplado de la URL del navegador)
+{{-- Estado reactivo interno de Aprobaciones (Totalmente asíncrono y desacoplado de la URL del navegador) --}}
 let currentApprovalsState = {
     tab: '{{ $tab }}',
     status: '{{ $status }}',
@@ -561,7 +561,7 @@ async function loadApprovals(overrides = {}) {
             currentHeaderBadge.innerHTML = newHeaderBadge.innerHTML;
         }
 
-        // Mantener la URL del navegador completamente limpia sin cadenas de consulta (ej: /approvals)
+        {{-- Mantener la URL del navegador completamente limpia sin cadenas de consulta (ej: /approvals) --}}
         window.history.replaceState({}, '', '{{ route("approvals.index") }}');
     } catch (err) {
         if (err.name !== 'AbortError') {
@@ -590,7 +590,7 @@ function changeApprovalsPerPage(perPage) {
     loadApprovals({ per_page: perPage, page: 1 });
 }
 
-// Delegación de eventos para la paginación interna sin alterar la URL ni recargar la pantalla
+{{-- Delegación de eventos para la paginación interna sin alterar la URL ni recargar la pantalla --}}
 document.addEventListener('click', function(e) {
     const pageLink = e.target.closest('#approvalsDynamicWrapper .pagination a.page-link');
     if (pageLink) {
@@ -602,13 +602,13 @@ document.addEventListener('click', function(e) {
                 const page = targetUrl.searchParams.get('page') || 1;
                 loadApprovals({ page: parseInt(page, 10) });
             } catch (ex) {
-                // fallback
+                {{-- fallback --}}
             }
         }
     }
 });
 
-// Limpiar la URL inicial al cargar la página si el navegador traía query params
+{{-- Limpiar la URL inicial al cargar la página si el navegador traía query params --}}
 document.addEventListener('DOMContentLoaded', function() {
     window.history.replaceState({}, '', '{{ route("approvals.index") }}');
 });

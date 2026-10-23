@@ -218,7 +218,7 @@
 
 @section('styles')
 <style>
-    /* Sobre los controles de Leaflet (z-index 1000) */
+    {{-- Sobre los controles de Leaflet (z-index 1000) --}}
     .geo-results { z-index: 1100; max-height: 280px; overflow-y: auto; top: 100%; left: 0; }
     .geo-results [role="option"] { cursor: pointer; }
 </style>
@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // ===================== Búsqueda de direcciones y geocodificación inversa =====================
+    {{-- ===================== Búsqueda de direcciones y geocodificación inversa ===================== --}}
     const search = document.getElementById('addressSearch');
     const results = document.getElementById('addressResults');
     const spinner = document.getElementById('addressSearchSpinner');
@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const suggestionText = document.getElementById('addressSuggestionText');
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-    // La dirección se completa sola mientras el usuario no la haya escrito a mano
+    {{-- La dirección se completa sola mientras el usuario no la haya escrito a mano --}}
     let addressAuto = addressInput.value.trim() === '';
     let suggested = null;
     addressInput.addEventListener('input', () => {
@@ -277,14 +277,14 @@ document.addEventListener('DOMContentLoaded', () => {
     async function getJson(url, signal) {
         const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: signal });
         let data = null;
-        try { data = await res.json(); } catch (e) { /* no JSON */ }
+        try { data = await res.json(); } catch (e) { {{-- no JSON --}} }
         if (res.status === 404 && !(data && 'success' in data)) throw new Error('La búsqueda de direcciones no está disponible en este servidor.');
         if (res.status === 429) throw new Error('Demasiadas búsquedas seguidas; espera unos segundos.');
         if (!res.ok || !data || data.success === false) throw new Error((data && data.message) || 'No se pudo consultar la dirección. Intenta de nuevo o ubica el punto en el mapa.');
         return data.data;
     }
 
-    // "345, Avenida José Larco, Miraflores, Lima, Provincia de Lima, 15074, Perú" → dirección + ciudad
+    {{-- "345, Avenida José Larco, Miraflores, Lima, Provincia de Lima, 15074, Perú" → dirección + ciudad --}}
     function splitLabel(label) {
         let parts = String(label || '').split(',').map((p) => p.trim()).filter(Boolean)
             .filter((p) => !/^\d{4,6}$/.test(p) && !/^(per[uú]|peru)$/i.test(p) && !/^(provincia|departamento|regi[oó]n)\b/i.test(p));
@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideSuggestion() { suggested = null; suggestion.classList.add('d-none'); }
     document.getElementById('useSuggestedAddress').addEventListener('click', () => { if (suggested) fillAddress(suggested, true); });
 
-    // --- Búsqueda predictiva (400 ms, mínimo 3 caracteres) ---
+    {{-- --- Búsqueda predictiva (400 ms, mínimo 3 caracteres) --- --}}
     let items = [];
     let active = -1;
     let searchTimer = null;
@@ -361,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         spinner.classList.remove('d-none');
         try {
             const list = await getJson(url, searchCtrl.signal);
-            if (search.value.trim() !== q) return; // llegó tarde: ya se escribió otra cosa
+            if (search.value.trim() !== q) return; {{-- llegó tarde: ya se escribió otra cosa --}}
             showStatus('');
             renderResults(Array.isArray(list) ? list : []);
         } catch (e) {
@@ -386,13 +386,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'ArrowDown' && open) { e.preventDefault(); highlight((active + 1) % items.length); }
         else if (e.key === 'ArrowUp' && open) { e.preventDefault(); highlight(active <= 0 ? items.length - 1 : active - 1); }
         else if (e.key === 'Enter') {
-            // Nunca envía el formulario desde el buscador
+            {{-- Nunca envía el formulario desde el buscador --}}
             e.preventDefault();
             if (open) choose(active >= 0 ? active : 0);
         } else if (e.key === 'Escape') { closeResults(); }
     });
 
-    // mousedown (no click) para que el input no pierda el foco antes de elegir
+    {{-- mousedown (no click) para que el input no pierda el foco antes de elegir --}}
     results.addEventListener('mousedown', (e) => {
         const li = e.target.closest('[data-index]');
         if (!li) return;
@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     search.addEventListener('blur', () => setTimeout(closeResults, 150));
 
-    // --- Geocodificación inversa al mover el pin o hacer clic en el mapa ---
+    {{-- --- Geocodificación inversa al mover el pin o hacer clic en el mapa --- --}}
     let reverseTimer = null;
     let reverseCtrl = null;
     function reverseGeocode() {
@@ -431,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     marker.on('dragend', () => { const p = marker.getLatLng(); moveTo(p.lat, p.lng); reverseGeocode(); });
     map.on('click', (e) => { moveTo(e.latlng.lat, e.latlng.lng); reverseGeocode(); });
-    // Slider y campo numérico van sincronizados; el círculo se redibuja en vivo
+    {{-- Slider y campo numérico van sincronizados; el círculo se redibuja en vivo --}}
     function setRadius(meters, fit) {
         circle.setRadius(meters);
         if (fit) map.fitBounds(circle.getBounds(), { maxZoom: 17, padding: [24, 24] });
@@ -454,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setRadius(meters, true);
     });
 
-    // Vista global: solo se ofrecen los supervisores de la empresa elegida
+    {{-- Vista global: solo se ofrecen los supervisores de la empresa elegida --}}
     const company = document.getElementById('tenant_id');
     if (company) {
         const supervisor = document.getElementById('supervisor_id');

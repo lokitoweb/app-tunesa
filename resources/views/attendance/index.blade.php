@@ -3,7 +3,7 @@
 @section('title', request('status') === 'absent' ? 'Control de faltas' : 'Marcaciones y GPS')
 
 @section('content')
-<!-- Header con título y acción principal -->
+{{-- Header con título y acción principal --}}
 <div class="attendance-header-bar">
     <div>
         <h1 class="h2 mb-1 fw-bold text-dark">{{ request('status') === 'absent' ? 'Control de faltas' : 'Marcaciones y GPS' }}</h1>

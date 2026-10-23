@@ -4,9 +4,9 @@
 
 @section('styles')
 <style>
-/* ==========================================================================
+{{-- ==========================================================================
    CALENDARIO INDIVIDUAL DE ASISTENCIA — DISEÑO EJECUTIVO ADAPTATIVO
-   ========================================================================== */
+   ========================================================================== --}}
 .cal-person-shell {
     --cal-bg: var(--bg-surface, #ffffff);
     --cal-bg-subtle: var(--bg-surface-elevated, #f8fafc);
@@ -36,7 +36,7 @@
     --cal-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
-/* 1. Header Principal */
+{{-- 1. Header Principal --}}
 .cal-person-header {
     display: flex;
     align-items: center;
@@ -122,7 +122,7 @@
     color: #60a5fa;
 }
 
-/* 2. Barra de Navegación de Mes & Controles */
+{{-- 2. Barra de Navegación de Mes & Controles --}}
 .cal-person-nav-panel {
     background: var(--cal-bg);
     border: 1px solid var(--cal-border);
@@ -168,7 +168,7 @@
     gap: 0.5rem;
 }
 
-/* 3. Deck de Tarjetas KPI */
+{{-- 3. Deck de Tarjetas KPI --}}
 .cal-person-kpis-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -217,7 +217,7 @@
     margin-top: 3px;
 }
 
-/* 4. Tablero de Calendario Mensual */
+{{-- 4. Tablero de Calendario Mensual --}}
 .cal-person-grid-card {
     background: var(--cal-bg);
     border: 1px solid var(--cal-border);
@@ -254,7 +254,7 @@
     grid-template-columns: repeat(7, 1fr);
 }
 
-/* Celda de Día Individual */
+{{-- Celda de Día Individual --}}
 .cal-person-day-cell {
     min-height: 125px;
     border-right: 1px solid var(--cal-border);
@@ -302,7 +302,7 @@
     line-height: 1;
 }
 
-/* Ficha de Estado (Píldora del Día) */
+{{-- Ficha de Estado (Píldora del Día) --}}
 .cal-person-token {
     display: inline-flex;
     align-items: center;
@@ -328,7 +328,7 @@
 [data-bs-theme="dark"] .cal-person-token.is-excused { background: rgba(59, 130, 246, 0.22); border-color: rgba(59, 130, 246, 0.4); color: #60a5fa; }
 [data-bs-theme="dark"] .cal-person-token.is-rest    { background: var(--cal-bg-elevated); border-color: var(--cal-border); color: var(--cal-text-subtle); }
 
-/* Detalle interno de la celda */
+{{-- Detalle interno de la celda --}}
 .cal-person-cell-detail {
     display: flex;
     flex-direction: column;
@@ -429,7 +429,7 @@
     border-color: #2563eb;
 }
 
-/* Leyenda de Convenciones */
+{{-- Leyenda de Convenciones --}}
 .cal-person-legend {
     display: flex;
     align-items: center;
@@ -464,7 +464,7 @@
 @endphp
 
 <div class="cal-person-shell">
-    <!-- 1. Encabezado Principal y Perfil -->
+    {{-- 1. Encabezado Principal y Perfil --}}
     <div class="cal-person-header">
         <div class="cal-person-profile-box">
             @if(!empty($employee->avatar_path))
@@ -500,7 +500,7 @@
         </div>
     </div>
 
-    <!-- 2. Navegador de Mes y Métricas Resumen -->
+    {{-- 2. Navegador de Mes y Métricas Resumen --}}
     <div class="cal-person-nav-panel">
         <div class="cal-person-month-nav">
             <a href="{{ route('attendance.calendar.person', ['id' => $friendlySlug, 'month' => $filters->previousMonth()] + ($selectedDate ? ['date' => $selectedDate] : [])) }}" class="cal-nav-btn" aria-label="Mes anterior" title="Mes anterior">
@@ -522,7 +522,7 @@
         @endif
     </div>
 
-    <!-- 3. KPIs Ejecutivos del Colaborador -->
+    {{-- 3. KPIs Ejecutivos del Colaborador --}}
     <div class="cal-person-kpis-grid">
         <div class="cal-person-kpi-card">
             <div class="cal-person-kpi-icon" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;">
@@ -589,7 +589,7 @@
         @endif
     </div>
 
-    <!-- 4. Cuadrícula Mensual del Colaborador -->
+    {{-- 4. Cuadrícula Mensual del Colaborador --}}
     <div class="cal-person-grid-card">
         <div class="cal-person-grid-header">
             @foreach(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'] as $idx => $wd)
@@ -691,7 +691,7 @@
         </div>
     </div>
 
-    <!-- 5. Barra de Convenciones -->
+    {{-- 5. Barra de Convenciones --}}
     <div class="cal-person-legend" aria-label="Leyenda">
         <span class="fw-bold" style="color: var(--cal-text-main);"><i class="bi bi-info-circle text-primary me-1"></i> Convenciones:</span>
         @foreach($states as $state => [$letter, $tone, $label])
@@ -720,7 +720,7 @@
 
 @section('scripts')
 <script>
-// Sincronizar URL en la barra de navegación para que sea 100% amigable
+{{-- Sincronizar URL en la barra de navegación para que sea 100% amigable --}}
 document.addEventListener('DOMContentLoaded', function() {
     const friendlyUrl = '{{ route("attendance.calendar.person", ["id" => $friendlySlug, "month" => $filters->month] + ($selectedDate ? ["date" => $selectedDate] : [])) }}';
     if (window.location.pathname.includes('/person/{{ $employee->id }}')) {

@@ -9,9 +9,9 @@
 @endphp
 
 <div class="uniforms-page-wrapper">
-    <!-- =========================================================================
+    {{-- =========================================================================
          1. CABECERA EJECUTIVA DEL MÓDULO
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="uniforms-header-card p-4 mb-4 shadow-sm">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
             <div class="d-flex align-items-center gap-3">
@@ -54,9 +54,9 @@
         </div>
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          2. TARJETAS DE INDICADORES (KPIS EJECUTIVOS)
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
             <div class="uniforms-kpi-card p-3 shadow-sm h-100">
@@ -125,9 +125,9 @@
         </div>
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          3. RESUMEN DE CANTIDADES POR PRENDA (ÓRDENES DE COMPRA LOGÍSTICA)
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="row g-3 mb-4">
         @foreach([
             'shirt' => ['label' => 'Polo / Camisa', 'icon' => 'bi-person-badge', 'color' => '#0284c7'],
@@ -162,14 +162,14 @@
         @endforeach
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          4. BANDEJA PRINCIPAL (TABLA AMPLIA, PROFESIONAL, CON FILTROS EN UNA SOLA LÍNEA)
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="uniforms-table-card shadow-sm mb-4">
-        <!-- Barra de Filtros Internos (100% Horizontal) -->
+        {{-- Barra de Filtros Internos (100% Horizontal) --}}
         <div class="p-3 border-bottom">
             <div class="d-flex flex-wrap flex-xl-nowrap align-items-center justify-content-between gap-3">
-                <!-- Segmented Control de Estados y Vistas -->
+                {{-- Segmented Control de Estados y Vistas --}}
                 <div class="training-segmented-bar flex-shrink-0" role="tablist" id="uniformTabs">
                     <button
                         type="button"
@@ -209,9 +209,9 @@
                     </button>
                 </div>
 
-                <!-- Filtros Complementarios: Sucursal, Buscador y Limpiar EN UNA SOLA LÍNEA HORIZONTAL -->
+                {{-- Filtros Complementarios: Sucursal, Buscador y Limpiar EN UNA SOLA LÍNEA HORIZONTAL --}}
                 <div class="d-flex align-items-center flex-nowrap" style="gap: 12px; min-width: 0;">
-                    <!-- Selector de Sucursal -->
+                    {{-- Selector de Sucursal --}}
                     <div class="modern-input-wrapper flex-shrink-0" style="width: 210px; min-width: 175px;">
                         <span class="modern-input-icon"><i class="bi bi-building"></i></span>
                         <select id="uniformBranchSelect" class="modern-input-control" aria-label="Filtrar por sucursal">
@@ -222,7 +222,7 @@
                         </select>
                     </div>
 
-                    <!-- Buscador Predictivo -->
+                    {{-- Buscador Predictivo --}}
                     <div class="modern-input-wrapper flex-shrink-0" style="width: 280px; min-width: 210px;">
                         <span class="modern-input-icon"><i class="bi bi-search"></i></span>
                         <input
@@ -243,7 +243,7 @@
                         </button>
                     </div>
 
-                    <!-- Botón Limpiar Filtros -->
+                    {{-- Botón Limpiar Filtros --}}
                     <button
                         id="uniformResetBtn"
                         type="button"
@@ -258,7 +258,7 @@
             </div>
         </div>
 
-        <!-- Vista 1: Tabla de Personal y Tallas -->
+        {{-- Vista 1: Tabla de Personal y Tallas --}}
         <div id="personnelTableWrapper" class="table-responsive">
             <table class="table table-hover align-middle mb-0" id="uniformsTable">
                 <thead class="bg-surface-elevated text-body-secondary small text-uppercase">
@@ -273,12 +273,12 @@
                     </tr>
                 </thead>
                 <tbody id="uniformsTableBody">
-                    <!-- Inyectado y paginado dinámicamente por JS -->
+                    {{-- Inyectado y paginado dinámicamente por JS --}}
                 </tbody>
             </table>
         </div>
 
-        <!-- Vista 2: Tabla de Historial de Entregas -->
+        {{-- Vista 2: Tabla de Historial de Entregas --}}
         <div id="deliveriesTableWrapper" class="table-responsive d-none">
             <table class="table table-hover align-middle mb-0" id="deliveriesTable">
                 <thead class="bg-surface-elevated text-body-secondary small text-uppercase">
@@ -292,12 +292,12 @@
                     </tr>
                 </thead>
                 <tbody id="deliveriesTableBody">
-                    <!-- Inyectado dinámicamente por JS -->
+                    {{-- Inyectado dinámicamente por JS --}}
                 </tbody>
             </table>
         </div>
 
-        <!-- Paginación Interna (100% Reactiva, Sin alterar URL) -->
+        {{-- Paginación Interna (100% Reactiva, Sin alterar URL) --}}
         <div id="uniformsPaginationContainer" class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 p-3 border-top">
             <div class="text-body-secondary small" id="uniformsPaginationInfo"></div>
             <div class="d-flex align-items-center gap-1" id="uniformsPaginationButtons"></div>
@@ -305,14 +305,14 @@
     </div>
 </div>
 
-<!-- =========================================================================
+{{-- =========================================================================
      MODAL DIALOG: REGISTRAR ENTREGA DE UNIFORME (Elegante y Escalable)
-     ========================================================================= -->
+     ========================================================================= --}}
 <div class="modal fade" id="deliveryModal" tabindex="-1" aria-labelledby="deliveryModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <form method="POST" action="{{ route('uniforms.deliveries.store') }}" class="modal-content shadow-lg border-0" id="deliveryForm" style="border-radius: 14px; overflow: hidden;">
             @csrf
-            <!-- Modal Header -->
+            {{-- Modal Header --}}
             <div class="modal-header border-bottom p-3 p-md-4" style="background: var(--bg-surface);">
                 <div class="d-flex align-items-center" style="gap: 14px !important;">
                     <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.35rem; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);">
@@ -326,7 +326,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
 
-            <!-- Modal Body -->
+            {{-- Modal Body --}}
             <div class="modal-body p-3 p-md-4" style="background: var(--bg-surface);">
                 <div class="mb-3">
                     <label for="delivery_user_id" class="form-label small fw-semibold text-body">
@@ -405,7 +405,7 @@
                 </div>
             </div>
 
-            <!-- Modal Footer -->
+            {{-- Modal Footer --}}
             <div class="modal-footer border-top p-3" style="background: var(--bg-surface);">
                 <button type="button" class="btn btn-outline-secondary px-3 py-1.5 fw-medium" data-bs-dismiss="modal">
                     Cancelar
@@ -422,11 +422,11 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Datos completos precargados
+    {{-- Datos completos precargados --}}
     const allRows = @json($rows);
     const recentDeliveries = @json($recentDeliveries ?? []);
 
-    let currentTab = 'all'; // 'all' | 'complete' | 'incomplete' | 'deliveries'
+    let currentTab = 'all'; {{-- 'all' | 'complete' | 'incomplete' | 'deliveries' --}}
     let filteredRows = [...allRows];
     let filteredDeliveries = [...recentDeliveries];
     let currentPage = 1;
@@ -472,16 +472,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } else {
             filteredRows = allRows.filter(r => {
-                // Filtro por Tab
+                {{-- Filtro por Tab --}}
                 if (currentTab === 'complete' && !r.complete) return false;
                 if (currentTab === 'incomplete' && r.complete) return false;
 
-                // Filtro por Sucursal
+                {{-- Filtro por Sucursal --}}
                 if (branchVal && !r.branch?.toLowerCase().includes(branchVal)) {
                     return false;
                 }
 
-                // Filtro por Búsqueda Predictiva
+                {{-- Filtro por Búsqueda Predictiva --}}
                 if (searchVal) {
                     const matchesName = r.full_name?.toLowerCase().includes(searchVal);
                     const matchesCode = r.employee_code?.toLowerCase().includes(searchVal);
@@ -538,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let html = '';
-        // Escapa los textos de cada fila antes de armar el HTML (evita XSS con datos del colaborador)
+        {{-- Escapa los textos de cada fila antes de armar el HTML (evita XSS con datos del colaborador) --}}
         const escRow = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'string' ? Panel.esc(v) : v]));
         pageItems.map(escRow).forEach(r => {
             const initials = (r.full_name || 'C').split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
@@ -618,7 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         tableBody.innerHTML = html;
 
-        // Paginación info y botones
+        {{-- Paginación info y botones --}}
         renderPaginationControls(start, total, totalPages, 'colaboradores');
     }
 
@@ -649,7 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let html = '';
-        // Escapa los textos de cada fila antes de armar el HTML (evita XSS con datos del colaborador)
+        {{-- Escapa los textos de cada fila antes de armar el HTML (evita XSS con datos del colaborador) --}}
         const escRow = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'string' ? Panel.esc(v) : v]));
         pageItems.map(escRow).forEach(d => {
             html += `
@@ -722,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderActiveView();
     };
 
-    // Pre-seleccionar colaborador al abrir modal desde una fila
+    {{-- Pre-seleccionar colaborador al abrir modal desde una fila --}}
     window.openDeliveryModalFor = function(userId) {
         const modalEl = document.getElementById('deliveryModal');
         const userSelect = document.getElementById('delivery_user_id');
@@ -736,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Auto-sugerir talla al cambiar colaborador o prenda en el modal
+    {{-- Auto-sugerir talla al cambiar colaborador o prenda en el modal --}}
     const modalUserSelect = document.getElementById('delivery_user_id');
     const modalItemSelect = document.getElementById('delivery_item');
     const modalSizeInput = document.getElementById('delivery_size');
@@ -760,7 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalItemSelect.addEventListener('change', triggerSizeSuggestion);
     }
 
-    // Tabs de filtrado
+    {{-- Tabs de filtrado --}}
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             tabs.forEach(t => t.classList.remove('is-active'));
@@ -770,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Filtros interactivos
+    {{-- Filtros interactivos --}}
     branchSelect.addEventListener('change', filterData);
     searchInput.addEventListener('input', filterData);
     searchClearBtn.addEventListener('click', () => {
@@ -778,7 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
         filterData();
     });
 
-    // Reset general
+    {{-- Reset general --}}
     resetBtn.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('is-active'));
         const allTab = document.querySelector('#uniformTabs [data-tab="all"]');
@@ -791,7 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
         filterData();
     });
 
-    // Render inicial
+    {{-- Render inicial --}}
     filterData();
 });
 </script>

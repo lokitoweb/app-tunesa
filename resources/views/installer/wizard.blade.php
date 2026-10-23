@@ -7,7 +7,7 @@
     <meta name="robots" content="noindex, nofollow">
     <title>Instalación · Paso {{ $step }} de {{ count($steps) }}</title>
     <script>
-        // Tema según el sistema operativo (aún no hay preferencias guardadas)
+        {{-- Tema según el sistema operativo (aún no hay preferencias guardadas) --}}
         document.documentElement.setAttribute('data-bs-theme',
             window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     </script>

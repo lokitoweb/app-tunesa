@@ -17,7 +17,7 @@
 @endif
 <meta name="theme-color" content="{{ $bsPrimary }}">
 <style>
-    /* Marca blanca: colores de la empresa (o de la plataforma) */
+    {{-- Marca blanca: colores de la empresa (o de la plataforma) --}}
     :root {
         --brand: {{ $bsPrimary }};
         --brand-rgb: {{ \App\Modules\Core\Models\TenantSetting::rgbList($bsPrimary) }};
@@ -29,9 +29,9 @@
         --brand-navbar: {{ $bsNavbar }};
         --brand-navbar-text: {{ $bsNavText }};
     }
-    /* Texto legible sobre el color primario (p. ej. un amarillo pide texto oscuro) */
+    {{-- Texto legible sobre el color primario (p. ej. un amarillo pide texto oscuro) --}}
     .btn-primary { --bs-btn-color: var(--brand-text); --bs-btn-hover-color: var(--brand-text); --bs-btn-active-color: var(--brand-text); --bs-btn-disabled-color: var(--brand-text); }
-    /* Logo claro u oscuro según el tema */
+    {{-- Logo claro u oscuro según el tema --}}
     .brand-logo-dark { display: none !important; }
     [data-bs-theme="dark"] .brand-logo-light.has-dark { display: none !important; }
     [data-bs-theme="dark"] .brand-logo-dark { display: inline-block !important; }

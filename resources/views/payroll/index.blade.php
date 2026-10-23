@@ -9,9 +9,9 @@
 @endphp
 
 <div class="payroll-page-wrapper">
-    <!-- =========================================================================
+    {{-- =========================================================================
          1. CABECERA EJECUTIVA DEL MÓDULO
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="payroll-header-card p-4 mb-4 shadow-sm">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
             <div class="d-flex align-items-center gap-3">
@@ -38,9 +38,9 @@
         </div>
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          2. TARJETAS DE INDICADORES (KPIS EJECUTIVOS)
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg">
             <div class="payroll-kpi-card p-3 shadow-sm h-100">
@@ -125,12 +125,12 @@
         </div>
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          3. SELECTOR DE PERIODO Y FILTRO 100% AJAX (EN UNA SOLA LÍNEA HORIZONTAL)
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="payroll-filter-card p-3 mb-4 shadow-sm">
         <div class="d-flex flex-wrap flex-xl-nowrap align-items-center gap-2 gap-xl-3">
-            <!-- Selector de Mes -->
+            {{-- Selector de Mes --}}
             <div class="modern-input-wrapper flex-shrink-0" style="width: 175px;">
                 <span class="modern-input-icon"><i class="bi bi-calendar-month text-primary" style="margin-right: 6px !important;"></i></span>
                 <select id="payrollMonthSelect" class="modern-input-control" aria-label="Seleccionar mes">
@@ -140,13 +140,13 @@
                 </select>
             </div>
 
-            <!-- Selector de Año -->
+            {{-- Selector de Año --}}
             <div class="modern-input-wrapper flex-shrink-0" style="width: 120px;">
                 <span class="modern-input-icon"><i class="bi bi-calendar3 text-primary" style="margin-right: 6px !important;"></i></span>
                 <input type="number" id="payrollYearInput" class="modern-input-control" value="{{ $year }}" min="2020" max="2100" aria-label="Seleccionar año">
             </div>
 
-            <!-- Selector de Sucursal -->
+            {{-- Selector de Sucursal --}}
             <div class="modern-input-wrapper flex-shrink-0" style="width: 220px; min-width: 180px;">
                 <span class="modern-input-icon"><i class="bi bi-building text-primary" style="margin-right: 6px !important;"></i></span>
                 <select id="payrollBranchSelect" class="modern-input-control" aria-label="Filtrar por sucursal">
@@ -157,7 +157,7 @@
                 </select>
             </div>
 
-            <!-- Buscador en Tiempo Real -->
+            {{-- Buscador en Tiempo Real --}}
             <div class="modern-input-wrapper flex-grow-1" style="min-width: 220px;">
                 <span class="modern-input-icon"><i class="bi bi-search text-body-secondary" style="margin-right: 6px !important;"></i></span>
                 <input
@@ -178,7 +178,7 @@
                 </button>
             </div>
 
-            <!-- Botón Limpiar Filtros -->
+            {{-- Botón Limpiar Filtros --}}
             <button
                 id="payrollResetBtn"
                 type="button"
@@ -192,12 +192,12 @@
         </div>
     </div>
 
-    <!-- =========================================================================
+    {{-- =========================================================================
          4. TABLA CON FILTRADO Y PAGINACIÓN 100% INTERNA (SIN RECARGA DE PÁGINA)
-         ========================================================================= -->
+         ========================================================================= --}}
     <div class="payroll-table-card shadow-sm mb-4">
         <div class="table-responsive position-relative">
-            <!-- Spinner Overlay sutil para carga AJAX -->
+            {{-- Spinner Overlay sutil para carga AJAX --}}
             <div id="payrollLoadingOverlay" class="position-absolute top-0 start-0 w-100 h-100 d-none justify-content-center align-items-center" style="background: rgba(255, 255, 255, 0.65); z-index: 5; backdrop-filter: blur(1px);">
                 <div class="spinner-border text-primary" role="status" style="width: 2.2rem; height: 2.2rem;">
                     <span class="visually-hidden">Cargando...</span>
@@ -222,12 +222,12 @@
                     </tr>
                 </thead>
                 <tbody id="payrollTableBody">
-                    <!-- Inyectado dinámicamente con paginación interna -->
+                    {{-- Inyectado dinámicamente con paginación interna --}}
                 </tbody>
             </table>
         </div>
 
-        <!-- Paginación Interna (Sin cambiar URL) -->
+        {{-- Paginación Interna (Sin cambiar URL) --}}
         <div id="payrollPaginationContainer" class="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 p-3 border-top">
             <div class="text-body-secondary small" id="payrollPaginationInfo"></div>
             <div class="d-flex align-items-center gap-1" id="payrollPaginationButtons"></div>
@@ -239,14 +239,14 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Limpieza inmediata de URL en el navegador (para mantener /payroll limpio sin query params)
+    {{-- 1. Limpieza inmediata de URL en el navegador (para mantener /payroll limpio sin query params) --}}
     if (window.location.search) {
         window.history.replaceState({}, '', window.location.pathname);
     }
 
     const monthNames = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-    // Valores iniciales
+    {{-- Valores iniciales --}}
     const initialMonth = {{ $month }};
     const initialYear = {{ $year }};
     const initialBranch = '{{ $branchId ?? '' }}';
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const perPage = 15;
     let isFetching = false;
 
-    // Elementos del DOM
+    {{-- Elementos del DOM --}}
     const monthSelect = document.getElementById('payrollMonthSelect');
     const yearInput = document.getElementById('payrollYearInput');
     const branchSelect = document.getElementById('payrollBranchSelect');
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const paginationInfo = document.getElementById('payrollPaginationInfo');
     const paginationButtons = document.getElementById('payrollPaginationButtons');
 
-    // 2. Consulta AJAX al cambiar Mes, Año o Sucursal
+    {{-- 2. Consulta AJAX al cambiar Mes, Año o Sucursal --}}
     function fetchPayrollData() {
         if (isFetching) return;
         isFetching = true;
@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams({ month, year });
         if (branch) params.append('branch_id', branch);
 
-        // Silueta en KPIs y tabla mientras llega el periodo (reemplaza el spinner)
+        {{-- Silueta en KPIs y tabla mientras llega el periodo (reemplaza el spinner) --}}
         Panel.skeleton.on('#main-content');
 
         fetch(`/payroll?${params.toString()}`, {
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             allRows = data.rows || [];
 
-            // Actualizar tarjetas de KPI
+            {{-- Actualizar tarjetas de KPI --}}
             if (data.totals) {
                 const empEl = document.getElementById('kpiEmployees');
                 const hoursEl = document.getElementById('kpiWorkedHours');
@@ -324,13 +324,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Actualizar Badge del Periodo en Cabecera
+            {{-- Actualizar Badge del Periodo en Cabecera --}}
             const badge = document.getElementById('payrollPeriodBadge');
             if (badge) {
                 badge.innerHTML = `<i class="bi bi-calendar-check" style="margin-right: 6px !important;"></i>Periodo ${monthNames[data.month]} ${data.year}`;
             }
 
-            // Actualizar enlace de descarga CSV
+            {{-- Actualizar enlace de descarga CSV --}}
             const exportBtn = document.getElementById('payrollExportBtn');
             if (exportBtn) {
                 const expParams = new URLSearchParams({ year: data.year, month: data.month });
@@ -338,10 +338,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 exportBtn.href = `/payroll/export?${expParams.toString()}`;
             }
 
-            // Mantener la URL del navegador limpia sin ensuciar la barra de direcciones
+            {{-- Mantener la URL del navegador limpia sin ensuciar la barra de direcciones --}}
             window.history.replaceState({}, '', window.location.pathname);
 
-            // Re-filtrar con el texto actual y re-renderizar tabla
+            {{-- Re-filtrar con el texto actual y re-renderizar tabla --}}
             currentPage = 1;
             filterRows();
         })
@@ -354,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3. Restablecer Filtros
+    {{-- 3. Restablecer Filtros --}}
     function resetPayrollFilters() {
         monthSelect.value = initialMonth;
         yearInput.value = initialYear;
@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchPayrollData();
     }
 
-    // 4. Filtrado en tiempo real en memoria
+    {{-- 4. Filtrado en tiempo real en memoria --}}
     function filterRows() {
         const query = searchInput.value.trim().toLowerCase();
         if (searchClearBtn) {
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable();
     }
 
-    // 5. Renderizado de Filas y Paginación
+    {{-- 5. Renderizado de Filas y Paginación --}}
     function renderTable() {
         const total = filteredRows.length;
         const totalPages = Math.max(1, Math.ceil(total / perPage));
@@ -417,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let html = '';
-        // Escapa los textos de cada fila antes de armar el HTML (evita XSS con datos del colaborador)
+        {{-- Escapa los textos de cada fila antes de armar el HTML (evita XSS con datos del colaborador) --}}
         const escRow = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'string' ? Panel.esc(v) : v]));
         pageItems.map(escRow).forEach(r => {
             const payStatusBadge = r.payment_status === 'Verificado'
@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable();
     };
 
-    // Event listeners
+    {{-- Event listeners --}}
     monthSelect.addEventListener('change', fetchPayrollData);
     yearInput.addEventListener('change', fetchPayrollData);
     yearInput.addEventListener('keydown', (e) => {

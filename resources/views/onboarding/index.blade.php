@@ -250,7 +250,7 @@
 </div>
 
 <script>
-// Estado reactivo interno de Incorporación (Actualización Asíncrona sin exposición en URL)
+{{-- Estado reactivo interno de Incorporación (Actualización Asíncrona sin exposición en URL) --}}
 let currentOnbState = {
     status: @js($status),
     search: @js(request('search', '')),
@@ -300,7 +300,7 @@ async function loadOnboarding(overrides = {}) {
             attachOnbPaginationInterceptors();
         }
 
-        // Mantener la URL del navegador limpia sin exponer parámetros internos
+        {{-- Mantener la URL del navegador limpia sin exponer parámetros internos --}}
         window.history.replaceState({}, '', '{{ route("onboarding.index") }}');
     } catch (err) {
         if (err.name !== 'AbortError') {

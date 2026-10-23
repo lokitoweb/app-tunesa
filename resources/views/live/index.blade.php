@@ -14,7 +14,7 @@
 @endsection
 
 @section('content')
-<!-- Header del Tablero en Vivo -->
+{{-- Header del Tablero en Vivo --}}
 <div class="live-board-header">
     <div>
         <div class="d-flex align-items-center gap-2 mb-1">
@@ -23,7 +23,7 @@
         <p class="mb-0" style="color: var(--text-muted); font-size: 0.875rem;">Quién está trabajando ahora, en descanso, por llegar o ausente{{ ($globalView ?? false) ? ' en todas las empresas' : '' }}.</p>
     </div>
 
-    <!-- Indicador de En Vivo & Botón de Actualizar -->
+    {{-- Indicador de En Vivo & Botón de Actualizar --}}
     <div class="d-flex align-items-center gap-2">
         <div class="live-pulse-badge" id="livePulseBadge" title="Transmisión activa">
             <span class="live-pulse-dot" id="liveDot"></span>
@@ -97,7 +97,7 @@
                 </form>
             </div>
 
-            <!-- Listado en vivo con scroll suave -->
+            {{-- Listado en vivo con scroll suave --}}
             <div class="list-group list-group-flush" id="liveList" aria-live="polite">
                 <div class="text-center py-5">
                     <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
@@ -105,7 +105,7 @@
                 </div>
             </div>
 
-            <!-- Contador de personas en footer -->
+            {{-- Contador de personas en footer --}}
             <div class="card-footer border-top px-3 py-2 d-flex align-items-center justify-content-between small text-secondary" style="background: var(--bg-surface); border-color: var(--border-color) !important;">
                 <span id="liveCount"><i class="bi bi-people me-1"></i>0 colaboradores</span>
                 <span class="text-muted" style="font-size: 0.75rem;">Monitoreo en vivo cada 10s</span>
@@ -131,7 +131,7 @@
             </div>
             <div class="card-body p-3" style="background: var(--bg-surface);">
                 <div id="liveBoardMap"></div>
-                <!-- Leyenda de colores -->
+                {{-- Leyenda de colores --}}
                 <div class="d-flex flex-wrap align-items-center gap-3 small text-muted mt-2 px-1" style="font-size: 0.775rem;">
                     <span class="d-inline-flex align-items-center gap-1">
                         <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:#0284c7;"></span>
@@ -158,8 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const DATA_URL = @json(route('live.data'));
     const BRANCHES = @json($branches);
     const GLOBAL_VIEW = @json((bool) ($globalView ?? false));
-    const BASE_DELAY = 10000;     // sondeo normal: 10 s
-    const MAX_DELAY = 300000;     // tope del reintento: 5 min
+    const BASE_DELAY = 10000;     {{-- sondeo normal: 10 s --}}
+    const MAX_DELAY = 300000;     {{-- tope del reintento: 5 min --}}
     const TONES = { 
         working: 'success', 
         on_break: 'warning', 
@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let etag = null, payload = null, lastOk = null, failures = 0, timer = null, inFlight = false;
 
-    // ---- Mapa Leaflet ----
+    {{-- ---- Mapa Leaflet ---- --}}
     const brand = Panel.cssVar('--brand') || '#0284c7';
     const map = L.map('liveBoardMap', { scrollWheelZoom: false }).setView([-8.1118, -79.0287], 12);
     Panel.tiles(map);
@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnCenterMap.addEventListener('click', centerMap);
     }
 
-    // ---- Sondeo con ETag y pausa en segundo plano ----
+    {{-- ---- Sondeo con ETag y pausa en segundo plano ---- --}}
     function schedule() {
         clearTimeout(timer);
         if (document.visibilityState === 'hidden') return;
@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const s = Math.max(0, Math.round((Date.now() - lastOk) / 1000));
         const ago = s < 60 ? `${s} s` : `${Math.floor(s / 60)} min`;
         
-        // El texto visible siempre es "En vivo" como solicitó el usuario, y el tiempo va en el title
+        {{-- El texto visible siempre es "En vivo" como solicitó el usuario, y el tiempo va en el title --}}
         els.updated.textContent = failures ? 'Reintentando…' : 'En vivo';
         els.updated.className = failures ? 'text-danger fw-bold' : 'text-success fw-bold';
         document.getElementById('livePulseBadge')?.setAttribute('title', failures ? 'Sin conexión al servidor' : `Transmisión activa · Sincronizado hace ${ago}`);
@@ -295,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (document.visibilityState === 'hidden') { clearTimeout(timer); } else { poll(); }
     });
 
-    // ---- Renderizado ----
+    {{-- ---- Renderizado ---- --}}
     function initials(name) {
         return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
     }
@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const photoSrc = r.photo_url || r.avatar_url;
         const init = initials(r.name);
         
-        // Avatar: Foto de marcación o perfil si existe, o iniciales estilizadas
+        {{-- Avatar: Foto de marcación o perfil si existe, o iniciales estilizadas --}}
         const thumb = photoSrc
             ? `<div class="live-collab-avatar has-photo" data-photo="${Panel.esc(photoSrc)}" data-photo-title="${Panel.esc(r.name)}" data-photo-meta="${Panel.esc(r.branch || '')} · ${Panel.esc(r.clock_in ? 'Marcación ' + r.clock_in : 'Perfil')}" title="Clic para ampliar foto">
                    <img src="${Panel.esc(photoSrc)}" alt="${Panel.esc(r.name)}" onerror="this.onerror=null; this.parentElement.classList.remove('has-photo'); this.parentElement.innerHTML='${Panel.esc(init)}';">
@@ -328,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? '<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-2 ms-1" style="font-size:0.7rem;"><i class="bi bi-shield-exclamation"></i> Sospechosa</span>' 
             : '';
 
-        // Horarios: ABAJO DE LA SEDE PRINCIPAL (como en la Imagen 2)
+        {{-- Horarios: ABAJO DE LA SEDE PRINCIPAL (como en la Imagen 2) --}}
         let timeMain = '';
         if (r.clock_in) {
             timeMain = `<i class="bi bi-box-arrow-in-right text-success me-1"></i><span class="fw-semibold" style="color: var(--text-primary);">${Panel.esc(r.clock_in)}</span>`;
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-2 px-1.5 py-0 ms-1" style="font-size:0.675rem;">+${r.late_minutes} min tarde</span>` 
             : '';
 
-        // Empresa (DONDE EL USUARIO PIDIÓ MOVERLA, EN EL CENTRO)
+        {{-- Empresa (DONDE EL USUARIO PIDIÓ MOVERLA, EN EL CENTRO) --}}
         const companyName = Panel.esc(r.company || 'Empresa');
         const companyHtml = `
             <div class="live-collab-company-cell">
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        // Ubicación (NO GEOCERCA, BADGE RECTANGULAR CON BORDES SUAVES, NADA DE PILL REDONDA)
+        {{-- Ubicación (NO GEOCERCA, BADGE RECTANGULAR CON BORDES SUAVES, NADA DE PILL REDONDA) --}}
         let locationBadge = '';
         if (r.within_geofence !== null) {
             if (r.within_geofence) {
@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="live-collab-row">
             ${thumb}
             
-            <!-- Columna 1: Colaborador + Sede/Turno + Hora (Abajo, exactamente como en Imagen 2) -->
+            {{-- Columna 1: Colaborador + Sede/Turno + Hora (Abajo, exactamente como en Imagen 2) --}}
             <div class="live-collab-primary min-w-0">
                 <div class="d-flex align-items-center gap-1 flex-wrap mb-0.5">
                     ${nameLink}
@@ -378,15 +378,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
 
-            <!-- Columna 2: Empresa (donde estaba la línea roja) -->
+            {{-- Columna 2: Empresa (donde estaba la línea roja) --}}
             ${companyHtml}
 
-            <!-- Columna 3: Ubicación (Badges no redondeados tipo pill) -->
+            {{-- Columna 3: Ubicación (Badges no redondeados tipo pill) --}}
             <div class="live-collab-location-cell flex-shrink-0 text-end">
                 ${locationBadge}
             </div>
 
-            <!-- Columna 4: Estado -->
+            {{-- Columna 4: Estado --}}
             <div class="live-collab-status text-end flex-shrink-0">
                 <span class="badge bg-${tone}-subtle text-${tone}-emphasis border border-${tone}-subtle rounded-2 px-2.5 py-1.5 fw-semibold" style="font-size:0.75rem;">
                     ${Panel.esc(r.status_label)}
@@ -431,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ---- Filtros ----
+    {{-- ---- Filtros ---- --}}
     els.status.addEventListener('change', render);
     els.search.addEventListener('input', render);
     els.branch.addEventListener('change', () => { etag = null; fitted = false; poll(); });

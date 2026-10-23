@@ -4,10 +4,10 @@
 
 @section('styles')
 <style>
-/* =============================================================================
- * Colaboradores — Executive Enterprise Design
- * Optimizado para pantallas estándar sin scroll horizontal y tema oscuro nativo
- * ============================================================================= */
+{{-- =============================================================================
+Colaboradores — Executive Enterprise Design
+Optimizado para pantallas estándar sin scroll horizontal y tema oscuro nativo
+============================================================================= --}}
 .emp-shell {
     display: flex;
     flex-direction: column;
@@ -15,7 +15,7 @@
     width: 100%;
 }
 
-/* Header & Primary Actions */
+{{-- Header & Primary Actions --}}
 .emp-header {
     display: flex;
     flex-wrap: wrap;
@@ -72,7 +72,7 @@
     box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
 }
 
-/* Deck de Indicadores (KPIs) */
+{{-- Deck de Indicadores (KPIs) --}}
 .emp-kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -139,7 +139,7 @@
     margin-top: 2px;
 }
 
-/* Card de Filtros */
+{{-- Card de Filtros --}}
 .emp-filter-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
@@ -254,9 +254,9 @@
     border-color: var(--border-color-light);
 }
 
-/* =============================================================================
- * Tabla de Colaboradores — Ultra-Compact No-Overflow Design
- * ============================================================================= */
+{{-- =============================================================================
+Tabla de Colaboradores — Ultra-Compact No-Overflow Design
+============================================================================= --}}
 .emp-table-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
@@ -297,7 +297,7 @@
 }
 @media (min-width: 1100px) {
     .emp-table-responsive {
-        overflow-x: hidden; /* Garantiza cero scroll horizontal en pantallas estándar */
+        overflow-x: hidden; {{-- Garantiza cero scroll horizontal en pantallas estándar --}}
     }
 }
 
@@ -334,7 +334,7 @@
     background: var(--bg-surface-elevated);
 }
 
-/* Celdas Compactas */
+{{-- Celdas Compactas --}}
 .emp-user-cell {
     display: flex;
     align-items: center;
@@ -389,7 +389,7 @@
     font-weight: 600;
 }
 
-/* Código y Documento */
+{{-- Código y Documento --}}
 .emp-code-pill {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 0.76rem;
@@ -407,7 +407,7 @@
     white-space: nowrap;
 }
 
-/* Rol Badge */
+{{-- Rol Badge --}}
 .emp-role-badge {
     display: inline-flex;
     align-items: center;
@@ -426,7 +426,7 @@
     color: var(--accent-cyan);
 }
 
-/* Sucursales Badges */
+{{-- Sucursales Badges --}}
 .emp-branch-badge {
     display: inline-flex;
     align-items: center;
@@ -476,7 +476,7 @@
     white-space: nowrap;
 }
 
-/* Turno */
+{{-- Turno --}}
 .emp-shift-tag {
     display: inline-flex;
     align-items: center;
@@ -499,7 +499,7 @@
     white-space: nowrap;
 }
 
-/* Bloqueado Badge */
+{{-- Bloqueado Badge --}}
 .emp-locked-badge {
     display: inline-flex;
     align-items: center;
@@ -511,7 +511,7 @@
     font-size: 0.7rem;
 }
 
-/* Acciones Compactas */
+{{-- Acciones Compactas --}}
 .emp-table-actions {
     display: inline-flex;
     align-items: center;
@@ -551,7 +551,7 @@
     border-color: #ef4444;
 }
 
-/* Botón de Activar / Desactivar con colores vivos e indicadores claros */
+{{-- Botón de Activar / Desactivar con colores vivos e indicadores claros --}}
 .btn-action-toggle {
     transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -587,7 +587,7 @@
     to { opacity: 1; transform: scale(1.02); }
 }
 
-/* Toast flotante de confirmación rápida */
+{{-- Toast flotante de confirmación rápida --}}
 .emp-toast {
     position: fixed;
     bottom: 24px;
@@ -629,7 +629,7 @@
     font-size: 1.05rem;
 }
 
-/* Footer y Paginador AJAX */
+{{-- Footer y Paginador AJAX --}}
 .emp-footer {
     display: flex;
     flex-wrap: wrap;
@@ -684,9 +684,9 @@
     cursor: not-allowed;
 }
 
-/* =============================================================================
- * Estilos del Modal Dialog de Nuevo Colaborador
- * ============================================================================= */
+{{-- =============================================================================
+Estilos del Modal Dialog de Nuevo Colaborador
+============================================================================= --}}
 .emp-modal-content {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
@@ -867,7 +867,7 @@
     gap: 0.65rem;
 }
 
-/* Credenciales Modal Card */
+{{-- Credenciales Modal Card --}}
 .emp-cred-card {
     background: var(--bg-surface-elevated);
     border: 1px solid var(--border-color);
@@ -898,7 +898,7 @@
 @endphp
 
 <div class="emp-shell">
-    <!-- 1. Encabezado y Acción Principal -->
+    {{-- 1. Encabezado y Acción Principal --}}
     <div class="emp-header">
         <div>
             <h1 class="emp-title">Colaboradores</h1>
@@ -910,10 +910,10 @@
         </button>
     </div>
 
-    <!-- 2. Alerta de Credenciales Flasheadas (si aplica por sesión previa) -->
+    {{-- 2. Alerta de Credenciales Flasheadas (si aplica por sesión previa) --}}
     @include('employees._credentials')
 
-    <!-- 3. Deck de Indicadores (KPIs) -->
+    {{-- 3. Deck de Indicadores (KPIs) --}}
     @if(isset($stats))
         <div class="emp-kpi-grid">
             <div class="emp-kpi-card">
@@ -955,7 +955,7 @@
         </div>
     @endif
 
-    <!-- 4. Filtros Avanzados (Conectados a AJAX en tiempo real) -->
+    {{-- 4. Filtros Avanzados (Conectados a AJAX en tiempo real) --}}
     <div class="emp-filter-card">
         <form method="GET" action="{{ route('employees.index') }}" class="row g-2 align-items-end" id="empFilterForm">
             <div class="col-12 col-md-3">
@@ -1014,7 +1014,7 @@
         </form>
     </div>
 
-    <!-- 5. Contenedor de Tabla con Paginador AJAX -->
+    {{-- 5. Contenedor de Tabla con Paginador AJAX --}}
     <div class="emp-table-card">
         <div class="emp-table-loading-bar" id="empTableLoader"></div>
         <div id="empTableContainer">
@@ -1023,13 +1023,13 @@
     </div>
 </div>
 
-<!-- Modal Dialog de Creación de Colaborador -->
+{{-- Modal Dialog de Creación de Colaborador --}}
 @include('employees.partials.modal-create')
 
-<!-- Modal Dialog de Edición de Colaborador -->
+{{-- Modal Dialog de Edición de Colaborador --}}
 @include('employees.partials.modal-edit')
 
-<!-- Modal Dialog de Legajo y Expediente Laboral -->
+{{-- Modal Dialog de Legajo y Expediente Laboral --}}
 <div class="modal fade" id="employeeFileModal" tabindex="-1" aria-labelledby="employeeFileModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content emp-modal-content">
@@ -1058,7 +1058,7 @@
     </div>
 </div>
 
-<!-- Floating Micro-Toast for Instant Feedback -->
+{{-- Floating Micro-Toast for Instant Feedback --}}
 <div class="emp-toast" id="empToast">
     <i class="bi bi-check-circle-fill" id="empToastIcon"></i>
     <span id="empToastMsg">Acción completada con éxito</span>
@@ -1082,9 +1082,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentInternalPage = 1;
     let searchDebounceTimer = null;
 
-    // =========================================================================
-    // 1. Paginación y Filtrado AJAX Interno (Sin recargar página ni URL)
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 1. Paginación y Filtrado AJAX Interno (Sin recargar página ni URL) --}}
+    {{-- ========================================================================= --}}
     async function fetchEmployees(page = 1) {
         currentInternalPage = page;
         if (tableLoader) tableLoader.style.display = 'block';
@@ -1120,11 +1120,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // =========================================================================
-    // Interceptar clics en la tabla (Paginador, Toggle de Acceso, Editar, Legajo)
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- Interceptar clics en la tabla (Paginador, Toggle de Acceso, Editar, Legajo) --}}
+    {{-- ========================================================================= --}}
     tableContainer.addEventListener('click', async function (e) {
-        // 1. Paginador AJAX interno
+        {{-- 1. Paginador AJAX interno --}}
         const link = e.target.closest('.ajax-page-link');
         if (link && link.dataset.page) {
             e.preventDefault();
@@ -1135,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // 2. Activar / Desactivar Acceso Inmediato (Sin recargar la página)
+        {{-- 2. Activar / Desactivar Acceso Inmediato (Sin recargar la página) --}}
         const btnToggle = e.target.closest('.btn-action-toggle');
         if (btnToggle) {
             e.preventDefault();
@@ -1162,10 +1162,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     throw new Error(data.message || 'No se pudo cambiar el estado de acceso.');
                 }
 
-                const newStatus = data.status; // 'active' o 'inactive'
+                const newStatus = data.status; {{-- 'active' o 'inactive' --}}
                 btnToggle.dataset.status = newStatus;
 
-                // Actualizar botón de acción (Color verde esmeralda para activo, carmesí para inactivo)
+                {{-- Actualizar botón de acción (Color verde esmeralda para activo, carmesí para inactivo) --}}
                 if (newStatus === 'active') {
                     btnToggle.className = 'btn-table-action btn-action-toggle is-active';
                     btnToggle.title = 'Acceso activo — Clic para desactivar';
@@ -1176,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     btnToggle.innerHTML = '<i class="bi bi-slash-circle"></i>';
                 }
 
-                // Actualizar badge en la columna Estado
+                {{-- Actualizar badge en la columna Estado --}}
                 const statusCell = document.getElementById(`status-container-${id}`);
                 if (statusCell) {
                     if (newStatus === 'active') {
@@ -1186,7 +1186,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
 
-                // Sincronizar KPI contador de colaboradores activos
+                {{-- Sincronizar KPI contador de colaboradores activos --}}
                 const kpiActive = document.getElementById('kpiActive');
                 if (kpiActive) {
                     let activeCount = parseInt(kpiActive.textContent.replace(/,/g, ''), 10) || 0;
@@ -1205,7 +1205,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // 3. Abrir Modal Dialog de Edición
+        {{-- 3. Abrir Modal Dialog de Edición --}}
         const btnEdit = e.target.closest('.btn-action-edit');
         if (btnEdit) {
             e.preventDefault();
@@ -1214,7 +1214,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // 4. Abrir Modal Dialog de Legajo y Expediente Laboral
+        {{-- 4. Abrir Modal Dialog de Legajo y Expediente Laboral --}}
         const btnView = e.target.closest('.btn-action-view');
         if (btnView) {
             e.preventDefault();
@@ -1224,7 +1224,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Envío del formulario de filtros
+    {{-- Envío del formulario de filtros --}}
     if (filterForm) {
         filterForm.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -1232,14 +1232,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Filtros automáticos en selectores
+    {{-- Filtros automáticos en selectores --}}
     [branchSelect, positionSelect, roleSelect, statusSelect].forEach(sel => {
         if (sel) {
             sel.addEventListener('change', () => fetchEmployees(1));
         }
     });
 
-    // Búsqueda en tiempo real con debounce de 350ms
+    {{-- Búsqueda en tiempo real con debounce de 350ms --}}
     if (searchInput) {
         searchInput.addEventListener('input', () => {
             clearTimeout(searchDebounceTimer);
@@ -1249,7 +1249,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Restablecer filtros
+    {{-- Restablecer filtros --}}
     if (btnReset) {
         btnReset.addEventListener('click', function () {
             if (searchInput) searchInput.value = '';
@@ -1261,9 +1261,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // =========================================================================
-    // 2. Lógica del Modal Dialog: Nuevo Colaborador
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 2. Lógica del Modal Dialog: Nuevo Colaborador --}}
+    {{-- ========================================================================= --}}
     const createForm = document.getElementById('createEmployeeForm');
     const modalDocNumber = document.getElementById('modal_document_number');
     const modalEmail = document.getElementById('modal_email');
@@ -1287,7 +1287,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let currentDomain = "{{ $loginDomain ?? 'empresa.com' }}";
 
-    // Sugerencia de correo al tipear número de documento
+    {{-- Sugerencia de correo al tipear número de documento --}}
     if (modalDocNumber && modalEmail) {
         modalDocNumber.addEventListener('input', function () {
             const docVal = this.value.trim().replace(/\s+/g, '');
@@ -1301,7 +1301,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Al seleccionar cargo del catálogo: vincular departamento y marcación itinerante
+    {{-- Al seleccionar cargo del catálogo: vincular departamento y marcación itinerante --}}
     if (modalPosition) {
         modalPosition.addEventListener('change', function () {
             const selectedOpt = this.selectedOptions[0];
@@ -1318,7 +1318,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Ocultar alcance en el panel si el rol es 'employee'
+    {{-- Ocultar alcance en el panel si el rol es 'employee' --}}
     function evaluateRoleScope() {
         if (!modalRole || !scopeContainer) return;
         const role = modalRole.value;
@@ -1333,7 +1333,7 @@ document.addEventListener('DOMContentLoaded', function () {
         evaluateRoleScope();
     }
 
-    // Mostrar/ocultar zona o sede según alcance territorial
+    {{-- Mostrar/ocultar zona o sede según alcance territorial --}}
     if (modalScopeType) {
         modalScopeType.addEventListener('change', function () {
             const val = this.value;
@@ -1342,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Sincronizar sucursales: marcar la primera activa como principal si no hay ninguna
+    {{-- Sincronizar sucursales: marcar la primera activa como principal si no hay ninguna --}}
     if (modalBranchesList) {
         modalBranchesList.addEventListener('change', function (e) {
             if (e.target.classList.contains('branch-check')) {
@@ -1350,12 +1350,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 const radioForThis = document.getElementById(`m_primary_${e.target.value}`);
 
                 if (e.target.checked) {
-                    // Si es la única seleccionada, marcarla como principal
+                    {{-- Si es la única seleccionada, marcarla como principal --}}
                     if (checkedBoxes.length === 1 && radioForThis) {
                         radioForThis.checked = true;
                     }
                 } else {
-                    // Si se desmarcó y era la principal, mover principal a la primera disponible
+                    {{-- Si se desmarcó y era la principal, mover principal a la primera disponible --}}
                     if (radioForThis && radioForThis.checked && checkedBoxes.length > 0) {
                         const firstLeft = checkedBoxes[0].value;
                         const firstRadio = document.getElementById(`m_primary_${firstLeft}`);
@@ -1372,7 +1372,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Si Super Admin cambia de empresa en el selector: cargar opciones vía AJAX
+    {{-- Si Super Admin cambia de empresa en el selector: cargar opciones vía AJAX --}}
     if (modalTenantId) {
         modalTenantId.addEventListener('change', async function () {
             const tenantId = this.value;
@@ -1393,7 +1393,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (hintEl) hintEl.innerHTML = `Si se deja vacío, el sistema genera automáticamente: <code>DNI@${currentDomain}</code>`;
                 }
 
-                // Cargar sucursales
+                {{-- Cargar sucursales --}}
                 if (modalBranchesList && data.branches) {
                     if (data.branches.length === 0) {
                         modalBranchesList.innerHTML = `<div class="p-3 text-center text-muted small">No hay sucursales activas en esta empresa.</div>`;
@@ -1415,19 +1415,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
 
-                // Cargar turnos
+                {{-- Cargar turnos --}}
                 if (modalShiftSelect && data.shifts) {
                     modalShiftSelect.innerHTML = `<option value="">Sin turno asignado (se asignará después)</option>` +
                         data.shifts.map(s => `<option value="${Panel.esc(s.id)}">${Panel.esc(s.name)} (${Panel.esc(s.start_time || '')} - ${Panel.esc(s.end_time || '')})</option>`).join('');
                 }
 
-                // Cargar cargos
+                {{-- Cargar cargos --}}
                 if (modalPosition && data.positions) {
                     modalPosition.innerHTML = `<option value="">Sin cargo asignado</option>` +
                         data.positions.map(p => `<option value="${Panel.esc(p.id)}" data-department="${Panel.esc(p.department_id || '')}" data-roaming="${p.is_roaming ? '1' : '0'}">${Panel.esc(p.name)}</option>`).join('');
                 }
 
-                // Cargar departamentos
+                {{-- Cargar departamentos --}}
                 if (modalDepartment && data.departments) {
                     modalDepartment.innerHTML = `<option value="">Sin área específica</option>` +
                         data.departments.map(d => `<option value="${Panel.esc(d.id)}">${Panel.esc(d.name)}</option>`).join('');
@@ -1438,19 +1438,19 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // =========================================================================
-    // 3. Envío AJAX del Formulario de Creación de Colaborador
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 3. Envío AJAX del Formulario de Creación de Colaborador --}}
+    {{-- ========================================================================= --}}
     if (createForm) {
         createForm.addEventListener('submit', async function (e) {
             e.preventDefault();
 
-            // Limpiar errores previos
+            {{-- Limpiar errores previos --}}
             createForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             createForm.querySelectorAll('.invalid-feedback').forEach(el => el.textContent = '');
             if (modalErrorAlert) modalErrorAlert.classList.add('d-none');
 
-            // Estado de carga
+            {{-- Estado de carga --}}
             if (btnSubmitEmployee) btnSubmitEmployee.disabled = true;
             if (btnSubmitSpinner) btnSubmitSpinner.classList.remove('d-none');
             if (btnSubmitIcon) btnSubmitIcon.classList.add('d-none');
@@ -1471,7 +1471,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const data = await response.json();
 
                 if (response.status === 422) {
-                    // Errores de validación
+                    {{-- Errores de validación --}}
                     const errors = data.errors || {};
                     let firstErrElement = null;
 
@@ -1495,7 +1495,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         modalErrorAlert.classList.remove('d-none');
                     }
 
-                    // Cambiar a la pestaña que tiene el primer error
+                    {{-- Cambiar a la pestaña que tiene el primer error --}}
                     if (firstErrElement) {
                         const tabPane = firstErrElement.closest('.tab-pane');
                         if (tabPane && tabPane.id) {
@@ -1507,20 +1507,20 @@ document.addEventListener('DOMContentLoaded', function () {
                         firstErrElement.focus();
                     }
                 } else if (response.ok && data.success) {
-                    // Éxito: cerrar modal de alta
+                    {{-- Éxito: cerrar modal de alta --}}
                     const empModalEl = document.getElementById('employeeModal');
                     if (empModalEl && window.bootstrap) {
                         bootstrap.Modal.getOrCreateInstance(empModalEl).hide();
                     }
                     createForm.reset();
 
-                    // Mostrar modal con las credenciales generadas
+                    {{-- Mostrar modal con las credenciales generadas --}}
                     if (data.credentials) {
                         document.getElementById('credModalName').textContent = data.credentials.name || '—';
                         document.getElementById('credModalEmail').textContent = data.credentials.email || '—';
                         document.getElementById('credModalPass').textContent = data.credentials.password || '—';
 
-                        // Configurar enlace de WhatsApp
+                        {{-- Configurar enlace de WhatsApp --}}
                         const waText = encodeURIComponent(
                             `Hola ${data.credentials.name}, se ha creado tu acceso a la app móvil de asistencia:\n\n` +
                             `*Usuario:* ${data.credentials.email}\n` +
@@ -1536,7 +1536,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     }
 
-                    // Refrescar la tabla de colaboradores vía AJAX inmediatamente
+                    {{-- Refrescar la tabla de colaboradores vía AJAX inmediatamente --}}
                     fetchEmployees(1);
                 } else {
                     throw new Error(data.message || 'Ocurrió un error inesperado');
@@ -1556,7 +1556,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Copiar credenciales desde el modal de éxito
+    {{-- Copiar credenciales desde el modal de éxito --}}
     const btnCopyCredsModal = document.getElementById('btnCopyCredsModal');
     if (btnCopyCredsModal) {
         btnCopyCredsModal.addEventListener('click', function () {
@@ -1576,9 +1576,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // =========================================================================
-    // 4. Toast Flotante de Notificación Rápida
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 4. Toast Flotante de Notificación Rápida --}}
+    {{-- ========================================================================= --}}
     const empToast = document.getElementById('empToast');
     const empToastMsg = document.getElementById('empToastMsg');
     const empToastIcon = document.getElementById('empToastIcon');
@@ -1599,9 +1599,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 3400);
     }
 
-    // =========================================================================
-    // 5. Modal Dialog: Edición de Colaborador
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 5. Modal Dialog: Edición de Colaborador --}}
+    {{-- ========================================================================= --}}
     const editModalEl = document.getElementById('employeeEditModal');
     const editForm = document.getElementById('editEmployeeForm');
     const editErrorAlert = document.getElementById('editModalErrorAlert');
@@ -1612,7 +1612,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnSubmitEditText = document.getElementById('btnEditText');
     const editBranchesList = document.getElementById('editBranchesList');
 
-    // Cambios dinámicos en checkboxes y radio de sucursales en modal de edición
+    {{-- Cambios dinámicos en checkboxes y radio de sucursales en modal de edición --}}
     if (editBranchesList) {
         editBranchesList.addEventListener('change', function (e) {
             if (e.target.classList.contains('edit-branch-check')) {
@@ -1640,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Al seleccionar cargo en edición: auto-seleccionar departamento y marcación itinerante
+    {{-- Al seleccionar cargo en edición: auto-seleccionar departamento y marcación itinerante --}}
     const editPosition = document.getElementById('edit_position_id');
     const editDepartment = document.getElementById('edit_department_id');
     const editRoaming = document.getElementById('edit_roaming_attendance_enabled');
@@ -1660,7 +1660,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Evaluar alcance según rol en edición
+    {{-- Evaluar alcance según rol en edición --}}
     function evaluateEditRoleScope() {
         const editRole = document.getElementById('edit_role');
         const editScopeContainer = document.getElementById('editScopeContainer');
@@ -1686,12 +1686,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const modalInstance = bootstrap.Modal.getOrCreateInstance(editModalEl);
         modalInstance.show();
 
-        // Limpiar errores previos
+        {{-- Limpiar errores previos --}}
         editForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
         editForm.querySelectorAll('.invalid-feedback').forEach(el => el.textContent = '');
         if (editErrorAlert) editErrorAlert.classList.add('d-none');
 
-        // Resetear a primera pestaña
+        {{-- Resetear a primera pestaña --}}
         const tab1Btn = document.getElementById('tab-edit-personal-btn');
         if (tab1Btn) bootstrap.Tab.getOrCreateInstance(tab1Btn).show();
 
@@ -1708,15 +1708,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const data = await res.json();
             const emp = data.employee;
 
-            // Form action y ID
+            {{-- Form action y ID --}}
             editForm.action = `/employees/${emp.id}`;
             document.getElementById('edit_employee_id').value = emp.id;
 
-            // Título
+            {{-- Título --}}
             const titleEl = document.getElementById('employeeEditModalLabel');
             if (titleEl) titleEl.textContent = `Editar Colaborador: ${emp.first_name} ${emp.last_name}`;
 
-            // Tab 1: Datos Personales
+            {{-- Tab 1: Datos Personales --}}
             document.getElementById('edit_first_name').value = emp.first_name || '';
             document.getElementById('edit_last_name').value = emp.last_name || '';
             document.getElementById('edit_document_type').value = emp.document_type || 'dni';
@@ -1726,7 +1726,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('edit_email').value = emp.email || '';
             document.getElementById('edit_status').value = emp.status || 'active';
 
-            // Tab 2: Puesto y Rol
+            {{-- Tab 2: Puesto y Rol --}}
             if (document.getElementById('edit_employee_code')) document.getElementById('edit_employee_code').value = emp.employee_code || '';
             if (document.getElementById('edit_position_id')) document.getElementById('edit_position_id').value = emp.position_id || '';
             if (document.getElementById('edit_department_id')) document.getElementById('edit_department_id').value = emp.department_id || '';
@@ -1747,10 +1747,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if (document.getElementById('edit_scope_zone_id')) document.getElementById('edit_scope_zone_id').value = emp.scope_zone_id || '';
             if (document.getElementById('edit_scope_branch_id')) document.getElementById('edit_scope_branch_id').value = emp.scope_branch_id || '';
 
-            // Tab 3: Sedes y Turno
+            {{-- Tab 3: Sedes y Turno --}}
             if (document.getElementById('edit_shift_id')) document.getElementById('edit_shift_id').value = emp.shift_id || '';
 
-            // Sincronizar checkboxes de sucursales
+            {{-- Sincronizar checkboxes de sucursales --}}
             const branchChecks = document.querySelectorAll('.edit-branch-check');
             const primaryRadios = document.querySelectorAll('.edit-primary-branch-radio');
             branchChecks.forEach(cb => {
@@ -1767,12 +1767,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Envío AJAX del formulario de edición
+    {{-- Envío AJAX del formulario de edición --}}
     if (editForm) {
         editForm.addEventListener('submit', async function (e) {
             e.preventDefault();
 
-            // Limpiar errores previos
+            {{-- Limpiar errores previos --}}
             editForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
             editForm.querySelectorAll('.invalid-feedback').forEach(el => el.textContent = '');
             if (editErrorAlert) editErrorAlert.classList.add('d-none');
@@ -1850,13 +1850,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // =========================================================================
-    // 6. Modal Dialog: Expediente y Ficha del Colaborador
-    // =========================================================================
+    {{-- ========================================================================= --}}
+    {{-- 6. Modal Dialog: Expediente y Ficha del Colaborador --}}
+    {{-- ========================================================================= --}}
     const fileModalEl = document.getElementById('employeeFileModal');
     const fileModalBody = document.getElementById('employeeFileModalBody');
 
-    // Función global y robusta de copiado al portapapeles (con fallback seguro)
+    {{-- Función global y robusta de copiado al portapapeles (con fallback seguro) --}}
     window.copyLegajoText = function (text, btn) {
         if (!text || text === '—') return;
 
@@ -1902,7 +1902,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    // Delegación de eventos para el botón de copiado
+    {{-- Delegación de eventos para el botón de copiado --}}
     document.addEventListener('click', function (e) {
         const copyBtn = e.target.closest('.legajo-copy-btn');
         if (copyBtn) {
@@ -1915,7 +1915,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // 1. Alternador de números de cuenta (máscara / desenmascarado)
+    {{-- 1. Alternador de números de cuenta (máscara / desenmascarado) --}}
     window.isNumbersMasked = false;
     window.toggleEmployeeAccountMask = function () {
         window.isNumbersMasked = !window.isNumbersMasked;
@@ -1934,7 +1934,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    // 2. Alternador de Modo Lectura / Modo Modificar Ficha
+    {{-- 2. Alternador de Modo Lectura / Modo Modificar Ficha --}}
     window.toggleEmployeeProfileEdit = function (forceState) {
         const viewSection = document.getElementById('profileDetailsView');
         const editSection = document.getElementById('profileEditFormWrapper');
@@ -1968,7 +1968,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    // 3. Envío Asíncrono del Formulario de Edición de Ficha
+    {{-- 3. Envío Asíncrono del Formulario de Edición de Ficha --}}
     window.submitEmployeeProfileForm = async function (e, form) {
         if (e) {
             e.preventDefault();
@@ -2026,7 +2026,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return false;
     };
 
-    // Delegación de eventos de respaldo
+    {{-- Delegación de eventos de respaldo --}}
     document.addEventListener('click', function (e) {
         const maskBtn = e.target.closest('#btnToggleMaskAccounts');
         if (maskBtn && !maskBtn.hasAttribute('onclick')) {
@@ -2082,7 +2082,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const html = await res.text();
             fileModalBody.innerHTML = html;
 
-            // Re-ejecutar scripts que vengan dentro del HTML inyectado
+            {{-- Re-ejecutar scripts que vengan dentro del HTML inyectado --}}
             const scripts = fileModalBody.querySelectorAll('script');
             scripts.forEach(oldScript => {
                 const newScript = document.createElement('script');

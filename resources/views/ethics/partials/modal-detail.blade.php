@@ -403,7 +403,7 @@ function toggleModalResolutionField(caseId) {
     }
 }
 
-// Asegurar cambio de tabs sin importar estado de Bootstrap data-api
+{{-- Asegurar cambio de tabs sin importar estado de Bootstrap data-api --}}
 document.querySelectorAll('#ethicsModalTabs button[data-bs-toggle="pill"]').forEach(btn => {
     btn.addEventListener('click', function(e) {
         e.preventDefault();

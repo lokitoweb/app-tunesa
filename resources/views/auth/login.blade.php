@@ -9,13 +9,13 @@
 @endphp
 <div class="antigravity-composer">
 
-    <!-- Escultura Monolítica Continua (Vidrio Unificado Anti-Gravity Symmetrical) -->
+    {{-- Escultura Monolítica Continua (Vidrio Unificado Anti-Gravity Symmetrical) --}}
     <div class="antigravity-monolith" id="antigravityMonolith">
         
-        <!-- Capa 1: Fondo de Vidrio Translúcido clip-path simétrico -->
+        {{-- Capa 1: Fondo de Vidrio Translúcido clip-path simétrico --}}
         <div class="glass-monolith-backdrop" aria-hidden="true"></div>
 
-        <!-- Capa 2: Contorno Especular SVG Continuo y Perfectamente Simétrico -->
+        {{-- Capa 2: Contorno Especular SVG Continuo y Perfectamente Simétrico --}}
         <svg class="glass-monolith-outline" viewBox="0 0 1160 560" fill="none" preserveAspectRatio="none" aria-hidden="true">
             <defs>
                 <linearGradient id="specularOutlineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -29,13 +29,13 @@
                   stroke="url(#specularOutlineGrad)" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
         </svg>
 
-        <!-- Capa 3: Contenido -->
+        {{-- Capa 3: Contenido --}}
         <div class="glass-monolith-content">
             
-            <!-- SECCIÓN IZQUIERDA: Ribbon Horizontal Ordenado (Icono Arriba, Texto y Métrica Abajo) -->
+            {{-- SECCIÓN IZQUIERDA: Ribbon Horizontal Ordenado (Icono Arriba, Texto y Métrica Abajo) --}}
             <section class="monolith-ribbon" aria-label="Métricas corporativas">
                 
-                <!-- Columna 1: Control Operativo -->
+                {{-- Columna 1: Control Operativo --}}
                 <div class="metric-cell">
                     <div class="metric-icon-orb">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -49,7 +49,7 @@
 
                 <div class="metric-hairline-sep" aria-hidden="true"></div>
 
-                <!-- Columna 2: Capital Humano -->
+                {{-- Columna 2: Capital Humano --}}
                 <div class="metric-cell">
                     <div class="metric-icon-orb">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -65,7 +65,7 @@
 
                 <div class="metric-hairline-sep" aria-hidden="true"></div>
 
-                <!-- Columna 3: Seguridad y GPS -->
+                {{-- Columna 3: Seguridad y GPS --}}
                 <div class="metric-cell">
                     <div class="metric-icon-orb">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -79,25 +79,25 @@
 
             </section>
 
-            <!-- SECCIÓN DERECHA: Tarjeta Vertical de Login (Sin alertas inline intrusivas, diseño intacto) -->
+            {{-- SECCIÓN DERECHA: Tarjeta Vertical de Login (Sin alertas inline intrusivas, diseño intacto) --}}
             <section class="monolith-card" aria-label="Formulario de inicio de sesión">
                 
-                <!-- Logo Oficial Dinámico Centrado y Elevado -->
+                {{-- Logo Oficial Dinámico Centrado y Elevado --}}
                 <div class="card-brand-logo-wrap">
                     <img src="{{ $brandSettings->displayLogoUrl() }}" alt="{{ $brandSettings->tradeName() }}" class="card-brand-logo">
                 </div>
 
-                <!-- Título y Subtítulo Centrados con Espaciado Generoso y Holgado -->
+                {{-- Título y Subtítulo Centrados con Espaciado Generoso y Holgado --}}
                 <h2 class="card-hero-title">Iniciar sesión</h2>
                 <p class="card-hero-subtitle">Ingresa tus credenciales para acceder al ERP empresarial.</p>
 
                 <form method="POST" action="{{ route('login.post') }}" novalidate id="loginForm" class="antigravity-form">
                     @csrf
 
-                    <!-- Trampa Honeypot contra Bots y Scripts Maliciosos -->
+                    {{-- Trampa Honeypot contra Bots y Scripts Maliciosos --}}
                     <input type="text" name="_auth_token_verify" value="" style="display:none !important;" tabindex="-1" autocomplete="off" aria-hidden="true">
 
-                    <!-- Campo Correo Corporativo -->
+                    {{-- Campo Correo Corporativo --}}
                     <div class="glass-field-group">
                         <label for="email" class="glass-field-label">Correo corporativo</label>
                         <div class="glass-input-plane" id="emailInputPlane">
@@ -112,7 +112,7 @@
                         </div>
                     </div>
 
-                    <!-- Campo Contraseña -->
+                    {{-- Campo Contraseña --}}
                     <div class="glass-field-group">
                         <div class="glass-label-row">
                             <label for="password" class="glass-field-label">Contraseña</label>
@@ -126,7 +126,7 @@
                                 </svg>
                             </div>
                             <input type="password" id="password" name="password" class="glass-input-elem" placeholder="Ingresa tu contraseña" required autocomplete="current-password" maxlength="128">
-                            <!-- Ojito toggle -->
+                            {{-- Ojito toggle --}}
                             <button type="button" class="eye-toggle-btn" id="togglePassword" aria-label="Mostrar u ocultar contraseña" title="Mostrar contraseña">
                                 <i class="bi bi-eye" id="eyeIcon"></i>
                             </button>
@@ -137,7 +137,7 @@
                         </div>
                     </div>
 
-                    <!-- Checkbox Recordar -->
+                    {{-- Checkbox Recordar --}}
                     <div class="glass-options-row">
                         <label class="glass-checkbox-wrap" for="remember">
                             <input type="checkbox" name="remember" value="1" id="remember" class="glass-checkbox-elem">
@@ -146,14 +146,14 @@
                         </label>
                     </div>
 
-                    <!-- Botón de Acción (Deshabilitado hasta que ambos campos estén completos) -->
+                    {{-- Botón de Acción (Deshabilitado hasta que ambos campos estén completos) --}}
                     <button type="submit" class="organic-stone-btn" id="loginSubmit" disabled>
                         <span class="btn-engraved-text">Ingresar al sistema</span>
                         <span class="btn-engraved-arrow">→</span>
                     </button>
                 </form>
 
-                <!-- Nota de Seguridad -->
+                {{-- Nota de Seguridad --}}
                 <div class="card-security-note">
                     <svg class="note-shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -181,7 +181,7 @@
         const button = document.getElementById('loginSubmit');
         const toastContainer = document.getElementById('toastContainer');
 
-        // ── Estado Dinámico del Botón: se habilita solo cuando ambos campos tienen valor ──
+        {{-- ── Estado Dinámico del Botón: se habilita solo cuando ambos campos tienen valor ── --}}
         function updateButtonState() {
             if (!button || !email || !password) return;
             const hasEmail = email.value.trim().length > 0;
@@ -198,17 +198,17 @@
             password.addEventListener('change', updateButtonState);
         }
 
-        // Verificar estado inicial (por si hay valor pre-rellenado via old())
+        {{-- Verificar estado inicial (por si hay valor pre-rellenado via old()) --}}
         updateButtonState();
 
-        // Correo ya conservado (p. ej. tras renovar la página): el cursor va a la contraseña
+        {{-- Correo ya conservado (p. ej. tras renovar la página): el cursor va a la contraseña --}}
         if (email && password && email.value.trim()) password.focus();
 
-        // Función para disparar notificaciones Toast flotantes en relieve alto
+        {{-- Función para disparar notificaciones Toast flotantes en relieve alto --}}
         function triggerToast(title, message, type = 'danger') {
             if (!toastContainer) return;
 
-            // Remover toasts previos para no saturar
+            {{-- Remover toasts previos para no saturar --}}
             const existingToasts = toastContainer.querySelectorAll('.antigravity-toast');
             existingToasts.forEach(t => t.remove());
 
@@ -234,7 +234,7 @@
             toast.querySelector('.toast-close-btn').addEventListener('click', () => toast.remove());
             toastContainer.appendChild(toast);
 
-            // Auto-cerrar después de 6 segundos
+            {{-- Auto-cerrar después de 6 segundos --}}
             setTimeout(() => {
                 if (toast && toast.parentElement) {
                     toast.style.opacity = '0';
@@ -244,13 +244,13 @@
             }, 6000);
         }
 
-        // Validación inmediata antes del envío (Client-side validation)
+        {{-- Validación inmediata antes del envío (Client-side validation) --}}
         if (form) {
             form.addEventListener('submit', function (e) {
                 const emailVal = email ? email.value.trim() : '';
                 const passVal = password ? password.value : '';
 
-                // 1. Validar correo obligatorio
+                {{-- 1. Validar correo obligatorio --}}
                 if (!emailVal) {
                     e.preventDefault();
                     triggerToast('Campo obligatorio', 'Por favor ingresa tu correo corporativo.');
@@ -261,7 +261,7 @@
                     return false;
                 }
 
-                // 2. Validar formato de correo
+                {{-- 2. Validar formato de correo --}}
                 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailPattern.test(emailVal)) {
                     e.preventDefault();
@@ -273,7 +273,7 @@
                     return false;
                 }
 
-                // 3. Validar contraseña obligatoria
+                {{-- 3. Validar contraseña obligatoria --}}
                 if (!passVal) {
                     e.preventDefault();
                     triggerToast('Campo obligatorio', 'Por favor ingresa tu contraseña de acceso.');
@@ -284,15 +284,15 @@
                     return false;
                 }
 
-                // Si todo es válido, activar estado de carga
+                {{-- Si todo es válido, activar estado de carga --}}
                 if (button) {
                     button.classList.add('is-loading');
                     button.setAttribute('aria-busy', 'true');
                     button.innerHTML = '<span class="erp-spinner" aria-hidden="true"></span><span class="btn-engraved-text">Verificando...</span>';
                 }
 
-                // Página abierta hace rato (o restaurada con "Atrás"): su token CSRF pudo
-                // caducar junto con la sesión. Se pide uno vigente antes de enviar.
+                {{-- Página abierta hace rato (o restaurada con "Atrás"): su token CSRF pudo --}}
+                {{-- caducar junto con la sesión. Se pide uno vigente antes de enviar. --}}
                 if (tokenMayBeStale()) {
                     e.preventDefault();
                     refreshToken().finally(() => form.submit());
@@ -300,7 +300,7 @@
             });
         }
 
-        // ── Token CSRF siempre vigente (evita "419 — Sesión expirada" al ingresar) ──
+        {{-- ── Token CSRF siempre vigente (evita "419 — Sesión expirada" al ingresar) ── --}}
         const TOKEN_MAX_AGE_MS = 5 * 60 * 1000;
         let tokenLoadedAt = Date.now();
 
@@ -325,7 +325,7 @@
                 .catch(() => {});
         }
 
-        // Al volver a la pestaña tras un rato, o al restaurarla desde la caché del navegador
+        {{-- Al volver a la pestaña tras un rato, o al restaurarla desde la caché del navegador --}}
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'visible' && tokenMayBeStale()) refreshToken();
         });
@@ -354,7 +354,7 @@
             }
         }
 
-        // Ojito toggle para mostrar / ocultar contraseña
+        {{-- Ojito toggle para mostrar / ocultar contraseña --}}
         if (toggle && password && eyeIcon) {
             toggle.addEventListener('click', function () {
                 const isPassword = password.getAttribute('type') === 'password';
@@ -365,7 +365,7 @@
             });
         }
 
-        // Alerta de Bloqueo de Mayúsculas
+        {{-- Alerta de Bloqueo de Mayúsculas --}}
         if (password && capsLockAlert) {
             ['keydown', 'keyup'].forEach(eventType => {
                 password.addEventListener(eventType, function (e) {
@@ -381,7 +381,7 @@
             });
         }
 
-        // ── Auto-cerrar Toasts del servidor (renderizados desde Blade) después de 8s ──
+        {{-- ── Auto-cerrar Toasts del servidor (renderizados desde Blade) después de 8s ── --}}
         if (toastContainer) {
             const serverToasts = toastContainer.querySelectorAll('.antigravity-toast');
             serverToasts.forEach(toast => {

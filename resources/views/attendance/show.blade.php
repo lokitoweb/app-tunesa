@@ -4,7 +4,7 @@
 
 @section('styles')
 <style>
-/* Botón Volver */
+{{-- Botón Volver --}}
 .btn-action-back {
     width: 38px;
     height: 38px;
@@ -31,7 +31,7 @@
     transform: translateY(0);
 }
 
-/* Botón Ver Selfie y Mapa */
+{{-- Botón Ver Selfie y Mapa --}}
 .btn-action-evidence {
     height: 38px;
     border-radius: 8px;
@@ -58,7 +58,7 @@
     transform: translateY(0);
 }
 
-/* Botón Rechazar */
+{{-- Botón Rechazar --}}
 .btn-action-reject {
     height: 38px;
     border-radius: 8px;
@@ -106,7 +106,7 @@
     transform: translateY(0);
 }
 
-/* Botón Aprobar */
+{{-- Botón Aprobar --}}
 .btn-action-approve {
     height: 38px;
     border-radius: 8px;
@@ -153,7 +153,7 @@
     transform: translateY(0);
 }
 
-/* Adaptación a modo oscuro */
+{{-- Adaptación a modo oscuro --}}
 [data-bs-theme="dark"] .btn-action-back {
     background-color: #1e293b;
     border-color: #334155;
@@ -196,7 +196,7 @@
     ];
 @endphp
 
-<!-- Navegación y encabezado -->
+{{-- Navegación y encabezado --}}
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb small mb-2">
         <li class="breadcrumb-item"><a href="{{ route('attendance.index') }}" class="text-decoration-none">Marcaciones</a></li>
@@ -245,7 +245,7 @@
     </div>
 @endif
 
-<!-- Tarjetas de Entrada y Salida -->
+{{-- Tarjetas de Entrada y Salida --}}
 <div class="row g-3 mb-4">
     @foreach($moments as $key => $m)
         <div class="col-12 col-lg-6">
@@ -343,7 +343,7 @@
     @endforeach
 </div>
 
-<!-- Bitácora de marcaciones -->
+{{-- Bitácora de marcaciones --}}
 <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0 !important; overflow: hidden;">
     <div class="card-header bg-white border-0 pt-3 pb-2 px-4" style="border-bottom: 1px solid #f1f5f9 !important;">
         <h2 class="h6 fw-bold mb-0 text-dark">Bitácora inmutable de marcaciones</h2>
@@ -425,7 +425,7 @@
     @endif
 </div>
 
-<!-- Validación geográfica -->
+{{-- Validación geográfica --}}
 <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; border: 1px solid #e2e8f0 !important; overflow: hidden;">
     <div class="card-header bg-white border-0 pt-3 pb-2 px-4" style="border-bottom: 1px solid #f1f5f9 !important;">
         <h2 class="h6 fw-bold mb-0 text-dark">Validación geográfica</h2>
@@ -447,7 +447,7 @@
         </div>
         <div class="card-body p-4">
             <div class="row g-4 align-items-start">
-                <!-- Columna izquierda: Explicación del colaborador -->
+                {{-- Columna izquierda: Explicación del colaborador --}}
                 <div class="col-12 col-lg-6 d-flex flex-column">
                     <label class="form-label small fw-bold text-dark text-uppercase mb-2" style="letter-spacing: 0.04em;">
                         <i class="bi bi-chat-left-quote text-secondary me-1"></i> Explicación del colaborador
@@ -473,7 +473,7 @@
                     @endif
                 </div>
 
-                <!-- Columna derecha: Resolución o Formulario de dictamen -->
+                {{-- Columna derecha: Resolución o Formulario de dictamen --}}
                 <div class="col-12 col-lg-6 d-flex flex-column">
                     @if(in_array($attendance->justification_status, ['approved', 'rejected'], true))
                         <label class="form-label small fw-bold text-dark text-uppercase mb-2" style="letter-spacing: 0.04em;">

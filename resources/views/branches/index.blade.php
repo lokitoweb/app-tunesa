@@ -765,7 +765,7 @@
 
 @section('scripts')
 <script>
-    // Variables de Leaflet para el Modal
+    {{-- Variables de Leaflet para el Modal --}}
     let modalMap = null;
     let modalMarker = null;
     let modalCircle = null;
@@ -801,7 +801,7 @@
     };
 
     document.addEventListener('DOMContentLoaded', function () {
-        // Inicializar Leaflet al mostrar el modal
+        {{-- Inicializar Leaflet al mostrar el modal --}}
         const branchModalEl = document.getElementById('branchFormModal');
         if (branchModalEl) {
             branchModalEl.addEventListener('shown.bs.modal', function () {
@@ -809,7 +809,7 @@
             });
         }
 
-        // Modal de eliminación
+        {{-- Modal de eliminación --}}
         const deleteModalEl = document.getElementById('deleteBranchModal');
         if (deleteModalEl) {
             deleteModalEl.addEventListener('show.bs.modal', function (event) {
@@ -835,14 +835,14 @@
         }
     });
 
-    // Abrir Modal en Modo Crear
+    {{-- Abrir Modal en Modo Crear --}}
     window.openCreateBranchModal = function() {
         document.getElementById('branchModalTitle').textContent = 'Crear Nueva Sede Operativa';
         document.getElementById('btnSubmitBranchText').textContent = 'Crear Sede';
         document.getElementById('branchFormMethod').value = 'POST';
         document.getElementById('branchModalForm').action = "{{ route('branches.store') }}";
 
-        // Resetear campos
+        {{-- Resetear campos --}}
         document.getElementById('m_name').value = '';
         document.getElementById('m_code').value = '';
         document.getElementById('m_branch_type').value = 'agency';
@@ -864,7 +864,7 @@
         modal.show();
     };
 
-    // Abrir Modal en Modo Editar con los datos de la sucursal
+    {{-- Abrir Modal en Modo Editar con los datos de la sucursal --}}
     window.openEditBranchModal = function(branch) {
         document.getElementById('branchModalTitle').textContent = `Editar Sede · ${branch.name}`;
         document.getElementById('btnSubmitBranchText').textContent = 'Guardar cambios';
@@ -894,7 +894,7 @@
         modal.show();
     };
 
-    // Inicializar o refrescar Leaflet dentro del Modal
+    {{-- Inicializar o refrescar Leaflet dentro del Modal --}}
     function initOrInvalidateModalMap() {
         const latVal = parseFloat(document.getElementById('m_latitude').value) || -12.046374;
         const lngVal = parseFloat(document.getElementById('m_longitude').value) || -77.042793;
@@ -920,7 +920,7 @@
                 weight: 2
             }).addTo(modalMap);
 
-            // Al arrastrar el marcador
+            {{-- Al arrastrar el marcador --}}
             modalMarker.on('drag', function(e) {
                 const pos = e.target.getLatLng();
                 document.getElementById('m_latitude').value = pos.lat.toFixed(6);
@@ -928,7 +928,7 @@
                 modalCircle.setLatLng(pos);
             });
 
-            // Al hacer clic en el mapa
+            {{-- Al hacer clic en el mapa --}}
             modalMap.on('click', function(e) {
                 const pos = e.latlng;
                 document.getElementById('m_latitude').value = pos.lat.toFixed(6);
@@ -945,7 +945,7 @@
         }
     }
 
-    // Sincronizar mapa cuando se escriben coordenadas manualmente
+    {{-- Sincronizar mapa cuando se escriben coordenadas manualmente --}}
     window.syncModalMapFromInputs = function() {
         if (!modalMap || !modalMarker || !modalCircle) return;
         const latVal = parseFloat(document.getElementById('m_latitude').value);
@@ -957,7 +957,7 @@
         }
     };
 
-    // Sincronizar radio cuando se escribe en el input
+    {{-- Sincronizar radio cuando se escribe en el input --}}
     window.syncModalRadiusFromInput = function() {
         const rad = parseInt(document.getElementById('m_allowed_radius_meters').value, 10) || 50;
         document.getElementById('m_radiusBadge').textContent = `Radio: ${rad} m`;
@@ -965,7 +965,7 @@
         updatePresetButtons(rad);
     };
 
-    // Ajustar preset de radio
+    {{-- Ajustar preset de radio --}}
     window.setModalRadiusPreset = function(meters) {
         document.getElementById('m_allowed_radius_meters').value = meters;
         document.getElementById('m_radiusBadge').textContent = `Radio: ${meters} m`;
@@ -986,7 +986,7 @@
         });
     }
 
-    // Detectar GPS actual en el Modal (Feedback visual moderno)
+    {{-- Detectar GPS actual en el Modal (Feedback visual moderno) --}}
     window.detectModalGPSLocation = function() {
         const btn = document.getElementById('btnModalCurrentLocation');
         const text = document.getElementById('btnModalGpsText');
@@ -1018,7 +1018,7 @@
         );
     };
 
-    // Filtrado Instantáneo en Vivo en el Grid de Sedes
+    {{-- Filtrado Instantáneo en Vivo en el Grid de Sedes --}}
     window.filterBranchesGrid = function() {
         const query = (document.getElementById('branchesSearchInput').value || '').toLowerCase().trim();
         const status = document.getElementById('branchesStatusFilter').value;
@@ -1052,13 +1052,13 @@
             }
         });
 
-        // Actualizar contador
+        {{-- Actualizar contador --}}
         const counterEl = document.getElementById('branchesCounter');
         if (counterEl) {
             counterEl.textContent = `Mostrando ${visibleCount} de ${cards.length}`;
         }
 
-        // Mostrar estado vacío si ningún resultado coincide
+        {{-- Mostrar estado vacío si ningún resultado coincide --}}
         const noResults = document.getElementById('branchesNoResultsState');
         if (noResults) {
             if (visibleCount === 0 && cards.length > 0) {
@@ -1069,7 +1069,7 @@
         }
     };
 
-    // Resetear Filtros
+    {{-- Resetear Filtros --}}
     window.resetBranchesFilters = function() {
         document.getElementById('branchesSearchInput').value = '';
         document.getElementById('branchesStatusFilter').value = '';
@@ -1079,7 +1079,7 @@
         filterBranchesGrid();
     };
 
-    // Toast Feedback Moderno
+    {{-- Toast Feedback Moderno --}}
     function showToastFeedback(message, type) {
         if (window.Panel && typeof Panel.toast === 'function') {
             Panel.toast(message, type);
@@ -1113,15 +1113,15 @@
 
 @section('styles')
 <style>
-/* =============================================================================
+{{-- =============================================================================
    MÓDULO SUCURSALES Y GEOCERCAS — DISEÑO CORPORATIVO, ESPACIOSO Y ELEGANTE
-   ============================================================================= */
+   ============================================================================= --}}
 
 .branches-page-wrapper {
     width: 100%;
 }
 
-/* Cabecera Ejecutiva */
+{{-- Cabecera Ejecutiva --}}
 .branches-header-card {
     background: var(--bg-surface, #ffffff);
     border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
@@ -1141,7 +1141,7 @@
     flex-shrink: 0;
 }
 
-/* Tarjetas de Métricas KPI */
+{{-- Tarjetas de Métricas KPI --}}
 .branches-kpi-card {
     background: var(--bg-surface, #ffffff);
     border: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
@@ -1164,14 +1164,14 @@
     font-size: 1.1rem;
 }
 
-/* Barra de Filtros */
+{{-- Barra de Filtros --}}
 .branches-filter-card {
     background: var(--bg-surface, #ffffff);
     border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
     border-radius: 10px;
 }
 
-/* Botón Limpiar Filtros Mejorado */
+{{-- Botón Limpiar Filtros Mejorado --}}
 .btn-branch-reset {
     height: 38px;
     padding: 0 14px;
@@ -1207,7 +1207,7 @@
     transform: rotate(-180deg);
 }
 
-/* Tarjeta / Chip Contador de Resultados */
+{{-- Tarjeta / Chip Contador de Resultados --}}
 .branches-counter-card {
     height: 38px;
     padding: 0 14px;
@@ -1235,9 +1235,9 @@
     color: var(--text-primary, #0f172a);
 }
 
-/* =============================================================================
+{{-- =============================================================================
    TARJETA INDIVIDUAL DE SUCURSAL (ESPACIOSA, SIN APILAMIENTO NI AMONTONAMIENTO)
-   ============================================================================= */
+   ============================================================================= --}}
 .branch-card {
     background: var(--bg-surface, #ffffff);
     border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
@@ -1256,7 +1256,7 @@
     background: var(--bg-surface, #ffffff);
 }
 
-/* Avatar del Tipo de Sede */
+{{-- Avatar del Tipo de Sede --}}
 .branch-type-avatar {
     width: 44px;
     height: 44px;
@@ -1274,7 +1274,7 @@
 .branch-type-workshop  { background: rgba(99, 102, 241, 0.14); color: #6366f1; }
 .branch-type-corporate { background: rgba(147, 51, 234, 0.14); color: #9333ea; }
 
-/* Status Badge con Píldora y Dot Pulsante */
+{{-- Status Badge con Píldora y Dot Pulsante --}}
 .branch-status-badge {
     display: inline-flex;
     align-items: center;
@@ -1313,7 +1313,7 @@
     background-color: #64748b;
 }
 
-/* Bloque de Dirección Física */
+{{-- Bloque de Dirección Física --}}
 .branch-address-box {
     background: var(--bg-surface-elevated, #f8fafc);
     border: 1px solid var(--border-color, #e2e8f0);
@@ -1332,7 +1332,7 @@
     font-size: 0.95rem;
 }
 
-/* Mini Cards de Estadísticas (Radio & Colaboradores) */
+{{-- Mini Cards de Estadísticas (Radio & Colaboradores) --}}
 .branch-stat-mini-card {
     background: var(--bg-surface-elevated, #f8fafc);
     border: 1px solid var(--border-color, #e2e8f0);
@@ -1361,7 +1361,7 @@
     opacity: 0.85;
 }
 
-/* Lista Estructurada de Información (Supervisor & Zona) */
+{{-- Lista Estructurada de Información (Supervisor & Zona) --}}
 .branch-info-list {
     display: flex;
     flex-direction: column;
@@ -1392,12 +1392,12 @@
     font-size: 0.825rem;
 }
 
-/* Pie de la Tarjeta */
+{{-- Pie de la Tarjeta --}}
 .branch-card-footer {
     background: var(--bg-surface-elevated, #f8fafc);
 }
 
-/* Tarjeta de Sección dentro de Modales */
+{{-- Tarjeta de Sección dentro de Modales --}}
 .branch-modal-section-card {
     background: var(--bg-surface-elevated, #f8fafc);
     border: 1px solid var(--border-color, #e2e8f0);
@@ -1420,7 +1420,7 @@
     font-size: 0.735rem;
 }
 
-/* Colores auxiliares */
+{{-- Colores auxiliares --}}
 .text-indigo { color: #6366f1 !important; }
 .bg-indigo-subtle { background-color: rgba(99, 102, 241, 0.12) !important; }
 .text-emerald { color: #059669 !important; }
@@ -1430,9 +1430,9 @@
 .text-purple { color: #9333ea !important; }
 .bg-purple-subtle { background-color: rgba(147, 51, 234, 0.12) !important; }
 
-/* =============================================================================
+{{-- =============================================================================
    SOPORTE TOTAL PARA MODO OSCURO
-   ============================================================================= */
+   ============================================================================= --}}
 [data-bs-theme="dark"] .branches-header-card,
 [data-bs-theme="dark"] .branches-kpi-card,
 [data-bs-theme="dark"] .branches-filter-card,

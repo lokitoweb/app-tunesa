@@ -47,7 +47,7 @@ class AttendancePanelIntegrityTest extends TestCase
         ]);
 
         $this->actingAs($admin)->get("/attendance/{$suspicious->id}")->assertOk()
-            ->assertSee('Bitácora de marcaciones')->assertSee('Sospechosa')
+            ->assertSee('Bitácora inmutable de marcaciones')->assertSee('Sospechosa')
             ->assertSee('Ubicación simulada')->assertSee('Hora del celular desfasada')
             ->assertSee('Av. Abancay 123, Lima')->assertSee('± 12 m')->assertSee('400 s')
             ->assertDontSee('MOCK_LOCATION')->assertDontSee('TIME_DRIFT')->assertDontSee('clock_in<', false);

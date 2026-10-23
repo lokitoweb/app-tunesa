@@ -352,7 +352,7 @@
 
 @section('scripts')
 <script>
-// Estado reactivo interno de Canal Ético (Asíncrono y desacoplado de la URL del navegador)
+{{-- Estado reactivo interno de Canal Ético (Asíncrono y desacoplado de la URL del navegador) --}}
 let currentEthicsState = {
     status: '{{ $status }}',
     unread: '{{ request()->boolean('unread') ? '1' : '' }}',
@@ -415,7 +415,7 @@ async function loadEthics(overrides = {}) {
             currentHeaderBadge.innerHTML = newHeaderBadge.innerHTML;
         }
 
-        // Mantener la URL del navegador completamente limpia sin cadenas de consulta (ej: /ethics)
+        {{-- Mantener la URL del navegador completamente limpia sin cadenas de consulta (ej: /ethics) --}}
         window.history.replaceState({}, '', '{{ route("ethics.index") }}');
     } catch (err) {
         if (err.name !== 'AbortError') {
@@ -481,7 +481,7 @@ function resetEthicsFilters(e) {
     loadEthics(currentEthicsState);
 }
 
-// Delegación de eventos para la paginación interna sin alterar la URL ni recargar la pantalla
+{{-- Delegación de eventos para la paginación interna sin alterar la URL ni recargar la pantalla --}}
 document.addEventListener('click', function(e) {
     const pageLink = e.target.closest('#ethicsDynamicWrapper .pagination a.page-link');
     if (pageLink) {
@@ -493,13 +493,13 @@ document.addEventListener('click', function(e) {
                 const page = targetUrl.searchParams.get('page') || 1;
                 loadEthics({ page: parseInt(page, 10) });
             } catch (ex) {
-                // fallback
+                {{-- fallback --}}
             }
         }
     }
 });
 
-// Limpiar la URL inicial al cargar la página y abrir modal si se especificó open_case
+{{-- Limpiar la URL inicial al cargar la página y abrir modal si se especificó open_case --}}
 document.addEventListener('DOMContentLoaded', function() {
     @if(request('open_case'))
         const targetTab = '{{ request("tab") === "gestion" ? "tab-ethics-gestion-btn" : (request("tab") === "comunicacion" ? "tab-ethics-comunicacion-btn" : "") }}';
@@ -508,7 +508,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.history.replaceState({}, '', '{{ route("ethics.index") }}');
 });
 
-// Copiar URL pública con feedback visual
+{{-- Copiar URL pública con feedback visual --}}
 function copyPublicUrl(url, btn) {
     if (!navigator.clipboard) {
         prompt('Copia este enlace para el canal ético web:', url);
@@ -529,13 +529,13 @@ function copyPublicUrl(url, btn) {
     });
 }
 
-// Abrir modal de vista rápida vía AJAX
+{{-- Abrir modal de vista rápida vía AJAX --}}
 window.openEthicsQuickModal = function(caseId, activeTabId = null) {
     const modalEl = document.getElementById('ethicsQuickModal');
     const container = document.getElementById('ethicsModalContainer');
     if (!modalEl || !container) return;
 
-    // Spinner inicial
+    {{-- Spinner inicial --}}
     container.innerHTML = `
         <div class="p-5 text-center">
             <div class="spinner-border text-primary mb-3" role="status"></div>
@@ -580,9 +580,9 @@ window.openEthicsQuickModal = function(caseId, activeTabId = null) {
     });
 };
 
-// Eventos internos de los formularios del modal (ajaxify)
+{{-- Eventos internos de los formularios del modal (ajaxify) --}}
 function bindModalFormEvents(container, caseId) {
-    // Garantizar cambio instantáneo de pestañas en el modal dinámico
+    {{-- Garantizar cambio instantáneo de pestañas en el modal dinámico --}}
     container.querySelectorAll('#ethicsModalTabs button[data-bs-toggle="pill"]').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
@@ -606,7 +606,7 @@ function bindModalFormEvents(container, caseId) {
         });
     });
 
-    // Interceptar envío de respuesta
+    {{-- Interceptar envío de respuesta --}}
     const replyForm = container.querySelector('form[action*="/reply"]');
     if (replyForm) {
         replyForm.addEventListener('submit', function(e) {
@@ -627,19 +627,19 @@ function bindModalFormEvents(container, caseId) {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    openEthicsQuickModal(caseId, 'tab-ethics-comunicacion-btn'); // Mantener pestaña de chat
+                    openEthicsQuickModal(caseId, 'tab-ethics-comunicacion-btn'); {{-- Mantener pestaña de chat --}}
                 } else {
                     Panel.toast(data.message || 'Error al enviar respuesta', 'error');
                     if (btn) { btn.disabled = false; btn.innerHTML = originalBtn; }
                 }
             })
             .catch(() => {
-                replyForm.submit(); // Fallback tradicional
+                replyForm.submit(); {{-- Fallback tradicional --}}
             });
         });
     }
 
-    // Interceptar cambio de estado
+    {{-- Interceptar cambio de estado --}}
     const statusForm = container.querySelector('form[action*="/status"]');
     if (statusForm) {
         statusForm.addEventListener('submit', function(e) {
@@ -660,7 +660,7 @@ function bindModalFormEvents(container, caseId) {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    openEthicsQuickModal(caseId, 'tab-ethics-gestion-btn'); // Mantener pestaña de gestión
+                    openEthicsQuickModal(caseId, 'tab-ethics-gestion-btn'); {{-- Mantener pestaña de gestión --}}
                 } else {
                     Panel.toast(data.message || 'Error al actualizar estado', 'error');
                     if (btn) { btn.disabled = false; btn.innerHTML = originalBtn; }
@@ -672,7 +672,7 @@ function bindModalFormEvents(container, caseId) {
         });
     }
 
-    // Interceptar asignación
+    {{-- Interceptar asignación --}}
     const assignForm = container.querySelector('form[action*="/assign"]');
     if (assignForm) {
         assignForm.addEventListener('submit', function(e) {
@@ -693,7 +693,7 @@ function bindModalFormEvents(container, caseId) {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    openEthicsQuickModal(caseId, 'tab-ethics-gestion-btn'); // Mantener pestaña de gestión
+                    openEthicsQuickModal(caseId, 'tab-ethics-gestion-btn'); {{-- Mantener pestaña de gestión --}}
                 } else {
                     Panel.toast(data.message || 'Error al asignar', 'error');
                     if (btn) { btn.disabled = false; btn.innerHTML = originalBtn; }
@@ -705,7 +705,7 @@ function bindModalFormEvents(container, caseId) {
         });
     }
 
-    // Interceptar consulta de identidad reservada vía AJAX
+    {{-- Interceptar consulta de identidad reservada vía AJAX --}}
     const identityForm = container.querySelector('form[action*="/identity"]');
     if (identityForm) {
         identityForm.addEventListener('submit', function(e) {
@@ -716,7 +716,7 @@ function bindModalFormEvents(container, caseId) {
     }
 }
 
-// Función global para revelar identidad protegida de forma auditada
+{{-- Función global para revelar identidad protegida de forma auditada --}}
 window.revealEthicsIdentity = function(caseId, btn) {
     if (!btn) btn = document.getElementById('btnRevealIdentity_' + caseId);
     const form = document.getElementById('modalIdentityForm_' + caseId);
@@ -827,7 +827,7 @@ window.toggleModalResolutionField = function(caseId) {
     }
 };
 
-// Copiar código de expediente con feedback visual
+{{-- Copiar código de expediente con feedback visual --}}
 window.copyEthicsCode = function(code, btn) {
     if (!navigator.clipboard) return;
     navigator.clipboard.writeText(code).then(() => {
@@ -837,7 +837,7 @@ window.copyEthicsCode = function(code, btn) {
     });
 };
 
-// Lightbox modal de fotos adjuntas
+{{-- Lightbox modal de fotos adjuntas --}}
 window.previewEthicsPhoto = function(url, caption) {
     const modalEl = document.getElementById('ethicsPhotoModal');
     const imgEl = document.getElementById('ethicsModalPhotoImg');

@@ -22,7 +22,7 @@
     @include('layouts.partials.brand-head', ['brandSettings' => $brandSettings])
 </head>
 <body class="gn-auth-body">
-    <!-- Contenedor Flotante de Notificaciones Toast (Relieve Alto) -->
+    {{-- Contenedor Flotante de Notificaciones Toast (Relieve Alto) --}}
     <div class="antigravity-toast-container" id="toastContainer" aria-live="polite">
         @if($errors->any())
             <div class="antigravity-toast antigravity-toast-danger" role="alert">
@@ -72,20 +72,20 @@
         @endif
     </div>
 
-    <!-- Escenario Anti-Gravity Completo -->
+    {{-- Escenario Anti-Gravity Completo --}}
     <div class="antigravity-viewport" style="background-image: url('{{ asset('img/antigravity-bg.jpg') }}');">
-        <!-- Floating Ambient Refraction Caustics -->
+        {{-- Floating Ambient Refraction Caustics --}}
         <div class="antigravity-caustic-layer" aria-hidden="true"></div>
 
-        <!-- Barra Superior Transparente (Modo claro/oscuro eliminado según solicitud) -->
+        {{-- Barra Superior Transparente (Modo claro/oscuro eliminado según solicitud) --}}
         <header class="antigravity-top-bar"></header>
 
-        <!-- Main Anti-Gravity Composition Area (Perfectamente Centrado Verticalmente) -->
+        {{-- Main Anti-Gravity Composition Area (Perfectamente Centrado Verticalmente) --}}
         <main class="antigravity-stage">
             @yield('content')
         </main>
 
-        <!-- Barra Inferior: Solo Texto Puro sin Pill, Administrable con Año Dinámico -->
+        {{-- Barra Inferior: Solo Texto Puro sin Pill, Administrable con Año Dinámico --}}
         <footer class="antigravity-bottom-bar">
             <p class="antigravity-bottom-text">ERP Corporativo • {{ $brandSettings->tradeName() }} • Transportes y Encomiendas • © {{ date('Y') }}</p>
         </footer>

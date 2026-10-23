@@ -3,7 +3,7 @@
 @section('title', 'Intentos rechazados')
 
 @section('content')
-<!-- Header Ejecutivo del Módulo de Intentos Rechazados -->
+{{-- Header Ejecutivo del Módulo de Intentos Rechazados --}}
 <div class="attempts-header-bar">
     <div>
         <div class="d-flex align-items-center gap-2 mb-1">
@@ -33,7 +33,7 @@
     </div>
 </div>
 
-<!-- Resumen Ejecutivo por Motivo (KPI Cards Interactivas) -->
+{{-- Resumen Ejecutivo por Motivo (KPI Cards Interactivas) --}}
 <div class="row g-3 mb-4">
     {{-- Tarjeta 1: Total en el rango --}}
     <div class="col-6 col-xl-3">
@@ -112,7 +112,7 @@
     </div>
 </div>
 
-<!-- Barra de Filtros Avanzados -->
+{{-- Barra de Filtros Avanzados --}}
 <div class="attempts-filter-card">
     <form method="GET" action="{{ route('attendance.attempts') }}" id="attemptsFilterForm">
         <input type="hidden" name="per_page" value="{{ request('per_page', $attempts->perPage()) }}">
@@ -167,7 +167,7 @@
     </form>
 </div>
 
-<!-- Sección del Mapa Geoespacial (Dónde intentaron marcar) -->
+{{-- Sección del Mapa Geoespacial (Dónde intentaron marcar) --}}
 @if($mapPoints->isNotEmpty())
 <div class="attempts-map-card">
     <div class="attempts-map-header">
@@ -205,7 +205,7 @@
 </div>
 @endif
 
-<!-- Tabla de Intentos Rechazados (Totalmente Adaptable sin Scrollbar Forzado) -->
+{{-- Tabla de Intentos Rechazados (Totalmente Adaptable sin Scrollbar Forzado) --}}
 <div class="attempts-table-card">
     <div class="table-responsive">
         <table class="attempts-table table table-hover align-middle">
@@ -444,7 +444,7 @@
     @endif
 </div>
 
-<!-- Modal de Auditoría Forense Completa de Intento -->
+{{-- Modal de Auditoría Forense Completa de Intento --}}
 <div class="modal fade" id="attemptAuditModal" tabindex="-1" aria-labelledby="attemptAuditModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content">
@@ -607,7 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
     Panel.tiles(map);
     const bounds = [];
 
-    // 1. Dibujar Sedes y Tolerancia
+    {{-- 1. Dibujar Sedes y Tolerancia --}}
     BRANCHES.forEach((b) => {
         L.circle([b.lat, b.lng], {
             radius: b.radius || 50,
@@ -635,7 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bounds.push([b.lat, b.lng]);
     });
 
-    // 2. Dibujar Puntos de Intentos Rechazados
+    {{-- 2. Dibujar Puntos de Intentos Rechazados --}}
     POINTS.forEach((p) => {
         const markerColor = p.mock ? '#dc2626' : '#d97706';
         const marker = L.circleMarker([p.lat, p.lng], {
@@ -665,7 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
         map.fitBounds(bounds, { padding: [35, 35], maxZoom: 16 });
     }
 
-    // Toggle de contraer / expandir mapa
+    {{-- Toggle de contraer / expandir mapa --}}
     const toggleBtn = document.getElementById('toggleMapBtn');
     const mapWrapper = document.getElementById('attemptsMapWrapper');
     const toggleIcon = document.getElementById('toggleMapIcon');
@@ -697,12 +697,12 @@ let currentAuditCoords = '';
 function openAttemptAudit(data) {
     if (!data) return;
 
-    // 1. Título y Fechas
+    {{-- 1. Título y Fechas --}}
     document.getElementById('auditIdText').textContent = data.id || '';
     document.getElementById('auditTimestampText').textContent = data.date_formatted || '';
     document.getElementById('auditPunchTypeBadge').innerHTML = `<span class="attempts-pill bg-primary-subtle text-primary border border-primary-subtle">${Panel.esc(data.punch_type)}</span>`;
 
-    // 2. Avatar e Identidad
+    {{-- 2. Avatar e Identidad --}}
     const avatarContainer = document.getElementById('auditAvatarContainer');
     if (data.avatar_url) {
         avatarContainer.innerHTML = `<img src="${Panel.esc(data.avatar_url)}" alt="${Panel.esc(data.full_name)}" class="attempts-avatar-img" style="width: 46px; height: 46px; border-radius: 10px;">`;
@@ -717,14 +717,14 @@ function openAttemptAudit(data) {
     document.getElementById('auditPositionText').textContent = data.position || 'Colaborador';
     document.getElementById('auditBranchText').textContent = data.branch_name || 'Sin sucursal asignada';
 
-    // 3. Veredicto del Rechazo
+    {{-- 3. Veredicto del Rechazo --}}
     const toneClass = data.mock_location ? 'danger' : 'warning';
     document.getElementById('auditReasonBadgeContainer').innerHTML = `<span class="attempts-pill bg-${toneClass}-subtle text-${toneClass}-emphasis border border-${toneClass}-subtle fw-bold">${Panel.esc(data.error_label)}</span>`;
     document.getElementById('auditMessageText').textContent = data.message || 'Sin mensaje de error disponible.';
     document.getElementById('auditSourceText').textContent = data.source || 'Servidor';
     document.getElementById('auditOfflineText').textContent = data.offline ? `Sí (Registrada: ${data.offline_recorded_at})` : 'No (Transmisión en tiempo real)';
 
-    // 4. Telemetría GPS
+    {{-- 4. Telemetría GPS --}}
     const mockBadgeContainer = document.getElementById('auditMockBadgeContainer');
     if (data.mock_location) {
         mockBadgeContainer.innerHTML = `<span class="attempts-pill bg-danger-subtle text-danger border border-danger-subtle fw-bold"><i class="bi bi-phone-vibrate" style="margin-right: 5px;"></i>¡Alerta! Fake GPS detectado</span>`;
@@ -751,7 +751,7 @@ function openAttemptAudit(data) {
         copyBtn.style.display = 'none';
     }
 
-    // 5. Dispositivo y Red
+    {{-- 5. Dispositivo y Red --}}
     document.getElementById('auditDeviceOsText').textContent = data.device_os || '—';
     document.getElementById('auditAppVersionText').textContent = data.app_version ? `v${data.app_version}` : '—';
     document.getElementById('auditIpText').textContent = data.ip || '—';
@@ -764,7 +764,7 @@ function openAttemptAudit(data) {
         flagsContainer.innerHTML = `<span class="attempts-pill bg-success-subtle text-success border border-success-subtle"><i class="bi bi-shield-check" style="margin-right: 5px;"></i>Dispositivo íntegro (Sin anomalías)</span>`;
     }
 
-    // 6. Mostrar Modal
+    {{-- 6. Mostrar Modal --}}
     const modalEl = document.getElementById('attemptAuditModal');
     if (modalEl) {
         bootstrap.Modal.getOrCreateInstance(modalEl).show();

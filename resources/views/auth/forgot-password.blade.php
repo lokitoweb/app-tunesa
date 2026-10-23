@@ -10,19 +10,19 @@
 <div class="antigravity-composer">
     <div class="antigravity-auth-card" id="forgotPasswordCard">
 
-        <!-- Logo Oficial Centrado -->
+        {{-- Logo Oficial Centrado --}}
         <div class="card-brand-logo-wrap">
             <img src="{{ $brandSettings->displayLogoUrl() }}" alt="{{ $brandSettings->tradeName() }}" class="card-brand-logo">
         </div>
 
-        <!-- Título y Subtítulo -->
+        {{-- Título y Subtítulo --}}
         <h2 class="card-hero-title">Recuperar contraseña</h2>
         <p class="card-hero-subtitle">Ingresa tu correo corporativo y te enviaremos un enlace de recuperación.</p>
 
         <form method="POST" action="{{ route('password.email') }}" novalidate id="forgotForm" class="antigravity-form">
             @csrf
 
-            <!-- Campo Correo Corporativo -->
+            {{-- Campo Correo Corporativo --}}
             <div class="glass-field-group">
                 <label for="email" class="glass-field-label">Correo electrónico corporativo</label>
                 <div class="glass-input-plane" id="emailInputPlane">
@@ -37,14 +37,14 @@
                 </div>
             </div>
 
-            <!-- Botón de Acción -->
+            {{-- Botón de Acción --}}
             <button type="submit" class="organic-stone-btn" id="forgotSubmit" disabled>
                 <span class="btn-engraved-text">Enviar enlace de recuperación</span>
                 <span class="btn-engraved-arrow">→</span>
             </button>
         </form>
 
-        <!-- Enlace Volver -->
+        {{-- Enlace Volver --}}
         <div class="card-security-note" style="margin-top: 1.5rem;">
             <a href="{{ route('login') }}" class="glass-forgot-link" style="font-size: 13px; display: flex; align-items: center; gap: 0.4rem;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
@@ -65,7 +65,7 @@
         const btn = document.getElementById('forgotSubmit');
         const toastContainer = document.getElementById('toastContainer');
 
-        // ── Estado Dinámico del Botón ──
+        {{-- ── Estado Dinámico del Botón ── --}}
         function updateButtonState() {
             if (!btn || !email) return;
             btn.disabled = email.value.trim().length === 0;
@@ -77,7 +77,7 @@
         }
         updateButtonState();
 
-        // Validación antes del envío
+        {{-- Validación antes del envío --}}
         if (form) {
             form.addEventListener('submit', function (e) {
                 const emailVal = email ? email.value.trim() : '';
@@ -97,7 +97,7 @@
                     return false;
                 }
 
-                // Estado de carga
+                {{-- Estado de carga --}}
                 if (btn) {
                     btn.disabled = true;
                     btn.classList.add('is-loading');
@@ -134,7 +134,7 @@
             }, 6000);
         }
 
-        // Auto-cerrar toasts del servidor
+        {{-- Auto-cerrar toasts del servidor --}}
         if (toastContainer) {
             const serverToasts = toastContainer.querySelectorAll('.antigravity-toast');
             serverToasts.forEach(toast => {

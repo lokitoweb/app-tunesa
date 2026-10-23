@@ -4,9 +4,9 @@
 
 @section('styles')
 <style>
-/* ==========================================================================
+{{-- ==========================================================================
    ASISTENCIA DEL DÍA — DISEÑO EJECUTIVO ADAPTATIVO (MODO CLARO & OSCURO)
-   ========================================================================== */
+   ========================================================================== --}}
 .cal-day-shell {
     --cal-bg: var(--bg-surface, #ffffff);
     --cal-bg-subtle: var(--bg-surface-elevated, #f8fafc);
@@ -36,7 +36,7 @@
     --cal-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
-/* 1. Header Principal */
+{{-- 1. Header Principal --}}
 .cal-day-header {
     display: flex;
     align-items: center;
@@ -89,7 +89,7 @@
     color: #60a5fa;
 }
 
-/* 2. Panel de Filtros Moderno */
+{{-- 2. Panel de Filtros Moderno --}}
 .cal-day-panel {
     background: var(--cal-bg);
     border: 1px solid var(--cal-border);
@@ -263,7 +263,7 @@
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25) !important;
 }
 
-/* 3. Contenedor Dinámico Asíncrono con Overlay Localizado */
+{{-- 3. Contenedor Dinámico Asíncrono con Overlay Localizado --}}
 #cal-day-dynamic-container {
     position: relative;
     min-height: 350px;
@@ -287,7 +287,7 @@
     background: rgba(17, 22, 34, 0.82);
 }
 
-/* 4. Deck de Tarjetas KPI */
+{{-- 4. Deck de Tarjetas KPI --}}
 .cal-day-kpis-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -336,7 +336,7 @@
     margin-top: 3px;
 }
 
-/* 5. Banner de Fecha */
+{{-- 5. Banner de Fecha --}}
 .cal-day-date-banner {
     display: flex;
     align-items: center;
@@ -355,7 +355,7 @@
     color: #2563eb;
 }
 
-/* 6. Tarjetas de Turno & Tablas */
+{{-- 6. Tarjetas de Turno & Tablas --}}
 .cal-shift-card {
     background: var(--cal-bg);
     border: 1px solid var(--cal-border);
@@ -407,7 +407,7 @@
     color: var(--cal-text-muted);
 }
 
-/* Píldora de Conteo: Esquinas limpias (6px), holgura generosa y espaciado claro entre icono y texto */
+{{-- Píldora de Conteo: Esquinas limpias (6px), holgura generosa y espaciado claro entre icono y texto --}}
 .cal-shift-count-badge {
     font-size: 0.8rem;
     padding: 6px 14px;
@@ -432,7 +432,7 @@
     color: #34d399;
 }
 
-/* Tabla de Colaboradores */
+{{-- Tabla de Colaboradores --}}
 .cal-shift-table {
     width: 100%;
     border-collapse: collapse;
@@ -463,7 +463,7 @@
     border-bottom: none;
 }
 
-/* Colaborador celda */
+{{-- Colaborador celda --}}
 .cal-day-colab-cell {
     display: flex;
     align-items: center;
@@ -516,7 +516,7 @@
     gap: 6px;
 }
 
-/* Píldoras de Estado: Esquinas menos redondeadas (6px), holgura generosa y espaciado de icono */
+{{-- Píldoras de Estado: Esquinas menos redondeadas (6px), holgura generosa y espaciado de icono --}}
 .cal-day-badge {
     display: inline-flex;
     align-items: center;
@@ -590,7 +590,7 @@
     color: #60a5fa;
 }
 
-/* Selfie Thumb & Acciones */
+{{-- Selfie Thumb & Acciones --}}
 .cal-selfie-thumb {
     width: 36px;
     height: 36px;
@@ -676,7 +676,7 @@
 @endphp
 
 <div class="cal-day-shell">
-    <!-- 1. Encabezado de la Página -->
+    {{-- 1. Encabezado de la Página --}}
     <div class="cal-day-header">
         <div>
             <h1>Asistencia del día</h1>
@@ -695,10 +695,10 @@
         </a>
     </div>
 
-    <!-- 2. Filtros de Navegación Asíncronos (Sin recarga de página ni parámetros vacíos) -->
+    {{-- 2. Filtros de Navegación Asíncronos (Sin recarga de página ni parámetros vacíos) --}}
     <div class="cal-day-panel">
         <form id="dayFilterForm" onsubmit="event.preventDefault(); applyDayFilter();" class="row g-3 align-items-end">
-            <!-- Selector de Fecha con Botones Prev/Next Asíncronos -->
+            {{-- Selector de Fecha con Botones Prev/Next Asíncronos --}}
             <div class="col-12 col-md-6 col-xl-3">
                 <label for="date" class="cal-day-form-label">Día</label>
                 <div class="cal-day-nav-group">
@@ -712,7 +712,7 @@
                 </div>
             </div>
 
-            <!-- Filtro por Sucursal -->
+            {{-- Filtro por Sucursal --}}
             <div class="col-6 col-md-3 col-xl-2">
                 <label for="branch_id" class="cal-day-form-label">Sucursal</label>
                 <select id="branch_id" name="branch_id" class="cal-day-select" onchange="applyDayFilter()">
@@ -723,7 +723,7 @@
                 </select>
             </div>
 
-            <!-- Filtro por Turno -->
+            {{-- Filtro por Turno --}}
             <div class="col-6 col-md-3 col-xl-2">
                 <label for="shift_id" class="cal-day-form-label">Turno</label>
                 <select id="shift_id" name="shift_id" class="cal-day-select" onchange="applyDayFilter()">
@@ -734,7 +734,7 @@
                 </select>
             </div>
 
-            <!-- Búsqueda de Colaborador -->
+            {{-- Búsqueda de Colaborador --}}
             <div class="col-12 col-md-6 col-xl-3">
                 <label for="q" class="cal-day-form-label">Colaborador</label>
                 <div class="cal-day-search-box">
@@ -743,7 +743,7 @@
                 </div>
             </div>
 
-            <!-- Botón Aplicar -->
+            {{-- Botón Aplicar --}}
             <div class="col-12 col-md-6 col-xl-2">
                 <button type="submit" class="cal-day-btn-apply">
                     <i class="bi bi-funnel"></i>
@@ -753,9 +753,9 @@
         </form>
     </div>
 
-    <!-- 3. Contenedor Dinámico Asíncrono: Se actualiza sin recargar la página completa -->
+    {{-- 3. Contenedor Dinámico Asíncrono: Se actualiza sin recargar la página completa --}}
     <div id="cal-day-dynamic-container">
-        <!-- Overlay de Carga Asíncrona (Solo cubre los resultados inferiores) -->
+        {{-- Overlay de Carga Asíncrona (Solo cubre los resultados inferiores) --}}
         <div id="cal-day-loading-overlay">
             <div class="d-flex flex-column align-items-center">
                 <div class="spinner-border text-primary mb-2" role="status" style="width: 2.2rem; height: 2.2rem;"></div>
@@ -763,7 +763,7 @@
             </div>
         </div>
 
-        <!-- Métricas Ejecutivas del Día -->
+        {{-- Métricas Ejecutivas del Día --}}
         <div class="cal-day-kpis-grid">
             @foreach([
                 ['Esperados', $counters['expected'], 'people-fill', 'rgba(2, 132, 199, 0.12)', '#0284c7', ''],
@@ -786,13 +786,13 @@
             @endforeach
         </div>
 
-        <!-- Banner con la fecha formateada -->
+        {{-- Banner con la fecha formateada --}}
         <div class="cal-day-date-banner">
             <i class="bi bi-calendar-event"></i>
             <span class="text-capitalize">{{ $dateLabel }}</span>
         </div>
 
-        <!-- Grupos por Turno y Tablas de Asistencia -->
+        {{-- Grupos por Turno y Tablas de Asistencia --}}
         @forelse($groups as $shiftName => $rows)
             <div class="cal-shift-card">
                 <div class="cal-shift-card-header">
@@ -989,7 +989,7 @@
 
 @section('scripts')
 <script>
-// Filtro Asíncrono: No genera recargas completas ni parámetros vacíos en la URL
+{{-- Filtro Asíncrono: No genera recargas completas ni parámetros vacíos en la URL --}}
 async function applyDayFilter(customParams = {}) {
     const form = document.getElementById('dayFilterForm');
     const formData = new FormData(form);
@@ -1000,7 +1000,7 @@ async function applyDayFilter(customParams = {}) {
 
     try {
         const url = new URL('{{ route("attendance.calendar.day") }}', window.location.origin);
-        // Solo agregar parámetros que no estén vacíos para mantener la URL completamente limpia
+        {{-- Solo agregar parámetros que no estén vacíos para mantener la URL completamente limpia --}}
         Object.entries(params).forEach(([k, v]) => {
             if (v !== null && v !== undefined && String(v).trim() !== '') {
                 url.searchParams.set(k, String(v).trim());
@@ -1022,7 +1022,7 @@ async function applyDayFilter(customParams = {}) {
 
         if (newContent) {
             document.getElementById('cal-day-dynamic-container').innerHTML = newContent.innerHTML;
-            // Mantener la barra de navegación del navegador limpia y profesional
+            {{-- Mantener la barra de navegación del navegador limpia y profesional --}}
             window.history.replaceState({}, '', url.toString());
         }
     } catch (e) {
@@ -1041,7 +1041,7 @@ function navDay(dateStr) {
 }
 
 @if($isToday)
-// Hoy: recarga cada minuto mientras la pestaña está visible y no hay un visor abierto
+{{-- Hoy: recarga cada minuto mientras la pestaña está visible y no hay un visor abierto --}}
 setInterval(function () {
     if (!document.hidden && !document.querySelector('.modal.show')) location.reload();
 }, 60000);

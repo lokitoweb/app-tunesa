@@ -421,12 +421,12 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // 0. Mantener la barra de direcciones 100% limpia en /dashboard sin query strings
+    {{-- 0. Mantener la barra de direcciones 100% limpia en /dashboard sin query strings --}}
     if (window.location.search) {
         try {
             window.history.replaceState({}, document.title, window.location.pathname);
         } catch (e) {
-            /* ignore */
+            {{-- ignore --}}
         }
     }
 
@@ -436,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const hoursLabels = @json($hourlyLabels);
     const hourlyActivity = @json($hourlyDistribution);
 
-    // 1. Mapa Leaflet Dinámico con Capa Reactiva de Sedes
+    {{-- 1. Mapa Leaflet Dinámico con Capa Reactiva de Sedes --}}
     const first = branches[0] || allBranchesList[0];
     const map = L.map('liveMap', { scrollWheelZoom: false })
         .setView(first && first.latitude ? [parseFloat(first.latitude), parseFloat(first.longitude)] : [-8.11823, -79.02052], first ? 14 : 12);
@@ -471,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentBranchId = @json($selectedBranchId);
     renderMapBranches(currentBranchId);
 
-    // 2. Gráfico de Distribución Horaria Real
+    {{-- 2. Gráfico de Distribución Horaria Real --}}
     const hourlyCtx = document.getElementById('hourlyActivityChart');
     let hourlyChartInstance = null;
     if (hourlyCtx) {
@@ -516,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3. Gráfico Semanal / Tendencia
+    {{-- 3. Gráfico Semanal / Tendencia --}}
     const weeklyCtx = document.getElementById('weeklyChartCanvas');
     let weeklyChartInstance = null;
     if (weeklyCtx) {
@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Filtro de Sede / Oficina Reactivo 100% Asíncrono (Cero recarga de página, cero parámetros en URL)
+    {{-- Filtro de Sede / Oficina Reactivo 100% Asíncrono (Cero recarga de página, cero parámetros en URL) --}}
     const branchSelectEl = document.getElementById('branchSelectFilter');
     if (branchSelectEl) {
         branchSelectEl.addEventListener('change', (e) => {
@@ -578,7 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 4. Variables de estado del dashboard
+    {{-- 4. Variables de estado del dashboard --}}
     let activePreset = @json($preset) || 'today';
     let activeDateFrom = @json($dateFrom);
     let activeDateTo = @json($dateTo);
@@ -599,7 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return dmyStr;
     }
 
-    // 5. MOTOR DEL CALENDARIO INTERACTIVO (Screenshot 1)
+    {{-- 5. MOTOR DEL CALENDARIO INTERACTIVO (Screenshot 1) --}}
     let calViewDate = new Date(activeDateFrom ? activeDateFrom + 'T00:00:00' : Date.now());
     let selectedCalStart = activeDateFrom;
     let selectedCalEnd = activeDateTo;
@@ -620,17 +620,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!daysGrid) return;
         daysGrid.innerHTML = '';
 
-        // Primer día del mes (1=Lunes, 7=Domingo)
+        {{-- Primer día del mes (1=Lunes, 7=Domingo) --}}
         const firstDayOfMonth = new Date(year, month, 1);
         let startingDayOfWeek = firstDayOfMonth.getDay();
         startingDayOfWeek = startingDayOfWeek === 0 ? 7 : startingDayOfWeek;
 
-        // Días del mes actual
+        {{-- Días del mes actual --}}
         const daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
-        // Días del mes anterior
+        {{-- Días del mes anterior --}}
         const daysInPrevMonth = new Date(year, month, 0).getDate();
 
-        // Rellenar días anteriores
+        {{-- Rellenar días anteriores --}}
         for (let i = startingDayOfWeek - 1; i > 0; i--) {
             const dayNum = daysInPrevMonth - i + 1;
             const cell = document.createElement('div');
@@ -639,7 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
             daysGrid.appendChild(cell);
         }
 
-        // Rellenar días del mes en curso
+        {{-- Rellenar días del mes en curso --}}
         for (let d = 1; d <= daysInCurrentMonth; d++) {
             const dStr = String(d).padStart(2, '0');
             const mStr = String(month + 1).padStart(2, '0');
@@ -682,7 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (inpFrom) inpFrom.value = formatToDMY(selectedCalStart);
                 if (inpTo) inpTo.value = formatToDMY(selectedCalEnd);
 
-                // Desmarcar presets rápidos
+                {{-- Desmarcar presets rápidos --}}
                 document.querySelectorAll('.calendar-preset-btn').forEach(b => {
                     b.classList.remove('is-active');
                     b.querySelector('.bi-check-lg')?.classList.add('d-none');
@@ -694,7 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
             daysGrid.appendChild(cell);
         }
 
-        // Rellenar días del mes siguiente para completar la cuadrícula (múltiplo de 7)
+        {{-- Rellenar días del mes siguiente para completar la cuadrícula (múltiplo de 7) --}}
         const totalCells = (startingDayOfWeek - 1) + daysInCurrentMonth;
         const remaining = (7 - (totalCells % 7)) % 7;
         for (let nextD = 1; nextD <= remaining; nextD++) {
@@ -705,7 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Botones de navegación del mes (< y >)
+    {{-- Botones de navegación del mes (< y >) --}}
     document.getElementById('calPrevMonthBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -720,14 +720,14 @@ document.addEventListener('DOMContentLoaded', () => {
         renderInteractiveCalendar();
     });
 
-    // Cancelar cierra el dropdown
+    {{-- Cancelar cierra el dropdown --}}
     document.getElementById('calCancelBtn')?.addEventListener('click', () => {
         const toggleBtn = document.getElementById('dateFilterDropdownBtn');
         const dd = bootstrap.Dropdown.getInstance(toggleBtn);
         if (dd) dd.hide();
     });
 
-    // Aplicar rango seleccionado por calendario (Carga 100% Interna Asíncrona sin alterar URL)
+    {{-- Aplicar rango seleccionado por calendario (Carga 100% Interna Asíncrona sin alterar URL) --}}
     document.getElementById('calApplyBtn')?.addEventListener('click', () => {
         const toggleBtn = document.getElementById('dateFilterDropdownBtn');
         const dd = bootstrap.Dropdown.getInstance(toggleBtn);
@@ -739,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, true, false);
     });
 
-    // Clic en los presets de la izquierda (Hoy, Ayer, Esta semana, etc.)
+    {{-- Clic en los presets de la izquierda (Hoy, Ayer, Esta semana, etc.) --}}
     document.querySelectorAll('.calendar-preset-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -761,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Helper para crear un elemento de marcación en vivo
+    {{-- Helper para crear un elemento de marcación en vivo --}}
     function createStreamItemElement(att) {
         const div = document.createElement('div');
         div.className = 'list-group-item d-flex align-items-center gap-3 px-2 py-2';
@@ -809,19 +809,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return div;
     }
 
-    // Render inicial del calendario
+    {{-- Render inicial del calendario --}}
     renderInteractiveCalendar();
 
-    // 6. SINCRONIZACIÓN Y ACTUALIZACIÓN INTERNA AJAX (Sin recarga de página)
-    // 6. SINCRONIZACIÓN Y ACTUALIZACIÓN INTERNA AJAX (Sin recarga de página y SIN modificar URL)
-    // Solo vale la última respuesta: un sondeo lento no pisa un filtro recién elegido
+    {{-- 6. SINCRONIZACIÓN Y ACTUALIZACIÓN INTERNA AJAX (Sin recarga de página) --}}
+    {{-- 6. SINCRONIZACIÓN Y ACTUALIZACIÓN INTERNA AJAX (Sin recarga de página y SIN modificar URL) --}}
+    {{-- Solo vale la última respuesta: un sondeo lento no pisa un filtro recién elegido --}}
     let dashboardFetchSeq = 0;
 
     window.fetchDashboardData = function(paramsObj = {}, showToast = true, isAutoPolling = false) {
         const refreshIcon = document.querySelector('#telemetryRefreshBtn .bi-arrow-repeat');
         if (refreshIcon && !isAutoPolling) refreshIcon.classList.add('is-spinning');
 
-        // Actualizar estado interno
+        {{-- Actualizar estado interno --}}
         if (paramsObj.preset) {
             activePreset = paramsObj.preset;
         } else if (paramsObj.date_from) {
@@ -844,16 +844,16 @@ document.addEventListener('DOMContentLoaded', () => {
             queryParams.set('branch_id', currentBranchId);
         }
 
-        // Mantener la barra de direcciones 100% limpia en /dashboard sin query parameters
+        {{-- Mantener la barra de direcciones 100% limpia en /dashboard sin query parameters --}}
         if (window.location.search) {
             try {
                 window.history.replaceState({}, document.title, window.location.pathname);
-            } catch (e) { /* ignore */ }
+            } catch (e) { {{-- ignore --}} }
         }
 
         const seq = ++dashboardFetchSeq;
-        // Filtro elegido por la persona: KPIs, gráficos y lista en silueta.
-        // El sondeo de cada 20 s no la muestra (no parpadea).
+        {{-- Filtro elegido por la persona: KPIs, gráficos y lista en silueta. --}}
+        {{-- El sondeo de cada 20 s no la muestra (no parpadea). --}}
         if (!isAutoPolling) Panel.skeleton.on('#main-content');
         fetch(`{{ route('dashboard.live-stream') }}?${queryParams.toString()}`, {
             headers: { 
@@ -863,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cache: 'no-store'
         })
         .then(res => {
-            // Sesión vencida: recargar lleva al login en lugar de fallar en silencio
+            {{-- Sesión vencida: recargar lleva al login en lugar de fallar en silencio --}}
             if (res.status === 401 || res.status === 419) { window.location.reload(); return null; }
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             return res.json();
@@ -877,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedCalStart = data.dateFrom;
             selectedCalEnd = data.dateTo;
 
-            // Actualizar etiquetas del botón disparador del calendario
+            {{-- Actualizar etiquetas del botón disparador del calendario --}}
             const triggerLabel = document.getElementById('calTriggerLabel');
             const triggerFrom = document.getElementById('calTriggerFrom');
             const triggerTo = document.getElementById('calTriggerTo');
@@ -885,20 +885,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (triggerFrom) triggerFrom.textContent = formatToDMY(data.dateFrom);
             if (triggerTo) triggerTo.textContent = formatToDMY(data.dateTo);
 
-            // Inputs del popover
+            {{-- Inputs del popover --}}
             const inpFrom = document.getElementById('calInputFrom');
             const inpTo = document.getElementById('calInputTo');
             if (inpFrom) inpFrom.value = formatToDMY(data.dateFrom);
             if (inpTo) inpTo.value = formatToDMY(data.dateTo);
 
-            // Re-render calendario solo si el dropdown no está abierto para no interrumpir al usuario
+            {{-- Re-render calendario solo si el dropdown no está abierto para no interrumpir al usuario --}}
             const isDropdownOpen = document.querySelector('#dashboardCalendarDropdown .dropdown-menu.show');
             if (!isDropdownOpen) {
                 calViewDate = new Date(data.dateFrom + 'T00:00:00');
                 renderInteractiveCalendar();
             }
 
-            // Sincronizar selector de sucursal
+            {{-- Sincronizar selector de sucursal --}}
             if (data.selectedBranchId !== undefined) {
                 currentBranchId = data.selectedBranchId;
                 const branchSel = document.getElementById('branchSelectFilter');
@@ -907,7 +907,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Actualizar Sedes Activas y Calibración
+            {{-- Actualizar Sedes Activas y Calibración --}}
             const activeBranchesEl = document.getElementById('kpiActiveBranches');
             if (activeBranchesEl && data.activeBranchesCount !== undefined) {
                 activeBranchesEl.textContent = data.activeBranchesCount;
@@ -922,7 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 calibEl.className = `${data.calibratedRate >= 100 ? 'text-success' : (data.calibratedRate >= 80 ? 'text-primary' : 'text-warning')} fw-bold`;
             }
 
-            // 1. KPIs Superiores (Datos reales y verificados, cero duplicación)
+            {{-- 1. KPIs Superiores (Datos reales y verificados, cero duplicación) --}}
             const total = data.kpis.total_attendances ?? (data.kpis.present_count || 0);
             const elTot = document.getElementById('kpiTotal');
             if (elTot) elTot.textContent = total;
@@ -939,7 +939,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const elOnShift = document.getElementById('kpiOnShiftText');
             if (elOnShift) elOnShift.textContent = `${data.kpis.active_on_shift ?? total} activos`;
 
-            // 2. Diales Circulares (Los 3)
+            {{-- 2. Diales Circulares (Los 3) --}}
             const punctualityRate = Math.min(Math.max(data.kpis.punctuality_rate ?? 100, 0), 100);
             const pOffset = 131.9 - (131.9 * punctualityRate / 100);
             const pMeter = document.getElementById('dialPunctualityMeter');
@@ -974,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const gSub = document.getElementById('dialGeofenceSub');
             if (gSub) gSub.textContent = `${data.kpis.out_of_geofence ?? 0} fuera de radio`;
 
-            // 3. Gráficos Reactivos (Distribución Horaria y Tendencia Semanal)
+            {{-- 3. Gráficos Reactivos (Distribución Horaria y Tendencia Semanal) --}}
             if (hourlyChartInstance && data.hourlyDistribution) {
                 hourlyChartInstance.data.datasets[0].data = data.hourlyDistribution;
                 hourlyChartInstance.update();
@@ -988,7 +988,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 weeklyChartInstance.update();
             }
 
-            // 4. Feed de Marcaciones en Vivo (Reconciliación Inteligente: No parpadear fotos ya cargadas)
+            {{-- 4. Feed de Marcaciones en Vivo (Reconciliación Inteligente: No parpadear fotos ya cargadas) --}}
             const streamBox = document.getElementById('streamContainer');
             if (streamBox) {
                 const incomingAttendances = data.attendances || [];
@@ -999,7 +999,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!isIdentical) {
                     if (isAutoPolling && renderedAttendanceIds.length > 0) {
-                        // Solo agregar marcaciones nuevas que hayan llegado arriba
+                        {{-- Solo agregar marcaciones nuevas que hayan llegado arriba --}}
                         const existingIdSet = new Set(renderedAttendanceIds);
                         const brandNewItems = incomingAttendances.filter(a => !existingIdSet.has(a.id));
 
@@ -1016,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             renderFullStream(incomingAttendances, streamBox);
                         }
                     } else {
-                        // Cambio explícito de período/preset: renderizar lista completa
+                        {{-- Cambio explícito de período/preset: renderizar lista completa --}}
                         renderFullStream(incomingAttendances, streamBox);
                     }
                 }
@@ -1067,13 +1067,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // Botón manual de refresco de telemetría (100% interno sin tocar URL)
+    {{-- Botón manual de refresco de telemetría (100% interno sin tocar URL) --}}
     window.refreshDashboardTelemetry = function(btn) {
         window.fetchDashboardData({}, true, false);
     };
 
-    // Auto-polling cada 20 segundos sin resetear filtros y sin tocar URL.
-    // Pestaña oculta: no consulta; al volver se actualiza al instante.
+    {{-- Auto-polling cada 20 segundos sin resetear filtros y sin tocar URL. --}}
+    {{-- Pestaña oculta: no consulta; al volver se actualiza al instante. --}}
     setInterval(() => {
         if (document.visibilityState === 'visible') window.fetchDashboardData({}, false, true);
     }, 20000);

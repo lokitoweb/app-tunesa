@@ -12,11 +12,11 @@
     $posGrouped = ($positionsCatalog ?? collect())->groupBy(fn ($p) => $p->department?->name ?? 'General');
 @endphp
 
-<!-- Modal de Alta de Colaborador (Executive Modern Design) -->
+{{-- Modal de Alta de Colaborador (Executive Modern Design) --}}
 <div class="modal fade" id="employeeModal" tabindex="-1" aria-labelledby="employeeModalLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content emp-modal-content">
-            <!-- Modal Header -->
+            {{-- Modal Header --}}
             <div class="modal-header emp-modal-header">
                 <div class="d-flex align-items-center gap-3">
                     <div class="emp-modal-icon">
@@ -30,11 +30,11 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
 
-            <!-- Modal Form -->
+            {{-- Modal Form --}}
             <form id="createEmployeeForm" action="{{ route('employees.store') }}" method="POST" enctype="multipart/form-data" novalidate>
                 @csrf
 
-                <!-- Modal Navigation Tabs -->
+                {{-- Modal Navigation Tabs --}}
                 <div class="emp-modal-nav-wrap">
                     <ul class="nav nav-pills emp-modal-tabs" id="empModalTabs" role="tablist">
                         <li class="nav-item" role="presentation">
@@ -58,9 +58,9 @@
                     </ul>
                 </div>
 
-                <!-- Modal Body with Tabs Content -->
+                {{-- Modal Body with Tabs Content --}}
                 <div class="modal-body emp-modal-body">
-                    <!-- Global Error Summary Alert (Dynamic) -->
+                    {{-- Global Error Summary Alert (Dynamic) --}}
                     <div class="alert alert-danger d-none py-2 px-3 mb-3 small d-flex align-items-center gap-2" id="modalFormErrorAlert" role="alert">
                         <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
                         <span id="modalFormErrorText">Por favor revisa los campos señalados en rojo.</span>
@@ -68,7 +68,7 @@
 
                     <div class="tab-content" id="empModalTabContent">
 
-                        <!-- TAB 1: DATOS PERSONALES Y ACCESO -->
+                        {{-- TAB 1: DATOS PERSONALES Y ACCESO --}}
                         <div class="tab-pane fade show active" id="tab-emp-personal" role="tabpanel" aria-labelledby="tab-emp-personal-btn">
                             {{-- Selector de empresa si está en vista global --}}
                             @if(isset($companies) && $companies)
@@ -100,21 +100,21 @@
                                 </div>
 
                                 <div class="row g-3">
-                                    <!-- Nombres -->
+                                    {{-- Nombres --}}
                                     <div class="col-12 col-md-6">
                                         <label for="modal_first_name" class="emp-form-label">Nombres <span class="text-danger">*</span></label>
                                         <input type="text" id="modal_first_name" name="first_name" class="emp-form-input" placeholder="Ej. Juan Carlos" required maxlength="100">
                                         <div class="invalid-feedback" id="err_first_name"></div>
                                     </div>
 
-                                    <!-- Apellidos -->
+                                    {{-- Apellidos --}}
                                     <div class="col-12 col-md-6">
                                         <label for="modal_last_name" class="emp-form-label">Apellidos <span class="text-danger">*</span></label>
                                         <input type="text" id="modal_last_name" name="last_name" class="emp-form-input" placeholder="Ej. Pérez Quispe" required maxlength="100">
                                         <div class="invalid-feedback" id="err_last_name"></div>
                                     </div>
 
-                                    <!-- Tipo de Documento -->
+                                    {{-- Tipo de Documento --}}
                                     <div class="col-12 col-md-4">
                                         <label for="modal_document_type" class="emp-form-label">Tipo Doc. <span class="text-danger">*</span></label>
                                         <select id="modal_document_type" name="document_type" class="emp-form-select" required>
@@ -125,28 +125,28 @@
                                         <div class="invalid-feedback" id="err_document_type"></div>
                                     </div>
 
-                                    <!-- Número de Documento -->
+                                    {{-- Número de Documento --}}
                                     <div class="col-12 col-md-4">
                                         <label for="modal_document_number" class="emp-form-label">N° de Documento <span class="text-danger">*</span></label>
                                         <input type="text" id="modal_document_number" name="document_number" class="emp-form-input" placeholder="Ej. 70889912" required maxlength="30">
                                         <div class="invalid-feedback" id="err_document_number"></div>
                                     </div>
 
-                                    <!-- Teléfono / WhatsApp -->
+                                    {{-- Teléfono / WhatsApp --}}
                                     <div class="col-12 col-md-4">
                                         <label for="modal_phone" class="emp-form-label">Teléfono / WhatsApp</label>
                                         <input type="tel" id="modal_phone" name="phone" class="emp-form-input" placeholder="Ej. 987654321" maxlength="30">
                                         <div class="invalid-feedback" id="err_phone"></div>
                                     </div>
 
-                                    <!-- Fecha de Nacimiento -->
+                                    {{-- Fecha de Nacimiento --}}
                                     <div class="col-12 col-md-4">
                                         <label for="modal_birth_date" class="emp-form-label">Fecha de Nacimiento</label>
                                         <input type="date" id="modal_birth_date" name="birth_date" class="emp-form-input" max="{{ now()->subDay()->format('Y-m-d') }}">
                                         <div class="invalid-feedback" id="err_birth_date"></div>
                                     </div>
 
-                                    <!-- Correo de Acceso -->
+                                    {{-- Correo de Acceso --}}
                                     <div class="col-12 col-md-8">
                                         <label for="modal_email" class="emp-form-label">
                                             Correo de Acceso (Usuario App)
@@ -159,7 +159,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Foto de Perfil -->
+                                    {{-- Foto de Perfil --}}
                                     <div class="col-12">
                                         <label for="modal_avatar" class="emp-form-label">Foto de Perfil (Opcional)</label>
                                         <input type="file" id="modal_avatar" name="avatar" class="emp-form-input" accept="image/*">
@@ -168,7 +168,7 @@
                                 </div>
                             </div>
 
-                            <!-- Nota de Seguridad Credenciales -->
+                            {{-- Nota de Seguridad Credenciales --}}
                             <div class="emp-info-banner mt-3">
                                 <i class="bi bi-shield-lock-fill"></i>
                                 <div>
@@ -178,7 +178,7 @@
                             </div>
                         </div>
 
-                        <!-- TAB 2: PUESTO, ROL Y ORGANIZACIÓN -->
+                        {{-- TAB 2: PUESTO, ROL Y ORGANIZACIÓN --}}
                         <div class="tab-pane fade" id="tab-emp-job" role="tabpanel" aria-labelledby="tab-emp-job-btn">
                             <div class="emp-section-card">
                                 <div class="emp-section-title">
@@ -187,7 +187,7 @@
                                 </div>
 
                                 <div class="row g-3">
-                                    <!-- Rol en el sistema -->
+                                    {{-- Rol en el sistema --}}
                                     <div class="col-12 col-md-6">
                                         <label for="modal_role" class="emp-form-label">Rol en el Sistema <span class="text-danger">*</span></label>
                                         <select id="modal_role" name="role" class="emp-form-select" required>
@@ -203,14 +203,14 @@
                                         <div class="emp-form-hint">Solo se listan roles permitidos según tu rango administrativo.</div>
                                     </div>
 
-                                    <!-- Código de Empleado -->
+                                    {{-- Código de Empleado --}}
                                     <div class="col-12 col-md-6">
                                         <label for="modal_employee_code" class="emp-form-label">Código de Empleado</label>
                                         <input type="text" id="modal_employee_code" name="employee_code" class="emp-form-input" placeholder="Auto-generado si se deja vacío (Ej: EMP-001)" maxlength="50">
                                         <div class="invalid-feedback" id="err_employee_code"></div>
                                     </div>
 
-                                    <!-- Cargo del Catálogo -->
+                                    {{-- Cargo del Catálogo --}}
                                     <div class="col-12 col-md-6">
                                         <label for="modal_position_id" class="emp-form-label">Cargo (Puesto de Trabajo)</label>
                                         <select id="modal_position_id" name="position_id" class="emp-form-select">
@@ -228,7 +228,7 @@
                                         <div class="invalid-feedback" id="err_position_id"></div>
                                     </div>
 
-                                    <!-- Área / Departamento -->
+                                    {{-- Área / Departamento --}}
                                     <div class="col-12 col-md-6">
                                         <label for="modal_department_id" class="emp-form-label">Área Organizacional</label>
                                         <select id="modal_department_id" name="department_id" class="emp-form-select">
@@ -240,7 +240,7 @@
                                         <div class="invalid-feedback" id="err_department_id"></div>
                                     </div>
 
-                                    <!-- Marcación Itinerante (Switch) -->
+                                    {{-- Marcación Itinerante (Switch) --}}
                                     <div class="col-12">
                                         <div class="emp-switch-box">
                                             <div class="form-check form-switch mb-0">
@@ -255,7 +255,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Alcance Territorial (Para supervisores o mandos) -->
+                                    {{-- Alcance Territorial (Para supervisores o mandos) --}}
                                     <div class="col-12" id="scopeContainer">
                                         @if($actor->isOrgScoped())
                                             <div class="emp-info-banner">
@@ -300,7 +300,7 @@
                                         @endif
                                     </div>
 
-                                    <!-- Fecha de Ingreso y Sueldo Base -->
+                                    {{-- Fecha de Ingreso y Sueldo Base --}}
                                     <div class="col-12 col-md-6">
                                         <label for="modal_hire_date" class="emp-form-label">Fecha de Ingreso Laboral</label>
                                         <input type="date" id="modal_hire_date" name="hire_date" value="{{ date('Y-m-d') }}" class="emp-form-input">
@@ -316,10 +316,10 @@
                             </div>
                         </div>
 
-                        <!-- TAB 3: SEDES Y TURNO LABORAL -->
+                        {{-- TAB 3: SEDES Y TURNO LABORAL --}}
                         <div class="tab-pane fade" id="tab-emp-branches" role="tabpanel" aria-labelledby="tab-emp-branches-btn">
                             <div class="row g-3">
-                                <!-- Sucursales Autorizadas -->
+                                {{-- Sucursales Autorizadas --}}
                                 <div class="col-12">
                                     <div class="emp-section-card">
                                         <div class="d-flex align-items-center justify-content-between mb-2">
@@ -360,7 +360,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Turno Inicial -->
+                                {{-- Turno Inicial --}}
                                 <div class="col-12">
                                     <div class="emp-section-card">
                                         <div class="emp-section-title">
@@ -388,7 +388,7 @@
                     </div>
                 </div>
 
-                <!-- Modal Footer -->
+                {{-- Modal Footer --}}
                 <div class="modal-footer emp-modal-footer">
                     <button type="button" class="btn btn-outline-secondary px-3" data-bs-dismiss="modal" style="font-size: 0.85rem; font-weight: 600; border-radius: 8px; min-height: 38px;">
                         Cancelar
@@ -404,7 +404,7 @@
     </div>
 </div>
 
-<!-- Modal de Credenciales Generadas (1-Click Copy & WhatsApp Share) -->
+{{-- Modal de Credenciales Generadas (1-Click Copy & WhatsApp Share) --}}
 <div class="modal fade" id="credentialsSuccessModal" tabindex="-1" aria-labelledby="credSuccessLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content emp-modal-content">
