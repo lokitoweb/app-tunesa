@@ -59,6 +59,9 @@ class PanelNavigation
                 ['Birthdays', 'birthdays.manage', 'birthdays.index', [], 'balloon-heart', 'Cumpleaños', $request->routeIs('birthdays.*'), null, true],
                 ['CompanyDocs', 'company_docs.manage', 'company-docs.index', [], 'folder2-open', 'Documentos de la empresa', $request->routeIs('company-docs.*'), null, true],
             ],
+            'Compras y tesorería' => [
+                ['Finance', 'suppliers.view', 'suppliers.index', [], 'truck', 'Proveedores', $request->routeIs('suppliers.*')],
+            ],
             'Legajo y planilla' => [
                 ['HR', 'documents.review', 'documents.index', [], 'folder-check', 'Legajos digitales', $request->routeIs('documents*', 'employees.file*'), fn () => $hasTenant ? EmployeeDocument::where('status', 'pending')->count() : 0],
                 ['HR', 'uniforms.manage', 'uniforms.index', [], 'bag', 'Dotación y tallas', $request->routeIs('uniforms*')],

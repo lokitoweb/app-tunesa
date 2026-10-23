@@ -55,4 +55,11 @@ return [
         'android_channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'tunesa_default'),
     ],
 
+    // Consulta RUC/DNI (mismo acceso que el ERP de escritorio)
+    'migo' => [
+        'token'   => env('MIGO_API_TOKEN'),
+        'ruc_url' => env('MIGO_RUC_URL', 'https://api.migo.pe/api/v1/ruc'),
+        'dni_url' => env('MIGO_DNI_URL', 'https://api.migo.pe/api/v1/dni'),
+    ],
+
 ];

@@ -1,0 +1,152 @@
+<?php
+
+namespace App\Modules\Finance\Controllers\Web;
+
+use App\Modules\Core\Controllers\Controller;
+use App\Modules\Core\Services\AuditLogger;
+use App\Modules\Finance\Models\Supplier;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/**
+ * Proveedores en el panel (Registro Proveedor del ERP de escritorio):
+ * listado con búsqueda, alta/edición con sus cuentas bancarias y la
+ * consulta de RUC en Migo para autocompletar razón social y dirección.
+ */
+class SupplierWebController extends Controller
+{
+    public function __construct(private readonly AuditLogger $audit) {}
+
+    public function index(Request $request): Response
+    {
+        $search = trim((string) $request->query('search'));
+        $status = $request->query('status');
+
+        $suppliers = Supplier::with('bankAccounts:id,supplier_id,bank,account_number,account_type')
+            ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', "%{$search}%")
+                ->orWhere('ruc', 'like', "{$search}%")->orWhere('dni', 'like', "{$search}%")))
+            ->when(in_array($status, ['active', 'inactive'], true), fn ($q) => $q->where('is_active', $status === 'active'))
+            ->orderBy('name')
+            ->paginate(50)->withQueryString()
+            ->through(fn (Supplier $s) => $s->only(['id', 'name', 'ruc', 'dni', 'address', 'phone', 'email', 'contact', 'city', 'category', 'is_active'])
+                + ['bank_accounts' => $s->bankAccounts->map->only(['bank', 'account_number', 'account_type'])->values()]);
+
+        return Inertia::render('Finance/Pages/Suppliers/Index', [
+            'suppliers'   => $suppliers,
+            'filters'     => ['search' => $search, 'status' => $status],
+            'can_manage'  => $request->user()->hasPermission('suppliers.manage'),
+            'has_tenant'  => (bool) current_tenant_id_or_null(),
+            'ruc_lookup'  => (bool) config('services.migo.token'),
+            'categories'  => Supplier::whereNotNull('category')->distinct()->orderBy('category')->limit(100)->pluck('category'),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa para registrar el proveedor.');
+        $supplier = $this->save(new Supplier(), $this->validated($request));
+        $this->audit->log('supplier.created', $supplier, ['name' => $supplier->name, 'ruc' => $supplier->ruc]);
+
+        return back()->with('success', 'Proveedor registrado.');
+    }
+
+    public function update(Request $request, int $id): RedirectResponse
+    {
+        $supplier = Supplier::findOrFail($id);
+        $this->save($supplier, $this->validated($request, $supplier->id));
+        $this->audit->log('supplier.updated', $supplier, ['name' => $supplier->name, 'ruc' => $supplier->ruc]);
+
+        return back()->with('success', 'Proveedor actualizado.');
+    }
+
+    public function destroy(int $id): RedirectResponse
+    {
+        $supplier = Supplier::findOrFail($id);
+        $supplier->delete();
+        $this->audit->log('supplier.deleted', $supplier, ['name' => $supplier->name, 'ruc' => $supplier->ruc]);
+
+        return back()->with('success', 'Proveedor eliminado.');
+    }
+
+    /** Razón social y dirección desde Migo (POST {ruc, token}, como el ERP de escritorio) */
+    public function lookupRuc(string $ruc): JsonResponse
+    {
+        $token = config('services.migo.token');
+        abort_unless($token, 503, 'La consulta de RUC no está configurada.');
+
+        try {
+            $data = Http::timeout(10)->acceptJson()
+                ->withHeaders(['Authorization' => "Token token={$token}"])
+                ->post(config('services.migo.ruc_url'), ['ruc' => $ruc, 'token' => $token])
+                ->json();
+        } catch (\Throwable) {
+            return response()->json(['success' => false, 'message' => 'Migo no respondió. Completa los datos a mano.'], 502);
+        }
+
+        if (! is_array($data) || empty($data['nombre_o_razon_social'])) {
+            return response()->json(['success' => false, 'message' => 'No se encontró el RUC en SUNAT.'], 404);
+        }
+
+        return response()->json(['success' => true, 'data' => [
+            'name'    => $data['nombre_o_razon_social'],
+            'address' => trim(($data['direccion'] ?? '') ?: ''),
+            'city'    => $data['distrito'] ?? $data['provincia'] ?? null,
+        ]]);
+    }
+
+    // ------------------------------------------------------------------ privado
+
+    private function validated(Request $request, ?int $ignoreId = null): array
+    {
+        return $request->validate([
+            'name'                          => ['required', 'string', 'max:250'],
+            'ruc'                           => ['nullable', 'digits:11', Rule::unique('suppliers')->where('tenant_id', current_tenant_id_or_null())->whereNull('deleted_at')->ignore($ignoreId)],
+            'dni'                           => ['nullable', 'digits:8'],
+            'address'                       => ['nullable', 'string', 'max:100'],
+            'phone'                         => ['nullable', 'string', 'max:50'],
+            'email'                         => ['nullable', 'email', 'max:100'],
+            'contact'                       => ['nullable', 'string', 'max:50'],
+            'city'                          => ['nullable', 'string', 'max:50'],
+            'category'                      => ['nullable', 'string', 'max:100'],
+            'is_active'                     => ['boolean'],
+            'bank_accounts'                 => ['array', 'max:20'],
+            'bank_accounts.*.bank'          => ['required', 'string', 'max:50'],
+            'bank_accounts.*.account_number' => ['required', 'string', 'max:100', 'distinct'],
+            'bank_accounts.*.account_type'  => ['nullable', 'string', 'max:50'],
+        ], [
+            // ponytail: la app no tiene lang/es; mensajes aquí hasta publicar las traducciones
+            'required'   => 'Falta :attribute.',
+            'digits'     => ':Attribute debe tener :digits dígitos.',
+            'email'      => 'El correo no es válido.',
+            'max'        => ':Attribute admite hasta :max caracteres.',
+            'distinct'   => 'Esa cuenta está repetida.',
+            'ruc.unique' => 'Ya hay un proveedor con ese RUC.',
+        ], [
+            'name' => 'la razón social', 'ruc' => 'el RUC', 'dni' => 'el DNI', 'address' => 'la dirección',
+            'bank_accounts.*.bank' => 'el banco', 'bank_accounts.*.account_number' => 'el número de cuenta',
+        ]);
+    }
+
+    /** Guarda el proveedor y reemplaza sus cuentas en una sola transacción */
+    private function save(Supplier $supplier, array $data): Supplier
+    {
+        return DB::transaction(function () use ($supplier, $data) {
+            $accounts = $data['bank_accounts'] ?? [];
+            unset($data['bank_accounts']);
+            $supplier->fill($data + ['is_active' => true])->save();
+
+            $supplier->bankAccounts()->delete();
+            foreach ($accounts as $account) {
+                $supplier->bankAccounts()->create($account + ['tenant_id' => $supplier->tenant_id]);
+            }
+
+            return $supplier;
+        });
+    }
+}

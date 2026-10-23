@@ -171,7 +171,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'Proveedores, productos, requerimientos, cotizaciones y órdenes de compra/servicio.',
             [
                 'suppliers.view', 'suppliers.manage', 'requisitions.create', 'requisitions.view_all', 'purchasing.manage',
-                'attendance.mark', 'attendance.view_own', 'shifts.view_own',
+                'dashboard.view', 'attendance.mark', 'attendance.view_own', 'shifts.view_own',
                 'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
                 'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],
