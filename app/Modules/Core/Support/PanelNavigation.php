@@ -60,6 +60,8 @@ class PanelNavigation
                 ['CompanyDocs', 'company_docs.manage', 'company-docs.index', [], 'folder2-open', 'Documentos de la empresa', $request->routeIs('company-docs.*'), null, true],
             ],
             'Compras y tesorería' => [
+                ['Finance', 'requisitions.create', 'requisitions.index', [], 'cart3', 'Requerimientos y compras', $request->routeIs('requisitions.*'),
+                    fn () => $hasTenant && $user->hasPermission('requisitions.approve') ? \App\Modules\Finance\Models\Requisition::where('stage', 'requested')->count() : 0],
                 ['Finance', 'suppliers.view', 'suppliers.index', [], 'truck', 'Proveedores', $request->routeIs('suppliers.*')],
             ],
             'Legajo y planilla' => [

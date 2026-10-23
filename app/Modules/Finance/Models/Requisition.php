@@ -14,15 +14,43 @@ class Requisition extends Model
 {
     use BelongsToTenant, SoftDeletes;
 
+    /** Flujo del ERP de escritorio: REQUERIMIENTO -> SOLICITUD (cotización) -> OC/OS */
+    public const STAGES = [
+        'requested' => ['Solicitado', 'warning'],
+        'approved'  => ['Aprobado', 'info'],
+        'quoting'   => ['En cotización', 'primary'],
+        'ordered'   => ['Orden emitida', 'success'],
+        'rejected'  => ['Rechazado', 'danger'],
+        'cancelled' => ['Anulado', 'secondary'],
+    ];
+
+    /** Etapas en las que aún se puede editar o anular */
+    public const OPEN = ['requested', 'approved', 'quoting'];
+
+    // Catálogos del ERP de escritorio (combos de FrmReq)
+    public const CLASSIFICATIONS = [
+        'MERCADERÍAS', 'PRODUCTOS TERMINADOS', 'MATERIAS PRIMAS', 'ENVASES', 'MATERIALES AUXILIARES',
+        'SERVICIO DE MANTENIMIENTO', 'SERVICIO DE TRANSPORTE', 'SUMINISTROS', 'REPUESTOS', 'EMBALAJES',
+        'SUBPRODUCTOS', 'DESECHOS Y DESPERDICIOS',
+    ];
+    public const CURRENCIES = ['PEN' => 'Soles', 'USD' => 'Dólares', 'EUR' => 'Euros'];
+    public const PAYMENT_TERMS = ['CONTADO', 'CREDITO'];
+    public const PAYMENT_METHODS = ['TRANSFERENCIA', 'EFECTIVO', 'DEPOSITO', 'YAPE', 'TARJETA'];
+    public const PRIORITIES = ['NORMAL', 'INTERMEDIO', 'ALTO'];
+    public const PAYMENT_ORIGINS = ['TRANSFERENCIA', 'CAJA EFECTIVO', 'CAJA PASAJES', 'CAJA ENCOMIENDAS', 'CAJA TOURS', 'OTROS'];
+
     protected $fillable = [
         'tenant_id', 'series', 'number', 'requested_at', 'detail', 'area', 'requested_by', 'user_id', 'email', 'plate', 'km',
         'agency', 'site', 'delivery_place', 'classification', 'stage', 'payment_terms', 'notes', 'supplier_id',
-        'purchase_order_number', 'service_order_number', 'invoice_number', 'payment_origin', 'sale_type', 'priority',
-        'payment_method', 'reviewed_by', 'currency', 'amount', 'amount_payable', 'has_detraction', 'installments', 'attachments',
+        'purchase_order_number', 'service_order_number', 'ordered_at', 'invoice_number', 'payment_origin', 'sale_type', 'priority',
+        'payment_method', 'reviewed_by', 'reviewed_by_id', 'reviewed_at', 'currency', 'amount', 'amount_payable', 'has_detraction',
+        'installments', 'attachments',
     ];
 
     protected $casts = [
         'requested_at'   => 'datetime',
+        'reviewed_at'    => 'datetime',
+        'ordered_at'     => 'datetime',
         'amount'         => 'decimal:2',
         'amount_payable' => 'decimal:2',
         'has_detraction' => 'boolean',
@@ -53,5 +81,20 @@ class Requisition extends Model
     public function paymentInstallments(): HasMany
     {
         return $this->hasMany(PaymentInstallment::class)->orderBy('installment');
+    }
+
+    public function code(): string
+    {
+        return sprintf('%s-%06d', $this->series ?: 'RQ', $this->number);
+    }
+
+    public function isOpen(): bool
+    {
+        return in_array($this->stage, self::OPEN, true);
+    }
+
+    public function orderNumber(): ?string
+    {
+        return $this->purchase_order_number ?: $this->service_order_number;
     }
 }

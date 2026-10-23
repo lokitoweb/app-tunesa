@@ -13,10 +13,10 @@ class Quotation extends Model
 
     protected $fillable = [
         'tenant_id', 'requisition_id', 'supplier_id', 'number', 'bank', 'account_number', 'approved_by', 'stage',
-        'quoted_at', 'expires_at', 'contact', 'phone',
+        'quoted_at', 'expires_at', 'contact', 'phone', 'amount', 'currency', 'notes', 'is_selected',
     ];
 
-    protected $casts = ['quoted_at' => 'datetime', 'expires_at' => 'datetime'];
+    protected $casts = ['quoted_at' => 'datetime', 'expires_at' => 'datetime', 'amount' => 'decimal:2', 'is_selected' => 'boolean'];
 
     public function requisition(): BelongsTo
     {
