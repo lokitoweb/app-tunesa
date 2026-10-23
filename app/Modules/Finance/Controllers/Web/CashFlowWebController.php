@@ -29,49 +29,44 @@ class CashFlowWebController extends Controller
         $end = $from->copy()->addMonths(5)->endOfMonth()->toDateTimeString(); // con hora: SQLite guarda las fechas con hora
         $today = now(tenant_timezone())->toDateString();
 
-        // concepto => [mes => monto]; ponytail: agrupado en PHP (SQLite y MySQL), volumen de meses acotado
+        // concepto => [mes => monto]. Se suma en la base (GROUP BY concepto, mes) y no fila por fila
+        // en PHP: con miles de cuotas el flujo superaba 2 s por petición bajo carga (k6).
+        // substr(fecha, 1, 7) = 'YYYY-MM' en SQLite y MySQL. Los modelos mantienen el filtro de empresa.
         $actual = [];
         $projected = [];
-        $add = function (array &$bucket, string $concept, string $month, float $amount) {
-            $bucket[$concept][$month] = round(($bucket[$concept][$month] ?? 0) + $amount, 2);
+        $collect = function (array &$bucket, $rows, string $prefix) {
+            foreach ($rows as $row) {
+                $concept = $prefix . ' · ' . ($row->concept ?: 'Otros');
+                $bucket[$concept][$row->month] = round(($bucket[$concept][$row->month] ?? 0) + (float) $row->total, 2);
+            }
         };
+        $byRequisition = fn ($query) => $query->join('requisitions', 'requisitions.id', '=', 'payment_installments.requisition_id')
+            ->whereNull('requisitions.deleted_at')->where('requisitions.currency', $currency);
 
-        // foreach y no ->each(fn): las arrow functions capturan $actual por valor y no lo llenarían
-        $payments = PaymentCancellation::with('installment.requisition:id,currency,classification')->whereBetween('paid_at', [$start, $end])->get();
-        foreach ($payments as $c) {
-            $r = $c->installment?->requisition;
-            if ($r?->currency === $currency) {
-                $add($actual, 'Proveedores · ' . ($r->classification ?: 'Otros'), $c->paid_at->format('Y-m'), (float) $c->amount);
-            }
-        }
+        $collect($actual, $byRequisition(PaymentCancellation::query()->join('payment_installments', 'payment_installments.id', '=', 'payment_cancellations.payment_installment_id'))
+            ->whereBetween('payment_cancellations.paid_at', [$start, $end])
+            ->selectRaw('requisitions.classification as concept, substr(payment_cancellations.paid_at, 1, 7) as month, sum(payment_cancellations.amount) as total')
+            ->groupBy('concept', 'month')->toBase()->get(), 'Proveedores');
 
-        $pending = PaymentInstallment::with('requisition:id,currency,classification')->where('status', 'pending')->whereBetween('due_date', [$start, $end])->get();
-        foreach ($pending as $p) {
-            if ($p->requisition?->currency === $currency) {
-                $add($projected, 'Proveedores · ' . ($p->requisition->classification ?: 'Otros'), $p->due_date->format('Y-m'), (float) $p->amount - (float) $p->paid_amount);
-            }
-        }
+        $collect($projected, $byRequisition(PaymentInstallment::query())->where('payment_installments.status', 'pending')
+            ->whereBetween('payment_installments.due_date', [$start, $end])
+            ->selectRaw('requisitions.classification as concept, substr(payment_installments.due_date, 1, 7) as month, sum(payment_installments.amount - payment_installments.paid_amount) as total')
+            ->groupBy('concept', 'month')->toBase()->get(), 'Proveedores');
 
-        $fixed = FixedCost::where('is_active', true)->where('currency', $currency)
-            ->where(fn ($q) => $q->whereBetween('paid_at', [$start, $end])->orWhere(fn ($w) => $w->whereNull('paid_at')->whereBetween('date', [$start, $end])))
-            ->get();
-        foreach ($fixed as $c) {
-            if ($c->paid_at) {
-                $add($actual, 'Costos fijos · ' . $c->classification, $c->paid_at->format('Y-m'), (float) $c->amount);
-            } else {
-                $add($projected, 'Costos fijos · ' . $c->classification, $c->date->format('Y-m'), (float) $c->amount);
-            }
-        }
+        $fixed = fn () => FixedCost::where('is_active', true)->where('currency', $currency);
+        $collect($actual, $fixed()->whereBetween('paid_at', [$start, $end])
+            ->selectRaw('classification as concept, substr(paid_at, 1, 7) as month, sum(amount) as total')->groupBy('concept', 'month')->toBase()->get(), 'Costos fijos');
+        $collect($projected, $fixed()->whereNull('paid_at')->whereBetween('date', [$start, $end])
+            ->selectRaw('classification as concept, substr(date, 1, 7) as month, sum(amount) as total')->groupBy('concept', 'month')->toBase()->get(), 'Costos fijos');
 
         if ($currency === 'PEN') { // caja chica siempre en soles
-            foreach (PettyCashExpense::whereBetween('date', [$start, $end])->get() as $e) {
-                $add($actual, 'Caja chica · ' . $e->cash_box, $e->date->format('Y-m'), (float) $e->amount);
-            }
+            $collect($actual, PettyCashExpense::whereBetween('date', [$start, $end])
+                ->selectRaw('cash_box as concept, substr(date, 1, 7) as month, sum(amount) as total')->groupBy('concept', 'month')->toBase()->get(), 'Caja chica');
         }
 
-        $overdue = PaymentInstallment::with('requisition:id,currency')->where('status', 'pending')->where('due_date', '<', $today)->get()
-            ->filter(fn ($p) => $p->requisition?->currency === $currency)->sum(fn ($p) => (float) $p->amount - (float) $p->paid_amount)
-            + (float) FixedCost::where('is_active', true)->where('currency', $currency)->whereNull('paid_at')->where('date', '<', $today)->sum('amount');
+        $overdue = (float) $byRequisition(PaymentInstallment::query())->where('payment_installments.status', 'pending')
+            ->where('payment_installments.due_date', '<', $today)->sum(\Illuminate\Support\Facades\DB::raw('payment_installments.amount - payment_installments.paid_amount'))
+            + (float) $fixed()->whereNull('paid_at')->where('date', '<', $today)->sum('amount');
 
         $table = fn (array $bucket) => collect($bucket)->sortKeys()->map(fn ($byMonth, $concept) => [
             'concept' => $concept,
