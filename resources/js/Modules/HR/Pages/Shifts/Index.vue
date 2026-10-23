@@ -99,13 +99,21 @@ const assign = useForm({
 });
 
 const employeeSearch = ref('');
+const includeOtherBranches = ref(false);
+
+// Personal de la sucursal elegida (sus sedes vigentes); "incluir otras sedes" muestra a todos
+const branchEmployees = computed(() => {
+    const all = props.employees || [];
+    if (includeOtherBranches.value || !assign.branch_id) return all;
+    return all.filter((e) => (e.branch_ids || []).includes(Number(assign.branch_id)));
+});
 
 const filteredEmployees = computed(() => {
     if (!employeeSearch.value || !employeeSearch.value.trim()) {
-        return props.employees || [];
+        return branchEmployees.value;
     }
     const q = employeeSearch.value.toLowerCase().trim();
-    return (props.employees || []).filter((e) => {
+    return branchEmployees.value.filter((e) => {
         const fullName = `${e.first_name || ''} ${e.last_name || ''}`.toLowerCase();
         const reverseName = `${e.last_name || ''} ${e.first_name || ''}`.toLowerCase();
         const code = (e.employee_code || '').toLowerCase();
@@ -846,6 +854,16 @@ const selectedAssignShift = computed(() => {
                                     </div>
                                 </div>
 
+                                <div class="d-flex justify-content-between align-items-center mb-2 small">
+                                    <span class="text-secondary">
+                                        {{ branchEmployees.length }} colaborador(es) {{ includeOtherBranches ? 'en todas las sedes' : 'de la sucursal elegida' }}
+                                    </span>
+                                    <div class="form-check form-switch mb-0">
+                                        <input id="assign_other_branches" v-model="includeOtherBranches" class="form-check-input" type="checkbox" role="switch">
+                                        <label class="form-check-label" for="assign_other_branches">Incluir otras sedes</label>
+                                    </div>
+                                </div>
+
                                 <!-- Buscador Instantáneo en Tiempo Real -->
                                 <div class="position-relative mb-3">
                                     <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
@@ -853,7 +871,7 @@ const selectedAssignShift = computed(() => {
                                         v-model="employeeSearch" 
                                         type="text" 
                                         class="form-control ps-5 collab-search-input" 
-                                        placeholder="Buscar colaborador por nombre, apellido, código (ej. Alvarez o EMP-003)..." 
+                                        placeholder="Buscar por nombre, apellido, código o DNI (ej. Alvarez, EMP-003)..."
                                         style="height: 42px; border-radius: 8px; font-size: 0.85rem;"
                                     >
                                     <button 
