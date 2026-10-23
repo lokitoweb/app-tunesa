@@ -2,7 +2,8 @@
 
 /**
  * Carga de volumen para k6 sobre una COPIA de la base (nunca la real):
- *   DB_DATABASE=/ruta/copia.sqlite php tests/load/seed-load.php empresa-demo /ruta/salida.json
+ *   DB_DATABASE=/ruta/copia-load.sqlite php tests/load/seed-load.php empresa-demo /ruta/salida.json
+ *   DB_CONNECTION=mysql DB_DATABASE=tunesa_load php tests/load/seed-load.php empresa-demo /ruta/salida.json
  *
  * Crea en la empresa: 200 órdenes con 12 cuotas (2,400), 1,500 pagos, 600 costos
  * fijos, 1,000 gastos de caja chica, 20 usuarios de Contabilidad y 40
@@ -21,8 +22,9 @@ $app = require __DIR__ . '/../../bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 [$slug, $out] = [$argv[1] ?? 'empresa-demo', $argv[2] ?? 'load-users.json'];
-if (! str_contains((string) config('database.connections.sqlite.database'), 'load')) {
-    exit("Solo sobre una copia: DB_DATABASE debe apuntar a un archivo *load*.sqlite\n");
+$connection = config('database.default');
+if (! str_contains((string) config("database.connections.{$connection}.database"), 'load')) {
+    exit("Solo sobre una base de prueba: DB_DATABASE debe contener «load» (archivo *load*.sqlite o base tunesa_load)\n");
 }
 
 $tenant = Tenant::where('slug', $slug)->firstOrFail();

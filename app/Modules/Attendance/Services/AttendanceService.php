@@ -178,6 +178,10 @@ class AttendanceService
         /** @var PunchData $data */
         $data = $c['data'];
 
+        // Una marcación a la vez por colaborador: bloquea su fila de users, que siempre existe
+        // (un FOR UPDATE sobre la asistencia del día, que aún no existe, provoca deadlocks en MySQL).
+        DB::table('users')->where('id', $c['employee']->id)->lockForUpdate()->value('id');
+
         [$attendance, $branch, $geo, $reasons] = match ($data->type) {
             'clock_in'    => $this->applyClockIn($c, $reasons),
             'break_start' => $this->applyBreakStart($c, $reasons),
@@ -248,9 +252,11 @@ class AttendanceService
         $at    = $c['at'];
         $today = $at->toDateString();
 
+        // Sin FOR UPDATE: la fila del colaborador ya está bloqueada (recordInTransaction). Bloquear
+        // una asistencia que aún no existe toma un gap lock que, a la hora de entrada, cruza a
+        // colaboradores vecinos en el índice único y provoca deadlocks entre personas distintas.
         $existing = Attendance::where('user_id', $employee->id)
             ->where('work_date', $today)
-            ->lockForUpdate()
             ->first();
 
         if ($existing && ! is_null($existing->clock_in_at)) {
