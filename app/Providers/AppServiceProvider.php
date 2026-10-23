@@ -15,7 +15,6 @@ use App\Modules\Core\Models\EmployeeBranch;
 use App\Modules\Training\Services\TrainingEnrollmentService;
 use App\Modules\Integrations\Services\IntegrationDispatcher;
 use App\Modules\Core\Services\NotificationDispatcher;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -50,16 +49,6 @@ class AppServiceProvider extends ServiceProvider
         // Límite usado por el grupo 'api' en bootstrap/app.php (ThrottleRequests:api)
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
-        });
-
-        // El enlace del correo de recuperación abre el panel de la empresa
-        // (o la app móvil vía deep link) con el token para /api/auth/reset-password.
-        ResetPassword::createUrlUsing(function (User $user, string $token) {
-            return rtrim(config('app.url'), '/') . '/reset-password?' . http_build_query([
-                'token'  => $token,
-                'email'  => $user->email,
-                'tenant' => $user->tenant?->slug,
-            ]);
         });
 
         // Notificaciones in-app (canal database) desde los eventos de los modelos:

@@ -2,114 +2,56 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Modules\Core\Controllers\Api\AuthController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Password;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
 
 /**
- * Recuperación de contraseña desde el navegador (panel y colaboradores).
+ * Política de la empresa: sin recuperación de contraseña por autoservicio.
+ * El login muestra un aviso y solo RRHH/Administración restablece el acceso.
  */
 class PasswordResetWebTest extends TestCase
 {
     use CreatesTenants, RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->seedRoles();
-    }
-
-    public function test_login_links_to_forgot_password_and_form_renders(): void
+    public function test_forgot_password_is_an_institutional_notice_without_a_form(): void
     {
         $this->get('/login')->assertOk()->assertSee('¿Olvidaste tu contraseña?')->assertSee(route('password.request'));
-        $this->get('/forgot-password')->assertOk()->assertSee('Enviar enlace');
+
+        $this->get('/forgot-password')->assertOk()
+            ->assertSee(AuthController::RESET_BY_ADMIN_MESSAGE)
+            ->assertDontSee('<form', false)
+            ->assertSee(route('login'));
     }
 
-    public function test_request_sends_link_to_existing_email_without_revealing_unknown_ones(): void
+    public function test_self_service_endpoints_no_longer_exist(): void
     {
-        Notification::fake();
+        $this->seedRoles();
         $acme = $this->makeTenant('acme');
-        $employee = $this->makeUser($acme, 'hr_manager', ['email' => 'rosa@acme.pe']);
-        $worker   = $this->makeUser($acme, 'employee', ['email' => 'luis@acme.pe']);
+        $this->makeUser($acme, 'hr_manager', ['email' => 'rrhh@acme.test']);
 
-        $this->post('/forgot-password', ['email' => 'rosa@acme.pe'])->assertSessionHas('status');
-        $this->post('/forgot-password', ['email' => 'nadie@acme.pe'])->assertSessionHas('status')->assertSessionHasNoErrors();
-        // Un colaborador de la app recibe el mismo mensaje, pero no un enlace: su acceso lo restablece RRHH.
-        $this->post('/forgot-password', ['email' => 'luis@acme.pe'])->assertSessionHas('status')->assertSessionHasNoErrors();
-        Notification::assertNotSentTo($worker, ResetPassword::class);
-
-        Notification::assertSentTo($employee, ResetPassword::class, function (ResetPassword $n) use ($employee) {
-            $url = $n->toMail($employee)->actionUrl;
-
-            return str_contains($url, '/reset-password?') && str_contains($url, 'token=' . $n->token);
-        });
+        $this->post('/forgot-password', ['email' => 'rrhh@acme.test'])->assertStatus(405);
+        $this->get('/reset-password/x')->assertNotFound();
+        $this->post('/reset-password', ['token' => 'x', 'email' => 'rrhh@acme.test', 'password' => 'Nueva123!', 'password_confirmation' => 'Nueva123!'])
+            ->assertNotFound();
+        $this->assertDatabaseCount('password_reset_tokens', 0);
+        // La API de la app (410 PASSWORD_RESET_BY_ADMIN) ya la cubre LoginByEmailTest
     }
 
-    public function test_link_from_email_opens_form_with_query_and_path_token(): void
+    public function test_hr_resets_access_from_the_panel_with_the_dni_as_temporary_password(): void
     {
+        $this->seedRoles();
         $acme = $this->makeTenant('acme');
-        $this->makeUser($acme, 'employee', ['email' => 'rosa@acme.pe']);
+        $hr = $this->makeUser($acme, 'hr_manager');
+        $emp = $this->makeUser($acme, 'employee', ['document_number' => '45678912']);
 
-        $this->get('/reset-password?token=abc123&email=rosa%40acme.pe&tenant=acme')
-            ->assertOk()->assertSee('value="abc123"', false)->assertSee('rosa@acme.pe')->assertSee('Acme');
-        $this->get('/reset-password/abc123?email=rosa%40acme.pe')->assertOk()->assertSee('value="abc123"', false);
-        $this->get('/reset-password')->assertRedirect(route('password.request'));
-    }
+        $this->actingAs($hr)->post("/employees/{$emp->id}/reset-access")->assertSessionHas('credentials.password', '45678912');
 
-    public function test_panel_user_resets_password_clears_temporary_flag_and_is_not_logged_in(): void
-    {
-        $acme = $this->makeTenant('acme');
-        $employee = $this->makeUser($acme, 'hr_manager', ['email' => 'rosa@acme.pe', 'must_change_password' => true]);
-        $employee->createToken('app');
-        $token = Password::createToken($employee);
-
-        $this->post('/reset-password', [
-            'token' => $token, 'email' => 'rosa@acme.pe',
-            'password' => 'NuevaClave9', 'password_confirmation' => 'NuevaClave9',
-        ])->assertRedirect(route('login'))
-          ->assertSessionHas('status', 'Contraseña restablecida. Ya puedes ingresar al panel.');
-
-        $this->assertGuest();
-        $employee->refresh();
-        $this->assertTrue(Hash::check('NuevaClave9', $employee->password));
-        $this->assertFalse($employee->must_change_password);
-        $this->assertSame(0, $employee->tokens()->count());
-
-        $this->get('/login')->assertSee('Ya puedes ingresar al panel');
-    }
-
-    public function test_app_employee_cannot_reset_from_the_web(): void
-    {
-        $acme = $this->makeTenant('acme');
-        $worker = $this->makeUser($acme, 'employee', ['email' => 'luis@acme.pe']);
-        $token = Password::createToken($worker);
-
-        $this->post('/reset-password', [
-            'token' => $token, 'email' => 'luis@acme.pe',
-            'password' => 'NuevaClave9', 'password_confirmation' => 'NuevaClave9',
-        ])->assertSessionHasErrors();
-
-        $this->assertTrue(Hash::check('Secret123', $worker->fresh()->password));
-    }
-
-    public function test_reset_applies_password_rules_and_rejects_invalid_token(): void
-    {
-        $acme = $this->makeTenant('acme');
-        $user = $this->makeUser($acme, 'hr_manager', ['email' => 'rrhh@acme.pe']);
-        $token = Password::createToken($user);
-
-        $this->post('/reset-password', [
-            'token' => $token, 'email' => 'rrhh@acme.pe', 'password' => 'solo', 'password_confirmation' => 'solo',
-        ])->assertSessionHasErrors('password');
-
-        $this->post('/reset-password', [
-            'token' => 'invalido', 'email' => 'rrhh@acme.pe', 'password' => 'NuevaClave9', 'password_confirmation' => 'NuevaClave9',
-        ])->assertSessionHasErrors('email');
-
-        $this->assertTrue(Hash::check('Secret123', $user->fresh()->password));
+        $emp->refresh();
+        $this->assertTrue(Hash::check('45678912', $emp->password));
+        $this->assertTrue((bool) $emp->must_change_password, 'debe cambiarla al ingresar');
+        $this->assertNotNull($emp->temp_password_expires_at);
     }
 }

@@ -12,7 +12,6 @@ use App\Modules\Core\Controllers\Web\DashboardController;
 use App\Modules\Core\Controllers\Web\LegalController;
 use App\Modules\Core\Controllers\Web\NotificationWebController;
 use App\Modules\Core\Controllers\Web\OrganizationWebController;
-use App\Modules\Core\Controllers\Web\PasswordResetController;
 use App\Modules\Core\Services\SecureFileUrl;
 use Illuminate\Support\Facades\Route;
 
@@ -44,12 +43,9 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.post')->middleware('throttle:10,1');
 
-    // Recuperación de contraseña (panel y colaboradores de la app: mismo correo)
-    Route::get('/forgot-password', [PasswordResetController::class, 'showRequestForm'])->name('password.request');
-    Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->name('password.email')->middleware('throttle:5,1');
-    // El correo enlaza a /reset-password?token=...&email=... (AppServiceProvider); también /reset-password/{token}
-    Route::get('/reset-password/{token?}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
-    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update')->middleware('throttle:5,1');
+    // Sin recuperación por autoservicio (política de la empresa): solo un aviso; el acceso
+    // lo restablece RRHH/Administración desde el panel (EmployeeController::resetAccess)
+    Route::view('/forgot-password', 'auth.forgot-password')->name('password.request');
 });
 
 // Token CSRF vigente de la sesión: el login lo pide antes de enviar si la página
