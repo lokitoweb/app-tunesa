@@ -2,32 +2,11 @@
 
 @section('title', '500 — Incidencia del servidor')
 @section('code', '500')
-
-@section('styles')
-<style>
-    :root {
-        --err-badge-bg: rgba(220, 38, 38, 0.12);
-        --err-badge-color: #dc2626;
-        --err-badge-border: rgba(220, 38, 38, 0.3);
-        --err-icon-bg: rgba(220, 38, 38, 0.1);
-        --err-icon-color: #dc2626;
-        --err-icon-border: rgba(220, 38, 38, 0.25);
-        --err-icon-shadow: rgba(220, 38, 38, 0.2);
-    }
-    [data-bs-theme="dark"] {
-        --err-badge-bg: rgba(239, 68, 68, 0.15);
-        --err-badge-color: #ef4444;
-        --err-badge-border: rgba(239, 68, 68, 0.35);
-        --err-icon-bg: rgba(239, 68, 68, 0.12);
-        --err-icon-color: #ef4444;
-        --err-icon-border: rgba(239, 68, 68, 0.3);
-        --err-icon-shadow: rgba(239, 68, 68, 0.3);
-    }
-</style>
-@endsection
+@section('tone', 'danger')
+@section('label', 'Error del servidor')
 
 @section('icon')
-    <i class="bi bi-cpu-fill"></i>
+    <i class="bi bi-cpu"></i>
 @endsection
 
 @section('headline', 'Algo salió mal de nuestro lado')
@@ -38,11 +17,11 @@
 @endsection
 
 @section('actions')
-    <button type="button" onclick="location.reload()" class="err-btn-primary">
+    <button type="button" onclick="location.reload()" class="e-btn e-btn-primary">
         <i class="bi bi-arrow-clockwise"></i>
         <span>Reintentar</span>
     </button>
-    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')" class="err-btn-secondary">
+    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')" class="e-btn e-btn-ghost">
         <i class="bi bi-arrow-left"></i>
         <span>Regresar</span>
     </button>

@@ -2,29 +2,8 @@
 
 @section('title', '429 — Demasiadas solicitudes')
 @section('code', '429')
-
-@section('styles')
-<style>
-    :root {
-        --err-badge-bg: rgba(124, 58, 237, 0.12);
-        --err-badge-color: #7c3aed;
-        --err-badge-border: rgba(124, 58, 237, 0.3);
-        --err-icon-bg: rgba(124, 58, 237, 0.1);
-        --err-icon-color: #7c3aed;
-        --err-icon-border: rgba(124, 58, 237, 0.25);
-        --err-icon-shadow: rgba(124, 58, 237, 0.2);
-    }
-    [data-bs-theme="dark"] {
-        --err-badge-bg: rgba(167, 139, 250, 0.15);
-        --err-badge-color: #a78bfa;
-        --err-badge-border: rgba(167, 139, 250, 0.35);
-        --err-icon-bg: rgba(167, 139, 250, 0.12);
-        --err-icon-color: #a78bfa;
-        --err-icon-border: rgba(167, 139, 250, 0.3);
-        --err-icon-shadow: rgba(167, 139, 250, 0.3);
-    }
-</style>
-@endsection
+@section('tone', 'warning')
+@section('label', 'Demasiadas solicitudes')
 
 @section('icon')
     <i class="bi bi-speedometer2"></i>
@@ -43,11 +22,11 @@
 @endsection
 
 @section('actions')
-    <button type="button" id="errRetryBtn" onclick="location.reload()" class="err-btn-primary" disabled style="opacity:.6">
+    <button type="button" id="errRetryBtn" onclick="location.reload()" class="e-btn e-btn-primary" disabled>
         <i class="bi bi-arrow-clockwise"></i>
         <span>Reintentar</span>
     </button>
-    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')" class="err-btn-secondary">
+    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')" class="e-btn e-btn-ghost">
         <i class="bi bi-arrow-left"></i>
         <span>Regresar</span>
     </button>
@@ -61,7 +40,7 @@
                 if (out) out.textContent = Math.max(left, 0);
                 if (left <= 0) {
                     clearInterval(timer);
-                    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+                    if (btn) btn.disabled = false;
                 }
             }, 1000);
         })();

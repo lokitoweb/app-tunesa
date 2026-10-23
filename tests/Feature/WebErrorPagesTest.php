@@ -22,8 +22,8 @@ class WebErrorPagesTest extends TestCase
     {
         $response = $this->get('/non-existent-page-url-xyz');
         $response->assertStatus(404);
-        $response->assertSee('Código HTTP 404', false);
-        $response->assertSee('Página o recurso no encontrado', false);
+        $response->assertSee('Error 404', false);
+        $response->assertSee('No encontramos esta página', false);
         $response->assertSee('Iniciar sesión', false); // invitado: la acción principal es entrar
     }
 
@@ -33,7 +33,7 @@ class WebErrorPagesTest extends TestCase
 
         $response = $this->get('/_test/abort-403');
         $response->assertStatus(403);
-        $response->assertSee('Código HTTP 403', false);
+        $response->assertSee('Error 403', false);
         $response->assertSee('Acceso no autorizado', false);
         $response->assertSee('Permisos insuficientes para este módulo de auditoría.', false);
     }
@@ -44,7 +44,7 @@ class WebErrorPagesTest extends TestCase
 
         $response = $this->get('/_test/abort-500');
         $response->assertStatus(500);
-        $response->assertSee('Código HTTP 500', false);
+        $response->assertSee('Error 500', false);
         $response->assertSee('Algo salió mal de nuestro lado', false);
         $response->assertSee($response->headers->get('X-Request-Id'), false);
     }
@@ -55,7 +55,7 @@ class WebErrorPagesTest extends TestCase
 
         $response = $this->get('/_test/abort-419');
         $response->assertStatus(419);
-        $response->assertSee('Código HTTP 419', false);
+        $response->assertSee('Error 419', false);
         $response->assertSee('Tu sesión expiró', false);
         $response->assertSee('Iniciar sesión', false);
     }
@@ -69,5 +69,14 @@ class WebErrorPagesTest extends TestCase
         $response = $this->actingAs($hr)->get(route('attendance.calendar.person', $admin->id));
         $response->assertRedirect(route('employees.index'));
         $response->assertSessionHas('warning');
+    }
+
+    public function test_error_page_shows_one_logo_per_theme(): void
+    {
+        $html = $this->get('/non-existent-page-url-xyz')->assertNotFound()->getContent();
+
+        // El logo claro se oculta en tema oscuro (has-dark) y solo entonces aparece el blanco
+        $this->assertSame(1, preg_match_all('/class="brand-logo-light has-dark"/', $html));
+        $this->assertSame(1, preg_match_all('/class="brand-logo-dark"/', $html));
     }
 }

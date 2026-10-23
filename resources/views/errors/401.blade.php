@@ -2,6 +2,8 @@
 
 @section('title', '401 — Inicia sesión')
 @section('code', '401')
+@section('tone', 'info')
+@section('label', 'Se requiere autenticación')
 
 @section('icon')
     <i class="bi bi-person-lock"></i>

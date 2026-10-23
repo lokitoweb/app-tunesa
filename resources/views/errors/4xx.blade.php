@@ -4,9 +4,11 @@
 @section('code')
 {{ isset($exception) && method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 400 }}
 @endsection
+@section('tone', 'neutral')
+@section('label', 'Solicitud no válida')
 
 @section('icon')
-    <i class="bi bi-exclamation-diamond-fill"></i>
+    <i class="bi bi-exclamation-diamond"></i>
 @endsection
 
 @section('headline', 'No pudimos procesar esta solicitud')

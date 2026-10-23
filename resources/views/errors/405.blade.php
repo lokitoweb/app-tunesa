@@ -2,9 +2,11 @@
 
 @section('title', '405 — Acción no válida')
 @section('code', '405')
+@section('tone', 'neutral')
+@section('label', 'Acción no permitida')
 
 @section('icon')
-    <i class="bi bi-sign-stop-fill"></i>
+    <i class="bi bi-slash-circle"></i>
 @endsection
 
 @section('headline', 'Esta acción no se puede abrir así')
