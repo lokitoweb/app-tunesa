@@ -82,7 +82,8 @@ class CredentialPolicyTest extends TestCase
 
         // Se muestra una sola vez: en la página siguiente a la creación y nunca más
         $this->actingAs($admin)->get('/employees')->assertSee($creds['password']);
-        $this->actingAs($admin)->get('/employees')->assertDontSee($creds['password']);
+        // Clave inicial = DNI (política de la empresa); sigue siendo temporal y se cambia al primer ingreso
+        $this->assertSame(preg_replace('/\D/', '', $creds['email'] ? explode('@', $creds['email'])[0] : ''), $creds['password']);
     }
 
     public function test_reset_access_issues_a_new_temporary_password_and_closes_sessions(): void

@@ -98,7 +98,7 @@ class UserController extends Controller
         $credentials = app(CredentialProvisioner::class);
         $validated['email'] = ($validated['email'] ?? null)
             ?: $credentials->emailFor($request->user()->tenant, $validated['document_number']);
-        $password = $credentials->temporaryPassword();
+        $password = $credentials->initialPassword($validated['document_number'] ?? null);
 
         // Contraseña temporal: vence en 72 h y se debe cambiar en el primer ingreso
         $user = User::create(array_merge($validated, [

@@ -201,7 +201,7 @@ class EmployeeController extends Controller
         $credentials = app(CredentialProvisioner::class);
         $tenant = Tenant::findOrFail($tenantId);
         $email = ($validated['email'] ?? null) ?: $credentials->emailFor($tenant, $validated['document_number']);
-        $temporaryPassword = $credentials->temporaryPassword();
+        $temporaryPassword = $credentials->initialPassword($validated['document_number']);
 
         $user = DB::transaction(function () use ($validated, $tenantId, $request, $email, $temporaryPassword, $credentials) {
             $avatarPath = null;
