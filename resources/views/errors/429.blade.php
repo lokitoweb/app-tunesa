@@ -22,13 +22,13 @@
 @endsection
 
 @section('actions')
-    <button type="button" id="errRetryBtn" onclick="location.reload()" class="e-btn e-btn-primary" disabled>
+    <button type="button" id="errRetryBtn" onclick="location.reload()" class="x-btn x-btn-primary" disabled>
         <i class="bi bi-arrow-clockwise"></i>
         <span>Reintentar</span>
     </button>
-    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')" class="e-btn e-btn-ghost">
+    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')" class="x-btn x-btn-ghost">
         <i class="bi bi-arrow-left"></i>
-        <span>Regresar</span>
+        <span>Volver atrás</span>
     </button>
     <script>
         (function () {

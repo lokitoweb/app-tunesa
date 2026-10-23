@@ -16,7 +16,7 @@
 @endsection
 
 @section('actions')
-    <button type="button" onclick="window.location.reload()" class="e-btn e-btn-primary">
+    <button type="button" onclick="window.location.reload()" class="x-btn x-btn-primary">
         <i class="bi bi-arrow-clockwise"></i>
         <span>Volver a intentar</span>
     </button>

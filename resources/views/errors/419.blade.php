@@ -18,20 +18,18 @@
     {{ $errAuthed ? 'Recarga la página y vuelve a intentarlo.' : 'Inicia sesión otra vez para continuar donde estabas.' }}
 @endsection
 
-@section('hint', 'Consejo: si vas a dejar el panel sin usar un buen rato, usa "Seguir conectado" cuando aparezca el aviso de inactividad.')
-
 @section('actions')
     @if($errAuthed)
-        <button type="button" onclick="location.replace(location.href)" class="e-btn e-btn-primary">
+        <button type="button" onclick="location.replace(location.href)" class="x-btn x-btn-primary">
             <i class="bi bi-arrow-clockwise"></i>
             <span>Recargar página</span>
         </button>
-        <a href="{{ route('dashboard') }}" class="e-btn e-btn-ghost">
+        <a href="{{ route('dashboard') }}" class="x-btn x-btn-ghost">
             <i class="bi bi-house-door"></i>
             <span>Ir al inicio</span>
         </a>
     @else
-        <a href="{{ route('login') }}" class="e-btn e-btn-primary">
+        <a href="{{ route('login') }}" class="x-btn x-btn-primary">
             <i class="bi bi-box-arrow-in-right"></i>
             <span>Iniciar sesión</span>
         </a>

@@ -18,3 +18,14 @@
     @endphp
     {{ $isInternal ? 'Tu perfil no tiene permiso para ver esta sección. Si necesitas acceso, pídelo al administrador o a Recursos Humanos de tu empresa.' : $msg }}
 @endsection
+
+@section('actions')
+    @php($errAuthed403 = rescue(fn () => Auth::check(), false, false))
+    <a href="{{ $errAuthed403 ? route('dashboard') : route('login') }}" class="x-btn x-btn-primary">
+        <span>{{ $errAuthed403 ? 'Ir al panel principal' : 'Iniciar sesión' }}</span>
+    </a>
+    <button type="button" onclick="history.length > 1 ? history.back() : (location.href = '/')" class="x-btn x-btn-ghost">
+        <i class="bi bi-arrow-left"></i>
+        <span>Volver atrás</span>
+    </button>
+@endsection

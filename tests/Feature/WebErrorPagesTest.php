@@ -24,7 +24,8 @@ class WebErrorPagesTest extends TestCase
         $response->assertStatus(404);
         $response->assertSee('Error 404', false);
         $response->assertSee('No encontramos esta página', false);
-        $response->assertSee('Iniciar sesión', false); // invitado: la acción principal es entrar
+        $response->assertSee('Volver atrás', false); // un 404 ofrece volver; entrar queda como opción secundaria
+        $response->assertSee('Ir al inicio de sesión', false);
     }
 
     public function test_403_page_renders_executive_template(): void

@@ -111,7 +111,7 @@ class SessionExpiryLoginTest extends TestCase
         $response = $this->get('/esta-ruta-no-existe')->assertNotFound();
         $ref = $response->headers->get('X-Request-Id');
 
-        $response->assertSee($ref)->assertSee('Iniciar sesión')->assertDontSee('Volver al Dashboard');
+        $response->assertSee($ref)->assertSee('Volver atrás')->assertSee('Ir al inicio de sesión');
     }
 
     public function test_debug_page_is_hidden_behind_the_tunnel(): void
