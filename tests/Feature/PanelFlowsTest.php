@@ -95,7 +95,7 @@ class PanelFlowsTest extends TestCase
 
         $upload = fn (User $user) => $this->actingAs($hr)->post('/payslips', [
             'user_id' => $user->id, 'title' => 'Boleta octubre', 'period_month' => 10, 'period_year' => 2026,
-            'pdf_file' => UploadedFile::fake()->create('boleta.pdf', 40, 'application/pdf'),
+            'pdf_file' => $this->fakePdf('boleta.pdf'),
             'gross_salary' => 2000, 'deductions' => 200, 'net_salary' => 1800,
         ]);
 

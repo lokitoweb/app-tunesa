@@ -37,6 +37,19 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
+     * PDF real mínimo para subir (UploadedFile::fake()->create() da un archivo vacío,
+     * que SafeUpload rechaza con razón: no es un PDF).
+     */
+    protected function fakePdf(string $name = 'documento.pdf'): \Illuminate\Http\UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'pdf');
+        file_put_contents($path, "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [] /Count 0 >> endobj\n"
+            . "trailer << /Root 1 0 R >>\n%%EOF\n" . str_repeat(' ', 512));
+
+        return new \Illuminate\Http\UploadedFile($path, $name, 'application/pdf', null, true);
+    }
+
+    /**
      * Par RSA de prueba (cuentas de servicio FCM). Pasa su propio openssl.cnf:
      * PHP en Windows (XAMPP) busca uno que no existe y la generación falla.
      *

@@ -5,6 +5,7 @@ namespace App\Modules\Core\Controllers;
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Models\AttendancePunch;
 use App\Modules\Attendance\Services\Attendance\SelfieStorage;
+use App\Modules\Core\Support\PrivateFile;
 use App\Modules\HR\Models\EmployeeDocument;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
@@ -44,13 +45,7 @@ class SecureFileController extends Controller
             $disk = 'public';
         }
 
-        abort_unless(Storage::disk($disk)->exists($path), 404);
-
-        return Storage::disk($disk)->response($path, $name, [
-            'Cache-Control'          => 'private, no-store, max-age=0',
-            'X-Content-Type-Options' => 'nosniff',
-            'Content-Security-Policy' => "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
-        ], 'inline');
+        return PrivateFile::response($disk, $path, $name);
     }
 
     private function document(int $id): array

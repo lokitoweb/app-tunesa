@@ -120,7 +120,7 @@ class NotificationsTest extends TestCase
         $emp->update(['document_number' => '45879632']);
         $this->actingAs($hr)->post('/payslips/bulk', [
             'period_month' => 10, 'period_year' => 2026, 'publish_now' => 1,
-            'files' => [UploadedFile::fake()->create('boleta_45879632.pdf', 20, 'application/pdf')],
+            'files' => [$this->fakePdf('boleta_45879632.pdf')],
         ])->assertSessionHas('success');
         $this->assertCount(4, $this->types($emp));
     }

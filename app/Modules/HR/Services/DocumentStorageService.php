@@ -6,6 +6,7 @@ use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Models\CompanyConfiguration;
 use App\Modules\HR\Models\EmployeeDocument;
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Rules\SafeUpload;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -34,7 +35,7 @@ class DocumentStorageService
     {
         $maxKb = ($config?->max_upload_mb ?? 5) * 1024;
 
-        return ['required', 'file', 'mimes:' . implode(',', EmployeeDocument::ALLOWED_MIMES), "max:{$maxKb}"];
+        return ['required', 'file', 'mimes:' . implode(',', EmployeeDocument::ALLOWED_MIMES), "max:{$maxKb}", new SafeUpload(self::REAL_MIME_TYPES)];
     }
 
     /** Tipos MIME reales aceptados (se leen del contenido, no de la extensión) */
@@ -42,15 +43,12 @@ class DocumentStorageService
 
     public function store(User $owner, UploadedFile $file, string $type, User $uploader, array $extra = []): EmployeeDocument
     {
-        // La regla 'mimes' confía en el tipo que reporta el archivo; aquí se
-        // inspecciona el contenido (un .php renombrado a .jpg no pasa).
-        $realMime = (new \finfo(FILEINFO_MIME_TYPE))->file($file->getRealPath());
-
-        if (! in_array($realMime, self::REAL_MIME_TYPES, true)) {
-            throw ValidationException::withMessages([
-                'file' => ['El contenido del archivo no es un PDF, JPG o PNG válido.'],
-            ]);
+        // También aquí y no solo en fileRules(): store() se llama desde la app y el panel.
+        // SafeUpload revisa el contenido real (un .php renombrado a .jpg no pasa) y los PDF activos.
+        if ($error = SafeUpload::inspect($file, self::REAL_MIME_TYPES)) {
+            throw ValidationException::withMessages(['file' => [$error]]);
         }
+        $realMime = (new \finfo(FILEINFO_MIME_TYPE))->file($file->getRealPath());
 
         $sha256 = hash_file('sha256', $file->getRealPath());
 

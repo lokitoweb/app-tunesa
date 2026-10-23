@@ -4,6 +4,7 @@ namespace App\Modules\Finance\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Services\AuditLogger;
+use App\Modules\Core\Support\PrivateFile;
 use App\Modules\Finance\Models\CompanyBankAccount;
 use App\Modules\Finance\Models\PaymentCancellation;
 use App\Modules\Finance\Models\PaymentInstallment;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Modules\Core\Rules\SafeUpload;
 
 /**
  * Tesorería (FrmReqProg / FrmRegpagos): las cuotas de las órdenes emitidas
@@ -115,7 +117,7 @@ class TreasuryWebController extends Controller
             'amount'                  => ['required', 'numeric', 'min:0.01', "max:{$remaining}"],
             'company_bank_account_id' => ['required', Rule::exists('company_bank_accounts', 'id')->where('tenant_id', $p->tenant_id)->where('is_active', true)],
             'operation_number'        => ['required', 'string', 'max:50'],
-            'voucher'                 => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120'],
+            'voucher'                 => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120', new SafeUpload],
         ], [
             'required'                => 'Falta :attribute.',
             'amount.max'              => "El monto supera el saldo de la cuota ({$remaining}).",
@@ -169,10 +171,8 @@ class TreasuryWebController extends Controller
     public function voucher(int $id)
     {
         $c = PaymentCancellation::findOrFail($id);
-        abort_unless($c->voucher_path && Storage::disk(self::VOUCHER_DISK)->exists($c->voucher_path), 404);
 
-        return response()->file(Storage::disk(self::VOUCHER_DISK)->path($c->voucher_path), ['Cache-Control' => 'private, no-store'])
-            ->setPrivate(); // BinaryFileResponse se marca public por defecto
+        return PrivateFile::response(self::VOUCHER_DISK, $c->voucher_path);
     }
 
     /** Detracción del requerimiento (corregir_detraccion) */

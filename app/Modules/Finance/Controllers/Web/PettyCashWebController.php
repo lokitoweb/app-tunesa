@@ -4,6 +4,7 @@ namespace App\Modules\Finance\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Services\AuditLogger;
+use App\Modules\Core\Support\PrivateFile;
 use App\Modules\Finance\Models\PettyCashExpense;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Modules\Core\Rules\SafeUpload;
 
 /** Caja chica (Fcaja_chica): gastos menores con recibo correlativo y comprobante */
 class PettyCashWebController extends Controller
@@ -90,10 +92,8 @@ class PettyCashWebController extends Controller
     public function voucher(int $id)
     {
         $expense = PettyCashExpense::findOrFail($id);
-        abort_unless($expense->voucher_path && Storage::disk(self::DISK)->exists($expense->voucher_path), 404);
 
-        return response()->file(Storage::disk(self::DISK)->path($expense->voucher_path), ['Cache-Control' => 'private, no-store'])
-            ->setPrivate(); // BinaryFileResponse se marca public por defecto
+        return PrivateFile::response(self::DISK, $expense->voucher_path);
     }
 
     private function validated(Request $request): array
@@ -108,7 +108,7 @@ class PettyCashWebController extends Controller
             'ruc'             => ['nullable', 'digits:11'],
             'amount'          => ['required', 'numeric', 'min:0.01', 'max:99999999'],
             'cash_box'        => ['required', Rule::in(PettyCashExpense::CASH_BOXES)],
-            'voucher'         => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120'],
+            'voucher'         => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120', new SafeUpload],
         ], [
             'required'               => 'Falta :attribute.',
             'date.before_or_equal'   => 'La fecha no puede ser futura.',

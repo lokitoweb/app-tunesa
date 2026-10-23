@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use App\Modules\Core\Rules\SafeUpload;
 
 /**
  * PayslipController
@@ -80,7 +81,7 @@ class PayslipController extends Controller
             'user_id'       => ['required', 'integer', Rule::exists('users', 'id')->where('tenant_id', current_tenant_id())],
             'period_month'  => ['required', 'integer', 'between:1,12'],
             'period_year'   => ['required', 'integer', 'min:2020'],
-            'file'          => ['required', 'file', 'mimes:pdf', 'max:10240'], // 10MB
+            'file'          => ['required', 'file', 'mimes:pdf', 'max:10240', SafeUpload::pdf()], // 10MB
             'title'         => ['sometimes', 'nullable', 'string', 'max:200'],
             'gross_salary'  => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'deductions'    => ['sometimes', 'nullable', 'numeric', 'min:0'],
@@ -141,7 +142,7 @@ class PayslipController extends Controller
             'period_month' => ['required', 'integer', 'between:1,12'],
             'period_year'  => ['required', 'integer', 'between:2020,2100'],
             'files'        => ['required', 'array', 'min:1', 'max:500'],
-            'files.*'      => ['file', 'mimes:pdf', 'max:10240'],
+            'files.*'      => ['file', 'mimes:pdf', 'max:10240', SafeUpload::pdf()],
             'publish_now'  => ['sometimes', 'boolean'],
         ]);
 
@@ -250,7 +251,7 @@ class PayslipController extends Controller
         $payslip = Payslip::findOrFail($id);
 
         $validated = $request->validate([
-            'file'         => ['sometimes', 'file', 'mimes:pdf', 'max:10240'],
+            'file'         => ['sometimes', 'file', 'mimes:pdf', 'max:10240', SafeUpload::pdf()],
             'title'        => ['sometimes', 'string', 'max:200'],
             'gross_salary' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'deductions'   => ['sometimes', 'nullable', 'numeric', 'min:0'],

@@ -75,7 +75,7 @@ class TreasuryFlowTest extends TestCase
         // No se paga más que el saldo
         $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay(['amount' => 1000.01]))->assertSessionHasErrors('amount');
 
-        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay(['voucher' => UploadedFile::fake()->create('v1.pdf', 100, 'application/pdf')]))
+        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay(['voucher' => $this->fakePdf('v1.pdf')]))
             ->assertSessionHasNoErrors();
         $p->refresh();
         $this->assertSame(['pending', '400.00'], [$p->status, $p->paid_amount]);
@@ -89,7 +89,8 @@ class TreasuryFlowTest extends TestCase
         // El voucher se guarda en el disco privado y solo se sirve con permiso
         $first = PaymentCancellation::withoutGlobalScopes()->orderBy('id')->first();
         Storage::disk('private')->assertExists($first->voucher_path);
-        $this->actingAs($accountant)->get("/treasury/payments/{$first->id}/voucher")->assertOk()->assertHeader('Cache-Control', 'no-store, private');
+        $this->actingAs($accountant)->get("/treasury/payments/{$first->id}/voucher")->assertOk();
+        $this->assertMatchesRegularExpression('/^(?=.*private)(?=.*no-store)(?!.*public)/', $this->actingAs($accountant)->get("/treasury/payments/{$first->id}/voucher")->headers->get('Cache-Control'));
         $this->actingAs($this->makeUser($acme, 'logistics'))->get("/treasury/payments/{$first->id}/voucher")->assertForbidden();
 
         // Cuota pagada ya no acepta pagos

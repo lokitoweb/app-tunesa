@@ -101,9 +101,9 @@ class WebPanelTest extends TestCase
         $this->actingAs($hr)->post('/payslips/bulk', [
             'period_month' => 9, 'period_year' => 2026, 'publish_now' => 1,
             'files' => [
-                UploadedFile::fake()->create('boleta_45871236.pdf', 50, 'application/pdf'),
-                UploadedFile::fake()->create('EMP-004_setiembre.pdf', 50, 'application/pdf'),
-                UploadedFile::fake()->create('desconocido_999.pdf', 50, 'application/pdf'),
+                $this->fakePdf('boleta_45871236.pdf'),
+                $this->fakePdf('EMP-004_setiembre.pdf'),
+                $this->fakePdf('desconocido_999.pdf'),
             ],
         ])->assertRedirect(route('payslips.bulk'));
 

@@ -23,6 +23,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Modules\Core\Rules\SafeUpload;
 
 /**
  * Capacitaciones en el panel: cursos (lecciones, cuestionario, a quién se
@@ -328,7 +329,7 @@ class TrainingWebController extends Controller
             'lessons.*.content'           => ['nullable', 'required_if:lessons.*.type,text', 'string', 'max:50000'],
             'lessons.*.url'               => ['nullable', 'required_if:lessons.*.type,video', 'required_if:lessons.*.type,link', 'url:https', 'max:500'],
             'lessons.*.duration_minutes'  => ['nullable', 'integer', 'between:1,600'],
-            'lessons.*.file'              => ['nullable', 'file', 'mimes:pdf', 'extensions:pdf', 'max:20480'],
+            'lessons.*.file'              => ['nullable', 'file', 'mimes:pdf', 'extensions:pdf', 'max:20480', SafeUpload::pdf()],
             'questions'                   => ['nullable', 'array', 'max:100'],
             'questions.*.question'        => ['required', 'string', 'max:500'],
             'questions.*.options'         => ['required', 'array', 'min:2', 'max:6'],

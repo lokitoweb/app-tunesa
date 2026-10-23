@@ -20,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Validation\Rule;
+use App\Modules\Core\Rules\SafeUpload;
 
 /**
  * AttendanceController
@@ -519,7 +520,7 @@ class AttendanceController extends Controller
     {
         $validated = $request->validate([
             'notes' => ['required', 'string', 'max:1000'],
-            'file'  => ['sometimes', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'file'  => ['sometimes', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120', new SafeUpload],
         ]);
 
         $attendance = Attendance::where('user_id', $request->user()->id)->findOrFail($id);

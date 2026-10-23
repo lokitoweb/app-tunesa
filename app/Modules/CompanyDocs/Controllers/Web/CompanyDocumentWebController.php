@@ -17,6 +17,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Modules\Core\Rules\SafeUpload;
 
 /**
  * Documentos de la empresa en el panel: carpetas, PDFs, a quién se le
@@ -322,7 +323,7 @@ class CompanyDocumentWebController extends Controller
             'description'    => ['nullable', 'string', 'max:5000'],
             'version'        => ['nullable', 'string', 'max:30'],
             'folder_id'      => ['required', 'integer', Rule::exists('company_document_folders', 'id')->where('tenant_id', current_tenant_id_or_null())],
-            'file'           => [$creating ? 'required' : 'nullable', 'file', 'mimes:pdf', 'extensions:pdf', 'max:20480'],
+            'file'           => [$creating ? 'required' : 'nullable', 'file', 'mimes:pdf', 'extensions:pdf', 'max:20480', SafeUpload::pdf()],
             'requires_acknowledgement' => ['boolean'],
             'acknowledge_by' => ['nullable', 'date', 'after_or_equal:today'],
             'status'         => ['required', Rule::in(array_keys(CompanyDocument::STATUSES))],

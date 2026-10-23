@@ -7,11 +7,11 @@ use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Services\OvertimeApproval;
 use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Support\PrivateFile;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 /**
@@ -158,11 +158,7 @@ class ApprovalWebController extends Controller
     {
         $leave = $this->leaveQuery(Auth::user())->findOrFail($id);
 
-        abort_unless($leave->attachment_path && Storage::disk('private')->exists($leave->attachment_path), 404);
-
-        return response()->file(Storage::disk('private')->path($leave->attachment_path), [
-            'Cache-Control' => 'private, no-store',
-        ]);
+        return PrivateFile::response('private', $leave->attachment_path, "sustento-solicitud-{$leave->id}." . pathinfo((string) $leave->attachment_path, PATHINFO_EXTENSION));
     }
 
     private function leaveQuery(User $user): Builder

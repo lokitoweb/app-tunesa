@@ -7,12 +7,12 @@ use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\User;
 use App\Modules\Attendance\Services\AttendanceEvidence;
+use App\Modules\Core\Support\PrivateFile;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 /**
@@ -153,13 +153,6 @@ class AttendanceWebController extends Controller
     {
         $attendance = Attendance::findOrFail($id);
 
-        abort_unless(
-            $attendance->justification_file && Storage::disk('private')->exists($attendance->justification_file),
-            404
-        );
-
-        return response()->file(Storage::disk('private')->path($attendance->justification_file), [
-            'Cache-Control' => 'private, no-store',
-        ]);
+        return PrivateFile::response('private', $attendance->justification_file);
     }
 }

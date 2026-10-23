@@ -63,7 +63,7 @@ class LeaveRequestApiTest extends TestCase
 
         $this->actingIn($emp, $acme)->post('/api/leave-requests', [
             'type' => 'medical_leave', 'start_date' => '2026-11-02', 'end_date' => '2026-11-03', 'reason' => 'Gripe',
-            'attachment' => UploadedFile::fake()->create('certificado.pdf', 100, 'application/pdf'),
+            'attachment' => $this->fakePdf('certificado.pdf'),
         ])->assertCreated()->assertJsonPath('data.has_attachment', true);
 
         $this->assertSame($acme->id, LeaveRequest::first()->tenant_id);

@@ -7,6 +7,7 @@ use App\Modules\Payroll\Models\Payslip;
 use App\Modules\Payroll\Services\PayslipImportService;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\AuditLogger;
+use App\Modules\Core\Support\PrivateFile;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use App\Modules\Core\Rules\SafeUpload;
 
 /**
  * PayslipWebController (Web)
@@ -134,7 +136,7 @@ class PayslipWebController extends Controller
             'title'         => ['required', 'string', 'max:150'],
             'period_month'  => ['required', 'integer', 'between:1,12'],
             'period_year'   => ['required', 'integer', 'between:2020,2035'],
-            'pdf_file'      => ['required', 'file', 'mimes:pdf', 'max:10240'], // Max 10MB
+            'pdf_file'      => ['required', 'file', 'mimes:pdf', 'max:10240', SafeUpload::pdf()], // Max 10MB
             'gross_salary'  => ['required', 'numeric', 'min:0'],
             'deductions'    => ['required', 'numeric', 'min:0'],
             'net_salary'    => ['required', 'numeric', 'min:0'],
@@ -298,7 +300,7 @@ class PayslipWebController extends Controller
             'period_month' => ['required', 'integer', 'between:1,12'],
             'period_year'  => ['required', 'integer', 'between:2020,2100'],
             'files'        => ['required', 'array', 'min:1', 'max:500'],
-            'files.*'      => ['file', 'mimes:pdf', 'max:10240'],
+            'files.*'      => ['file', 'mimes:pdf', 'max:10240', SafeUpload::pdf()],
             'publish_now'  => ['nullable', 'boolean'],
         ]);
 
@@ -324,13 +326,7 @@ class PayslipWebController extends Controller
     {
         $payslip = Payslip::findOrFail($id);
 
-        abort_unless(Storage::disk('private')->exists($payslip->file_path), 404);
-
-        return response()->file(Storage::disk('private')->path($payslip->file_path), [
-            'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . addslashes($payslip->file_name) . '"',
-            'Cache-Control'       => 'private, no-store',
-        ]);
+        return PrivateFile::response('private', $payslip->file_path, $payslip->file_name);
     }
 
     /**

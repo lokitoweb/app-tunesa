@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Modules\Core\Rules\SafeUpload;
 
 /**
  * LeaveRequestController
@@ -57,7 +58,7 @@ class LeaveRequestController extends Controller
             'reason'     => ['required', 'string', 'max:1000'],
             'attachment' => [
                 $request->input('type') === 'medical_leave' ? 'required' : 'sometimes',
-                'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120',
+                'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120', new SafeUpload,
             ],
         ]);
 
