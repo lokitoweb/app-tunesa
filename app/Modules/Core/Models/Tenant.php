@@ -9,6 +9,7 @@ use App\Modules\HR\Models\Shift;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 /**
  * Modelo Tenant
@@ -43,6 +44,7 @@ class Tenant extends Model
         'timezone',
         'currency',
         'settings',
+        'code',
     ];
 
     protected $casts = [
@@ -69,6 +71,9 @@ class Tenant extends Model
                 cache()->forget("tenant:domain:{$domain}");
             }
         };
+
+        // Abreviatura de los correlativos (RQ-TN-…): se propone sola, y única, al crear la empresa
+        static::creating(fn (Tenant $t) => $t->code ??= static::uniqueCode((string) $t->company_name));
 
         static::saved($forget);
         static::deleted($forget);
@@ -179,5 +184,46 @@ class Tenant extends Model
         return $this->plan === 'trial'
             && $this->trial_ends_at
             && $this->trial_ends_at->isFuture();
+    }
+
+    /** Palabras que no aportan iniciales ("Transportes de la Costa S.A.C." -> TC) */
+    private const CODE_STOPWORDS = ['DE', 'DEL', 'LA', 'LAS', 'LOS', 'EL', 'Y', 'E', 'EN', 'S', 'A', 'C', 'R', 'L', 'SA', 'SAC', 'SAA', 'SRL', 'EIRL'];
+
+    /**
+     * Abreviatura única de 2 caracteres a partir del nombre: iniciales ("Turismo Negreiros" -> TN);
+     * si ya existe, otras letras del nombre (TR, TU…), luego inicial + dígito y, al final, cualquier par libre.
+     */
+    public static function uniqueCode(string $name, ?int $ignoreId = null): string
+    {
+        $taken = array_flip(static::withTrashed()->whereNotNull('code')->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))->pluck('code')->all());
+        $words = array_values(array_diff(preg_split('/[^A-Z0-9]+/', strtoupper(Str::ascii($name)), -1, PREG_SPLIT_NO_EMPTY), self::CODE_STOPWORDS));
+        $first = $words[0] ?? 'X';
+
+        $candidates = [];
+        foreach (array_slice($words, 1) as $w) {
+            $candidates[] = $first[0] . $w[0];
+        }
+        foreach ($words as $w) {
+            for ($i = 1; $i < strlen($w); $i++) {
+                $candidates[] = $w[0] . $w[$i];
+            }
+        }
+        foreach (str_split('123456789') as $d) {
+            $candidates[] = $first[0] . $d;
+        }
+        $alphabet = str_split('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789');
+        foreach ($alphabet as $a) {
+            foreach ($alphabet as $b) {
+                $candidates[] = $a . $b;
+            }
+        }
+
+        foreach ($candidates as $code) {
+            if (! isset($taken[$code])) {
+                return $code;
+            }
+        }
+
+        throw new \RuntimeException("No quedan abreviaturas libres para {$name}.");
     }
 }

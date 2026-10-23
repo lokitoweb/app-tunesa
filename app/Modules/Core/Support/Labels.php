@@ -50,6 +50,7 @@ final class Labels
         'tenant.suspended'                   => ['Empresa suspendida', 'warning', 'building-slash'],
         'tenant.activated'                   => ['Empresa reactivada', 'success', 'building-check'],
         'tenant.deleted'                     => ['Empresa dada de baja', 'danger', 'building-x'],
+        'tenant.document_code_updated'       => ['Abreviatura de correlativos cambiada', 'primary', 'hash'],
 
         // Sucursales y turnos
         'branch.created'                     => ['Sucursal creada', 'success', 'geo-alt'],

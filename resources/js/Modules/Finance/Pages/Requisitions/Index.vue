@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
@@ -11,7 +11,21 @@ const props = defineProps({
     totals: { type: Object, default: () => ({}) },
     filters: { type: Object, default: () => ({}) },
     can_create: { type: Boolean, default: false },
+    company_code: { type: String, default: null },
+    can_edit_code: { type: Boolean, default: false },
 });
+
+// Abreviatura [EMPRESA] de los correlativos RQ/OC (los ya emitidos no cambian)
+const codeForm = useForm({ code: props.company_code || '' });
+const editingCode = ref(false);
+function saveCode() {
+    codeForm.put('/requisitions/company-code', { preserveScroll: true, onSuccess: () => { editingCode.value = false; } });
+}
+function cancelCode() {
+    editingCode.value = false;
+    codeForm.code = props.company_code || '';
+    codeForm.clearErrors();
+}
 
 const { ensureTenant } = useTenantPicker();
 const search = ref(props.filters.search || '');
@@ -39,9 +53,26 @@ const money = (v, c) => (v == null ? '—' : `${c === 'USD' ? 'US$' : c === 'EUR
                 <h1 class="h4 fw-bold mb-1">Requerimientos y compras</h1>
                 <p class="text-body-secondary small mb-0">Solicitud, aprobación, cotización y orden de compra o servicio.</p>
             </div>
-            <button v-if="can_create" type="button" class="btn btn-primary" @click="create">
-                <i class="bi bi-plus-lg me-1"></i>Nuevo requerimiento
-            </button>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <div v-if="company_code" class="small">
+                    <form v-if="editingCode" class="d-flex align-items-start gap-1" @submit.prevent="saveCode">
+                        <div>
+                            <input v-model="codeForm.code" maxlength="2" aria-label="Abreviatura de la empresa" class="form-control form-control-sm text-uppercase font-monospace" style="width: 4rem"
+                                   :class="{ 'is-invalid': codeForm.errors.code }">
+                            <div class="invalid-feedback">{{ codeForm.errors.code }}</div>
+                        </div>
+                        <button class="btn btn-sm btn-primary" :disabled="codeForm.processing">Guardar</button>
+                        <button type="button" class="btn btn-sm btn-light" @click="cancelCode">Cancelar</button>
+                    </form>
+                    <span v-else class="text-body-secondary">
+                        Abreviatura en correlativos: <span class="badge text-bg-light border font-monospace">{{ company_code }}</span>
+                        <button v-if="can_edit_code" type="button" class="btn btn-link btn-sm p-0 ms-1" aria-label="Editar abreviatura" @click="editingCode = true"><i class="bi bi-pencil"></i></button>
+                    </span>
+                </div>
+                <button v-if="can_create" type="button" class="btn btn-primary" @click="create">
+                    <i class="bi bi-plus-lg me-1"></i>Nuevo requerimiento
+                </button>
+            </div>
         </div>
 
         <div class="d-flex flex-wrap gap-2 mb-3" role="tablist" aria-label="Etapas">

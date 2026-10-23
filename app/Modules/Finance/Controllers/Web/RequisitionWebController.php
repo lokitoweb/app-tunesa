@@ -3,7 +3,10 @@
 namespace App\Modules\Finance\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
+use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Services\AuditLogger;
+use App\Modules\Core\Services\TenantContext;
+use App\Modules\Finance\Models\DocumentSequence;
 use App\Modules\Finance\Models\Product;
 use App\Modules\Finance\Models\Quotation;
 use App\Modules\Finance\Models\Requisition;
@@ -38,6 +41,7 @@ class RequisitionWebController extends Controller
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('detail', 'like', "%{$search}%")
                 ->orWhere('requested_by', 'like', "%{$search}%")->orWhere('area', 'like', "%{$search}%")
                 ->orWhere('purchase_order_number', 'like', "%{$search}%")->orWhere('service_order_number', 'like', "%{$search}%")
+                ->orWhere('code', 'like', "%{$search}%")
                 ->when(ctype_digit($search), fn ($n) => $n->orWhere('number', (int) $search))))
             ->latest('requested_at')->latest('id')
             ->paginate(30)->withQueryString()
@@ -65,7 +69,30 @@ class RequisitionWebController extends Controller
             'totals'       => $totals,
             'filters'      => ['stage' => $stage, 'search' => $search],
             'can_create'   => $request->user()->hasPermission('requisitions.create'),
+            'company_code' => app(TenantContext::class)->getOrNull()?->code,
+            'can_edit_code' => $request->user()->hasPermission('company.document_code'),
         ]);
+    }
+
+    /** Abreviatura [EMPRESA] de los correlativos: editable, única; los códigos ya emitidos no cambian */
+    public function updateCompanyCode(Request $request): RedirectResponse
+    {
+        $tenant = app(TenantContext::class)->getOrNull();
+        abort_unless($tenant, 422, 'Elige una empresa en el selector.');
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+        $data = $request->validate([
+            'code' => ['required', 'regex:/^[A-Z0-9]{2}$/', Rule::unique('tenants', 'code')->ignore($tenant->id)],
+        ], [
+            'code.regex'  => 'La abreviatura debe tener exactamente 2 letras o dígitos.',
+            'code.unique' => 'Otra empresa ya usa esa abreviatura.',
+        ], ['code' => 'la abreviatura']);
+
+        $old = $tenant->code;
+        Tenant::findOrFail($tenant->id)->update(['code' => $data['code']]); // saved: invalida la caché del tenant
+        $tenant->code = $data['code'];
+        $this->audit->log('tenant.document_code_updated', $tenant, ['from' => $old, 'to' => $data['code']]);
+
+        return back()->with('success', "Abreviatura de la empresa: {$data['code']}.");
     }
 
     public function create(Request $request): Response|RedirectResponse
@@ -90,9 +117,13 @@ class RequisitionWebController extends Controller
         $data = $this->validated($request);
 
         $requisition = DB::transaction(function () use ($data, $request) {
-            $number = (int) Requisition::withTrashed()->where('series', 'RQ')->lockForUpdate()->max('number') + 1;
+            // RQ-[EMPRESA]-[SERIE]-[N]-[AÑO]: la serie es la sede de quien solicita
+            $series = DocumentSequence::seriesFrom($request->user()->assignedBranch?->code);
+            $year = (int) now()->year;
+            [$number, $code] = DocumentSequence::next(app(TenantContext::class)->get(), 'RQ', $series, $year);
             $requisition = Requisition::create($this->header($data) + [
-                'series' => 'RQ', 'number' => $number, 'stage' => 'requested', 'user_id' => $request->user()->id,
+                'series' => $series, 'number' => $number, 'code' => $code, 'year' => $year,
+                'stage' => 'requested', 'user_id' => $request->user()->id,
             ]);
             $this->syncItems($requisition, $data['items']);
 
@@ -260,8 +291,8 @@ class RequisitionWebController extends Controller
             $quotation = $r->quotations()->findOrFail($data['quotation_id']);
             $column = $data['type'] === 'purchase' ? 'purchase_order_number' : 'service_order_number';
             $prefix = $data['type'] === 'purchase' ? 'OC' : 'OS';
-            $next = Requisition::withTrashed()->whereNotNull($column)->lockForUpdate()->count() + 1;
-            $number = sprintf('%s-%06d', $prefix, $next);
+            // OC/OS-[EMPRESA]-[SERIE]-[N]-[AÑO], misma serie (sede) que el requerimiento
+            [, $number] = DocumentSequence::next($r->tenant, $prefix, DocumentSequence::seriesFrom($r->year ? $r->series : null), (int) now()->year);
 
             $r->quotations()->update(['is_selected' => false]);
             $quotation->update(['is_selected' => true]);

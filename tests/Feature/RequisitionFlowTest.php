@@ -40,7 +40,8 @@ class RequisitionFlowTest extends TestCase
         $this->actingAs($requester)->post('/requisitions', $this->payload())->assertSessionHasNoErrors();
         $this->actingAs($requester)->post('/requisitions', $this->payload(['detail' => 'Otro']))->assertSessionHasNoErrors();
         $r = Requisition::withoutGlobalScopes()->orderBy('id')->first();
-        $this->assertSame(['RQ', 1, 'requested'], [$r->series, $r->number, $r->stage]);
+        $y = now()->year;
+        $this->assertSame(['001', 1, 'requested', "RQ-AC-001-000001-{$y}"], [$r->series, $r->number, $r->stage, $r->code()]);
         $this->assertSame(2, Requisition::withoutGlobalScopes()->max('number'));
         $this->assertSame(2, $r->items()->count());
         $this->assertSame(2, Product::withoutGlobalScopes()->count(), 'los productos no se duplican');
@@ -70,7 +71,7 @@ class RequisitionFlowTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $r->refresh();
-        $this->assertSame(['ordered', 'OC-000001', $supplier->id, '1000.00'], [$r->stage, $r->purchase_order_number, $r->supplier_id, $r->amount]);
+        $this->assertSame(['ordered', "OC-AC-001-000001-{$y}", $supplier->id, '1000.00'], [$r->stage, $r->purchase_order_number, $r->supplier_id, $r->amount]);
         $this->assertTrue($quotation->fresh()->is_selected);
         $installments = PaymentInstallment::withoutGlobalScopes()->orderBy('installment')->get();
         $this->assertSame(['333.33', '333.33', '333.34'], $installments->pluck('amount')->all());
@@ -81,7 +82,7 @@ class RequisitionFlowTest extends TestCase
         $this->actingAs($logistics)->post("/requisitions/{$r->id}/order", ['quotation_id' => $quotation->id])->assertStatus(422);
 
         $this->actingAs($manager)->get("/requisitions/{$r->id}")->assertOk()
-            ->assertInertia(fn ($p) => $p->component('Finance/Pages/Requisitions/Show')->where('requisition.purchase_order_number', 'OC-000001')->has('requisition.installments_list', 3));
+            ->assertInertia(fn ($p) => $p->component('Finance/Pages/Requisitions/Show')->where('requisition.purchase_order_number', "OC-AC-001-000001-{$y}")->has('requisition.installments_list', 3));
     }
 
     public function test_visibility_and_tenant_isolation(): void

@@ -100,6 +100,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'treasury.view'           => ['Ver programación de pagos, cuotas y flujo de caja', 'finance'],
         'treasury.pay'            => ['Programar, pagar y cancelar cuotas', 'finance'],
         'fixed_costs.manage'      => ['Gestionar costos fijos y caja chica', 'finance'],
+        'company.document_code'   => ['Editar la abreviatura de la empresa en los correlativos (RQ/OC)', 'finance'],
     ];
 
     /** Permisos de compras y tesorería, para restarlos de los roles con '*' */
@@ -148,7 +149,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'attendance.mark', 'attendance.view_own', 'shifts.view_own',
                 'dashboard.view', 'reports.view', 'reports.export',
                 'payslips.manage', 'payroll.export',
-                ...self::FINANCE,
+                ...self::FINANCE, 'company.document_code',
                 'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
                 'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],

@@ -26,6 +26,8 @@ Route::middleware(['auth', 'web.tenant', 'can:requisitions.create'])->prefix('re
     Route::get('/', [RequisitionWebController::class, 'index'])->name('index');
     Route::get('/create', [RequisitionWebController::class, 'create'])->name('create');
     Route::post('/', [RequisitionWebController::class, 'store'])->name('store');
+    Route::put('/company-code', [RequisitionWebController::class, 'updateCompanyCode'])->name('company-code')
+        ->middleware('can:company.document_code');
     Route::get('/{id}', [RequisitionWebController::class, 'show'])->name('show')->whereNumber('id');
     Route::get('/{id}/edit', [RequisitionWebController::class, 'edit'])->name('edit')->whereNumber('id');
     Route::put('/{id}', [RequisitionWebController::class, 'update'])->name('update')->whereNumber('id');

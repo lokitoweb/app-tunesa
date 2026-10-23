@@ -41,7 +41,7 @@ class Requisition extends Model
     public const PAYMENT_ORIGINS = ['TRANSFERENCIA', 'CAJA EFECTIVO', 'CAJA PASAJES', 'CAJA ENCOMIENDAS', 'CAJA TOURS', 'OTROS'];
 
     protected $fillable = [
-        'tenant_id', 'series', 'number', 'requested_at', 'detail', 'area', 'requested_by', 'user_id', 'email', 'plate', 'km',
+        'tenant_id', 'series', 'number', 'code', 'year', 'requested_at', 'detail', 'area', 'requested_by', 'user_id', 'email', 'plate', 'km',
         'agency', 'site', 'delivery_place', 'classification', 'stage', 'payment_terms', 'notes', 'supplier_id',
         'purchase_order_number', 'service_order_number', 'ordered_at', 'invoice_number', 'payment_origin', 'sale_type', 'priority',
         'payment_method', 'reviewed_by', 'reviewed_by_id', 'reviewed_at', 'currency', 'amount', 'amount_payable', 'has_detraction',
@@ -88,7 +88,8 @@ class Requisition extends Model
 
     public function code(): string
     {
-        return sprintf('%s-%06d', $this->series ?: 'RQ', $this->number);
+        // Formal (RQ-TN-SED-01-000001-2026) desde el Bloque 3; los migrados del ERP conservan RQ-000123
+        return ($this->attributes['code'] ?? null) ?: sprintf('%s-%06d', $this->series ?: 'RQ', $this->number);
     }
 
     public function isOpen(): bool

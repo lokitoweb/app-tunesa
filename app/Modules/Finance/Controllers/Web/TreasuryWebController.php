@@ -46,7 +46,7 @@ class TreasuryWebController extends Controller
         $today = now(tenant_timezone())->toDateString();
 
         $installments = $this->tab(PaymentInstallment::query(), $tab, $today)
-            ->with(['requisition:id,series,number,detail,supplier_id,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_number,detraction_amount,detraction_percent,amount',
+            ->with(['requisition:id,series,number,code,detail,supplier_id,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_number,detraction_amount,detraction_percent,amount',
                 'requisition.supplier:id,name,ruc', 'requisition.supplier.bankAccounts:id,supplier_id,bank,account_number,account_type',
                 'cancellations.companyAccount:id,bank,account_number,currency,alias'])
             ->when($search !== '', fn ($q) => $q->whereHas('requisition', fn ($r) => $r->where('detail', 'like', "%{$search}%")
