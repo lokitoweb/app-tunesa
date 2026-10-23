@@ -75,10 +75,10 @@ cada PR que toca `mobile/`).
 
 ## Producción
 
-**Paso a paso del servidor (Ubuntu + Nginx + MySQL) y deploy automático en cada push a `master`:
+**Paso a paso del servidor (Ubuntu + Nginx + MySQL, https://group-cyp.com) y deploy automático en cada push a `master`:
 [docs/deployment/produccion-servidor.md](docs/deployment/produccion-servidor.md).** Plantilla del `.env`:
-`.env.production.example`. Script de despliegue: `scripts/deploy.sh` (lo usan `.github/workflows/deploy.yml` y el
-modo cron del servidor).
+`.env.production.example`. Script de despliegue: `scripts/deploy.sh`, que corre en el propio servidor (cron cada 2 minutos o
+a mano); GitHub Actions no se conecta al servidor.
 
 1. `.env` propio con `APP_ENV=production`, `APP_DEBUG=false`, un `APP_KEY` nuevo (`php artisan key:generate`) y credenciales nuevas de base de datos y correo. No reutilices ninguna clave de un `.env` que haya estado en el repositorio. Con HTTPS activa `SESSION_SECURE_COOKIE=true`, pon en `SANCTUM_STATEFUL_DOMAINS` los dominios del panel y configura `MAIL_MAILER` (SMTP u otro) para que lleguen los correos de recuperación de contraseña (ver `.env.example`). `APP_KEY` también cifra los secretos de "Marca y app" (webhook, clave de mapas): si la cambias, hay que volver a cargarlos.
 2. `php artisan migrate --force`, `npm ci && npm run build` (compila las pantallas Vue en `public/build/`, que no se versiona) y `php artisan optimize:clear` (las vistas compiladas guardan nombres de clases).

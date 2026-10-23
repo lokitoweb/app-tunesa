@@ -17,7 +17,7 @@ Todo lo de los pasos 1 a 9 se hace **una sola vez**. Después, cada push a `mast
 ## 0. Resumen de cómo queda
 
 ```
-GitHub (master) ──push──▶ despliegue (Opción A: GitHub Actions por SSH · Opción B: cron en el servidor)
+GitHub (master) ◀──git fetch cada 2 min── cron del servidor (scripts/deploy.sh --if-changed)
                                 │
                                 ▼
 VPS Ubuntu ─ /var/www/tunesa  (clon de git, .env propio)
@@ -297,57 +297,32 @@ echo 'deploy ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm' | sudo t
 sudo chmod 440 /etc/sudoers.d/tunesa-deploy
 ```
 
-y define `PHP_FPM_SERVICE=php8.3-fpm` en el entorno del deploy (en el crontab de la Opción B o en el comando
-de la Opción A, ver abajo). Sin esto el deploy funciona igual, pero PHP puede tardar en ver el código nuevo
+y define `PHP_FPM_SERVICE=php8.3-fpm` en el entorno del deploy (ya va en la línea del cron del paso 10). Sin esto el deploy funciona igual, pero PHP puede tardar en ver el código nuevo
 si `opcache.validate_timestamps=0`.
 
 ## 10. Despliegue automático en cada push a master
 
-Hay dos formas. Las dos corren el mismo `scripts/deploy.sh`; elige una.
+El servidor se actualiza solo: GitHub no se conecta al servidor (no hay SSH desde Actions, ni IP ni secrets de
+conexión en GitHub, y no gasta minutos de Actions). El servidor lee el repositorio con la deploy key del paso 4.
 
-### Sobre los minutos de GitHub Actions
-
-Con el repositorio **privado** en el plan gratuito, GitHub da 2.000 minutos al mes de Actions (los runners
-macOS cuentan 10 veces, así que el build de iOS se come la cuota rápido). Cuando se acaban o el límite de gasto
-está en 0, los jobs fallan en unos segundos sin llegar a ejecutarse: eso es lo que se ve hoy en "Backend: pruebas",
-"App móvil: APK" y la prueba e2e. Un deploy por Actions usa ~1 minuto por push, pero **no corre** mientras no haya
-minutos. La Opción B no usa Actions y funciona siempre.
-
-### Opción A: GitHub Actions por SSH (`.github/workflows/deploy.yml`)
-
-1. En el servidor, crea una llave para que GitHub entre como `deploy`:
-
-   ```bash
-   # (como deploy)
-   ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/gha_deploy -N ""
-   cat ~/.ssh/gha_deploy.pub >> ~/.ssh/authorized_keys
-   cat ~/.ssh/gha_deploy            # privada: va al secret DEPLOY_SSH_KEY
-   ssh-keyscan -p 22 IP_DEL_SERVIDOR  # va al secret DEPLOY_KNOWN_HOSTS
-   ```
-
-2. En GitHub → **Settings → Secrets and variables → Actions**:
-   - *Secrets*: `DEPLOY_HOST` (`IP_DEL_SERVIDOR`), `DEPLOY_USER` (`deploy`), `DEPLOY_PATH` (`/var/www/tunesa`),
-     `DEPLOY_SSH_KEY` (la llave privada completa), `DEPLOY_KNOWN_HOSTS` (la salida de `ssh-keyscan`) y,
-     si no usas el 22, `DEPLOY_PORT`.
-   - *Variables*: `DEPLOY_MODE` = `actions`. Sin esta variable el workflow se salta solo (no gasta minutos).
-
-   - *Variable* opcional `PHP_FPM_SERVICE` = `php8.3-fpm` para recargar PHP-FPM al final (paso 9).
-
-Desde ese momento cada push a `master` que toque el backend o el panel despliega (los cambios solo de `mobile/`
-o `docs/` no). También se puede lanzar a mano: **Actions → Deploy: producción → Run workflow**.
-
-### Opción B: el servidor revisa GitHub cada 2 minutos (sin Actions)
-
-El servidor ya puede leer el repositorio con la deploy key del paso 4. Agrega al crontab de `deploy`
-(`sudo crontab -u deploy -e`), debajo del scheduler:
+**Automático (cron).** Agrega al crontab de `deploy` (`sudo crontab -u deploy -e`), debajo del scheduler:
 
 ```cron
 */2 * * * * cd /var/www/tunesa && PHP_FPM_SERVICE=php8.3-fpm bash scripts/deploy.sh --if-changed >> storage/logs/deploy.log 2>&1
 ```
 
-`--if-changed` solo hace `git fetch`; si `origin/master` no cambió termina sin tocar nada. Un push queda en
-producción en máximo 2 minutos. No usa minutos de GitHub ni abre puertos. Si un día activas la Opción A, quita
-esta línea (el script tiene un candado y nunca corre dos despliegues a la vez, pero no tiene sentido duplicarlos).
+`--if-changed` solo hace `git fetch`; si `origin/master` no cambió termina sin tocar nada. Un push a `master`
+queda en producción en máximo 2 minutos.
+
+**A mano (consola).** Cuando quieras publicar al instante:
+
+```bash
+cd /var/www/tunesa && bash scripts/deploy.sh
+```
+
+Hace el `git pull` (fetch + reset al último `master`) y todo lo demás. No corras `git pull` por separado: el script
+necesita saber qué commit había antes para volver atrás si algo falla. El script tiene un candado: si el cron y tú
+coinciden, uno espera su turno sin pisar al otro.
 
 Historial: `tail -f /var/www/tunesa/storage/logs/deploy.log`.
 
@@ -363,8 +338,8 @@ git log --oneline -10
 bash scripts/deploy.sh --ref <commit>
 ```
 
-Con la Opción B el cron volvería a subir `master` a los 2 minutos: para un rollback que dure, revierte el commit
-en GitHub (`git revert`) y haz push. Las migraciones ya aplicadas no se deshacen solas.
+El cron volvería a subir `master` a los 2 minutos: para un rollback que dure, revierte el commit en GitHub
+(`git revert`) y haz push. Las migraciones ya aplicadas no se deshacen solas.
 
 ## 11. Verificación final
 
@@ -397,7 +372,7 @@ Respaldo diario de la base (recomendado):
   `migrate` falla con el error 1419, pide al soporte que lo active o usa un VPS.
 - **Sin SSH**: sube el proyecto con `vendor/` y `public/build` ya incluidos y abre `https://group-cyp.com/install`:
   el asistente pide los datos de MySQL, crea las tablas y el Super Admin. En ese caso no hay deploy automático.
-- **Con SSH** (Terminal del panel): sigue los pasos 4–7 y la Opción B con el "Cron Jobs" del panel. Si el
+- **Con SSH** (Terminal del panel): sigue los pasos 4–7 y el cron del paso 10 con el "Cron Jobs" del panel. Si el
   hosting no tiene Node, compila en tu PC (`npm ci && npm run build`), sube `public/build` y usa `SKIP_NPM=1`
   en la línea del cron.
 

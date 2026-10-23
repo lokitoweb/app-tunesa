@@ -2,7 +2,7 @@
 # Despliegue en el servidor de producción (se ejecuta DENTRO del servidor, en la carpeta del proyecto).
 #
 #   bash scripts/deploy.sh                 # trae origin/master y despliega
-#   bash scripts/deploy.sh --ref <sha>     # despliega ese commit (lo usa GitHub Actions)
+#   bash scripts/deploy.sh --ref <sha>     # despliega ese commit (volver a una versión anterior)
 #   bash scripts/deploy.sh --if-changed    # solo si origin/master cambió (modo cron, sin GitHub Actions)
 #   bash scripts/deploy.sh --force         # vuelve a correr todo aunque no haya cambios
 #
@@ -44,7 +44,7 @@ log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 [[ -f .env ]] || { echo "Falta .env en $APP_DIR (copia .env.production.example y complétalo)." >&2; exit 1; }
 [[ -d .git ]] || { echo "$APP_DIR no es un clon de git." >&2; exit 1; }
 
-# Un solo despliegue a la vez (cron y Actions pueden coincidir)
+# Un solo despliegue a la vez (el cron y una corrida a mano pueden coincidir)
 if [[ -z "${DEPLOY_LOCK_HELD:-}" ]]; then
   exec 9>"$APP_DIR/storage/framework/deploy.lock"
   if ! flock -n 9; then
