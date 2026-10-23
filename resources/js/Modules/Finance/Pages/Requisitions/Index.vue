@@ -114,6 +114,7 @@ const money = (v, c) => (v == null ? '—' : `${c === 'USD' ? 'US$' : c === 'EUR
                         <tr v-for="r in requisitions.data" :key="r.id" role="button" @click="router.get(`/requisitions/${r.id}`)">
                             <td class="text-nowrap">
                                 <Link :href="`/requisitions/${r.id}`" class="fw-semibold font-monospace text-decoration-none" @click.stop>{{ r.code }}</Link>
+                                <span v-if="r.is_express" class="badge text-bg-warning ms-1" title="Express"><i class="bi bi-lightning-charge-fill"></i></span>
                                 <div class="small text-body-secondary">{{ r.requested_at }}</div>
                             </td>
                             <td style="max-width: 320px">

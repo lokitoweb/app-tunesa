@@ -6,6 +6,11 @@ use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Support\PrivateFile;
 use App\Modules\Finance\Models\PettyCashExpense;
+use App\Modules\Finance\Services\PettyCashImport;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -55,7 +60,7 @@ class PettyCashWebController extends Controller
         unset($data['voucher']);
 
         $expense = DB::transaction(fn () => PettyCashExpense::create($data + [
-            'receipt_number' => (int) PettyCashExpense::withTrashed()->lockForUpdate()->max('receipt_number') + 1,
+            'receipt_number' => $this->nextReceipt(),
             'created_by'     => $request->user()->id,
         ]));
         $this->audit->log('petty_cash.created', $expense, ['receipt' => $expense->receipt_number, 'amount' => $expense->amount]);
@@ -96,9 +101,99 @@ class PettyCashWebController extends Controller
         return PrivateFile::response(self::DISK, $expense->voucher_path);
     }
 
+    /**
+     * Importa gastos desde Excel/CSV (columnas del ERP de escritorio). Todo o nada: si una
+     * fila no pasa las mismas reglas del registro manual, o el comprobante ya está
+     * registrado, no se guarda ninguna y se indica la fila.
+     */
+    public function import(Request $request): RedirectResponse
+    {
+        abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa.');
+        $request->validate([
+            'file'     => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120'],
+            'cash_box' => ['required', Rule::in(PettyCashExpense::CASH_BOXES)],
+        ], ['file.mimes' => 'Sube la plantilla en Excel (.xlsx, .xls) o CSV.'], ['file' => 'el archivo', 'cash_box' => 'la caja']);
+
+        try {
+            $rows = PettyCashImport::rows($request->file('file')->getRealPath());
+        } catch (\Throwable) {
+            throw ValidationException::withMessages(['file' => 'No se pudo leer el archivo. Usa la plantilla.']);
+        }
+        if (! $rows) {
+            throw ValidationException::withMessages(['file' => 'El archivo no tiene gastos.']);
+        }
+        if (count($rows) > PettyCashImport::MAX_ROWS) {
+            throw ValidationException::withMessages(['file' => 'Máximo ' . PettyCashImport::MAX_ROWS . ' filas por archivo.']);
+        }
+
+        [$rules, $messages, $attributes] = self::rules();
+        unset($rules['voucher']);
+        $errors = [];
+        $key = fn ($r) => Str::upper("{$r['document_type']}|{$r['document_number']}|{$r['ruc']}");
+        // Comprobantes ya registrados en la empresa, en una sola consulta
+        $seen = PettyCashExpense::whereIn('document_number', array_filter(array_column($rows, 'document_number')))
+            ->get(['document_type', 'document_number', 'ruc'])->mapWithKeys(fn ($e) => [$key($e) => true])->all();
+        foreach ($rows as $line => &$row) {
+            $row['cash_box'] = $request->input('cash_box');
+            $validator = Validator::make($row, $rules, $messages, $attributes);
+            if ($row['currency'] !== 'PEN') {
+                $errors[] = "Fila {$line}: caja chica es en soles (moneda «{$row['currency']}»).";
+            } elseif ($validator->fails()) {
+                $errors[] = "Fila {$line}: " . $validator->errors()->first();
+            } elseif ($row['document_number']) {
+                // Sin duplicados: el mismo comprobante no se registra dos veces
+                if (isset($seen[$key($row)])) {
+                    $errors[] = "Fila {$line}: el comprobante {$row['document_type']} {$row['document_number']} ya está registrado.";
+                }
+                $seen[$key($row)] = true;
+            }
+            unset($row['currency']);
+            if (count($errors) >= 20) {
+                break;
+            }
+        }
+        unset($row);
+        if ($errors) {
+            throw ValidationException::withMessages(['file' => implode("\n", $errors)]); // Inertia envía un mensaje por campo
+        }
+
+        [$first, $last] = DB::transaction(function () use ($rows, $request) {
+            $next = $this->nextReceipt();
+            $first = $next;
+            foreach ($rows as $row) {
+                PettyCashExpense::create($row + ['receipt_number' => $next++, 'created_by' => $request->user()->id]);
+            }
+
+            return [$first, $next - 1];
+        });
+        $this->audit->log('petty_cash.imported', null, ['rows' => count($rows), 'receipts' => "{$first}-{$last}", 'cash_box' => $request->input('cash_box')]);
+
+        return back()->with('success', count($rows) . " gastos importados (recibos N.º {$first} al {$last}).");
+    }
+
+    public function template(): BinaryFileResponse
+    {
+        $path = tempnam(sys_get_temp_dir(), 'caja') . '.xlsx';
+        PettyCashImport::template($path);
+
+        return response()->download($path, 'plantilla-caja-chica.xlsx')->deleteFileAfterSend();
+    }
+
+    /** Siguiente recibo correlativo de la empresa (llamar dentro de una transacción) */
+    private function nextReceipt(): int
+    {
+        return (int) PettyCashExpense::withTrashed()->lockForUpdate()->max('receipt_number') + 1;
+    }
+
     private function validated(Request $request): array
     {
-        return $request->validate([
+        return $request->validate(...self::rules());
+    }
+
+    /** Reglas del gasto: las mismas para el registro manual y para cada fila importada */
+    private static function rules(): array
+    {
+        return [[
             'date'            => ['required', 'date', 'before_or_equal:today'],
             'description'     => ['required', 'string', 'max:250'],
             'category'        => ['nullable', 'string', 'max:100'],
@@ -114,6 +209,6 @@ class PettyCashWebController extends Controller
             'amount.min'             => 'El monto debe ser mayor a cero.',
             'voucher.mimes'          => 'El comprobante debe ser PDF o imagen.',
             'voucher.max'            => 'El comprobante pesa más de 5 MB.',
-        ], ['date' => 'la fecha', 'description' => 'el concepto', 'amount' => 'el monto', 'document_type' => 'el tipo de comprobante', 'cash_box' => 'la caja']);
+        ], ['date' => 'la fecha', 'description' => 'el concepto', 'amount' => 'el monto', 'document_type' => 'el tipo de comprobante', 'cash_box' => 'la caja']];
     }
 }

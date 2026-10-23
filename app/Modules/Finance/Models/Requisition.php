@@ -25,6 +25,9 @@ class Requisition extends Model
         'cancelled' => ['Anulado', 'secondary'],
     ];
 
+    /** Tope del Requerimiento Express (soles, exclusivo) */
+    public const EXPRESS_LIMIT = 600;
+
     /** Etapas en las que aún se puede editar o anular */
     public const OPEN = ['requested', 'approved', 'quoting'];
 
@@ -41,7 +44,7 @@ class Requisition extends Model
     public const PAYMENT_ORIGINS = ['TRANSFERENCIA', 'CAJA EFECTIVO', 'CAJA PASAJES', 'CAJA ENCOMIENDAS', 'CAJA TOURS', 'OTROS'];
 
     protected $fillable = [
-        'tenant_id', 'series', 'number', 'code', 'year', 'requested_at', 'detail', 'area', 'requested_by', 'user_id', 'email', 'plate', 'km',
+        'tenant_id', 'series', 'number', 'code', 'year', 'is_express', 'requested_at', 'detail', 'area', 'requested_by', 'user_id', 'email', 'plate', 'km',
         'agency', 'site', 'delivery_place', 'classification', 'stage', 'payment_terms', 'notes', 'supplier_id',
         'purchase_order_number', 'service_order_number', 'ordered_at', 'invoice_number', 'payment_origin', 'sale_type', 'priority',
         'payment_method', 'reviewed_by', 'reviewed_by_id', 'reviewed_at', 'currency', 'amount', 'amount_payable', 'has_detraction',
@@ -57,6 +60,7 @@ class Requisition extends Model
         'amount_payable' => 'decimal:2',
         'detraction_amount' => 'decimal:2',
         'has_detraction' => 'boolean',
+        'is_express'     => 'boolean',
         'attachments'    => 'array',
     ];
 

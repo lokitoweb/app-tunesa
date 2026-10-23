@@ -84,6 +84,7 @@ function emitOrder() {
                     <h1 class="h4 fw-bold mb-0 d-flex align-items-center gap-2">
                         <span class="font-monospace">{{ requisition.code }}</span>
                         <span class="badge fs-6" :class="`bg-${stage[1]}-subtle text-${stage[1]}-emphasis`">{{ stage[0] }}</span>
+                        <span v-if="requisition.is_express" class="badge fs-6 text-bg-warning" title="Gasto menor: un solo proveedor, valida la jefatura o contabilidad"><i class="bi bi-lightning-charge-fill"></i> Express</span>
                     </h1>
                     <p class="text-body-secondary small mb-0">{{ requisition.requested_at }} · {{ requisition.requested_by }}<span v-if="requisition.area"> · {{ requisition.area }}</span></p>
                 </div>
@@ -196,7 +197,7 @@ function emitOrder() {
                 <div class="card shadow-sm">
                     <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
                         <span class="fw-semibold">Cotizaciones <span class="badge bg-primary-subtle text-primary ms-1">{{ requisition.quotations.length }}</span></span>
-                        <button v-if="can.purchase && ['approved', 'quoting'].includes(requisition.stage)" type="button" class="btn btn-sm btn-outline-primary" @click="showQuote = !showQuote">
+                        <button v-if="can.purchase && ['approved', 'quoting'].includes(requisition.stage) && !(requisition.is_express && requisition.quotations.length)" type="button" class="btn btn-sm btn-outline-primary" @click="showQuote = !showQuote">
                             <i class="bi bi-plus-lg me-1"></i>Agregar
                         </button>
                     </div>

@@ -33,8 +33,8 @@ Route::middleware(['auth', 'web.tenant', 'can:requisitions.create'])->prefix('re
     Route::put('/{id}', [RequisitionWebController::class, 'update'])->name('update')->whereNumber('id');
     Route::post('/{id}/cancel', [RequisitionWebController::class, 'cancel'])->name('cancel')->whereNumber('id');
 
-    Route::post('/{id}/review', [RequisitionWebController::class, 'review'])->name('review')->whereNumber('id')
-        ->middleware('can:requisitions.approve');
+    // Gerencia aprueba; el Express lo valida la jefatura inmediata o contabilidad (regla en el controlador)
+    Route::post('/{id}/review', [RequisitionWebController::class, 'review'])->name('review')->whereNumber('id');
 
     Route::middleware('can:purchasing.manage')->group(function () {
         Route::post('/{id}/quotations', [RequisitionWebController::class, 'storeQuotation'])->name('quotations.store')->whereNumber('id');
@@ -65,6 +65,8 @@ Route::middleware(['auth', 'web.tenant', 'can:treasury.view'])->prefix('treasury
 Route::middleware(['auth', 'web.tenant', 'can:fixed_costs.manage'])->prefix('petty-cash')->name('petty-cash.')->group(function () {
     Route::get('/', [PettyCashWebController::class, 'index'])->name('index');
     Route::post('/', [PettyCashWebController::class, 'store'])->name('store');
+    Route::post('/import', [PettyCashWebController::class, 'import'])->name('import')->middleware('throttle:10,1');
+    Route::get('/template', [PettyCashWebController::class, 'template'])->name('template');
     Route::post('/{id}', [PettyCashWebController::class, 'update'])->name('update')->whereNumber('id'); // POST: lleva archivo
     Route::delete('/{id}', [PettyCashWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     Route::get('/{id}/voucher', [PettyCashWebController::class, 'voucher'])->name('voucher')->whereNumber('id');

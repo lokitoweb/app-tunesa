@@ -100,6 +100,7 @@ final class Labels
         'installment.authorized'             => ['Pago autorizado', 'success', 'check2-circle'],
         'installment.paid'                   => ['Pago registrado', 'success', 'cash-coin'],
         'petty_cash.created'                 => ['Gasto de caja chica registrado', 'success', 'wallet2'],
+        'petty_cash.imported'                => ['Caja chica importada desde Excel', 'success', 'file-earmark-spreadsheet'],
         'petty_cash.updated'                 => ['Gasto de caja chica actualizado', 'primary', 'wallet2'],
         'petty_cash.deleted'                 => ['Gasto de caja chica eliminado', 'danger', 'wallet2'],
         'fixed_cost.created'                 => ['Costo fijo registrado', 'success', 'calendar2-range'],

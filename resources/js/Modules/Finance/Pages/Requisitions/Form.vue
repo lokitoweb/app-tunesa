@@ -22,6 +22,8 @@ const form = useForm({
     agency: props.requisition.agency || '',
     site: props.requisition.site || '',
     delivery_place: props.requisition.delivery_place || '',
+    is_express: !!props.requisition.is_express,
+    amount: props.requisition.amount ?? '',
     items: props.requisition.items.length ? props.requisition.items : [{ product: '', unit: 'UNIDAD (BIENES)', quantity: 1, justification: '' }],
 });
 
@@ -55,6 +57,24 @@ const err = (k) => form.errors[k];
         </div>
 
         <form novalidate @submit.prevent="submit">
+            <!-- Express: gasto menor, lo valida la jefatura inmediata o contabilidad y va con un solo proveedor -->
+            <div class="card shadow-sm mb-3" :class="{ 'border-warning': form.is_express }">
+                <div class="card-body row g-3 align-items-center">
+                    <div class="col-md-7">
+                        <div class="form-check form-switch mb-0">
+                            <input id="rq-express" v-model="form.is_express" class="form-check-input" type="checkbox" role="switch" />
+                            <label class="form-check-label fw-semibold" for="rq-express">Requerimiento Express <span class="text-body-secondary fw-normal">(menor a S/ {{ options.express_limit }})</span></label>
+                        </div>
+                        <small class="text-body-secondary">Sin cotización formal ni aprobación de gerencia: lo valida tu jefatura inmediata o contabilidad.</small>
+                    </div>
+                    <div v-if="form.is_express" class="col-md-5">
+                        <label class="form-label small fw-semibold" for="rq-amount">Monto estimado (S/) *</label>
+                        <input id="rq-amount" v-model="form.amount" type="number" min="0.01" step="0.01" :max="options.express_limit - 0.01" class="form-control" :class="{ 'is-invalid': err('amount') }" />
+                        <div class="invalid-feedback">{{ err('amount') }}</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card shadow-sm mb-3">
                 <div class="card-header bg-transparent fw-semibold">Datos del requerimiento</div>
                 <div class="card-body row g-3">

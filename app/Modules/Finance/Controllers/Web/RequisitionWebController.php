@@ -4,6 +4,7 @@ namespace App\Modules\Finance\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\TenantContext;
 use App\Modules\Finance\Models\DocumentSequence;
@@ -16,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -54,6 +56,7 @@ class RequisitionWebController extends Controller
                 'detail'         => $r->detail,
                 'classification' => $r->classification,
                 'stage'          => $r->stage,
+                'is_express'     => $r->is_express,
                 'items_count'    => $r->items_count,
                 'supplier'       => $r->supplier?->name,
                 'order_number'   => $r->orderNumber(),
@@ -143,7 +146,7 @@ class RequisitionWebController extends Controller
             'requisition' => [
                 ...$r->only(['id', 'detail', 'area', 'requested_by', 'email', 'plate', 'km', 'agency', 'site', 'delivery_place',
                     'classification', 'stage', 'priority', 'notes', 'reviewed_by', 'payment_terms', 'payment_method', 'payment_origin',
-                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number']),
+                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number', 'is_express']),
                 'code'         => $r->code(),
                 'requested_at' => $r->requested_at?->format('d/m/Y'),
                 'reviewed_at'  => $r->reviewed_at?->timezone(tenant_timezone())->format('d/m/Y H:i'),
@@ -169,7 +172,7 @@ class RequisitionWebController extends Controller
             'options'     => self::options(),
             'can'         => [
                 'edit'     => $r->stage === 'requested' && ($r->user_id === $user->id || $user->hasPermission('requisitions.view_all')),
-                'approve'  => $user->hasPermission('requisitions.approve'),
+                'approve'  => $this->canReview($r, $user),
                 'purchase' => $user->hasPermission('purchasing.manage'),
             ],
         ]);
@@ -205,6 +208,7 @@ class RequisitionWebController extends Controller
         ], ['notes.required_if' => 'Indica el motivo del rechazo.']);
 
         $r = $this->visible($request)->findOrFail($id);
+        abort_unless($this->canReview($r, $request->user()), 403);
         abort_unless($r->stage === 'requested', 422, 'El requerimiento ya fue revisado.');
 
         $r->update([
@@ -247,6 +251,14 @@ class RequisitionWebController extends Controller
             'phone'       => ['nullable', 'string', 'max:50'],
             'notes'       => ['nullable', 'string', 'max:250'],
         ], self::MESSAGES, ['supplier_id' => 'el proveedor', 'amount' => 'el monto']);
+
+        // Express: un solo proveedor, en soles y por debajo del tope (sin cuadro comparativo)
+        if ($r->is_express) {
+            abort_if($r->quotations()->exists(), 422, 'El requerimiento Express se ordena con un solo proveedor.');
+            if ($data['currency'] !== 'PEN' || (float) $data['amount'] >= Requisition::EXPRESS_LIMIT) {
+                throw ValidationException::withMessages(['amount' => 'El Express es un gasto menor a S/ ' . Requisition::EXPRESS_LIMIT . ' en soles.']);
+            }
+        }
 
         $quotation = DB::transaction(function () use ($r, $data) {
             $r->update(['stage' => 'quoting']);
@@ -336,10 +348,26 @@ class RequisitionWebController extends Controller
     {
         $user = $request->user();
 
+        // La jefatura inmediata ve además los Express de su equipo, para validarlos
         return Requisition::query()->unless(
             $user->hasPermission('requisitions.view_all') || $user->hasPermission('requisitions.approve') || $user->hasPermission('purchasing.manage'),
-            fn ($q) => $q->where('user_id', $user->id),
+            fn ($q) => $q->where(fn ($w) => $w->where('user_id', $user->id)
+                ->orWhere(fn ($e) => $e->where('is_express', true)->whereIn('user_id', User::supervisedBy($user)->select('users.id')))),
         );
+    }
+
+    /**
+     * Quién valida: gerencia (requisitions.approve). El Express (< S/ 600) lo valida la jefatura
+     * inmediata (supervisor de la sede de quien solicita) o contabilidad, nunca quien lo pidió.
+     */
+    private function canReview(Requisition $r, User $user): bool
+    {
+        if (! $r->is_express) {
+            return $user->hasPermission('requisitions.approve');
+        }
+
+        return $r->user_id !== $user->id && ($user->hasPermission('requisitions.approve')
+            || User::supervisedBy($user)->whereKey($r->user_id)->exists());
     }
 
     private function editable(Request $request, int $id): Requisition
@@ -371,7 +399,12 @@ class RequisitionWebController extends Controller
             'items.*.unit'          => ['nullable', 'string', 'max:50'],
             'items.*.quantity'      => ['required', 'numeric', 'min:0.001', 'max:99999999'],
             'items.*.justification' => ['nullable', 'string', 'max:100'],
-        ], self::MESSAGES + ['items.required' => 'Agrega al menos un producto.', 'items.min' => 'Agrega al menos un producto.'], [
+            'is_express'            => ['boolean'],
+            'amount'                => ['nullable', 'required_if:is_express,true,1', 'numeric', 'min:0.01', 'lt:' . Requisition::EXPRESS_LIMIT],
+        ], self::MESSAGES + [
+            'amount.required_if' => 'Indica el monto estimado del gasto.',
+            'amount.lt'          => 'El Express es para gastos menores a S/ ' . Requisition::EXPRESS_LIMIT . '; usa un requerimiento normal.',
+        ] + ['items.required' => 'Agrega al menos un producto.', 'items.min' => 'Agrega al menos un producto.'], [
             'requested_at' => 'la fecha', 'detail' => 'el detalle', 'requested_by' => 'quién solicita', 'classification' => 'la clasificación',
             'priority' => 'la prioridad', 'items.*.product' => 'el producto', 'items.*.quantity' => 'la cantidad',
         ]);
@@ -379,7 +412,11 @@ class RequisitionWebController extends Controller
 
     private function header(array $data): array
     {
-        return collect($data)->except('items')->all();
+        $express = (bool) ($data['is_express'] ?? false);
+
+        // El monto estimado solo se guarda en el Express (en soles); el normal lo fija la cotización
+        return ['is_express' => $express, 'amount' => $express ? $data['amount'] : null] + ($express ? ['currency' => 'PEN'] : [])
+            + collect($data)->except(['items', 'is_express', 'amount'])->all();
     }
 
     /** Reemplaza las líneas; el producto se busca por nombre en la empresa o se crea */
@@ -401,7 +438,7 @@ class RequisitionWebController extends Controller
     {
         return Inertia::render('Finance/Pages/Requisitions/Form', [
             'requisition' => [
-                ...$r->only(['id', 'detail', 'area', 'requested_by', 'email', 'classification', 'priority', 'plate', 'km', 'agency', 'site', 'delivery_place']),
+                ...$r->only(['id', 'detail', 'area', 'requested_by', 'email', 'classification', 'priority', 'plate', 'km', 'agency', 'site', 'delivery_place', 'is_express', 'amount']),
                 'code'         => $r->exists ? $r->code() : null,
                 'requested_at' => ($r->requested_at ?? now())->format('Y-m-d'),
                 'items'        => $r->exists
@@ -421,6 +458,7 @@ class RequisitionWebController extends Controller
             'payment_terms'   => Requisition::PAYMENT_TERMS,
             'payment_methods' => Requisition::PAYMENT_METHODS,
             'priorities'      => Requisition::PRIORITIES,
+            'express_limit'   => Requisition::EXPRESS_LIMIT,
             'payment_origins' => Requisition::PAYMENT_ORIGINS,
             'units'           => ['UNIDAD (BIENES)', 'UNIDAD (SERVICIOS)', 'CAJA', 'PAQUETE', 'JUEGO', 'KIT', 'PAR', 'DOCENA', 'KILOGRAMO', 'GRAMO',
                 'LITRO', 'GALON', 'METRO', 'METRO CUADRADO', 'METRO CUBICO', 'TONELADAS', 'BOLSA', 'BALDE', 'CILINDRO', 'RESMA', 'PIEZAS', 'TUBOS'],

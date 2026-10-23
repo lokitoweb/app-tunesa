@@ -112,4 +112,53 @@ class RequisitionFlowTest extends TestCase
         app(TenantContext::class)->clear();
         $this->actingAs($mine)->post('/requisitions', $this->payload(['items' => []]))->assertSessionHasErrors('items');
     }
+
+    public function test_express_is_validated_by_the_immediate_boss_and_ordered_with_one_supplier(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $requester = $this->makeUser($acme, 'supervisor');
+        $boss = $this->makeUser($acme, 'supervisor');
+        $otherBoss = $this->makeUser($acme, 'supervisor');
+        $branch = $this->makeBranch($acme, ['supervisor_id' => $boss->id]);
+        $requester->branches()->attach($branch->id, ['is_primary' => true]);
+        $logistics = $this->makeUser($acme, 'logistics');
+        $supplier = Supplier::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Ferretería', 'ruc' => '20222222222']);
+
+        // Tope: menor a S/ 600 y con monto
+        $this->actingAs($requester)->post('/requisitions', $this->payload(['is_express' => true]))->assertSessionHasErrors('amount');
+        $this->actingAs($requester)->post('/requisitions', $this->payload(['is_express' => true, 'amount' => 600]))->assertSessionHasErrors('amount');
+        $this->actingAs($requester)->post('/requisitions', $this->payload(['is_express' => true, 'amount' => 450.5]))->assertSessionHasNoErrors();
+        $r = Requisition::withoutGlobalScopes()->sole();
+        $this->assertTrue($r->is_express);
+        $this->assertSame(['450.50', 'PEN'], [$r->amount, $r->currency]);
+
+        // Lo valida su jefatura inmediata (no otro supervisor ni quien lo pidió)
+        $this->actingAs($requester)->post("/requisitions/{$r->id}/review", ['decision' => 'approved'])->assertForbidden();
+        $this->actingAs($otherBoss)->post("/requisitions/{$r->id}/review", ['decision' => 'approved'])->assertNotFound();
+        $this->actingAs($boss)->get('/requisitions')->assertInertia(fn ($p) => $p->has('requisitions.data', 1));
+        $this->actingAs($boss)->post("/requisitions/{$r->id}/review", ['decision' => 'approved'])->assertSessionHasNoErrors();
+        $this->assertSame('approved', $r->fresh()->stage);
+
+        // Un solo proveedor, en soles y bajo el tope; sin cuadro comparativo
+        $quote = fn (array $o = []) => $this->actingAs($logistics)->post("/requisitions/{$r->id}/quotations", $o + [
+            'supplier_id' => $supplier->id, 'amount' => 480, 'currency' => 'PEN', 'quoted_at' => '2026-10-23',
+        ]);
+        $quote(['amount' => 650])->assertSessionHasErrors('amount');
+        $quote(['currency' => 'USD'])->assertSessionHasErrors('amount');
+        $quote()->assertSessionHasNoErrors();
+        $quote()->assertStatus(422);
+
+        $this->actingAs($logistics)->post("/requisitions/{$r->id}/order", [
+            'quotation_id' => $r->quotations()->sole()->id, 'type' => 'purchase', 'payment_terms' => 'CONTADO', 'payment_method' => 'EFECTIVO',
+            'payment_origin' => 'CAJA EFECTIVO', 'priority' => 'NORMAL', 'installments' => 1, 'first_due_date' => '2026-10-24', 'interval_days' => 30,
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('ordered', $r->fresh()->stage);
+
+        // Un requerimiento normal sigue necesitando gerencia o contabilidad
+        $this->actingAs($requester)->post('/requisitions', $this->payload())->assertSessionHasNoErrors();
+        $normal = Requisition::withoutGlobalScopes()->where('is_express', false)->sole();
+        $this->actingAs($boss)->post("/requisitions/{$normal->id}/review", ['decision' => 'approved'])->assertNotFound();
+        $this->actingAs($this->makeUser($acme, 'accountant'))->post("/requisitions/{$normal->id}/review", ['decision' => 'approved'])->assertSessionHasNoErrors();
+    }
 }

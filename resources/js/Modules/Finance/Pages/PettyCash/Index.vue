@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
@@ -31,6 +31,7 @@ function go(params) {
 
 function openCreate() {
     if (!ensureTenant({ message: 'El gasto se registra en una empresa.' })) return;
+    showImport.value = false;
     Object.assign(form, blank());
     form.clearErrors();
     if (fileInput.value) fileInput.value.value = '';
@@ -47,6 +48,23 @@ function submit() {
     if (form.id) form.post(`/petty-cash/${form.id}`, options);
     else form.post('/petty-cash', options);
 }
+// Importación desde Excel
+const showImport = ref(false);
+const importInput = ref(null);
+const importForm = useForm({ file: null, cash_box: props.options.cash_boxes[0] });
+const importErrors = computed(() => [importForm.errors.file, importForm.errors.cash_box].filter(Boolean).flatMap((e) => e.split('\n')));
+function openImport() {
+    if (!ensureTenant({ message: 'Los gastos se importan en una empresa.' })) return;
+    showForm.value = false;
+    importForm.reset();
+    importForm.clearErrors();
+    if (importInput.value) importInput.value.value = '';
+    showImport.value = true;
+}
+function submitImport() {
+    importForm.post('/petty-cash/import', { preserveScroll: true, forceFormData: true, onSuccess: () => (showImport.value = false) });
+}
+
 async function destroy(e) {
     const ok = await ask({ title: '¿Eliminar gasto?', message: `Recibo N.º ${e.receipt_number} · ${money(e.amount)}`, confirmText: 'Sí, eliminar', variant: 'danger', icon: 'bi bi-trash3-fill' });
     if (ok) router.delete(`/petty-cash/${e.id}`, { preserveScroll: true });
@@ -60,7 +78,10 @@ async function destroy(e) {
                 <h1 class="h4 fw-bold mb-1">Caja chica</h1>
                 <p class="text-body-secondary small mb-0">Gastos menores con recibo correlativo y su comprobante.</p>
             </div>
-            <button type="button" class="btn btn-primary" @click="openCreate"><i class="bi bi-plus-lg me-1"></i>Registrar gasto</button>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-outline-primary" @click="openImport"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Importar Excel</button>
+                <button type="button" class="btn btn-primary" @click="openCreate"><i class="bi bi-plus-lg me-1"></i>Registrar gasto</button>
+            </div>
         </div>
 
         <div class="card shadow-sm mb-3">
@@ -112,6 +133,42 @@ async function destroy(e) {
                         <Pagination :paginator="expenses" />
                     </div>
                 </div>
+            </div>
+
+            <!-- Importación: mismas reglas del registro manual; todo o nada -->
+            <div v-if="showImport" class="col-xl-5">
+                <form class="card shadow-sm" novalidate @submit.prevent="submitImport">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                        <h2 class="h6 fw-bold mb-0">Importar gastos desde Excel</h2>
+                        <button type="button" class="btn-close" aria-label="Cerrar" @click="showImport = false"></button>
+                    </div>
+                    <div class="card-body row g-3">
+                        <p class="small text-body-secondary mb-0">
+                            Columnas: Fecha, Tipo de Documento, RUC/Proveedor, Descripción del gasto, Categoría/Centro de Costo, Moneda (soles), Monto Total y Número de Comprobante.
+                            <a href="/petty-cash/template" class="text-nowrap"><i class="bi bi-download me-1"></i>Descargar plantilla</a>
+                        </p>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="pi-box">Caja *</label>
+                            <select id="pi-box" v-model="importForm.cash_box" class="form-select"><option v-for="b in options.cash_boxes" :key="b" :value="b">{{ b }}</option></select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="pi-file">Archivo (.xlsx, .xls o .csv, máx. 5 MB) *</label>
+                            <input id="pi-file" ref="importInput" type="file" accept=".xlsx,.xls,.csv" class="form-control" :class="{ 'is-invalid': importForm.errors.file }" @input="importForm.file = $event.target.files[0]" />
+                        </div>
+                        <div v-if="importErrors.length" class="col-12">
+                            <div class="alert alert-danger small mb-0 py-2">
+                                <div class="fw-semibold mb-1">No se importó nada. Corrige y vuelve a subir:</div>
+                                <ul class="mb-0 ps-3"><li v-for="(e, i) in importErrors" :key="i">{{ e }}</li></ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-light" @click="showImport = false">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" :disabled="importForm.processing || !importForm.file">
+                            <span v-if="importForm.processing" class="spinner-border spinner-border-sm me-1"></span>Importar
+                        </button>
+                    </div>
+                </form>
             </div>
 
             <div v-if="showForm" class="col-xl-5">
