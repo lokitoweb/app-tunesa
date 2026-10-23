@@ -68,6 +68,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(\App\Installer\Http\RedirectToInstaller::class);
 
         // Código de referencia por petición (logs + páginas de error) y depuración solo en local
+        // Texto que no es UTF-8 válido: 400 antes de tocar cualquier dato
+        $middleware->prepend(\App\Modules\Core\Middleware\CleanUtf8Input::class);
+
         $middleware->prepend(RequestReference::class);
 
         // Cabeceras de seguridad en toda respuesta (panel, API y errores)
