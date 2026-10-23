@@ -1,7 +1,9 @@
 <?php
 
+use App\Modules\Finance\Controllers\Web\PettyCashWebController;
 use App\Modules\Finance\Controllers\Web\RequisitionWebController;
 use App\Modules\Finance\Controllers\Web\SupplierWebController;
+use App\Modules\Finance\Controllers\Web\TreasuryWebController;
 use Illuminate\Support\Facades\Route;
 
 // Finance (panel web): proveedores y sus cuentas bancarias
@@ -36,4 +38,30 @@ Route::middleware(['auth', 'web.tenant', 'can:requisitions.create'])->prefix('re
             ->whereNumber(['id', 'quotation']);
         Route::post('/{id}/order', [RequisitionWebController::class, 'order'])->name('order')->whereNumber('id');
     });
+});
+
+// Tesorería: programar y pagar (treasury.pay), autorizar (jefatura: requisitions.approve)
+Route::middleware(['auth', 'web.tenant', 'can:treasury.view'])->prefix('treasury')->name('treasury.')->group(function () {
+    Route::get('/', [TreasuryWebController::class, 'index'])->name('index');
+    Route::get('/payments/{id}/voucher', [TreasuryWebController::class, 'voucher'])->name('voucher')->whereNumber('id');
+
+    Route::post('/installments/{id}/authorize', [TreasuryWebController::class, 'authorizePayment'])->name('authorize')->whereNumber('id')
+        ->middleware('can:requisitions.approve');
+
+    Route::middleware('can:treasury.pay')->group(function () {
+        Route::post('/installments/{id}/schedule', [TreasuryWebController::class, 'schedule'])->name('schedule')->whereNumber('id');
+        Route::post('/installments/{id}/pay', [TreasuryWebController::class, 'pay'])->name('pay')->whereNumber('id');
+        Route::post('/requisitions/{id}/detraction', [TreasuryWebController::class, 'detraction'])->name('detraction')->whereNumber('id');
+        Route::post('/accounts', [TreasuryWebController::class, 'storeAccount'])->name('accounts.store');
+        Route::put('/accounts/{id}', [TreasuryWebController::class, 'updateAccount'])->name('accounts.update')->whereNumber('id');
+    });
+});
+
+// Caja chica
+Route::middleware(['auth', 'web.tenant', 'can:fixed_costs.manage'])->prefix('petty-cash')->name('petty-cash.')->group(function () {
+    Route::get('/', [PettyCashWebController::class, 'index'])->name('index');
+    Route::post('/', [PettyCashWebController::class, 'store'])->name('store');
+    Route::post('/{id}', [PettyCashWebController::class, 'update'])->name('update')->whereNumber('id'); // POST: lleva archivo
+    Route::delete('/{id}', [PettyCashWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
+    Route::get('/{id}/voucher', [PettyCashWebController::class, 'voucher'])->name('voucher')->whereNumber('id');
 });

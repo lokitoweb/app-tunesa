@@ -62,6 +62,9 @@ class PanelNavigation
             'Compras y tesorería' => [
                 ['Finance', 'requisitions.create', 'requisitions.index', [], 'cart3', 'Requerimientos y compras', $request->routeIs('requisitions.*'),
                     fn () => $hasTenant && $user->hasPermission('requisitions.approve') ? \App\Modules\Finance\Models\Requisition::where('stage', 'requested')->count() : 0],
+                ['Finance', 'treasury.view', 'treasury.index', [], 'bank', 'Tesorería y pagos', $request->routeIs('treasury.*'),
+                    fn () => $hasTenant && $user->hasPermission('requisitions.approve') ? \App\Modules\Finance\Models\PaymentInstallment::where('status', 'pending')->whereNotNull('scheduled_for')->whereNull('authorized_at')->count() : 0],
+                ['Finance', 'fixed_costs.manage', 'petty-cash.index', [], 'wallet2', 'Caja chica', $request->routeIs('petty-cash.*')],
                 ['Finance', 'suppliers.view', 'suppliers.index', [], 'truck', 'Proveedores', $request->routeIs('suppliers.*')],
             ],
             'Legajo y planilla' => [

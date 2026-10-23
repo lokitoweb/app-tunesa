@@ -24,6 +24,7 @@ const steps = [
     ['approved', 'Aprobado'],
     ['quoting', 'Cotización'],
     ['ordered', 'Orden emitida'],
+    ['paid', 'Pagado'],
 ];
 const stepIndex = computed(() => steps.findIndex(([k]) => k === r.value.stage));
 
@@ -45,10 +46,12 @@ async function cancel() {
 }
 
 // ---------------------------------------------------------------- cotizaciones
-const quote = useForm({ supplier_id: '', number: '', amount: '', currency: 'PEN', quoted_at: today, expires_at: '', contact: '', phone: '', notes: '' });
+const blankQuote = () => ({ supplier_id: '', number: '', amount: '', currency: 'PEN', quoted_at: today, expires_at: '', contact: '', phone: '', notes: '' });
+const quote = useForm(blankQuote());
 const showQuote = ref(false);
 function saveQuote() {
-    quote.post(`/requisitions/${r.value.id}/quotations`, { preserveScroll: true, onSuccess: () => { quote.reset(); showQuote.value = false; } });
+    // Sin form.reset(): Inertia toma como defaults lo último enviado con éxito
+    quote.post(`/requisitions/${r.value.id}/quotations`, { preserveScroll: true, onSuccess: () => { Object.assign(quote, blankQuote()); showQuote.value = false; } });
 }
 async function removeQuote(q) {
     const ok = await ask({ title: '¿Eliminar cotización?', message: `Se quitará la cotización de ${q.supplier?.name}.`, confirmText: 'Sí, eliminar', variant: 'danger', icon: 'bi bi-trash3-fill' });
@@ -99,7 +102,7 @@ function emitOrder() {
                 <div v-for="([key, label], i) in steps" :key="key" class="d-flex align-items-center gap-2 flex-grow-1">
                     <span class="rounded-circle d-inline-flex align-items-center justify-content-center fw-bold"
                         :class="i <= stepIndex ? 'bg-success text-white' : 'bg-body-secondary text-body-secondary'" style="width: 30px; height: 30px">
-                        <i v-if="i < stepIndex || requisition.stage === 'ordered'" class="bi bi-check-lg"></i><span v-else>{{ i + 1 }}</span>
+                        <i v-if="i < stepIndex || requisition.stage === 'paid'" class="bi bi-check-lg"></i><span v-else>{{ i + 1 }}</span>
                     </span>
                     <span class="small" :class="i <= stepIndex ? 'fw-semibold' : 'text-body-secondary'">{{ label }}</span>
                 </div>
@@ -161,7 +164,7 @@ function emitOrder() {
                 </div>
 
                 <!-- Orden emitida -->
-                <div v-if="requisition.stage === 'ordered'" class="card border-success shadow-sm mb-3">
+                <div v-if="['ordered', 'paid'].includes(requisition.stage)" class="card border-success shadow-sm mb-3">
                     <div class="card-header bg-success-subtle fw-semibold">
                         <i class="bi bi-receipt me-1"></i>{{ requisition.purchase_order_number ? 'Orden de compra' : 'Orden de servicio' }}
                         <span class="font-monospace">{{ requisition.purchase_order_number || requisition.service_order_number }}</span>
