@@ -3,7 +3,9 @@
 namespace App\Modules\Finance\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
+use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\AuditLogger;
+use App\Modules\Core\Services\TenantContext;
 use App\Modules\Finance\Models\Supplier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -42,7 +44,7 @@ class SupplierWebController extends Controller
             'filters'     => ['search' => $search, 'status' => $status],
             'can_manage'  => $request->user()->hasPermission('suppliers.manage'),
             'has_tenant'  => (bool) current_tenant_id_or_null(),
-            'ruc_lookup'  => (bool) config('services.migo.token'),
+            'ruc_lookup'  => (bool) TenantSetting::forTenant(app(TenantContext::class)->getOrNull())->migo()['token'],
             'categories'  => Supplier::whereNotNull('category')->distinct()->orderBy('category')->limit(100)->pluck('category'),
         ]);
     }
@@ -77,13 +79,14 @@ class SupplierWebController extends Controller
     /** Razón social y dirección desde Migo (POST {ruc, token}, como el ERP de escritorio) */
     public function lookupRuc(string $ruc): JsonResponse
     {
-        $token = config('services.migo.token');
+        // Credenciales de la empresa (o de la plataforma) administradas en Integraciones
+        ['token' => $token, 'ruc_url' => $url] = TenantSetting::forTenant(app(TenantContext::class)->getOrNull())->migo();
         abort_unless($token, 503, 'La consulta de RUC no está configurada.');
 
         try {
             $data = Http::timeout(10)->acceptJson()
                 ->withHeaders(['Authorization' => "Token token={$token}"])
-                ->post(config('services.migo.ruc_url'), ['ruc' => $ruc, 'token' => $token])
+                ->post($url, ['ruc' => $ruc, 'token' => $token])
                 ->json();
         } catch (\Throwable) {
             return response()->json(['success' => false, 'message' => 'Migo no respondió. Completa los datos a mano.'], 502);

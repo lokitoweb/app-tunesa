@@ -52,11 +52,11 @@ class LeaveRequestReviewed extends AppNotification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        return \App\Modules\Core\Support\TenantMailer::apply((new MailMessage)
             ->subject($this->title())
             ->greeting("Hola, {$notifiable->first_name}")
             ->line($this->body())
-            ->line('Puedes ver el detalle en la app.');
+            ->line('Puedes ver el detalle en la app.'), $notifiable);
     }
 
     private function approved(): bool

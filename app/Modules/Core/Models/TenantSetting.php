@@ -70,6 +70,15 @@ class TenantSetting extends Model
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius',
         'webhook_url', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled', 'self_password_change',
+        // Servicios externos (solo SuperAdmin, ver SERVICE_FIELDS); los secretos van en SECRET_FIELDS
+        'migo_ruc_url', 'migo_dni_url', 'nubefact_url',
+        'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'mail_from_address', 'mail_from_name',
+    ];
+
+    /** Credenciales de servicios externos: las administra solo el SuperAdmin (plataforma o empresa) */
+    public const SERVICE_FIELDS = [
+        'migo_api_token', 'migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'nubefact_token',
+        'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'smtp_password', 'mail_from_address', 'mail_from_name',
     ];
 
     /** Imágenes guardadas en esta tabla (el logo claro de una empresa vive en tenants.logo_path) */
@@ -80,7 +89,7 @@ class TenantSetting extends Model
      * y API se llama google_maps_api_key); fcm_service_account_json es la cuenta
      * de servicio de Firebase (solo fila global).
      */
-    public const SECRET_FIELDS = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json'];
+    public const SECRET_FIELDS = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json', 'migo_api_token', 'nubefact_token', 'smtp_password'];
 
     /** Solo valen en la fila global: una empresa usa sus columnas de `tenants` */
     public const PLATFORM_ONLY = ['logo_path', 'primary_color', 'secondary_color', 'fcm_service_account_json'];
@@ -102,9 +111,11 @@ class TenantSetting extends Model
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius',
         'webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_service_account_json', 'fcm_enabled', 'self_password_change',
+        'migo_api_token', 'migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'nubefact_token',
+        'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'smtp_password', 'mail_from_address', 'mail_from_name',
     ];
 
-    protected $hidden = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json'];
+    protected $hidden = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json', 'migo_api_token', 'nubefact_token', 'smtp_password'];
 
     protected $casts = [
         'force_update'            => 'boolean',
@@ -120,6 +131,10 @@ class TenantSetting extends Model
         'webhook_secret'          => 'encrypted',
         'maps_api_key'            => 'encrypted',
         'fcm_service_account_json' => 'encrypted',
+        'migo_api_token'          => 'encrypted',
+        'nubefact_token'          => 'encrypted',
+        'smtp_password'           => 'encrypted',
+        'smtp_port'               => 'integer',
         'fcm_enabled'             => 'boolean',
         'self_password_change'    => 'boolean',
         'max_time_drift_seconds'  => 'integer',
@@ -343,6 +358,55 @@ class TenantSetting extends Model
     public function tradeName(): string
     {
         return $this->trade_name ?: ($this->resolvedTenant?->company_name ?: self::DEFAULTS['trade_name']);
+    }
+
+    // ------------------------------------------------------------------ servicios externos
+    // Valor efectivo: el de la empresa, si no el de la plataforma (panel SuperAdmin), si no .env.
+
+    /** Migo (RUC/DNI): ['token' => ..., 'ruc_url' => ..., 'dni_url' => ...] */
+    public function migo(): array
+    {
+        return [
+            'token'   => $this->secretOr('migo_api_token', config('services.migo.token')),
+            'ruc_url' => $this->migo_ruc_url ?: config('services.migo.ruc_url'),
+            'dni_url' => $this->migo_dni_url ?: config('services.migo.dni_url'),
+        ];
+    }
+
+    /** Nubefact: ['url' => ..., 'token' => ..., 'demo' => bool] */
+    public function nubefact(): array
+    {
+        $url = $this->nubefact_url ?: config('services.nubefact.url');
+
+        return ['url' => $url, 'token' => $this->secretOr('nubefact_token', config('services.nubefact.token')), 'demo' => str_contains((string) $url, 'demo.')];
+    }
+
+    /** SMTP propio (empresa o plataforma), o null para usar el mailer por defecto del .env */
+    public function smtp(): ?array
+    {
+        if (blank($this->smtp_host)) {
+            return null;
+        }
+
+        return [
+            'transport'  => 'smtp',
+            'host'       => $this->smtp_host,
+            'port'       => $this->smtp_port ?: 587,
+            'encryption' => $this->smtp_encryption ?: 'tls',
+            'username'   => $this->smtp_username,
+            'password'   => $this->secretOr('smtp_password', null),
+            'from'       => ['address' => $this->mail_from_address ?: config('mail.from.address'), 'name' => $this->mail_from_name ?: $this->tradeName()],
+        ];
+    }
+
+    /** Secreto descifrado; si no se puede descifrar (APP_KEY cambiada) o está vacío, el respaldo */
+    private function secretOr(string $field, ?string $fallback): ?string
+    {
+        try {
+            return $this->{$field} ?: $fallback;
+        } catch (\Throwable) {
+            return $fallback;
+        }
     }
 
     public function primaryColor(): string

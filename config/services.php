@@ -55,11 +55,19 @@ return [
         'android_channel_id' => env('FCM_ANDROID_CHANNEL_ID', 'tunesa_default'),
     ],
 
+    // Valores por defecto de la plataforma. Se administran en Integraciones (SuperAdmin),
+    // cifrados en tenant_settings; .env solo los siembra la primera vez y es el respaldo.
     // Consulta RUC/DNI (mismo acceso que el ERP de escritorio)
     'migo' => [
         'token'   => env('MIGO_API_TOKEN'),
         'ruc_url' => env('MIGO_RUC_URL', 'https://api.migo.pe/api/v1/ruc'),
         'dni_url' => env('MIGO_DNI_URL', 'https://api.migo.pe/api/v1/dni'),
+    ],
+
+    // Facturación electrónica
+    'nubefact' => [
+        'url'   => env('NUBEFACT_URL'),
+        'token' => env('NUBEFACT_TOKEN'),
     ],
 
 ];

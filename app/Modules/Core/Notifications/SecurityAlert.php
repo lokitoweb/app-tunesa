@@ -49,6 +49,9 @@ class SecurityAlert extends AppNotification
 
     public function toMail(object $notifiable): \Illuminate\Notifications\Messages\MailMessage
     {
-        return (new \Illuminate\Notifications\Messages\MailMessage)->subject($this->title())->line($this->body());
+        return \App\Modules\Core\Support\TenantMailer::apply(
+            (new \Illuminate\Notifications\Messages\MailMessage)->subject($this->title())->line($this->body()),
+            $notifiable,
+        );
     }
 }

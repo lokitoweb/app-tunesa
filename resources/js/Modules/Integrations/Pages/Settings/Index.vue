@@ -18,7 +18,14 @@ const props = defineProps({
     geoProbe: Object,
     userEmail: String,
     updatedAt: String,
+    // Solo llega para el SuperAdmin: credenciales de Migo, Nubefact y SMTP
+    services: { type: Object, default: null },
 });
+
+const SERVICE_SECRETS = ['migo_api_token', 'nubefact_token', 'smtp_password'];
+const serviceFields = () => (props.services
+    ? { ...props.services.values, ...Object.fromEntries(SERVICE_SECRETS.flatMap((s) => [[s, ''], [`clear_${s}`, false]])) }
+    : {});
 
 const page = usePage();
 const { ask } = useConfirm();
@@ -31,6 +38,7 @@ const form = useForm({
     fcm_service_account_json: '',
     fcm_service_account_file: null,
     clear_fcm_service_account_json: false,
+    ...serviceFields(),
 });
 
 function save() {
@@ -45,15 +53,23 @@ function save() {
                 delete out.fcm_service_account_file;
                 delete out.clear_fcm_service_account_json;
             }
-            for (const flag of ['clear_maps_api_key', 'clear_fcm_service_account_json']) {
+            for (const flag of ['clear_maps_api_key', 'clear_fcm_service_account_json', ...SERVICE_SECRETS.map((s) => `clear_${s}`)]) {
                 if (flag in out) out[flag] = out[flag] ? '1' : '0';
+            }
+            // Secreto vacío = no cambiar: no se envía
+            for (const s of SERVICE_SECRETS) {
+                if (s in out && !out[s]) delete out[s];
             }
             return out;
         })
         .post('/settings/integrations', {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: () => form.reset('maps_api_key', 'clear_maps_api_key', 'fcm_service_account_json', 'fcm_service_account_file', 'clear_fcm_service_account_json'),
+            // Sin form.reset(): Inertia toma como defaults lo último enviado; se vacían a mano los secretos
+            onSuccess: () => Object.assign(form, {
+                maps_api_key: '', clear_maps_api_key: false, fcm_service_account_json: '', fcm_service_account_file: null, clear_fcm_service_account_json: false,
+                ...Object.fromEntries(SERVICE_SECRETS.flatMap((s) => [[s, ''], [`clear_${s}`, false]])),
+            }),
         });
 }
 
@@ -484,6 +500,107 @@ const pushEmail = ref('');
                                 Enviar push de prueba
                             </button>
                             <TestResult :result="results.push" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Credenciales de servicios externos (solo SuperAdmin) -->
+                <div v-if="services" class="col-12">
+                    <div class="card border-0 shadow-sm integrations-card">
+                        <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
+                            <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Credenciales de servicios <span class="badge text-bg-dark ms-1">SuperAdmin</span></h2>
+                            <p class="small settings-helper-text mb-0 mt-1">
+                                {{ isGlobal ? 'Valores de la plataforma: los usan las empresas que no definan los suyos.' : `Propias de ${ownerName}. Vacío = usar los de la plataforma.` }}
+                                Las claves se guardan cifradas y nunca se muestran completas.
+                            </p>
+                        </div>
+                        <div class="card-body p-3 pt-1 row g-4">
+                            <!-- Migo -->
+                            <div class="col-lg-4">
+                                <h3 class="small fw-bold mb-2"><i class="bi bi-search me-1"></i>Migo (RUC / DNI)
+                                    <span class="badge ms-1" :class="services.effective.migo_configured ? 'text-bg-success' : 'text-bg-secondary'">{{ services.effective.migo_configured ? 'activo' : 'sin token' }}</span>
+                                </h3>
+                                <label for="migo_api_token" class="form-label small fw-semibold mb-1">Token</label>
+                                <input id="migo_api_token" v-model="form.migo_api_token" type="password" maxlength="500" autocomplete="new-password" class="form-control form-control-sm font-monospace"
+                                       :class="{ 'is-invalid': form.errors.migo_api_token }" :placeholder="services.secrets.migo_api_token.mask ?? (isGlobal ? 'Sin token' : 'Usa el de la plataforma')">
+                                <div class="invalid-feedback">{{ form.errors.migo_api_token }}</div>
+                                <div v-if="services.secrets.migo_api_token.own" class="form-check mt-1">
+                                    <input id="clear_migo_api_token" v-model="form.clear_migo_api_token" class="form-check-input" type="checkbox">
+                                    <label class="form-check-label small" for="clear_migo_api_token">Eliminar token guardado</label>
+                                </div>
+                                <label for="migo_ruc_url" class="form-label small fw-semibold mb-1 mt-2">URL RUC</label>
+                                <input id="migo_ruc_url" v-model="form.migo_ruc_url" type="url" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors.migo_ruc_url }" placeholder="https://api.migo.pe/api/v1/ruc">
+                                <div class="invalid-feedback">{{ form.errors.migo_ruc_url }}</div>
+                                <label for="migo_dni_url" class="form-label small fw-semibold mb-1 mt-2">URL DNI</label>
+                                <input id="migo_dni_url" v-model="form.migo_dni_url" type="url" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors.migo_dni_url }" placeholder="https://api.migo.pe/api/v1/dni">
+                                <div class="invalid-feedback">{{ form.errors.migo_dni_url }}</div>
+                            </div>
+                            <!-- Nubefact -->
+                            <div class="col-lg-4">
+                                <h3 class="small fw-bold mb-2"><i class="bi bi-receipt me-1"></i>Nubefact (facturación)
+                                    <span v-if="services.effective.nubefact_configured" class="badge ms-1" :class="services.effective.nubefact_demo ? 'text-bg-warning' : 'text-bg-success'">{{ services.effective.nubefact_demo ? 'demo' : 'producción' }}</span>
+                                </h3>
+                                <label for="nubefact_url" class="form-label small fw-semibold mb-1">Ruta de la API</label>
+                                <input id="nubefact_url" v-model="form.nubefact_url" type="url" class="form-control form-control-sm font-monospace" :class="{ 'is-invalid': form.errors.nubefact_url }" placeholder="https://api.nubefact.com/api/v1/…">
+                                <div class="invalid-feedback">{{ form.errors.nubefact_url }}</div>
+                                <label for="nubefact_token" class="form-label small fw-semibold mb-1 mt-2">Token</label>
+                                <input id="nubefact_token" v-model="form.nubefact_token" type="password" maxlength="500" autocomplete="new-password" class="form-control form-control-sm font-monospace"
+                                       :class="{ 'is-invalid': form.errors.nubefact_token }" :placeholder="services.secrets.nubefact_token.mask ?? (isGlobal ? 'Sin token' : 'Usa el de la plataforma')">
+                                <div class="invalid-feedback">{{ form.errors.nubefact_token }}</div>
+                                <div v-if="services.secrets.nubefact_token.own" class="form-check mt-1">
+                                    <input id="clear_nubefact_token" v-model="form.clear_nubefact_token" class="form-check-input" type="checkbox">
+                                    <label class="form-check-label small" for="clear_nubefact_token">Eliminar token guardado</label>
+                                </div>
+                            </div>
+                            <!-- SMTP -->
+                            <div class="col-lg-4">
+                                <h3 class="small fw-bold mb-2"><i class="bi bi-envelope me-1"></i>Correo (SMTP)
+                                    <span class="badge ms-1" :class="services.effective.smtp ? 'text-bg-success' : 'text-bg-secondary'">{{ services.effective.smtp ?? 'mailer del servidor' }}</span>
+                                </h3>
+                                <div class="row g-2">
+                                    <div class="col-8">
+                                        <label for="smtp_host" class="form-label small fw-semibold mb-1">Servidor</label>
+                                        <input id="smtp_host" v-model.trim="form.smtp_host" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors.smtp_host }" placeholder="smtp.gmail.com">
+                                        <div class="invalid-feedback">{{ form.errors.smtp_host }}</div>
+                                    </div>
+                                    <div class="col-4">
+                                        <label for="smtp_port" class="form-label small fw-semibold mb-1">Puerto</label>
+                                        <input id="smtp_port" v-model="form.smtp_port" type="number" min="1" max="65535" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors.smtp_port }" placeholder="587">
+                                        <div class="invalid-feedback">{{ form.errors.smtp_port }}</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="smtp_encryption" class="form-label small fw-semibold mb-1">Cifrado</label>
+                                        <select id="smtp_encryption" v-model="form.smtp_encryption" class="form-select form-select-sm">
+                                            <option :value="null">TLS (por defecto)</option>
+                                            <option value="tls">TLS</option>
+                                            <option value="ssl">SSL</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="smtp_username" class="form-label small fw-semibold mb-1">Usuario</label>
+                                        <input id="smtp_username" v-model.trim="form.smtp_username" autocomplete="off" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors.smtp_username }">
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="smtp_password" class="form-label small fw-semibold mb-1">Contraseña de aplicación</label>
+                                        <input id="smtp_password" v-model="form.smtp_password" type="password" autocomplete="new-password" class="form-control form-control-sm font-monospace"
+                                               :class="{ 'is-invalid': form.errors.smtp_password }" :placeholder="services.secrets.smtp_password.mask ?? 'Sin contraseña'">
+                                        <div v-if="services.secrets.smtp_password.own" class="form-check mt-1">
+                                            <input id="clear_smtp_password" v-model="form.clear_smtp_password" class="form-check-input" type="checkbox">
+                                            <label class="form-check-label small" for="clear_smtp_password">Eliminar contraseña guardada</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-7">
+                                        <label for="mail_from_address" class="form-label small fw-semibold mb-1">Remitente</label>
+                                        <input id="mail_from_address" v-model.trim="form.mail_from_address" type="email" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors.mail_from_address }" placeholder="notificaciones@empresa.com">
+                                        <div class="invalid-feedback">{{ form.errors.mail_from_address }}</div>
+                                    </div>
+                                    <div class="col-5">
+                                        <label for="mail_from_name" class="form-label small fw-semibold mb-1">Nombre</label>
+                                        <input id="mail_from_name" v-model="form.mail_from_name" maxlength="150" class="form-control form-control-sm">
+                                    </div>
+                                </div>
+                                <small class="settings-helper-text d-block mt-1">Sin servidor propio, los avisos salen por el correo del servidor. Cada aviso se envía una sola vez.</small>
+                            </div>
                         </div>
                     </div>
                 </div>

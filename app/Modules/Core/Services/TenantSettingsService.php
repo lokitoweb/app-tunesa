@@ -212,6 +212,23 @@ class TenantSettingsService
                 ? ['sometimes', 'nullable', 'file', 'extensions:json', 'max:64']
                 : ['prohibited'],
             'clear_fcm_service_account_json' => $global ? ['sometimes', 'boolean'] : ['prohibited'],
+
+            // Servicios externos (Migo, Nubefact, SMTP). Secretos: vacío = no cambiar; clear_* = borrar
+            'migo_api_token'       => ['sometimes', 'nullable', 'string', 'max:500'],
+            'migo_ruc_url'         => ['sometimes', 'nullable', 'url:https', 'max:255'],
+            'migo_dni_url'         => ['sometimes', 'nullable', 'url:https', 'max:255'],
+            'nubefact_url'         => ['sometimes', 'nullable', 'url:https', 'max:255'],
+            'nubefact_token'       => ['sometimes', 'nullable', 'string', 'max:500'],
+            'smtp_host'            => ['sometimes', 'nullable', 'string', 'max:150', 'regex:/^[a-z0-9.-]+$/i'],
+            'smtp_port'            => ['sometimes', 'nullable', 'integer', 'between:1,65535'],
+            'smtp_encryption'      => ['sometimes', 'nullable', Rule::in(['tls', 'ssl'])],
+            'smtp_username'        => ['sometimes', 'nullable', 'string', 'max:150'],
+            'smtp_password'        => ['sometimes', 'nullable', 'string', 'max:255'],
+            'mail_from_address'    => ['sometimes', 'nullable', 'email', 'max:150'],
+            'mail_from_name'       => ['sometimes', 'nullable', 'string', 'max:150'],
+            'clear_migo_api_token' => ['sometimes', 'boolean'],
+            'clear_nubefact_token' => ['sometimes', 'boolean'],
+            'clear_smtp_password'  => ['sometimes', 'boolean'],
         ];
     }
 
@@ -267,12 +284,19 @@ class TenantSettingsService
      */
     public function update(?Tenant $tenant, array $data, Request $request, ?User $actor): TenantSetting
     {
+        // Credenciales de servicios externos: solo el SuperAdmin, venga de la pantalla que venga
+        // (Integraciones, Marca y app o la API de branding comparten este método)
+        $canServices = (bool) $actor?->isSuperAdmin();
+        if (! $canServices) {
+            $data = array_diff_key($data, array_flip(TenantSetting::SERVICE_FIELDS));
+        }
+
         $row     = TenantSetting::editableRowFor($tenant);
         $changed = [];
         $secrets = [];
         $before  = AuditLogger::snapshot($row, $tenant?->only(['company_name', 'primary_color', 'secondary_color', 'logo_path']), ['geofence_policy' => $tenant ? CompanyConfiguration::forTenantId($tenant->id)->geofence_policy : null]);
 
-        DB::transaction(function () use ($tenant, $data, $request, $actor, $row, &$changed, &$secrets) {
+        DB::transaction(function () use ($tenant, $data, $request, $actor, $row, $canServices, &$changed, &$secrets) {
             foreach (TenantSetting::SETTING_FIELDS as $field) {
                 if (array_key_exists($field, $data)) {
                     $row->{$field} = $data[$field] === '' ? null : $data[$field];
@@ -302,6 +326,9 @@ class TenantSettingsService
             foreach (TenantSetting::SECRET_FIELDS as $secret) {
                 if ($secret === 'fcm_service_account_json' && $tenant) {
                     continue; // solo la plataforma
+                }
+                if (! $canServices && in_array($secret, TenantSetting::SERVICE_FIELDS, true)) {
+                    continue; // ni cambiar ni borrar: solo el SuperAdmin
                 }
                 $clear = $request->boolean("clear_{$secret}")
                     || ($secret === 'maps_api_key' && $request->boolean('clear_google_maps_api_key'));
@@ -411,6 +438,13 @@ class TenantSettingsService
             'google_maps_api_key'     => self::mask($row->maps_api_key),
             'has_google_maps_api_key' => filled($row->maps_api_key),
             // La cuenta de servicio nunca se devuelve: solo datos para reconocerla
+            // Servicios externos: los secretos solo enmascarados (nunca el valor)
+            'migo_api_token'     => self::mask($row->migo_api_token),
+            'nubefact_token'     => self::mask($row->nubefact_token),
+            'smtp_password'      => self::mask($row->smtp_password),
+            'has_migo_api_token' => filled($row->migo_api_token),
+            'has_nubefact_token' => filled($row->nubefact_token),
+            'has_smtp_password'  => filled($row->smtp_password),
             'has_fcm_service_account' => ! $tenant && filled($row->fcm_service_account_json),
             'fcm_project_id'          => $tenant ? null : TenantSetting::parseServiceAccount($row->fcm_service_account_json)['project_id'] ?? null,
             'fcm_client_email'        => $tenant ? null : TenantSetting::parseServiceAccount($row->fcm_service_account_json)['client_email'] ?? null,

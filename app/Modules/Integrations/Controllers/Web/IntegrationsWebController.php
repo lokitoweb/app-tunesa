@@ -100,6 +100,8 @@ class IntegrationsWebController extends Controller
             // El proyecto de Firebase es de la plataforma: una empresa solo sabe si está configurado
             'fcm'       => $isGlobal ? self::fcmStatus() : ['configured' => self::fcmStatus()['configured']],
             'geoProbe'  => $this->geoProbe($tenant),
+            // Credenciales de servicios externos: solo las ve y edita el SuperAdmin; los secretos van enmascarados
+            'services'  => $request->user()->isSuperAdmin() ? $this->servicesPayload($tenant, $values) : null,
             'userEmail' => $request->user()->email,
             'updatedAt' => $row->updated_at?->setTimezone(tenant_timezone())->format('d/m/Y h:i a'),
         ]);
@@ -109,7 +111,10 @@ class IntegrationsWebController extends Controller
     public function update(Request $request, TenantSettingsService $settings): RedirectResponse
     {
         $tenant = $this->tenantContext->getOrNull();
-        $request->replace($request->only(self::FIELDS));
+        $services = $request->user()->isSuperAdmin()
+            ? [...TenantSetting::SERVICE_FIELDS, 'clear_migo_api_token', 'clear_nubefact_token', 'clear_smtp_password']
+            : [];
+        $request->replace($request->only([...self::FIELDS, ...$services]));
         $settings->updateFromPanel($tenant, $request, $request->user(), ['fcm_enabled']);
 
         return redirect()->route('settings.integrations')->with('success', $tenant
@@ -142,6 +147,26 @@ class IntegrationsWebController extends Controller
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /** Valores propios de la fila (empresa o plataforma) y lo que se usa en efecto (heredado o .env) */
+    private function servicesPayload(?Tenant $tenant, array $values): array
+    {
+        $effective = TenantSetting::forTenant($tenant);
+        $plain = ['migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'mail_from_address', 'mail_from_name'];
+
+        return [
+            'values'    => collect($plain)->mapWithKeys(fn ($f) => [$f => $values[$f] ?? null])->all(),
+            'secrets'   => collect(['migo_api_token', 'nubefact_token', 'smtp_password'])
+                ->mapWithKeys(fn ($f) => [$f => ['mask' => $values[$f] ?? null, 'own' => (bool) ($values["has_{$f}"] ?? false)]])->all(),
+            // Qué se usa hoy si este nivel no define nada (para mostrarlo como "heredado")
+            'effective' => [
+                'migo_configured'     => filled($effective->migo()['token']),
+                'nubefact_configured' => filled($effective->nubefact()['url']),
+                'nubefact_demo'       => $effective->nubefact()['demo'],
+                'smtp'                => $effective->smtp() ? "{$effective->smtp_host}:" . ($effective->smtp_port ?: 587) : null,
+            ],
+        ];
     }
 
     /** Coordenadas para "Probar geocodificación": la primera sucursal, o el centro de Lima */
