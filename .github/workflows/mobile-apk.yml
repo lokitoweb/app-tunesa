@@ -6,8 +6,9 @@
 #
 # Firma de producción (opcional): secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
 # ANDROID_KEY_ALIAS y ANDROID_KEY_PASSWORD. Sin ellos el APK sale firmado con la llave debug.
-# Dominio del backend: input api_base_url del Run workflow, o variable de repositorio API_BASE_URL
-# (opcional, sobrescribe env/<entorno>.json). Túnel de pruebas: entorno "tunnel" + api_base_url.
+# Dominio del backend: env/<entorno>.json (prod = https://group-cyp.com). Lo sobrescriben el input api_base_url
+# del Run workflow o, solo en entornos que no son prod, la variable de repositorio API_BASE_URL (así una URL de
+# túnel guardada ahí nunca termina en el APK de producción). Túnel de pruebas: entorno "tunnel" + api_base_url.
 # scripts/build_apk.sh exige la llave para prod; ALLOW_DEBUG_SIGNING=1 mantiene el APK de prueba
 # firmado con la llave debug cuando no hay secrets, salvo al publicar un tag v*.
 # Manual: además compila iOS (macos-15): .ipa sin firma siempre y firmada si hay secrets IOS_* (ver job ios).
@@ -64,7 +65,7 @@ jobs:
     env:
       ENV_NAME: ${{ inputs.environment || 'prod' }}
       BUILD_MODE: ${{ inputs.mode || 'release' }}
-      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL }}
+      API_BASE_URL: ${{ inputs.api_base_url || ((inputs.environment || 'prod') != 'prod' && vars.API_BASE_URL) || '' }}
       ALLOW_DEBUG_SIGNING: ${{ startsWith(github.ref, 'refs/tags/v') && '0' || '1' }}
       # Release: también el .aab para Google Play (y la revisión de targetSdk, permisos y 16 KB)
       BUILD_AAB: ${{ (inputs.mode || 'release') == 'release' && '1' || '0' }}
@@ -175,7 +176,7 @@ jobs:
         working-directory: mobile
     env:
       ENV_NAME: ${{ inputs.environment || 'prod' }}
-      API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL }}
+      API_BASE_URL: ${{ inputs.api_base_url || ((inputs.environment || 'prod') != 'prod' && vars.API_BASE_URL) || '' }}
       FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY || vars.FIREBASE_API_KEY }}
       FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID || vars.FIREBASE_APP_ID }}
       FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID || vars.FIREBASE_MESSAGING_SENDER_ID }}

@@ -15,7 +15,8 @@
 #   DEPLOY_PATH         carpeta del proyecto en el servidor (ej. /var/www/tunesa)
 #   DEPLOY_KNOWN_HOSTS  salida de `ssh-keyscan -p <puerto> <host>` (fija la huella del servidor)
 #   DEPLOY_PORT         opcional, por defecto 22
-# Variable opcional PHP_FPM_SERVICE (ej. php8.3-fpm): el script lo recarga al final para limpiar OPcache.
+# Variables opcionales: PHP_FPM_SERVICE (ej. php8.3-fpm), que el script recarga al final para limpiar OPcache,
+# y PRODUCTION_URL (por defecto https://group-cyp.com), donde se comprueba /up después del deploy.
 name: "Deploy: producción"
 
 on:
@@ -69,6 +70,19 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "$PORT" -o StrictHostKeyChecking=yes -o BatchMode=yes \
             -o ServerAliveInterval=30 "$USER@$HOST" \
             "cd '$APP_PATH' && PHP_FPM_SERVICE='$FPM' bash scripts/deploy.sh --ref '${{ github.sha }}'"
+
+      - name: Verificar ${{ vars.PRODUCTION_URL || 'https://group-cyp.com' }}/up
+        env:
+          URL: ${{ vars.PRODUCTION_URL || 'https://group-cyp.com' }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$URL/up" || true)
+            echo "Intento $i: $URL/up → $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::$URL/up no respondió 200 después del deploy"
+          exit 1
 
       - name: Borrar la llave
         if: always()

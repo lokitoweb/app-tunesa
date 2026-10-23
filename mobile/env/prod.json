@@ -1,6 +1,6 @@
 {
   "ENV_NAME": "prod",
-  "API_BASE_URL": "https://api.tunesa.app",
+  "API_BASE_URL": "https://group-cyp.com",
   "DEFAULT_TENANT": "",
   "MAX_GPS_ACCURACY": "50",
   "FIREBASE_API_KEY": "",

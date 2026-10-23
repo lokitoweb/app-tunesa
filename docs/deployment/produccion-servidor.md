@@ -1,13 +1,12 @@
 # Producción: servidor, MySQL y despliegue automático
 
-Guía para poner TuneSA en un servidor propio (VPS Ubuntu con Nginx) con MySQL, y para que cada `git push`
-a `master` se publique solo. Al final: cómo apuntar la app móvil al dominio de producción.
+Guía para poner TuneSA en **https://group-cyp.com** (VPS Ubuntu con Nginx y MySQL), y para que cada `git push`
+a `master` se publique solo. Al final: la app móvil apuntando a ese dominio.
 
 Lo que tienes que reemplazar en los comandos:
 
 | Marcador | Qué es | Ejemplo |
 |---|---|---|
-| `TU_DOMINIO` | Dominio del panel y de la API | `app.tunesa.pe` |
 | `IP_DEL_SERVIDOR` | IP pública del VPS | `203.0.113.10` |
 | `CLAVE_MYSQL` | Contraseña del usuario MySQL `tunesa` | (larga y única) |
 
@@ -41,8 +40,9 @@ Requisitos mínimos: Ubuntu 22.04 o 24.04, 2 GB de RAM (1 GB + swap también sir
 
 En el panel de tu dominio crea:
 
-- Registro **A** `TU_DOMINIO` → `IP_DEL_SERVIDOR`.
-- Solo si cada empresa entrará por subdominio (`empresa.TU_DOMINIO`): registro **A** `*.TU_DOMINIO` → la misma IP.
+- Registro **A** `group-cyp.com` → `IP_DEL_SERVIDOR`.
+- Registro **CNAME** `www` → `group-cyp.com` (Nginx lo redirige al dominio sin www).
+- Solo si cada empresa entrará por subdominio (`empresa.group-cyp.com`): registro **A** `*.group-cyp.com` → la misma IP.
 
 Si usas Cloudflare, deja la nube en **gris** (solo DNS) hasta terminar el paso 8; luego puedes activarla
 (ver "Detrás de Cloudflare" al final).
@@ -141,8 +141,8 @@ cp .env.production.example .env
 nano .env
 ```
 
-Completa todo lo que dice `CAMBIAR`: `APP_URL=https://TU_DOMINIO`, `APP_DOMAIN`, `DB_PASSWORD=CLAVE_MYSQL`,
-`SANCTUM_STATEFUL_DOMAINS=TU_DOMINIO`, el correo SMTP, y para el primer arranque
+La plantilla ya trae `APP_URL=https://group-cyp.com`, `APP_DOMAIN=group-cyp.com` y
+`SANCTUM_STATEFUL_DOMAINS`. Completa lo que dice `CAMBIAR`: `DB_PASSWORD=CLAVE_MYSQL`, el correo SMTP, y para el primer arranque
 `SEED_SUPERADMIN_EMAIL` / `SEED_SUPERADMIN_PASSWORD` (12+ caracteres).
 
 ```bash
@@ -187,13 +187,20 @@ empresas, sedes y trabajadores se crean desde el panel (los datos de prueba de t
 
 ## 8. Nginx y HTTPS
 
-Crea `/etc/nginx/sites-available/tunesa`:
+Crea `/etc/nginx/sites-available/tunesa` (`www.group-cyp.com` redirige al dominio sin www, que es el de `APP_URL`):
 
 ```nginx
 server {
     listen 80;
     listen [::]:80;
-    server_name TU_DOMINIO *.TU_DOMINIO;
+    server_name www.group-cyp.com;
+    return 301 https://group-cyp.com$request_uri;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name group-cyp.com *.group-cyp.com;
     root /var/www/tunesa/public;
     index index.php;
 
@@ -235,15 +242,15 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 
 # Certificado (dominio principal)
-sudo certbot --nginx -d TU_DOMINIO --redirect -m tu-correo@ejemplo.com --agree-tos
+sudo certbot --nginx -d group-cyp.com -d www.group-cyp.com --redirect -m tu-correo@ejemplo.com --agree-tos
 ```
 
 Certbot agrega el bloque `listen 443 ssl` y la redirección de http a https, y renueva solo.
-Si usarás subdominios por empresa, el certificado comodín (`*.TU_DOMINIO`) necesita validación por DNS:
-`sudo certbot certonly --manual --preferred-challenges dns -d TU_DOMINIO -d '*.TU_DOMINIO'`
+Si usarás subdominios por empresa, el certificado comodín (`*.group-cyp.com`) necesita validación por DNS:
+`sudo certbot certonly --manual --preferred-challenges dns -d group-cyp.com -d '*.group-cyp.com'`
 (o el plugin DNS de tu proveedor, p. ej. `python3-certbot-dns-cloudflare`, para que se renueve solo).
 
-Comprueba: `https://TU_DOMINIO/up` debe responder 200 y `https://TU_DOMINIO` mostrar el login.
+Comprueba: `https://group-cyp.com/up` debe responder 200 y `https://group-cyp.com` mostrar el login.
 
 ## 9. Tareas programadas, cola y recarga de PHP
 
@@ -365,7 +372,7 @@ en GitHub (`git revert`) y haz push. Las migraciones ya aplicadas no se deshacen
 cd /var/www/tunesa
 php artisan app:check-production     # APP_DEBUG, HTTPS, cookie segura, cola, correo y base de datos
 php artisan about --only=environment,cache,drivers
-curl -I https://TU_DOMINIO/up
+curl -I https://group-cyp.com/up
 ```
 
 - Entra al panel como Super Admin, cambia la contraseña y crea la empresa.
@@ -388,7 +395,7 @@ Respaldo diario de la base (recomendado):
 - **MySQL**: crea base y usuario con el asistente del panel y usa esos datos en el `.env`. Muchos hostings
   compartidos **no** permiten crear triggers (no puedes cambiar `log_bin_trust_function_creators`): si
   `migrate` falla con el error 1419, pide al soporte que lo active o usa un VPS.
-- **Sin SSH**: sube el proyecto con `vendor/` y `public/build` ya incluidos y abre `https://TU_DOMINIO/install`:
+- **Sin SSH**: sube el proyecto con `vendor/` y `public/build` ya incluidos y abre `https://group-cyp.com/install`:
   el asistente pide los datos de MySQL, crea las tablas y el Super Admin. En ese caso no hay deploy automático.
 - **Con SSH** (Terminal del panel): sigue los pasos 4–7 y la Opción B con el "Cron Jobs" del panel. Si el
   hosting no tiene Node, compila en tu PC (`npm ci && npm run build`), sube `public/build` y usa `SKIP_NPM=1`
@@ -401,19 +408,22 @@ el dominio final.
 
 **APK nuevo con el dominio de producción** (recomendado para Play Store o para repartir el APK):
 
-1. Edita `mobile/env/prod.json` y pon `"API_BASE_URL": "https://TU_DOMINIO"` (sin `/api` ni barra final).
-2. Compila: `cd mobile && scripts/build_apk.sh prod release`
-   (o sin editar el JSON: `API_BASE_URL=https://TU_DOMINIO scripts/build_apk.sh prod release`).
-   En GitHub: **Actions → App móvil: APK → Run workflow**, entorno `prod` y `api_base_url` = `https://TU_DOMINIO`
-   (necesita minutos de Actions; el build de iOS necesita macOS).
-3. iOS: el mismo `--dart-define=API_BASE_URL=https://TU_DOMINIO` al compilar el `.ipa`.
+1. `mobile/env/prod.json` ya tiene `"API_BASE_URL": "https://group-cyp.com"`.
+2. Compila: `cd mobile && scripts/build_apk.sh prod release`.
+   En GitHub se compila solo en cada push a `master` que toque `mobile/` (entorno `prod`, release), o a mano en
+   **Actions → App móvil: APK → Run workflow**. Un tag `v1.0.0` adjunta el APK y el `.aab` al Release.
+   Para un APK de producción de verdad hacen falta los secrets de firma `ANDROID_KEYSTORE_BASE64`,
+   `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD`; sin ellos sale firmado con la llave
+   debug (sirve para probar, no para Play Store) y un tag `v*` falla a propósito.
+   Todo esto necesita minutos de Actions; el build de iOS (macOS) cuenta 10 veces.
+3. iOS: el `.ipa` usa el mismo `env/prod.json` (Run workflow con "Compilar iOS" marcado, o `flutter build ipa --dart-define-from-file=env/prod.json` en una Mac).
 
 **Apps ya instaladas (sin reinstalar)**:
 
-- En el login: **"¿Otra empresa o servidor? Conectar"** → escribir `TU_DOMINIO` (o el código de la empresa).
-  La app prueba `https://TU_DOMINIO/api/v1/app/config`, toma la marca y queda apuntando ahí.
+- En el login: **"¿Otra empresa o servidor? Conectar"** → escribir `group-cyp.com` (o el código de la empresa).
+  La app prueba `https://group-cyp.com/api/v1/app/config`, toma la marca y queda apuntando ahí.
 - Si el servidor viejo (el túnel de Cloudflare) sigue encendido: en ese panel, **Marca y app → URL base de la
-  API** = `https://TU_DOMINIO`. Las apps que abran contra el túnel reciben el dominio nuevo, comprueban que
+  API** = `https://group-cyp.com`. Las apps que abran contra el túnel reciben el dominio nuevo, comprueban que
   responde y se cambian solas. Cuando cierres el túnel, ya no podrán enterarse: avisa con tiempo.
 
 Un APK de `release` exige `https://`; no apuntes una build de producción a una URL `http://`.
@@ -423,5 +433,5 @@ Un APK de `release` exige `https://`; no apuntes una build de producción a una 
 1. SSL/TLS en modo **Full (strict)** (el servidor ya tiene certificado de Let's Encrypt).
 2. En el `.env`: `TRUSTED_PROXIES=*` (Laravel ve la IP real del usuario y el `https` original) y
    `php artisan config:cache`.
-3. Para el comodín `*.TU_DOMINIO` con nube naranja necesitas el certificado de borde de Cloudflare
+3. Para el comodín `*.group-cyp.com` con nube naranja necesitas el certificado de borde de Cloudflare
    (incluido en el plan gratis para un nivel de subdominio).
