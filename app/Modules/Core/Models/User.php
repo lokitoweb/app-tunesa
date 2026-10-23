@@ -444,8 +444,12 @@ class User extends Authenticatable
         return $viewer->seesAllAttendance() || $viewer->isOrgScoped() ? $query : $query->supervisedBy($viewer);
     }
 
-    /** Roles que marcan asistencia desde la app (colaboradores y supervisores) */
-    public const CLOCKING_ROLES = ['employee', 'supervisor'];
+    /**
+     * Roles que marcan asistencia desde la app con GPS: colaboradores, supervisores y
+     * Contabilidad (política de la empresa). Fuente única para turnos, calendario,
+     * faltas, reportes de horas y públicos de comunicados/capacitaciones.
+     */
+    public const CLOCKING_ROLES = ['employee', 'supervisor', 'accountant'];
 
     /**
      * Equipo de $viewer para la app: personal activo que marca (colaboradores y
