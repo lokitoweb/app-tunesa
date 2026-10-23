@@ -295,18 +295,9 @@ class RequisitionWebController extends Controller
 
     // ------------------------------------------------------------------ privado
 
+    /** Solo los mensajes propios de este flujo; los genéricos vienen de lang/es/validation.php */
     private const MESSAGES = [
-        'required'       => 'Falta :attribute.',
-        'required_if'    => 'Falta :attribute.',
-        'numeric'        => ':Attribute debe ser un número.',
-        'integer'        => ':Attribute debe ser un número entero.',
-        'min'            => ':Attribute es muy bajo.',
-        'max'            => ':Attribute es muy largo o muy alto.',
-        'date'           => ':Attribute no es una fecha válida.',
-        'after_or_equal' => ':Attribute no puede ser anterior a la cotización.',
-        'exists'         => ':Attribute no es válido.',
-        'in'             => ':Attribute no es válido.',
-        'array'          => 'Agrega al menos un producto.',
+        'expires_at.after_or_equal' => 'La vigencia no puede ser anterior a la fecha de la cotización.',
     ];
 
     /** Sin requisitions.view_all solo se ven los propios */

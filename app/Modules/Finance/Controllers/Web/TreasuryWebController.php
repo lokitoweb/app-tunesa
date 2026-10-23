@@ -119,7 +119,6 @@ class TreasuryWebController extends Controller
             'operation_number'        => ['required', 'string', 'max:50'],
             'voucher'                 => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120', new SafeUpload],
         ], [
-            'required'                => 'Falta :attribute.',
             'amount.max'              => "El monto supera el saldo de la cuota ({$remaining}).",
             'amount.min'              => 'El monto debe ser mayor a cero.',
             'paid_at.before_or_equal' => 'La fecha de pago no puede ser futura.',
@@ -184,7 +183,7 @@ class TreasuryWebController extends Controller
             'detraction_number'  => ['required', 'string', 'max:100'],
             'detraction_percent' => ['required', 'integer', 'min:1', 'max:100'],
             'detraction_amount'  => ['required', 'numeric', 'min:0.01', 'max:' . (float) $r->amount],
-        ], ['required' => 'Falta :attribute.', 'max' => ':Attribute es muy alto.', 'min' => ':Attribute es muy bajo.'],
+        ], [],
             ['detraction_number' => 'la constancia', 'detraction_percent' => 'el porcentaje', 'detraction_amount' => 'el monto']);
 
         $r->update($data);
@@ -277,6 +276,6 @@ class TreasuryWebController extends Controller
             'currency'       => ['required', Rule::in(array_keys(Requisition::CURRENCIES))],
             'alias'          => ['nullable', 'string', 'max:60'],
             'is_active'      => ['boolean'],
-        ], ['required' => 'Falta :attribute.', 'unique' => 'Esa cuenta ya está registrada.'], ['bank' => 'el banco', 'account_number' => 'el número de cuenta']);
+        ], ['account_number.unique' => 'Esa cuenta ya está registrada.'], ['bank' => 'el banco', 'account_number' => 'el número de cuenta']);
     }
 }

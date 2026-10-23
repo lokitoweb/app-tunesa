@@ -120,13 +120,9 @@ class SupplierWebController extends Controller
             'bank_accounts.*.account_number' => ['required', 'string', 'max:100', 'distinct'],
             'bank_accounts.*.account_type'  => ['nullable', 'string', 'max:50'],
         ], [
-            // ponytail: la app no tiene lang/es; mensajes aquí hasta publicar las traducciones
-            'required'   => 'Falta :attribute.',
-            'digits'     => ':Attribute debe tener :digits dígitos.',
-            'email'      => 'El correo no es válido.',
-            'max'        => ':Attribute admite hasta :max caracteres.',
-            'distinct'   => 'Esa cuenta está repetida.',
-            'ruc.unique' => 'Ya hay un proveedor con ese RUC.',
+            // Los mensajes genéricos vienen de lang/es/validation.php; aquí solo los propios del caso
+            'bank_accounts.*.account_number.distinct' => 'Esa cuenta está repetida.',
+            'ruc.unique'                              => 'Ya hay un proveedor con ese RUC.',
         ], [
             'name' => 'la razón social', 'ruc' => 'el RUC', 'dni' => 'el DNI', 'address' => 'la dirección',
             'bank_accounts.*.bank' => 'el banco', 'bank_accounts.*.account_number' => 'el número de cuenta',

@@ -110,10 +110,8 @@ class PettyCashWebController extends Controller
             'cash_box'        => ['required', Rule::in(PettyCashExpense::CASH_BOXES)],
             'voucher'         => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120', new SafeUpload],
         ], [
-            'required'               => 'Falta :attribute.',
             'date.before_or_equal'   => 'La fecha no puede ser futura.',
-            'digits'                 => 'El RUC tiene 11 dígitos.',
-            'min'                    => ':Attribute debe ser mayor a cero.',
+            'amount.min'             => 'El monto debe ser mayor a cero.',
             'voucher.mimes'          => 'El comprobante debe ser PDF o imagen.',
             'voucher.max'            => 'El comprobante pesa más de 5 MB.',
         ], ['date' => 'la fecha', 'description' => 'el concepto', 'amount' => 'el monto', 'document_type' => 'el tipo de comprobante', 'cash_box' => 'la caja']);

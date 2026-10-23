@@ -23,16 +23,9 @@ use Inertia\Response;
  */
 class FixedCostWebController extends Controller
 {
+    /** Solo los mensajes propios de costos fijos; los genéricos vienen de lang/es/validation.php */
     private const MESSAGES = [
-        'required'        => 'Falta :attribute.',
-        'numeric'         => ':Attribute debe ser un número.',
-        'integer'         => ':Attribute debe ser un número entero.',
-        'min'             => ':Attribute es muy bajo.',
-        'max'             => ':Attribute es muy alto o muy largo.',
-        'date'            => ':Attribute no es una fecha válida.',
-        'in'              => ':Attribute no es válido.',
-        'exists'          => ':Attribute no es válido.',
-        'before_or_equal' => 'La fecha de pago no puede ser futura.',
+        'paid_at.before_or_equal' => 'La fecha de pago no puede ser futura.',
     ];
 
     public function __construct(private readonly AuditLogger $audit) {}
