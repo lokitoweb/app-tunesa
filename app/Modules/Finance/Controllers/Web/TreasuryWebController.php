@@ -63,7 +63,7 @@ class TreasuryWebController extends Controller
             'counts'       => collect(self::TABS)->map(fn ($_, $key) => $this->tab($base(), $key, $today)->count()),
             'kpis'         => [
                 'overdue'   => (float) $pending()->whereDate('due_date', '<', $today)->sum(DB::raw('amount - paid_amount')),
-                'week'      => (float) $pending()->whereBetween('due_date', [$today, now(tenant_timezone())->addDays(7)->toDateString()])->sum(DB::raw('amount - paid_amount')),
+                'week'      => (float) $pending()->whereBetween('due_date', [$today, now(tenant_timezone())->addDays(7)->endOfDay()->toDateTimeString()])->sum(DB::raw('amount - paid_amount')),
                 'pending'   => (float) $pending()->sum(DB::raw('amount - paid_amount')),
                 'paid_month' => (float) PaymentCancellation::where('paid_at', '>=', now(tenant_timezone())->startOfMonth()->utc())->sum('amount'),
             ],

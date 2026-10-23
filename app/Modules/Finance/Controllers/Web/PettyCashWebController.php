@@ -27,7 +27,7 @@ class PettyCashWebController extends Controller
         $box = in_array($request->query('box'), PettyCashExpense::CASH_BOXES, true) ? $request->query('box') : null;
         $start = Carbon::parse("{$month}-01");
 
-        $query = fn () => PettyCashExpense::whereBetween('date', [$start->toDateString(), $start->copy()->endOfMonth()->toDateString()])
+        $query = fn () => PettyCashExpense::whereBetween('date', [$start->toDateString(), $start->copy()->endOfMonth()->toDateTimeString()]) // fin del día: SQLite guarda la fecha con hora
             ->when($box, fn ($q) => $q->where('cash_box', $box));
 
         return Inertia::render('Finance/Pages/PettyCash/Index', [

@@ -1,5 +1,7 @@
 <?php
 
+use App\Modules\Finance\Controllers\Web\CashFlowWebController;
+use App\Modules\Finance\Controllers\Web\FixedCostWebController;
 use App\Modules\Finance\Controllers\Web\PettyCashWebController;
 use App\Modules\Finance\Controllers\Web\RequisitionWebController;
 use App\Modules\Finance\Controllers\Web\SupplierWebController;
@@ -65,3 +67,15 @@ Route::middleware(['auth', 'web.tenant', 'can:fixed_costs.manage'])->prefix('pet
     Route::delete('/{id}', [PettyCashWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     Route::get('/{id}/voucher', [PettyCashWebController::class, 'voucher'])->name('voucher')->whereNumber('id');
 });
+
+// Costos fijos: cuotas mensuales por lote (arrendamientos, leasing, seguros...)
+Route::middleware(['auth', 'web.tenant', 'can:fixed_costs.manage'])->prefix('fixed-costs')->name('fixed-costs.')->group(function () {
+    Route::get('/', [FixedCostWebController::class, 'index'])->name('index');
+    Route::post('/', [FixedCostWebController::class, 'store'])->name('store');
+    Route::put('/{id}', [FixedCostWebController::class, 'update'])->name('update')->whereNumber('id');
+    Route::post('/{id}/cancel', [FixedCostWebController::class, 'cancel'])->name('cancel')->whereNumber('id');
+    Route::post('/{id}/pay', [FixedCostWebController::class, 'pay'])->name('pay')->whereNumber('id');
+});
+
+// Flujo de caja: egresos reales y proyectados por mes
+Route::middleware(['auth', 'web.tenant', 'can:treasury.view'])->get('/cash-flow', [CashFlowWebController::class, 'index'])->name('cash-flow.index');
