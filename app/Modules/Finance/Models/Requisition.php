@@ -25,6 +25,15 @@ class Requisition extends Model
         'cancelled' => ['Anulado', 'secondary'],
     ];
 
+    /** Conceptos de pago de RRHH (FrmRegrrhh): la CTS se deposita en la cuenta CTS del legajo */
+    public const PAYROLL_CONCEPTS = [
+        'HABERES'       => 'Pago de haberes',
+        'GRATIFICACION' => 'Gratificación',
+        'VACACIONES'    => 'Vacaciones',
+        'CTS'           => 'Depósito CTS',
+        'LIQUIDACION'   => 'Liquidación de beneficios sociales',
+    ];
+
     /** Tope del Requerimiento Express (soles, exclusivo) */
     public const EXPRESS_LIMIT = 600;
 
@@ -46,7 +55,7 @@ class Requisition extends Model
     protected $fillable = [
         'tenant_id', 'series', 'number', 'code', 'year', 'is_express', 'requested_at', 'detail', 'area', 'requested_by', 'user_id', 'email', 'plate', 'km',
         'agency', 'site', 'delivery_place', 'classification', 'stage', 'payment_terms', 'notes', 'supplier_id',
-        'purchase_order_number', 'service_order_number', 'ordered_at', 'received_at', 'invoice_number', 'invoice_path', 'invoice_date', 'vehicle_id', 'payment_origin', 'sale_type', 'priority',
+        'purchase_order_number', 'service_order_number', 'ordered_at', 'received_at', 'invoice_number', 'invoice_path', 'invoice_date', 'vehicle_id', 'employee_id', 'payroll_period', 'payroll_concept', 'payment_origin', 'sale_type', 'priority',
         'payment_method', 'reviewed_by', 'reviewed_by_id', 'reviewed_at', 'currency', 'amount', 'amount_payable', 'has_detraction',
         'detraction_number', 'detraction_amount', 'detraction_percent',
         'installments', 'attachments',
@@ -74,6 +83,35 @@ class Requisition extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    /** Colaborador beneficiario de un pago de RRHH */
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'employee_id');
+    }
+
+    public function isPayroll(): bool
+    {
+        return (bool) $this->payroll_concept;
+    }
+
+    /**
+     * Cuenta del legajo a la que se paga (la CTS para el concepto CTS). Solo vale si RRHH la
+     * verificó: el colaborador puede editarla desde la app.
+     *
+     * @return array{bank: ?string, number: ?string, verified: bool}
+     */
+    public function payrollAccount(): array
+    {
+        $profile = $this->employee?->profile;
+        $cts = $this->payroll_concept === 'CTS';
+
+        return [
+            'bank'     => $cts ? $profile?->cts_bank_name : $profile?->bank_name,
+            'number'   => $cts ? $profile?->cts_account_number : $profile?->bank_account_number,
+            'verified' => $profile?->payment_info_status === 'verified',
+        ];
     }
 
     public function vehicle(): BelongsTo
@@ -115,6 +153,7 @@ class Requisition extends Model
 
     public function orderNumber(): ?string
     {
-        return $this->purchase_order_number ?: $this->service_order_number;
+        // Pago de RRHH: su documento es el PL de la planilla importada
+        return $this->purchase_order_number ?: $this->service_order_number ?: ($this->isPayroll() ? $this->code() : null);
     }
 }

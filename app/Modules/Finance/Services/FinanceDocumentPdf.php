@@ -39,19 +39,26 @@ final class FinanceDocumentPdf
 
     public static function paymentOrder(PaymentInstallment $p): string
     {
-        $p->loadMissing(['requisition.supplier.bankAccounts', 'requisition.tenant']);
+        $p->loadMissing(['requisition.supplier.bankAccounts', 'requisition.tenant', 'requisition.employee.profile']);
         $r = $p->requisition;
+        // Pago de RRHH: el beneficiario es el colaborador y su cuenta del legajo (enmascarada en el PDF)
+        $account = $r->isPayroll() ? $r->payrollAccount() : null;
+        $payee = $r->isPayroll() ? (object) ['name' => $r->employee?->full_name, 'ruc' => 'DNI ' . $r->employee?->document_number] : $r->supplier;
+        $accounts = $r->isPayroll()
+            ? trim(($account['bank'] ?? '') . ($account['number'] ? ' ••••' . substr($account['number'], -4) : ''))
+            : $r->supplier?->bankAccounts->map(fn ($a) => "{$a->bank} {$a->account_number}")->implode(' · ');
 
         return self::render([
             'title'     => 'ORDEN DE PAGO',
             'number'    => sprintf('OP-%s-%02d', $r->orderNumber(), $p->installment),
             'date'      => $p->scheduled_for?->format('d/m/Y'),
             'tenant'    => $r->tenant,
-            'supplier'  => $r->supplier,
+            'supplier'  => $payee,
             'rows'      => [
-                ['Orden', $r->orderNumber()], ['Requerimiento', $r->code()], ['Factura', trim("{$r->invoice_number} " . ($r->invoice_date?->format('d/m/Y') ?? ''))],
+                ['Orden', $r->orderNumber()], ['Concepto', $r->isPayroll() ? $r->detail : null],
+                ['Requerimiento', $r->isPayroll() ? null : $r->code()], ['Factura', trim("{$r->invoice_number} " . ($r->invoice_date?->format('d/m/Y') ?? ''))],
                 ['Cuota', "{$p->installment} de {$r->installments}"], ['Vence', $p->due_date?->format('d/m/Y')],
-                ['Cuentas del proveedor', $r->supplier?->bankAccounts->map(fn ($a) => "{$a->bank} {$a->account_number}")->implode(' · ')],
+                [$r->isPayroll() ? 'Cuenta del colaborador' : 'Cuentas del proveedor', $accounts],
             ],
             'items'     => [],
             'amount'    => round((float) $p->amount - (float) $p->paid_amount, 2),

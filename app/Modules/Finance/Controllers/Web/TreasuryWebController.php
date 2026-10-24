@@ -51,8 +51,9 @@ class TreasuryWebController extends Controller
         $today = now(tenant_timezone())->toDateString();
 
         $installments = $this->tab(PaymentInstallment::query(), $tab, $today)
-            ->with(['requisition:id,series,number,code,invoice_number,invoice_path,detail,supplier_id,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_number,detraction_amount,detraction_percent,amount',
+            ->with(['requisition:id,series,number,code,invoice_number,invoice_path,detail,supplier_id,employee_id,payroll_concept,payroll_period,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_number,detraction_amount,detraction_percent,amount',
                 'requisition.supplier:id,name,ruc', 'requisition.supplier.bankAccounts:id,supplier_id,bank,account_number,account_type',
+                'requisition.employee:id,first_name,last_name,document_number', 'requisition.employee.profile',
                 'cancellations.companyAccount:id,bank,account_number,currency,alias'])
             ->when($search !== '', fn ($q) => $q->whereHas('requisition', fn ($r) => $r->where('detail', 'like', "%{$search}%")
                 ->orWhere('purchase_order_number', 'like', "%{$search}%")->orWhere('service_order_number', 'like', "%{$search}%")
@@ -125,7 +126,12 @@ class TreasuryWebController extends Controller
     {
         $p = $this->pending($id);
         abort_unless($p->authorized_at, 422, 'El pago necesita la autorización de la persona designada.');
-        abort_unless($p->requisition->invoice_path, 422, 'Registra la factura del proveedor (PDF) antes de pagar.');
+        if ($p->requisition->isPayroll()) {
+            // Se paga solo a la cuenta del legajo verificada por RRHH (el colaborador puede editarla en la app)
+            abort_unless($p->requisition->payrollAccount()['verified'], 422, 'La cuenta del legajo del colaborador no está verificada por RRHH.');
+        } else {
+            abort_unless($p->requisition->invoice_path, 422, 'Registra la factura del proveedor (PDF) antes de pagar.');
+        }
         // Segregación de funciones: quien autoriza no registra el mismo pago
         abort_if($p->authorized_by_id === $request->user()->id, 403, 'Autorizaste este pago: otra persona debe registrarlo.');
         $remaining = round((float) $p->amount - (float) $p->paid_amount, 2);
@@ -160,18 +166,20 @@ class TreasuryWebController extends Controller
         }
         $this->audit->log('installment.paid', $p->requisition, ['installment' => $p->installment, 'amount' => $data['amount'], 'operation' => $data['operation_number']]);
 
-        // Comprobante al proveedor (SMTP de la empresa) con el voucher adjunto
-        $r = $p->requisition->load(['supplier', 'tenant']);
-        if ($r->supplier?->email) {
+        // Comprobante al proveedor o al colaborador (SMTP de la empresa) con el voucher adjunto
+        $r = $p->requisition->load(['supplier', 'tenant', 'employee']);
+        $email = $r->isPayroll() ? $r->employee?->email : $r->supplier?->email;
+        if ($email) {
             $status = $paidOff ? 'Pago cancelado' : 'Pago amortizado';
             $balance = round((float) $p->fresh()->amount - (float) $p->fresh()->paid_amount, 2);
-            rescue(fn () => Notification::route('mail', $r->supplier->email)->notify(new SupplierDocument(
+            rescue(fn () => Notification::route('mail', $email)->notify(new SupplierDocument(
                 $r->tenant, "{$status} · {$r->orderNumber()}",
                 array_filter([
                     "Registramos un pago de " . FinanceDocumentPdf::money($r->currency, $data['amount']) . " por la {$r->orderNumber()} (cuota {$p->installment}), operación {$data['operation_number']}.",
                     $paidOff ? null : 'Saldo pendiente: ' . FinanceDocumentPdf::money($r->currency, $balance) . '. Se reprogramará para su pago.',
                 ]),
                 Storage::disk(self::VOUCHER_DISK)->get($path), 'voucher-' . $data['operation_number'] . '.' . pathinfo($path, PATHINFO_EXTENSION),
+                greeting: $r->isPayroll() ? "Hola, {$r->employee->first_name}:" : 'Estimado proveedor:',
             )), report: true);
         }
 
@@ -290,18 +298,34 @@ class TreasuryWebController extends Controller
             'payment_method' => $p->payment_method,
             'requisition'   => $r ? [
                 'id' => $r->id, 'code' => $r->code(), 'detail' => $r->detail, 'order' => $r->orderNumber(), 'currency' => $r->currency,
-                'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction, 'has_invoice' => (bool) $r->invoice_path,
+                'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction,
+                // Pago de RRHH: no lleva factura (la boleta es el sustento)
+                'has_invoice' => $r->isPayroll() || $r->invoice_path, 'is_payroll' => $r->isPayroll(),
                 'detraction' => $r->only(['detraction_number', 'detraction_amount', 'detraction_percent']),
             ] : null,
-            'supplier'      => $r?->supplier ? [
+            'supplier'      => $r?->isPayroll() ? $this->payrollPayee($r) : ($r?->supplier ? [
                 'name' => $r->supplier->name, 'ruc' => $r->supplier->ruc,
                 'accounts' => $r->supplier->bankAccounts->map(fn ($a) => "{$a->bank} {$a->account_number}")->values(),
-            ] : null,
+            ] : null),
             'payments'      => $p->cancellations->map(fn (PaymentCancellation $c) => [
                 'id' => $c->id, 'paid_at' => $c->paid_at?->format('d/m/Y'), 'amount' => (float) $c->amount, 'operation' => $c->operation_number,
                 'account' => $c->companyAccount?->label() ?? trim("{$c->bank} {$c->account_number}"), 'has_voucher' => (bool) $c->voucher_path,
                 'registered_by' => $c->registered_by,
             ]),
+        ];
+    }
+
+    /** Colaborador y cuenta de su legajo (completa solo con permiso de ver cuentas) */
+    private function payrollPayee(Requisition $r): array
+    {
+        $account = $r->payrollAccount();
+        $user = request()->user();
+        $full = $user->hasPermission('profiles.view_sensitive') || $user->hasPermission('payroll.export');
+        $number = $account['number'] ? ($full ? $account['number'] : '••••' . substr($account['number'], -4)) : null;
+
+        return [
+            'name' => $r->employee?->full_name, 'ruc' => 'DNI ' . $r->employee?->document_number,
+            'accounts' => $number ? [trim("{$account['bank']} {$number}") . ($account['verified'] ? '' : ' (sin verificar)')] : ['Sin cuenta en el legajo'],
         ];
     }
 

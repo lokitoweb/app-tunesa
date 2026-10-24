@@ -442,8 +442,8 @@ class RequisitionWebController extends Controller
     {
         $user = $request->user();
 
-        // La jefatura inmediata ve además los Express de su equipo, para validarlos
-        return Requisition::query()->unless(
+        // Los pagos de RRHH (sueldos) no se listan aquí: tienen su pantalla. La jefatura inmediata ve además los Express de su equipo
+        return Requisition::query()->whereNull('payroll_concept')->unless(
             $user->hasPermission('requisitions.view_all') || $user->hasPermission('requisitions.approve') || $user->hasPermission('purchasing.manage'),
             fn ($q) => $q->where(fn ($w) => $w->where('user_id', $user->id)
                 ->orWhere(fn ($e) => $e->where('is_express', true)->whereIn('user_id', User::supervisedBy($user)->select('users.id')))),

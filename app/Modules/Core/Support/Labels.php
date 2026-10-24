@@ -110,6 +110,7 @@ final class Labels
         'stock.out'                          => ['Salida de almacén', 'warning', 'box-arrow-up'],
         'requisition.received'               => ['Orden recibida en almacén', 'success', 'box-seam'],
         'requisition.invoiced'               => ['Factura registrada', 'primary', 'receipt'],
+        'payroll.imported'                   => ['Planilla enviada a Tesorería', 'success', 'people'],
         'fuel.created'                       => ['Carga de combustible registrada', 'success', 'fuel-pump'],
         'fuel.updated'                       => ['Carga de combustible actualizada', 'primary', 'fuel-pump'],
         'fuel.deleted'                       => ['Carga de combustible eliminada', 'danger', 'fuel-pump'],

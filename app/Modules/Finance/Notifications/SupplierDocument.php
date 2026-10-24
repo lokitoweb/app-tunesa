@@ -24,6 +24,7 @@ class SupplierDocument extends Notification
         public readonly array $lines,
         public readonly ?string $attachment = null,
         public readonly ?string $attachmentName = null,
+        public readonly string $greeting = 'Estimado proveedor:',
     ) {}
 
     public function via(object $notifiable): array
@@ -33,7 +34,7 @@ class SupplierDocument extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $mail = (new MailMessage)->subject($this->subject)->greeting('Estimado proveedor:');
+        $mail = (new MailMessage)->subject($this->subject)->greeting($this->greeting);
         foreach ($this->lines as $line) {
             $mail->line($line);
         }

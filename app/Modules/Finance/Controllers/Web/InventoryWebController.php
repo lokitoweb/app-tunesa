@@ -66,6 +66,55 @@ class InventoryWebController extends Controller
         ]);
     }
 
+    /**
+     * Consulta de compras por producto (FrmConsultar): cada OC/OS emitida que lo incluye, con
+     * proveedor, placa, cantidad y costo unitario. El costo sale del kardex si ya se recibió;
+     * si no, se estima prorrateando el monto de la orden por cantidad.
+     */
+    public function purchases(Request $request): Response
+    {
+        $search = trim((string) $request->query('search'));
+        $productId = $request->integer('product') ?: null;
+        $products = Product::when($search !== '', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+            ->orderBy('name')->limit(50)->get(['id', 'name', 'unit', 'classification']);
+
+        $rows = collect();
+        if ($productId) {
+            $items = \App\Modules\Finance\Models\RequisitionItem::with(['requisition' => fn ($q) => $q->with(['supplier:id,name,ruc', 'items:id,requisition_id,quantity'])])
+                ->where('product_id', $productId)
+                ->whereHas('requisition', fn ($q) => $q->whereIn('stage', ['ordered', 'paid'])->whereNull('payroll_concept'))
+                ->get();
+            // Costo real recibido por orden (una consulta para todas)
+            $received = StockMovement::where(['product_id' => $productId, 'type' => 'in'])->whereIn('requisition_id', $items->pluck('requisition_id'))
+                ->selectRaw('requisition_id, sum(total_cost) as total, sum(quantity) as qty')->groupBy('requisition_id')->get()->keyBy('requisition_id');
+
+            $rows = $items->map(function ($item) use ($received) {
+                $r = $item->requisition;
+                $kardex = $received[$r->id] ?? null;
+                $orderQty = (float) $r->items->sum('quantity');
+                $unit = $kardex && (float) $kardex->qty > 0
+                    ? round((float) $kardex->total / (float) $kardex->qty, 4)
+                    : ($orderQty > 0 ? round((float) $r->amount / $orderQty, 4) : 0); // ponytail: prorrateo simple; precio por línea cuando la OC lo traiga
+
+                return [
+                    'requisition_id' => $r->id, 'date' => $r->ordered_at?->timezone(tenant_timezone())->format('d/m/Y'), 'sort' => $r->ordered_at?->timestamp,
+                    'order' => $r->orderNumber(), 'supplier' => $r->supplier?->name, 'ruc' => $r->supplier?->ruc, 'plate' => $r->plate,
+                    'quantity' => (float) $item->quantity, 'unit_cost' => $unit, 'total' => round($unit * (float) $item->quantity, 2),
+                    'currency' => $r->currency, 'source' => $kardex ? 'kardex' : 'orden',
+                ];
+            })->sortByDesc('sort')->values();
+        }
+
+        return Inertia::render('Finance/Pages/Purchases/ByProduct', [
+            'products' => $products,
+            'product'  => $productId ? Product::find($productId)?->only(['id', 'name', 'unit', 'classification']) : null,
+            'rows'     => $rows,
+            'summary'  => ['quantity' => round($rows->sum('quantity'), 3), 'total' => round($rows->where('currency', 'PEN')->sum('total'), 2),
+                'min' => $rows->min('unit_cost'), 'max' => $rows->max('unit_cost')],
+            'filters'  => ['search' => $search, 'product' => $productId],
+        ]);
+    }
+
     /** Entrada o salida manual (salida: consumo, opcionalmente por vehículo) */
     public function store(Request $request): RedirectResponse
     {

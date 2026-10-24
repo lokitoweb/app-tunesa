@@ -105,6 +105,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'inventory.manage'        => ['Almacén: recibir OC, entradas, salidas y kardex', 'finance'],
         'fuel.manage'             => ['Registrar cargas de combustible por vehículo', 'finance'],
         'signatories.manage'      => ['Designar apoderados, sus firmas y quién autoriza pagos', 'finance'],
+        'payroll.payments'        => ['Importar la planilla y enviar los pagos de RRHH a Tesorería', 'payslips'],
     ];
 
     /** Permisos de compras y tesorería, para restarlos de los roles con '*' */
@@ -154,7 +155,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'attendance.mark', 'attendance.view_own', 'shifts.view_own',
                 'dashboard.view', 'reports.view', 'reports.export',
                 'payslips.manage', 'payroll.export',
-                ...self::FINANCE, 'company.document_code', 'fleet.manage', 'inventory.manage', 'fuel.manage',
+                ...self::FINANCE, 'company.document_code', 'fleet.manage', 'inventory.manage', 'fuel.manage', 'payroll.payments',
                 'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
                 'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],

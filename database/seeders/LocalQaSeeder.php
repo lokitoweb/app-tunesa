@@ -9,6 +9,7 @@ use App\Modules\Finance\Models\CompanyBankAccount;
 use App\Modules\Finance\Models\Signatory;
 use App\Modules\Finance\Models\Supplier;
 use App\Modules\Finance\Models\Vehicle;
+use App\Modules\HR\Models\EmployeeProfile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -28,6 +29,9 @@ class LocalQaSeeder extends Seeder
         'qa.gerente@tunesa.test'     => ['Gonzalo', 'Gerente', 'manager', '70000002'],
         'qa.logistica@tunesa.test'   => ['Lucía', 'Logística', 'logistics', '70000003'],
         'qa.tesoreria@tunesa.test'   => ['Tomás', 'Tesorería', 'accountant', '70000004'],
+        'qa.rrhh@tunesa.test'        => ['Rosa', 'RRHH', 'hr_manager', '70000005'],
+        'qa.colab1@tunesa.test'      => ['Carlos', 'Colaborador', 'employee', '70000011'],
+        'qa.colab2@tunesa.test'      => ['Diana', 'Colaboradora', 'employee', '70000012'],
     ];
 
     public function run(): void
@@ -43,6 +47,15 @@ class LocalQaSeeder extends Seeder
                 'password' => Hash::make(self::PASSWORD), 'status' => 'active', 'must_change_password' => false,
             ]);
             $user->branches()->syncWithoutDetaching([$branch->id => ['is_primary' => true]]);
+        }
+
+        // Colaboradores con cuenta del legajo verificada por RRHH (para importar la planilla)
+        foreach (['qa.colab1@tunesa.test', 'qa.colab2@tunesa.test'] as $email) {
+            $user = User::withoutGlobalScopes()->where('email', $email)->first();
+            EmployeeProfile::withoutGlobalScopes()->updateOrCreate(['user_id' => $user->id], [
+                'tenant_id' => $tenant->id, 'bank_name' => 'BCP', 'bank_account_number' => '191' . $user->document_number,
+                'cts_bank_name' => 'Interbank', 'cts_account_number' => '898' . $user->document_number, 'payment_info_status' => 'verified',
+            ]);
         }
 
         $manager = User::withoutGlobalScopes()->where('email', 'qa.gerente@tunesa.test')->first();

@@ -254,7 +254,7 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                         <div class="col-12 small">
                             <div class="fw-semibold">{{ payTarget.supplier?.name }} <span class="font-monospace text-body-secondary">{{ payTarget.supplier?.ruc }}</span></div>
                             <div class="text-body-secondary">Saldo: {{ money(payTarget.balance, payTarget.requisition?.currency) }}</div>
-                            <div v-if="payTarget.supplier?.accounts?.length" class="text-body-secondary">Cuentas del proveedor: {{ payTarget.supplier.accounts.join(' · ') }}</div>
+                            <div v-if="payTarget.supplier?.accounts?.length" class="text-body-secondary">{{ payTarget.requisition?.is_payroll ? 'Cuenta del legajo' : 'Cuentas del proveedor' }}: {{ payTarget.supplier.accounts.join(' · ') }}</div>
                         </div>
                         <div class="col-sm-6">
                             <label class="form-label small fw-semibold" for="pay-date">Fecha de pago *</label>

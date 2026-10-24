@@ -4,6 +4,7 @@ use App\Modules\Finance\Controllers\Web\CashFlowWebController;
 use App\Modules\Finance\Controllers\Web\FixedCostWebController;
 use App\Modules\Finance\Controllers\Web\FuelWebController;
 use App\Modules\Finance\Controllers\Web\InventoryWebController;
+use App\Modules\Finance\Controllers\Web\PayrollPaymentWebController;
 use App\Modules\Finance\Controllers\Web\SignatoryWebController;
 use App\Modules\Finance\Controllers\Web\VehicleWebController;
 use App\Modules\Finance\Controllers\Web\PettyCashWebController;
@@ -119,6 +120,16 @@ Route::middleware(['auth', 'web.tenant', 'can:fuel.manage'])->prefix('fuel')->na
     Route::put('/{id}', [FuelWebController::class, 'update'])->name('update')->whereNumber('id');
     Route::delete('/{id}', [FuelWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
 });
+
+// Pagos de RRHH: la planilla importada pasa a Tesorería (FrmIplanilla + FrmRegrrhh)
+Route::middleware(['auth', 'web.tenant', 'can:payroll.payments'])->prefix('payroll-payments')->name('payroll-payments.')->group(function () {
+    Route::get('/', [PayrollPaymentWebController::class, 'index'])->name('index');
+    Route::post('/import', [PayrollPaymentWebController::class, 'import'])->name('import')->middleware('throttle:10,1');
+    Route::get('/template', [PayrollPaymentWebController::class, 'template'])->name('template');
+});
+
+// Consulta de compras por producto (FrmConsultar)
+Route::middleware(['auth', 'web.tenant', 'can:suppliers.view'])->get('/purchases/by-product', [InventoryWebController::class, 'purchases'])->name('purchases.by-product');
 
 // Flujo de caja: egresos reales y proyectados por mes
 Route::middleware(['auth', 'web.tenant', 'can:treasury.view'])->get('/cash-flow', [CashFlowWebController::class, 'index'])->name('cash-flow.index');
