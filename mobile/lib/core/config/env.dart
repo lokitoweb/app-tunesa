@@ -17,6 +17,15 @@ class Env {
   /// Por defecto, el backend local visto desde el emulador de Android.
   static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8000');
 
+  /// Un build de tienda (release) sin HTTPS es un build mal compilado (sin
+  /// --dart-define-from-file=env/prod.json): falla al abrir, en la primera
+  /// prueba interna o TestFlight, en vez de llegar a los usuarios sin servidor.
+  static void ensureReleaseConfig({required bool release}) {
+    if (release && !normalizeBaseUrl(apiBaseUrl).startsWith('https://')) {
+      throw StateError('Build de release sin servidor HTTPS ($apiBaseUrl): compila con --dart-define-from-file=env/prod.json');
+    }
+  }
+
   /// Empresa preseleccionada (app con marca blanca de un solo cliente).
   /// Vacío = el colaborador escribe el código de su empresa al ingresar.
   static const String defaultTenant = String.fromEnvironment('DEFAULT_TENANT');

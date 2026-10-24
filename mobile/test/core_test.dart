@@ -21,6 +21,13 @@ DioException _response(int status, Object? data) {
 
 void main() {
   group('Env', () {
+    test('un build de release sin HTTPS no arranca (se compiló sin env/prod.json)', () {
+      // Los tests corren sin --dart-define: el valor por defecto es el http del emulador
+      expect(Env.apiBaseUrl, startsWith('http://'));
+      expect(() => Env.ensureReleaseConfig(release: true), throwsStateError);
+      expect(() => Env.ensureReleaseConfig(release: false), returnsNormally);
+    });
+
     test('apiUrl agrega /api a la URL base sin duplicar la barra', () {
       expect(Env.apiUrl, '${Env.apiBaseUrl.replaceAll(RegExp(r'/+$'), '')}/api');
       expect(Env.apiUrl.endsWith('//api'), isFalse);

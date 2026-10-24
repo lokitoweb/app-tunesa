@@ -62,6 +62,18 @@ void main() {
     expect(find.text('Mínimo 6 caracteres'), findsOneWidget);
   });
 
+  testWidgets('el login no expone cambio de empresa ni servidor (la empresa sale del correo)', (tester) async {
+    await _pumpApp(tester, {});
+    expect(find.textContaining('Otra empresa'), findsNothing);
+    expect(find.textContaining('servidor'), findsNothing);
+    // El logo es solo imagen: mantenerlo presionado o tocarlo no abre nada
+    await tester.longPress(find.byType(OfficialLogo), warnIfMissed: false);
+    await tester.tap(find.byType(OfficialLogo), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.text('Conectar con tu empresa'), findsNothing);
+  });
+
   testWidgets('el color de marca define el tema', (tester) async {
     await _pumpApp(tester, {
       'tenant_slug': 'empresa-demo',
