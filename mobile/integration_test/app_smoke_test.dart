@@ -103,6 +103,12 @@ Future<void> logout(WidgetTester tester) async {
   // La barra aparece antes que el legajo: sin esperar, la lista aún no existe
   // y "Cerrar sesión" no se encuentra (pasaba en emuladores lentos)
   await settleScreen(tester, 'Mi perfil');
+  // Un aviso pendiente (SnackBar, ej. "Pago autorizado") tapa el fondo de la
+  // pantalla, justo donde queda "Cerrar sesión": se descarta antes de tocar
+  for (final messenger in tester.stateList<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))) {
+    messenger.clearSnackBars();
+  }
+  await tester.pump(const Duration(milliseconds: 400));
   // Con muchas opciones el botón queda abajo: tapText baja hasta encontrarlo
   await tapText(tester, 'Cerrar sesión');
   await waitFor(tester, find.byType(AlertDialog));
@@ -168,6 +174,7 @@ void main() {
     await tapText(tester, 'Autorizar');
     await waitFor(tester, find.byType(AlertDialog));
     await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Autorizar')));
+    await waitFor(tester, find.text('Pago autorizado: Tesorería ya puede pagarlo.'));
     await waitFor(tester, find.text('No hay órdenes de pago por autorizar.'));
     await goBack(tester);
     await tester.pump(const Duration(milliseconds: 600));

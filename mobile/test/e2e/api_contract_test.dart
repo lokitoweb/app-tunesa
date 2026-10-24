@@ -49,6 +49,12 @@ class _Session {
   final SessionStorage storage;
   final ApiClient api;
 
+  /// Sesiones ya abiertas: el login de la API admite 10 intentos por minuto y
+  /// por IP (control real de producción), así que cada usuario entra una vez.
+  static final _open = <String, _Session>{};
+
+  static Future<_Session> shared(String email, String password) async => _open[email] ??= await login(email, password);
+
   static Future<_Session> login(String email, String password) async {
     SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({});
@@ -100,7 +106,7 @@ void main() {
   group('Colaborador (Ana)', () {
     late _Session s;
 
-    setUpAll(() async => s = await _Session.login('ana.torres@empresa-demo.com', 'Employee2024!'));
+    setUpAll(() async => s = await _Session.shared('ana.torres@empresa-demo.com', 'Employee2024!'));
 
     test('perfil, sesiones y preferencias de avisos', () async {
       final me = await AuthRepository(s.api, s.storage).me();
@@ -226,10 +232,10 @@ void main() {
   group('Supervisor', () {
     late _Session supervisor;
 
-    setUpAll(() async => supervisor = await _Session.login('supervisor@empresa-demo.com', 'Supervisor2024!'));
+    setUpAll(() async => supervisor = await _Session.shared('supervisor@empresa-demo.com', 'Supervisor2024!'));
 
     test('aprueba la solicitud de su equipo y ve la asistencia en vivo', () async {
-      final ana = await _Session.login('ana.torres@empresa-demo.com', 'Employee2024!');
+      final ana = await _Session.shared('ana.torres@empresa-demo.com', 'Employee2024!');
       final start = DateTime.now().add(const Duration(days: 60));
       await LeaveRepository(ana.api)
           .create(type: LeaveType.vacation, start: start, end: start, reason: 'E2E aprobación');
@@ -260,11 +266,11 @@ void main() {
       expect(item.supplierName, 'Llantas del Norte S.A.C.');
       expect(item.amountLabel, 'S/ 1,250.00');
 
-      // Contabilidad programa y paga, pero no autoriza (segregación de funciones)
-      final accountant = await _Session.login('contabilidad@empresa-demo.com', 'Contabilidad2024!');
-      expect((await AuthRepository(accountant.api, accountant.storage).me()).canAuthorizePayments, isFalse);
-      await expectLater(TreasuryRepository(accountant.api).pending(), throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)));
-      await expectLater(TreasuryRepository(accountant.api).authorize(item.id), throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)));
+      // Quien no es la persona designada no ve ni autoriza (Contabilidad se prueba en el backend)
+      final other = await _Session.shared('supervisor@empresa-demo.com', 'Supervisor2024!');
+      expect((await AuthRepository(other.api, other.storage).me()).canAuthorizePayments, isFalse);
+      await expectLater(TreasuryRepository(other.api).pending(), throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)));
+      await expectLater(TreasuryRepository(other.api).authorize(item.id), throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)));
 
       await treasury.authorize(item.id);
       expect((await treasury.pending()).where((p) => p.id == item.id), isEmpty);
