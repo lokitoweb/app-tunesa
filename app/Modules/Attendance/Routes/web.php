@@ -5,6 +5,7 @@ use App\Modules\Attendance\Controllers\Web\AttendanceWebController;
 use App\Modules\Attendance\Controllers\Web\CalendarWebController;
 use App\Modules\Attendance\Controllers\Web\HoursReportWebController;
 use App\Modules\Attendance\Controllers\Web\LiveBoardController;
+use App\Modules\Attendance\Controllers\Web\OffShiftAuthorizationWebController;
 use App\Modules\Attendance\Controllers\Web\PunchAttemptWebController;
 use App\Modules\Attendance\Controllers\Web\ReportWebController;
 use Illuminate\Support\Facades\Route;
@@ -55,4 +56,11 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
             ->whereNumber('id')->where('date', '\\d{4}-\\d{2}-\\d{2}');
     });
     Route::get('/live/data', [LiveBoardController::class, 'data'])->name('live.data');
+
+    // Marcación fuera de turno (RRHH, Gerencia y administración)
+    Route::middleware('can:attendance.authorize_offshift')->prefix('attendance-offshift')->name('attendance.offshift.')->group(function () {
+        Route::get('/', [OffShiftAuthorizationWebController::class, 'index'])->name('index');
+        Route::post('/', [OffShiftAuthorizationWebController::class, 'store'])->name('store')->middleware('throttle:30,1');
+        Route::delete('/{id}', [OffShiftAuthorizationWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
+    });
 });

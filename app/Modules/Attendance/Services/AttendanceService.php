@@ -268,6 +268,12 @@ class AttendanceService
             );
         }
 
+        // Solo con turno programado ese día (o autorización de RRHH / Gerencia)
+        $gate = app(ScheduleGate::class)->statusFor($employee, $today, $c['settings']);
+        if (! $gate['can_clock_in']) {
+            throw new AttendanceException(ScheduleGate::MESSAGE_NOT_SCHEDULED, 'NOT_SCHEDULED', 422);
+        }
+
         // Itinerantes (choferes, relevos, técnicos): marcan en la sede donde estén o en ruta
         $branch = $employee->roaming_attendance_enabled
             ? $this->roamingBranch($employee, $today, $data)

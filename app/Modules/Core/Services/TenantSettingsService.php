@@ -24,7 +24,7 @@ class TenantSettingsService
 {
     private const HEX     = 'regex:/^#[0-9A-Fa-f]{6}$/';
     private const SEMVER  = 'regex:/^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/';
-    public const BOOLEANS = ['force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'lunch_paid', 'fcm_enabled', 'self_password_change'];
+    public const BOOLEANS = ['force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'lunch_paid', 'punch_requires_schedule', 'fcm_enabled', 'self_password_change'];
 
     public function __construct(private readonly AuditLogger $audit) {}
 
@@ -188,6 +188,7 @@ class TenantSettingsService
             'default_grace_minutes'   => ['sometimes', 'nullable', 'integer', 'between:0,240'],
             'lunch_minutes'           => ['sometimes', 'nullable', 'integer', 'between:0,480'],
             'lunch_paid'              => ['sometimes', 'nullable', 'boolean'],
+            'punch_requires_schedule' => ['sometimes', 'nullable', 'boolean'],
             'default_geofence_radius' => ['sometimes', 'nullable', 'integer', 'between:10,5000'],
             'geofence_policy'         => ['sometimes', Rule::in(array_keys(CompanyConfiguration::GEOFENCE_POLICIES))],
 

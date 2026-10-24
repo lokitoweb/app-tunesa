@@ -73,4 +73,32 @@ void main() {
     expect(formatDistance(1530), '1,5 km');
     expect(formatDistance(493532), '494 km');
   });
+
+  test('lee el bloqueo por turno de /attendance/today', () {
+    expect(TodayStatus.parseNotScheduled({'can_clock_in': true}), isNull);
+    expect(TodayStatus.parseNotScheduled(null), isNull);
+    expect(TodayStatus.parseNotScheduled({'can_clock_in': false, 'message': 'Hoy no tienes turno programado. Pide a RR. HH.'}),
+        'Hoy no tienes turno programado. Pide a RR. HH.');
+    expect(TodayStatus.parseNotScheduled({'can_clock_in': false}), TodayStatus.notScheduledFallback);
+  });
+
+  testWidgets('sin turno hoy: botones bloqueados y el motivo a la vista', (tester) async {
+    final opened = <ClockAction>[];
+    const status = TodayStatus(actions: [], notScheduledMessage: 'Hoy no tienes turno programado. Si debes trabajar, pide a RR. HH. que autorice tu marcación.');
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PunchBoard(status: status, onPunch: opened.add))));
+
+    expect(find.text('Hoy no tienes turno programado'), findsOneWidget);
+    expect(find.byKey(const Key('punch-not-scheduled')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('punch-clock_in')));
+    await tester.pump();
+    expect(opened, isEmpty);
+    // El aviso al tocar repite el motivo (además del recuadro)
+    expect(find.textContaining('pide a RR. HH. que autorice'), findsNWidgets(2));
+  });
+
+  test('si ya marcó entrada (autorizado), el bloqueo no aplica', () {
+    final s = TodayStatus(attendance: _day(clockIn: eight), actions: const [ClockAction.clockOut], notScheduledMessage: 'x');
+    expect(s.isNotScheduled, isFalse);
+  });
 }

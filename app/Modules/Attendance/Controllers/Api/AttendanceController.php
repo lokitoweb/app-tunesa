@@ -130,13 +130,20 @@ class AttendanceController extends Controller
             ->with(['branch', 'shift'])
             ->first();
 
+        // Turno programado hoy: sin turno (ni autorización) no se ofrece marcar entrada
+        $schedule = app(\App\Modules\Attendance\Services\ScheduleGate::class)->statusFor($employee, $today);
+
         // Determinar el próximo paso disponible para la UI de la app
         $nextAction = $this->determineNextAction($attendance);
+        if ((! $attendance || is_null($attendance->clock_in_at)) && ! $schedule['can_clock_in']) {
+            $nextAction = ['action' => null, 'actions' => [], 'label' => $schedule['message'], 'code' => 'NOT_SCHEDULED'];
+        }
 
         return response()->json([
             'success'     => true,
             'data'        => $attendance ? new AttendanceResource($attendance) : null,
             'next_action' => $nextAction,
+            'schedule'    => $schedule,
             'server_time' => Carbon::now(tenant_timezone())->toIso8601String(),
             'timezone'    => tenant_timezone(),
         ]);

@@ -26,6 +26,8 @@ final class Labels
      * AuditActionsCoverageTest falla si alguna acción usada en app/ no está aquí.
      */
     public const ACTIONS = [
+        'attendance.offshift_authorized'     => ['Marcación fuera de turno autorizada', 'primary', 'calendar-plus'],
+        'attendance.offshift_revoked'        => ['Autorización fuera de turno retirada', 'secondary', 'calendar-x'],
         // Acceso
         'auth.login'                         => ['Inicio de sesión', 'secondary', 'box-arrow-in-right'],
         'auth.logout'                        => ['Cierre de sesión', 'secondary', 'box-arrow-right'],
@@ -316,6 +318,7 @@ final class Labels
         'default_grace_minutes'   => 'Tolerancia por defecto (min)',
         'lunch_minutes'           => 'Duración del almuerzo (min)',
         'lunch_paid'              => 'Almuerzo pagado',
+        'punch_requires_schedule' => 'Marcar solo con turno programado',
         'default_geofence_radius' => 'Radio de geocerca por defecto (m)',
         'webhook_url'             => 'Dirección del webhook',
         'webhook_secret'          => 'Clave secreta del webhook',
@@ -967,6 +970,7 @@ final class Labels
         'must_change_password' => 'bool',
         'force_update'       => 'bool',
         'lunch_paid'         => 'bool',
+        'punch_requires_schedule' => 'bool',
         'offline_mode_enabled' => 'bool',
         'self_password_change' => 'bool',
         'within_geofence'    => 'bool',

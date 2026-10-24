@@ -144,11 +144,27 @@ class DaySchedule {
 
 /// Estado del día: registro + acciones disponibles según el backend.
 class TodayStatus {
-  const TodayStatus({this.attendance, required this.actions, this.schedule, this.clockSkew});
+  const TodayStatus({this.attendance, required this.actions, this.schedule, this.clockSkew, this.notScheduledMessage});
 
   final Attendance? attendance;
   final List<ClockAction> actions;
   final DaySchedule? schedule;
+
+  /// Motivo por el que hoy no se puede marcar entrada (día de descanso o sin
+  /// programación y sin autorización de RR. HH.). null = puede marcar.
+  final String? notScheduledMessage;
+
+  /// Sin turno hoy y sin entrada marcada: los botones quedan bloqueados.
+  bool get isNotScheduled => notScheduledMessage != null && attendance?.clockIn == null;
+
+  /// Lee `schedule` de /attendance/today (ScheduleGate del backend).
+  static String? parseNotScheduled(Object? schedule) {
+    if (schedule is! Map || schedule['can_clock_in'] != false) return null;
+    final message = schedule['message']?.toString().trim();
+    return (message == null || message.isEmpty) ? notScheduledFallback : message;
+  }
+
+  static const notScheduledFallback = 'Hoy no tienes turno programado';
 
   /// Hora del teléfono menos la del servidor (`server_time`) al recibir la
   /// respuesta. null si el backend no la envía.

@@ -7,7 +7,7 @@
     // Pestaña a abrir: la pedida, o la del primer campo con error
     $fieldTabs = [
         'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'self_password_change'],
-        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds'],
+        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'punch_requires_schedule', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds'],
     ];
     // Campos que dependen de columnas nuevas de tenant_settings: solo se muestran si existen
     $has = fn (string $column) => in_array($column, $columns, true);
@@ -431,6 +431,11 @@
                                 @include('settings.partials.bool-setting', ['flag' => 'lunch_paid',
                                     'label' => 'Refrigerio remunerado / pagado',
                                     'desc'  => 'El descanso registrado no se descuenta del total de horas efectivas laboradas.'])
+                            </div>
+                            <div class="mt-3 pt-3 border-top">
+                                @include('settings.partials.bool-setting', ['flag' => 'punch_requires_schedule',
+                                    'label' => 'Marcar solo con turno programado',
+                                    'desc'  => 'En días de descanso o sin programación la app no deja marcar entrada. RR. HH. o Gerencia pueden autorizar un día puntual en Asistencia › Marcación fuera de turno.'])
                             </div>
                         </div>
                     </div>

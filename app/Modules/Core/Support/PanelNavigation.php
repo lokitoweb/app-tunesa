@@ -40,6 +40,7 @@ class PanelNavigation
                 ['Attendance', ['attendance.view_team', 'attendance.view_all'], 'attendance.calendar', [], 'calendar3', 'Calendario', $request->routeIs('attendance.calendar*')],
                 ['Attendance', 'attendance.view_all', 'attendance.attempts', [], 'slash-circle', 'Intentos rechazados', $request->routeIs('attendance.attempts')],
                 ['Attendance', 'attendance.view_all', 'attendance.index', ['status' => 'absent', 'start_date' => now()->startOfMonth()->toDateString(), 'end_date' => now()->toDateString()], 'person-x', 'Control de faltas', $request->routeIs('attendance.index', 'attendance.show') && $absent],
+                ['Attendance', 'attendance.authorize_offshift', 'attendance.offshift.index', [], 'calendar-plus', 'Marcación fuera de turno', $request->routeIs('attendance.offshift.*')],
                 ['HR', 'leave.approve_team', 'approvals.index', [], 'check2-square', 'Aprobaciones', $request->routeIs('approvals*'), fn () => $hasTenant ? self::pendingApprovals($user) : 0],
             ],
             'Administración' => [

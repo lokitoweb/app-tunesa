@@ -25,6 +25,7 @@ class PunchBoard extends StatelessWidget {
   /// Aviso al tocar una marcación que no corresponde todavía.
   static String lockedReason(ClockAction action, TodayStatus status) {
     final a = status.attendance;
+    if (status.isNotScheduled) return status.notScheduledMessage!;
     if (status.isDayComplete) return 'Ya completaste tus marcaciones de hoy.';
     if (a?.clockIn == null) return 'Primero marca tu hora de entrada.';
     if (action == ClockAction.breakEnd && a?.breakStart == null) return 'Primero marca el inicio de tu break.';
@@ -68,7 +69,9 @@ class PunchBoard extends StatelessWidget {
     final done = ClockAction.values.where((x) => timeOf(x, a) != null).length;
 
     // Completa: verde · en curso: color de la marca · sin marcar: neutro
-    final (label, color, icon) = status.isDayComplete
+    final (label, color, icon) = status.isNotScheduled
+        ? (TodayStatus.notScheduledFallback, scheme.onSurfaceVariant, Icons.event_busy_rounded)
+        : status.isDayComplete
         ? ('Marcación completa', AppTheme.success, Icons.task_alt_rounded)
         : started
             ? ('Marcación incompleta', scheme.primary, Icons.timelapse_rounded)
@@ -123,6 +126,21 @@ class PunchBoard extends StatelessWidget {
                   style: theme.textTheme.labelMedium?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
             ]),
           ),
+        if (status.isNotScheduled)
+          Container(
+            key: const Key('punch-not-scheduled'),
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: dark ? 0.16 : 0.06),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.info_outline_rounded, size: 18, color: scheme.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text(status.notScheduledMessage!, style: theme.textTheme.bodySmall?.copyWith(height: 1.35))),
+            ]),
+          ),
         const SizedBox(height: 16),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           for (final action in ClockAction.values) ...[
@@ -133,7 +151,7 @@ class PunchBoard extends StatelessWidget {
                 label: _labels[action]!,
                 icon: _icons[action]!,
                 time: timeOf(action, a),
-                available: status.actions.contains(action),
+                available: !status.isNotScheduled && status.actions.contains(action),
                 onTap: () => _tap(context, action),
               ),
             ),
