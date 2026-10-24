@@ -58,6 +58,44 @@ class AbsenceService
         return ['items' => $items, 'total' => count($items), 'people' => count(array_unique(array_column($items, 'user_id')))];
     }
 
+    /**
+     * Mes de una persona según el calendario. Antes de devolverlo registra
+     * las faltas de días pasados que aún no tienen fila (lo mismo que hace el
+     * cierre nocturno attendance:mark-absences), para que la app las liste y
+     * se puedan justificar. Idempotente.
+     *
+     * @return array{cells: array<string, ?array>, totals: array}
+     */
+    public function monthFor(User $user, int $year, int $month): array
+    {
+        $filters = new CalendarFilters($user->tenant_id, sprintf('%04d-%02d', $year, $month), userId: $user->id);
+        $today = CarbonImmutable::now(tenant_timezone())->toDateString();
+        $row = $this->calendar->rows(collect([$user]), $filters)[0] ?? null;
+
+        $created = false;
+        foreach (($row['cells'] ?? []) as $date => $cell) {
+            if ($cell === null || $cell['state'] !== 'absent' || $cell['attendance_id'] || $date >= $today) {
+                continue;
+            }
+            [$assignment] = app(AttendanceService::class)->getCurrentShift($user, $date);
+            if (! $assignment?->branch_id) {
+                continue;
+            }
+            \App\Modules\Attendance\Models\Attendance::firstOrCreate(
+                ['user_id' => $user->id, 'work_date' => $date],
+                ['tenant_id' => $user->tenant_id, 'branch_id' => $assignment->branch_id, 'shift_id' => $assignment->shift_id,
+                    'status' => 'absent', 'notes' => 'Falta registrada automáticamente: no marcó entrada.'],
+            );
+            $created = true;
+        }
+
+        if ($created) {
+            $row = $this->calendar->rows(collect([$user]), $filters)[0] ?? $row;
+        }
+
+        return ['cells' => $row['cells'] ?? [], 'totals' => $row['totals'] ?? []];
+    }
+
     public function paginate(array $items, int $page, int $perPage = 25): LengthAwarePaginator
     {
         return new LengthAwarePaginator(

@@ -13,7 +13,7 @@ debe estar activo para la empresa (Empresas › Módulos).
 | Super Admin (`super_admin`) | Operador de la plataforma | Todo, en todas las empresas. Configura la plataforma (Marca y app global, geocodificación, push). |
 | Administrador (`company_admin`) | Dueño de la cuenta de la empresa | Todo dentro de su empresa, menos administrar otras empresas. |
 | RRHH (`hr_manager`) | Recursos Humanos | Colaboradores, turnos, solicitudes, justificaciones, boletas, legajos, capacitaciones, comunicados, beneficios, documentos. No toca marca, configuración de la app ni bitácora. |
-| Gerencia (`manager`) | Gerentes / dirección | **Solo lectura** de toda la empresa: tablero, reportes (con exportación), asistencia, calendario, tardanzas y horas extra; aprueba solicitudes. No crea ni edita personas. |
+| Gerencia (`manager`) | Gerentes / dirección | Ve toda la empresa: tablero, reportes (con exportación), asistencia, calendario, faltas, tardanzas y horas extra; aprueba solicitudes, **corrige marcaciones** (p. ej. una salida olvidada) y **autoriza marcación fuera de turno**. No crea ni edita personas. |
 | Contabilidad (`accountant`) | Contabilidad / planilla | Boletas de pago, cruce con planilla (horas pagables, horas extra aprobadas, cuentas), reportes y asistencia de toda la empresa. No aprueba solicitudes. |
 | Supervisor (`supervisor`) | Jefes de sede o de turno | Asistencia y solicitudes de **su equipo** (sedes donde es supervisor). |
 | Colaborador (`employee`) | Todo el personal | La app: marcar, historial, solicitudes, boletas, legajo, capacitaciones, comunicados, beneficios, cumpleaños, documentos. |
@@ -28,6 +28,9 @@ superior; RRHH no crea administradores ni Gerencia, y viceversa.
 | Tablero y mapa en vivo | `dashboard.view` | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Asistencia / calendario / faltas | `attendance.view_all` (o `view_team`) | ✔ | ✔ | ✔ | ✔ | equipo |
 | Aprobaciones (solicitudes, vacaciones, justificaciones, horas extra) | `leave.approve_*`, `attendance.review` | ✔ | ✔ | ✔ | — | equipo |
+| Control de faltas (programación vs marcaciones; botón Regularizar) | `attendance.view_all` (o `view_team`) | ✔ | ✔ | ✔ | ✔ | equipo |
+| Corrección manual de una jornada (completar entrada/salida) | `attendance.edit` | ✔ | ✔ | ✔ | — | equipo |
+| Marcación fuera de turno (autorizar un día sin programación) | `attendance.authorize_offshift` | ✔ | ✔ | ✔ | — | — |
 | Reportes (tardanzas, horas, horas extra, faltas; filtros por sede/área/fecha; Excel) | `reports.view`, `reports.export` | ✔ | ✔ | ✔ | ✔ | ver |
 | Colaboradores | `users.manage` | ✔ | ✔ | — | — | — |
 | Turnos, feriados | `shifts.manage` | ✔ | ✔ | — | — | — |
@@ -74,6 +77,18 @@ crea `gerencia@empresa-demo.com` (Gerencia2024!) y `contabilidad@empresa-demo.co
 - **Horas de jornada**: lo trabajado cuenta con el turno como tope (8 h aunque se
   quede más); el exceso es hora extra y solo se paga si un aprobador la acepta.
   La planilla paga *jornada + horas extra aprobadas* (`Attendance::payableHours()`).
+- **Marcación solo con turno programado**: un día de descanso o sin programación
+  la app bloquea los botones ("Hoy no tienes turno programado") y la API rechaza
+  la entrada (`NOT_SCHEDULED`). RRHH o Gerencia pueden autorizar un día puntual en
+  Asistencia › Marcación fuera de turno. Se apaga por empresa en Configuración ›
+  Reglas ("Marcar solo con turno programado"). Un turno que cae en feriado sí
+  permite marcar.
+- **Sin duplicados**: entrada, inicio y fin de break, y salida solo una vez por
+  día; repetirlas responde 409. Lo que faltó se completa con la corrección manual.
+- **Faltas**: el calendario, Control de faltas y el historial de la app usan el
+  mismo cálculo (turno programado sin marcación; vacaciones, permisos y feriados
+  no cuentan). El historial de la app registra las faltas pendientes del mes para
+  que la persona pueda justificarlas.
 - **GPS**: si la precisión es peor que la permitida, la marcación se acepta solo si
   todo el círculo de error cae dentro de la geocerca; si no, se rechaza. Es
   automático: no hay cola de revisión manual.

@@ -84,4 +84,24 @@ class AbsencesViewTest extends TestCase
     {
         $this->assertContains($this->actingAs($this->ana)->get('/absences')->status(), [302, 403]);
     }
+
+    public function test_app_history_counts_absences_like_the_calendar_and_lists_them(): void
+    {
+        // Ana no marcó lunes 19 ni martes 20; nadie corrió el cierre nocturno
+        $res = $this->actingIn($this->ana, $this->acme)->getJson('/api/attendance/history?year=2026&month=10')->assertOk();
+        $res->assertJsonPath('summary.absent', 14); // 1 al 20 de octubre: 14 días hábiles, sin marcar
+        $this->assertSame(14, collect($res->json('data'))->where('status', 'absent')->count());
+
+        // Mismo número que el calendario de RRHH para Ana
+        $this->flushHeaders();
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+        $rows = collect($this->actingAs($this->hr)->get('/attendance-calendar?month=2026-10')->viewData('rows')->items());
+        $this->assertSame(14, $rows->firstWhere('name', 'Ana Torres')['totals']['absent']);
+
+        // Repetir la consulta no duplica filas
+        $this->flushHeaders();
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+        $this->actingIn($this->ana, $this->acme)->getJson('/api/attendance/history?year=2026&month=10')->assertJsonPath('summary.absent', 14);
+        $this->assertSame(14, Attendance::withoutGlobalScopes()->where('user_id', $this->ana->id)->where('status', 'absent')->count());
+    }
 }

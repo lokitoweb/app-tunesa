@@ -166,6 +166,10 @@ class AttendanceController extends Controller
         $month = $request->input('month', now()->month);
         $year  = $request->input('year',  now()->year);
 
+        // Mismo cálculo que el calendario del panel (registra faltas pendientes del mes)
+        $calendar = app(\App\Modules\Attendance\Services\AbsenceService::class)->monthFor($employee, (int) $year, (int) $month);
+        $states = collect($calendar['cells'])->filter()->countBy('state');
+
         $attendances = Attendance::where('user_id', $employee->id)
             ->forPeriod($year, $month)
             ->with(['branch', 'shift'])
@@ -175,9 +179,11 @@ class AttendanceController extends Controller
         // Resumen del período
         $summary = [
             'total_days'     => $attendances->total(),
-            'present'        => $attendances->where('status', 'present')->count(),
-            'late'           => $attendances->where('status', 'late')->count(),
-            'absent'         => $attendances->where('status', 'absent')->count(),
+            // Conteos del calendario: lo que ve RRHH en el panel es lo que ve la persona
+            'present'        => (int) ($states['present'] ?? 0),
+            'late'           => (int) ($states['late'] ?? 0),
+            'absent'         => (int) ($states['absent'] ?? 0),
+            'excused'        => (int) ($states['excused'] ?? 0),
             // Jornada (tope del turno) + horas extra aprobadas: lo mismo que paga la planilla
             'total_hours'    => round($attendances->sum(fn ($a) => $a->payableHours()), 1),
             'overtime_hours' => round($attendances->sum('overtime_hours'), 1),
