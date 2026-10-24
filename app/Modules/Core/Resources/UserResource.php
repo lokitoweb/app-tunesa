@@ -52,6 +52,8 @@ class UserResource extends JsonResource
                 'can_approve_requests'  => $this->resource->hasPermission('leave.approve_team') || $this->resource->hasPermission('leave.approve_all'),
                 'can_view_all_tenants'  => $this->role === 'super_admin',
                 'attendance.view_team'  => $this->resource->hasPermission('attendance.view_team'),
+                // Firma APP: apoderado designado que autoriza órdenes de pago
+                'can_authorize_payments' => $this->tenant_id && \App\Modules\Finance\Models\Signatory::canAuthorize($this->resource),
             ],
         ];
     }

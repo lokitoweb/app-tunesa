@@ -49,6 +49,7 @@ import '../../features/requests/domain/models.dart' show LeaveType;
 import '../../features/requests/presentation/new_request_screen.dart';
 import '../../features/requests/presentation/requests_screen.dart';
 import '../../features/team/presentation/approvals_screen.dart';
+import '../../features/treasury/presentation/payment_authorizations_screen.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/team/presentation/team_live_screen.dart';
 import '../config/app_config_controller.dart';
@@ -183,6 +184,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/approvals',
         redirect: (_, _) => (ref.read(authControllerProvider).user?.canApproveRequests ?? false) ? null : '/home',
         builder: (_, _) => const ApprovalsScreen(),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: '/payment-authorizations',
+        redirect: (_, _) => (ref.read(authControllerProvider).user?.canAuthorizePayments ?? false) ? null : '/home',
+        builder: (_, _) => const PaymentAuthorizationsScreen(),
       ),
       GoRoute(
         parentNavigatorKey: _rootKey,

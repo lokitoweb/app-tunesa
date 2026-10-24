@@ -18,6 +18,7 @@ import '../../onboarding/presentation/onboarding_gate_card.dart';
 import '../../onboarding/presentation/onboarding_providers.dart';
 import '../../notifications/presentation/notifications_screen.dart';
 import '../../team/presentation/team_providers.dart';
+import '../../treasury/presentation/payment_authorizations_screen.dart';
 import '../../../core/widgets/page_padding.dart';
 import '../../training/presentation/training_home_card.dart';
 import '../../training/presentation/training_providers.dart';
@@ -106,7 +107,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const RevealSize(child: TrainingHomeCard()),
             const RevealSize(child: _PendingDocumentsCard()),
             if (user != null && user.hasTeamArea) ...[
-              _TeamSection(canApprove: user.canApproveRequests, canViewTeam: user.canViewTeam),
+              _TeamSection(canApprove: user.canApproveRequests, canViewTeam: user.canViewTeam, canAuthorizePayments: user.canAuthorizePayments),
               const SizedBox(height: 16),
             ],
             today.whenSkeleton(
@@ -200,14 +201,16 @@ class HomeGreeting extends StatelessWidget {
 
 /// Accesos del supervisor / RRHH: bandeja de aprobaciones y equipo en vivo.
 class _TeamSection extends ConsumerWidget {
-  const _TeamSection({required this.canApprove, required this.canViewTeam});
+  const _TeamSection({required this.canApprove, required this.canViewTeam, this.canAuthorizePayments = false});
 
   final bool canApprove;
   final bool canViewTeam;
+  final bool canAuthorizePayments;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pending = canApprove ? (ref.watch(pendingApprovalsCountProvider).value ?? 0) : 0;
+    final payments = canAuthorizePayments ? (ref.watch(pendingPaymentAuthorizationsCountProvider).value ?? 0) : 0;
 
     return Card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -227,6 +230,20 @@ class _TeamSection extends ConsumerWidget {
             onTap: () async {
               await context.push('/approvals');
               if (context.mounted) ref.invalidate(pendingApprovalsCountProvider);
+            },
+          ),
+        if (canAuthorizePayments)
+          ListTile(
+            leading: const Icon(Icons.verified_outlined),
+            title: const Text('Autorizar pagos'),
+            subtitle: Text(payments > 0 ? '$payments orden(es) de pago por autorizar' : 'Sin órdenes de pago pendientes'),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (payments > 0) Badge(label: Text(payments > 99 ? '99+' : '$payments')),
+              const Icon(Icons.chevron_right_rounded),
+            ]),
+            onTap: () async {
+              await context.push('/payment-authorizations');
+              if (context.mounted) ref.invalidate(pendingPaymentAuthorizationsCountProvider);
             },
           ),
         if (canViewTeam)

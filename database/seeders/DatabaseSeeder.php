@@ -401,6 +401,34 @@ class DatabaseSeeder extends Seeder
         }
 
         // =====================================================================
+        // FIRMA APP DEMO: Gerencia autoriza pagos; una OC programada espera su firma
+        // =====================================================================
+        $manager = User::where('email', 'gerencia@empresa-demo.com')->first();
+        \App\Modules\Finance\Models\Signatory::withoutGlobalScopes()->firstOrCreate(
+            ['tenant_id' => $tenant->id, 'user_id' => $manager->id],
+            ['position' => 'Gerente de Operaciones', 'can_authorize' => true, 'is_active' => true],
+        );
+        $supplier = \App\Modules\Finance\Models\Supplier::withoutGlobalScopes()->firstOrCreate(
+            ['tenant_id' => $tenant->id, 'ruc' => '20100047218'],
+            ['name' => 'Llantas del Norte S.A.C.', 'is_active' => true],
+        );
+        $tenant->refresh();
+        [$number, $code] = \App\Modules\Finance\Models\DocumentSequence::next($tenant, 'RQ', '001', (int) $today->year);
+        [, $order] = \App\Modules\Finance\Models\DocumentSequence::next($tenant, 'OC', '001', (int) $today->year);
+        $requisition = \App\Modules\Finance\Models\Requisition::withoutGlobalScopes()->create([
+            'tenant_id' => $tenant->id, 'series' => '001', 'number' => $number, 'code' => $code, 'year' => (int) $today->year,
+            'requested_at' => $today, 'detail' => 'Llantas para la flota', 'requested_by' => 'Rosa Huamán', 'classification' => 'REPUESTOS',
+            'priority' => 'NORMAL', 'stage' => 'ordered', 'ordered_at' => $today, 'supplier_id' => $supplier->id, 'amount' => 1250, 'amount_payable' => 1250,
+            'currency' => 'PEN', 'installments' => 1, 'purchase_order_number' => $order, 'invoice_number' => 'F001-000123',
+            'payment_terms' => 'CONTADO', 'payment_method' => 'TRANSFERENCIA', 'payment_origin' => 'TRANSFERENCIA',
+        ]);
+        \App\Modules\Finance\Models\PaymentInstallment::withoutGlobalScopes()->create([
+            'tenant_id' => $tenant->id, 'requisition_id' => $requisition->id, 'installment' => 1, 'due_date' => $today->copy()->addDays(5)->toDateString(),
+            'amount' => 1250, 'status' => 'pending', 'scheduled_for' => $today->toDateString(), 'scheduled_by' => 'Lucía Paredes',
+        ]);
+        $this->command->info("✅ Firma APP demo: {$order} programada, la autoriza gerencia@empresa-demo.com");
+
+        // =====================================================================
         // RESUMEN FINAL
         // =====================================================================
         $this->command->newLine();

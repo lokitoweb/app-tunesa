@@ -123,8 +123,12 @@ class AppUser {
   /// Incorporación aprobada por RRHH: recién entonces puede marcar asistencia.
   bool get isOnboarded => onboardingStatus == 'approved';
 
+  /// Firma APP: apoderado designado que autoriza órdenes de pago (lo decide el
+  /// servidor; sin el flag, no: no hay rol que lo implique).
+  bool get canAuthorizePayments => permissions['can_authorize_payments'] == true;
+
   /// Muestra la sección "Mi equipo" en Inicio.
-  bool get hasTeamArea => canApproveRequests || canViewTeam;
+  bool get hasTeamArea => canApproveRequests || canViewTeam || canAuthorizePayments;
 
   static Map<String, bool> parsePermissions(Object? raw) {
     if (raw is Map) return {for (final e in raw.entries) '${e.key}': e.value == true};

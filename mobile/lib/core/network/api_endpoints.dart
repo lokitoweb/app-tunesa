@@ -69,6 +69,10 @@ class ApiEndpoints {
   static String approveLeaveRequest(int id) => '/approvals/leave-requests/$id/approve';
   static String rejectLeaveRequest(int id) => '/approvals/leave-requests/$id/reject';
 
+  // Firma APP: órdenes de pago programadas que autoriza el apoderado designado
+  static const paymentAuthorizations = '/treasury/authorizations';
+  static String authorizePayment(int id) => '/treasury/authorizations/$id/authorize';
+
   // Supervisor: mi equipo y su asistencia de hoy
   static const supervisorTeam = '/supervisor/team';
   static const supervisorLive = '/supervisor/attendance/live';

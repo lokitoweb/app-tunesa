@@ -33,6 +33,7 @@ import 'package:tunesa_mobile/features/requests/data/leave_repository.dart';
 import 'package:tunesa_mobile/features/requests/domain/models.dart';
 import 'package:tunesa_mobile/features/team/data/team_repository.dart';
 import 'package:tunesa_mobile/features/training/data/training_repository.dart';
+import 'package:tunesa_mobile/features/treasury/data/treasury_repository.dart';
 
 /// Selfie de prueba (JPEG 64×64).
 final _selfie = PunchPhoto(Uint8List.fromList(base64Decode('/9j/4AAQSkZJRgABAQEAYABgAAD//gA7Q1JFQVRPUjogZ2QtanBlZyB2MS4wICh1c2luZyBJSkcgSlBFRyB2ODApLCBxdWFsaXR5ID0gNzAK/9sAQwAKBwcIBwYKCAgICwoKCw4YEA4NDQ4dFRYRGCMfJSQiHyIhJis3LyYpNCkhIjBBMTQ5Oz4+PiUuRElDPEg3PT47/9sAQwEKCwsODQ4cEBAcOygiKDs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7/8AAEQgAQABAAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/aAAwDAQACEQMRAD8A26KKK809YKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//Z')), 'image/jpeg');
@@ -243,6 +244,35 @@ void main() {
 
       final mine = await LeaveRepository(ana.api).list();
       expect(mine.items.firstWhere((r) => r.id == item.request.id).status, 'approved');
+    });
+  });
+
+  group('Firma APP (autorización de pagos)', () {
+    test('la persona designada ve la OP programada y la autoriza; nadie más puede', () async {
+      final manager = await _Session.login('gerencia@empresa-demo.com', 'Gerencia2024!');
+      expect((await AuthRepository(manager.api, manager.storage).me()).canAuthorizePayments, isTrue);
+
+      final treasury = TreasuryRepository(manager.api);
+      final pending = await treasury.pending();
+      final item = pending.firstWhere((p) => p.detail == 'Llantas para la flota');
+      expect(item.order, startsWith('OC-'));
+      expect(item.amount, 1250);
+      expect(item.supplierName, 'Llantas del Norte S.A.C.');
+      expect(item.amountLabel, 'S/ 1,250.00');
+
+      // Contabilidad programa y paga, pero no autoriza (segregación de funciones)
+      final accountant = await _Session.login('contabilidad@empresa-demo.com', 'Contabilidad2024!');
+      expect((await AuthRepository(accountant.api, accountant.storage).me()).canAuthorizePayments, isFalse);
+      await expectLater(TreasuryRepository(accountant.api).pending(), throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)));
+      await expectLater(TreasuryRepository(accountant.api).authorize(item.id), throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 403)));
+
+      await treasury.authorize(item.id);
+      expect((await treasury.pending()).where((p) => p.id == item.id), isEmpty);
+      // Ya autorizada: el servidor lo rechaza con un mensaje para mostrar
+      await expectLater(
+        treasury.authorize(item.id),
+        throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 422).having((e) => e.message, 'message', isNotEmpty)),
+      );
     });
   });
 

@@ -76,6 +76,24 @@ Future<void> login(WidgetTester tester, String email, String password) async {
   await tester.testTextInput.receiveAction(TextInputAction.done);
   await waitFor(tester, find.widgetWithText(AppBar, 'Inicio'));
   await settleScreen(tester, 'Inicio');
+  await dismissBirthdayCelebration(tester);
+}
+
+/// El día de su cumpleaños, Inicio abre un modal festivo (el seeder deja a Ana
+/// cumpliendo hoy). Su barrera tapa la pantalla: se comprueba que se ve y se
+/// cierra con "¡Gracias!" antes de seguir el recorrido.
+Future<void> dismissBirthdayCelebration(WidgetTester tester) async {
+  final modal = find.byKey(const Key('birthday-celebration'));
+  for (var i = 0; i < 10 && modal.evaluate().isEmpty; i++) {
+    await tester.pump(const Duration(milliseconds: 200)); // se abre tras cargar Inicio
+  }
+  if (modal.evaluate().isEmpty) return;
+  await tester.pump(const Duration(milliseconds: 400)); // termina la animación de entrada
+  await tester.tap(find.descendant(of: modal, matching: find.text('¡Gracias!')));
+  for (var i = 0; i < 10 && modal.evaluate().isNotEmpty; i++) {
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+  expect(modal, findsNothing, reason: 'el modal de cumpleaños no se cerró');
 }
 
 Future<void> logout(WidgetTester tester) async {
@@ -139,6 +157,20 @@ void main() {
     await login(tester, 'supervisor@empresa-demo.com', 'Supervisor2024!');
     await visit(tester, 'Aprobaciones', 'Aprobaciones');
     await visit(tester, 'Equipo en vivo', 'Mi equipo hoy');
+    await logout(tester);
+
+    // --- Gerencia: Firma APP (autoriza la OP que programó Tesorería) ----------
+    await login(tester, 'gerencia@empresa-demo.com', 'Gerencia2024!');
+    await tapText(tester, 'Autorizar pagos');
+    await waitFor(tester, find.widgetWithText(AppBar, 'Autorizar pagos'));
+    await settleScreen(tester, 'Autorizar pagos');
+    await waitFor(tester, find.text('Llantas del Norte S.A.C.'));
+    await tapText(tester, 'Autorizar');
+    await waitFor(tester, find.byType(AlertDialog));
+    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Autorizar')));
+    await waitFor(tester, find.text('No hay órdenes de pago por autorizar.'));
+    await goBack(tester);
+    await tester.pump(const Duration(milliseconds: 600));
     await logout(tester);
   });
 }
