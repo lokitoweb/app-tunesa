@@ -43,10 +43,31 @@ class PlatformUrlTest extends TestCase
 
         $this->assertSame(self::NEW, PlatformUrl::apiBaseUrl(self::OLD));
         $this->assertSame('https://api.tunesa.app', PlatformUrl::apiBaseUrl('https://api.tunesa.app/'));
-        $this->assertNull(PlatformUrl::apiBaseUrl(null));
+        // Campo vacío: la app usa el dominio del servidor (automático)
+        $this->assertSame(self::NEW, PlatformUrl::apiBaseUrl(null));
 
         config(['app.url' => 'http://localhost']);
         $this->assertNull(PlatformUrl::apiBaseUrl(self::OLD), 'sin https no se anuncia nada');
+        $this->assertNull(PlatformUrl::apiBaseUrl(null));
+    }
+
+    public function test_panel_prefills_detected_domain_and_saving_it_keeps_it_automatic(): void
+    {
+        $this->seedRoles();
+        $admin = $this->makeUser(null, 'super_admin');
+
+        $html = $this->actingAs($admin)->get('/settings/branding?tab=app')->assertOk()->getContent();
+        $this->assertStringContainsString('data-detected="' . self::NEW . '"', $html);
+        $this->assertStringContainsString('value="' . self::NEW . '"', $html);
+        $this->assertStringContainsString('Dominio detectado automáticamente', $html);
+        $this->assertStringContainsString('Restablecer a dominio actual', $html);
+
+        // Guardar el dominio detectado lo deja automático (NULL); un túnel distinto se guarda tal cual
+        $service = app(\App\Modules\Core\Services\TenantSettingsService::class);
+        $service->update(null, ['api_base_url' => self::NEW . '/'], request(), $admin);
+        $this->assertNull(TenantSetting::rowFor(null)->fresh()->api_base_url);
+        $service->update(null, ['api_base_url' => self::OLD], request(), $admin);
+        $this->assertSame(self::OLD, TenantSetting::rowFor(null)->fresh()->api_base_url);
     }
 
     public function test_app_config_announces_current_url_instead_of_stale_tunnel(): void

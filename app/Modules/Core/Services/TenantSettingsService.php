@@ -304,7 +304,10 @@ class TenantSettingsService
                 }
             }
             if (isset($data['api_base_url'])) {
-                $row->api_base_url = rtrim($data['api_base_url'], '/');
+                $url = rtrim($data['api_base_url'], '/');
+                // Igual al dominio detectado: se guarda vacío (automático) y sigue al dominio si cambia
+                $detected = array_filter([\App\Modules\Core\Support\PlatformUrl::detected(), $request->getSchemeAndHttpHost()]);
+                $row->api_base_url = in_array(strtolower($url), array_map('strtolower', $detected), true) ? null : $url;
             }
             foreach (['accent_color', 'navbar_color'] as $c) {
                 if (! empty($data[$c])) {

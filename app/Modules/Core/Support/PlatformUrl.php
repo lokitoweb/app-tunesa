@@ -71,8 +71,11 @@ final class PlatformUrl
     }
 
     /**
-     * Dominio que se anuncia a la app (mobile.api_base_url). Un túnel viejo
-     * guardado se reemplaza por APP_URL (si es https); lo demás se respeta.
+     * Dominio que se anuncia a la app (mobile.api_base_url):
+     *  - una URL guardada (p. ej. un túnel de pruebas) se respeta;
+     *  - un túnel viejo guardado, o el campo vacío, usan el dominio del
+     *    servidor (APP_URL) si es https: la app sigue al dominio actual sin
+     *    escribirlo a mano. Sin https no se anuncia nada.
      */
     public static function apiBaseUrl(?string $stored): ?string
     {
@@ -82,8 +85,14 @@ final class PlatformUrl
             return $stored;
         }
 
+        return self::detected();
+    }
+
+    /** Dominio del servidor que se usa por defecto (APP_URL), solo si es https */
+    public static function detected(): ?string
+    {
         $current = self::current();
 
-        return $stored && str_starts_with($current, 'https://') ? $current : null;
+        return str_starts_with($current, 'https://') ? $current : null;
     }
 }

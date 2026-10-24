@@ -300,14 +300,55 @@
                             <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Conexión de servidor (API)</h2>
                         </div>
                         <div class="card-body p-3 pt-1">
-                            <label for="api_base_url" class="form-label small fw-semibold text-secondary mb-1">URL base de la API</label>
-                            <div class="modern-input-wrapper mb-1">
-                                <span class="modern-input-icon"><i class="bi bi-link-45deg"></i></span>
-                                <input type="url" id="api_base_url" name="api_base_url" maxlength="255" value="{{ $val('api_base_url') }}"
-                                       class="modern-input-control font-monospace @error('api_base_url') is-invalid @enderror"
-                                       placeholder="{{ $inh('api_base_url') ?: 'https://xxxx.trycloudflare.com' }}">
+                            @php
+                                // Dominio actual: el de esta página (https) o APP_URL. Vacío = automático.
+                                $requestOrigin = request()->getSchemeAndHttpHost();
+                                $detectedApi = str_starts_with($requestOrigin, 'https://') ? $requestOrigin : \App\Modules\Core\Support\PlatformUrl::detected();
+                                $storedApi = $stored('api_base_url');
+                                $apiValue = old('api_base_url', $storedApi ?: ($isGlobal ? $detectedApi : ($inh('api_base_url') ?: $detectedApi)));
+                            @endphp
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
+                                <label for="api_base_url" class="form-label small fw-semibold text-secondary mb-0">URL base de la API</label>
+                                <span id="apiAutoBadge" class="badge rounded-pill bg-success-subtle text-success-emphasis border border-success-subtle {{ $apiValue && $detectedApi && rtrim($apiValue, '/') === $detectedApi ? '' : 'd-none' }}">
+                                    <i class="bi bi-magic me-1"></i>Dominio detectado automáticamente
+                                </span>
+                                <span id="apiCustomBadge" class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle {{ $apiValue && $detectedApi && rtrim($apiValue, '/') !== $detectedApi ? '' : 'd-none' }}">
+                                    <i class="bi bi-pencil me-1"></i>Personalizada (túnel u otro dominio)
+                                </span>
                             </div>
-                            <small class="text-secondary d-block">Protocolo <code>https://</code> requerido, sin <code>/api</code> al final. Si usas Cloudflare Tunnel, coloca la URL pública provista.</small>
+                            <div class="d-flex gap-2 mb-1">
+                                <div class="modern-input-wrapper flex-grow-1">
+                                    <span class="modern-input-icon"><i class="bi bi-link-45deg"></i></span>
+                                    <input type="url" id="api_base_url" name="api_base_url" maxlength="255" value="{{ $apiValue }}"
+                                           data-detected="{{ $detectedApi }}"
+                                           class="modern-input-control font-monospace @error('api_base_url') is-invalid @enderror"
+                                           placeholder="{{ $detectedApi ?: 'https://xxxx.trycloudflare.com' }}">
+                                </div>
+                                @if($detectedApi)
+                                    <button type="button" class="btn btn-outline-secondary flex-shrink-0" id="apiResetBtn" title="Usar el dominio de este servidor">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i>Restablecer a dominio actual
+                                    </button>
+                                @endif
+                            </div>
+                            @error('api_base_url')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            <small class="text-secondary d-block">Se completa sola con el dominio de este servidor y la app lo usa automáticamente. Cámbiala solo si la app debe conectarse por otra dirección (por ejemplo un Cloudflare Tunnel de pruebas). <code>https://</code>, sin <code>/api</code> al final.</small>
+                            <script>
+                                (function () {
+                                    var input = document.getElementById('api_base_url');
+                                    var reset = document.getElementById('apiResetBtn');
+                                    var auto = document.getElementById('apiAutoBadge');
+                                    var custom = document.getElementById('apiCustomBadge');
+                                    if (!input) return;
+                                    function paint() {
+                                        var detected = input.dataset.detected;
+                                        var value = input.value.trim().replace(/\/+$/, '');
+                                        auto.classList.toggle('d-none', !detected || value !== detected);
+                                        custom.classList.toggle('d-none', !detected || !value || value === detected);
+                                    }
+                                    input.addEventListener('input', paint);
+                                    if (reset) reset.addEventListener('click', function () { input.value = input.dataset.detected; paint(); input.focus(); });
+                                })();
+                            </script>
                         </div>
                     </div>
 
