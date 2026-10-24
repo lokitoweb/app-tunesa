@@ -441,11 +441,110 @@
     function cleanGetUrl(form, submitter) {
         let data;
         try { data = new FormData(form, submitter || undefined); } catch (_) { data = new FormData(form); }
+        // Campos en su valor por defecto (data-default, p. ej. el rango del mes) tampoco viajan
+        form.querySelectorAll('[name][data-default]').forEach((field) => {
+            if (data.getAll(field.name).length === 1 && data.get(field.name) === field.dataset.default) data.delete(field.name);
+        });
         const url = new URL(form.getAttribute('action') || window.location.href, window.location.href);
         const query = cleanQuery(data).toString();
         url.search = query;
         return query ? url.toString() : url.origin + url.pathname + url.hash;
     }
+
+    // Filtros sin recargar: <form method="GET" data-ajax-filter="#resultados, #kpis">
+    // pide la misma página por fetch y reemplaza solo esas regiones; la
+    // paginación dentro de ellas también va por AJAX. La barra de direcciones
+    // queda con la URL limpia (sin vacíos ni valores por defecto), así que
+    // recargar o compartir el enlace muestra lo mismo. Si algo falla, navega
+    // normal. Un <a data-ajax-reset> dentro del formulario vuelve a los valores
+    // por defecto; un buscador type="search" filtra al dejar de escribir.
+    const ajaxFilter = {
+        controller: null,
+        regions(form) {
+            return (form.dataset.ajaxFilter || '').split(',').map((s) => s.trim()).filter(Boolean);
+        },
+        async load(form, url, { push = false } = {}) {
+            const selectors = this.regions(form);
+            const targets = selectors.map((s) => document.querySelector(s)).filter(Boolean);
+            if (!targets.length) { window.location.assign(url); return; }
+
+            if (this.controller) this.controller.abort();
+            const controller = new AbortController();
+            this.controller = controller;
+            skeleton.on(targets);
+            try {
+                const response = await fetch(url, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html' },
+                    credentials: 'same-origin',
+                    signal: controller.signal,
+                });
+                if (!response.ok || response.redirected) throw new Error(`HTTP ${response.status}`);
+                const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+                selectors.forEach((s) => {
+                    const current = document.querySelector(s);
+                    const fresh = doc.querySelector(s);
+                    if (current && fresh) current.innerHTML = fresh.innerHTML;
+                });
+                window.history[push ? 'pushState' : 'replaceState']({ ajaxFilter: true }, '', url);
+                document.dispatchEvent(new CustomEvent('panel:ajax-filtered', { detail: { form, url } }));
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                window.location.assign(url); // respaldo: navegación normal
+                return;
+            } finally {
+                if (this.controller === controller) {
+                    this.controller = null;
+                    skeleton.off(targets);
+                }
+            }
+        },
+        formFor(element) {
+            const region = element.closest('[id]');
+            if (!region) return null;
+            return Array.from(document.querySelectorAll('form[data-ajax-filter]'))
+                .find((f) => this.regions(f).some((s) => element.closest(s)));
+        },
+    };
+
+    // Paginación y enlaces de orden dentro de una región filtrada por AJAX
+    document.addEventListener('click', (e) => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const link = e.target instanceof Element ? e.target.closest('a[href]') : null;
+        if (!link) return;
+        if (link.hasAttribute('data-ajax-reset')) {
+            const form = link.closest('form[data-ajax-filter]');
+            if (!form) return;
+            e.preventDefault();
+            form.querySelectorAll('[name]').forEach((field) => {
+                if (field.type === 'hidden' && !field.hasAttribute('data-default')) return;
+                field.value = field.dataset.default ?? '';
+            });
+            ajaxFilter.load(form, cleanGetUrl(form));
+            return;
+        }
+        if (!link.closest('.pagination, [data-ajax-link]')) return;
+        const form = ajaxFilter.formFor(link);
+        if (!form) return;
+        let url;
+        try { url = new URL(link.href, window.location.href); } catch (_) { return; }
+        if (url.origin !== window.location.origin) return;
+        e.preventDefault();
+        ajaxFilter.load(form, url.origin + url.pathname + (cleanQuery(url.searchParams).toString() ? '?' + cleanQuery(url.searchParams).toString() : ''));
+    });
+
+    // Buscador: filtra al dejar de escribir (sin botón)
+    const searchTimers = new WeakMap();
+    document.addEventListener('input', (e) => {
+        const field = e.target;
+        if (!(field instanceof HTMLInputElement) || field.type !== 'search' || !field.form?.hasAttribute('data-ajax-filter')) return;
+        clearTimeout(searchTimers.get(field));
+        searchTimers.set(field, setTimeout(() => field.form.requestSubmit(), 450));
+    });
+
+    // Atrás / adelante en una página filtrada por AJAX: se recarga esa URL
+    window.addEventListener('popstate', (e) => {
+        if (e.state && e.state.ajaxFilter) window.location.reload();
+    });
 
     document.addEventListener('submit', (e) => {
         const form = e.target;
@@ -457,6 +556,10 @@
         if (submitter && (submitter.hasAttribute('formmethod') || submitter.hasAttribute('formaction') || submitter.hasAttribute('formtarget'))) return;
         e.preventDefault();
         const url = cleanGetUrl(form, submitter);
+        if (form.hasAttribute('data-ajax-filter')) {
+            ajaxFilter.load(form, url);
+            return;
+        }
         const download = submitter && DOWNLOAD_HINT.test(`${submitter.name}=${submitter.value}`);
         if (!download && !DOWNLOAD_HINT.test(new URL(url).search)) skeleton.on(MAIN);
         window.location.assign(url);

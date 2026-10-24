@@ -21,7 +21,7 @@
     
     {{-- Filtros integrados al lado del botón Nueva empresa --}}
     <div class="company-actions-bar">
-        <form method="GET" action="{{ route('companies.index') }}" class="d-flex align-items-center gap-2 m-0 p-0">
+        <form method="GET" action="{{ route('companies.index') }}" class="d-flex align-items-center gap-2 m-0 p-0" data-ajax-filter="#companies-results">
             {{-- Buscador con icono integrado (sin bordes rotos) --}}
             <div class="company-search-wrapper">
                 <i class="bi bi-search search-icon"></i>
@@ -39,11 +39,9 @@
             </select>
             </div>
 
-            @if(request()->hasAny(['search', 'status']))
-                <a href="{{ route('companies.index') }}" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; width: 38px; border-radius: 8px;" title="Limpiar filtros">
+                <a href="{{ route('companies.index') }}" data-ajax-reset class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; width: 38px; border-radius: 8px;" title="Limpiar filtros">
                     <i class="bi bi-x-lg"></i>
                 </a>
-            @endif
         </form>
 
         {{-- Botón Nueva empresa --}}
@@ -104,6 +102,7 @@
 </div>
 
 {{-- Table Card --}}
+<div id="companies-results">
 <div class="card border-0 shadow-sm" style="border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0;">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -201,6 +200,7 @@
             {{ $companies->links() }}
         </div>
     @endif
+</div>
 </div>
 
 {{-- ========================================================================= --}}

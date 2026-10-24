@@ -9,7 +9,7 @@
         <h1 class="h2 mb-1 fw-bold text-dark">Marcaciones y GPS</h1>
         <p class="text-secondary mb-0" style="font-size: 0.875rem;">Revisa cada marcación con su selfie, hora, sucursal y validación de ubicación.</p>
     </div>
-    <div>
+    <div id="att-export">
         <a href="{{ route('reports.export.excel', request()->all()) }}" class="btn btn-outline-success d-inline-flex align-items-center gap-2 shadow-sm" style="height: 38px; border-radius: 8px; font-weight: 600; padding: 0 1.15rem;">
             <i class="bi bi-file-earmark-spreadsheet"></i>
             <span>Exportar a Excel</span>
@@ -18,6 +18,7 @@
 </div>
 
 {{-- Resumen del rango (KPI Cards) --}}
+<div id="att-kpis">
 @isset($summary)
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
@@ -66,22 +67,24 @@
     </div>
 </div>
 @endisset
+</div>
 
 {{-- Filtros integrados ejecutivos --}}
 <div class="attendance-filter-card">
-    <form method="GET" action="{{ route('attendance.index') }}" class="row g-3 align-items-end">
-        <input type="hidden" name="per_page" value="{{ request('per_page', $attendances->perPage()) }}">
+    <form method="GET" action="{{ route('attendance.index') }}" class="row g-3 align-items-end" id="attFilterForm"
+          data-ajax-filter="#att-kpis, #att-results, #att-export">
+        <input type="hidden" name="per_page" value="{{ request('per_page', $attendances->perPage()) }}" data-default="20">
         <div class="col-6 col-md-3 col-xl-2">
             <label for="start_date" class="attendance-filter-label">Desde</label>
-            <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" class="form-control attendance-filter-input">
+            <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control attendance-filter-input" data-autosubmit>
         </div>
         <div class="col-6 col-md-3 col-xl-2">
             <label for="end_date" class="attendance-filter-label">Hasta</label>
-            <input type="date" id="end_date" name="end_date" value="{{ $endDate }}" class="form-control attendance-filter-input">
+            <input type="date" id="end_date" name="end_date" value="{{ $endDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control attendance-filter-input" data-autosubmit>
         </div>
         <div class="col-6 col-md-3 col-xl-2">
             <label for="branch_id" class="attendance-filter-label">Sucursal</label>
-            <select id="branch_id" name="branch_id" class="form-select attendance-filter-select">
+            <select id="branch_id" name="branch_id" class="form-select attendance-filter-select" data-autosubmit>
                 <option value="">Todas las sucursales</option>
                 @foreach($branches as $b)
                     <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
@@ -90,7 +93,7 @@
         </div>
         <div class="col-6 col-md-3 col-xl-2">
             <label for="status" class="attendance-filter-label">Estado</label>
-            <select id="status" name="status" class="form-select attendance-filter-select">
+            <select id="status" name="status" class="form-select attendance-filter-select" data-autosubmit>
                 <option value="">Todos los estados</option>
                 <option value="present" @selected(request('status') == 'present')>Puntual</option>
                 <option value="late" @selected(request('status') == 'late')>Tardanza</option>
@@ -111,17 +114,16 @@
                     <i class="bi bi-funnel"></i>
                     <span>Filtrar</span>
                 </button>
-                @if(request()->hasAny(['search', 'branch_id', 'status', 'start_date', 'end_date']))
-                    <a href="{{ route('attendance.index') }}" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center flex-shrink-0" style="height: 38px; width: 38px; border-radius: 8px;" title="Limpiar filtros">
+                    <a href="{{ route('attendance.index') }}" data-ajax-reset class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center flex-shrink-0" style="height: 38px; width: 38px; border-radius: 8px;" title="Limpiar filtros">
                         <i class="bi bi-x-lg"></i>
                     </a>
-                @endif
             </div>
         </div>
     </form>
 </div>
 
 {{-- Tabla de marcaciones --}}
+<div id="att-results">
 <div class="card border-0 shadow-sm" style="border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0;">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -295,13 +297,14 @@
         </div>
     @endif
 </div>
+</div>
 
 <script>
+// Cantidad por página: va en el formulario de filtros (AJAX, URL limpia)
 function changeAttendancePerPage(perPage) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('per_page', perPage);
-    url.searchParams.set('page', '1');
-    window.location.href = url.toString();
+    const form = document.getElementById('attFilterForm');
+    form.querySelector('[name="per_page"]').value = perPage;
+    form.requestSubmit();
 }
 </script>
 
