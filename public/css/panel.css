@@ -2394,22 +2394,8 @@ body {
     color: var(--text-primary) !important;
 }
 
-.company-status-select {
-    height: 38px !important;
-    width: 165px;
-    border-radius: 8px !important;
-    border: 1px solid #cbd5e1 !important;
-    font-size: 0.85rem !important;
-    color: #0f172a !important;
-    background-color: #ffffff !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.company-status-select:focus {
-    border-color: #0284c7 !important;
-    outline: none !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
-}
+/* Filtro de estado de Empresas (estilo en pretty-select.css) */
+.company-status-pretty { width: 190px; flex-shrink: 0; }
 
 /* Domain Addon (Seamlessly integrated) */
 .input-domain-wrapper {
@@ -2458,10 +2444,13 @@ body {
     align-items: center;
     background: #ffffff;
     border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    height: 36px;
-    padding: 0 0.5rem 0 0.65rem;
-    gap: 0.45rem;
+    border-radius: var(--bs-border-radius-lg, .5rem);
+    height: 40px;
+    min-width: 220px;
+    max-width: min(340px, 42vw);
+    margin-left: .25rem;
+    padding: 0 2.25rem 0 .9rem; /* aire a la izquierda del ícono y espacio para la flecha */
+    gap: .6rem;
     transition: all 0.18s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
@@ -2487,9 +2476,15 @@ body {
 }
 
 .tenant-selector-select {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
     border: none !important;
     background: transparent !important;
-    padding: 0 1.25rem 0 0 !important;
+    padding: 0 .25rem 0 0 !important;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
     font-size: 0.825rem !important;
     font-weight: 600 !important;
     color: #0f172a !important;
@@ -2504,7 +2499,7 @@ body {
 
 .tenant-selector-arrow {
     position: absolute;
-    right: 0.55rem;
+    right: .9rem;
     top: 50%;
     transform: translateY(-50%);
     color: #64748b;
@@ -9898,4 +9893,76 @@ select.modern-input-control option {
     .sk-loading div:has(> canvas)::after {
         animation: none;
     }
+}
+
+/* ==========================================================================
+   Utilidades de medio paso (p-2.5, gap-1.5, mt-0.5...)
+   Bootstrap 5 solo trae 0-5: sin esto esas clases no hacen nada y el
+   contenido queda pegado (p. ej. las fichas de "Mi cuenta").
+   Escala: 0.5 = .125rem, 1.5 = .375rem, 2.5 = .75rem, 3.5 = 1.25rem
+   ========================================================================== */
+.p-0\.5 { padding: .125rem !important; }
+.p-1\.5 { padding: .375rem !important; }
+.p-2\.5 { padding: .75rem !important; }
+.p-3\.5 { padding: 1.25rem !important; }
+.px-0\.5 { padding-left: .125rem !important; padding-right: .125rem !important; }
+.px-1\.5 { padding-left: .375rem !important; padding-right: .375rem !important; }
+.px-2\.5 { padding-left: .75rem !important; padding-right: .75rem !important; }
+.px-3\.5 { padding-left: 1.25rem !important; padding-right: 1.25rem !important; }
+.py-0\.5 { padding-top: .125rem !important; padding-bottom: .125rem !important; }
+.py-1\.5 { padding-top: .375rem !important; padding-bottom: .375rem !important; }
+.py-2\.5 { padding-top: .75rem !important; padding-bottom: .75rem !important; }
+.py-3\.5 { padding-top: 1.25rem !important; padding-bottom: 1.25rem !important; }
+.pt-0\.5 { padding-top: .125rem !important; }
+.pt-1\.5 { padding-top: .375rem !important; }
+.pt-2\.5 { padding-top: .75rem !important; }
+.pt-3\.5 { padding-top: 1.25rem !important; }
+.pb-0\.5 { padding-bottom: .125rem !important; }
+.pb-1\.5 { padding-bottom: .375rem !important; }
+.pb-2\.5 { padding-bottom: .75rem !important; }
+.pb-3\.5 { padding-bottom: 1.25rem !important; }
+.ps-0\.5 { padding-left: .125rem !important; }
+.ps-1\.5 { padding-left: .375rem !important; }
+.ps-2\.5 { padding-left: .75rem !important; }
+.ps-3\.5 { padding-left: 1.25rem !important; }
+.pe-0\.5 { padding-right: .125rem !important; }
+.pe-1\.5 { padding-right: .375rem !important; }
+.pe-2\.5 { padding-right: .75rem !important; }
+.pe-3\.5 { padding-right: 1.25rem !important; }
+.m-0\.5 { margin: .125rem !important; }
+.m-1\.5 { margin: .375rem !important; }
+.m-2\.5 { margin: .75rem !important; }
+.m-3\.5 { margin: 1.25rem !important; }
+.mx-0\.5 { margin-left: .125rem !important; margin-right: .125rem !important; }
+.mx-1\.5 { margin-left: .375rem !important; margin-right: .375rem !important; }
+.mx-2\.5 { margin-left: .75rem !important; margin-right: .75rem !important; }
+.mx-3\.5 { margin-left: 1.25rem !important; margin-right: 1.25rem !important; }
+.my-0\.5 { margin-top: .125rem !important; margin-bottom: .125rem !important; }
+.my-1\.5 { margin-top: .375rem !important; margin-bottom: .375rem !important; }
+.my-2\.5 { margin-top: .75rem !important; margin-bottom: .75rem !important; }
+.my-3\.5 { margin-top: 1.25rem !important; margin-bottom: 1.25rem !important; }
+.mt-0\.5 { margin-top: .125rem !important; }
+.mt-1\.5 { margin-top: .375rem !important; }
+.mt-2\.5 { margin-top: .75rem !important; }
+.mt-3\.5 { margin-top: 1.25rem !important; }
+.mb-0\.5 { margin-bottom: .125rem !important; }
+.mb-1\.5 { margin-bottom: .375rem !important; }
+.mb-2\.5 { margin-bottom: .75rem !important; }
+.mb-3\.5 { margin-bottom: 1.25rem !important; }
+.ms-0\.5 { margin-left: .125rem !important; }
+.ms-1\.5 { margin-left: .375rem !important; }
+.ms-2\.5 { margin-left: .75rem !important; }
+.ms-3\.5 { margin-left: 1.25rem !important; }
+.me-0\.5 { margin-right: .125rem !important; }
+.me-1\.5 { margin-right: .375rem !important; }
+.me-2\.5 { margin-right: .75rem !important; }
+.me-3\.5 { margin-right: 1.25rem !important; }
+.gap-0\.5 { gap: .125rem !important; }
+.gap-1\.5 { gap: .375rem !important; }
+.gap-2\.5 { gap: .75rem !important; }
+.gap-3\.5 { gap: 1.25rem !important; }
+
+/* Selector global de empresas en celular: ocupa el ancho disponible sin pegarse */
+@media (max-width: 575.98px) {
+    .topbar-tenant-selector { min-width: 0; max-width: 58vw; padding-left: .75rem; }
 }

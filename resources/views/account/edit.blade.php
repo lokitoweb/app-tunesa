@@ -358,7 +358,7 @@
                         <span class="text-secondary small">
                             <i class="bi bi-info-circle me-1"></i>Acción irreversible y auditada en la bitácora
                         </span>
-                        <button type="submit" class="btn btn-primary px-4 py-2 d-inline-flex align-items-center gap-2 shadow-sm" style="border-radius: 8px; font-weight: 600;">
+                        <button type="submit" class="btn btn-primary text-white px-4 py-2 d-inline-flex align-items-center gap-2 shadow-sm" style="border-radius: 8px; font-weight: 600;">
                             <i class="bi bi-shield-lock"></i>
                             <span>Actualizar contraseña</span>
                         </button>

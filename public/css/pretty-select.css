@@ -1,0 +1,122 @@
+/* =============================================================================
+ * Desplegables del panel (Empresas, Sedes y filtros) sobre Bootstrap 5.
+ *
+ *   <div class="pretty-select">
+ *       <i class="bi bi-building pretty-select-icon" aria-hidden="true"></i>
+ *       <select class="form-select" aria-label="Empresa">...</select>
+ *   </div>
+ *
+ * - Ícono a la izquierda alineado al centro; el texto nunca lo pisa.
+ * - Relleno interno cómodo, flecha propia y bordes moderados (rounded-lg).
+ * - Foco con el color de la marca (--brand) y modo oscuro.
+ * - .pretty-select-sm para barras de filtros compactas.
+ * - Sin ícono: <div class="pretty-select no-icon">.
+ * ============================================================================= */
+
+.pretty-select {
+    position: relative;
+    display: block;
+    min-width: 0;
+    --ps-height: 42px;
+    --ps-radius: var(--bs-border-radius-lg, .5rem);
+    --ps-icon-x: .9rem;
+    --ps-pad-left: 2.6rem;
+    --ps-border: var(--bs-border-color, #dee2e6);
+    --ps-bg: var(--bs-body-bg, #fff);
+    --ps-text: var(--bs-body-color, #212529);
+    --ps-muted: var(--bs-secondary-color, #6c757d);
+}
+
+.pretty-select.pretty-select-sm {
+    --ps-height: 38px;
+    --ps-icon-x: .8rem;
+    --ps-pad-left: 2.35rem;
+}
+
+.pretty-select.no-icon { --ps-pad-left: .95rem; }
+
+.pretty-select > .pretty-select-icon {
+    position: absolute;
+    top: 50%;
+    left: var(--ps-icon-x);
+    transform: translateY(-50%);
+    z-index: 3;
+    pointer-events: none;
+    font-size: .95rem;
+    line-height: 1;
+    color: var(--brand, var(--bs-primary));
+}
+
+.pretty-select > .form-select {
+    height: var(--ps-height);
+    padding: 0 2.4rem 0 var(--ps-pad-left);
+    border: 1px solid var(--ps-border);
+    border-radius: var(--ps-radius);
+    background-color: var(--ps-bg);
+    /* Flecha (chevron) propia, más fina que la de Bootstrap */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.75' d='m4 6 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right .9rem center;
+    background-size: 14px 14px;
+    color: var(--ps-text);
+    font-size: .875rem;
+    font-weight: 500;
+    line-height: calc(var(--ps-height) - 2px);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+    cursor: pointer;
+}
+
+.pretty-select > .form-select:hover {
+    border-color: color-mix(in srgb, var(--brand, #3C729E) 45%, var(--ps-border));
+}
+
+.pretty-select > .form-select:focus {
+    border-color: var(--brand, var(--bs-primary));
+    box-shadow: 0 0 0 .2rem rgba(var(--brand-rgb, 60, 114, 158), .18);
+    outline: 0;
+}
+
+/* Valor "Todas / Todos" (vacío): en gris, para distinguirlo de un filtro activo */
+.pretty-select > .form-select:has(option[value=""]:checked) {
+    color: var(--ps-muted);
+}
+
+/* Filtro aplicado: borde y fondo suaves con la marca */
+.pretty-select.is-active > .form-select {
+    border-color: color-mix(in srgb, var(--brand, #3C729E) 55%, var(--ps-border));
+    background-color: color-mix(in srgb, var(--brand, #3C729E) 5%, var(--ps-bg));
+}
+
+.pretty-select > .form-select:disabled {
+    cursor: not-allowed;
+    opacity: .65;
+}
+
+.pretty-select > .form-select.is-invalid {
+    border-color: var(--bs-form-invalid-border-color, #dc3545);
+}
+
+.pretty-select > .form-select option {
+    color: var(--bs-body-color, #212529);
+    background-color: var(--bs-body-bg, #fff);
+    font-weight: 400;
+}
+
+/* Modo oscuro */
+[data-bs-theme="dark"] .pretty-select {
+    --ps-border: #2b3a50;
+    --ps-bg: #111a29;
+    --ps-text: #e2e8f0;
+    --ps-muted: #94a3b8;
+}
+
+[data-bs-theme="dark"] .pretty-select > .form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.75' d='m4 6 4 4 4-4'/%3e%3c/svg%3e");
+    box-shadow: none;
+}
+
+[data-bs-theme="dark"] .pretty-select > .pretty-select-icon {
+    color: color-mix(in srgb, var(--brand, #3C729E) 55%, #fff);
+}

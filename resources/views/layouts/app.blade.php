@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
     <link rel="stylesheet" href="{{ asset('css/panel.css') }}?v={{ filemtime(public_path('css/panel.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/pretty-select.css') }}?v={{ filemtime(public_path('css/pretty-select.css')) }}">
 
     @include('layouts.partials.brand-head', ['brandSettings' => $brandSettings])
 
@@ -290,7 +291,7 @@
 <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script src="{{ asset('vendor/chartjs/chart.umd.min.js') }}"></script>
-<script src="{{ asset('js/panel.js') }}"></script>
+<script src="{{ asset('js/panel.js') }}?v={{ filemtime(public_path('js/panel.js')) }}"></script>
 
 @yield('scripts')
 @stack('scripts')

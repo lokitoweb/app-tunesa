@@ -30,12 +30,15 @@
                         {{-- Vista global del Super Admin: la sucursal se crea para la empresa elegida aquí --}}
                         <div class="mb-3">
                             <label for="tenant_id" class="form-label">Empresa <span class="text-danger">*</span></label>
-                            <select id="tenant_id" name="tenant_id" required class="form-select @error('tenant_id') is-invalid @enderror">
+                            <div class="pretty-select">
+                                <i class="bi bi-buildings pretty-select-icon" aria-hidden="true"></i>
+                                <select id="tenant_id" name="tenant_id" required class="form-select @error('tenant_id') is-invalid @enderror">
                                 <option value="">Elige la empresa…</option>
                                 @foreach($companies as $id => $companyName)
                                     <option value="{{ $id }}" @selected(old('tenant_id') == $id)>{{ $companyName }}</option>
                                 @endforeach
                             </select>
+                            </div>
                             @error('tenant_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     @elseif(($globalView ?? false) && $branch->tenant)

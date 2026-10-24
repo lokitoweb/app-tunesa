@@ -426,6 +426,42 @@
         field.form.requestSubmit ? field.form.requestSubmit() : field.form.submit();
     });
 
+    // URLs limpias en los filtros por GET: los campos vacíos (search=, status=,
+    // branch_id=...) no viajan y, sin filtros, no queda un "?" colgando
+    // (/companies en vez de /companies?search=&status=). Vale para cualquier
+    // formulario GET del panel sin tocar cada vista; data-keep-empty lo desactiva.
+    function cleanQuery(params) {
+        const clean = new URLSearchParams();
+        for (const [name, value] of params) {
+            if (typeof value === 'string' && value.trim() !== '') clean.append(name, value);
+        }
+        return clean;
+    }
+
+    function cleanGetUrl(form, submitter) {
+        let data;
+        try { data = new FormData(form, submitter || undefined); } catch (_) { data = new FormData(form); }
+        const url = new URL(form.getAttribute('action') || window.location.href, window.location.href);
+        const query = cleanQuery(data).toString();
+        url.search = query;
+        return query ? url.toString() : url.origin + url.pathname + url.hash;
+    }
+
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (e.defaultPrevented || !(form instanceof HTMLFormElement) || form.hasAttribute('data-keep-empty')) return;
+        if ((form.getAttribute('method') || 'get').toLowerCase() !== 'get') return;
+        if (form.target && form.target !== '_self') return;
+        const submitter = e.submitter;
+        // Un botón con formmethod/formaction/formtarget propio decide el navegador
+        if (submitter && (submitter.hasAttribute('formmethod') || submitter.hasAttribute('formaction') || submitter.hasAttribute('formtarget'))) return;
+        e.preventDefault();
+        const url = cleanGetUrl(form, submitter);
+        const download = submitter && DOWNLOAD_HINT.test(`${submitter.name}=${submitter.value}`);
+        if (!download && !DOWNLOAD_HINT.test(new URL(url).search)) skeleton.on(MAIN);
+        window.location.assign(url);
+    });
+
     // Filtros por GET y formularios marcados con data-skeleton (cambio de empresa)
     document.addEventListener('submit', (e) => {
         const form = e.target;
@@ -467,7 +503,7 @@
     // Volver con el botón Atrás (bfcache) no debe dejar la silueta puesta
     window.addEventListener('pageshow', () => skeleton.off('.sk-loading, ' + MAIN));
 
-    window.Panel = { esc, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, skeleton };
+    window.Panel = { esc, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;
     window.openCommandPalette = openCommandPalette;

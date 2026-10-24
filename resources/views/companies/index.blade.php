@@ -29,12 +29,15 @@
             </div>
 
             {{-- Filtro por Estado --}}
-            <select id="status_filter" name="status" class="form-select company-status-select" data-autosubmit>
+            <div class="pretty-select pretty-select-sm company-status-pretty {{ request('status') ? 'is-active' : '' }}">
+                <i class="bi bi-funnel pretty-select-icon" aria-hidden="true"></i>
+                <select id="status_filter" name="status" class="form-select" data-autosubmit aria-label="Estado de la empresa">
                 <option value="">Todos los estados</option>
                 @foreach($statusesList + ['cancelled' => 'Dada de baja'] as $value => $label)
                     <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
                 @endforeach
             </select>
+            </div>
 
             @if(request()->hasAny(['search', 'status']))
                 <a href="{{ route('companies.index') }}" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; width: 38px; border-radius: 8px;" title="Limpiar filtros">

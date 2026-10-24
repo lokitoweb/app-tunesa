@@ -154,12 +154,9 @@
 
             {{-- Filtro por Estado (Todas, Activas, Inactivas) --}}
             <div class="col-12 col-sm-6 col-md-3 col-xl-2">
-                <div class="position-relative">
-                    <i class="bi bi-toggle-on text-emerald" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; z-index: 5; font-size: 0.95rem;"></i>
-                    <select id="branchesStatusFilter" 
-                            class="form-select form-select-sm" 
-                            style="height: 38px; border-radius: 6px; font-size: 0.85rem; padding-left: 40px !important;"
-                            onchange="filterBranchesGrid()">
+                <div class="pretty-select pretty-select-sm">
+                    <i class="bi bi-toggle-on pretty-select-icon" aria-hidden="true"></i>
+                    <select id="branchesStatusFilter" class="form-select" aria-label="Estado de la sede" onchange="filterBranchesGrid()">
                         <option value="">Todos los estados</option>
                         <option value="active">Solo Activas</option>
                         <option value="inactive">Inactivas</option>
@@ -169,12 +166,9 @@
 
             {{-- Filtro por Tipo de Sede --}}
             <div class="col-12 col-sm-6 col-md-4 col-xl-3">
-                <div class="position-relative">
-                    <i class="bi bi-building text-primary" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; z-index: 5; font-size: 0.95rem;"></i>
-                    <select id="branchesTypeFilter" 
-                            class="form-select form-select-sm" 
-                            style="height: 38px; border-radius: 6px; font-size: 0.85rem; padding-left: 40px !important;"
-                            onchange="filterBranchesGrid()">
+                <div class="pretty-select pretty-select-sm">
+                    <i class="bi bi-building pretty-select-icon" aria-hidden="true"></i>
+                    <select id="branchesTypeFilter" class="form-select" aria-label="Tipo de sede" onchange="filterBranchesGrid()">
                         <option value="">Todos los tipos de sede</option>
                         @foreach($branchTypes as $typeKey => $typeLabel)
                             <option value="{{ $typeKey }}">{{ $typeLabel }}</option>
@@ -186,12 +180,9 @@
             {{-- Filtro por Zona Territorial (si existen) --}}
             @if($zones->isNotEmpty())
                 <div class="col-12 col-sm-6 col-md-4 col-xl-2">
-                    <div class="position-relative">
-                        <i class="bi bi-diagram-3 text-info" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; z-index: 5; font-size: 0.95rem;"></i>
-                        <select id="branchesZoneFilter" 
-                                class="form-select form-select-sm" 
-                                style="height: 38px; border-radius: 6px; font-size: 0.85rem; padding-left: 40px !important;"
-                                onchange="filterBranchesGrid()">
+                    <div class="pretty-select pretty-select-sm">
+                    <i class="bi bi-diagram-3 pretty-select-icon" aria-hidden="true"></i>
+                    <select id="branchesZoneFilter" class="form-select" aria-label="Zona" onchange="filterBranchesGrid()">
                             <option value="">Todas las zonas</option>
                             @foreach($zones as $z)
                                 <option value="{{ $z->id }}">{{ $z->name }}</option>
@@ -454,12 +445,15 @@
                                 <label for="m_tenant_id" class="form-label fw-semibold small text-body mb-1">
                                     Empresa <span class="text-danger">*</span>
                                 </label>
-                                <select id="m_tenant_id" name="tenant_id" class="form-select" style="height: 40px; border-radius: 8px; font-size: 0.85rem;" required>
+                                <div class="pretty-select">
+                                    <i class="bi bi-buildings pretty-select-icon" aria-hidden="true"></i>
+                                    <select id="m_tenant_id" name="tenant_id" class="form-select" required>
                                     <option value="">Selecciona la empresa...</option>
                                     @foreach($companies as $cId => $cName)
                                         <option value="{{ $cId }}">{{ $cName }}</option>
                                     @endforeach
                                 </select>
+                                </div>
                             </div>
                         @endif
 

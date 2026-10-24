@@ -1099,6 +1099,8 @@ document.addEventListener('DOMContentLoaded', function () {
             status: statusSelect ? statusSelect.value : '',
             per_page: '10'
         });
+        // Sin parámetros vacíos (search=&branch_id=...)
+        [...params.keys()].forEach((key) => { if (params.get(key) === '') params.delete(key); });
 
         try {
             const response = await fetch(`{{ route('employees.index') }}?${params.toString()}`, {
