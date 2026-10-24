@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', request('status') === 'absent' ? 'Control de faltas' : 'Marcaciones y GPS')
+@section('title', 'Marcaciones y GPS')
 
 @section('content')
 {{-- Header con título y acción principal --}}
 <div class="attendance-header-bar">
     <div>
-        <h1 class="h2 mb-1 fw-bold text-dark">{{ request('status') === 'absent' ? 'Control de faltas' : 'Marcaciones y GPS' }}</h1>
+        <h1 class="h2 mb-1 fw-bold text-dark">Marcaciones y GPS</h1>
         <p class="text-secondary mb-0" style="font-size: 0.875rem;">Revisa cada marcación con su selfie, hora, sucursal y validación de ubicación.</p>
     </div>
     <div>
@@ -94,7 +94,6 @@
                 <option value="">Todos los estados</option>
                 <option value="present" @selected(request('status') == 'present')>Puntual</option>
                 <option value="late" @selected(request('status') == 'late')>Tardanza</option>
-                <option value="absent" @selected(request('status') == 'absent')>Ausente</option>
                 <option value="excused" @selected(request('status') == 'excused')>Justificado</option>
                 <option value="suspicious" @selected(request('status') == 'suspicious')>Solo sospechosas</option>
             </select>

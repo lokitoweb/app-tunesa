@@ -26,8 +26,15 @@ class AttendanceWebController extends Controller
     /**
      * Listado general de asistencias con filtros forenses.
      */
-    public function index(Request $request): View
+    public function index(Request $request): View|\Illuminate\Http\RedirectResponse
     {
+        // Las faltas no son marcaciones: se ven en Control de faltas (programación vs marcaciones)
+        if ($request->query('status') === 'absent') {
+            return redirect()->route('attendance.absences', array_filter([
+                'from' => $request->query('start_date'), 'to' => $request->query('end_date'), 'branch_id' => $request->query('branch_id'),
+            ]));
+        }
+
         $tenantId = current_tenant_id_or_null();
 
         // Rango de fechas por defecto: hoy

@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Attendance\Controllers\Web\AbsenceWebController;
 use App\Modules\Attendance\Controllers\Web\AttendanceEditWebController;
 use App\Modules\Attendance\Controllers\Web\AttendanceWebController;
 use App\Modules\Attendance\Controllers\Web\CalendarWebController;
@@ -41,6 +42,9 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
 
     // Tablero en vivo (supervisores: solo su equipo)
     Route::get('/live', [LiveBoardController::class, 'index'])->name('live.index');
+
+    // Control de faltas: programación contra marcaciones (mismo cálculo que el calendario)
+    Route::get('/absences', [AbsenceWebController::class, 'index'])->name('attendance.absences');
 
     // Calendario con semáforo (RRHH: toda la empresa; supervisor: su equipo)
     Route::get('/attendance-calendar', [CalendarWebController::class, 'index'])->name('attendance.calendar');
