@@ -28,6 +28,7 @@ class PunchAttemptWebController extends Controller
         $base = AttendancePunchAttempt::forTenant($tenantId)
             ->whereBetween('created_at', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])
             ->when($request->input('branch_id'), fn ($q, $id) => $q->where('branch_id', $id))
+            ->when(in_array($request->input('type'), ['clock_in', 'break_start', 'break_end', 'clock_out'], true), fn ($q) => $q->where('type', $request->input('type')))
             ->when($request->input('search'), fn ($q, $search) => $q->whereHas('user', function ($u) use ($search) {
                 $u->where('first_name', 'like', "%{$search}%")
                   ->orWhere('last_name', 'like', "%{$search}%")

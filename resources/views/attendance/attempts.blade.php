@@ -143,6 +143,15 @@
                     @endforeach
                 </select>
             </div>
+            <div class="col-6 col-md-3 col-xl-2">
+                <label for="type" class="attempts-filter-label">Marcación</label>
+                <select id="type" name="type" class="form-select attempts-filter-select">
+                    <option value="">Entrada, salida y descansos</option>
+                    @foreach(\App\Modules\Core\Support\Labels::options('punch_type') as $value => $text)
+                        <option value="{{ $value }}" @selected(request('type') === $value)>{{ $text }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="col-6 col-md-4 col-xl-2">
                 <label for="search" class="attempts-filter-label">Colaborador</label>
                 <div class="attempts-search-wrapper">
@@ -156,7 +165,7 @@
                         <i class="bi bi-funnel" style="margin-right: 7px;"></i>
                         <span>Filtrar</span>
                     </button>
-                    @if(request()->hasAny(['search', 'branch_id', 'code', 'start_date', 'end_date']))
+                    @if(request()->hasAny(['search', 'branch_id', 'code', 'type', 'start_date', 'end_date']))
                         <a href="{{ route('attendance.attempts') }}" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center flex-shrink-0" style="height: 40px; width: 40px; border-radius: 8px;" title="Limpiar todos los filtros">
                             <i class="bi bi-x-lg"></i>
                         </a>
@@ -323,6 +332,11 @@
                                     <i class="bi bi-geo-alt-fill" style="margin-right: 5px;"></i>
                                     <span>{{ $a->distance_meters }} m <small class="text-secondary fw-normal">de {{ $a->allowed_radius ?? '—' }} m permitidos</small></span>
                                 </div>
+                                @if($a->allowed_radius !== null && $a->distance_meters > $a->allowed_radius)
+                                    <div class="small fw-semibold text-danger-emphasis" style="font-size: 0.72rem;" title="Distancia fuera del radio de la sede">
+                                        Excedió por {{ $a->distance_meters - $a->allowed_radius }} m
+                                    </div>
+                                @endif
                             @endif
                             @if($a->accuracy_meters !== null)
                                 <div class="text-secondary small mt-0.5 d-flex align-items-center" style="font-size: 0.725rem; white-space: nowrap;">

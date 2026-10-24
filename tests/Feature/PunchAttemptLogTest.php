@@ -120,7 +120,13 @@ class PunchAttemptLogTest extends TestCase
         $hr = $this->makeUser($this->acme, 'hr_manager');
         $this->actingAs($hr)->get(route('attendance.attempts'))->assertOk()
             ->assertSee('Intentos rechazados')->assertSee('Rosa')->assertDontSee('Ajeno')
-            ->assertSee('Fuera de la geocerca')->assertSee('GPS impreciso')->assertSee('Ver en el mapa');
+            ->assertSee('Fuera de la geocerca')->assertSee('GPS impreciso')->assertSee('Ver en el mapa')
+            ->assertSee('Excedió por'); // DEF-07: distancia excedida explícita
+
+        // DEF-07: filtro por marcación (los intentos de esta prueba son de entrada)
+        $this->actingAs($hr)->get(route('attendance.attempts', ['type' => 'clock_out']))->assertOk()
+            ->assertSee('No hubo intentos rechazados en este rango.');
+        $this->actingAs($hr)->get(route('attendance.attempts', ['type' => 'clock_in']))->assertOk()->assertSee('Rosa');
 
         $this->actingAs($hr)->get(route('attendance.attempts', ['code' => 'GPS_ACCURACY_TOO_LOW']))->assertOk()
             ->assertSee('La precisión del GPS es baja')->assertDontSee('m permitidos');

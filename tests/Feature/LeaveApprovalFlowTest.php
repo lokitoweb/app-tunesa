@@ -88,6 +88,10 @@ class LeaveApprovalFlowTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->assertSame($head->id, Department::where('name', 'Caja')->value('head_id'));
 
+        // DEF-08: la pantalla muestra quién es el jefe de cada área
+        $this->actingAs($admin)->get('/organization')->assertOk()->assertInertia(fn ($page) => $page
+            ->where('departments.0.name', 'Caja')->where('departments.0.head', $head->full_name));
+
         $this->actingAs($admin)->post('/organization/departments', ['name' => 'Almacén', 'is_active' => true, 'head_id' => $foreign->id])
             ->assertSessionHasErrors('head_id');
     }

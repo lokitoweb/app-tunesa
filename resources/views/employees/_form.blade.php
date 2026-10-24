@@ -116,28 +116,23 @@
                             ->groupBy(fn ($p) => $p->department?->name ?? 'Sin área');
                     @endphp
                     <div class="col-md-4">
-                        <label for="{{ $positionOptions->isNotEmpty() ? 'position_id' : 'position' }}" class="form-label">Cargo</label>
-                        @if($positionOptions->isNotEmpty())
-                            <select id="position_id" name="position_id" class="form-select @error('position_id') is-invalid @enderror">
-                                <option value="">Sin cargo</option>
-                                @foreach($positionOptions as $group => $items)
-                                    <optgroup label="{{ $group }}">
-                                        @foreach($items as $p)
-                                            <option value="{{ $p->id }}" data-department="{{ $p->department_id }}" data-roaming="{{ $p->is_roaming ? 1 : 0 }}" @selected($val('position_id') == $p->id)>{{ $p->name }}</option>
-                                        @endforeach
-                                    </optgroup>
-                                @endforeach
-                            </select>
-                            @error('position_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                            @if($employee?->position && ! $employee->position_id)
-                                <div class="form-text">Antes: «{{ $employee->position }}». Elige su cargo del catálogo.</div>
-                            @else
-                                <div class="form-text">Los cargos se administran en <a href="{{ route('organization.index') }}">Organización</a>.</div>
-                            @endif
-                        @else
-                            <input type="text" id="position" name="position" value="{{ $val('position') }}" placeholder="Ej.: Almacenero" class="form-control">
-                            <div class="form-text">Crea el catálogo de cargos en <a href="{{ route('organization.index') }}">Organización</a>.</div>
+                        <label for="position_id" class="form-label">Cargo</label>
+                        <select id="position_id" name="position_id" class="form-select @error('position_id') is-invalid @enderror">
+                            <option value="">Sin cargo</option>
+                            @foreach($positionOptions as $group => $items)
+                                <optgroup label="{{ $group }}">
+                                    @foreach($items as $p)
+                                        <option value="{{ $p->id }}" data-department="{{ $p->department_id }}" data-roaming="{{ $p->is_roaming ? 1 : 0 }}" @selected($val('position_id') == $p->id)>{{ $p->name }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endforeach
+                        </select>
+                        @error('position_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        @if($employee?->position && ! $employee->position_id)
+                            <input type="hidden" name="position" value="{{ $employee->position }}">
+                            <div class="form-text">Antes: «{{ $employee->position }}». Elígelo o créalo en el catálogo.</div>
                         @endif
+                        @include('employees._new-position', ['select' => 'position_id', 'areaSelect' => 'department_id'])
                     </div>
                     <div class="col-md-4">
                         <label for="department" class="form-label">Área</label>

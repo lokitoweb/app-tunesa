@@ -53,7 +53,8 @@ class ShiftWeekScheduleTest extends TestCase
 
         $shift = Shift::where('name', 'Oficina')->firstOrFail();
         $this->assertSame('administrative', $shift->profile);
-        $this->assertSame(['6' => ['start_time' => '08:00', 'end_time' => '13:00', 'break_duration_minutes' => 0, 'daily_hours' => 5]], $shift->day_schedules);
+        // assertEquals: MySQL guarda las llaves del JSON en otro orden
+        $this->assertEquals(['6' => ['start_time' => '08:00', 'end_time' => '13:00', 'break_duration_minutes' => 0, 'daily_hours' => 5]], $shift->day_schedules);
 
         // Editar sin enviar el horario por día (otro cliente) lo conserva
         $this->actingAs($hr)->put("/shifts/{$shift->id}", [

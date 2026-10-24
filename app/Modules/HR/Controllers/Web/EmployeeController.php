@@ -463,6 +463,43 @@ class EmployeeController extends Controller
     }
 
     /**
+     * POST /employees/positions (JSON): crea un cargo del catálogo desde el alta o
+     * la ficha del colaborador, para no salir del formulario. Si ya existe con ese
+     * nombre se devuelve el mismo (sin duplicar). Editar y ordenar sigue en Organización.
+     */
+    public function storePosition(Request $request): JsonResponse
+    {
+        $tenantId = current_tenant_id_or_null();
+        abort_unless($tenantId, 422, 'Elige una empresa.');
+
+        $data = $request->validate([
+            'name'          => ['required', 'string', 'max:100'],
+            'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')->where('tenant_id', $tenantId)],
+        ], ['name.required' => 'Escribe el nombre del cargo.']);
+        $name = trim(preg_replace('/\s+/', ' ', $data['name']));
+
+        $position = Position::whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->first();
+        $created = ! $position;
+        if ($created) {
+            $position = Position::create(['name' => $name, 'department_id' => $data['department_id'] ?? null, 'is_roaming' => false, 'is_active' => true]);
+            app(\App\Modules\Core\Services\AuditLogger::class)->logCreated('position.created', $position, ['name' => $position->name]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'created' => $created,
+            'message' => $created ? "Cargo «{$position->name}» creado." : "El cargo «{$position->name}» ya existía: quedó seleccionado.",
+            'data'    => [
+                'id'            => $position->id,
+                'name'          => $position->name,
+                'department_id' => $position->department_id,
+                'department'    => $position->department?->name,
+                'is_roaming'    => (bool) $position->is_roaming,
+            ],
+        ], $created ? 201 : 200);
+    }
+
+    /**
      * Restablecer acceso: contraseña temporal nueva (se muestra una vez),
      * desbloqueo y cierre de sesiones de la app. Es la única forma de
      * recuperar una contraseña de la app ("Olvidé mi contraseña" solo avisa a RRHH).
@@ -536,7 +573,8 @@ class EmployeeController extends Controller
         if ($request->exists('position_id')) {
             $positionId = $validated['position_id'] ?? null;
             $data['position_id'] = $positionId;
-            $data['position']    = $positionId ? Position::whereKey($positionId)->value('name') : null;
+            // Sin cargo elegido se conserva el texto libre anterior (si el formulario lo trae)
+            $data['position']    = $positionId ? Position::whereKey($positionId)->value('name') : ($validated['position'] ?? null);
         }
 
         if ($validated['role'] === 'employee') {

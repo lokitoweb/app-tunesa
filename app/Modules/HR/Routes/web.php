@@ -20,6 +20,8 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status')->whereNumber('id');
         Route::patch('/{id}/unlock', [EmployeeController::class, 'unlock'])->name('unlock')->whereNumber('id');
         Route::get('/tenant-options/{id}', [EmployeeController::class, 'tenantOptions'])->name('tenant-options')->whereNumber('id');
+        // Cargo nuevo desde el alta del colaborador (sin ir a Organización)
+        Route::post('/positions', [EmployeeController::class, 'storePosition'])->name('positions.store');
         Route::post('/{id}/reset-access', [EmployeeController::class, 'resetAccess'])->name('reset-access')->whereNumber('id')->middleware('throttle:10,1');
     });
 

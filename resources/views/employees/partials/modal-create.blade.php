@@ -227,6 +227,7 @@
                                             @endforeach
                                         </select>
                                         <div class="invalid-feedback" id="err_position_id"></div>
+                                        @include('employees._new-position', ['select' => 'modal_position_id', 'areaSelect' => 'modal_department_id'])
                                     </div>
 
                                     {{-- Área / Departamento --}}

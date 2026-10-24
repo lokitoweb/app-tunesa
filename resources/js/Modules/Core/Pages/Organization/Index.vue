@@ -608,6 +608,19 @@ const missingSuggestions = computed(() => ({
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
+// Guía de la jerarquía (de lo general a lo particular) con quién responde en cada nivel
+const areasWithoutHead = computed(() => props.departments.filter((d) => d.is_active && !d.head_id));
+const hierarchyGuide = computed(() => [
+    { title: 'Zona', who: 'Agrupa sedes por región', count: props.zones.length,
+        help: 'Opcional. Agrupa varias sedes (por ejemplo, Norte y Sur) para filtrar y para dar a alguien acceso solo a su zona.' },
+    { title: 'Sede', who: 'Su supervisor controla la asistencia', count: props.branches.length,
+        help: 'Lugar donde se marca asistencia (geocerca). El supervisor de la sede ve a su personal y aprueba sus solicitudes.' },
+    { title: 'Área', who: 'Su jefe es el jefe inmediato', count: props.departments.length, warn: areasWithoutHead.value.length > 0,
+        help: 'Grupo de trabajo (Ventas, Administración…). El jefe de área aprueba vacaciones y permisos de su personal, junto con RR. HH.' },
+    { title: 'Cargo', who: 'Puesto de cada persona', count: props.positions.length,
+        help: 'Puesto de trabajo (Asesor, Cajero…). En cada sede defines cuántas plazas de cada cargo necesitas.' },
+]);
+
 const catalogDetail = (catalog, row) => {
     if (catalog === 'zones') {
         return plural(props.branches.filter((b) => b.zone_id === row.id).length, 'sede', 'sedes');
@@ -631,13 +644,10 @@ const catalogDetail = (catalog, row) => {
                     </div>
                     <div>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <h1 class="h3 fw-bold text-dark mb-0">Organización y Plantilla</h1>
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.75rem; border-radius: 6px;">
-                                Estructura Oficial
-                            </span>
+                            <h1 class="h3 fw-bold text-dark mb-0">Organización</h1>
                         </div>
                         <p class="text-secondary mb-0 mt-1" style="font-size: 0.875rem;">
-                            Jerarquía de zonas, sedes operativas, áreas y cargos con control de plantilla prevista vs real.
+                            Dónde trabaja cada persona, quién es su jefe y cuántos puestos necesita cada sede.
                         </p>
                     </div>
                 </div>
@@ -664,7 +674,7 @@ const catalogDetail = (catalog, row) => {
                             aria-expanded="false"
                         >
                             <i class="bi bi-folder-plus text-secondary fs-6"></i>
-                            <span>Nuevo catálogo</span>
+                            <span>Agregar zona, área o cargo</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="border-radius: 10px; font-size: 0.85rem;">
                             <li>
@@ -690,6 +700,24 @@ const catalogDetail = (catalog, row) => {
                 </div>
             </div>
 
+            <!-- Cómo se organiza la empresa: los 4 niveles y quién responde en cada uno -->
+            <ol class="org-guide list-unstyled d-flex flex-wrap gap-2 mt-3 mb-0" aria-label="Cómo se organiza tu empresa">
+                <li v-for="(step, i) in hierarchyGuide" :key="step.title" class="org-guide-step" :title="step.help">
+                    <span class="org-guide-num">{{ i + 1 }}</span>
+                    <span>
+                        <strong>{{ step.title }}</strong>
+                        <span class="d-block small text-secondary">{{ step.who }}</span>
+                    </span>
+                    <span class="badge rounded-pill" :class="step.warn ? 'text-bg-warning' : 'bg-body-secondary text-secondary'">{{ step.count }}</span>
+                </li>
+            </ol>
+            <div v-if="canManage && areasWithoutHead.length" class="small text-warning-emphasis mt-2">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                {{ areasWithoutHead.length === 1 ? 'El área' : 'Las áreas' }} {{ areasWithoutHead.map((d) => d.name).join(', ') }}
+                {{ areasWithoutHead.length === 1 ? 'no tiene' : 'no tienen' }} jefe: sus solicitudes las revisa el supervisor de la sede o RR. HH.
+                <button type="button" class="btn btn-link btn-sm p-0 align-baseline" @click="openEditCatalogModal('departments', areasWithoutHead[0])">Asignar jefe</button>
+            </div>
+
             <!-- Banner Informativo de Alcance Restringido -->
             <div v-if="scopeLabel" class="alert alert-info d-flex align-items-center shadow-sm mt-3 mb-0 border-0" style="border-radius: 10px; gap: 10px !important;" role="status">
                 <i class="bi bi-shield-lock-fill fs-5"></i>
@@ -707,7 +735,7 @@ const catalogDetail = (catalog, row) => {
             <div class="col-12 col-sm-6 col-xl-3">
                 <div class="kpi-metric-card shadow-sm p-3">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Sedes Operativas</span>
+                        <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Sedes</span>
                         <div class="kpi-icon-pill bg-indigo-subtle text-indigo">
                             <i class="bi bi-buildings"></i>
                         </div>
@@ -729,7 +757,7 @@ const catalogDetail = (catalog, row) => {
             <div class="col-12 col-sm-6 col-xl-3">
                 <div class="kpi-metric-card shadow-sm p-3">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Dotación Activa</span>
+                        <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Personal activo</span>
                         <div class="kpi-icon-pill bg-emerald-subtle text-emerald">
                             <i class="bi bi-people-fill"></i>
                         </div>
@@ -739,7 +767,7 @@ const catalogDetail = (catalog, row) => {
                         <span class="text-muted small">colaboradores</span>
                     </div>
                     <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                        Asignados en sedes actuales
+                        Con sede asignada hoy
                     </div>
                 </div>
             </div>
@@ -748,7 +776,7 @@ const catalogDetail = (catalog, row) => {
             <div class="col-12 col-sm-6 col-xl-3">
                 <div class="kpi-metric-card shadow-sm p-3">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Plantilla Prevista</span>
+                        <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Plazas previstas</span>
                         <div class="kpi-icon-pill bg-primary-subtle text-primary">
                             <i class="bi bi-clipboard-check-fill"></i>
                         </div>
@@ -760,7 +788,7 @@ const catalogDetail = (catalog, row) => {
                         </span>
                     </div>
                     <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                        Presupuesto de plazas totales
+                        Puestos que necesitan las sedes
                     </div>
                 </div>
             </div>
@@ -769,7 +797,7 @@ const catalogDetail = (catalog, row) => {
             <div class="col-12 col-sm-6 col-xl-3">
                 <div class="kpi-metric-card shadow-sm p-3">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Catálogos Maestros</span>
+                        <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Cargos y áreas</span>
                         <div class="kpi-icon-pill bg-amber-subtle text-amber">
                             <i class="bi bi-collection-fill"></i>
                         </div>
@@ -798,7 +826,7 @@ const catalogDetail = (catalog, row) => {
                     @click="activeMainTab = 'sedes'"
                 >
                     <i class="bi bi-buildings-fill fs-6"></i>
-                    <span>Sedes y Plantilla Operativa</span>
+                    <span>Sedes y personal</span>
                     <span class="badge ms-2" :class="activeMainTab === 'sedes' ? 'bg-white text-primary' : 'bg-secondary-subtle text-secondary'">
                         {{ visibleBranches.length }}
                     </span>
@@ -811,7 +839,7 @@ const catalogDetail = (catalog, row) => {
                     @click="activeMainTab = 'catalogs'"
                 >
                     <i class="bi bi-collection-fill fs-6"></i>
-                    <span>Catálogos Organizacionales</span>
+                    <span>Zonas, áreas y cargos</span>
                     <span class="badge ms-2" :class="activeMainTab === 'catalogs' ? 'bg-white text-primary' : 'bg-secondary-subtle text-secondary'">
                         {{ positions.length + departments.length + zones.length }}
                     </span>
@@ -1710,6 +1738,7 @@ const catalogDetail = (catalog, row) => {
                                         <option :value="null">Sin supervisor asignado</option>
                                         <option v-for="s in supervisors" :key="s.id" :value="s.id">{{ s.name }}</option>
                                     </select>
+                                    <div class="form-text small">Ve la asistencia del personal de esta sede y aprueba sus solicitudes.</div>
                                     <div v-if="branchForm.errors.supervisor_id" class="invalid-feedback d-block mt-1">
                                         {{ branchForm.errors.supervisor_id }}
                                     </div>
@@ -2228,6 +2257,18 @@ const catalogDetail = (catalog, row) => {
 </template>
 
 <style scoped>
+/* Guía de jerarquía: Zona → Sede → Área → Cargo */
+.org-guide-step {
+    display: flex; align-items: center; gap: 10px; flex: 1 1 200px;
+    padding: 8px 12px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 10px;
+    background: var(--bg-surface, #fff); font-size: 0.85rem; cursor: help;
+}
+.org-guide-num {
+    width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--brand, #0284c7); color: #fff; font-weight: 700; font-size: 0.75rem;
+}
+.org-guide-step .badge { margin-left: auto; }
 /* Card de Cabecera y Estilo Corporativo */
 .org-header-card {
     background: var(--bg-surface, #ffffff);

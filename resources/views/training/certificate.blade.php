@@ -15,10 +15,17 @@
     .meta { margin-top: 36px; font-size: 13px; color: #4b5563; }
     .meta td { padding: 4px 24px 4px 0; }
     .code { position: absolute; bottom: 36px; right: 64px; font-size: 11px; color: #6b7280; }
+    .logo { position: absolute; top: 40px; right: 64px; max-height: 70px; max-width: 220px; }
+    .signature { position: absolute; bottom: 64px; left: 64px; width: 260px; text-align: center; font-size: 12px; color: #374151; }
+    .signature img { max-height: 70px; max-width: 220px; }
+    .signature .line { border-top: 1px solid #6b7280; margin-top: 4px; padding-top: 6px; }
 </style>
 </head>
 <body>
 <div class="frame">
+    @if ($logo)
+        <img class="logo" src="{{ $logo }}" alt="{{ $company }}">
+    @endif
     <div class="company">{{ $company }}</div>
     <h1>Constancia de capacitación</h1>
     <div class="lead">Se deja constancia de que</div>
@@ -39,6 +46,14 @@
             @endif
         </tr>
     </table>
+    <div class="signature">
+        @if ($signer)
+            <img src="{{ $signer['signature'] }}" alt="Firma">
+            <div class="line"><strong>{{ $signer['name'] }}</strong><br>{{ $signer['position'] ?: 'Gerencia' }} · {{ $company }}</div>
+        @else
+            <div class="line" style="margin-top: 74px;">{{ $company }}</div>
+        @endif
+    </div>
     <div class="code">Código de verificación: {{ $code }}</div>
 </div>
 </body>
