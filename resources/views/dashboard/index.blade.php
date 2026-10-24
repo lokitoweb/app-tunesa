@@ -42,30 +42,121 @@
 
     <div class="header-controls">
         @if($navUser->isSuperAdmin())
-            <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0" data-skeleton>
+            @php
+                $dashTenants = \App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']);
+            @endphp
+            <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0 d-inline-flex" data-skeleton id="dashboardTenantForm">
                 @csrf
-                <div class="header-company-select" title="Filtrar por empresa">
-                    <i class="bi bi-buildings text-primary"></i>
-                    <select name="tenant_id" data-autosubmit aria-label="Empresa a administrar">
-                        <option value="">Todas las empresas</option>
-                        @foreach(\App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
-                            <option value="{{ $t->id }}" @selected($brandTenant?->id === $t->id)>{{ $t->company_name }}</option>
-                        @endforeach
-                    </select>
+                <input type="hidden" name="tenant_id" id="dashboardTenantInput" value="{{ $brandTenant?->id ?? '' }}">
+                <div class="dropdown header-filter-dropdown">
+                    <button type="button" class="header-filter-btn" data-bs-toggle="dropdown" aria-expanded="false" title="{{ $brandTenant?->company_name ?? 'Todas las empresas' }}">
+                        <span class="header-filter-icon-box">
+                            <i class="bi {{ $brandTenant ? 'bi-building' : 'bi-globe2' }}"></i>
+                        </span>
+                        <span class="header-filter-text">{{ $brandTenant?->company_name ?? 'Todas las empresas' }}</span>
+                        <i class="bi bi-chevron-down header-filter-chevron"></i>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end header-filter-menu shadow-lg">
+                        <div class="tenant-menu-header">
+                            <span class="tenant-menu-title"><i class="bi bi-buildings-fill text-primary me-1"></i> FILTRAR EMPRESA</span>
+                            <span class="tenant-menu-badge">{{ $dashTenants->count() }} disp.</span>
+                        </div>
+                        @if($dashTenants->count() >= 4)
+                            <div class="tenant-search-box">
+                                <i class="bi bi-search tenant-search-icon"></i>
+                                <input type="text" class="tenant-search-input" placeholder="Buscar empresa..." autocomplete="off" oninput="filterTenantMenu(this, '.header-filter-menu')">
+                            </div>
+                        @endif
+                        <div class="tenant-options-list">
+                            <button type="button" class="tenant-menu-item {{ !$brandTenant ? 'is-selected' : '' }}" onclick="selectTenantAndSubmit('', 'dashboardTenantInput', 'dashboardTenantForm')" data-search="todas las empresas consolidado plataforma global">
+                                <span class="tenant-item-icon is-global">
+                                    <i class="bi bi-globe2"></i>
+                                </span>
+                                <div class="tenant-item-content">
+                                    <span class="tenant-item-name">Todas las empresas</span>
+                                    <span class="tenant-item-sub">Consolidado global</span>
+                                </div>
+                                @if(!$brandTenant)
+                                    <i class="bi bi-check2 tenant-item-check"></i>
+                                @endif
+                            </button>
+                            <div class="tenant-menu-divider"></div>
+                            @foreach($dashTenants as $t)
+                                <button type="button" class="tenant-menu-item {{ $brandTenant?->id === $t->id ? 'is-selected' : '' }}" onclick="selectTenantAndSubmit('{{ $t->id }}', 'dashboardTenantInput', 'dashboardTenantForm')" data-search="{{ strtolower($t->company_name) }}">
+                                    <span class="tenant-item-icon is-tenant">
+                                        <i class="bi bi-building"></i>
+                                    </span>
+                                    <div class="tenant-item-content">
+                                        <span class="tenant-item-name">{{ $t->company_name }}</span>
+                                        <span class="tenant-item-sub">Empresa activa</span>
+                                    </div>
+                                    @if($brandTenant?->id === $t->id)
+                                        <i class="bi bi-check2 tenant-item-check"></i>
+                                    @endif
+                                </button>
+                            @endforeach
+                            <div class="tenant-empty-search text-center py-2 text-muted small d-none">
+                                <i class="bi bi-search me-1"></i> No se encontraron empresas
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </form>
         @endif
 
-        {{-- Filtro de Sede / Oficina (Carga 100% interna asíncrona sin alterar URL) --}}
+        {{-- Filtro de Sede / Oficina Reactivo 100% Asíncrono --}}
         <div class="m-0 d-inline-flex" id="branchFilterContainer">
-            <div class="header-company-select" title="Filtrar por sede / oficina">
-                <i class="bi bi-geo-alt text-primary"></i>
-                <select id="branchSelectFilter" aria-label="Filtrar por oficina">
-                    <option value="">Todas las sedes ({{ $allBranches->count() }})</option>
-                    @foreach($allBranches as $br)
-                        <option value="{{ $br->id }}" @selected($selectedBranchId === $br->id)>{{ $br->name }}</option>
-                    @endforeach
-                </select>
+            <input type="hidden" id="branchSelectFilter" value="{{ $selectedBranchId ?? '' }}">
+            <div class="dropdown header-filter-dropdown">
+                <button type="button" class="header-filter-btn" data-bs-toggle="dropdown" aria-expanded="false" id="branchFilterDropdownBtn" title="{{ $allBranches->firstWhere('id', $selectedBranchId)?->name ?? 'Todas las sedes (' . $allBranches->count() . ')' }}">
+                    <span class="header-filter-icon-box">
+                        <i class="bi bi-geo-alt"></i>
+                    </span>
+                    <span class="header-filter-text" id="branchFilterBtnText">
+                        {{ $allBranches->firstWhere('id', $selectedBranchId)?->name ?? 'Todas las sedes (' . $allBranches->count() . ')' }}
+                    </span>
+                    <i class="bi bi-chevron-down header-filter-chevron"></i>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end header-filter-menu shadow-lg" id="branchFilterMenu">
+                    <div class="tenant-menu-header">
+                        <span class="tenant-menu-title"><i class="bi bi-geo-alt-fill text-primary me-1"></i> FILTRAR SEDE</span>
+                        <span class="tenant-menu-badge">{{ $allBranches->count() }} sedes</span>
+                    </div>
+                    @if($allBranches->count() >= 4)
+                        <div class="tenant-search-box">
+                            <i class="bi bi-search tenant-search-icon"></i>
+                            <input type="text" class="tenant-search-input" placeholder="Buscar sede..." autocomplete="off" oninput="filterTenantMenu(this, '#branchFilterMenu')">
+                        </div>
+                    @endif
+                    <div class="tenant-options-list">
+                        <button type="button" class="tenant-menu-item branch-item {{ empty($selectedBranchId) ? 'is-selected' : '' }}" onclick="selectDashboardBranch('', 'Todas las sedes ({{ $allBranches->count() }})', this)" data-branch-id="" data-search="todas las sedes oficinas geocercas">
+                            <span class="tenant-item-icon is-global">
+                                <i class="bi bi-geo-alt-fill"></i>
+                            </span>
+                            <div class="tenant-item-content">
+                                <span class="tenant-item-name">Todas las sedes ({{ $allBranches->count() }})</span>
+                                <span class="tenant-item-sub">Todas las geocercas y oficinas</span>
+                            </div>
+                            <i class="bi bi-check2 tenant-item-check {{ empty($selectedBranchId) ? '' : 'd-none' }}"></i>
+                        </button>
+                        <div class="tenant-menu-divider"></div>
+                        @foreach($allBranches as $br)
+                            <button type="button" class="tenant-menu-item branch-item {{ (int)$selectedBranchId === (int)$br->id ? 'is-selected' : '' }}" onclick="selectDashboardBranch('{{ $br->id }}', '{{ addslashes($br->name) }}', this)" data-branch-id="{{ $br->id }}" data-search="{{ strtolower($br->name) }}">
+                                <span class="tenant-item-icon is-tenant">
+                                    <i class="bi bi-pin-map"></i>
+                                </span>
+                                <div class="tenant-item-content">
+                                    <span class="tenant-item-name">{{ $br->name }}</span>
+                                    <span class="tenant-item-sub">Sede operativa</span>
+                                </div>
+                                <i class="bi bi-check2 tenant-item-check {{ (int)$selectedBranchId === (int)$br->id ? '' : 'd-none' }}"></i>
+                            </button>
+                        @endforeach
+                        <div class="tenant-empty-search text-center py-2 text-muted small d-none">
+                            <i class="bi bi-search me-1"></i> No se encontraron sedes
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -904,6 +995,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const branchSel = document.getElementById('branchSelectFilter');
                 if (branchSel && String(branchSel.value || '') !== String(data.selectedBranchId || '')) {
                     branchSel.value = data.selectedBranchId || '';
+                    const matchedItem = document.querySelector(`.branch-item[data-branch-id="${data.selectedBranchId || ''}"]`);
+                    const branchName = matchedItem ? matchedItem.querySelector('.tenant-item-name')?.textContent : null;
+                    if (branchName) {
+                        const btnText = document.getElementById('branchFilterBtnText');
+                        if (btnText) btnText.textContent = branchName;
+                        const btn = document.getElementById('branchFilterDropdownBtn');
+                        if (btn) btn.title = branchName;
+                    }
                 }
             }
 

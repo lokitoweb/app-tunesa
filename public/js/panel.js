@@ -606,6 +606,57 @@
     // Volver con el botón Atrás (bfcache) no debe dejar la silueta puesta
     window.addEventListener('pageshow', () => skeleton.off('.sk-loading, ' + MAIN));
 
+    // Desplegables modernos de empresas y sedes
+    window.selectTenantAndSubmit = function (tenantId, inputId, formId) {
+        const input = document.getElementById(inputId);
+        const form = document.getElementById(formId);
+        if (input && form) {
+            input.value = tenantId;
+            skeleton.on(MAIN);
+            form.requestSubmit ? form.requestSubmit() : form.submit();
+        }
+    };
+
+    window.filterTenantMenu = function (input, menuSelector) {
+        const q = input.value.trim().toLowerCase();
+        const menu = input.closest(menuSelector) || document.querySelector(menuSelector);
+        if (!menu) return;
+        const items = menu.querySelectorAll('.tenant-menu-item');
+        let visibleCount = 0;
+        items.forEach((item) => {
+            const text = (item.dataset.search || item.textContent).toLowerCase();
+            const match = !q || text.includes(q);
+            item.style.display = match ? 'flex' : 'none';
+            if (match) visibleCount++;
+        });
+        const divider = menu.querySelector('.tenant-menu-divider');
+        if (divider) divider.style.display = q ? 'none' : 'block';
+        const empty = menu.querySelector('.tenant-empty-search');
+        if (empty) empty.classList.toggle('d-none', visibleCount > 0);
+    };
+
+    window.selectDashboardBranch = function (branchId, branchName, clickedEl) {
+        const input = document.getElementById('branchSelectFilter');
+        if (input) {
+            input.value = branchId;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        const btnText = document.getElementById('branchFilterBtnText');
+        if (btnText) btnText.textContent = branchName;
+        const btn = document.getElementById('branchFilterDropdownBtn');
+        if (btn) btn.title = branchName;
+
+        const menu = document.getElementById('branchFilterMenu');
+        if (menu) {
+            menu.querySelectorAll('.branch-item').forEach((item) => {
+                const isMatch = item === clickedEl || item.dataset.branchId === String(branchId);
+                item.classList.toggle('is-selected', isMatch);
+                const check = item.querySelector('.tenant-item-check');
+                if (check) check.classList.toggle('d-none', !isMatch);
+            });
+        }
+    };
+
     window.Panel = { esc, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;

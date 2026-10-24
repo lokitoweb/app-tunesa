@@ -7,10 +7,10 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
     <div>
         <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 fw-bold" style="font-size: 0.725rem;">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 fw-bold" style="border-radius: 6px; font-size: 0.725rem;">
                 <i class="bi bi-person-badge me-1"></i>Perfil de Usuario
             </span>
-            <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-semibold" style="font-size: 0.725rem;">
+            <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 fw-semibold" style="border-radius: 6px; font-size: 0.725rem;">
                 <i class="bi bi-shield-check me-1"></i>Cuenta activa
             </span>
         </div>
@@ -34,7 +34,7 @@
     {{-- Columna Izquierda: Perfil y Sesiones (col-lg-5) --}}
     <div class="col-lg-5">
         {{-- Tarjeta de Identidad y Credencial --}}
-        <div class="card border-0 shadow-sm mb-4" style="border-radius: 14px; overflow: hidden; border: 1px solid var(--border-color) !important;">
+        <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color) !important;">
             {{-- Banner decorativo superior --}}
             <div style="height: 80px; background: linear-gradient(135deg, rgba(2, 132, 199, 0.25) 0%, rgba(99, 102, 241, 0.35) 100%); border-bottom: 1px solid var(--border-color);"></div>
 
@@ -60,7 +60,7 @@
                     </div>
 
                     <div>
-                        <span class="badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1.5 fw-bold" style="font-size: 0.75rem;">
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1.5 fw-bold" style="border-radius: 6px; font-size: 0.75rem;">
                             <i class="bi bi-award-fill me-1"></i>{{ label('user_role', $user->role) }}
                         </span>
                     </div>
@@ -168,7 +168,7 @@
         </div>
 
         {{-- Tarjeta de Sesiones Móviles y Dispositivos --}}
-        <div class="card border-0 shadow-sm" style="border-radius: 14px; border: 1px solid var(--border-color) !important;">
+        <div class="card border-0 shadow-sm" style="border-radius: 12px; border: 1px solid var(--border-color) !important;">
             <div class="card-body p-4">
                 <div class="d-flex align-items-center justify-content-between mb-2">
                     <div class="d-flex align-items-center gap-2">
@@ -177,7 +177,7 @@
                         </div>
                         <h3 class="h6 fw-bold mb-0 text-body">Sesiones en la App Móvil</h3>
                     </div>
-                    <span class="badge rounded-pill {{ $activeTokensCount > 0 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary' }} px-2.5 py-1 fw-bold" style="font-size: 0.75rem;">
+                    <span class="badge {{ $activeTokensCount > 0 ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary' }} px-2.5 py-1 fw-bold" style="border-radius: 6px; font-size: 0.75rem;">
                         {{ $activeTokensCount }} {{ $activeTokensCount === 1 ? 'móvil activo' : 'móviles activos' }}
                     </span>
                 </div>
@@ -198,7 +198,7 @@
 
     {{-- Columna Derecha: Seguridad y Cambio de Contraseña (col-lg-7) --}}
     <div class="col-lg-7">
-        <div class="card border-0 shadow-sm" style="border-radius: 14px; border: 1px solid var(--border-color) !important;">
+        <div class="card border-0 shadow-sm" style="border-radius: 12px; border: 1px solid var(--border-color) !important;">
             <div class="card-header bg-transparent p-4 pb-3 border-bottom" style="border-color: var(--border-color) !important;">
                 <div class="d-flex align-items-center gap-2.5">
                     <div class="d-inline-flex align-items-center justify-content-center rounded-3 bg-primary-subtle text-primary shadow-sm" style="width: 38px; height: 38px;">
@@ -234,24 +234,23 @@
                             <span><i class="bi bi-key text-muted me-1"></i>Contraseña actual</span>
                             <span class="text-muted fw-normal" style="font-size: 0.75rem;">Requerida para confirmar identidad</span>
                         </label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-surface text-secondary border-end-0" style="border-color: var(--border-color);">
-                                <i class="bi bi-lock"></i>
-                            </span>
+                        <div class="position-relative">
+                            <i class="bi bi-lock position-absolute top-50 translate-middle-y text-secondary" 
+                               style="left: 0.95rem; pointer-events: none; font-size: 0.95rem; z-index: 5;"></i>
                             <input type="password" 
                                    id="current_password" 
                                    name="current_password" 
-                                   class="form-control border-start-0 border-end-0 @error('current_password') is-invalid @enderror" 
+                                   class="form-control @error('current_password') is-invalid @enderror" 
                                    placeholder="Ingresa tu contraseña actual"
                                    required 
                                    autocomplete="current-password"
-                                   style="border-color: var(--border-color);">
+                                   style="padding-left: 2.6rem; padding-right: 2.6rem; height: 42px; border-radius: 8px; border-color: var(--border-color); font-size: 0.875rem;">
                             <button type="button" 
-                                    class="input-group-text bg-surface text-secondary border-start-0" 
+                                    class="btn btn-link position-absolute top-50 translate-middle-y text-secondary p-0 text-decoration-none d-flex align-items-center justify-content-center" 
                                     onclick="togglePasswordVisibility('current_password', this)"
                                     title="Mostrar u ocultar contraseña"
                                     aria-label="Mostrar u ocultar contraseña"
-                                    style="border-color: var(--border-color); cursor: pointer;">
+                                    style="right: 0.85rem; width: 28px; height: 28px; z-index: 5;">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
@@ -268,25 +267,24 @@
                             <label class="form-label fw-semibold text-body small mb-1.5" for="password">
                                 <i class="bi bi-shield-plus text-primary me-1"></i>Nueva contraseña
                             </label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-surface text-secondary border-end-0" style="border-color: var(--border-color);">
-                                    <i class="bi bi-key-fill"></i>
-                                </span>
+                            <div class="position-relative">
+                                <i class="bi bi-key-fill position-absolute top-50 translate-middle-y text-secondary" 
+                                   style="left: 0.95rem; pointer-events: none; font-size: 0.95rem; z-index: 5;"></i>
                                 <input type="password" 
                                        id="password" 
                                        name="password" 
-                                       class="form-control border-start-0 border-end-0 @error('password') is-invalid @enderror" 
+                                       class="form-control @error('password') is-invalid @enderror" 
                                        placeholder="Mínimo 8 caracteres"
                                        required 
                                        autocomplete="new-password"
                                        oninput="evaluatePasswordStrength(this.value)"
-                                       style="border-color: var(--border-color);">
+                                       style="padding-left: 2.6rem; padding-right: 2.6rem; height: 42px; border-radius: 8px; border-color: var(--border-color); font-size: 0.875rem;">
                                 <button type="button" 
-                                        class="input-group-text bg-surface text-secondary border-start-0" 
+                                        class="btn btn-link position-absolute top-50 translate-middle-y text-secondary p-0 text-decoration-none d-flex align-items-center justify-content-center" 
                                         onclick="togglePasswordVisibility('password', this)"
                                         title="Mostrar u ocultar contraseña"
                                         aria-label="Mostrar u ocultar contraseña"
-                                        style="border-color: var(--border-color); cursor: pointer;">
+                                        style="right: 0.85rem; width: 28px; height: 28px; z-index: 5;">
                                     <i class="bi bi-eye"></i>
                                 </button>
                             </div>
@@ -302,25 +300,24 @@
                             <label class="form-label fw-semibold text-body small mb-1.5" for="password_confirmation">
                                 <i class="bi bi-check2-circle text-success me-1"></i>Confirma la nueva contraseña
                             </label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-surface text-secondary border-end-0" style="border-color: var(--border-color);">
-                                    <i class="bi bi-shield-check"></i>
-                                </span>
+                            <div class="position-relative">
+                                <i class="bi bi-shield-check position-absolute top-50 translate-middle-y text-secondary" 
+                                   style="left: 0.95rem; pointer-events: none; font-size: 0.95rem; z-index: 5;"></i>
                                 <input type="password" 
                                        id="password_confirmation" 
                                        name="password_confirmation" 
-                                       class="form-control border-start-0 border-end-0" 
+                                       class="form-control" 
                                        placeholder="Repite la contraseña"
                                        required 
                                        autocomplete="new-password"
                                        oninput="checkPasswordMatch()"
-                                       style="border-color: var(--border-color);">
+                                       style="padding-left: 2.6rem; padding-right: 2.6rem; height: 42px; border-radius: 8px; border-color: var(--border-color); font-size: 0.875rem;">
                                 <button type="button" 
-                                        class="input-group-text bg-surface text-secondary border-start-0" 
+                                        class="btn btn-link position-absolute top-50 translate-middle-y text-secondary p-0 text-decoration-none d-flex align-items-center justify-content-center" 
                                         onclick="togglePasswordVisibility('password_confirmation', this)"
                                         title="Mostrar u ocultar contraseña"
                                         aria-label="Mostrar u ocultar contraseña"
-                                        style="border-color: var(--border-color); cursor: pointer;">
+                                        style="right: 0.85rem; width: 28px; height: 28px; z-index: 5;">
                                     <i class="bi bi-eye"></i>
                                 </button>
                             </div>
@@ -372,7 +369,7 @@
 {{-- Modal para Editar Datos de Contacto y Foto de Perfil --}}
 <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg" style="border-radius: 14px; overflow: hidden;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color) !important;">
             <div class="modal-header border-bottom p-3.5" style="border-color: var(--border-color) !important;">
                 <div class="d-flex align-items-center gap-2.5">
                     <div class="d-inline-flex align-items-center justify-content-center rounded-2 bg-primary-subtle text-primary" style="width: 32px; height: 32px;">
@@ -412,20 +409,21 @@
 
                     {{-- Teléfono --}}
                     <div class="mb-3">
-                        <label class="form-label fw-semibold text-body small" for="phoneInput">Teléfono móvil</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-surface text-secondary" style="border-color: var(--border-color);">
-                                <i class="bi bi-telephone"></i>
-                            </span>
-                            <input type="text" id="phoneInput" name="phone" class="form-control" value="{{ old('phone', $user->phone) }}" placeholder="+51 987 654 321" style="border-color: var(--border-color);">
+                        <label class="form-label fw-semibold text-body small mb-1.5" for="phoneInput">Teléfono móvil</label>
+                        <div class="position-relative">
+                            <i class="bi bi-telephone position-absolute top-50 translate-middle-y text-secondary" style="left: 0.95rem; pointer-events: none; font-size: 0.95rem; z-index: 5;"></i>
+                            <input type="text" id="phoneInput" name="phone" class="form-control" value="{{ old('phone', $user->phone) }}" placeholder="+51 987 654 321" style="padding-left: 2.6rem; height: 42px; border-radius: 8px; border-color: var(--border-color); font-size: 0.875rem;">
                         </div>
                         <div class="text-secondary small mt-1" style="font-size: 0.75rem;">Usado para alertas operativas y comunicación interna.</div>
                     </div>
 
                     {{-- Correo (Informativo, no modificable) --}}
                     <div class="mb-2">
-                        <label class="form-label fw-semibold text-body small">Correo institucional (No modificable)</label>
-                        <input type="text" class="form-control bg-body-secondary text-secondary" value="{{ $user->email }}" disabled readonly>
+                        <label class="form-label fw-semibold text-body small mb-1.5">Correo institucional (No modificable)</label>
+                        <div class="position-relative">
+                            <i class="bi bi-envelope position-absolute top-50 translate-middle-y text-muted" style="left: 0.95rem; pointer-events: none; font-size: 0.95rem; z-index: 5;"></i>
+                            <input type="text" class="form-control bg-body-secondary text-secondary" value="{{ $user->email }}" disabled readonly style="padding-left: 2.6rem; height: 42px; border-radius: 8px; border-color: var(--border-color); font-size: 0.875rem;">
+                        </div>
                         <div class="text-muted small mt-1" style="font-size: 0.725rem;">
                             <i class="bi bi-lock-fill me-1"></i>El correo de acceso es administrado por el equipo de TI y RRHH.
                         </div>

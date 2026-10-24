@@ -48,6 +48,35 @@ function toggleSidebar() {
     isExpanded.value = !isExpanded.value;
 }
 
+// Selector de Empresa del Super Admin
+const showTenantMenu = ref(false);
+const tenantSearch = ref('');
+const filteredTenants = computed(() => {
+    const list = page.props.tenants || [];
+    if (!tenantSearch.value.trim()) return list;
+    const q = tenantSearch.value.trim().toLowerCase();
+    return list.filter(t => (t.company_name || '').toLowerCase().includes(q));
+});
+function selectTenant(id) {
+    showTenantMenu.value = false;
+    const form = document.getElementById('vueTenantForm');
+    if (form) {
+        form.querySelector('input[name="tenant_id"]').value = id;
+        form.submit();
+    }
+}
+function handleGlobalClick(e) {
+    if (!e.target.closest('.topbar-tenant-dropdown')) {
+        showTenantMenu.value = false;
+    }
+}
+onMounted(() => {
+    document.addEventListener('click', handleGlobalClick);
+});
+onUnmounted(() => {
+    document.removeEventListener('click', handleGlobalClick);
+});
+
 // Pantalla Completa
 function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -147,17 +176,53 @@ onUnmounted(() => {
                         <i class="bi bi-list"></i>
                     </button>
                     <!-- Selector de empresa del Super Admin -->
-                    <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0">
+                    <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0 d-inline-flex align-items-center" id="vueTenantForm">
                         <input type="hidden" name="_token" :value="page.props.csrf">
-                        <div class="topbar-tenant-selector" title="Filtrar vista por empresa">
-                            <span class="tenant-selector-icon">
-                                <i class="bi bi-buildings"></i>
-                            </span>
-                            <select name="tenant_id" class="tenant-selector-select" aria-label="Empresa a administrar" @change="$event.target.form.submit()">
-                                <option value="" :selected="!brand.tenant_id">Todas las empresas</option>
-                                <option v-for="t in page.props.tenants" :key="t.id" :value="t.id" :selected="t.id === brand.tenant_id">{{ t.company_name }}</option>
-                            </select>
-                            <i class="bi bi-chevron-down tenant-selector-arrow"></i>
+                        <input type="hidden" name="tenant_id" :value="brand.tenant_id || ''">
+                        <div class="dropdown topbar-tenant-dropdown" :class="{ show: showTenantMenu }">
+                            <button type="button" class="topbar-tenant-btn" @click.stop="showTenantMenu = !showTenantMenu" :title="brand.company_name || 'Todas las empresas'">
+                                <span class="tenant-btn-icon">
+                                    <i class="bi" :class="brand.tenant_id ? 'bi-building' : 'bi-globe2'"></i>
+                                </span>
+                                <span class="tenant-btn-text">{{ brand.company_name || 'Todas las empresas' }}</span>
+                                <i class="bi bi-chevron-down tenant-btn-chevron"></i>
+                            </button>
+                            <div v-if="showTenantMenu" class="dropdown-menu dropdown-menu-start topbar-tenant-menu shadow-lg show" style="display: block;">
+                                <div class="tenant-menu-header">
+                                    <span class="tenant-menu-title"><i class="bi bi-buildings-fill text-primary me-1"></i> EMPRESA ACTIVA</span>
+                                    <span class="tenant-menu-badge">{{ (page.props.tenants || []).length }} disp.</span>
+                                </div>
+                                <div v-if="(page.props.tenants || []).length >= 4" class="tenant-search-box">
+                                    <i class="bi bi-search tenant-search-icon"></i>
+                                    <input type="text" v-model="tenantSearch" class="tenant-search-input" placeholder="Buscar empresa..." autocomplete="off" @click.stop>
+                                </div>
+                                <div class="tenant-options-list">
+                                    <button type="button" class="tenant-menu-item" :class="{ 'is-selected': !brand.tenant_id }" @click="selectTenant('')">
+                                        <span class="tenant-item-icon is-global">
+                                            <i class="bi bi-globe2"></i>
+                                        </span>
+                                        <div class="tenant-item-content">
+                                            <span class="tenant-item-name">Todas las empresas</span>
+                                            <span class="tenant-item-sub">Consolidado global de la plataforma</span>
+                                        </div>
+                                        <i v-if="!brand.tenant_id" class="bi bi-check2 tenant-item-check"></i>
+                                    </button>
+                                    <div class="tenant-menu-divider"></div>
+                                    <button v-for="t in filteredTenants" :key="t.id" type="button" class="tenant-menu-item" :class="{ 'is-selected': brand.tenant_id === t.id }" @click="selectTenant(t.id)">
+                                        <span class="tenant-item-icon is-tenant">
+                                            <i class="bi bi-building"></i>
+                                        </span>
+                                        <div class="tenant-item-content">
+                                            <span class="tenant-item-name">{{ t.company_name }}</span>
+                                            <span class="tenant-item-sub">Empresa activa</span>
+                                        </div>
+                                        <i v-if="brand.tenant_id === t.id" class="bi bi-check2 tenant-item-check"></i>
+                                    </button>
+                                    <div v-if="filteredTenants.length === 0" class="tenant-empty-search text-center py-2 text-muted small">
+                                        <i class="bi bi-search me-1"></i> No se encontraron empresas
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                     <span v-else class="topbar-company text-truncate">

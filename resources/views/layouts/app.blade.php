@@ -69,19 +69,66 @@
                 </button>
                 @if($navUser->isSuperAdmin())
                     @if(!request()->routeIs('dashboard*'))
-                        <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0" data-skeleton>
+                        @php
+                            $allTenants = \App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']);
+                        @endphp
+                        <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0 d-inline-flex align-items-center" data-skeleton id="topbarTenantForm">
                             @csrf
-                            <div class="topbar-tenant-selector" title="Filtrar vista por empresa">
-                                <span class="tenant-selector-icon">
-                                    <i class="bi bi-buildings"></i>
-                                </span>
-                                <select name="tenant_id" class="tenant-selector-select" data-autosubmit aria-label="Empresa a administrar">
-                                    <option value="" @selected(!$brand)>Todas las empresas</option>
-                                    @foreach(\App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']) as $t)
-                                        <option value="{{ $t->id }}" @selected($brand?->id === $t->id)>{{ $t->company_name }}</option>
-                                    @endforeach
-                                </select>
-                                <i class="bi bi-chevron-down tenant-selector-arrow"></i>
+                            <input type="hidden" name="tenant_id" id="topbarTenantInput" value="{{ $brand?->id ?? '' }}">
+                            <div class="dropdown topbar-tenant-dropdown">
+                                <button type="button" class="topbar-tenant-btn" data-bs-toggle="dropdown" aria-expanded="false" title="{{ $brand?->company_name ?? 'Todas las empresas' }}">
+                                    <span class="tenant-btn-icon">
+                                        <i class="bi {{ $brand ? 'bi-building' : 'bi-globe2' }}"></i>
+                                    </span>
+                                    <span class="tenant-btn-text">{{ $brand?->company_name ?? 'Todas las empresas' }}</span>
+                                    <i class="bi bi-chevron-down tenant-btn-chevron"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-start topbar-tenant-menu shadow-lg">
+                                    <div class="tenant-menu-header">
+                                        <span class="tenant-menu-title"><i class="bi bi-buildings-fill text-primary me-1"></i> EMPRESA ACTIVA</span>
+                                        <span class="tenant-menu-badge">{{ $allTenants->count() }} disp.</span>
+                                    </div>
+                                    @if($allTenants->count() >= 4)
+                                        <div class="tenant-search-box">
+                                            <i class="bi bi-search tenant-search-icon"></i>
+                                            <input type="text" class="tenant-search-input" placeholder="Buscar empresa..." autocomplete="off" oninput="filterTenantMenu(this, '.topbar-tenant-menu')">
+                                        </div>
+                                    @endif
+                                    <div class="tenant-options-list">
+                                        {{-- Opción Global --}}
+                                        <button type="button" class="tenant-menu-item {{ !$brand ? 'is-selected' : '' }}" onclick="selectTenantAndSubmit('', 'topbarTenantInput', 'topbarTenantForm')" data-search="todas las empresas plataforma global">
+                                            <span class="tenant-item-icon is-global">
+                                                <i class="bi bi-globe2"></i>
+                                            </span>
+                                            <div class="tenant-item-content">
+                                                <span class="tenant-item-name">Todas las empresas</span>
+                                                <span class="tenant-item-sub">Consolidado global de la plataforma</span>
+                                            </div>
+                                            @if(!$brand)
+                                                <i class="bi bi-check2 tenant-item-check"></i>
+                                            @endif
+                                        </button>
+                                        <div class="tenant-menu-divider"></div>
+                                        {{-- Empresas individuales --}}
+                                        @foreach($allTenants as $t)
+                                            <button type="button" class="tenant-menu-item {{ $brand?->id === $t->id ? 'is-selected' : '' }}" onclick="selectTenantAndSubmit('{{ $t->id }}', 'topbarTenantInput', 'topbarTenantForm')" data-search="{{ strtolower($t->company_name) }}">
+                                                <span class="tenant-item-icon is-tenant">
+                                                    <i class="bi bi-building"></i>
+                                                </span>
+                                                <div class="tenant-item-content">
+                                                    <span class="tenant-item-name">{{ $t->company_name }}</span>
+                                                    <span class="tenant-item-sub">Empresa activa</span>
+                                                </div>
+                                                @if($brand?->id === $t->id)
+                                                    <i class="bi bi-check2 tenant-item-check"></i>
+                                                @endif
+                                            </button>
+                                        @endforeach
+                                        <div class="tenant-empty-search text-center py-2 text-muted small d-none">
+                                            <i class="bi bi-search me-1"></i> No se encontraron empresas
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     @endif
