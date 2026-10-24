@@ -30,6 +30,7 @@ class Shift extends Model
         'name',
         'code',
         'type',
+        'profile',
         'start_time',
         'end_time',
         'crosses_midnight',
@@ -37,6 +38,7 @@ class Shift extends Model
         'break_allowed',
         'break_duration_minutes',
         'working_days',
+        'day_schedules',
         'rotation_work_days',
         'rotation_rest_days',
         'daily_hours',
@@ -47,6 +49,7 @@ class Shift extends Model
 
     protected $casts = [
         'working_days'           => 'array',
+        'day_schedules'          => 'array',
         'crosses_midnight'       => 'boolean',
         'break_allowed'          => 'boolean',
         'is_active'              => 'boolean',
@@ -54,6 +57,16 @@ class Shift extends Model
         'rotation_work_days'     => 'integer',
         'rotation_rest_days'     => 'integer',
     ];
+
+    /** Perfiles de turno: agrupan horarios del mismo tipo de personal */
+    public const PROFILES = [
+        'administrative' => 'Administrativo',
+        'sales'          => 'Ventas / tienda',
+        'operations'     => 'Operaciones / campo',
+    ];
+
+    /** Lo que un día de la semana puede cambiar respecto del horario general */
+    public const DAY_FIELDS = ['start_time', 'end_time', 'break_duration_minutes', 'daily_hours'];
 
     // =========================================================================
     // RELACIONES
@@ -80,6 +93,34 @@ class Shift extends Model
     public function appliesOnDay(int $dayOfWeek): bool
     {
         return in_array($dayOfWeek, $this->working_days ?? []);
+    }
+
+    /**
+     * El turno tal como rige en una fecha: con el horario propio de ese día de la
+     * semana si lo tiene (sábado corto, por ejemplo). Tardanza, break, horas extra,
+     * recordatorios y tablero leen el turno a través de aquí. Sin cambios ese día
+     * devuelve el mismo modelo; si no, una copia que nunca se guarda.
+     */
+    public function forDate(CarbonInterface|string|null $date): static
+    {
+        if ($date === null || $this->isRotating()) {
+            return $this;
+        }
+
+        $day = is_string($date) ? \Carbon\Carbon::parse($date)->dayOfWeek : $date->dayOfWeek;
+        $override = array_intersect_key((array) (($this->day_schedules ?? [])[$day] ?? []), array_flip(self::DAY_FIELDS));
+        $override = array_filter($override, fn ($v) => $v !== null && $v !== '');
+        if ($override === []) {
+            return $this;
+        }
+
+        $copy = clone $this;
+        $copy->forceFill($override);
+        if (isset($override['start_time']) || isset($override['end_time'])) {
+            $copy->crosses_midnight = substr((string) $copy->end_time, 0, 5) <= substr((string) $copy->start_time, 0, 5);
+        }
+
+        return $copy;
     }
 
     public function isRotating(): bool

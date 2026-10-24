@@ -285,7 +285,7 @@ class AttendanceService
         }
 
         [$assignment, $hasAssignments] = $this->getCurrentShift($employee, $today);
-        $shift = $assignment?->shift;
+        $shift = $assignment?->shift?->forDate($today);
 
         if ($hasAssignments && $this->isOutsideSchedule($assignment, $today, $at, $c['tenant']->timezone)) {
             $reasons[] = AttendancePunch::REASON_OUTSIDE_SCHEDULE;
@@ -394,7 +394,7 @@ class AttendanceService
 
         $breakMinutes = (int) $breakStart->diffInMinutes($at);
 
-        $shift = $attendance->shift;
+        $shift = $attendance->shift?->forDate($attendance->work_date);
         if ($shift && $shift->break_allowed && $breakMinutes > $shift->break_duration_minutes) {
             logger()->info('Break excedido', [
                 'user_id'       => $attendance->user_id,
@@ -439,7 +439,7 @@ class AttendanceService
             $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
         }
 
-        $shift = $attendance->shift;
+        $shift = $attendance->shift?->forDate($attendance->work_date);
         if ($shift && $this->isOutsideShiftWindow($shift, $attendance->work_date->toDateString(), $clockOutTime, $c['tenant']->timezone)) {
             $reasons[] = AttendancePunch::REASON_OUTSIDE_SCHEDULE;
         }
@@ -710,11 +710,12 @@ class AttendanceService
             return true;
         }
 
-        return $this->isOutsideShiftWindow($assignment->shift, $date, $at, $timezone);
+        return $this->isOutsideShiftWindow($assignment->shift->forDate($date), $date, $at, $timezone);
     }
 
     private function isOutsideShiftWindow(Shift $shift, string $date, Carbon $at, string $timezone): bool
     {
+        $shift = $shift->forDate($date);
         $grace = max(0, (int) $shift->grace_period_minutes);
         $start = Carbon::parse("{$date} {$shift->start_time}", $timezone);
         $end   = Carbon::parse("{$date} {$shift->end_time}", $timezone);
@@ -943,6 +944,7 @@ class AttendanceService
         }
 
         $now = $at ?? Carbon::now($timezone);
+        $shift = $shift->forDate($date);
 
         $expectedEntry = Carbon::parse("{$date} {$shift->start_time}", $timezone)
             ->addMinutes($shift->grace_period_minutes);
@@ -978,6 +980,31 @@ class AttendanceService
         }
 
         return $employee->contract_type === 'part_time' ? self::PART_TIME_HOURS : self::FULL_TIME_HOURS;
+    }
+
+    /**
+     * Hora de salida esperada de una jornada, en la zona de la empresa: el fin del
+     * turno de ese día (día siguiente si cruza medianoche); sin turno, entrada +
+     * jornada base + descanso fijo. La usan el recordatorio de salida y la app
+     * (aviso de jornada incompleta al marcar salida).
+     */
+    public static function expectedClockOut(Attendance $attendance, \DateTimeZone|string $tz, int $lunchMinutes): Carbon
+    {
+        $day   = $attendance->work_date->toDateString();
+        $shift = $attendance->shift?->forDate($day);
+
+        if ($shift?->start_time && $shift->end_time) {
+            $start = Carbon::parse("{$day} {$shift->start_time}", $tz);
+            $end   = Carbon::parse("{$day} {$shift->end_time}", $tz);
+
+            return $shift->crosses_midnight || $end->lte($start) ? $end->addDay() : $end;
+        }
+
+        $hours = self::baseDailyHours($shift, $attendance->user);
+        $break = $hours * 60 > self::FIXED_BREAK_MIN_SPAN_MINUTES ? $lunchMinutes : 0;
+
+        // La hora se guarda en hora local de la empresa
+        return Carbon::createFromFormat('Y-m-d H:i:s', $attendance->clock_in_at->format('Y-m-d H:i:s'), $tz)->addMinutes((int) round($hours * 60) + $break);
     }
 
     public function determineFinalStatus(Attendance $attendance, float $workedHours, float $dailyHours): string

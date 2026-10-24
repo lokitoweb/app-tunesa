@@ -508,6 +508,7 @@ const catalogForm = useForm({
     code: '',
     is_active: true,
     department_id: null,
+    head_id: null,
     description: '',
     is_roaming: false,
 });
@@ -521,6 +522,7 @@ function openCreateCatalogModal(catalog) {
     catalogForm.code = '';
     catalogForm.is_active = true;
     catalogForm.department_id = null;
+    catalogForm.head_id = null;
     catalogForm.description = '';
     catalogForm.is_roaming = false;
     showCatalogModal.value = true;
@@ -534,6 +536,7 @@ function openEditCatalogModal(catalog, row) {
     catalogForm.code = row.code ?? '';
     catalogForm.is_active = Boolean(row.is_active);
     catalogForm.department_id = row.department_id ?? null;
+    catalogForm.head_id = row.head_id ?? null;
     catalogForm.description = row.description ?? '';
     catalogForm.is_roaming = Boolean(row.is_roaming);
     showCatalogModal.value = true;
@@ -610,7 +613,7 @@ const catalogDetail = (catalog, row) => {
         return plural(props.branches.filter((b) => b.zone_id === row.id).length, 'sede', 'sedes');
     }
     const people = plural(row.users_count || 0, 'colaborador', 'colaboradores');
-    if (catalog === 'departments') return people;
+    if (catalog === 'departments') return [row.head ? `Jefe: ${row.head}` : 'Sin jefe de área', people].join(' · ');
     return [row.department_id ? departmentName(row.department_id) : null, people].filter(Boolean).join(' · ');
 };
 </script>
@@ -2092,6 +2095,19 @@ const catalogDetail = (catalog, row) => {
                                 <div v-if="catalogForm.errors.code" class="invalid-feedback d-block mt-1">
                                     {{ catalogForm.errors.code }}
                                 </div>
+                            </div>
+
+                            <!-- Jefe de área: jefe inmediato de su personal -->
+                            <div v-if="editingCatalog === 'departments'" class="mb-3">
+                                <label for="dep_head" class="form-label fw-semibold small text-dark mb-1">
+                                    Jefe de área <span class="text-muted fw-normal">(Opcional)</span>
+                                </label>
+                                <select id="dep_head" v-model="catalogForm.head_id" class="form-select" :class="{ 'is-invalid': catalogForm.errors.head_id }" style="height: 40px; border-radius: 8px; font-size: 0.85rem;">
+                                    <option :value="null">Sin jefe de área</option>
+                                    <option v-for="s in supervisors" :key="s.id" :value="s.id">{{ s.name }}</option>
+                                </select>
+                                <div class="form-text small">Es el jefe inmediato del personal del área: aprueba sus vacaciones y permisos (junto con RR. HH.) y recibe el aviso de cada solicitud.</div>
+                                <div v-if="catalogForm.errors.head_id" class="invalid-feedback d-block mt-1">{{ catalogForm.errors.head_id }}</div>
                             </div>
 
                             <!-- Campos Específicos para Cargos -->

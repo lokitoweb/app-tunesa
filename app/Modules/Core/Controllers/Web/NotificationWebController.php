@@ -125,6 +125,8 @@ class NotificationWebController extends Controller
 
         return match ($notification->data['type'] ?? null) {
             'leave_request.submitted' => $user->can('leave.approve_team') ? route('approvals.index') : null,
+            // Ficha del colaborador: ahí está "Restablecer acceso"
+            'auth.password_help'      => isset($data['user_id']) ? route('employees.edit', $data['user_id']) : null,
             'payslip.published'       => $user->can('payslips.manage') && isset($data['period_year'])
                 ? route('payslips.index', ['year' => $data['period_year'], 'month' => $data['period_month']])
                 : null,
@@ -152,7 +154,7 @@ class NotificationWebController extends Controller
         if (str_starts_with($t, 'document')) {
             return ['label' => 'Documentación', 'color' => 'info', 'icon' => 'folder-check'];
         }
-        if (str_starts_with($t, 'security')) {
+        if (str_starts_with($t, 'security') || str_starts_with($t, 'auth')) {
             return ['label' => 'Seguridad', 'color' => 'danger', 'icon' => 'shield-lock'];
         }
 

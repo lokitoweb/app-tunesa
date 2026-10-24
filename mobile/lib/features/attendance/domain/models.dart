@@ -144,7 +144,40 @@ class DaySchedule {
 
 /// Estado del día: registro + acciones disponibles según el backend.
 class TodayStatus {
-  const TodayStatus({this.attendance, required this.actions, this.schedule, this.clockSkew, this.notScheduledMessage});
+  const TodayStatus({
+    this.attendance,
+    required this.actions,
+    this.schedule,
+    this.clockSkew,
+    this.notScheduledMessage,
+    this.expectedClockOut,
+  });
+
+  /// Hora de salida esperada de la jornada abierta (`expected_clock_out`).
+  final DateTime? expectedClockOut;
+
+  /// Menos que esto entre entrada y salida suele ser un toque accidental.
+  static const minWorkBeforeClockOut = Duration(minutes: 15);
+
+  /// Aviso antes de marcar salida (con la hora del servidor): entrada hace muy
+  /// poco o jornada que quedará incompleta. null = salida normal.
+  String? clockOutWarning(DateTime deviceNow) {
+    final now = deviceNow.subtract(clockSkew ?? Duration.zero);
+    final clockIn = attendance?.clockIn;
+    if (clockIn != null && now.difference(clockIn) < minWorkBeforeClockOut) {
+      final minutes = now.difference(clockIn).inMinutes.clamp(0, 15);
+      return 'Marcaste tu entrada hace $minutes min. Revisa que de verdad quieras marcar tu salida.';
+    }
+    final end = expectedClockOut;
+    if (end != null && now.isBefore(end.subtract(const Duration(minutes: 1)))) {
+      final left = end.difference(now);
+      final h = left.inHours;
+      final m = left.inMinutes % 60;
+      final missing = [if (h > 0) '$h h', if (m > 0 || h == 0) '$m min'].join(' ');
+      return 'Tu jornada termina a las ${Fmt.time(end)}. Si sales ahora te faltan $missing y quedará incompleta.';
+    }
+    return null;
+  }
 
   final Attendance? attendance;
   final List<ClockAction> actions;

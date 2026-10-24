@@ -56,8 +56,8 @@ class ScheduleGate
             'shift'        => $working?->shift ? [
                 'id'         => $working->shift->id,
                 'name'       => $working->shift->name,
-                'start_time' => substr((string) $working->shift->start_time, 0, 5),
-                'end_time'   => substr((string) $working->shift->end_time, 0, 5),
+                'start_time' => substr((string) $working->shift->forDate($day)->start_time, 0, 5),
+                'end_time'   => substr((string) $working->shift->forDate($day)->end_time, 0, 5),
             ] : null,
         ];
     }

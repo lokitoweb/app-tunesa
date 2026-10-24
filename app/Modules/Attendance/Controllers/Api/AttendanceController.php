@@ -144,6 +144,10 @@ class AttendanceController extends Controller
             'data'        => $attendance ? new AttendanceResource($attendance) : null,
             'next_action' => $nextAction,
             'schedule'    => $schedule,
+            // Jornada abierta: hora de salida esperada (la app avisa si se sale antes y queda incompleta)
+            'expected_clock_out' => $attendance?->clock_in_at && ! $attendance->clock_out_at
+                ? AttendanceService::expectedClockOut($attendance, tenant_timezone(), (int) \App\Modules\Core\Models\TenantSetting::forTenant($employee->tenant)->lunch_minutes)->toIso8601String()
+                : null,
             'server_time' => Carbon::now(tenant_timezone())->toIso8601String(),
             'timezone'    => tenant_timezone(),
         ]);

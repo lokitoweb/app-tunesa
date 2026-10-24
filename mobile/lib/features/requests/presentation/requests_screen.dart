@@ -130,6 +130,14 @@ class _RequestCard extends ConsumerWidget {
             Text('Respuesta${r.reviewer != null ? ' de ${r.reviewer}' : ''}: ${r.reviewNotes}',
                 style: Theme.of(context).textTheme.bodySmall),
           ],
+          if (r.isPending && r.reviewers != null) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              Icon(Icons.how_to_reg_outlined, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Expanded(child: Text('Revisa: ${r.reviewers}', style: Theme.of(context).textTheme.bodySmall)),
+            ]),
+          ],
           if (r.isPending)
             Align(
               alignment: Alignment.centerRight,

@@ -8,6 +8,7 @@ import TenantBadge from '@/Modules/Core/Components/TenantBadge.vue';
 import DateRangePicker from '@/Modules/Core/Components/DateRangePicker.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
+import ShiftWeekSchedule, { emptyDays } from '@/Modules/HR/Components/ShiftWeekSchedule.vue';
 
 const { ask } = useConfirm();
 const { ensureTenant, consumeIntent, withTenant } = useTenantPicker();
@@ -20,7 +21,17 @@ const props = defineProps({
     branches: Array,
     today: String,
     canAssign: Boolean,
+    profiles: { type: Object, default: () => ({}) },
 });
+
+// Filtro por perfil de personal (administrativo, ventas…): '' = todos
+const profileFilter = ref('');
+const visibleShifts = computed(() => props.shifts.filter((s) => !profileFilter.value
+    || (profileFilter.value === 'none' ? !s.profile : s.profile === profileFilter.value)));
+// Días con horario propio, p. ej. "Sáb 08:00–13:00"
+const ownDays = (shift) => Object.entries(shift.day_schedules || {})
+    .filter(([, v]) => v.start_time || v.end_time)
+    .map(([d, v]) => `${DAYS[d]} ${v.start_time || shift.start_time.substring(0, 5)}–${v.end_time || shift.end_time.substring(0, 5)}`);
 
 // Conversión amigable de 24h a 12h ("08:00 am")
 const hora = (t) => {
@@ -78,6 +89,8 @@ const defaultShiftData = () => ({
     color: '#0284C7',
     is_active: true,
     description: '',
+    profile: profileFilter.value || '',
+    day_schedules: emptyDays(),
 });
 
 const shiftForm = useForm(defaultShiftData());
@@ -198,6 +211,8 @@ function openEditModal(shift) {
     shiftForm.color = shift.color || '#0284C7';
     shiftForm.is_active = Boolean(shift.is_active);
     shiftForm.description = shift.description || '';
+    shiftForm.profile = shift.profile || '';
+    shiftForm.day_schedules = emptyDays(shift.day_schedules);
     shiftModalInstance?.show();
 }
 
@@ -340,6 +355,14 @@ const selectedAssignShift = computed(() => {
             </div>
         </div>
 
+        <!-- Filtro por perfil de personal -->
+        <div v-if="Object.keys(profiles).length" class="d-flex flex-wrap align-items-center gap-2 mb-3" role="group" aria-label="Filtrar por perfil">
+            <span class="small text-secondary fw-semibold me-1">Perfil:</span>
+            <button v-for="(label, key) in { '': 'Todos', ...profiles, none: 'General' }" :key="key" type="button"
+                    class="btn btn-sm" :class="profileFilter === key ? 'btn-primary' : 'btn-outline-secondary'" style="border-radius: 999px;"
+                    @click="profileFilter = key">{{ label }}</button>
+        </div>
+
         <!-- 1. TABLA PRINCIPAL DE TURNOS (Executive Design System: .emp-table-card) -->
         <div class="emp-table-card mb-5 shadow-sm">
             <div class="emp-table-responsive">
@@ -357,7 +380,7 @@ const selectedAssignShift = computed(() => {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="shift in shifts" :key="shift.id">
+                        <tr v-for="shift in visibleShifts" :key="shift.id">
                             <!-- Turno: Dot + Nombre + Badge Código Inline (Sin amontonamiento) -->
                             <td class="ps-4 py-3">
                                 <div class="d-flex align-items-center" style="gap: 10px !important;">
@@ -373,10 +396,12 @@ const selectedAssignShift = computed(() => {
                                 <span class="badge border" :class="shift.type === 'rotating' ? 'bg-primary-subtle text-primary border-primary-subtle' : 'bg-body-secondary text-secondary border-secondary-subtle'" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem; padding: 4px 8px;">
                                     {{ shift.type === 'rotating' ? 'Rotativo' : 'Fijo' }}
                                 </span>
+                                <div v-if="shift.profile" class="small text-secondary mt-1">{{ profiles[shift.profile] }}</div>
                             </td>
                             <td class="py-3 text-nowrap" style="font-size: 0.85rem; font-weight: 500; color: #334155;">
                                 {{ hora(shift.start_time) }} – {{ hora(shift.end_time) }}
                                 <span v-if="shift.crosses_midnight" class="small text-secondary ms-1">(+1 día)</span>
+                                <div v-for="d in ownDays(shift)" :key="d" class="small text-info-emphasis fw-normal" title="Horario propio de ese día">{{ d }}</div>
                             </td>
                             <td class="py-3 text-secondary" style="font-size: 0.85rem;">
                                 <template v-if="shift.type === 'rotating'">
@@ -414,7 +439,7 @@ const selectedAssignShift = computed(() => {
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="!shifts.length">
+                        <tr v-if="!visibleShifts.length">
                             <td colspan="8" class="text-center py-5 text-muted">
                                 <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-50"></i>
                                 <div class="fw-medium">Aún no hay turnos registrados.</div>
@@ -562,6 +587,9 @@ const selectedAssignShift = computed(() => {
                                             <input id="shift_code" v-model="shiftForm.code" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.code }" placeholder="ej. T-MAÑ" style="border-radius: 8px; height: 42px;">
                                             <div v-if="shiftForm.errors.code" class="invalid-feedback">{{ shiftForm.errors.code }}</div>
                                         </div>
+                                        <div class="col-12">
+                                            <ShiftWeekSchedule :form="shiftForm" :profiles="profiles" part="profile" />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -687,6 +715,9 @@ const selectedAssignShift = computed(() => {
                                         </button>
                                     </div>
                                     <div v-if="shiftForm.errors.working_days" class="invalid-feedback d-block mt-2">{{ shiftForm.errors.working_days }}</div>
+                                    <div class="mt-3">
+                                        <ShiftWeekSchedule :form="shiftForm" />
+                                    </div>
                                 </div>
 
                                 <!-- Si es Rotativo: Días de trabajo x Descanso -->
@@ -806,7 +837,7 @@ const selectedAssignShift = computed(() => {
                                         <label for="modal_assign_shift" class="form-label fw-semibold small text-dark mb-1.5">Turno a asignar <span class="text-danger">*</span></label>
                                         <select id="modal_assign_shift" v-model="assign.shift_id" class="form-select" :class="{ 'is-invalid': assign.errors.shift_id }" required style="border-radius: 8px; height: 42px;">
                                             <option v-for="shift in activeShifts" :key="shift.id" :value="shift.id">
-                                                {{ shift.name }} ({{ hora(shift.start_time) }} – {{ hora(shift.end_time) }})
+                                                {{ shift.name }} ({{ hora(shift.start_time) }} – {{ hora(shift.end_time) }}){{ shift.profile ? ` · ${profiles[shift.profile]}` : '' }}
                                             </option>
                                         </select>
                                         <div v-if="assign.errors.shift_id" class="invalid-feedback">{{ assign.errors.shift_id }}</div>

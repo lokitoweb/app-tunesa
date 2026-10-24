@@ -36,7 +36,7 @@ class AttendanceOutsideSchedule extends AppNotification
     {
         $moment = $this->punch->type === 'clock_out' ? 'Salida' : 'Entrada';
         $time   = $this->punch->type === 'clock_out' ? $this->attendance->clock_out_at : $this->attendance->clock_in_at;
-        $shift  = $this->attendance->shift;
+        $shift  = $this->attendance->shift?->forDate($this->attendance->work_date);
         $window = $shift ? sprintf(' (turno %s–%s)', substr((string) $shift->start_time, 0, 5), substr((string) $shift->end_time, 0, 5)) : '';
 
         if ($this->forSupervisor) {

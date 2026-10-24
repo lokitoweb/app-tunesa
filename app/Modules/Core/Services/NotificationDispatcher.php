@@ -4,6 +4,7 @@ namespace App\Modules\Core\Services;
 
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\Department;
 use App\Modules\HR\Models\EmployeeDocument;
 use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\Payroll\Models\Payslip;
@@ -117,7 +118,7 @@ class NotificationDispatcher
     }
 
     /**
-     * Supervisores de las sucursales del colaborador + RRHH de la empresa
+     * Jefe de área y supervisores de las sucursales del colaborador + RRHH de la empresa
      * (si la empresa no tiene RRHH, su administrador). Nunca el propio solicitante.
      */
     private function leaveApprovers(LeaveRequest $leave): Collection
@@ -129,6 +130,12 @@ class NotificationDispatcher
             ->whereNotNull('supervisor_id')
             ->whereHas('employees', fn ($q) => $q->where('users.id', $leave->user_id))
             ->pluck('supervisor_id');
+
+        // Jefe inmediato: el jefe del área del colaborador
+        $departmentId = User::withoutGlobalScope(TenantScope::class)->whereKey($leave->user_id)->value('department_id');
+        if ($departmentId && ($headId = Department::withoutGlobalScopes()->whereKey($departmentId)->value('head_id'))) {
+            $supervisorIds->push($headId);
+        }
 
         $users = fn () => User::withoutGlobalScope(TenantScope::class)
             ->where('tenant_id', $tenantId)

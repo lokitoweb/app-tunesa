@@ -311,11 +311,12 @@ class AttendanceCalendarService
         $leave = $leaves->first(fn (LeaveRequest $l) => $l->start_date->toDateString() <= $day && $l->end_date->toDateString() >= $day);
         $assignment = $assignments->first(fn (EmployeeShift $a) => $a->effective_from->toDateString() <= $day
             && (! $a->effective_until || $a->effective_until->toDateString() >= $day));
+        $dayShift = $assignment?->shift?->forDate($day);
         $shift = $assignment?->shift ? [
             'shift_id'    => $assignment->shift->id,
             'shift'       => $assignment->shift->name,
-            'shift_start' => $assignment->shift->start_time ? substr($assignment->shift->start_time, 0, 5) : null,
-            'shift_grace' => (int) ($assignment->shift->grace_period_minutes ?? 0),
+            'shift_start' => $dayShift->start_time ? substr($dayShift->start_time, 0, 5) : null,
+            'shift_grace' => (int) ($dayShift->grace_period_minutes ?? 0),
         ] : [];
 
         // Con marcación: manda el estado guardado (el mismo que usan los reportes)

@@ -341,6 +341,7 @@ class AttendanceReportService
      */
     public function calculate(Attendance $attendance, ?Shift $shift, bool $lunchPaid): array
     {
+        $shift = $shift?->forDate($attendance->work_date);
         $result = [
             'worked_minutes'         => 0,
             'break_minutes'          => 0,

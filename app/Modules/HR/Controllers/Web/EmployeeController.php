@@ -465,7 +465,7 @@ class EmployeeController extends Controller
     /**
      * Restablecer acceso: contraseña temporal nueva (se muestra una vez),
      * desbloqueo y cierre de sesiones de la app. Es la única forma de
-     * recuperar una contraseña de la app: ella no tiene "olvidé mi contraseña".
+     * recuperar una contraseña de la app ("Olvidé mi contraseña" solo avisa a RRHH).
      */
     public function resetAccess(int $id): RedirectResponse
     {

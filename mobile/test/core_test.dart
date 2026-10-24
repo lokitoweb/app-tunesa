@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,7 @@ import 'package:tunesa_mobile/core/location/location_service.dart';
 import 'package:tunesa_mobile/core/network/api_exception.dart';
 import 'package:tunesa_mobile/core/providers.dart';
 import 'package:tunesa_mobile/core/theme/app_theme.dart';
+import 'package:tunesa_mobile/features/payslips/data/payslip_repository.dart';
 
 DioException _response(int status, Object? data) {
   final options = RequestOptions(path: '/x');
@@ -57,6 +60,24 @@ void main() {
       ));
       expect(e.code, 'TIMEOUT');
       expect(e.isNetwork, isTrue);
+    });
+
+    test('descargas (PDF): el error JSON que llega en bytes se muestra tal cual', () {
+      final body = utf8.encode(jsonEncode({
+        'success': false,
+        'message': 'El archivo de la boleta no está disponible.',
+        'code': 'FILE_NOT_FOUND',
+      }));
+      final e = ApiException.fromDio(_response(404, body));
+      expect(e.code, 'FILE_NOT_FOUND');
+      expect(e.message, 'El archivo de la boleta no está disponible.');
+      expect(ApiException.fromDio(_response(500, utf8.encode('<html>'))).message, contains('servidor'));
+    });
+
+    test('una boleta que no es PDF se reconoce antes de abrirla', () {
+      expect(PayslipRepository.isPdf(utf8.encode('%PDF-1.7 ...')), isTrue);
+      expect(PayslipRepository.isPdf(utf8.encode('<html>error</html>')), isFalse);
+      expect(PayslipRepository.isPdf(const []), isFalse);
     });
 
     test('conserva mensaje y código de negocio del backend', () {

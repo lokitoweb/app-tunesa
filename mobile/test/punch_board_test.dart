@@ -101,4 +101,34 @@ void main() {
     final s = TodayStatus(attendance: _day(clockIn: eight), actions: const [ClockAction.clockOut], notScheduledMessage: 'x');
     expect(s.isNotScheduled, isFalse);
   });
+
+  group('salida antes de hora (DEF-04)', () {
+    final end = DateTime(2026, 10, 10, 17);
+    final working = TodayStatus(attendance: _day(clockIn: eight), actions: const [ClockAction.clockOut], expectedClockOut: end);
+
+    test('a la hora o después no hay aviso', () {
+      expect(working.clockOutWarning(DateTime(2026, 10, 10, 17)), isNull);
+      expect(working.clockOutWarning(DateTime(2026, 10, 10, 18, 30)), isNull);
+    });
+
+    test('antes del fin del turno avisa cuánto falta', () {
+      final w = working.clockOutWarning(DateTime(2026, 10, 10, 15, 40))!;
+      expect(w, contains('1 h 20 min'));
+      expect(w, contains('incompleta'));
+    });
+
+    test('pocos minutos después de entrar se avisa como posible toque accidental', () {
+      expect(working.clockOutWarning(eight.add(const Duration(minutes: 3))), contains('hace 3 min'));
+    });
+
+    test('usa la hora del servidor (desfase del teléfono)', () {
+      final skewed = TodayStatus(
+        attendance: _day(clockIn: eight),
+        actions: const [ClockAction.clockOut],
+        expectedClockOut: end,
+        clockSkew: const Duration(minutes: -30), // el teléfono va 30 min atrasado
+      );
+      expect(skewed.clockOutWarning(DateTime(2026, 10, 10, 16, 40)), isNull);
+    });
+  });
 }

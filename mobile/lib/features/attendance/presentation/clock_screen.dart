@@ -82,7 +82,48 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   bool _sending = false;
   ApiException? _sendError;
 
+  /// Salida antes de hora: la persona ya confirmó que quiere salir igual.
+  bool _earlyConfirmed = false;
+  bool _earlyAsked = false;
+
   MobileConfig get _mobile => ref.read(appConfigProvider).config.mobile;
+
+  /// Aviso de jornada incompleta (solo al marcar salida)
+  String? get _earlyWarning => widget.action == ClockAction.clockOut
+      ? ref.read(todayStatusProvider).value?.clockOutWarning(DateTime.now())
+      : null;
+
+  /// Confirma una salida antes de hora. Cancelar vuelve a Inicio sin marcar.
+  Future<bool> _confirmEarlyExit() async {
+    final warning = _earlyWarning;
+    if (warning == null || _earlyConfirmed) return true;
+    _earlyAsked = true;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        icon: Icon(Icons.warning_amber_rounded, color: Theme.of(c).colorScheme.error),
+        title: const Text('¿Salir antes de hora?'),
+        content: Text('$warning\n\nTu supervisor y RR. HH. verán la salida anticipada.'),
+        actions: [
+          TextButton(key: const Key('early-exit-cancel'), onPressed: () => Navigator.pop(c, false), child: const Text('No, seguir trabajando')),
+          FilledButton(key: const Key('early-exit-confirm'), onPressed: () => Navigator.pop(c, true), child: const Text('Marcar salida igual')),
+        ],
+      ),
+    );
+    if (!mounted) return false;
+    if (ok == true) {
+      setState(() => _earlyConfirmed = true);
+      return true;
+    }
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      GoRouter.maybeOf(context)?.go('/home');
+    }
+    return false;
+  }
 
   bool get _needsSelfie => widget.action.requiresSelfie && _mobile.selfieRequired;
 
@@ -314,6 +355,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       return;
     }
 
+    if (!await _confirmEarlyExit()) return;
     setState(() => _sendError = null);
     final capture = await _buildCapture();
     if (capture == null || !mounted) return;
@@ -372,9 +414,22 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     final near = fix == null ? null : nearestBranch(branches.value ?? const [], fix.position);
     final outside = mobile.geofenceStrictMode && near != null && !near.inside;
     final mocked = fix?.isMocked ?? false;
+    final earlyWarning = widget.action == ClockAction.clockOut
+        ? ref.watch(todayStatusProvider).value?.clockOutWarning(DateTime.now())
+        : null;
+    final earlyPending = earlyWarning != null && !_earlyConfirmed;
+
+    // Salida antes de hora: primero el aviso (una vez), luego la cámara
+    if (earlyPending && !_earlyAsked && _preview != null && !_cameraOpen) {
+      _earlyAsked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _confirmEarlyExit();
+      });
+    }
 
     // En la agencia: la cámara se abre sola (una vez) sin pasos intermedios
     final cameraReady =
+        !earlyPending &&
         usesSelfie &&
         !_autoOpened &&
         !_cameraOpen &&
@@ -412,6 +467,19 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
                   children: [
                     _StatusHero(status: status, photo: _selfieBytes),
+                    if (earlyWarning != null) ...[
+                      const SizedBox(height: 16),
+                      Card(
+                        key: const Key('early-exit-warning'),
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        child: ListTile(
+                          leading: Icon(Icons.timelapse_rounded, color: Theme.of(context).colorScheme.onErrorContainer),
+                          title: Text('Jornada incompleta',
+                              style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onErrorContainer)),
+                          subtitle: Text(earlyWarning, style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer)),
+                        ),
+                      ),
+                    ],
                     if (fix != null) ...[
                       const SizedBox(height: 24),
                       _LocationCard(

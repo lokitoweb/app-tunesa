@@ -29,6 +29,7 @@ class LeaveRequest {
     this.endTime,
     this.reviewNotes,
     this.reviewer,
+    this.reviewers,
     this.hasAttachment = false,
   });
 
@@ -44,6 +45,9 @@ class LeaveRequest {
   final String? endTime;
   final String? reviewNotes;
   final String? reviewer;
+
+  /// Quién la revisa mientras está pendiente (jefe inmediato o RR. HH.)
+  final String? reviewers;
   final bool hasAttachment;
 
   bool get isPending => status == 'pending';
@@ -69,6 +73,7 @@ class LeaveRequest {
         endTime: json['end_time'] as String?,
         reviewNotes: json['review_notes'] as String?,
         reviewer: json['reviewer'] as String?,
+        reviewers: json['reviewers'] as String?,
         hasAttachment: json['has_attachment'] == true,
       );
 }

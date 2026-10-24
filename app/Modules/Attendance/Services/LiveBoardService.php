@@ -131,7 +131,7 @@ class LiveBoardService
 
             $assignment = $assignments->get($user->id, collect())->first(fn (EmployeeShift $a) => $a->effective_from->toDateString() <= $c['today']
                 && (! $a->effective_until || $a->effective_until->toDateString() >= $c['today']));
-            $shift = $current?->shift ?? $assignment?->shift;
+            $shift = ($current?->shift ?? $assignment?->shift)?->forDate($current?->work_date ?? $c['today']);
 
             $row = [
                 'user_id'         => $user->id,

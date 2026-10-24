@@ -64,8 +64,8 @@ class AccountDeletion
             ->first();
     }
 
-    /** RRHH de la empresa; si no tiene, su administrador. Nunca la propia persona. */
-    private function handlers(User $user): Collection
+    /** Quién atiende los pedidos sobre la cuenta (eliminarla, recuperar la clave): RRHH de la empresa; si no tiene, su administrador. Nunca la propia persona. */
+    public function handlers(User $user): Collection
     {
         $users = fn () => User::withoutGlobalScope(TenantScope::class)
             ->where('tenant_id', $user->tenant_id)

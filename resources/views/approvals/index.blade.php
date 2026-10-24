@@ -125,6 +125,11 @@
                                     <div class="small text-secondary text-truncate" style="font-size: 0.775rem;">
                                         {{ $leave->employee?->employee_code ?? '—' }}
                                     </div>
+                                    @if($leave->isPending())
+                                        <div class="small text-secondary" style="font-size: 0.75rem;" title="Puede aprobarla su jefe inmediato o RR. HH.">
+                                            <i class="bi bi-person-check me-1"></i>Revisa: {{ $leave->reviewersLabel() }}
+                                        </div>
+                                    @endif
                                     @include('partials.tenant-badge', ['tenantId' => $leave->tenant_id])
                                 </div>
                             </div>

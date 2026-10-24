@@ -91,6 +91,8 @@ class SendEntryReminders extends Command
             ->with(['shift', 'user'])
             ->whereHas('user', fn ($q) => $q->where('status', 'active')->whereNotNull('fcm_token'))
             ->get()
+            // Horario propio de ese día de la semana (sábado corto, etc.)
+            ->each(fn (EmployeeShift $a) => $a->setRelation('shift', $a->shift?->forDate($date)))
             ->filter(function (EmployeeShift $a) use ($now, $day, $date) {
                 if (! $a->shift?->start_time || ! $a->worksOn($date)) {
                     return false;
@@ -142,7 +144,7 @@ class SendEntryReminders extends Command
 
         $sent = 0;
         foreach ($open as $attendance) {
-            $end = $this->expectedEnd($attendance, $tz, $lunch);
+            $end = AttendanceService::expectedClockOut($attendance, $tz, $lunch);
             $from = $end->copy()->addMinutes(self::LEAD_MINUTES);
             if ($now->lt($from) || $now->gte($from->copy()->addMinutes(self::WINDOW_MINUTES))) {
                 continue;
@@ -155,26 +157,5 @@ class SendEntryReminders extends Command
         }
 
         return $sent;
-    }
-
-    /** Hora de salida esperada de una jornada abierta, en la zona de la empresa */
-    private function expectedEnd(Attendance $attendance, \DateTimeZone $tz, int $lunchMinutes): Carbon
-    {
-        $shift = $attendance->shift;
-        $day   = $attendance->work_date->toDateString();
-
-        if ($shift?->start_time && $shift->end_time) {
-            $start = Carbon::parse("{$day} {$shift->start_time}", $tz);
-            $end   = Carbon::parse("{$day} {$shift->end_time}", $tz);
-
-            return $shift->crosses_midnight || $end->lte($start) ? $end->addDay() : $end;
-        }
-
-        // Sin turno: entrada + jornada base + descanso fijo
-        $hours = AttendanceService::baseDailyHours($shift, $attendance->user);
-        $break = $hours * 60 > AttendanceService::FIXED_BREAK_MIN_SPAN_MINUTES ? $lunchMinutes : 0;
-
-        // La hora se guarda en hora local de la empresa
-        return Carbon::createFromFormat('Y-m-d H:i:s', $attendance->clock_in_at->format('Y-m-d H:i:s'), $tz)->addMinutes((int) round($hours * 60) + $break);
     }
 }

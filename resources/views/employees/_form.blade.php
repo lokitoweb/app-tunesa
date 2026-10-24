@@ -49,7 +49,7 @@
                         <span class="form-label d-block">Contraseña</span>
                         @if($editing)
                             <button type="submit" form="resetAccessForm" class="btn btn-outline-warning"><i class="bi bi-key me-1"></i>Restablecer acceso</button>
-                            <div class="form-text">Genera una contraseña temporal nueva y cierra sus sesiones en la app. La app no permite recuperarla ni cambiarla.</div>
+                            <div class="form-text">Genera una contraseña temporal nueva y cierra sus sesiones en la app. Deberá cambiarla al ingresar.</div>
                         @else
                             <p class="form-text mt-0 mb-0">Se genera una contraseña temporal al guardar. Vence en {{ \App\Modules\Core\Services\CredentialProvisioner::TEMP_TTL_HOURS }} horas y deberá cambiarla en su primer ingreso.</p>
                         @endif

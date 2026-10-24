@@ -13,6 +13,9 @@ class ApiEndpoints {
 
   /// Sin código de empresa: el servidor la reconoce por el correo.
   static const loginByEmail = '/v1/auth/login';
+
+  /// "Olvidé mi contraseña": avisa a RRHH, que restablece el acceso.
+  static const passwordHelp = '/v1/auth/password-help';
   static const logout = '/auth/logout';
   static const me = '/auth/me';
   static const profile = '/auth/profile';

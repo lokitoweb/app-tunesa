@@ -73,7 +73,11 @@ class ApprovalWebController extends Controller
             $items = $this->leaveQuery($user)
                 ->where('status', $status)
                 ->when($request->type, fn ($q) => $q->where('type', $request->type))
-                ->with(['employee:id,first_name,last_name,employee_code,avatar_path', 'reviewer:id,first_name,last_name'])
+                ->with([
+                    'employee:id,first_name,last_name,employee_code,avatar_path,department_id', 'reviewer:id,first_name,last_name',
+                    // "Revisa": jefe de área o supervisor de sede, y RR. HH.
+                    'employee.department.head:id,first_name,last_name', 'employee.branches.supervisor:id,first_name,last_name',
+                ])
                 ->orderBy('start_date')
                 ->paginate($perPage)
                 ->withQueryString();
@@ -163,12 +167,6 @@ class ApprovalWebController extends Controller
 
     private function leaveQuery(User $user): Builder
     {
-        $query = LeaveRequest::query();
-
-        if ($user->can('leave.approve_all')) {
-            return $query;
-        }
-
-        return $query->whereHas('employee.branches', fn ($q) => $q->visibleTo($user));
+        return LeaveRequest::approvableBy($user);
     }
 }

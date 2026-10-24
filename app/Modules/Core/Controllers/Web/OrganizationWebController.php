@@ -73,7 +73,9 @@ class OrganizationWebController extends Controller
         return Inertia::render('Core/Pages/Organization/Index', [
             'zones' => Zone::orderBy('name')->get(['id', 'tenant_id', 'name', 'code', 'is_active']),
             'departments' => Department::withCount(['users' => fn ($q) => $q->where('status', 'active')])
-                ->orderBy('name')->get(['id', 'tenant_id', 'name', 'code', 'is_active']),
+                ->with('head:id,first_name,last_name')
+                ->orderBy('name')->get(['id', 'tenant_id', 'name', 'code', 'head_id', 'is_active'])
+                ->map(fn (Department $d) => $d->only(['id', 'tenant_id', 'name', 'code', 'head_id', 'is_active', 'users_count']) + ['head' => $d->head?->full_name]),
             'positions' => Position::withCount(['users' => fn ($q) => $q->where('status', 'active')])
                 ->orderBy('name')->get(['id', 'tenant_id', 'department_id', 'name', 'code', 'description', 'is_roaming', 'is_active']),
             'branches' => $branches->map(fn (Branch $b) => [
@@ -238,6 +240,9 @@ class OrganizationWebController extends Controller
             'code'      => ['nullable', 'string', 'max:30', $unique('code')],
             'is_active' => ['required', 'boolean'],
         ];
+        if ($catalog === 'departments') {
+            $rules['head_id'] = ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $tenantId)->where('status', 'active')];
+        }
         if ($catalog === 'positions') {
             $rules += [
                 'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')->where('tenant_id', $tenantId)],

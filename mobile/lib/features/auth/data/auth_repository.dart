@@ -67,6 +67,13 @@ class AuthRepository {
     return user;
   }
 
+  /// Pide a RRHH que restablezca el acceso. Devuelve el mensaje del servidor
+  /// (siempre el mismo, exista o no el correo).
+  Future<String> requestPasswordHelp(String email) async {
+    final json = await _api.post(ApiEndpoints.passwordHelp, auth: false, tenant: '', data: {'email': email.trim()});
+    return json['message']?.toString() ?? 'Listo. RR. HH. recibió tu pedido.';
+  }
+
   /// Solo el cambio obligatorio de la contraseña temporal; el resto lo hace RRHH.
   Future<void> changePassword({required String current, required String next}) => _api.put(
         ApiEndpoints.changePassword,

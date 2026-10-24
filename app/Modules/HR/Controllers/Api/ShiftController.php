@@ -174,8 +174,8 @@ class ShiftController extends Controller
                 'shift'      => $assignment ? [
                     'id'         => $assignment->shift->id,
                     'name'       => $assignment->shift->name,
-                    'start_time' => substr($assignment->shift->start_time, 0, 5),
-                    'end_time'   => substr($assignment->shift->end_time, 0, 5),
+                    'start_time' => substr($assignment->shift->forDate($day)->start_time, 0, 5),
+                    'end_time'   => substr($assignment->shift->forDate($day)->end_time, 0, 5),
                     'color'      => $assignment->shift->color,
                 ] : null,
                 'branch'     => $assignment?->branch?->name,

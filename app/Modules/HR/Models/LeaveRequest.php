@@ -98,6 +98,43 @@ class LeaveRequest extends Model
         return $query->where('status', 'pending');
     }
 
+    /**
+     * Solicitudes que $user puede revisar. Fuente única para el panel
+     * (Aprobaciones y su contador) y la app del supervisor:
+     * - RR. HH. (leave.approve_all): todas las de la empresa.
+     * - Jefe inmediato: las de su área (jefe de área) y las de sus sedes (supervisor).
+     */
+    public function scopeApprovableBy($query, User $user)
+    {
+        if ($user->hasPermission('leave.approve_all')) {
+            return $query;
+        }
+
+        return $query->where(fn ($q) => $q
+            ->whereHas('employee.branches', fn ($b) => $b->visibleTo($user))
+            ->orWhereHas('employee.department', fn ($d) => $d->where('head_id', $user->id)));
+    }
+
+    /**
+     * Quién revisa la solicitud, para mostrarlo claro al colaborador y en el
+     * panel: su jefe inmediato (jefe de área o, si no hay, supervisor de sede)
+     * y RR. HH. Requiere employee.department.head y employee.branches.supervisor.
+     */
+    public function reviewersLabel(): string
+    {
+        $employee = $this->employee;
+        // users.department es una columna de texto: la relación se lee aparte
+        $department = $employee?->relationLoaded('department') ? $employee->getRelation('department') : $employee?->department()->first();
+        $head = $department?->head;
+        $boss = $head && $head->id !== $employee->id
+            ? "{$head->full_name} (jefe de área)"
+            : (($s = $employee?->branches->first(fn ($b) => $b->supervisor && $b->supervisor->id !== $employee->id)?->supervisor)
+                ? "{$s->full_name} (supervisor de sede)"
+                : null);
+
+        return $boss ? "{$boss} o RR. HH." : 'RR. HH.';
+    }
+
     /** Solicitudes que se cruzan con el rango [from, to] */
     public function scopeOverlapping($query, string $from, string $to)
     {

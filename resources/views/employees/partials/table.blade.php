@@ -143,7 +143,18 @@
                                         </button>
                                     </form>
                                 @endif
-                                <button type="button" 
+                                @if(auth()->id() !== $emp->id && auth()->user()->canManage($emp))
+                                    {{-- Olvidó su clave: contraseña temporal nueva (se muestra una vez) y cierre de sus sesiones --}}
+                                    <form method="POST" action="{{ route('employees.reset-access', $emp->id) }}" class="d-inline"
+                                          data-confirm="Se generará una contraseña temporal para {{ $emp->first_name }} y se cerrarán sus sesiones en la app. Deberá cambiarla al ingresar."
+                                          data-confirm-title="¿Restablecer la clave?" data-confirm-button="Restablecer" data-confirm-danger="1">
+                                        @csrf
+                                        <button type="submit" class="btn-table-action" title="Restablecer clave de {{ $emp->first_name }}" aria-label="Restablecer clave de {{ $emp->first_name }}">
+                                            <i class="bi bi-key"></i>
+                                        </button>
+                                    </form>
+                                @endif
+                                <button type="button"
                                         class="btn-table-action btn-action-toggle {{ $emp->status === 'active' ? 'is-active' : 'is-inactive' }}"
                                         data-id="{{ $emp->id }}"
                                         data-url="{{ route('employees.toggle-status', $emp->id) }}"

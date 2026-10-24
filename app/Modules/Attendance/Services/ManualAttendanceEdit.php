@@ -64,7 +64,7 @@ class ManualAttendanceEdit
         $record = $this->find($employee, $date);
         $before = $record ? $this->snapshot($record) : [];
         [$assignment] = $this->attendance->getCurrentShift($employee, $date);
-        $shift = $record?->shift ?? $assignment?->shift;
+        $shift = ($record?->shift ?? $assignment?->shift)?->forDate($date);
 
         $values = [
             'shift_id'      => $shift?->id,

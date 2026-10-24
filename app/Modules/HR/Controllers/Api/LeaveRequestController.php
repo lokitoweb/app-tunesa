@@ -35,7 +35,7 @@ class LeaveRequestController extends Controller
         $requests = LeaveRequest::where('user_id', $request->user()->id)
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->when($request->type,   fn ($q) => $q->where('type',   $request->type))
-            ->with('reviewer:id,first_name,last_name')
+            ->with(['reviewer:id,first_name,last_name', 'employee.department.head:id,first_name,last_name', 'employee.branches.supervisor:id,first_name,last_name'])
             ->orderByDesc('start_date')
             ->paginate(20);
 
@@ -211,13 +211,7 @@ class LeaveRequestController extends Controller
      */
     private function approvableQuery(User $user): Builder
     {
-        $query = LeaveRequest::query();
-
-        if ($user->hasPermission('leave.approve_all')) {
-            return $query;
-        }
-
-        return $query->whereHas('employee.branches', fn ($q) => $q->visibleTo($user));
+        return LeaveRequest::approvableBy($user);
     }
 
     private function format(LeaveRequest $leave, bool $withEmployee = false): array
@@ -237,6 +231,8 @@ class LeaveRequestController extends Controller
             'review_notes'   => $leave->review_notes,
             'reviewed_at'    => $leave->reviewed_at?->toIso8601String(),
             'reviewer'       => $leave->reviewer?->full_name,
+            // Quién la revisa (jefe inmediato o RR. HH.), mientras esté pendiente
+            'reviewers'      => $leave->isPending() ? $leave->reviewersLabel() : null,
             'created_at'     => $leave->created_at?->toIso8601String(),
         ];
 

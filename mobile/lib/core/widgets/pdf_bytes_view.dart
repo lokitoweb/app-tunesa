@@ -32,7 +32,7 @@ class _PdfBytesViewState extends State<PdfBytesView> {
           options: const DefaultBuilderOptions(),
           documentLoaderBuilder: (_) => const SkeletonDocument(),
           pageLoaderBuilder: (_) => const SkeletonDocument(),
-          errorBuilder: (_, error) => ErrorView(error: 'No se pudo abrir el PDF: $error'),
+          errorBuilder: (_, _) => const ErrorView(error: 'No se pudo abrir el archivo: parece dañado. Pide a RR. HH. que lo vuelva a publicar.'),
         ),
       );
 }

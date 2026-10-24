@@ -4,12 +4,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tunesa_mobile/app.dart';
 import 'package:tunesa_mobile/core/providers.dart';
+import 'package:tunesa_mobile/features/auth/data/auth_repository.dart';
+import 'package:tunesa_mobile/features/auth/presentation/auth_controller.dart';
 
-Future<void> _pumpApp(WidgetTester tester, Map<String, Object> prefsValues) async {
+/// Registra el correo con que se pidió ayuda (sin red)
+class _FakeAuth extends AuthRepository {
+  _FakeAuth(super.api, super.storage);
+
+  String? askedFor;
+
+  @override
+  Future<String> requestPasswordHelp(String email) async {
+    askedFor = email;
+    return 'RR. HH. recibió tu pedido.';
+  }
+}
+
+Future<void> _pumpApp(WidgetTester tester, Map<String, Object> prefsValues, {List overrides = const []}) async {
   SharedPreferences.setMockInitialValues(prefsValues);
   final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(ProviderScope(
-    overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+    overrides: [sharedPreferencesProvider.overrideWithValue(prefs), ...overrides],
     child: const TunesaApp(),
   ));
   await tester.pumpAndSettle();
@@ -53,5 +68,23 @@ void main() {
     });
     final context = tester.element(find.byType(Scaffold).first);
     expect(Theme.of(context).colorScheme.primary, isNot(equals(const Color(0xFF1E40AF))));
+  });
+
+  testWidgets('olvidé mi contraseña avisa a RR. HH. con el correo escrito', (tester) async {
+    _FakeAuth? fake;
+    await _pumpApp(tester, {
+      'tenant_slug': 'empresa-demo',
+      'tenant_branding': '{"slug":"empresa-demo","company_name":"Empresa Demo SAC"}',
+    }, overrides: [
+      authRepositoryProvider.overrideWith((ref) => fake = _FakeAuth(ref.watch(apiClientProvider), ref.watch(sessionStorageProvider))),
+    ]);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Correo'), 'ana@empresa.pe');
+    await tester.tap(find.text('¿Olvidaste tu contraseña?'));
+    await tester.pumpAndSettle();
+    expect(find.text('ana@empresa.pe'), findsWidgets);
+    await tester.tap(find.byKey(const Key('password-help-send')));
+    await tester.pumpAndSettle();
+    expect(fake?.askedFor, 'ana@empresa.pe');
+    expect(find.byKey(const Key('password-help-done')), findsOneWidget);
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 /// Error de red o de negocio ya traducido a un mensaje para el colaborador.
@@ -57,7 +59,13 @@ class ApiException implements Exception {
 
     final response = e.response;
     final status = response?.statusCode;
-    final data = response?.data;
+    var data = response?.data;
+    // Descargas (PDF) piden bytes: el error del backend llega como JSON en bytes
+    if (data is List<int>) {
+      try {
+        data = jsonDecode(utf8.decode(data));
+      } catch (_) {}
+    }
 
     if (data is Map) {
       final errors = <String, List<String>>{};

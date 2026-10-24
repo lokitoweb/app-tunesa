@@ -35,6 +35,7 @@ class AttendanceRepository implements PunchTransport {
       schedule: days.isEmpty ? null : DaySchedule.fromJson(Map<String, dynamic>.from(days.first as Map)),
       clockSkew: TodayStatus.skewFrom(today['server_time'], DateTime.now()),
       notScheduledMessage: TodayStatus.parseNotScheduled(today['schedule']),
+      expectedClockOut: DateTime.tryParse(today['expected_clock_out']?.toString() ?? ''),
     );
   }
 

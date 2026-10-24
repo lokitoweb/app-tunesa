@@ -1,8 +1,9 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import ShiftWeekSchedule, { emptyDays } from '@/Modules/HR/Components/ShiftWeekSchedule.vue';
 
-const props = defineProps({ shift: Object });
+const props = defineProps({ shift: Object, profiles: { type: Object, default: () => ({}) } });
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const ORDERED_DAYS = [
@@ -25,6 +26,8 @@ const form = useForm({
     start_time: props.shift.start_time ? props.shift.start_time.substring(0, 5) : '08:00',
     end_time: props.shift.end_time ? props.shift.end_time.substring(0, 5) : '17:00',
     working_days: Array.isArray(props.shift.working_days) ? [...props.shift.working_days] : [1, 2, 3, 4, 5],
+    profile: props.shift.profile ?? '',
+    day_schedules: emptyDays(props.shift.day_schedules),
 });
 
 function normalizeTime(field) {
@@ -55,6 +58,7 @@ function setWorkingDaysPreset(preset) {
 function submit() {
     normalizeTime('start_time');
     normalizeTime('end_time');
+    form.transform((data) => ({ ...data, profile: data.profile || null }));
     editing ? form.put(`/shifts/${props.shift.id}`) : form.post('/shifts');
 }
 </script>
@@ -106,7 +110,10 @@ function submit() {
                             </div>
                         </div>
                     </div>
-                    <div class="col-12">
+                    <div class="col-md-6">
+                        <ShiftWeekSchedule :form="form" :profiles="profiles" part="profile" />
+                    </div>
+                    <div class="col-md-6">
                         <label for="shiftType" class="emp-form-label">Modalidad de jornada *</label>
                         <select id="shiftType" v-model="form.type" class="emp-form-select">
                             <option value="fixed">Fijo — Días predeterminados de la semana (ej. Lun a Vie)</option>
@@ -175,6 +182,10 @@ function submit() {
                         </button>
                     </div>
                     <div v-if="form.errors.working_days" class="text-danger small mt-2">{{ form.errors.working_days }}</div>
+
+                    <div class="mt-3">
+                        <ShiftWeekSchedule :form="form" />
+                    </div>
                 </div>
 
                 <div v-else>

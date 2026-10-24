@@ -18,6 +18,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
+use App\Modules\Core\Notifications\PasswordHelpRequested;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * AuthController
@@ -221,6 +225,41 @@ class AuthController extends Controller
      *
      * POST /api/auth/forgot-password · /api/v1/auth/forgot-password · /api/auth/reset-password
      */
+    /**
+     * "Olvidé mi contraseña" desde el login de la app: avisa a RRHH de su empresa
+     * para que restablezca el acceso (la app no cambia claves sin RRHH). La
+     * respuesta es siempre la misma, exista o no la cuenta, para no revelar
+     * qué correos están registrados. Un aviso por cuenta y hora.
+     *
+     * POST /api/v1/auth/password-help
+     */
+    public function requestPasswordHelp(Request $request): JsonResponse
+    {
+        $email = $request->validate(['email' => ['required', 'email', 'max:150']], [
+            'email.required' => 'Escribe tu correo.',
+            'email.email'    => 'Escribe un correo válido.',
+        ])['email'];
+
+        $deletion = app(\App\Modules\Core\Services\AccountDeletion::class);
+        $user = $deletion->findUser($email);
+
+        if ($user?->tenant_id && $user->status === 'active' && Cache::add("password-help:{$user->id}", true, now()->addHour())) {
+            try {
+                $recipients = $deletion->handlers($user);
+                if ($recipients->isNotEmpty()) {
+                    Notification::send($recipients, new PasswordHelpRequested($user));
+                }
+            } catch (\Throwable $e) {
+                Log::warning('No se pudo avisar a RRHH del pedido de contraseña: ' . $e->getMessage(), ['exception' => $e]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Listo. Si el correo está registrado, RR. HH. recibió tu pedido: te darán una contraseña temporal que cambiarás al ingresar.',
+        ]);
+    }
+
     public function passwordResetByAdmin(): JsonResponse
     {
         return response()->json([

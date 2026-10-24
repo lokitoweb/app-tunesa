@@ -193,7 +193,7 @@ if (! function_exists('formato_tardanza')) {
                 : substr((string) $attendance->work_date, 0, 10);
             $tz = tenant_timezone();
             try {
-                $scheduled = \Carbon\Carbon::parse("{$dateStr} {$attendance->shift->start_time}", $tz);
+                $scheduled = \Carbon\Carbon::parse("{$dateStr} " . $attendance->shift->forDate($dateStr)->start_time, $tz);
                 $clockIn = \Carbon\Carbon::parse($attendance->clock_in_at, $tz);
 
                 if ($clockIn->greaterThan($scheduled)) {

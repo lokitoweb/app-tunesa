@@ -44,17 +44,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  /// La app no restablece contraseñas (política de tiendas y de la empresa): lo hace RRHH.
+  /// La app no restablece contraseñas sola: avisa a RRHH, que da una temporal.
   Future<void> _forgotPassword() => showDialog<void>(
         context: context,
-        builder: (c) => AlertDialog(
-          icon: const Icon(Icons.support_agent_rounded),
-          title: const Text('¿Olvidaste tu contraseña?'),
-          content: const Text(
-            'Pide a RRHH que restablezca tu acceso. Te darán una contraseña temporal '
-            'que deberás cambiar al ingresar.',
-          ),
-          actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Entendido'))],
+        builder: (_) => _ForgotPasswordDialog(
+          initialEmail: _email.text.trim(),
+          send: (email) => ref.read(authRepositoryProvider).requestPasswordHelp(email),
         ),
       );
 
@@ -152,6 +147,90 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ),
       )),
+    );
+  }
+}
+
+/// "Olvidé mi contraseña": con el correo, la app avisa a RRHH. Al terminar
+/// muestra los siguientes pasos (contraseña temporal que se cambia al entrar).
+class _ForgotPasswordDialog extends StatefulWidget {
+  const _ForgotPasswordDialog({required this.initialEmail, required this.send});
+
+  final String initialEmail;
+  final Future<String> Function(String email) send;
+
+  @override
+  State<_ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
+  late final _email = TextEditingController(text: widget.initialEmail);
+  bool _sending = false;
+  String? _error;
+  String? _done;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_email.text.contains('@')) {
+      setState(() => _error = 'Ingresa un correo válido');
+      return;
+    }
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    try {
+      final message = await widget.send(_email.text);
+      if (mounted) setState(() => _done = message);
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.fieldError('email') ?? e.message);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final done = _done;
+    if (done != null) {
+      return AlertDialog(
+        key: const Key('password-help-done'),
+        icon: const Icon(Icons.mark_email_read_outlined),
+        title: const Text('Pedido enviado'),
+        content: Text(done),
+        actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
+      );
+    }
+    return AlertDialog(
+      icon: const Icon(Icons.support_agent_rounded),
+      title: const Text('¿Olvidaste tu contraseña?'),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('Escribe tu correo y avisaremos a RR. HH. Te darán una contraseña temporal que cambiarás al ingresar.'),
+        const SizedBox(height: 16),
+        TextField(
+          key: const Key('password-help-email'),
+          controller: _email,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          decoration: InputDecoration(labelText: 'Correo', prefixIcon: const Icon(Icons.mail_outline), errorText: _error),
+          onSubmitted: (_) => _submit(),
+        ),
+      ]),
+      actions: [
+        TextButton(onPressed: _sending ? null : () => Navigator.pop(context), child: const Text('Cancelar')),
+        FilledButton(
+          key: const Key('password-help-send'),
+          onPressed: _sending ? null : _submit,
+          child: _sending
+              ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Text('Avisar a RR. HH.'),
+        ),
+      ],
     );
   }
 }

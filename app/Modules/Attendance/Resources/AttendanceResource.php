@@ -90,8 +90,8 @@ class AttendanceResource extends JsonResource
             'shift' => $this->whenLoaded('shift', fn() => [
                 'id'         => $this->shift->id,
                 'name'       => $this->shift->name,
-                'start_time' => $this->shift->start_time,
-                'end_time'   => $this->shift->end_time,
+                'start_time' => $this->shift->forDate($this->work_date)->start_time,
+                'end_time'   => $this->shift->forDate($this->work_date)->end_time,
             ]),
         ];
     }

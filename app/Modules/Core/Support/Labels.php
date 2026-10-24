@@ -434,6 +434,7 @@ final class Labels
         'payment_rejection_reason' => 'Motivo de la observación',
 
         // Turnos
+        'profile'                 => 'Perfil del turno',
         'start_time'              => 'Hora de inicio',
         'end_time'                => 'Hora de fin',
         'crosses_midnight'        => 'Pasa la medianoche',
@@ -441,6 +442,7 @@ final class Labels
         'break_allowed'           => 'Con descanso',
         'break_duration_minutes'  => 'Duración del descanso (min)',
         'working_days'            => 'Días laborables',
+        'day_schedules'           => 'Horario por día',
         'daily_hours'             => 'Horas por día',
         'color'                   => 'Color',
         'rotation_work_days'      => 'Días de trabajo del ciclo',

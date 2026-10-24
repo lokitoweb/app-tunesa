@@ -128,8 +128,6 @@ class PanelNavigation
                 + ($user->can('attendance.review') ? Attendance::where('justification_status', 'pending')->count() : 0);
         }
 
-        return $overtime + LeaveRequest::where('status', 'pending')
-            ->whereHas('employee.branches', fn ($q) => $q->visibleTo($user))
-            ->count();
+        return $overtime + LeaveRequest::approvableBy($user)->where('status', 'pending')->count();
     }
 }
