@@ -50,6 +50,8 @@ jobs:
           php artisan key:generate
           touch database/database.sqlite
           php artisan migrate:fresh --seed --force
+          # El turno de Ana es Lun-Vie: en fin de semana RRHH autoriza su marcación para recorrer el flujo completo
+          php artisan tinker --execute='$u = App\Modules\Core\Models\User::withoutGlobalScopes()->where("email", "ana.torres@empresa-demo.com")->firstOrFail(); App\Modules\Attendance\Models\OffShiftAuthorization::create(["tenant_id" => $u->tenant_id, "user_id" => $u->id, "work_date" => now($u->tenant->timezone)->toDateString(), "reason" => "CI"]);'
           nohup php artisan serve --host 127.0.0.1 --port 8000 > storage/logs/serve.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/v1/app/config > /dev/null && break; sleep 1; done
 

@@ -751,6 +751,34 @@ class TenantSetting extends Model
         return (1.05 / ($luminance + 0.05)) >= (($luminance + 0.05) / 0.0589) ? '#FFFFFF' : '#0F172A';
     }
 
+    /** Razón de contraste WCAG entre dos colores (1 a 21) */
+    public static function contrastRatio(string $a, string $b): float
+    {
+        $lum = fn (string $hex) => array_sum(array_map(function ($c, $w) {
+            $c /= 255;
+
+            return $w * ($c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4);
+        }, sscanf(self::hexOr($hex, '#000000'), '#%02x%02x%02x'), [0.2126, 0.7152, 0.0722]));
+
+        [$hi, $lo] = [max($lum($a), $lum($b)), min($lum($a), $lum($b))];
+
+        return ($hi + 0.05) / ($lo + 0.05);
+    }
+
+    /** Fondo de botón con texto blanco WCAG AA: oscurece la marca solo lo necesario; $extra oscurece más (hover) */
+    public static function buttonColor(string $brand, float $extra = 0.0): string
+    {
+        $rgb = sscanf(self::hexOr($brand, '#000000'), '#%02x%02x%02x');
+        $mix = fn (float $t) => vsprintf('#%02X%02X%02X', array_map(fn ($c) => (int) round($c * (1 - $t)), $rgb));
+
+        $t = 0.0;
+        while ($t < 1 && self::contrastRatio($mix($t), '#FFFFFF') < 4.5) {
+            $t = min(1, $t + 0.02);
+        }
+
+        return $mix(min(1, $t + $extra));
+    }
+
     /** "#1E40AF" → "30, 64, 175" para rgba(var(--x-rgb), a) */
     public static function rgbList(string $hex): string
     {

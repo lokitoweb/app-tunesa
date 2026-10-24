@@ -87,14 +87,11 @@ class LogoCache {
 }
 
 /// Logo de la empresa: `logo_dark_url` en tema oscuro (si existe), si no
-/// `logo_url`; sin logo o si falla, el ícono de la app.
-///
-/// [onLongPress] abre la configuración oculta del servidor (testers).
+/// `logo_url`; sin logo o si falla, una marca genérica.
 class BrandLogo extends ConsumerWidget {
-  const BrandLogo({super.key, this.height = 72, this.onLongPress});
+  const BrandLogo({super.key, this.height = 72});
 
   final double height;
-  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -106,10 +103,7 @@ class BrandLogo extends ConsumerWidget {
         ? _FallbackLogo(size: height)
         : _NetworkLogo(key: ValueKey(url), url: url, height: height);
 
-    return Semantics(
-      label: 'Logo',
-      child: GestureDetector(onLongPress: onLongPress, child: Center(child: logo)),
-    );
+    return Semantics(label: 'Logo', child: Center(child: logo));
   }
 }
 
@@ -164,17 +158,12 @@ class _FallbackLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // Logo de la plataforma incluido en la app; el icono queda solo si faltara el archivo
-    return Image.asset(
-      'assets/branding/brand-logo.png',
+    // Marca genérica: la app no trae el logo de ninguna empresa
+    return Container(
+      width: size,
       height: size,
-      fit: BoxFit.contain,
-      errorBuilder: (_, _, _) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(size / 3)),
-        child: Icon(Icons.fingerprint_rounded, size: size * 0.66, color: scheme.onPrimaryContainer),
-      ),
+      decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(size / 3)),
+      child: Icon(Icons.fingerprint_rounded, size: size * 0.66, color: scheme.onPrimaryContainer),
     );
   }
 }

@@ -6,6 +6,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/brand_hero.dart';
+import '../../../core/widgets/brand_logo.dart';
 import '../../announcements/presentation/announcement_home_card.dart';
 import '../../announcements/presentation/announcement_providers.dart';
 import '../../attendance/domain/models.dart';
@@ -88,8 +89,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final canPunch = ref.watch(canPunchProvider);
 
     return Scaffold(
-      // La empresa y la sede se ven en "Mi perfil": aquí solo el título y los avisos
-      appBar: AppBar(title: const Text('Inicio'), actions: const [NotificationBell(), SizedBox(width: 4)]),
+      // Logo de la empresa del usuario (llega con su configuración al ingresar); la sede se ve en "Mi perfil"
+      appBar: AppBar(
+        title: const Row(mainAxisSize: MainAxisSize.min, children: [BrandLogo(height: 28), SizedBox(width: 10), Text('Inicio')]),
+        actions: const [NotificationBell(), SizedBox(width: 4)],
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           _refreshBadges();
