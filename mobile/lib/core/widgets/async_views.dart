@@ -11,15 +11,26 @@ class ErrorView extends StatelessWidget {
   final Object error;
   final VoidCallback? onRetry;
 
-  static const forbiddenMessage = 'No tienes permiso para ver esta sección.';
+  static const forbiddenMessage = 'No tienes permiso para ver esta sección. Pídele a RR. HH. que revise los permisos de tu usuario.';
+  static const moduleDisabledMessage = 'Esta sección no está activa para tu empresa. Pídele a RR. HH. que la active.';
+  static const tenantInactiveMessage = 'La cuenta de tu empresa está suspendida. Comunícate con RR. HH.';
+
+  /// Texto de un 403 según el motivo que envía el backend (`code`), para que
+  /// la persona y RR. HH. sepan qué revisar.
+  static String forbiddenText(ApiException api) => switch (api.code) {
+        'MODULE_DISABLED' => moduleDisabledMessage,
+        'TENANT_INACTIVE' => tenantInactiveMessage,
+        // Contraseña temporal o incorporación pendiente: el backend explica el paso que falta
+        'PASSWORD_CHANGE_REQUIRED' || 'ONBOARDING_PENDING' => api.message,
+        _ => forbiddenMessage,
+      };
 
   @override
   Widget build(BuildContext context) {
     final api = error is ApiException ? error as ApiException : null;
     final isNetwork = api?.isNetwork ?? false;
     final isForbidden = api?.isForbidden ?? false;
-    // Contraseña temporal: el router ya lleva a cambiarla; se muestra el mensaje del backend
-    final message = isForbidden && api?.code != 'PASSWORD_CHANGE_REQUIRED' ? forbiddenMessage : error.toString();
+    final message = isForbidden ? forbiddenText(api!) : error.toString();
 
     return Center(
       child: Padding(

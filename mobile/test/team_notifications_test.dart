@@ -326,6 +326,16 @@ void main() {
       expect(find.text('Reintentar'), findsNothing);
     });
 
+    testWidgets('un 403 dice el motivo: módulo apagado o empresa suspendida', (tester) async {
+      Future<void> show(String code) => tester.pumpWidget(MaterialApp(
+            home: Scaffold(body: ErrorView(error: ApiException('x', statusCode: 403, code: code))),
+          ));
+      await show('MODULE_DISABLED');
+      expect(find.text(ErrorView.moduleDisabledMessage), findsOneWidget);
+      await show('TENANT_INACTIVE');
+      expect(find.text(ErrorView.tenantInactiveMessage), findsOneWidget);
+    });
+
     testWidgets('sin conexión mantiene el mensaje y el reintento', (tester) async {
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
