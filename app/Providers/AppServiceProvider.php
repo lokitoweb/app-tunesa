@@ -40,6 +40,20 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Al terminar `php artisan migrate` (cada despliegue) los roles y permisos
+        // del sistema quedan al día con RolesAndPermissionsSeeder: un permiso o rol
+        // nuevo en el código ya no exige correr el seeder a mano.
+        // También sin migraciones nuevas (NoPendingMigrations): un cambio de
+        // permisos en el código no siempre trae una migración.
+        \Illuminate\Support\Facades\Event::listen(
+            [\Illuminate\Database\Events\MigrationsEnded::class, \Illuminate\Database\Events\NoPendingMigrations::class],
+            function ($event) {
+                if (($event->method ?? 'up') === 'up' && ! $this->app->runningUnitTests()) {
+                    \App\Modules\Core\Support\SystemRoles::sync();
+                }
+            },
+        );
+
         // El panel web usa Bootstrap 5
         Paginator::useBootstrapFive();
 
