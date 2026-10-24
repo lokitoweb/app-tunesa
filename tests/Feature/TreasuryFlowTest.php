@@ -23,7 +23,7 @@ class TreasuryFlowTest extends TestCase
 
     private function orderedRequisition(int $tenantId, float $amount = 1000, int $installments = 1, bool $detraction = false): Requisition
     {
-        $supplier = Supplier::withoutGlobalScopes()->create(['tenant_id' => $tenantId, 'name' => 'Proveedor SAC', 'ruc' => '2010000000' . $tenantId]);
+        $supplier = Supplier::withoutGlobalScopes()->create(['tenant_id' => $tenantId, 'name' => 'Proveedor SAC', 'ruc' => sprintf('20%09d', $tenantId)]);
         $r = Requisition::withoutGlobalScopes()->create([
             'tenant_id' => $tenantId, 'series' => 'RQ', 'number' => 1, 'requested_at' => now(), 'detail' => 'Llantas', 'stage' => 'ordered',
             'supplier_id' => $supplier->id, 'amount' => $amount, 'currency' => 'PEN', 'installments' => $installments,
