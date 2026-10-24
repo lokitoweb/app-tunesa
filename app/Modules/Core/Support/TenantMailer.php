@@ -15,9 +15,10 @@ use Illuminate\Notifications\Messages\MailMessage;
 final class TenantMailer
 {
     /** Aplica mailer y remitente al correo de una notificación */
-    public static function apply(MailMessage $message, object $notifiable): MailMessage
+    public static function apply(MailMessage $message, object $notifiable, ?Tenant $tenant = null): MailMessage
     {
-        $tenant = $notifiable->tenant ?? null;
+        // $tenant explícito: destinatarios externos (proveedores) que no pertenecen a una empresa
+        $tenant ??= $notifiable->tenant ?? null;
         $smtp = TenantSetting::forTenant($tenant instanceof Tenant ? $tenant : null)->smtp();
 
         if (! $smtp) {

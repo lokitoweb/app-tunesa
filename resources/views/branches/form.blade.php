@@ -50,6 +50,13 @@
                             <label for="code" class="form-label">Código interno</label>
                             <input type="text" id="code" name="code" value="{{ old('code', $branch->code) }}" placeholder="SUC-01" class="form-control">
                         </div>
+                        <div class="col-sm-4">
+                            <label for="document_series" class="form-label">Serie de documentos</label>
+                            <input type="text" id="document_series" name="document_series" value="{{ old('document_series', $branch->document_series) }}" placeholder="001" maxlength="20"
+                                   class="form-control text-uppercase @error('document_series') is-invalid @enderror">
+                            @error('document_series')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            <div class="form-text">Va en los RQ/OC/OS de esta sede. Vacío = código interno.</div>
+                        </div>
                         @php
                             // Zonas de la empresa de la sede (en la vista global aún no hay empresa: se asigna luego en Organización)
                             $zones = $branch->tenant_id ? \App\Modules\Core\Models\Zone::where('tenant_id', $branch->tenant_id)->orderBy('name')->get(['id', 'name']) : collect();

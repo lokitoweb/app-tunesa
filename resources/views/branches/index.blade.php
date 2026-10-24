@@ -490,6 +490,16 @@
                                    style="height: 40px; border-radius: 8px; font-size: 0.85rem;">
                         </div>
 
+                        {{-- Serie de documentos (RQ/OC/OS) --}}
+                        <div class="col-12 col-md-4">
+                            <label for="m_document_series" class="form-label fw-semibold small text-body mb-1">
+                                Serie de documentos <span class="text-muted fw-normal">(RQ/OC/OS)</span>
+                            </label>
+                            <input type="text" id="m_document_series" name="document_series" class="form-control text-uppercase" maxlength="20"
+                                   placeholder="Ej.: 001 (vacío = código interno)"
+                                   style="height: 40px; border-radius: 8px; font-size: 0.85rem;">
+                        </div>
+
                         {{-- Tipo de Sede --}}
                         <div class="col-12 col-md-4">
                             <label for="m_branch_type" class="form-label fw-semibold small text-body mb-1">
@@ -845,6 +855,7 @@
         {{-- Resetear campos --}}
         document.getElementById('m_name').value = '';
         document.getElementById('m_code').value = '';
+        document.getElementById('m_document_series').value = '';
         document.getElementById('m_branch_type').value = 'agency';
         document.getElementById('m_zone_id').value = '';
         document.getElementById('m_supervisor_id').value = '';
@@ -873,6 +884,7 @@
 
         document.getElementById('m_name').value = branch.name || '';
         document.getElementById('m_code').value = branch.code || '';
+        document.getElementById('m_document_series').value = branch.document_series || '';
         document.getElementById('m_branch_type').value = branch.branch_type || 'agency';
         document.getElementById('m_zone_id').value = branch.zone_id || '';
         document.getElementById('m_supervisor_id').value = branch.supervisor_id || '';

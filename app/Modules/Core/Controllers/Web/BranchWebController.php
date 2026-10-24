@@ -193,6 +193,9 @@ class BranchWebController extends Controller
         return [
             'name'                  => ['required', 'string', 'max:150'],
             'code'                  => ['nullable', 'string', 'max:50'],
+            // Serie de la sede en los correlativos RQ/OC/OS (001, SED-01): única en la empresa
+            'document_series'       => ['nullable', 'string', 'max:20', 'regex:/^[A-Za-z0-9-]+$/',
+                Rule::unique('branches', 'document_series')->where('tenant_id', $tenantId)->whereNull('deleted_at')->ignore(request()->route('id'))],
             'address'               => ['required', 'string', 'max:255'],
             'city'                  => ['nullable', 'string', 'max:100'],
             'country'               => ['nullable', 'string', 'max:100'],

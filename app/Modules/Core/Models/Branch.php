@@ -36,6 +36,7 @@ class Branch extends Model
         'zone_id',
         'name',
         'code',
+        'document_series',
         'branch_type',
         'address',
         'city',

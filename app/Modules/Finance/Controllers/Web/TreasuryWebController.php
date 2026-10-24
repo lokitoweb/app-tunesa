@@ -9,6 +9,11 @@ use App\Modules\Finance\Models\CompanyBankAccount;
 use App\Modules\Finance\Models\PaymentCancellation;
 use App\Modules\Finance\Models\PaymentInstallment;
 use App\Modules\Finance\Models\Requisition;
+use App\Modules\Finance\Models\Signatory;
+use App\Modules\Finance\Notifications\SupplierDocument;
+use App\Modules\Finance\Services\FinanceDocumentPdf;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,7 +51,7 @@ class TreasuryWebController extends Controller
         $today = now(tenant_timezone())->toDateString();
 
         $installments = $this->tab(PaymentInstallment::query(), $tab, $today)
-            ->with(['requisition:id,series,number,code,detail,supplier_id,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_number,detraction_amount,detraction_percent,amount',
+            ->with(['requisition:id,series,number,code,invoice_number,invoice_path,detail,supplier_id,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_number,detraction_amount,detraction_percent,amount',
                 'requisition.supplier:id,name,ruc', 'requisition.supplier.bankAccounts:id,supplier_id,bank,account_number,account_type',
                 'cancellations.companyAccount:id,bank,account_number,currency,alias'])
             ->when($search !== '', fn ($q) => $q->whereHas('requisition', fn ($r) => $r->where('detail', 'like', "%{$search}%")
@@ -75,7 +80,7 @@ class TreasuryWebController extends Controller
             'currencies'   => Requisition::CURRENCIES,
             'can'          => [
                 'pay'       => $request->user()->hasPermission('treasury.pay'),
-                'authorize' => $request->user()->hasPermission('requisitions.approve'),
+                'authorize' => Signatory::canAuthorize($request->user()),
             ],
             'today'        => $today,
         ]);
@@ -86,6 +91,7 @@ class TreasuryWebController extends Controller
     {
         $data = $request->validate(['scheduled_for' => ['required', 'date']], ['required' => 'Indica la fecha de pago.', 'date' => 'La fecha no es válida.']);
         $p = $this->pending($id);
+        abort_unless($p->requisition?->orderNumber(), 422, 'La orden de pago necesita una OC/OS válida.');
         $p->update(['scheduled_for' => $data['scheduled_for'], 'scheduled_by' => $request->user()->full_name]);
         $this->audit->log('installment.scheduled', $p->requisition, ['installment' => $p->installment, 'scheduled_for' => $data['scheduled_for']]);
 
@@ -96,18 +102,30 @@ class TreasuryWebController extends Controller
     public function authorizePayment(Request $request, int $id): RedirectResponse
     {
         $p = $this->pending($id);
-        abort_unless($p->scheduled_for, 422, 'Programa la cuota antes de autorizarla.');
-        $p->update(['authorized_by_id' => $request->user()->id, 'authorized_at' => now()]);
+        $p->authorizeBy($request->user());
         $this->audit->log('installment.authorized', $p->requisition, ['installment' => $p->installment]);
 
         return back()->with('success', 'Pago autorizado: tesorería ya puede pagarlo.');
+    }
+
+    /** Orden de pago (OP) en PDF con la firma de quien la autorizó */
+    public function paymentOrderPdf(int $id): HttpResponse
+    {
+        $p = PaymentInstallment::with('requisition')->findOrFail($id);
+        abort_unless($p->scheduled_for, 422, 'La cuota aún no está programada.');
+
+        return response(FinanceDocumentPdf::paymentOrder($p), 200, [
+            'Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="OP-' . $p->requisition->orderNumber() . "-{$p->installment}.pdf\"",
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     /** Pago total o amortización con cuenta de origen y voucher (Tblcancelaciones_crear) */
     public function pay(Request $request, int $id): RedirectResponse
     {
         $p = $this->pending($id);
-        abort_unless($p->authorized_at, 422, 'El pago necesita la autorización de jefatura.');
+        abort_unless($p->authorized_at, 422, 'El pago necesita la autorización de la persona designada.');
+        abort_unless($p->requisition->invoice_path, 422, 'Registra la factura del proveedor (PDF) antes de pagar.');
         // Segregación de funciones: quien autoriza no registra el mismo pago
         abort_if($p->authorized_by_id === $request->user()->id, 403, 'Autorizaste este pago: otra persona debe registrarlo.');
         $remaining = round((float) $p->amount - (float) $p->paid_amount, 2);
@@ -117,12 +135,14 @@ class TreasuryWebController extends Controller
             'amount'                  => ['required', 'numeric', 'min:0.01', "max:{$remaining}"],
             'company_bank_account_id' => ['required', Rule::exists('company_bank_accounts', 'id')->where('tenant_id', $p->tenant_id)->where('is_active', true)],
             'operation_number'        => ['required', 'string', 'max:50'],
-            'voucher'                 => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120', new SafeUpload],
+            // Sin PDF/foto del depósito no se registra el pago
+            'voucher'                 => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120', new SafeUpload],
         ], [
             'amount.max'              => "El monto supera el saldo de la cuota ({$remaining}).",
             'amount.min'              => 'El monto debe ser mayor a cero.',
             'paid_at.before_or_equal' => 'La fecha de pago no puede ser futura.',
             'exists'                  => 'Elige una cuenta de origen activa.',
+            'voucher.required'        => 'Adjunta el voucher del depósito o abono.',
             'voucher.mimes'           => 'El voucher debe ser PDF o imagen.',
             'voucher.max'             => 'El voucher pesa más de 5 MB.',
         ], ['paid_at' => 'la fecha de pago', 'amount' => 'el monto', 'company_bank_account_id' => 'la cuenta de origen', 'operation_number' => 'el número de operación']);
@@ -140,7 +160,22 @@ class TreasuryWebController extends Controller
         }
         $this->audit->log('installment.paid', $p->requisition, ['installment' => $p->installment, 'amount' => $data['amount'], 'operation' => $data['operation_number']]);
 
-        return back()->with('success', $paidOff ? 'Cuota pagada.' : 'Amortización registrada: la cuota sigue con saldo.');
+        // Comprobante al proveedor (SMTP de la empresa) con el voucher adjunto
+        $r = $p->requisition->load(['supplier', 'tenant']);
+        if ($r->supplier?->email) {
+            $status = $paidOff ? 'Pago cancelado' : 'Pago amortizado';
+            $balance = round((float) $p->fresh()->amount - (float) $p->fresh()->paid_amount, 2);
+            rescue(fn () => Notification::route('mail', $r->supplier->email)->notify(new SupplierDocument(
+                $r->tenant, "{$status} · {$r->orderNumber()}",
+                array_filter([
+                    "Registramos un pago de " . FinanceDocumentPdf::money($r->currency, $data['amount']) . " por la {$r->orderNumber()} (cuota {$p->installment}), operación {$data['operation_number']}.",
+                    $paidOff ? null : 'Saldo pendiente: ' . FinanceDocumentPdf::money($r->currency, $balance) . '. Se reprogramará para su pago.',
+                ]),
+                Storage::disk(self::VOUCHER_DISK)->get($path), 'voucher-' . $data['operation_number'] . '.' . pathinfo($path, PATHINFO_EXTENSION),
+            )), report: true);
+        }
+
+        return back()->with('success', $paidOff ? 'Pago cancelado: la cuota quedó pagada.' : 'Pago amortizado: el saldo volvió a "Por programar" para una nueva orden de pago.');
     }
 
     private function registerPayment(PaymentInstallment $p, array $data, CompanyBankAccount $account, ?string $path, float $remaining, Request $request): bool
@@ -156,7 +191,10 @@ class TreasuryWebController extends Controller
             ]);
 
             $paidOff = round((float) $p->paid_amount + $amount, 2) >= (float) $p->amount;
-            $p->update(['paid_amount' => round((float) $p->paid_amount + $amount, 2)] + ($paidOff ? ['status' => 'paid', 'paid_at' => now()] : []));
+            // Bucle de amortización: el saldo vuelve a la cola de OP (por programar y autorizar otra vez)
+            $p->update(['paid_amount' => round((float) $p->paid_amount + $amount, 2)] + ($paidOff
+                ? ['status' => 'paid', 'paid_at' => now()]
+                : ['scheduled_for' => null, 'scheduled_by' => null, 'authorized_by_id' => null, 'authorized_at' => null]));
 
             // Todas las cuotas pagadas: el requerimiento queda Pagado
             if ($paidOff && ! $p->requisition->paymentInstallments()->where('status', '!=', 'paid')->exists()) {
@@ -252,7 +290,7 @@ class TreasuryWebController extends Controller
             'payment_method' => $p->payment_method,
             'requisition'   => $r ? [
                 'id' => $r->id, 'code' => $r->code(), 'detail' => $r->detail, 'order' => $r->orderNumber(), 'currency' => $r->currency,
-                'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction,
+                'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction, 'has_invoice' => (bool) $r->invoice_path,
                 'detraction' => $r->only(['detraction_number', 'detraction_amount', 'detraction_percent']),
             ] : null,
             'supplier'      => $r?->supplier ? [

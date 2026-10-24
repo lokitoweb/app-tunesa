@@ -10,12 +10,13 @@ const props = defineProps({
     suppliers: { type: Array, default: () => [] },
     options: { type: Object, required: true },
     can: { type: Object, required: true },
+    branches: { type: Array, default: () => [] },
 });
 
 const { ask } = useConfirm();
 const r = computed(() => props.requisition);
 const stage = computed(() => props.stages[r.value.stage] || ['—', 'secondary']);
-const today = new Date().toISOString().slice(0, 10);
+const today = new Date().toLocaleDateString('en-CA') // fecha local (toISOString es UTC: después de las 19:00 en Lima daría mañana);
 const money = (v, c) => (v == null ? '—' : `${c === 'USD' ? 'US$' : c === 'EUR' ? '€' : 'S/'} ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`);
 
 // Pasos del flujo para la línea de tiempo
@@ -46,12 +47,39 @@ async function cancel() {
 }
 
 // ---------------------------------------------------------------- cotizaciones
-const blankQuote = () => ({ supplier_id: '', number: '', amount: '', currency: 'PEN', quoted_at: today, expires_at: '', contact: '', phone: '', notes: '' });
+const blankQuote = () => ({ supplier_id: '', number: '', amount: '', currency: 'PEN', quoted_at: today, expires_at: '', contact: '', phone: '', notes: '', file: null });
 const quote = useForm(blankQuote());
 const showQuote = ref(false);
 function saveQuote() {
     // Sin form.reset(): Inertia toma como defaults lo último enviado con éxito
-    quote.post(`/requisitions/${r.value.id}/quotations`, { preserveScroll: true, onSuccess: () => { Object.assign(quote, blankQuote()); showQuote.value = false; } });
+    quote.transform((d) => (d.file ? d : { ...d, file: undefined }))
+        .post(`/requisitions/${r.value.id}/quotations`, { preserveScroll: true, forceFormData: true, onSuccess: () => { Object.assign(quote, blankQuote()); showQuote.value = false; } });
+}
+
+// ---------------------------------------------------------------- factura (sin factura no se paga)
+const invoice = useForm({ invoice_number: props.requisition.invoice?.number || '', invoice_date: today, file: null });
+const showInvoice = ref(false);
+function saveInvoice() {
+    invoice.transform((d) => (d.file ? d : { ...d, file: undefined }))
+        .post(`/requisitions/${r.value.id}/invoice`, { preserveScroll: true, forceFormData: true, onSuccess: () => (showInvoice.value = false) });
+}
+
+// ---------------------------------------------------------------- recepción en almacén
+const pendingItems = computed(() => r.value.items.filter((i) => i.quantity - i.received_quantity > 0.0005));
+const unitCost = () => {
+    const total = r.value.items.reduce((s, i) => s + Number(i.quantity), 0);
+    return total ? Number((Number(r.value.amount) / total).toFixed(4)) : 0;
+};
+const receipt = useForm({ branch_id: '', date: today, items: [] });
+const showReceive = ref(false);
+function openReceive() {
+    receipt.items = pendingItems.value.map((i) => ({ id: i.id, product: i.product, quantity: Number((i.quantity - i.received_quantity).toFixed(3)), unit_cost: unitCost() }));
+    receipt.clearErrors();
+    showReceive.value = true;
+}
+function saveReceive() {
+    receipt.transform((d) => ({ ...d, items: d.items.map(({ id, quantity, unit_cost }) => ({ id, quantity, unit_cost })) }))
+        .post(`/inventory/receive/${r.value.id}`, { preserveScroll: true, onSuccess: () => (showReceive.value = false) });
 }
 async function removeQuote(q) {
     const ok = await ask({ title: '¿Eliminar cotización?', message: `Se quitará la cotización de ${q.supplier?.name}.`, confirmText: 'Sí, eliminar', variant: 'danger', icon: 'bi bi-trash3-fill' });
@@ -166,9 +194,12 @@ function emitOrder() {
 
                 <!-- Orden emitida -->
                 <div v-if="['ordered', 'paid'].includes(requisition.stage)" class="card border-success shadow-sm mb-3">
-                    <div class="card-header bg-success-subtle fw-semibold">
-                        <i class="bi bi-receipt me-1"></i>{{ requisition.purchase_order_number ? 'Orden de compra' : 'Orden de servicio' }}
-                        <span class="font-monospace">{{ requisition.purchase_order_number || requisition.service_order_number }}</span>
+                    <div class="card-header bg-success-subtle fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <span>
+                            <i class="bi bi-receipt me-1"></i>{{ requisition.purchase_order_number ? 'Orden de compra' : 'Orden de servicio' }}
+                            <span class="font-monospace">{{ requisition.purchase_order_number || requisition.service_order_number }}</span>
+                        </span>
+                        <a :href="`/requisitions/${requisition.id}/order.pdf`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success"><i class="bi bi-filetype-pdf me-1"></i>PDF firmado</a>
                     </div>
                     <div class="card-body">
                         <dl class="row small mb-3">
@@ -189,6 +220,77 @@ function emitOrder() {
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Traza: factura → almacén → pagos -->
+                    <ul class="list-group list-group-flush small">
+                        <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <span>
+                                <i class="bi bi-receipt-cutoff me-1"></i>Factura:
+                                <template v-if="requisition.invoice.number">
+                                    <span class="fw-semibold">{{ requisition.invoice.number }}</span> · {{ requisition.invoice.date }}
+                                    <a v-if="requisition.invoice.has_file" :href="`/requisitions/${requisition.id}/invoice/file`" target="_blank" rel="noopener" class="ms-1">PDF</a>
+                                </template>
+                                <span v-else class="text-warning-emphasis">pendiente (sin factura no se paga)</span>
+                            </span>
+                            <button v-if="can.invoice" type="button" class="btn btn-sm btn-outline-primary" @click="showInvoice = !showInvoice">{{ requisition.invoice.number ? 'Corregir' : 'Registrar factura' }}</button>
+                        </li>
+                        <li v-if="showInvoice" class="list-group-item">
+                            <form class="row g-2" novalidate @submit.prevent="saveInvoice">
+                                <div class="col-sm-4"><input v-model="invoice.invoice_number" class="form-control form-control-sm" placeholder="F001-123" aria-label="N.º de factura" :class="{ 'is-invalid': invoice.errors.invoice_number }" /><div class="invalid-feedback">{{ invoice.errors.invoice_number }}</div></div>
+                                <div class="col-sm-3"><input v-model="invoice.invoice_date" type="date" :max="today" class="form-control form-control-sm" aria-label="Fecha de la factura" :class="{ 'is-invalid': invoice.errors.invoice_date }" /><div class="invalid-feedback">{{ invoice.errors.invoice_date }}</div></div>
+                                <div class="col-sm-5"><input type="file" accept="application/pdf" class="form-control form-control-sm" aria-label="PDF de la factura" :class="{ 'is-invalid': invoice.errors.file }" @input="invoice.file = $event.target.files[0]" /><div class="invalid-feedback">{{ invoice.errors.file }}</div></div>
+                                <div class="col-12 text-end"><button class="btn btn-sm btn-primary" :disabled="invoice.processing">Guardar factura</button></div>
+                            </form>
+                        </li>
+                        <li v-if="requisition.purchase_order_number" id="recepcion" class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <span>
+                                <i class="bi bi-box-seam me-1"></i>Almacén:
+                                <span v-if="requisition.received_at" class="text-success fw-semibold">recibida completa ({{ requisition.received_at }})</span>
+                                <span v-else-if="Object.keys(requisition.receipts).length">recepción parcial</span>
+                                <span v-else class="text-body-secondary">por recibir</span>
+                                <span v-for="(n, k) in requisition.receipts" :key="k" class="ms-1 badge text-bg-light border">{{ k }}</span>
+                            </span>
+                            <button v-if="can.receive" type="button" class="btn btn-sm btn-outline-primary" @click="openReceive">Recibir en almacén</button>
+                        </li>
+                        <li v-if="showReceive" class="list-group-item">
+                            <form novalidate @submit.prevent="saveReceive">
+                                <div class="row g-2 mb-2">
+                                    <div class="col-sm-7">
+                                        <select v-model="receipt.branch_id" class="form-select form-select-sm" aria-label="Almacén" :class="{ 'is-invalid': receipt.errors.branch_id }">
+                                            <option value="">Almacén (sede)…</option>
+                                            <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+                                        </select>
+                                        <div class="invalid-feedback">{{ receipt.errors.branch_id }}</div>
+                                    </div>
+                                    <div class="col-sm-5"><input v-model="receipt.date" type="date" :max="today" class="form-control form-control-sm" aria-label="Fecha de recepción" /></div>
+                                </div>
+                                <table class="table table-sm mb-2">
+                                    <thead><tr><th>Producto</th><th style="width: 110px">Recibido</th><th style="width: 130px">Costo unit.</th></tr></thead>
+                                    <tbody>
+                                        <tr v-for="(line, i) in receipt.items" :key="line.id">
+                                            <td>{{ line.product }}</td>
+                                            <td><input v-model="line.quantity" type="number" min="0" step="0.001" class="form-control form-control-sm" :aria-label="`Cantidad recibida de ${line.product}`" :class="{ 'is-invalid': receipt.errors[`items.${i}.quantity`] }" /></td>
+                                            <td><input v-model="line.unit_cost" type="number" min="0" step="0.0001" class="form-control form-control-sm" :aria-label="`Costo unitario de ${line.product}`" /></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-sm btn-light" @click="showReceive = false">Cancelar</button>
+                                    <button class="btn btn-sm btn-primary" :disabled="receipt.processing">Registrar entrada</button>
+                                </div>
+                            </form>
+                        </li>
+                        <li v-for="pay in requisition.payments" :key="pay.id" class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                            <span>
+                                <span class="badge" :class="pay.status === 'Pago cancelado' ? 'text-bg-success' : 'text-bg-info'">{{ pay.status }}</span>
+                                {{ pay.paid_at }} · op. {{ pay.operation }}
+                            </span>
+                            <span class="text-nowrap">
+                                <span class="fw-semibold">{{ money(pay.amount, requisition.currency) }}</span>
+                                <a v-if="pay.has_voucher" :href="`/treasury/payments/${pay.id}/voucher`" target="_blank" rel="noopener" class="ms-1" title="Voucher"><i class="bi bi-file-earmark-arrow-down"></i></a>
+                            </span>
+                        </li>
+                    </ul>
                 </div>
             </div>
 
@@ -235,6 +337,11 @@ function emitOrder() {
                         <div class="col-12">
                             <input v-model="quote.notes" class="form-control form-control-sm" placeholder="Observaciones (plazo de entrega, garantía…)" aria-label="Observaciones" maxlength="250" />
                         </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="q-file">PDF de la cotización {{ requisition.is_express ? '(opcional en Express)' : '*' }}</label>
+                            <input id="q-file" type="file" accept="application/pdf" class="form-control form-control-sm" :class="{ 'is-invalid': quote.errors.file }" @input="quote.file = $event.target.files[0]" />
+                            <div class="invalid-feedback">{{ quote.errors.file }}</div>
+                        </div>
                         <div class="col-12 d-flex justify-content-end gap-2">
                             <button type="button" class="btn btn-sm btn-light" @click="showQuote = false">Cancelar</button>
                             <button type="submit" class="btn btn-sm btn-primary" :disabled="quote.processing">Guardar cotización</button>
@@ -250,6 +357,7 @@ function emitOrder() {
                                     </div>
                                     <div class="small text-body-secondary">
                                         <span v-if="q.number">N.º {{ q.number }} · </span>{{ q.quoted_at }}<span v-if="q.expires_at"> · válida hasta {{ q.expires_at }}</span>
+                                        <a v-if="q.has_file" :href="`/requisitions/${requisition.id}/quotations/${q.id}/file`" target="_blank" rel="noopener" class="ms-1"><i class="bi bi-filetype-pdf"></i> PDF</a>
                                     </div>
                                     <div v-if="q.notes" class="small">{{ q.notes }}</div>
                                 </div>

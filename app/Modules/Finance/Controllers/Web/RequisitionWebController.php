@@ -5,6 +5,15 @@ namespace App\Modules\Finance\Controllers\Web;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\User;
+use App\Modules\Core\Rules\SafeUpload;
+use App\Modules\Core\Support\PrivateFile;
+use App\Modules\Finance\Models\Vehicle;
+use App\Modules\Finance\Notifications\RequisitionReviewed;
+use App\Modules\Finance\Notifications\SupplierDocument;
+use App\Modules\Finance\Services\FinanceDocumentPdf;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\TenantContext;
 use App\Modules\Finance\Models\DocumentSequence;
@@ -120,8 +129,9 @@ class RequisitionWebController extends Controller
         $data = $this->validated($request);
 
         $requisition = DB::transaction(function () use ($data, $request) {
-            // RQ-[EMPRESA]-[SERIE]-[N]-[AÑO]: la serie es la sede de quien solicita
-            $series = DocumentSequence::seriesFrom($request->user()->assignedBranch?->code);
+            // RQ-[EMPRESA]-[SERIE]-[N]-[AÑO]: la serie es la de la sede de quien solicita (o su código)
+            $branch = $request->user()->primaryBranch()->first() ?? $request->user()->assignedBranch;
+            $series = DocumentSequence::seriesFrom($branch?->document_series ?: $branch?->code);
             $year = (int) now()->year;
             [$number, $code] = DocumentSequence::next(app(TenantContext::class)->get(), 'RQ', $series, $year);
             $requisition = Requisition::create($this->header($data) + [
@@ -139,7 +149,8 @@ class RequisitionWebController extends Controller
 
     public function show(Request $request, int $id): Response
     {
-        $r = $this->visible($request)->with(['items.product', 'quotations.supplier:id,name,ruc', 'supplier:id,name,ruc', 'paymentInstallments'])->findOrFail($id);
+        $r = $this->visible($request)->with(['items.product', 'quotations.supplier:id,name,ruc', 'supplier:id,name,ruc', 'paymentInstallments.cancellations',
+            'stockMovements.branch:id,name'])->findOrFail($id);
         $user = $request->user();
 
         return Inertia::render('Finance/Pages/Requisitions/Show', [
@@ -156,9 +167,19 @@ class RequisitionWebController extends Controller
                 'supplier'     => $r->supplier?->only(['id', 'name', 'ruc']),
                 'items'        => $r->items->map(fn ($i) => [
                     'id' => $i->id, 'product' => $i->product?->name, 'unit' => $i->product?->unit, 'quantity' => (float) $i->quantity, 'justification' => $i->justification,
+                    'received_quantity' => (float) $i->received_quantity,
+                ]),
+                // Traza: factura, recepción en almacén y pagos (cancelado / amortizado) de esta orden
+                'invoice'      => ['number' => $r->invoice_number, 'date' => $r->invoice_date?->format('d/m/Y'), 'has_file' => (bool) $r->invoice_path],
+                'received_at'  => $r->received_at?->timezone(tenant_timezone())->format('d/m/Y H:i'),
+                'receipts'     => $r->stockMovements->groupBy(fn ($m) => $m->date->format('d/m/Y') . ' · ' . $m->branch?->name)->map->count(),
+                'payments'     => $r->paymentInstallments->flatMap->cancellations->sortBy('paid_at')->values()->map(fn ($c) => [
+                    'id' => $c->id, 'paid_at' => $c->paid_at?->format('d/m/Y'), 'amount' => (float) $c->amount, 'operation' => $c->operation_number,
+                    'status' => $c->is_amortization ? 'Pago amortizado' : 'Pago cancelado', 'has_voucher' => (bool) $c->voucher_path,
                 ]),
                 'quotations'   => $r->quotations->sortByDesc('is_selected')->values()->map(fn (Quotation $q) => [
                     ...$q->only(['id', 'number', 'amount', 'currency', 'contact', 'phone', 'notes', 'is_selected']),
+                    'has_file'   => (bool) $q->file_path,
                     'supplier'   => $q->supplier?->only(['id', 'name', 'ruc']),
                     'quoted_at'  => $q->quoted_at?->format('d/m/Y'),
                     'expires_at' => $q->expires_at?->format('d/m/Y'),
@@ -174,7 +195,10 @@ class RequisitionWebController extends Controller
                 'edit'     => $r->stage === 'requested' && ($r->user_id === $user->id || $user->hasPermission('requisitions.view_all')),
                 'approve'  => $this->canReview($r, $user),
                 'purchase' => $user->hasPermission('purchasing.manage'),
+                'invoice'  => $r->stage === 'ordered' && ($user->hasPermission('purchasing.manage') || $user->hasPermission('treasury.pay')),
+                'receive'  => $r->stage === 'ordered' && $r->purchase_order_number && ! $r->received_at && $user->hasPermission('inventory.manage'),
             ],
+            'branches'    => $user->hasPermission('inventory.manage') ? \App\Modules\Core\Models\Branch::orderBy('name')->get(['id', 'name']) : [],
         ]);
     }
 
@@ -216,6 +240,8 @@ class RequisitionWebController extends Controller
             'reviewed_by' => $request->user()->full_name, 'reviewed_by_id' => $request->user()->id, 'reviewed_at' => now(),
         ]);
         $this->audit->log("requisition.{$data['decision']}", $r, ['code' => $r->code(), 'notes' => $data['notes'] ?? null]);
+        // ACEPTADO / RECHAZADO a quien lo pidió (aviso + correo por el SMTP de la empresa); un fallo de correo no revierte la revisión
+        rescue(fn () => $r->user?->notify(new RequisitionReviewed($r)), report: true);
 
         return back()->with('success', $data['decision'] === 'approved' ? 'Requerimiento aprobado: ya se puede cotizar.' : 'Requerimiento rechazado.');
     }
@@ -250,7 +276,11 @@ class RequisitionWebController extends Controller
             'contact'     => ['nullable', 'string', 'max:50'],
             'phone'       => ['nullable', 'string', 'max:50'],
             'notes'       => ['nullable', 'string', 'max:250'],
-        ], self::MESSAGES, ['supplier_id' => 'el proveedor', 'amount' => 'el monto']);
+            // PDF de la cotización: obligatorio salvo en el Express (sin cotización formal)
+            'file'        => [$r->is_express ? 'nullable' : 'required', 'file', 'mimes:pdf', 'max:5120', SafeUpload::pdf()],
+        ], self::MESSAGES + ['file.required' => 'Adjunta el PDF de la cotización.', 'file.mimes' => 'La cotización debe ser PDF.', 'file.max' => 'El PDF pesa más de 5 MB.'],
+            ['supplier_id' => 'el proveedor', 'amount' => 'el monto', 'file' => 'la cotización']);
+        unset($data['file']);
 
         // Express: un solo proveedor, en soles y por debajo del tope (sin cuadro comparativo)
         if ($r->is_express) {
@@ -260,6 +290,7 @@ class RequisitionWebController extends Controller
             }
         }
 
+        $data['file_path'] = $request->file('file')?->store("finance/{$r->tenant_id}/quotations", self::DISK);
         $quotation = DB::transaction(function () use ($r, $data) {
             $r->update(['stage' => 'quoting']);
 
@@ -268,6 +299,57 @@ class RequisitionWebController extends Controller
         $this->audit->log('quotation.created', $r, ['code' => $r->code(), 'quotation_id' => $quotation->id]);
 
         return back()->with('success', 'Cotización agregada.');
+    }
+
+    /** PDF de la cotización (privado; lo ve quien ve el requerimiento) */
+    public function quotationFile(Request $request, int $id, int $quotationId)
+    {
+        $q = $this->visible($request)->findOrFail($id)->quotations()->findOrFail($quotationId);
+
+        return PrivateFile::response(self::DISK, $q->file_path);
+    }
+
+    /** Factura del proveedor (número, fecha y PDF): sin factura no se paga */
+    public function invoice(Request $request, int $id): RedirectResponse
+    {
+        abort_unless($request->user()->hasPermission('purchasing.manage') || $request->user()->hasPermission('treasury.pay'), 403);
+        $r = Requisition::findOrFail($id);
+        abort_unless($r->stage === 'ordered', 422, 'La factura se registra sobre una orden emitida y no pagada.');
+        $data = $request->validate([
+            'invoice_number' => ['required', 'string', 'max:50'],
+            'invoice_date'   => ['required', 'date', 'before_or_equal:today'],
+            'file'           => [$r->invoice_path ? 'nullable' : 'required', 'file', 'mimes:pdf', 'max:5120', SafeUpload::pdf()],
+        ], ['file.required' => 'Adjunta el PDF de la factura.', 'file.mimes' => 'La factura debe ser PDF.', 'invoice_date.before_or_equal' => 'La fecha no puede ser futura.'],
+            ['invoice_number' => 'el número de factura', 'invoice_date' => 'la fecha de la factura', 'file' => 'la factura']);
+
+        $update = ['invoice_number' => $data['invoice_number'], 'invoice_date' => $data['invoice_date']];
+        if ($request->hasFile('file')) {
+            if ($r->invoice_path) {
+                Storage::disk(self::DISK)->delete($r->invoice_path);
+            }
+            $update['invoice_path'] = $request->file('file')->store("finance/{$r->tenant_id}/invoices", self::DISK);
+        }
+        $r->update($update);
+        $this->audit->log('requisition.invoiced', $r, ['code' => $r->code(), 'invoice' => $data['invoice_number']]);
+
+        return back()->with('success', 'Factura registrada: ya se puede pagar.');
+    }
+
+    public function invoiceFile(Request $request, int $id)
+    {
+        return PrivateFile::response(self::DISK, $this->visible($request)->findOrFail($id)->invoice_path);
+    }
+
+    /** OC/OS en PDF con la firma de quien aprobó */
+    public function orderPdf(Request $request, int $id): HttpResponse
+    {
+        $r = $this->visible($request)->findOrFail($id);
+        abort_unless($r->orderNumber(), 404);
+
+        return response(FinanceDocumentPdf::order($r), 200, [
+            'Content-Type' => 'application/pdf', 'Content-Disposition' => 'inline; filename="' . $r->orderNumber() . '.pdf"',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     public function destroyQuotation(int $id, int $quotationId): RedirectResponse
@@ -333,10 +415,22 @@ class RequisitionWebController extends Controller
         });
         $this->audit->log('requisition.ordered', $r, ['code' => $r->code(), 'order' => $number]);
 
+        // La OC/OS en PDF (con la firma de quien aprobó) al correo del proveedor, por el SMTP de la empresa
+        $r->refresh()->load('supplier');
+        if ($r->supplier?->email) {
+            rescue(fn () => Notification::route('mail', $r->supplier->email)->notify(new SupplierDocument(
+                $r->tenant, "{$number} · {$r->tenant->company_name}",
+                ["Le hacemos llegar la {$number} por " . FinanceDocumentPdf::money($r->currency, $r->amount) . '.', "Detalle: {$r->detail}"],
+                FinanceDocumentPdf::order($r), "{$number}.pdf",
+            )), report: true);
+        }
+
         return back()->with('success', "Orden {$number} emitida: las cuotas quedaron pendientes de pago.");
     }
 
     // ------------------------------------------------------------------ privado
+
+    private const DISK = TreasuryWebController::VOUCHER_DISK;
 
     /** Solo los mensajes propios de este flujo; los genéricos vienen de lang/es/validation.php */
     private const MESSAGES = [
@@ -399,6 +493,7 @@ class RequisitionWebController extends Controller
             'items.*.unit'          => ['nullable', 'string', 'max:50'],
             'items.*.quantity'      => ['required', 'numeric', 'min:0.001', 'max:99999999'],
             'items.*.justification' => ['nullable', 'string', 'max:100'],
+            'vehicle_id'            => ['nullable', Rule::exists('vehicles', 'id')->where('tenant_id', current_tenant_id_or_null())->whereNull('deleted_at')],
             'is_express'            => ['boolean'],
             'amount'                => ['nullable', 'required_if:is_express,true,1', 'numeric', 'min:0.01', 'lt:' . Requisition::EXPRESS_LIMIT],
         ], self::MESSAGES + [
@@ -413,6 +508,10 @@ class RequisitionWebController extends Controller
     private function header(array $data): array
     {
         $express = (bool) ($data['is_express'] ?? false);
+        // Con vehículo del maestro, la placa sale de él (la columna plate queda para los migrados)
+        if (! empty($data['vehicle_id'])) {
+            $data['plate'] = Vehicle::find($data['vehicle_id'])?->plate;
+        }
 
         // El monto estimado solo se guarda en el Express (en soles); el normal lo fija la cotización
         return ['is_express' => $express, 'amount' => $express ? $data['amount'] : null] + ($express ? ['currency' => 'PEN'] : [])
@@ -438,7 +537,7 @@ class RequisitionWebController extends Controller
     {
         return Inertia::render('Finance/Pages/Requisitions/Form', [
             'requisition' => [
-                ...$r->only(['id', 'detail', 'area', 'requested_by', 'email', 'classification', 'priority', 'plate', 'km', 'agency', 'site', 'delivery_place', 'is_express', 'amount']),
+                ...$r->only(['id', 'detail', 'area', 'requested_by', 'email', 'classification', 'priority', 'plate', 'km', 'agency', 'site', 'delivery_place', 'is_express', 'amount', 'vehicle_id']),
                 'code'         => $r->exists ? $r->code() : null,
                 'requested_at' => ($r->requested_at ?? now())->format('Y-m-d'),
                 'items'        => $r->exists
@@ -447,6 +546,7 @@ class RequisitionWebController extends Controller
             ],
             'products' => Product::orderBy('name')->limit(1000)->get(['name', 'unit']),
             'options'  => self::options(),
+            'vehicles' => Vehicle::where('is_active', true)->orderBy('plate')->get(['id', 'plate', 'brand', 'model', 'type']),
         ]);
     }
 

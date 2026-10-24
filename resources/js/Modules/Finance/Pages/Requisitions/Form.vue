@@ -6,6 +6,7 @@ const props = defineProps({
     requisition: { type: Object, required: true },
     products: { type: Array, default: () => [] },
     options: { type: Object, required: true },
+    vehicles: { type: Array, default: () => [] },
 });
 
 const editing = !!props.requisition.id;
@@ -22,6 +23,7 @@ const form = useForm({
     agency: props.requisition.agency || '',
     site: props.requisition.site || '',
     delivery_place: props.requisition.delivery_place || '',
+    vehicle_id: props.requisition.vehicle_id ?? '',
     is_express: !!props.requisition.is_express,
     amount: props.requisition.amount ?? '',
     items: props.requisition.items.length ? props.requisition.items : [{ product: '', unit: 'UNIDAD (BIENES)', quantity: 1, justification: '' }],
@@ -39,6 +41,7 @@ function onProduct(item) {
 }
 
 function submit() {
+    form.transform((d) => ({ ...d, vehicle_id: d.vehicle_id || null }));
     if (editing) form.put(`/requisitions/${props.requisition.id}`);
     else form.post('/requisitions');
 }
@@ -117,8 +120,12 @@ const err = (k) => form.errors[k];
                         <div class="invalid-feedback">{{ err('email') }}</div>
                     </div>
                     <div class="col-6 col-lg-3">
-                        <label class="form-label small fw-semibold" for="rq-plate">Placa</label>
-                        <input id="rq-plate" v-model="form.plate" class="form-control text-uppercase" maxlength="50" />
+                        <label class="form-label small fw-semibold" for="rq-vehicle">Vehículo</label>
+                        <select v-if="vehicles.length" id="rq-vehicle" v-model="form.vehicle_id" class="form-select" :class="{ 'is-invalid': err('vehicle_id') }">
+                            <option value="">— Sin vehículo —</option>
+                            <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.plate }} · {{ v.type }}{{ v.brand ? ` · ${v.brand}` : '' }}</option>
+                        </select>
+                        <input v-else id="rq-vehicle" v-model="form.plate" class="form-control text-uppercase" maxlength="50" placeholder="Registra la flota en Vehículos" />
                     </div>
                     <div class="col-6 col-lg-3">
                         <label class="form-label small fw-semibold" for="rq-km">Kilometraje</label>

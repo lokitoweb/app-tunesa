@@ -8,6 +8,7 @@ use App\Modules\Finance\Models\PaymentCancellation;
 use App\Modules\Finance\Models\PaymentInstallment;
 use App\Modules\Finance\Models\PettyCashExpense;
 use App\Modules\Finance\Models\Requisition;
+use App\Modules\Finance\Models\Signatory;
 use App\Modules\Finance\Models\Supplier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -27,6 +28,7 @@ class TreasuryFlowTest extends TestCase
             'tenant_id' => $tenantId, 'series' => 'RQ', 'number' => 1, 'requested_at' => now(), 'detail' => 'Llantas', 'stage' => 'ordered',
             'supplier_id' => $supplier->id, 'amount' => $amount, 'currency' => 'PEN', 'installments' => $installments,
             'purchase_order_number' => 'OC-000001', 'has_detraction' => $detraction,
+            'invoice_number' => 'F001-1', 'invoice_date' => now()->toDateString(), 'invoice_path' => "finance/{$tenantId}/invoices/f.pdf",
         ]);
         for ($i = 1; $i <= $installments; $i++) {
             PaymentInstallment::withoutGlobalScopes()->create([
@@ -45,6 +47,8 @@ class TreasuryFlowTest extends TestCase
         $acme = $this->makeTenant('acme');
         $accountant = $this->makeUser($acme, 'accountant');
         $manager = $this->makeUser($acme, 'manager');
+        // La persona designada para autorizar pagos
+        Signatory::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'user_id' => $manager->id, 'position' => 'Gerente general', 'can_authorize' => true]);
         $r = $this->orderedRequisition($acme->id, 1000);
         $p = PaymentInstallment::withoutGlobalScopes()->sole();
         $account = CompanyBankAccount::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'bank' => 'BCP', 'account_number' => '191-000', 'currency' => 'PEN']);
@@ -57,14 +61,14 @@ class TreasuryFlowTest extends TestCase
         $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/schedule", ['scheduled_for' => now()->addDays(5)->toDateString()])->assertSessionHasNoErrors();
         $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", [])->assertStatus(422);
 
-        // Contabilidad no autoriza: lo hace gerencia
-        // Logística no autoriza (sin requisitions.approve)
+        // Solo autoriza la persona designada (apoderado con "autoriza pagos")
         $this->actingAs($this->makeUser($acme, 'logistics'))->post("/treasury/installments/{$p->id}/authorize")->assertForbidden();
+        $this->actingAs($this->makeUser($acme, 'manager'))->post("/treasury/installments/{$p->id}/authorize")->assertForbidden();
         $this->actingAs($manager)->post("/treasury/installments/{$p->id}/authorize")->assertSessionHasNoErrors();
         // Gerencia autoriza pero no paga; quien autorizó tampoco registra el pago
         $self = $this->makeUser($acme, 'accountant');
         $q = PaymentInstallment::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'requisition_id' => $r->id, 'installment' => 2, 'amount' => 1, 'status' => 'pending', 'scheduled_for' => now()->toDateString(), 'authorized_by_id' => $self->id, 'authorized_at' => now()]);
-        $this->actingAs($self)->post("/treasury/installments/{$q->id}/pay", ['paid_at' => now()->toDateString(), 'amount' => 1, 'company_bank_account_id' => $account->id, 'operation_number' => 'X'])->assertForbidden();
+        $this->actingAs($self)->post("/treasury/installments/{$q->id}/pay", ['paid_at' => now()->toDateString(), 'amount' => 1, 'company_bank_account_id' => $account->id, 'operation_number' => 'X', 'voucher' => $this->fakePdf('x.pdf')])->assertForbidden();
         $q->delete();
         $this->actingAs($manager)->post("/treasury/installments/{$p->id}/pay", [])->assertForbidden();
 
@@ -72,8 +76,9 @@ class TreasuryFlowTest extends TestCase
             'paid_at' => now()->toDateString(), 'amount' => 400, 'company_bank_account_id' => $account->id, 'operation_number' => 'OP-1',
         ], $over);
 
-        // No se paga más que el saldo
-        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay(['amount' => 1000.01]))->assertSessionHasErrors('amount');
+        // No se paga más que el saldo, ni sin voucher del depósito
+        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay(['amount' => 1000.01, 'voucher' => $this->fakePdf('v0.pdf')]))->assertSessionHasErrors('amount');
+        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay())->assertSessionHasErrors('voucher');
 
         $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay(['voucher' => $this->fakePdf('v1.pdf')]))
             ->assertSessionHasNoErrors();
@@ -81,7 +86,14 @@ class TreasuryFlowTest extends TestCase
         $this->assertSame(['pending', '400.00'], [$p->status, $p->paid_amount]);
         $this->assertTrue(PaymentCancellation::withoutGlobalScopes()->first()->is_amortization);
 
-        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay(['amount' => 600, 'operation_number' => 'OP-2']))->assertSessionHasNoErrors();
+        // Bucle de amortización: el saldo vuelve a la cola de OP (programar y autorizar otra vez)
+        $this->assertSame([null, null], [$p->scheduled_for, $p->authorized_at]);
+        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay(['amount' => 600, 'voucher' => $this->fakePdf('v2.pdf')]))->assertStatus(422);
+        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/schedule", ['scheduled_for' => now()->addDays(10)->toDateString()])->assertSessionHasNoErrors();
+        $this->actingAs($manager)->post("/treasury/installments/{$p->id}/authorize")->assertSessionHasNoErrors();
+        $this->actingAs($accountant)->get("/treasury/installments/{$p->id}/op.pdf")->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay(['amount' => 600, 'operation_number' => 'OP-2', 'voucher' => $this->fakePdf('v2.pdf')]))->assertSessionHasNoErrors();
         $p->refresh();
         $this->assertSame(['paid', '1000.00'], [$p->status, $p->paid_amount]);
         $this->assertSame('paid', $r->fresh()->stage, 'todas las cuotas pagadas: requerimiento pagado');

@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Línea de un requerimiento (tdetalle); la empresa la da el requerimiento */
 class RequisitionItem extends Model
 {
-    protected $fillable = ['requisition_id', 'product_id', 'quantity', 'justification'];
+    protected $fillable = ['requisition_id', 'product_id', 'quantity', 'received_quantity', 'justification'];
 
-    protected $casts = ['quantity' => 'decimal:3'];
+    protected $casts = ['quantity' => 'decimal:3', 'received_quantity' => 'decimal:3'];
 
     public function requisition(): BelongsTo
     {

@@ -3,6 +3,7 @@
 namespace App\Modules\Finance\Models;
 
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
+use App\Modules\Core\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -31,5 +32,20 @@ class PaymentInstallment extends Model
     public function cancellations(): HasMany
     {
         return $this->hasMany(PaymentCancellation::class);
+    }
+
+    /**
+     * Visto bueno de la persona designada (apoderado con "autoriza pagos"), desde el panel o
+     * la app: una sola regla para ambos. La OP necesita su OC/OS y estar programada.
+     */
+    public function authorizeBy(User $user): void
+    {
+        abort_unless($this->status === 'pending', 422, 'La cuota ya está pagada.');
+        abort_unless(Signatory::canAuthorize($user), 403, 'Solo la persona designada por la empresa autoriza pagos.');
+        abort_unless($this->requisition?->orderNumber(), 422, 'La orden de pago necesita una OC/OS válida.');
+        abort_unless($this->scheduled_for, 422, 'Programa la cuota antes de autorizarla.');
+        abort_if($this->authorized_at, 422, 'La cuota ya está autorizada.');
+
+        $this->update(['authorized_by_id' => $user->id, 'authorized_at' => now()]);
     }
 }

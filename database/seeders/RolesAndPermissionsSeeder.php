@@ -101,6 +101,10 @@ class RolesAndPermissionsSeeder extends Seeder
         'treasury.pay'            => ['Programar, pagar y cancelar cuotas', 'finance'],
         'fixed_costs.manage'      => ['Gestionar costos fijos y caja chica', 'finance'],
         'company.document_code'   => ['Editar la abreviatura de la empresa en los correlativos (RQ/OC)', 'finance'],
+        'fleet.manage'            => ['Registrar y editar los vehículos de la empresa', 'finance'],
+        'inventory.manage'        => ['Almacén: recibir OC, entradas, salidas y kardex', 'finance'],
+        'fuel.manage'             => ['Registrar cargas de combustible por vehículo', 'finance'],
+        'signatories.manage'      => ['Designar apoderados, sus firmas y quién autoriza pagos', 'finance'],
     ];
 
     /** Permisos de compras y tesorería, para restarlos de los roles con '*' */
@@ -126,7 +130,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'Gestiona colaboradores, turnos, solicitudes y nómina.',
             ['*', '-tenants.manage', '-tenants.branding', '-company.configure', '-audit.view',
                 '-suppliers.manage', '-requisitions.view_all', '-requisitions.approve', '-purchasing.manage',
-                '-treasury.view', '-treasury.pay', '-fixed_costs.manage'],
+                '-treasury.view', '-treasury.pay', '-fixed_costs.manage',
+                '-fleet.manage', '-inventory.manage', '-fuel.manage', '-signatories.manage'],
         ],
         Role::MANAGER => [
             'Gerencia',
@@ -149,7 +154,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'attendance.mark', 'attendance.view_own', 'shifts.view_own',
                 'dashboard.view', 'reports.view', 'reports.export',
                 'payslips.manage', 'payroll.export',
-                ...self::FINANCE, 'company.document_code',
+                ...self::FINANCE, 'company.document_code', 'fleet.manage', 'inventory.manage', 'fuel.manage',
                 'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
                 'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
             ],
@@ -172,6 +177,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'Proveedores, productos, requerimientos, cotizaciones y órdenes de compra/servicio.',
             [
                 'suppliers.view', 'suppliers.manage', 'requisitions.create', 'requisitions.view_all', 'purchasing.manage',
+                'fleet.manage', 'inventory.manage', 'fuel.manage',
                 'dashboard.view', 'attendance.mark', 'attendance.view_own', 'shifts.view_own',
                 'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
                 'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',

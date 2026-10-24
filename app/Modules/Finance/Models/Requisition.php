@@ -46,7 +46,7 @@ class Requisition extends Model
     protected $fillable = [
         'tenant_id', 'series', 'number', 'code', 'year', 'is_express', 'requested_at', 'detail', 'area', 'requested_by', 'user_id', 'email', 'plate', 'km',
         'agency', 'site', 'delivery_place', 'classification', 'stage', 'payment_terms', 'notes', 'supplier_id',
-        'purchase_order_number', 'service_order_number', 'ordered_at', 'invoice_number', 'payment_origin', 'sale_type', 'priority',
+        'purchase_order_number', 'service_order_number', 'ordered_at', 'received_at', 'invoice_number', 'invoice_path', 'invoice_date', 'vehicle_id', 'payment_origin', 'sale_type', 'priority',
         'payment_method', 'reviewed_by', 'reviewed_by_id', 'reviewed_at', 'currency', 'amount', 'amount_payable', 'has_detraction',
         'detraction_number', 'detraction_amount', 'detraction_percent',
         'installments', 'attachments',
@@ -56,6 +56,8 @@ class Requisition extends Model
         'requested_at'   => 'datetime',
         'reviewed_at'    => 'datetime',
         'ordered_at'     => 'datetime',
+        'received_at'    => 'datetime',
+        'invoice_date'   => 'date',
         'amount'         => 'decimal:2',
         'amount_payable' => 'decimal:2',
         'detraction_amount' => 'decimal:2',
@@ -72,6 +74,16 @@ class Requisition extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function vehicle(): BelongsTo
+    {
+        return $this->belongsTo(Vehicle::class);
+    }
+
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class);
     }
 
     public function items(): HasMany

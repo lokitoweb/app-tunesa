@@ -59,7 +59,7 @@ class SafeUploadTest extends TestCase
         $acme = $this->makeTenant('acme');
         $accountant = $this->makeUser($acme, 'accountant');
         $manager = $this->makeUser($acme, 'manager');
-        $r = Requisition::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'series' => 'RQ', 'number' => 1, 'requested_at' => now(), 'detail' => 'x', 'stage' => 'ordered', 'currency' => 'PEN', 'amount' => 100, 'installments' => 1]);
+        $r = Requisition::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'series' => 'RQ', 'number' => 1, 'requested_at' => now(), 'detail' => 'x', 'stage' => 'ordered', 'currency' => 'PEN', 'amount' => 100, 'installments' => 1, 'purchase_order_number' => 'OC-1', 'invoice_path' => 'f.pdf']);
         $p = PaymentInstallment::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'requisition_id' => $r->id, 'installment' => 1, 'due_date' => now(), 'amount' => 100,
             'status' => 'pending', 'scheduled_for' => now(), 'authorized_by_id' => $manager->id, 'authorized_at' => now()]);
         $account = CompanyBankAccount::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'bank' => 'BCP', 'account_number' => '1', 'currency' => 'PEN']);

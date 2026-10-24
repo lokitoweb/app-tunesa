@@ -189,6 +189,8 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                     {{ p.due_date }}
                                     <div v-if="p.scheduled_for" class="text-primary"><i class="bi bi-calendar-check me-1"></i>{{ p.scheduled_for.split('-').reverse().join('/') }}</div>
                                     <div v-if="p.authorized" class="text-success"><i class="bi bi-check2-circle me-1"></i>Autorizada</div>
+                                    <div v-if="!p.requisition?.has_invoice && p.status === 'pending'" class="text-warning-emphasis"><i class="bi bi-receipt-cutoff me-1"></i>Sin factura</div>
+                                    <div v-if="p.paid_amount > 0 && p.status === 'pending'" class="text-info-emphasis"><i class="bi bi-arrow-repeat me-1"></i>Saldo por amortizar</div>
                                 </td>
                                 <td class="text-end text-nowrap">
                                     <div class="fw-semibold">{{ money(p.status === 'paid' ? p.amount : p.balance, p.requisition?.currency) }}</div>
@@ -201,7 +203,8 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                             <button type="button" class="btn btn-sm btn-outline-primary" @click="schedule(p)">{{ p.scheduled_for ? 'Reprogramar' : 'Programar' }}</button>
                                         </template>
                                         <button v-if="p.status === 'pending' && p.scheduled_for && !p.authorized && can.authorize" type="button" class="btn btn-sm btn-success" @click="authorize(p)">Autorizar</button>
-                                        <button v-if="p.status === 'pending' && p.authorized && can.pay" type="button" class="btn btn-sm btn-success" @click="openPay(p)"><i class="bi bi-cash-coin me-1"></i>Pagar</button>
+                                        <a v-if="p.scheduled_for" :href="`/treasury/installments/${p.id}/op.pdf`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Orden de pago (PDF firmado)"><i class="bi bi-filetype-pdf"></i> OP</a>
+                                        <button v-if="p.status === 'pending' && p.authorized && can.pay" type="button" class="btn btn-sm btn-success" :disabled="!p.requisition?.has_invoice" :title="p.requisition?.has_invoice ? '' : 'Registra la factura en el requerimiento'" @click="openPay(p)"><i class="bi bi-cash-coin me-1"></i>Pagar</button>
                                         <button v-if="p.requisition?.has_detraction && can.pay" type="button" class="btn btn-sm btn-outline-secondary" title="Detracción" @click="openDetraction(p)"><i class="bi bi-percent"></i></button>
                                         <button v-if="p.payments.length" type="button" class="btn btn-sm btn-light" :title="expanded === p.id ? 'Ocultar pagos' : 'Ver pagos'" @click="expanded = expanded === p.id ? null : p.id">
                                             <i class="bi" :class="expanded === p.id ? 'bi-chevron-up' : 'bi-receipt'"></i> {{ p.payments.length }}
@@ -262,7 +265,8 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                             <label class="form-label small fw-semibold" for="pay-amount">Monto *</label>
                             <input id="pay-amount" v-model="pay.amount" type="number" min="0" step="0.01" :max="payTarget.balance" class="form-control" :class="{ 'is-invalid': pay.errors.amount }" />
                             <div class="invalid-feedback">{{ pay.errors.amount }}</div>
-                            <div v-if="Number(pay.amount) > 0 && Number(pay.amount) < payTarget.balance" class="form-text text-warning-emphasis">Amortización parcial: la cuota seguirá con saldo.</div>
+                            <div v-if="Number(pay.amount) > 0 && Number(pay.amount) < payTarget.balance" class="form-text text-warning-emphasis">Pago amortizado: el saldo vuelve a "Por programar" para una nueva orden de pago.</div>
+                            <div v-else class="form-text">Pago completo: la cuota queda cancelada.</div>
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold" for="pay-account">Cuenta de origen *</label>
@@ -279,7 +283,7 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                             <div class="invalid-feedback">{{ pay.errors.operation_number }}</div>
                         </div>
                         <div class="col-12">
-                            <label class="form-label small fw-semibold" for="pay-voucher">Voucher (PDF o imagen, máx. 5 MB)</label>
+                            <label class="form-label small fw-semibold" for="pay-voucher">Voucher del depósito (PDF o imagen, máx. 5 MB) *</label>
                             <input id="pay-voucher" type="file" accept=".pdf,image/*" class="form-control" :class="{ 'is-invalid': pay.errors.voucher }" @input="pay.voucher = $event.target.files[0]" />
                             <div class="invalid-feedback">{{ pay.errors.voucher }}</div>
                         </div>

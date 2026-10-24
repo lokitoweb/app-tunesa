@@ -60,7 +60,7 @@ class RequisitionFlowTest extends TestCase
         $this->actingAs($requester)->put("/requisitions/{$r->id}", $this->payload())->assertStatus(422);
 
         $this->actingAs($logistics)->post("/requisitions/{$r->id}/quotations", [
-            'supplier_id' => $supplier->id, 'amount' => 1000, 'currency' => 'PEN', 'quoted_at' => '2026-10-23',
+            'supplier_id' => $supplier->id, 'amount' => 1000, 'currency' => 'PEN', 'quoted_at' => '2026-10-23', 'file' => $this->fakePdf('cot.pdf'),
         ])->assertSessionHasNoErrors();
         $quotation = $r->quotations()->sole();
         $this->assertSame('quoting', $r->fresh()->stage);

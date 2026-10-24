@@ -2,6 +2,10 @@
 
 use App\Modules\Finance\Controllers\Web\CashFlowWebController;
 use App\Modules\Finance\Controllers\Web\FixedCostWebController;
+use App\Modules\Finance\Controllers\Web\FuelWebController;
+use App\Modules\Finance\Controllers\Web\InventoryWebController;
+use App\Modules\Finance\Controllers\Web\SignatoryWebController;
+use App\Modules\Finance\Controllers\Web\VehicleWebController;
 use App\Modules\Finance\Controllers\Web\PettyCashWebController;
 use App\Modules\Finance\Controllers\Web\RequisitionWebController;
 use App\Modules\Finance\Controllers\Web\SupplierWebController;
@@ -32,6 +36,11 @@ Route::middleware(['auth', 'web.tenant', 'can:requisitions.create'])->prefix('re
     Route::get('/{id}/edit', [RequisitionWebController::class, 'edit'])->name('edit')->whereNumber('id');
     Route::put('/{id}', [RequisitionWebController::class, 'update'])->name('update')->whereNumber('id');
     Route::post('/{id}/cancel', [RequisitionWebController::class, 'cancel'])->name('cancel')->whereNumber('id');
+    // Traza documental (archivos privados, los ve quien ve el requerimiento)
+    Route::get('/{id}/order.pdf', [RequisitionWebController::class, 'orderPdf'])->name('order.pdf')->whereNumber('id');
+    Route::get('/{id}/quotations/{quotation}/file', [RequisitionWebController::class, 'quotationFile'])->name('quotations.file')->whereNumber(['id', 'quotation']);
+    Route::get('/{id}/invoice/file', [RequisitionWebController::class, 'invoiceFile'])->name('invoice.file')->whereNumber('id');
+    Route::post('/{id}/invoice', [RequisitionWebController::class, 'invoice'])->name('invoice')->whereNumber('id'); // logística o tesorería
 
     // Gerencia aprueba; el Express lo valida la jefatura inmediata o contabilidad (regla en el controlador)
     Route::post('/{id}/review', [RequisitionWebController::class, 'review'])->name('review')->whereNumber('id');
@@ -49,8 +58,9 @@ Route::middleware(['auth', 'web.tenant', 'can:treasury.view'])->prefix('treasury
     Route::get('/', [TreasuryWebController::class, 'index'])->name('index');
     Route::get('/payments/{id}/voucher', [TreasuryWebController::class, 'voucher'])->name('voucher')->whereNumber('id');
 
-    Route::post('/installments/{id}/authorize', [TreasuryWebController::class, 'authorizePayment'])->name('authorize')->whereNumber('id')
-        ->middleware('can:requisitions.approve');
+    // Autoriza la persona designada (apoderado con "autoriza pagos"): regla en PaymentInstallment::authorizeBy
+    Route::post('/installments/{id}/authorize', [TreasuryWebController::class, 'authorizePayment'])->name('authorize')->whereNumber('id');
+    Route::get('/installments/{id}/op.pdf', [TreasuryWebController::class, 'paymentOrderPdf'])->name('op.pdf')->whereNumber('id');
 
     Route::middleware('can:treasury.pay')->group(function () {
         Route::post('/installments/{id}/schedule', [TreasuryWebController::class, 'schedule'])->name('schedule')->whereNumber('id');
@@ -79,6 +89,35 @@ Route::middleware(['auth', 'web.tenant', 'can:fixed_costs.manage'])->prefix('fix
     Route::put('/{id}', [FixedCostWebController::class, 'update'])->name('update')->whereNumber('id');
     Route::post('/{id}/cancel', [FixedCostWebController::class, 'cancel'])->name('cancel')->whereNumber('id');
     Route::post('/{id}/pay', [FixedCostWebController::class, 'pay'])->name('pay')->whereNumber('id');
+});
+
+// Maestros: vehículos de la empresa
+Route::middleware(['auth', 'web.tenant', 'can:fleet.manage'])->prefix('vehicles')->name('vehicles.')->group(function () {
+    Route::get('/', [VehicleWebController::class, 'index'])->name('index');
+    Route::post('/', [VehicleWebController::class, 'store'])->name('store');
+    Route::put('/{id}', [VehicleWebController::class, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}', [VehicleWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
+});
+
+// Maestros: apoderados con firma y quién autoriza pagos
+Route::middleware(['auth', 'web.tenant', 'can:signatories.manage'])->prefix('signatories')->name('signatories.')->group(function () {
+    Route::get('/', [SignatoryWebController::class, 'index'])->name('index');
+    Route::post('/', [SignatoryWebController::class, 'store'])->name('store');
+    Route::post('/{id}', [SignatoryWebController::class, 'update'])->name('update')->whereNumber('id'); // POST: lleva la firma
+    Route::get('/{id}/signature', [SignatoryWebController::class, 'signature'])->name('signature')->whereNumber('id');
+});
+
+// Logística: almacén (stock, kardex, recepción de OC) y combustible por placa
+Route::middleware(['auth', 'web.tenant', 'can:inventory.manage'])->prefix('inventory')->name('inventory.')->group(function () {
+    Route::get('/', [InventoryWebController::class, 'index'])->name('index');
+    Route::post('/movements', [InventoryWebController::class, 'store'])->name('movements.store');
+    Route::post('/receive/{id}', [InventoryWebController::class, 'receive'])->name('receive')->whereNumber('id');
+});
+Route::middleware(['auth', 'web.tenant', 'can:fuel.manage'])->prefix('fuel')->name('fuel.')->group(function () {
+    Route::get('/', [FuelWebController::class, 'index'])->name('index');
+    Route::post('/', [FuelWebController::class, 'store'])->name('store');
+    Route::put('/{id}', [FuelWebController::class, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}', [FuelWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
 });
 
 // Flujo de caja: egresos reales y proyectados por mes
