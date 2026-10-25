@@ -72,7 +72,7 @@ class PunchBoard extends StatelessWidget {
     final (label, color, icon) = status.isNotScheduled
         ? (TodayStatus.notScheduledFallback, scheme.onSurfaceVariant, Icons.event_busy_rounded)
         : status.isDayComplete
-        ? ('Marcación completa', AppTheme.success, Icons.task_alt_rounded)
+        ? ('Marcación completa', dark ? AppTheme.successGlow : AppTheme.success, Icons.task_alt_rounded)
         : started
             ? ('Marcación incompleta', scheme.primary, Icons.timelapse_rounded)
             : ('Sin marcaciones', scheme.onSurfaceVariant, Icons.schedule_rounded);
@@ -81,7 +81,7 @@ class PunchBoard extends StatelessWidget {
       decoration: BoxDecoration(
         color: dark ? scheme.surfaceContainerHigh : Colors.white,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: dark ? 0.5 : 0.35)),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: dark ? 1 : 0.35)),
         boxShadow: dark ? null : [BoxShadow(color: scheme.primary.withValues(alpha: 0.08), blurRadius: 18, offset: const Offset(0, 6))],
       ),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
@@ -113,7 +113,7 @@ class PunchBoard extends StatelessWidget {
             value: done / 4,
             minHeight: 6,
             backgroundColor: scheme.outlineVariant.withValues(alpha: 0.35),
-            valueColor: const AlwaysStoppedAnimation(AppTheme.success),
+            valueColor: AlwaysStoppedAnimation(dark ? AppTheme.successGlow : AppTheme.success),
           ),
         ),
         if (a != null && a.lateMinutes > 0)
@@ -186,16 +186,16 @@ class _PunchTile extends StatelessWidget {
     final done = time != null;
     // Hecha: verde · siguiente: color de la marca, relleno · bloqueada: gris suave
     final background = done
-        ? AppTheme.success.withValues(alpha: dark ? 0.25 : 0.12)
+        ? AppTheme.success.withValues(alpha: 0.12)
         : available
             ? scheme.primary
             : scheme.onSurface.withValues(alpha: dark ? 0.08 : 0.04);
     final foreground = done
-        ? (dark ? AppTheme.success : AppTheme.successDeep)
+        ? (dark ? AppTheme.successGlow : AppTheme.successDeep)
         : available
             ? scheme.onPrimary
             : scheme.onSurfaceVariant.withValues(alpha: 0.45);
-    final timeColor = done ? (dark ? AppTheme.success : AppTheme.successDeep) : scheme.onSurfaceVariant.withValues(alpha: 0.6);
+    final timeColor = done ? (dark ? AppTheme.successGlow : AppTheme.successDeep) : scheme.onSurfaceVariant.withValues(alpha: 0.6);
 
     return Semantics(
       button: true,
@@ -208,6 +208,8 @@ class _PunchTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               color: background,
+              // Oscuro: verde translúcido con filo menta para que el check resalte sin encandilar
+              border: done && dark ? Border.all(color: AppTheme.successGlow.withValues(alpha: 0.28)) : null,
               boxShadow: available && !done
                   ? [BoxShadow(color: scheme.primary.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))]
                   : null,

@@ -140,7 +140,6 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final initials = file.fullName.trim().split(RegExp(r'\s+')).take(2).map((p) => p.isEmpty ? '' : p[0]).join().toUpperCase();
 
     // Mismos colores que el saludo de Inicio: azul de la marca y acento verde
@@ -148,7 +147,7 @@ class _Header extends StatelessWidget {
       child: Row(children: [
         Container(
           padding: const EdgeInsets.all(2.5),
-          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: BrandHero.ringColor(context)),
           child: ProfileAvatar(initials: initials),
         ),
         const SizedBox(width: 16),
@@ -158,10 +157,10 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               [file.position, file.employeeCode].whereType<String>().join(' · '),
-              style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85)),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.82)),
             ),
             if (file.hireDate != null)
-              Text('Ingreso: ${file.hireDate}', style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85), fontSize: 13)),
+              Text('Ingreso: ${file.hireDate}', style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 13)),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),

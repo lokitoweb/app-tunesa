@@ -162,7 +162,7 @@ class HomeGreeting extends StatelessWidget {
       child: Row(children: [
         Container(
           padding: const EdgeInsets.all(2.5),
-          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: BrandHero.ringColor(context)),
           child: CircleAvatar(
             key: const Key('greeting-avatar'),
             radius: 28,

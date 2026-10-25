@@ -26,6 +26,17 @@ class AppTheme {
   static const Color success = Color(0xFF10B981);
   static const Color successDeep = Color(0xFF047857);
 
+  /// Verde menta suave para checks y textos de "hecho" en modo noche.
+  static const Color successGlow = Color(0xFF6EE7B7);
+
+  /// Modo noche: fondo carbón y superficies escalonadas (fondo < tarjeta <
+  /// destacado/diálogo) con bordes finos, para dar jerarquía sin sombras.
+  static const Color nightBackground = Color(0xFF0F141B);
+  static const Color nightCard = Color(0xFF181F2A);
+  static const Color nightRaised = Color(0xFF1E2530);
+  static const Color nightBorder = Color(0xFF2A3341);
+  static const Color nightTextMuted = Color(0xFFAEB8C6);
+
   static ThemeData light({Color? primary, Color? secondary, Color? accent, Color? navbar}) =>
       _build(Brightness.light, primary: primary, secondary: secondary, accent: accent, navbar: navbar);
 
@@ -56,6 +67,20 @@ class AppTheme {
     );
     // En claro el primario es el color exacto de la marca (el generado lo apaga)
     if (!isDark) scheme = scheme.copyWith(primary: brand, onPrimary: foregroundOn(brand));
+    // En oscuro, superficies neutras (sin el tinte de la marca) y texto secundario legible
+    if (isDark) {
+      scheme = scheme.copyWith(
+        surface: nightBackground,
+        surfaceContainerLowest: nightBackground,
+        surfaceContainerLow: nightCard,
+        surfaceContainer: nightCard,
+        surfaceContainerHigh: nightCard,
+        surfaceContainerHighest: nightRaised,
+        onSurface: const Color(0xFFE6EBF2),
+        onSurfaceVariant: nightTextMuted,
+        outlineVariant: nightBorder,
+      );
+    }
 
     final rounded = BorderRadius.circular(radius);
     final shape = RoundedRectangleBorder(borderRadius: rounded);
@@ -89,7 +114,7 @@ class AppTheme {
         shadowColor: brand.withValues(alpha: 0.18),
         surfaceTintColor: Colors.transparent,
         color: isDark ? scheme.surfaceContainerHigh : Colors.white,
-        shape: shape.copyWith(side: BorderSide(color: scheme.outlineVariant.withValues(alpha: isDark ? 0.5 : 0.35))),
+        shape: shape.copyWith(side: BorderSide(color: scheme.outlineVariant.withValues(alpha: isDark ? 1 : 0.35))),
         clipBehavior: Clip.antiAlias,
       ),
       listTileTheme: ListTileThemeData(shape: shape, iconColor: scheme.primary),
@@ -122,7 +147,7 @@ class AppTheme {
       chipTheme: ChipThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
       dialogTheme: DialogThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius + 2)),
-        backgroundColor: isDark ? scheme.surfaceContainerHigh : Colors.white,
+        backgroundColor: isDark ? scheme.surfaceContainerHighest : Colors.white,
         surfaceTintColor: Colors.transparent,
       ),
       navigationBarTheme: NavigationBarThemeData(
@@ -145,11 +170,11 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(behavior: SnackBarBehavior.floating, shape: shape),
       bottomSheetTheme: BottomSheetThemeData(
         showDragHandle: true,
-        backgroundColor: isDark ? scheme.surfaceContainerHigh : Colors.white,
+        backgroundColor: isDark ? scheme.surfaceContainerHighest : Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(radius + 4))),
       ),
-      dividerTheme: DividerThemeData(color: scheme.outlineVariant.withValues(alpha: 0.5), space: 1),
+      dividerTheme: DividerThemeData(color: scheme.outlineVariant.withValues(alpha: isDark ? 1 : 0.5), space: 1),
     );
   }
 
