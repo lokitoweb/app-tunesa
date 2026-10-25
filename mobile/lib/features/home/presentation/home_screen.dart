@@ -91,7 +91,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       // Logo de la empresa del usuario (llega con su configuración al ingresar); la sede se ve en "Mi perfil"
       appBar: AppBar(
-        title: const Row(mainAxisSize: MainAxisSize.min, children: [BrandLogo(height: 28), SizedBox(width: 10), Text('Inicio')]),
+        // Solo el logo (la pestaña de abajo ya dice "Inicio"); el Row lo deja a la izquierda
+        title: const Row(mainAxisSize: MainAxisSize.min, children: [BrandLogo(height: 32)]),
         actions: const [NotificationBell(), SizedBox(width: 4)],
       ),
       body: RefreshIndicator(

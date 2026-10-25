@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:tunesa_mobile/core/widgets/async_views.dart';
+import 'package:tunesa_mobile/core/widgets/brand_logo.dart';
 import 'package:tunesa_mobile/features/notifications/presentation/notifications_screen.dart';
 import 'package:tunesa_mobile/main.dart' as app;
 
@@ -74,7 +75,7 @@ Future<void> login(WidgetTester tester, String email, String password) async {
   await tester.enterText(find.widgetWithText(TextFormField, 'Contraseña'), password);
   // "Listo" en el teclado ya envía el formulario (onFieldSubmitted)
   await tester.testTextInput.receiveAction(TextInputAction.done);
-  await waitFor(tester, find.widgetWithText(AppBar, 'Inicio'));
+  await waitFor(tester, find.descendant(of: find.byType(AppBar), matching: find.byType(BrandLogo)));
   await settleScreen(tester, 'Inicio');
   await dismissBirthdayCelebration(tester);
 }
