@@ -109,10 +109,12 @@ Columna `attendances.status` (enum de BD, no se toca): present, late, absent, ex
 6. ¿Quién programa y con cuánta anticipación?
 7. Salida anticipada (el informe no la define).
 8. Feriado con turno programado: hoy no genera falta y, si marca, "Feriado trabajado". ¿Se confirma?
+9. Vacaciones: ¿cuántos días de derecho corresponden y cómo se generan o acumulan (por año de servicio, por régimen)? ¿Los días usados se cuentan calendario o hábiles? ¿El saldo es por periodo vacacional o histórico?
+10. Horas extras: el informe las define como "horas marcadas después de la salida del horario"; hoy son horas trabajadas menos la jornada base (incluye llegar antes). ¿Cuál vale?
 
 ## 7. Exclusiones de esta ronda
 
-- **Saldo de vacaciones** (CP-04 "descuenta del saldo"): no existe en el sistema y requiere reglas de RR. HH. CP-04 se cubre hasta "vacaciones aprobadas = estado Vacaciones y no es falta".
+Ninguna. La exclusión del saldo de vacaciones quedó revocada el 25/10/2026: se implementan días usados y saldo (derecho − usados), y la regla de generación del derecho queda como pregunta 9 para RR. HH.
 
 ## 8. Plan por fases
 
