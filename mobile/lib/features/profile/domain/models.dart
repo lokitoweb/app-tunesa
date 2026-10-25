@@ -1,6 +1,8 @@
 /// Modelos del autoservicio del colaborador (GET /api/employee/profile).
 library;
 
+import '../../../core/utils/json_num.dart';
+
 Map<String, dynamic> _map(Object? v) => v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
 List<Map<String, dynamic>> _list(Object? v) => v is List ? v.whereType<Map>().map(Map<String, dynamic>.from).toList() : [];
 Map<String, String> _labels(Object? v) => _map(v).map((k, val) => MapEntry(k, '$val'));
@@ -44,7 +46,7 @@ class CompanyConfig {
       editPaymentInfo: flag(perms, 'edit_payment_info'),
       editUniforms: flag(perms, 'edit_uniforms'),
       requiredDocuments: json['required_documents'] == null ? const ['dni', 'cv', 'proof_of_address'] : _strings(json['required_documents']),
-      maxUploadMb: (json['max_upload_mb'] as num?)?.toInt() ?? 5,
+      maxUploadMb: asInt(json['max_upload_mb']) ?? 5,
     );
   }
 
@@ -93,13 +95,13 @@ class EmployeeDocument {
   bool get canDelete => status == DocumentStatus.pending || status == DocumentStatus.rejected;
 
   factory EmployeeDocument.fromJson(Map<String, dynamic> json) => EmployeeDocument(
-        id: (json['id'] as num).toInt(),
+        id: asInt(json['id'])!,
         type: '${json['type']}',
         typeLabel: json['type_label']?.toString() ?? '${json['type']}',
         status: DocumentStatus.parse(json['status'] as String?),
         originalName: json['original_name']?.toString() ?? '',
         mimeType: json['mime_type']?.toString() ?? '',
-        sizeKb: (json['size_kb'] as num?)?.toDouble(),
+        sizeKb: asDouble(json['size_kb']),
         rejectionReason: json['rejection_reason'] as String?,
         expiresAt: DateTime.tryParse('${json['expires_at']}'),
         uploadedAt: DateTime.tryParse('${json['uploaded_at']}'),
@@ -201,7 +203,7 @@ class UniformDelivery {
   factory UniformDelivery.fromJson(Map<String, dynamic> json) => UniformDelivery(
         itemLabel: json['item_label']?.toString() ?? '${json['item']}',
         size: json['size'] as String?,
-        quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+        quantity: asInt(json['quantity']) ?? 1,
         deliveredAt: DateTime.tryParse('${json['delivered_at']}'),
       );
 }
@@ -318,7 +320,7 @@ class EmployeeFile {
       documents: _list(docs['items']).map(EmployeeDocument.fromJson).toList(),
       missingDocuments: _strings(docs['missing']),
       steps: _map(onboarding['steps']).map((k, v) => MapEntry(k, v == true)),
-      progress: (onboarding['progress'] as num?)?.toInt() ?? 0,
+      progress: asInt(onboarding['progress']) ?? 0,
       config: CompanyConfig.fromJson(_map(json['config'])),
       catalogs: Catalogs.fromJson(_map(json['catalogs'])),
     );

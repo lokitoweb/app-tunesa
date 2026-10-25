@@ -1,3 +1,5 @@
+import '../../../core/utils/json_num.dart';
+
 /// Cumpleaños de una persona (solo día y mes: el backend nunca envía el año).
 class Birthday {
   const Birthday({
@@ -35,7 +37,7 @@ class Birthday {
   final int daysUntil;
 
   factory Birthday.fromJson(Map<String, dynamic> json) => Birthday(
-        id: (json['id'] as num).toInt(),
+        id: asInt(json['id'])!,
         name: json['name']?.toString() ?? '',
         firstName: json['first_name']?.toString() ?? '',
         initials: json['initials']?.toString() ?? '?',
@@ -43,11 +45,11 @@ class Birthday {
         department: json['department']?.toString(),
         branch: json['branch']?.toString(),
         avatarUrl: json['avatar_url']?.toString(),
-        day: (json['day'] as num?)?.toInt() ?? 1,
-        month: (json['month'] as num?)?.toInt() ?? 1,
+        day: asInt(json['day']) ?? 1,
+        month: asInt(json['month']) ?? 1,
         dateLabel: json['date_label']?.toString() ?? '',
         isToday: json['is_today'] == true,
-        daysUntil: (json['days_until'] as num?)?.toInt() ?? 0,
+        daysUntil: asInt(json['days_until']) ?? 0,
       );
 
   /// "Hoy", "Mañana", "En 5 días"
@@ -84,7 +86,7 @@ class BirthdayMonth {
     List<Birthday> list(Object? raw) =>
         ((raw as List?) ?? const []).map((e) => Birthday.fromJson(Map<String, dynamic>.from(e as Map))).toList();
     return BirthdayMonth(
-      month: (json['month'] as num?)?.toInt() ?? 1,
+      month: asInt(json['month']) ?? 1,
       monthName: json['month_name']?.toString() ?? '',
       today: list(json['today']),
       upcoming: list(json['upcoming']),

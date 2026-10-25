@@ -1,3 +1,5 @@
+import '../../../core/utils/json_num.dart';
+
 /// Carpeta de documentos de la empresa (Políticas, Reglamentos...).
 class DocumentFolder {
   const DocumentFolder({required this.id, required this.name, this.description, this.icon, this.color, this.count = 0});
@@ -10,12 +12,12 @@ class DocumentFolder {
   final int count;
 
   factory DocumentFolder.fromJson(Map<String, dynamic> json) => DocumentFolder(
-        id: (json['id'] as num).toInt(),
+        id: asInt(json['id'])!,
         name: json['name']?.toString() ?? '',
         description: json['description']?.toString(),
         icon: json['icon']?.toString(),
         color: json['color']?.toString(),
-        count: (json['count'] as num?)?.toInt() ?? 0,
+        count: asInt(json['count']) ?? 0,
       );
 }
 
@@ -54,13 +56,13 @@ class CompanyDocument {
   final String? description;
 
   factory CompanyDocument.fromJson(Map<String, dynamic> json) => CompanyDocument(
-        id: (json['id'] as num).toInt(),
+        id: asInt(json['id'])!,
         title: json['title']?.toString() ?? '',
         version: json['version']?.toString(),
-        folderId: (json['folder_id'] as num?)?.toInt(),
+        folderId: asInt(json['folder_id']),
         folder: json['folder']?.toString(),
         fileName: json['file_name']?.toString() ?? 'documento.pdf',
-        fileSize: (json['file_size'] as num?)?.toInt() ?? 0,
+        fileSize: asInt(json['file_size']) ?? 0,
         publishedAt: DateTime.tryParse(json['published_at']?.toString() ?? ''),
         requiresAcknowledgement: json['requires_acknowledgement'] == true,
         acknowledgeBy: DateTime.tryParse(json['acknowledge_by']?.toString() ?? ''),

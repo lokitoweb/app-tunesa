@@ -2,6 +2,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/utils/paged.dart';
 import '../domain/models.dart';
+import '../../../core/utils/json_num.dart';
 
 class NotificationRepository {
   NotificationRepository(this._api);
@@ -22,5 +23,5 @@ class NotificationRepository {
   Future<void> markAllRead() => _api.post(ApiEndpoints.notificationsReadAll);
 
   static int unreadOf(Paged<AppNotification> page) =>
-      (page.meta['unread_count'] as num?)?.toInt() ?? page.items.where((n) => !n.isRead).length;
+      asInt(page.meta['unread_count']) ?? page.items.where((n) => !n.isRead).length;
 }

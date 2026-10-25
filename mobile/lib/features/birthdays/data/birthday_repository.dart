@@ -1,6 +1,7 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../domain/models.dart';
+import '../../../core/utils/json_num.dart';
 
 class BirthdayRepository {
   BirthdayRepository(this._api);
@@ -21,7 +22,7 @@ class BirthdayRepository {
     final meta = Map<String, dynamic>.from((json['meta'] as Map?) ?? const {});
     return UpcomingBirthdays(
       items: items,
-      total: (meta['total'] as num?)?.toInt() ?? items.length,
+      total: asInt(meta['total']) ?? items.length,
       greeting: BirthdayGreeting.fromJson(meta['greeting']),
     );
   }

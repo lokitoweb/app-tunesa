@@ -1,3 +1,5 @@
+import '../../../core/utils/json_num.dart';
+
 /// Un dispositivo con sesión abierta en la cuenta.
 class DeviceSession {
   const DeviceSession({
@@ -15,7 +17,7 @@ class DeviceSession {
   final DateTime? createdAt;
 
   factory DeviceSession.fromJson(Map<String, dynamic> j) => DeviceSession(
-        id: (j['id'] as num).toInt(),
+        id: asInt(j['id'])!,
         label: (j['label'] ?? j['device'] ?? 'Dispositivo').toString(),
         current: j['current'] == true,
         lastUsedAt: DateTime.tryParse('${j['last_used_at'] ?? ''}'),

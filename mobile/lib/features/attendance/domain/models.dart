@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../../../core/utils/json_num.dart';
 
 import '../../../core/utils/formatters.dart';
 
@@ -96,7 +97,7 @@ class Attendance {
     final justification = json['justification'] as Map?;
 
     return Attendance(
-      id: (json['id'] as num).toInt(),
+      id: asInt(json['id'])!,
       workDate: DateTime.parse(json['work_date'] as String),
       status: json['status']?.toString() ?? '',
       statusLabel: json['status_label']?.toString() ?? '',
@@ -105,15 +106,15 @@ class Attendance {
       breakStart: (brk?['start_time'] as String?)?.substring(0, 5),
       breakEnd: (brk?['end_time'] as String?)?.substring(0, 5),
       isOnBreak: json['is_on_break'] == true,
-      lateMinutes: (summary?['late_minutes'] as num?)?.toInt() ?? 0,
-      workedHours: (summary?['worked_hours'] as num?)?.toDouble() ?? 0,
+      lateMinutes: asInt(summary?['late_minutes']) ?? 0,
+      workedHours: asDouble(summary?['worked_hours']) ?? 0,
       branchName: (json['branch'] as Map?)?['name'] as String?,
       shiftName: (json['shift'] as Map?)?['name'] as String?,
       justificationStatus: justification?['status'] as String?,
       justificationNotes: justification?['notes'] as String?,
-      overtimeHours: (summary?['overtime_hours'] as num?)?.toDouble() ?? 0,
+      overtimeHours: asDouble(summary?['overtime_hours']) ?? 0,
       overtimeStatus: summary?['overtime_status'] as String?,
-      overtimeApprovedHours: (summary?['overtime_approved_hours'] as num?)?.toDouble(),
+      overtimeApprovedHours: asDouble(summary?['overtime_approved_hours']),
     );
   }
 }
@@ -264,13 +265,13 @@ class BranchGeofence {
   factory BranchGeofence.fromJson(Map<String, dynamic> json) {
     final geo = Map<String, dynamic>.from(json['geofence'] as Map);
     return BranchGeofence(
-      id: (json['id'] as num).toInt(),
+      id: asInt(json['id'])!,
       name: json['name']?.toString() ?? '',
-      lat: (geo['latitude'] as num).toDouble(),
-      lng: (geo['longitude'] as num).toDouble(),
-      radius: (geo['allowed_radius_meters'] as num?)?.toDouble() ?? 100,
-      tolerance: (geo['tolerance_meters'] as num?)?.toDouble() ?? defaultTolerance,
-      maxAccuracy: (geo['max_gps_accuracy_meters'] as num?)?.toInt(),
+      lat: asDouble(geo['latitude'])!,
+      lng: asDouble(geo['longitude'])!,
+      radius: asDouble(geo['allowed_radius_meters']) ?? 100,
+      tolerance: asDouble(geo['tolerance_meters']) ?? defaultTolerance,
+      maxAccuracy: asInt(geo['max_gps_accuracy_meters']),
     );
   }
 }
@@ -284,10 +285,10 @@ class HistorySummary {
   final double totalHours;
 
   factory HistorySummary.fromJson(Map<String, dynamic> json) => HistorySummary(
-        present: (json['present'] as num?)?.toInt() ?? 0,
-        late: (json['late'] as num?)?.toInt() ?? 0,
-        absent: (json['absent'] as num?)?.toInt() ?? 0,
-        totalHours: (json['total_hours'] as num?)?.toDouble() ?? 0,
+        present: asInt(json['present']) ?? 0,
+        late: asInt(json['late']) ?? 0,
+        absent: asInt(json['absent']) ?? 0,
+        totalHours: asDouble(json['total_hours']) ?? 0,
       );
 }
 

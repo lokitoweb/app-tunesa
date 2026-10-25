@@ -1,3 +1,5 @@
+import '../../../core/utils/json_num.dart';
+
 /// Comunicado de RR. HH. (aviso, reunión, actualización...).
 class Announcement {
   const Announcement({
@@ -41,7 +43,7 @@ class Announcement {
     }
 
     return Announcement(
-      id: (json['id'] as num).toInt(),
+      id: asInt(json['id'])!,
       title: json['title']?.toString() ?? '',
       category: json['category']?.toString() ?? 'general',
       categoryLabel: json['category_label']?.toString() ?? 'Aviso',

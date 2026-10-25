@@ -1,3 +1,5 @@
+import '../../../core/utils/json_num.dart';
+
 enum LeaveType {
   vacation('vacation', 'Vacaciones'),
   permission('permission', 'Permiso'),
@@ -61,12 +63,12 @@ class LeaveRequest {
       };
 
   factory LeaveRequest.fromJson(Map<String, dynamic> json) => LeaveRequest(
-        id: (json['id'] as num).toInt(),
+        id: asInt(json['id'])!,
         type: LeaveType.fromApi(json['type'] as String?),
         typeLabel: json['type_label']?.toString() ?? LeaveType.fromApi(json['type'] as String?).label,
         startDate: DateTime.parse(json['start_date'] as String),
         endDate: DateTime.parse(json['end_date'] as String),
-        days: (json['days'] as num?)?.toDouble() ?? 0,
+        days: asDouble(json['days']) ?? 0,
         reason: json['reason']?.toString() ?? '',
         status: json['status']?.toString() ?? 'pending',
         startTime: json['start_time'] as String?,

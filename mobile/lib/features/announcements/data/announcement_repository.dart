@@ -1,6 +1,7 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../domain/models.dart';
+import '../../../core/utils/json_num.dart';
 
 class AnnouncementRepository {
   AnnouncementRepository(this._api);
@@ -12,7 +13,7 @@ class AnnouncementRepository {
     final meta = Map<String, dynamic>.from((json['meta'] as Map?) ?? const {});
     return AnnouncementFeed(
       items: ((json['data'] as List?) ?? const []).map((e) => Announcement.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
-      unread: (meta['unread'] as num?)?.toInt() ?? 0,
+      unread: asInt(meta['unread']) ?? 0,
     );
   }
 

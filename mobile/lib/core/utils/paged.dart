@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'json_num.dart';
 
 import '../network/api_exception.dart';
 
@@ -43,10 +44,10 @@ class Paged<T> {
         .toList();
     final meta = json['meta'] is Map ? Map<String, dynamic>.from(json['meta'] as Map) : <String, dynamic>{};
 
-    final page = (meta['current_page'] as num?)?.toInt() ?? 1;
-    final total = (meta['total'] as num?)?.toInt() ?? items.length;
+    final page = asInt(meta['current_page']) ?? 1;
+    final total = asInt(meta['total']) ?? items.length;
     final computedLast = total <= 0 ? 1 : ((total + perPage - 1) ~/ perPage);
-    var lastPage = (meta['last_page'] as num?)?.toInt() ?? computedLast;
+    var lastPage = asInt(meta['last_page']) ?? computedLast;
     // Página vacía: no hay nada más que pedir aunque el total diga otra cosa
     if (items.isEmpty) lastPage = page;
 

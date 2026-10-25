@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../../core/utils/json_num.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -108,12 +109,12 @@ class AppAttempt {
       action: action,
       code: json['code'] as String,
       occurredAt: at,
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      accuracy: (json['accuracy_meters'] as num?)?.toDouble(),
-      distance: (json['distance_meters'] as num?)?.toDouble(),
-      allowedRadius: (json['allowed_radius'] as num?)?.toInt(),
-      branchId: (json['branch_id'] as num?)?.toInt(),
+      latitude: asDouble(json['latitude']),
+      longitude: asDouble(json['longitude']),
+      accuracy: asDouble(json['accuracy_meters']),
+      distance: asDouble(json['distance_meters']),
+      allowedRadius: asInt(json['allowed_radius']),
+      branchId: asInt(json['branch_id']),
       isMocked: json['is_mocked'] == true,
     );
   }

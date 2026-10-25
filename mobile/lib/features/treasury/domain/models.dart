@@ -1,3 +1,5 @@
+import '../../../core/utils/json_num.dart';
+
 /// Orden de pago programada que espera la firma del apoderado designado
 /// (GET /treasury/authorizations).
 class PaymentAuthorization {
@@ -42,8 +44,8 @@ class PaymentAuthorization {
   factory PaymentAuthorization.fromJson(Map<String, dynamic> json) {
     final supplier = json['supplier'] as Map?;
     return PaymentAuthorization(
-      id: (json['id'] as num).toInt(),
-      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      id: asInt(json['id'])!,
+      amount: asDouble(json['amount']) ?? 0,
       currency: json['currency']?.toString() ?? 'PEN',
       order: json['order']?.toString(),
       requisition: json['requisition']?.toString(),
@@ -51,8 +53,8 @@ class PaymentAuthorization {
       supplierName: supplier?['name']?.toString(),
       supplierRuc: supplier?['ruc']?.toString(),
       invoice: json['invoice']?.toString(),
-      installment: (json['installment'] as num?)?.toInt() ?? 1,
-      installmentsTotal: (json['of'] as num?)?.toInt(),
+      installment: asInt(json['installment']) ?? 1,
+      installmentsTotal: asInt(json['of']),
       scheduledFor: DateTime.tryParse(json['scheduled_for']?.toString() ?? ''),
       dueDate: DateTime.tryParse(json['due_date']?.toString() ?? ''),
     );

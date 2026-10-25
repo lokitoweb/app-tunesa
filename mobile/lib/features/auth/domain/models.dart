@@ -1,4 +1,5 @@
 import '../../../core/config/app_config.dart';
+import '../../../core/utils/json_num.dart';
 
 /// Empresa elegida en el teléfono (se guarda con la sesión). Los colores y
 /// logos vigentes salen de [AppConfig]; estos campos son solo respaldo.
@@ -137,7 +138,7 @@ class AppUser {
   }
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
-        id: (json['id'] as num).toInt(),
+        id: asInt(json['id'])!,
         fullName: json['full_name']?.toString() ?? '',
         firstName: json['first_name']?.toString() ?? '',
         email: json['email']?.toString() ?? '',

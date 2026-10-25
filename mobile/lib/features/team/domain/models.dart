@@ -1,5 +1,6 @@
 import '../../attendance/domain/models.dart';
 import '../../requests/domain/models.dart';
+import '../../../core/utils/json_num.dart';
 
 /// Solicitud de un colaborador pendiente de mi aprobación
 /// (GET /approvals/leave-requests: la solicitud + `employee`).
@@ -24,7 +25,7 @@ class ApprovalRequest {
     final employee = json['employee'] as Map?;
     return ApprovalRequest(
       request: LeaveRequest.fromJson(json),
-      employeeId: (employee?['id'] as num?)?.toInt(),
+      employeeId: asInt(employee?['id']),
       employeeName: employee?['name']?.toString() ?? 'Colaborador',
       employeeCode: employee?['employee_code']?.toString(),
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
@@ -42,7 +43,7 @@ class TeamMember {
   final String? position;
 
   factory TeamMember.fromJson(Map<String, dynamic> json) => TeamMember(
-        id: (json['id'] as num).toInt(),
+        id: asInt(json['id'])!,
         fullName: json['full_name']?.toString() ?? '',
         employeeCode: json['employee_code']?.toString(),
         position: json['position']?.toString(),
@@ -68,7 +69,7 @@ class TeamSummary {
   final int absent;
 
   factory TeamSummary.fromJson(Map<String, dynamic> json) {
-    int n(String key) => (json[key] as num?)?.toInt() ?? 0;
+    int n(String key) => asInt(json[key]) ?? 0;
     return TeamSummary(
       teamSize: n('team_size'),
       present: n('present'),
@@ -110,7 +111,7 @@ class TeamAttendance {
 
     return TeamAttendance(
       attendance: Attendance.fromJson(json),
-      userId: (user?['id'] as num?)?.toInt() ?? (json['user_id'] as num?)?.toInt(),
+      userId: asInt(user?['id']) ?? asInt(json['user_id']),
       userName: (user?['full_name'] ?? user?['name'])?.toString(),
       clockInWithinGeofence: within(json['clock_in']),
       clockOutWithinGeofence: within(json['clock_out']),

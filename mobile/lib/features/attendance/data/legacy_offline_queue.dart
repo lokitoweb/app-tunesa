@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import '../../../core/utils/json_num.dart';
 
 import '../../../core/storage/secure_key_store.dart';
 import '../domain/models.dart';
@@ -100,9 +101,9 @@ class LegacyOfflineQueueMigration {
         action: action,
         latitude: lat.toDouble(),
         longitude: lng.toDouble(),
-        accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0,
+        accuracy: asDouble(json['accuracy']) ?? 0,
         deviceTime: recordedAt.toUtc(),
-        userId: (json['user_id'] as num?)?.toInt(),
+        userId: asInt(json['user_id']),
         isMocked: json['is_mocked'] == true,
         faceDetected: json['face_detected'] as bool?,
         deviceId: json['device_id'] as String?,

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import '../../../core/utils/json_num.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -15,7 +16,7 @@ class CompanyDocumentRepository {
     return DocumentLibrary(
       documents: ((json['data'] as List?) ?? const []).map((e) => CompanyDocument.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
       folders: ((meta['folders'] as List?) ?? const []).map((e) => DocumentFolder.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
-      pendingAcknowledgement: (meta['pending_acknowledgement'] as num?)?.toInt() ?? 0,
+      pendingAcknowledgement: asInt(meta['pending_acknowledgement']) ?? 0,
     );
   }
 

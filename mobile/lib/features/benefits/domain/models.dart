@@ -1,3 +1,5 @@
+import '../../../core/utils/json_num.dart';
+
 /// Categoría de beneficios (la crea RRHH en el panel).
 class BenefitCategory {
   const BenefitCategory({required this.id, required this.name, this.icon, this.color, this.count = 0});
@@ -9,11 +11,11 @@ class BenefitCategory {
   final int count;
 
   factory BenefitCategory.fromJson(Map<String, dynamic> json) => BenefitCategory(
-        id: (json['id'] as num).toInt(),
+        id: asInt(json['id'])!,
         name: json['name']?.toString() ?? '',
         icon: json['icon']?.toString(),
         color: json['color']?.toString(),
-        count: (json['count'] as num?)?.toInt() ?? 0,
+        count: asInt(json['count']) ?? 0,
       );
 }
 
@@ -66,7 +68,7 @@ class Benefit {
     }
 
     return Benefit(
-      id: (json['id'] as num).toInt(),
+      id: asInt(json['id'])!,
       title: json['title']?.toString() ?? '',
       summary: text('summary'),
       partner: text('partner'),

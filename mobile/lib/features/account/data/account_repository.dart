@@ -1,6 +1,7 @@
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../domain/models.dart';
+import '../../../core/utils/json_num.dart';
 
 /// Control de la cuenta: sesiones abiertas y avisos push.
 class AccountRepository {
@@ -20,7 +21,7 @@ class AccountRepository {
   /// Cierra la sesión en los demás dispositivos; devuelve cuántos se cerraron.
   Future<int> logoutOthers() async {
     final json = await _api.post(ApiEndpoints.logoutOthers);
-    return ((json['data'] as Map?)?['closed'] as num?)?.toInt() ?? 0;
+    return asInt((json['data'] as Map?)?['closed']) ?? 0;
   }
 
   /// Pide a RRHH que elimine la cuenta y los datos (Google Play). Devuelve el mensaje del servidor.

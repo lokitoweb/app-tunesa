@@ -89,9 +89,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final canPunch = ref.watch(canPunchProvider);
 
     return Scaffold(
-      // Logo oficial de Grupo Negreiros; la sede se ve en "Mi perfil"
+      // Logo de la empresa del usuario (llega con su configuración al ingresar); la sede se ve en "Mi perfil"
       appBar: AppBar(
-        title: const Row(mainAxisSize: MainAxisSize.min, children: [BrandLogo(height: 30), SizedBox(width: 12), Text('Inicio')]),
+        title: const Row(mainAxisSize: MainAxisSize.min, children: [BrandLogo(height: 28), SizedBox(width: 10), Text('Inicio')]),
         actions: const [NotificationBell(), SizedBox(width: 4)],
       ),
       body: RefreshIndicator(

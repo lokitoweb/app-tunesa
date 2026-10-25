@@ -1,4 +1,5 @@
 import 'package:sqflite_sqlcipher/sqlite_api.dart';
+import '../../../core/utils/json_num.dart';
 
 import '../domain/punch.dart';
 
@@ -102,7 +103,7 @@ class OfflinePunchStore {
   Future<int> count({int? userId, String? server}) async {
     final (where, args) = _userFilter(userId, server);
     final rows = await (await _database).query('punches', columns: ['COUNT(*) AS n'], where: where, whereArgs: args);
-    return (rows.first['n'] as num?)?.toInt() ?? 0;
+    return asInt(rows.first['n']) ?? 0;
   }
 
   Future<QueuedPunch?> get(String clientUuid) async {

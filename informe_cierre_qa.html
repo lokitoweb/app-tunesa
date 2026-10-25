@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Informe de cierre de QA</title>
+<script>
+  // Tema antes de pintar para evitar parpadeo
+  try {
+    const t = localStorage.getItem('qa-theme');
+    if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+  } catch (e) {}
+</script>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { font-family: Inter, system-ui, sans-serif; }
+  code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  html { scroll-behavior: smooth; }
+  section[id], article[id] { scroll-margin-top: 5rem; }
+  code { font-size: .8em; padding: .1em .35em; border-radius: .3rem; background: rgb(241 245 249); color: rgb(15 23 42); word-break: break-word; }
+  .dark code { background: rgb(30 41 59); color: rgb(226 232 240); }
+  pre code { background: none; padding: 0; }
+  .nav-link.active { background: rgb(79 70 229 / .1); color: rgb(79 70 229); font-weight: 600; }
+  .dark .nav-link.active { background: rgb(129 140 248 / .15); color: rgb(165 180 252); }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  details[open] .chev { transform: rotate(90deg); }
+  .files li { padding: .3rem 0; border-bottom: 1px dashed rgb(148 163 184 / .3); }
+  .files li:last-child { border-bottom: 0; }
+  @media print { aside, #topbar { display: none !important; } details { display: block; } details > *:not(summary) { display: block !important; } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-200 antialiased">
+
+<!-- Barra superior -->
+<header id="topbar" class="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur">
+  <div class="max-w-7xl mx-auto px-4 h-14 flex items-center gap-3">
+    <button id="menuBtn" class="lg:hidden p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Abrir menú">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+    </button>
+    <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white grid place-items-center font-bold text-sm">QA</div>
+    <div class="leading-tight min-w-0">
+      <div class="font-semibold truncate">Informe de cierre de QA</div>
+      <div class="text-xs text-slate-500 dark:text-slate-400 truncate">Plataforma de RR. HH. · Grupo Negreiros</div>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+      <button onclick="window.print()" class="hidden sm:inline-flex text-sm px-3 py-1.5 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">Imprimir</button>
+      <button id="themeBtn" class="p-2 rounded-md border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Cambiar tema">
+        <svg class="dark:hidden" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 10.5A6 6 0 1 1 7.5 3a5 5 0 0 0 7.5 7.5z"/></svg>
+        <svg class="hidden dark:block" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="3.5"/><path d="M9 1v2M9 15v2M1 9h2M15 9h2M3.3 3.3l1.4 1.4M13.3 13.3l1.4 1.4M3.3 14.7l1.4-1.4M13.3 4.7l1.4-1.4"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="max-w-7xl mx-auto px-4 lg:flex lg:gap-8">
+
+  <!-- Menú lateral -->
+  <aside id="sidebar" class="fixed inset-0 z-40 hidden lg:block lg:static lg:z-auto lg:w-60 lg:shrink-0">
+    <div class="absolute inset-0 bg-slate-900/40 lg:hidden" data-close></div>
+    <nav class="relative h-full w-72 lg:w-auto bg-white dark:bg-slate-900 lg:bg-transparent lg:dark:bg-transparent p-4 lg:p-0 lg:sticky lg:top-20 lg:h-auto lg:max-h-[calc(100vh-6rem)] overflow-y-auto lg:py-6 text-sm">
+      <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Contenido</p>
+      <ul class="space-y-0.5">
+        <li><a class="nav-link block px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" href="#resumen">Resumen</a></li>
+        <li><a class="nav-link block px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" href="#fase1">Fase 1 · Críticos y altos</a>
+          <ul class="ml-3 border-l border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+            <li><a class="nav-link block pl-3 py-1 rounded-r-md hover:text-slate-900 dark:hover:text-white" href="#def01">DEF-01 Turnos</a></li>
+            <li><a class="nav-link block pl-3 py-1 rounded-r-md hover:text-slate-900 dark:hover:text-white" href="#def02">DEF-02 Boletas</a></li>
+            <li><a class="nav-link block pl-3 py-1 rounded-r-md hover:text-slate-900 dark:hover:text-white" href="#def03">DEF-03 Vacaciones</a></li>
+            <li><a class="nav-link block pl-3 py-1 rounded-r-md hover:text-slate-900 dark:hover:text-white" href="#def04">DEF-04 Salida</a></li>
+            <li><a class="nav-link block pl-3 py-1 rounded-r-md hover:text-slate-900 dark:hover:text-white" href="#def05">DEF-05 Claves</a></li>
+          </ul>
+        </li>
+        <li><a class="nav-link block px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" href="#fase2">Fase 2 · Medios y mejora</a>
+          <ul class="ml-3 border-l border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+            <li><a class="nav-link block pl-3 py-1 rounded-r-md hover:text-slate-900 dark:hover:text-white" href="#def06">DEF-06 Puestos</a></li>
+            <li><a class="nav-link block pl-3 py-1 rounded-r-md hover:text-slate-900 dark:hover:text-white" href="#def07">DEF-07 Intentos y geocercas</a></li>
+            <li><a class="nav-link block pl-3 py-1 rounded-r-md hover:text-slate-900 dark:hover:text-white" href="#def08">DEF-08 Organización</a></li>
+            <li><a class="nav-link block pl-3 py-1 rounded-r-md hover:text-slate-900 dark:hover:text-white" href="#mej01">MEJ-01 Constancias</a></li>
+          </ul>
+        </li>
+        <li><a class="nav-link block px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" href="#logo">Logo oficial en la app</a></li>
+        <li><a class="nav-link block px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" href="#estres">Pruebas de estrés</a></li>
+        <li><a class="nav-link block px-3 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800" href="#despliegue">Despliegue</a></li>
+      </ul>
+      <div class="mt-6 mx-3 p-3 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+        <div><span class="font-medium text-slate-700 dark:text-slate-300">Fecha:</span> 24 oct 2026</div>
+        <div><span class="font-medium text-slate-700 dark:text-slate-300">Rama:</span> <code>master</code></div>
+        <div><span class="font-medium text-slate-700 dark:text-slate-300">Commits:</span> <code>c20e4c6</code> <code>660f0a8</code> <code>df95519</code></div>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="flex-1 min-w-0 py-8 space-y-16">
+
+    <!-- ================= RESUMEN ================= -->
+    <section id="resumen" class="space-y-8">
+      <div class="rounded-2xl p-6 sm:p-10 bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white shadow-lg">
+        <p class="text-indigo-200 text-sm font-medium">Cierre de QA · 24 de octubre de 2026</p>
+        <h1 class="mt-2 text-3xl sm:text-4xl font-extrabold tracking-tight">9 de 9 hallazgos resueltos, CI en verde</h1>
+        <p class="mt-4 max-w-3xl text-indigo-100 leading-relaxed">
+          Recibimos el informe de QA con 9 hallazgos (1 crítico, 4 altos, 3 medios y una mejora) y los trabajamos en dos fases, uno por uno y con sus pruebas automáticas antes de pasar al siguiente. Al final hicimos una ronda de estrés con concurrencia real sobre MySQL. Esa ronda valió la pena: encontró <strong class="text-white">dos problemas de concurrencia que ninguna prueba unitaria había visto</strong>, y los dos quedaron corregidos en este cierre. También restauramos el logotipo oficial de Grupo Negreiros en la app móvil.
+        </p>
+      </div>
+
+      <!-- Tarjetas de métricas -->
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="rounded-xl p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div class="text-xs font-medium uppercase tracking-wide text-slate-500">Hallazgos corregidos</div>
+          <div class="mt-2 text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">9<span class="text-slate-400 text-xl font-semibold">/9</span></div>
+          <div class="mt-3 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800"><div class="h-full w-full rounded-full bg-emerald-500"></div></div>
+        </div>
+        <div class="rounded-xl p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div class="text-xs font-medium uppercase tracking-wide text-slate-500">Errores 5xx en estrés</div>
+          <div class="mt-2 text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">0</div>
+          <div class="mt-1 text-xs text-slate-500">antes de corregir: 2 de 80</div>
+        </div>
+        <div class="rounded-xl p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div class="text-xs font-medium uppercase tracking-wide text-slate-500">Carreras sin duplicados</div>
+          <div class="mt-2 text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">40<span class="text-slate-400 text-xl font-semibold">/40</span></div>
+          <div class="mt-1 text-xs text-slate-500">marcaciones y vacaciones</div>
+        </div>
+        <div class="rounded-xl p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <div class="text-xs font-medium uppercase tracking-wide text-slate-500">Pruebas automáticas</div>
+          <div class="mt-2 text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">815</div>
+          <div class="mt-1 text-xs text-slate-500">589 backend · 226 app</div>
+        </div>
+      </div>
+
+      <!-- Tabla de hallazgos -->
+      <div class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3">
+          <h2 class="font-semibold">Estado de los 9 hallazgos</h2>
+          <div class="ml-auto flex gap-1 text-xs" role="tablist" id="sevFilter">
+            <button data-sev="all" class="px-2.5 py-1 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900">Todos</button>
+            <button data-sev="Crítica" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800">Crítica</button>
+            <button data-sev="Alta" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800">Alta</button>
+            <button data-sev="Media" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800">Media</button>
+            <button data-sev="Baja" class="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800">Baja</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 dark:bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr><th class="px-5 py-3">Código</th><th class="px-5 py-3">Hallazgo</th><th class="px-5 py-3">Severidad</th><th class="px-5 py-3">Fase</th><th class="px-5 py-3">Estado</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800" id="findingsBody">
+              <tr data-sev="Crítica"><td class="px-5 py-3 mono font-medium"><a class="text-indigo-600 dark:text-indigo-400 hover:underline" href="#def01">DEF-01</a></td><td class="px-5 py-3">Turnos y horarios</td><td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">Crítica</span></td><td class="px-5 py-3">1</td><td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-medium">✓ Corregido</td></tr>
+              <tr data-sev="Alta"><td class="px-5 py-3 mono font-medium"><a class="text-indigo-600 dark:text-indigo-400 hover:underline" href="#def02">DEF-02</a></td><td class="px-5 py-3">Boletas en la app</td><td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">Alta</span></td><td class="px-5 py-3">1</td><td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-medium">✓ Corregido</td></tr>
+              <tr data-sev="Alta"><td class="px-5 py-3 mono font-medium"><a class="text-indigo-600 dark:text-indigo-400 hover:underline" href="#def03">DEF-03</a></td><td class="px-5 py-3">Aprobación de vacaciones</td><td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">Alta</span></td><td class="px-5 py-3">1</td><td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-medium">✓ Corregido <span class="text-xs text-slate-500 font-normal">(+ carrera corregida en el cierre)</span></td></tr>
+              <tr data-sev="Alta"><td class="px-5 py-3 mono font-medium"><a class="text-indigo-600 dark:text-indigo-400 hover:underline" href="#def04">DEF-04</a></td><td class="px-5 py-3">Control de salida</td><td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">Alta</span></td><td class="px-5 py-3">1</td><td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-medium">✓ Corregido</td></tr>
+              <tr data-sev="Alta"><td class="px-5 py-3 mono font-medium"><a class="text-indigo-600 dark:text-indigo-400 hover:underline" href="#def05">DEF-05</a></td><td class="px-5 py-3">Recuperación de claves</td><td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">Alta</span></td><td class="px-5 py-3">1</td><td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-medium">✓ Corregido</td></tr>
+              <tr data-sev="Media"><td class="px-5 py-3 mono font-medium"><a class="text-indigo-600 dark:text-indigo-400 hover:underline" href="#def06">DEF-06</a></td><td class="px-5 py-3">Catálogo de puestos</td><td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">Media</span></td><td class="px-5 py-3">2</td><td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-medium">✓ Corregido</td></tr>
+              <tr data-sev="Media"><td class="px-5 py-3 mono font-medium"><a class="text-indigo-600 dark:text-indigo-400 hover:underline" href="#def07">DEF-07</a></td><td class="px-5 py-3">Intentos de marcación rechazados</td><td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">Media</span></td><td class="px-5 py-3">2</td><td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-medium">✓ Completado</td></tr>
+              <tr data-sev="Media"><td class="px-5 py-3 mono font-medium"><a class="text-indigo-600 dark:text-indigo-400 hover:underline" href="#def08">DEF-08</a></td><td class="px-5 py-3">Usabilidad de Organización</td><td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">Media</span></td><td class="px-5 py-3">2</td><td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-medium">✓ Mejorado</td></tr>
+              <tr data-sev="Baja"><td class="px-5 py-3 mono font-medium"><a class="text-indigo-600 dark:text-indigo-400 hover:underline" href="#mej01">MEJ-01</a></td><td class="px-5 py-3">Constancias de capacitación</td><td class="px-5 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">Baja</span></td><td class="px-5 py-3">2</td><td class="px-5 py-3 text-emerald-600 dark:text-emerald-400 font-medium">✓ Implementado</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FASE 1 ================= -->
+    <section id="fase1" class="space-y-6">
+      <div>
+        <p class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Fase 1 · commit <code>c20e4c6</code></p>
+        <h2 class="text-2xl font-bold tracking-tight">Hallazgos críticos y altos</h2>
+      </div>
+
+      <!-- DEF-01 -->
+      <article id="def01" class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-5">
+        <header class="flex flex-wrap items-center gap-3">
+          <span class="mono text-sm font-semibold text-slate-500">DEF-01</span>
+          <h3 class="text-xl font-semibold">Turnos y horarios</h3>
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">Crítica</span>
+        </header>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg p-4 bg-rose-50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20">
+            <h4 class="text-sm font-semibold text-rose-700 dark:text-rose-300 mb-1">Qué pasaba</h4>
+            <p class="text-sm leading-relaxed">Un turno tenía un solo horario para todos sus días. No había forma de decir "lunes a viernes 8:00–17:00 y sábado 8:00–13:00", que es justo el horario del personal administrativo. Resultado: un sábado se calculaba con el horario del lunes. Tardanzas, refrigerio y horas extra salían mal, y la salida de las 13:00 se veía como salida anticipada.</p>
+          </div>
+          <div class="rounded-lg p-4 bg-emerald-50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20">
+            <h4 class="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-1">Qué hicimos</h4>
+            <ol class="text-sm leading-relaxed list-decimal ml-4 space-y-1">
+              <li>Cada turno puede tener <strong>horario propio por día de la semana</strong> (entrada, salida, refrigerio y horas). Si un día se deja en blanco, usa el horario general.</li>
+              <li>Nuevo <strong>perfil de personal</strong>: Administrativo, Ventas / tienda u Operaciones / campo. Cada uno trae un horario típico que se carga con un clic.</li>
+              <li>El formulario muestra el <strong>total de horas semanales</strong> y avisa si pasa de 48 h.</li>
+              <li><strong>Todos</strong> los cálculos leen el turno a través de un único método, <code>Shift::forDate($fecha)</code>, que devuelve el horario de ese día.</li>
+            </ol>
+          </div>
+        </div>
+        <!-- Ejemplo visual de semana -->
+        <div>
+          <h4 class="text-sm font-semibold mb-2">Ejemplo: perfil Administrativo</h4>
+          <div class="grid grid-cols-7 gap-1.5 text-center text-xs">
+            <div class="rounded-md p-2 bg-indigo-50 dark:bg-indigo-500/10"><div class="font-semibold">Lun</div><div class="mono mt-1">8–17</div></div>
+            <div class="rounded-md p-2 bg-indigo-50 dark:bg-indigo-500/10"><div class="font-semibold">Mar</div><div class="mono mt-1">8–17</div></div>
+            <div class="rounded-md p-2 bg-indigo-50 dark:bg-indigo-500/10"><div class="font-semibold">Mié</div><div class="mono mt-1">8–17</div></div>
+            <div class="rounded-md p-2 bg-indigo-50 dark:bg-indigo-500/10"><div class="font-semibold">Jue</div><div class="mono mt-1">8–17</div></div>
+            <div class="rounded-md p-2 bg-indigo-50 dark:bg-indigo-500/10"><div class="font-semibold">Vie</div><div class="mono mt-1">8–17</div></div>
+            <div class="rounded-md p-2 bg-violet-100 dark:bg-violet-500/20 ring-1 ring-violet-400"><div class="font-semibold">Sáb</div><div class="mono mt-1">8–13</div></div>
+            <div class="rounded-md p-2 bg-slate-100 dark:bg-slate-800 text-slate-400"><div class="font-semibold">Dom</div><div class="mt-1">—</div></div>
+          </div>
+        </div>
+        <details class="group rounded-lg border border-slate-200 dark:border-slate-800">
+          <summary class="flex items-center gap-2 px-4 py-3 text-sm font-semibold"><span class="chev transition-transform">▸</span> Dónde está (archivos)</summary>
+          <ul class="files px-4 pb-4 text-sm">
+            <li><span class="text-slate-500">Modelo y lógica central:</span> <code>app/Modules/HR/Models/Shift.php</code> → <code>forDate()</code>, <code>PROFILES</code>, <code>DAY_FIELDS</code></li>
+            <li><span class="text-slate-500">Migración:</span> <code>app/Modules/HR/Database/Migrations/2026_10_30_000001_add_profile_and_day_schedules_to_shifts.php</code></li>
+            <li><span class="text-slate-500">Controlador web:</span> <code>app/Modules/HR/Controllers/Web/ShiftWebController.php</code></li>
+            <li><span class="text-slate-500">Pantallas Vue:</span> <code>resources/js/Modules/HR/Pages/Shifts/Index.vue</code> (listado, filtro por perfil y modal) y <code>Form.vue</code></li>
+            <li><span class="text-slate-500">Componente compartido:</span> <code>resources/js/Modules/HR/Components/ShiftWeekSchedule.vue</code></li>
+            <li><span class="text-slate-500">Cálculos que usan el horario del día:</span>
+              <ul class="mt-1 ml-4 list-disc space-y-1">
+                <li><code>app/Modules/Attendance/Services/AttendanceService.php</code>: tardanza, ventana de horario, refrigerio, horas extra y salida esperada</li>
+                <li><code>app/Modules/Attendance/Services/Reports/AttendanceReportService.php</code>: reporte de horas, extras diurnas y nocturnas, salida anticipada</li>
+                <li><code>app/Modules/Attendance/Services/ManualAttendanceEdit.php</code>: corrección manual</li>
+                <li><code>app/Modules/Attendance/Services/LiveBoardService.php</code>: tablero en vivo</li>
+                <li><code>app/Modules/Attendance/Services/AttendanceCalendarService.php</code>: calendario</li>
+                <li><code>app/Modules/Attendance/Services/ScheduleGate.php</code>: "¿puede marcar hoy?"</li>
+                <li><code>app/Modules/Attendance/Console/SendEntryReminders.php</code>: recordatorios de entrada y salida</li>
+                <li><code>app/helpers.php</code>, <code>AttendanceResource.php</code>, <code>AttendanceOutsideSchedule.php</code>, <code>Api/ShiftController.php</code></li>
+              </ul>
+            </li>
+            <li><span class="text-slate-500">Pruebas:</span> <code>tests/Feature/ShiftWeekScheduleTest.php</code></li>
+          </ul>
+        </details>
+        <div class="rounded-lg p-4 bg-sky-50 dark:bg-sky-500/5 border-l-4 border-sky-400 text-sm">
+          <strong>Nota de lógica de turnos.</strong> Los turnos rotativos (4×2, 6×1…) no usan horario por día: su ciclo no depende del día de la semana. <code>forDate()</code> devuelve una copia del turno que nunca se guarda, así que el turno original no cambia.
+        </div>
+      </article>
+
+      <!-- DEF-02 -->
+      <article id="def02" class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-5">
+        <header class="flex flex-wrap items-center gap-3">
+          <span class="mono text-sm font-semibold text-slate-500">DEF-02</span>
+          <h3 class="text-xl font-semibold">Boletas de pago en la app</h3>
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">Alta</span>
+        </header>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg p-4 bg-rose-50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20">
+            <h4 class="text-sm font-semibold text-rose-700 dark:text-rose-300 mb-1">Qué pasaba</h4>
+            <p class="text-sm leading-relaxed">Cuando el PDF no estaba disponible, el servidor respondía con un mensaje claro. Pero la app pedía la descarga como bytes y no sabía leer ese mensaje, así que mostraba un genérico "No se encontró el recurso". Si llegaba un archivo dañado, el visor mostraba un error técnico. Y no había forma de descargar la boleta.</p>
+          </div>
+          <div class="rounded-lg p-4 bg-emerald-50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20">
+            <h4 class="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-1">Qué hicimos</h4>
+            <ul class="text-sm leading-relaxed list-disc ml-4 space-y-1">
+              <li>El manejo de errores de red decodifica el JSON aunque llegue como bytes. Esto arregla <strong>todas</strong> las descargas de PDF de la app, no solo las boletas.</li>
+              <li>Antes de abrir el PDF verificamos que de verdad sea un PDF (empieza con <code>%PDF</code>). Si no, el mensaje dice: <em>"La boleta no se pudo abrir porque el archivo está dañado o vacío. Pide a RR. HH. que la vuelva a publicar."</em></li>
+              <li>Botón <strong>Descargar o compartir</strong>: abre el menú del teléfono para guardar en Archivos o Drive, o enviar por WhatsApp.</li>
+            </ul>
+          </div>
+        </div>
+        <details class="rounded-lg border border-slate-200 dark:border-slate-800">
+          <summary class="flex items-center gap-2 px-4 py-3 text-sm font-semibold"><span class="chev transition-transform">▸</span> Dónde está (archivos)</summary>
+          <ul class="files px-4 pb-4 text-sm">
+            <li><span class="text-slate-500">Flutter · red:</span> <code>mobile/lib/core/network/api_exception.dart</code></li>
+            <li><span class="text-slate-500">Flutter · repositorio:</span> <code>mobile/lib/features/payslips/data/payslip_repository.dart</code> → <code>isPdf()</code></li>
+            <li><span class="text-slate-500">Flutter · visor:</span> <code>mobile/lib/features/payslips/presentation/payslip_viewer_screen.dart</code></li>
+            <li><span class="text-slate-500">Flutter · widget compartido:</span> <code>mobile/lib/core/widgets/pdf_bytes_view.dart</code> (mensaje de PDF dañado)</li>
+            <li><span class="text-slate-500">Backend (sin cambios, ya respondía bien):</span> <code>app/Modules/Payroll/Controllers/Api/PayslipController.php</code> → <code>download()</code></li>
+            <li><span class="text-slate-500">Pruebas:</span> <code>mobile/test/core_test.dart</code></li>
+          </ul>
+        </details>
+      </article>
+
+      <!-- DEF-03 -->
+      <article id="def03" class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-5">
+        <header class="flex flex-wrap items-center gap-3">
+          <span class="mono text-sm font-semibold text-slate-500">DEF-03</span>
+          <h3 class="text-xl font-semibold">Flujo de aprobación de vacaciones</h3>
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">Alta</span>
+        </header>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg p-4 bg-rose-50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20">
+            <h4 class="text-sm font-semibold text-rose-700 dark:text-rose-300 mb-1">Qué pasaba</h4>
+            <p class="text-sm leading-relaxed">Las solicitudes de la app sí llegaban a la base de datos, pero no existía la figura de <strong>jefe inmediato</strong>: solo el supervisor de la sede. Si el jefe de alguien no supervisaba su sede, nunca veía la solicitud. Además, la regla de quién podía aprobar estaba copiada en tres lugares: el panel, el contador del menú y la app.</p>
+          </div>
+          <div class="rounded-lg p-4 bg-emerald-50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20">
+            <h4 class="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-1">Qué hicimos</h4>
+            <ol class="text-sm leading-relaxed list-decimal ml-4 space-y-1">
+              <li>Nuevo campo <strong>Jefe de área</strong> en Organización: es el jefe inmediato de su personal.</li>
+              <li>Una sola regla, <code>LeaveRequest::approvableBy($usuario)</code>, usada por el panel, el contador y la app.</li>
+              <li>La bandeja de <strong>Aprobaciones</strong> y la app muestran "<strong>Revisa:</strong> Rosa Pérez (jefe de área) o RR. HH.".</li>
+              <li>El aviso de "nueva solicitud" llega también al jefe de área. La respuesta avisa al colaborador, venga del panel o de la app.</li>
+            </ol>
+          </div>
+        </div>
+        <!-- Diagrama de quién aprueba -->
+        <div>
+          <h4 class="text-sm font-semibold mb-2">¿Quién ve cada solicitud?</h4>
+          <div class="grid sm:grid-cols-3 gap-3 text-sm">
+            <div class="rounded-lg p-4 border border-slate-200 dark:border-slate-800"><div class="text-2xl">🏢</div><div class="font-semibold mt-1">RR. HH.</div><div class="text-slate-500 dark:text-slate-400">Todas las solicitudes de la empresa</div></div>
+            <div class="rounded-lg p-4 border-2 border-indigo-400"><div class="text-2xl">👤</div><div class="font-semibold mt-1">Jefe de área <span class="text-xs font-medium text-indigo-600 dark:text-indigo-400">nuevo</span></div><div class="text-slate-500 dark:text-slate-400">Las de su área</div></div>
+            <div class="rounded-lg p-4 border border-slate-200 dark:border-slate-800"><div class="text-2xl">📍</div><div class="font-semibold mt-1">Supervisor</div><div class="text-slate-500 dark:text-slate-400">Las de sus sedes</div></div>
+          </div>
+        </div>
+        <details class="rounded-lg border border-slate-200 dark:border-slate-800">
+          <summary class="flex items-center gap-2 px-4 py-3 text-sm font-semibold"><span class="chev transition-transform">▸</span> Dónde está (archivos)</summary>
+          <ul class="files px-4 pb-4 text-sm">
+            <li><span class="text-slate-500">Modelo:</span> <code>app/Modules/HR/Models/LeaveRequest.php</code> → <code>scopeApprovableBy()</code> y <code>reviewersLabel()</code></li>
+            <li><span class="text-slate-500">Relación:</span> <code>app/Modules/Core/Models/Department.php</code> → <code>head()</code></li>
+            <li><span class="text-slate-500">Migración:</span> <code>app/Modules/Core/Database/Migrations/2026_10_30_000002_add_head_to_departments.php</code></li>
+            <li><span class="text-slate-500">Panel (controlador y vista):</span> <code>app/Modules/HR/Controllers/Web/ApprovalWebController.php</code> y <code>resources/views/approvals/index.blade.php</code></li>
+            <li><span class="text-slate-500">API:</span> <code>app/Modules/HR/Controllers/Api/LeaveRequestController.php</code></li>
+            <li><span class="text-slate-500">Contador del menú:</span> <code>app/Modules/Core/Support/PanelNavigation.php</code></li>
+            <li><span class="text-slate-500">Avisos:</span> <code>app/Modules/Core/Services/NotificationDispatcher.php</code> → <code>leaveApprovers()</code></li>
+            <li><span class="text-slate-500">Flutter:</span> <code>mobile/lib/features/requests/domain/models.dart</code> y <code>presentation/requests_screen.dart</code></li>
+            <li><span class="text-slate-500">Pruebas:</span> <code>tests/Feature/LeaveApprovalFlowTest.php</code></li>
+          </ul>
+        </details>
+        <div class="grid md:grid-cols-2 gap-3 text-sm">
+          <div class="rounded-lg p-4 bg-sky-50 dark:bg-sky-500/5 border-l-4 border-sky-400"><strong>Nota.</strong> La aprobación es de un solo paso: aprueba el jefe inmediato <strong>o</strong> RR. HH. Si más adelante quieren doble aprobación, se agrega sobre la misma regla.</div>
+          <div class="rounded-lg p-4 bg-amber-50 dark:bg-amber-500/5 border-l-4 border-amber-400"><strong>Ojo técnico.</strong> En <code>users</code> hay una columna de texto <code>department</code> que tapa la relación <code>department()</code>. Por eso <code>reviewersLabel()</code> lee la relación de forma explícita.</div>
+        </div>
+      </article>
+
+      <!-- DEF-04 -->
+      <article id="def04" class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-5">
+        <header class="flex flex-wrap items-center gap-3">
+          <span class="mono text-sm font-semibold text-slate-500">DEF-04</span>
+          <h3 class="text-xl font-semibold">Control de marcación de salida</h3>
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">Alta</span>
+        </header>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700">
+            <h4 class="text-sm font-semibold mb-2">Qué encontramos</h4>
+            <p class="text-sm mb-2">La salida ya tenía las mismas reglas que la entrada:</p>
+            <ul class="text-sm space-y-1">
+              <li>✅ Geocerca por GPS, en el teléfono y en el servidor</li>
+              <li>✅ Detección de ubicación simulada</li>
+              <li>✅ Precisión mínima del GPS</li>
+              <li>✅ Selfie obligatoria</li>
+              <li class="text-rose-600 dark:text-rose-400">✗ Validar el horario mínimo</li>
+              <li class="text-rose-600 dark:text-rose-400">✗ Alertar de una jornada incompleta</li>
+            </ul>
+          </div>
+          <div class="rounded-lg p-4 bg-emerald-50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20">
+            <h4 class="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-1">Qué hicimos</h4>
+            <ul class="text-sm leading-relaxed list-disc ml-4 space-y-1">
+              <li>El servidor devuelve la <strong>hora de salida esperada</strong> del turno de ese día (<code>expected_clock_out</code> en <code>/api/attendance/today</code>). La calcula una sola función, que también usa el recordatorio de salida.</li>
+              <li>Antes de la selfie, la app muestra una tarjeta roja "<strong>Jornada incompleta</strong>" y pide confirmar si faltan minutos ("te faltan 1 h 20 min") o si la entrada fue hace menos de 15 minutos (probable toque accidental).</li>
+              <li>"No, seguir trabajando" vuelve a Inicio sin marcar.</li>
+              <li>La comparación usa la hora del servidor, no la del teléfono: cambiar la hora del celular no engaña al aviso.</li>
+            </ul>
+          </div>
+        </div>
+        <details class="rounded-lg border border-slate-200 dark:border-slate-800">
+          <summary class="flex items-center gap-2 px-4 py-3 text-sm font-semibold"><span class="chev transition-transform">▸</span> Dónde está (archivos)</summary>
+          <ul class="files px-4 pb-4 text-sm">
+            <li><span class="text-slate-500">Servicio:</span> <code>app/Modules/Attendance/Services/AttendanceService.php</code> → <code>expectedClockOut()</code></li>
+            <li><span class="text-slate-500">API:</span> <code>app/Modules/Attendance/Controllers/Api/AttendanceController.php</code> → <code>today()</code></li>
+            <li><span class="text-slate-500">Flutter · modelo:</span> <code>mobile/lib/features/attendance/domain/models.dart</code> → <code>TodayStatus.clockOutWarning()</code></li>
+            <li><span class="text-slate-500">Flutter · pantalla:</span> <code>mobile/lib/features/attendance/presentation/clock_screen.dart</code> (tarjeta y diálogo)</li>
+            <li><span class="text-slate-500">Pruebas:</span> <code>tests/Feature/ClockOutControlTest.php</code> y <code>mobile/test/punch_board_test.dart</code></li>
+          </ul>
+        </details>
+        <div class="rounded-lg p-4 bg-amber-50 dark:bg-amber-500/5 border-l-4 border-amber-400 text-sm">
+          <strong>Decisión consciente.</strong> El servidor <strong>no bloquea</strong> la salida anticipada: una emergencia o un permiso tiene que poder registrarse, y bloquearla haría perder marcaciones hechas sin conexión. La app avisa y pide confirmar. La jornada queda como "medio día" y el supervisor recibe el aviso de marcación fuera de horario.
+        </div>
+      </article>
+
+      <!-- DEF-05 -->
+      <article id="def05" class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-5">
+        <header class="flex flex-wrap items-center gap-3">
+          <span class="mono text-sm font-semibold text-slate-500">DEF-05</span>
+          <h3 class="text-xl font-semibold">Recuperación y restablecimiento de claves</h3>
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300">Alta</span>
+        </header>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg p-4 bg-rose-50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20">
+            <h4 class="text-sm font-semibold text-rose-700 dark:text-rose-300 mb-1">Qué encontramos</h4>
+            <p class="text-sm leading-relaxed">El cambio obligatorio de la contraseña temporal en el primer ingreso ya funcionaba, en la app y en la API. Restablecer la clave desde el panel también existía, pero escondido dentro de la ficha del colaborador. Y en la app, "¿Olvidaste tu contraseña?" solo decía "pide a RR. HH.".</p>
+          </div>
+          <div class="rounded-lg p-4 bg-emerald-50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20">
+            <h4 class="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mb-1">Qué hicimos</h4>
+            <ul class="text-sm leading-relaxed list-disc ml-4 space-y-1">
+              <li><strong>Panel:</strong> botón con llave (<strong>Restablecer clave</strong>) en cada fila de Colaboradores. Genera una contraseña temporal que se muestra una sola vez y cierra las sesiones de la app.</li>
+              <li><strong>App:</strong> "¿Olvidaste tu contraseña?" pide el correo y <strong>avisa a RR. HH.</strong> con una notificación que lleva directo a la ficha del colaborador.</li>
+              <li>La respuesta es siempre la misma, exista o no el correo, para no revelar qué cuentas existen. Un aviso por cuenta y por hora.</li>
+              <li>La app nunca cambia una clave sin RR. HH.: se mantiene la política de la empresa y de las tiendas de apps.</li>
+            </ul>
+          </div>
+        </div>
+        <details class="rounded-lg border border-slate-200 dark:border-slate-800">
+          <summary class="flex items-center gap-2 px-4 py-3 text-sm font-semibold"><span class="chev transition-transform">▸</span> Dónde está (archivos)</summary>
+          <ul class="files px-4 pb-4 text-sm">
+            <li><span class="text-slate-500">API:</span> <code>app/Modules/Core/Controllers/Api/AuthController.php</code> → <code>requestPasswordHelp()</code> (<code>POST /api/v1/auth/password-help</code>)</li>
+            <li><span class="text-slate-500">Aviso:</span> <code>app/Modules/Core/Notifications/PasswordHelpRequested.php</code></li>
+            <li><span class="text-slate-500">Lista web:</span> <code>resources/views/employees/partials/table.blade.php</code></li>
+            <li><span class="text-slate-500">Flutter:</span> <code>mobile/lib/features/auth/presentation/login_screen.dart</code> (<code>_ForgotPasswordDialog</code>) y <code>data/auth_repository.dart</code></li>
+            <li><span class="text-slate-500">Pruebas:</span> <code>tests/Feature/PasswordHelpTest.php</code> y <code>mobile/test/widget_test.dart</code></li>
+          </ul>
+        </details>
+      </article>
+    </section>
+
+    <!-- ================= FASE 2 ================= -->
+    <section id="fase2" class="space-y-6">
+      <div>
+        <p class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Fase 2 · commit <code>660f0a8</code></p>
+        <h2 class="text-2xl font-bold tracking-tight">Hallazgos medios y mejora</h2>
+      </div>
+
+      <div class="grid xl:grid-cols-2 gap-6">
+        <!-- DEF-06 -->
+        <article id="def06" class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+          <header class="flex flex-wrap items-center gap-3">
+            <span class="mono text-sm font-semibold text-slate-500">DEF-06</span>
+            <h3 class="text-lg font-semibold">Catálogo dinámico de puestos</h3>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">Media</span>
+          </header>
+          <p class="text-sm leading-relaxed">Junto al selector de cargo, tanto en el alta (modal) como en la ficha del colaborador, ahora hay <strong>"+ Nuevo cargo"</strong>:</p>
+          <ul class="text-sm list-disc ml-4 space-y-1">
+            <li>Se escribe el nombre, se crea en el catálogo con el área elegida y queda seleccionado, sin salir del formulario.</li>
+            <li>Si ya existe un cargo con ese nombre (aunque cambien mayúsculas o espacios), se reutiliza y no se duplica.</li>
+            <li>Si alguien tenía su cargo en texto libre de antes, se conserva hasta que elijan uno del catálogo.</li>
+          </ul>
+          <details class="rounded-lg border border-slate-200 dark:border-slate-800">
+            <summary class="flex items-center gap-2 px-4 py-3 text-sm font-semibold"><span class="chev transition-transform">▸</span> Dónde está (archivos)</summary>
+            <ul class="files px-4 pb-4 text-sm">
+              <li><span class="text-slate-500">Controlador:</span> <code>app/Modules/HR/Controllers/Web/EmployeeController.php</code> → <code>storePosition()</code> (<code>POST /employees/positions</code>)</li>
+              <li><span class="text-slate-500">Vistas Blade:</span> <code>resources/views/employees/_new-position.blade.php</code> (reutilizable), <code>_form.blade.php</code> y <code>partials/modal-create.blade.php</code></li>
+              <li><span class="text-slate-500">Pruebas:</span> <code>tests/Feature/InlinePositionCatalogTest.php</code></li>
+            </ul>
+          </details>
+        </article>
+
+        <!-- DEF-07 -->
+        <article id="def07" class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+          <header class="flex flex-wrap items-center gap-3">
+            <span class="mono text-sm font-semibold text-slate-500">DEF-07</span>
+            <h3 class="text-lg font-semibold">Intentos de marcación rechazados</h3>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">Media</span>
+          </header>
+          <p class="text-sm leading-relaxed">La base ya existía y estaba completa: tabla <code>attendance_punch_attempts</code> y pantalla en <strong>Monitoreo › Intentos rechazados</strong> con colaborador, hora exacta, coordenadas, distancia, radio permitido, precisión, filtros y un <strong>mapa</strong> con la geocerca de cada sede. Completamos lo que pedía QA:</p>
+          <ul class="text-sm list-disc ml-4 space-y-1">
+            <li><strong>"Excedió por X m"</strong>: los metros que la persona estaba fuera del radio.</li>
+            <li>Filtro por <strong>tipo de marcación</strong> (entrada, salida o descansos).</li>
+          </ul>
+          <details class="rounded-lg border border-slate-200 dark:border-slate-800">
+            <summary class="flex items-center gap-2 px-4 py-3 text-sm font-semibold"><span class="chev transition-transform">▸</span> Dónde está (archivos)</summary>
+            <ul class="files px-4 pb-4 text-sm">
+              <li><span class="text-slate-500">Controlador:</span> <code>app/Modules/Attendance/Controllers/Web/PunchAttemptWebController.php</code></li>
+              <li><span class="text-slate-500">Vista Blade:</span> <code>resources/views/attendance/attempts.blade.php</code></li>
+              <li><span class="text-slate-500">Pruebas:</span> <code>tests/Feature/PunchAttemptLogTest.php</code></li>
+            </ul>
+          </details>
+        </article>
+      </div>
+
+      <!-- Nota de geocercas con diagrama -->
+      <div class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 grid md:grid-cols-[220px_1fr] gap-6 items-center">
+        <svg viewBox="0 0 220 220" class="w-full max-w-[220px] mx-auto" role="img" aria-label="Diagrama de geocerca: radio de la sede, margen de borde e intento fuera">
+          <circle cx="100" cy="110" r="86" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5 4"/>
+          <circle cx="100" cy="110" r="70" fill="rgb(99 102 241 / .12)" stroke="#6366f1" stroke-width="2"/>
+          <circle cx="100" cy="110" r="5" fill="#6366f1"/>
+          <text x="100" y="128" text-anchor="middle" font-size="11" fill="currentColor">Sede</text>
+          <circle cx="140" cy="80" r="5" fill="#10b981"/>
+          <circle cx="196" cy="40" r="12" fill="rgb(244 63 94 / .15)"/>
+          <circle cx="196" cy="40" r="5" fill="#f43f5e"/>
+          <line x1="100" y1="110" x2="196" y2="40" stroke="#f43f5e" stroke-width="1" stroke-dasharray="3 3"/>
+        </svg>
+        <div class="text-sm space-y-3">
+          <h3 class="text-lg font-semibold">Nota sobre mapas y geocercas</h3>
+          <p class="leading-relaxed">El círculo de cada sede usa su radio más un margen de borde (<code>geofence_tolerance_meters</code>, 15 m por defecto) que compensa el error del GPS en la orilla. Un intento se rechaza si la persona está fuera del radio considerando la precisión que reporta el teléfono. El mapa dibuja ambas cosas para que RR. HH. vea si fue un error de borde o si de verdad estaba lejos.</p>
+          <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+            <span><span class="inline-block w-3 h-3 rounded-full bg-indigo-500 align-middle"></span> Radio de la sede</span>
+            <span><span class="inline-block w-3 h-0.5 bg-amber-500 align-middle"></span> Margen de borde (15 m)</span>
+            <span><span class="inline-block w-3 h-3 rounded-full bg-emerald-500 align-middle"></span> Marcación aceptada</span>
+            <span><span class="inline-block w-3 h-3 rounded-full bg-rose-500 align-middle"></span> Intento rechazado y su precisión</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid xl:grid-cols-2 gap-6">
+        <!-- DEF-08 -->
+        <article id="def08" class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+          <header class="flex flex-wrap items-center gap-3">
+            <span class="mono text-sm font-semibold text-slate-500">DEF-08</span>
+            <h3 class="text-lg font-semibold">Usabilidad del módulo Organización</h3>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">Media</span>
+          </header>
+          <ul class="text-sm list-disc ml-4 space-y-1">
+            <li>Textos en lenguaje sencillo: "Sedes y personal", "Zonas, áreas y cargos", "Personal activo", "Plazas previstas".</li>
+            <li>Una <strong>guía visible de 4 pasos</strong>. Cada paso dice quién responde y tiene una ayuda al pasar el mouse.</li>
+            <li>Aviso de <strong>áreas sin jefe</strong>, con un botón "Asignar jefe".</li>
+            <li>En la lista de áreas se ve "Jefe: Fulano". En la ficha de la sede, una línea explica qué hace el supervisor.</li>
+          </ul>
+          <div class="flex items-center gap-1 text-xs font-medium flex-wrap">
+            <span class="px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-500/10">1 · Zona</span><span class="text-slate-400">→</span>
+            <span class="px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-500/10">2 · Sede</span><span class="text-slate-400">→</span>
+            <span class="px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-500/10">3 · Área</span><span class="text-slate-400">→</span>
+            <span class="px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-500/10">4 · Cargo</span>
+          </div>
+          <details class="rounded-lg border border-slate-200 dark:border-slate-800">
+            <summary class="flex items-center gap-2 px-4 py-3 text-sm font-semibold"><span class="chev transition-transform">▸</span> Dónde está (archivos)</summary>
+            <ul class="files px-4 pb-4 text-sm">
+              <li><span class="text-slate-500">Pantalla Vue:</span> <code>resources/js/Modules/Core/Pages/Organization/Index.vue</code></li>
+              <li><span class="text-slate-500">Controlador:</span> <code>app/Modules/Core/Controllers/Web/OrganizationWebController.php</code></li>
+            </ul>
+          </details>
+        </article>
+
+        <!-- MEJ-01 -->
+        <article id="mej01" class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+          <header class="flex flex-wrap items-center gap-3">
+            <span class="mono text-sm font-semibold text-slate-500">MEJ-01</span>
+            <h3 class="text-lg font-semibold">Constancias de capacitación</h3>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">Baja</span>
+          </header>
+          <p class="text-sm">La constancia en PDF ahora lleva:</p>
+          <ul class="text-sm list-disc ml-4 space-y-1">
+            <li>el <strong>logo de la empresa</strong>: el que se subió en "Marca y app" o, si no hay, el institucional;</li>
+            <li>la <strong>firma escaneada del gerente</strong>, con su nombre y cargo.</li>
+          </ul>
+          <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">La firma se toma de <strong>Finanzas › Firmantes</strong>: el apoderado activo con firma cuyo cargo dice "gerente" o, si no hay, el primero activo con firma. Sin firmantes, sale una línea con el nombre de la empresa.</p>
+          <details class="rounded-lg border border-slate-200 dark:border-slate-800">
+            <summary class="flex items-center gap-2 px-4 py-3 text-sm font-semibold"><span class="chev transition-transform">▸</span> Dónde está (archivos)</summary>
+            <ul class="files px-4 pb-4 text-sm">
+              <li><span class="text-slate-500">Servicio:</span> <code>app/Modules/Training/Services/TrainingCertificate.php</code></li>
+              <li><span class="text-slate-500">Vista Blade:</span> <code>resources/views/training/certificate.blade.php</code></li>
+              <li><span class="text-slate-500">Pruebas:</span> <code>tests/Feature/TrainingCertificateBrandingTest.php</code></li>
+            </ul>
+          </details>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================= LOGO ================= -->
+    <section id="logo" class="space-y-6">
+      <div>
+        <p class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Cierre · commit <code>df95519</code></p>
+        <h2 class="text-2xl font-bold tracking-tight">Logotipo oficial en la app móvil</h2>
+      </div>
+      <div class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 grid md:grid-cols-2 gap-6">
+        <div class="text-sm space-y-3 leading-relaxed">
+          <p>El logo que aparecía ("Tunesa Expres") no estaba en el código de la app: era el logo que el servidor de producción entrega como marca de la empresa, y la app lo descargaba.</p>
+          <p>Ahora el logo oficial va <strong>incluido dentro de la app</strong>. Se ve igual en el arranque, el login, el encabezado de Inicio y la pantalla de actualización, con o sin sesión y aunque no haya internet.</p>
+          <ul class="list-disc ml-4 space-y-1">
+            <li><code>Image.asset</code> con <code>BoxFit.contain</code>: mantiene su proporción (1657×517) en cualquier ancho de pantalla, Android o iOS.</li>
+            <li>Probado en un teléfono angosto (320 px) sin desbordes.</li>
+          </ul>
+        </div>
+        <div class="rounded-lg border border-slate-200 dark:border-slate-800 grid place-items-center p-6 bg-white">
+          <img src="mobile/assets/branding/logo-grupo-negreiros.png" alt="Logo Grupo Negreiros" class="max-h-24 w-auto object-contain" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'font-extrabold text-slate-800 tracking-wide',textContent:'GRUPO NEGREIROS'}))">
+        </div>
+        <ul class="files md:col-span-2 text-sm">
+          <li><span class="text-slate-500">Imagen:</span> <code>mobile/assets/branding/logo-grupo-negreiros.png</code> (declarada en <code>mobile/pubspec.yaml</code>)</li>
+          <li><span class="text-slate-500">Widget:</span> <code>mobile/lib/core/widgets/brand_logo.dart</code></li>
+          <li><span class="text-slate-500">Login:</span> <code>mobile/lib/features/auth/presentation/login_screen.dart</code></li>
+          <li><span class="text-slate-500">Encabezado de Inicio:</span> <code>mobile/lib/features/home/presentation/home_screen.dart</code></li>
+          <li><span class="text-slate-500">Prueba:</span> <code>mobile/test/widget_test.dart</code> → "el login muestra el logo oficial de Grupo Negreiros sin deformarlo"</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ================= ESTRÉS ================= -->
+    <section id="estres" class="space-y-6">
+      <div>
+        <p class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">k6 · MySQL · 4 servidores PHP en paralelo</p>
+        <h2 class="text-2xl font-bold tracking-tight">Pruebas de estrés</h2>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400 max-w-3xl">Las pruebas unitarias no detectan problemas de concurrencia: en ellas, cada petición pasa sola. Por eso montamos un entorno de carga real.</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div class="flex overflow-x-auto border-b border-slate-200 dark:border-slate-800 text-sm" role="tablist" id="stressTabs">
+          <button data-tab="t-res" class="tab px-5 py-3 font-medium whitespace-nowrap border-b-2">Resultados</button>
+          <button data-tab="t-bugs" class="tab px-5 py-3 font-medium whitespace-nowrap border-b-2">Lo que encontramos</button>
+          <button data-tab="t-env" class="tab px-5 py-3 font-medium whitespace-nowrap border-b-2">Entorno</button>
+          <button data-tab="t-rep" class="tab px-5 py-3 font-medium whitespace-nowrap border-b-2">Cómo repetirlas</button>
+        </div>
+
+        <!-- Resultados -->
+        <div id="t-res" class="tabpanel p-6 space-y-6">
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50"><div class="text-xs text-slate-500">Marcaciones simultáneas</div><div class="text-2xl font-bold mt-1">80</div><div class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">0 errores 5xx</div></div>
+            <div class="rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50"><div class="text-xs text-slate-500">Vacaciones simultáneas</div><div class="text-2xl font-bold mt-1">80 <span class="text-sm font-medium text-slate-400">× 5 corridas</span></div><div class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">0 duplicados</div></div>
+            <div class="rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50"><div class="text-xs text-slate-500">Descargas de boletas</div><div class="text-2xl font-bold mt-1">580</div><div class="text-xs text-emerald-600 dark:text-emerald-400 mt-1">100 % PDF válido</div></div>
+            <div class="rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50"><div class="text-xs text-slate-500">p95 boletas</div><div class="text-2xl font-bold mt-1">0,82 s</div><div class="text-xs text-slate-500 mt-1">mediana 0,20 s</div></div>
+          </div>
+
+          <!-- Barras: aceptadas vs rechazadas -->
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-sm font-semibold mb-3">Carreras: 2 envíos por persona, 40 personas</h4>
+              <div class="space-y-4 text-sm">
+                <div>
+                  <div class="flex justify-between mb-1"><span>Marcaciones de entrada</span><span class="text-slate-500">80 peticiones</span></div>
+                  <div class="flex h-7 rounded-md overflow-hidden text-xs font-medium text-white">
+                    <div class="bg-emerald-500 grid place-items-center" style="width:50%">40 aceptadas</div>
+                    <div class="bg-slate-400 dark:bg-slate-600 grid place-items-center" style="width:50%">40 duplicadas (409)</div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between mb-1"><span>Solicitudes de vacaciones</span><span class="text-slate-500">80 peticiones</span></div>
+                  <div class="flex h-7 rounded-md overflow-hidden text-xs font-medium text-white">
+                    <div class="bg-emerald-500 grid place-items-center" style="width:50%">40 creadas</div>
+                    <div class="bg-slate-400 dark:bg-slate-600 grid place-items-center" style="width:50%">40 cruzadas (409)</div>
+                  </div>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">El 409 es la respuesta correcta: el segundo envío de la misma persona se rechaza como duplicado.</p>
+              </div>
+            </div>
+            <div>
+              <h4 class="text-sm font-semibold mb-3">Antes y después de corregir</h4>
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="py-2 pr-3">Problema</th><th class="py-2 pr-3">Antes</th><th class="py-2">Después</th></tr></thead>
+                  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tr><td class="py-2 pr-3">Errores 500 en marcaciones</td><td class="py-2 pr-3 text-rose-600 dark:text-rose-400 font-semibold">2 / 80</td><td class="py-2 text-emerald-600 dark:text-emerald-400 font-semibold">0 / 80</td></tr>
+                    <tr><td class="py-2 pr-3">Vacaciones para 40 personas</td><td class="py-2 pr-3 text-rose-600 dark:text-rose-400 font-semibold">41</td><td class="py-2 text-emerald-600 dark:text-emerald-400 font-semibold">40</td></tr>
+                    <tr><td class="py-2 pr-3">Memoria PHP por proceso</td><td class="py-2 pr-3">39–43 MB</td><td class="py-2 text-emerald-600 dark:text-emerald-400 font-semibold">39–43 MB</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 dark:bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr><th class="px-4 py-3">Escenario k6</th><th class="px-4 py-3">Errores 5xx</th><th class="px-4 py-3">Resultado</th></tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                <tr><td class="px-4 py-3">80 marcaciones simultáneas (2 por persona)<div class="text-xs text-slate-500 mono">clock-in-race.js</div></td><td class="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">0</td><td class="px-4 py-3">Exactamente 40 aceptadas y 40 rechazadas como duplicadas (409). En la base: <strong>40 jornadas para 40 personas</strong>.</td></tr>
+                <tr><td class="px-4 py-3">80 solicitudes de vacaciones simultáneas (2 por persona)<div class="text-xs text-slate-500 mono">qa-closure.js · leave_race</div></td><td class="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">0</td><td class="px-4 py-3">En 5 corridas seguidas: 40 creadas y 40 rechazadas por fechas cruzadas (409). En la base: <strong>40 solicitudes para 40 personas</strong>, siempre.</td></tr>
+                <tr><td class="px-4 py-3">Boletas: 40 usuarios durante 1 minuto<div class="text-xs text-slate-500 mono">qa-closure.js · payslips</div></td><td class="px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400">0</td><td class="px-4 py-3"><strong>100 % de respuestas correctas</strong> en 580 descargas, todas PDF válido. p95 = <strong>0,82 s</strong>, mediana 0,20 s.</td></tr>
+                <tr><td class="px-4 py-3">Memoria de los procesos PHP</td><td class="px-4 py-3 text-slate-400">—</td><td class="px-4 py-3">Estable: 39–43 MB antes y después de ~850 peticiones por proceso (+0,1 a +0,3 MB). <strong>Sin fugas.</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid md:grid-cols-3 gap-3 text-sm">
+            <div class="rounded-lg p-4 bg-sky-50 dark:bg-sky-500/5 border-l-4 border-sky-400"><strong>Latencia de las marcaciones.</strong> El p95 ≈ 10 s de la carrera es de <strong>cola</strong>, no del sistema: 80 peticiones llegan a la vez a solo 4 procesos de un hilo, y cada marcación con selfie tarda ~1 s (foto, GPS, geocerca). En producción, PHP-FPM tiene más procesos.</div>
+            <div class="rounded-lg p-4 bg-sky-50 dark:bg-sky-500/5 border-l-4 border-sky-400"><strong>Límite de peticiones.</strong> Sigue en 60 por minuto por usuario. En el calentamiento, usuarios simulados más rápidos que un teléfono real recibieron 429. Es el límite haciendo su trabajo, no un error.</div>
+            <div class="rounded-lg p-4 bg-sky-50 dark:bg-sky-500/5 border-l-4 border-sky-400"><strong>Motor de base de datos.</strong> Probamos con MariaDB 10.4. Producción usa MySQL 8; el bloqueo de filas (<code>SELECT … FOR UPDATE</code>) se comporta igual en ambos.</div>
+          </div>
+        </div>
+
+        <!-- Hallazgos -->
+        <div id="t-bugs" class="tabpanel p-6 space-y-4 hidden">
+          <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-5 space-y-2">
+            <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300 grid place-items-center text-xs font-bold">1</span><h4 class="font-semibold">Deadlock en la caché del calendario (marcaciones)</h4></div>
+            <p class="text-sm">En la primera corrida, 2 de 80 marcaciones respondieron error 500: <code>Deadlock found when trying to get lock</code>.</p>
+            <ul class="text-sm list-disc ml-4 space-y-1">
+              <li><strong>Causa:</strong> cada marcación incrementaba la "versión" del calendario en la tabla <code>cache</code>, dentro de la transacción de la marcación. Con varias marcaciones a la vez se bloqueaban entre sí.</li>
+              <li><strong>Además era trabajo inútil:</strong> el calendario solo guarda en caché meses ya cerrados.</li>
+              <li><strong>Corrección</strong> en <code>AttendanceCalendarService::bump()</code>: los cambios del mes en curso no tocan la caché; los de meses cerrados se aplican <strong>después del commit</strong>, en transacciones cortas.</li>
+              <li><strong>Prueba nueva:</strong> <code>tests/Feature/AttendanceCalendarTest.php</code> → "punches of the current month do not write the cache table".</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-5 space-y-2">
+            <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300 grid place-items-center text-xs font-bold">2</span><h4 class="font-semibold">Vacaciones duplicadas con envíos simultáneos</h4></div>
+            <p class="text-sm">Cuando el mismo colaborador enviaba la misma solicitud dos veces a la vez (doble toque o reintento de red), a veces quedaban <strong>dos solicitudes con las mismas fechas</strong> (41 para 40 personas).</p>
+            <ul class="text-sm list-disc ml-4 space-y-1">
+              <li><strong>Causa:</strong> "revisar si se cruza" e "insertar" no eran atómicos.</li>
+              <li><strong>Corrección</strong> en <code>LeaveRequestController::store()</code>: igual que la marcación, se bloquea la fila del usuario dentro de una transacción, así que dos envíos de la misma persona se atienden uno detrás del otro.</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-200 dark:border-slate-800 p-5 space-y-2">
+            <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 grid place-items-center text-xs font-bold">3</span><h4 class="font-semibold">Defecto en la propia prueba de carrera</h4></div>
+            <p class="text-sm">El script de carrera que ya existía mandaba los dos intentos de una misma persona <strong>al mismo servidor</strong>. Como cada servidor atiende una petición a la vez, la carrera nunca era real. Lo corregimos en <code>clock-in-race.js</code> y en <code>qa-closure.js</code>: el segundo intento va a otro servidor. Gracias a eso apareció el problema 2.</p>
+          </div>
+        </div>
+
+        <!-- Entorno -->
+        <div id="t-env" class="tabpanel p-6 hidden">
+          <dl class="grid sm:grid-cols-3 gap-4 text-sm">
+            <div class="rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50">
+              <dt class="font-semibold mb-1">Base de datos</dt>
+              <dd class="space-y-1 text-slate-600 dark:text-slate-400">
+                <p>MySQL (MariaDB 10.4 de XAMPP) en una base desechable <code>tunesa_load</code>, borrada al terminar.</p>
+                <p>Datos demo + <code>tests/load/seed-load.php</code>: 2 400 cuotas, 600 costos fijos, 1 000 gastos de caja chica y 40 colaboradores con token.</p>
+                <p><code>tests/load/seed-qa-closure.php</code>: turno con sábado corto y una boleta PDF por colaborador.</p>
+              </dd>
+            </div>
+            <div class="rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50">
+              <dt class="font-semibold mb-1">Servidores</dt>
+              <dd class="text-slate-600 dark:text-slate-400">4 procesos PHP con OPcache, en paralelo (puertos 8101–8104).</dd>
+            </div>
+            <div class="rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50">
+              <dt class="font-semibold mb-1">Escenarios k6</dt>
+              <dd class="space-y-1 text-slate-600 dark:text-slate-400">
+                <p><code>clock-in-race.js</code>: 80 entradas simultáneas, 2 por persona.</p>
+                <p><code>qa-closure.js → leave_race</code>: 80 solicitudes de vacaciones, 2 por persona con las mismas fechas.</p>
+                <p><code>qa-closure.js → payslips</code>: 40 usuarios listando y descargando boletas durante un minuto.</p>
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <!-- Repetir -->
+        <div id="t-rep" class="tabpanel p-6 hidden">
+          <div class="relative">
+            <button class="copy absolute top-2 right-2 text-xs px-2 py-1 rounded bg-slate-700 text-slate-200 hover:bg-slate-600" data-target="cmds">Copiar</button>
+<pre id="cmds" class="rounded-lg bg-slate-900 text-slate-100 text-xs p-4 overflow-x-auto leading-relaxed"><code><span class="text-slate-400"># 1) Copia de la base (el nombre DEBE contener "load"; los scripts se niegan a correr si no)</span>
+DB_CONNECTION=mysql DB_DATABASE=tunesa_load php artisan migrate:fresh --seed --force
+DB_CONNECTION=mysql DB_DATABASE=tunesa_load php tests/load/seed-load.php empresa-demo load-users.json
+DB_CONNECTION=mysql DB_DATABASE=tunesa_load php tests/load/seed-qa-closure.php empresa-demo load-users.json
+
+<span class="text-slate-400"># 2) Servidores (desde public/, con OPcache), uno por puerto: 8101..8104</span>
+php -d zend_extension=opcache -d opcache.enable_cli=1 -S 127.0.0.1:8101 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php
+
+<span class="text-slate-400"># 3) Escenarios</span>
+k6 run -e USERS=load-users.json -e SELFIE=selfie.jpg -e BASES=http://127.0.0.1:8101,http://127.0.0.1:8102,http://127.0.0.1:8103,http://127.0.0.1:8104 tests/load/clock-in-race.js
+k6 run -e USERS=load-users.json -e BASES=http://127.0.0.1:8101,http://127.0.0.1:8102,http://127.0.0.1:8103,http://127.0.0.1:8104 tests/load/qa-closure.js</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= DESPLIEGUE ================= -->
+    <section id="despliegue" class="space-y-6">
+      <div>
+        <p class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Validación y pasos a producción</p>
+        <h2 class="text-2xl font-bold tracking-tight">Despliegue</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6">
+          <h3 class="font-semibold mb-4">Pruebas automáticas locales</h3>
+          <ul class="space-y-3 text-sm">
+            <li class="flex items-center gap-3"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span class="flex-1">Backend (Laravel)</span><strong>589 en verde</strong></li>
+            <li class="flex items-center gap-3"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span class="flex-1">App (Flutter)</span><strong>226 en verde</strong></li>
+            <li class="flex items-center gap-3"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span class="flex-1"><code>flutter analyze</code></span><strong>sin observaciones</strong></li>
+            <li class="flex items-center gap-3"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span><span class="flex-1">Panel (Vue)</span><strong>compila sin errores</strong></li>
+          </ul>
+        </div>
+        <div class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6">
+          <h3 class="font-semibold mb-4">GitHub Actions · commit <code>df95519</code></h3>
+          <ul class="space-y-3 text-sm">
+            <li class="flex items-start gap-3"><span class="mt-0.5 px-1.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">✓</span><span class="flex-1"><strong>Backend: pruebas</strong><br><span class="text-slate-500">SQLite y MySQL 8 · 4 min</span></span></li>
+            <li class="flex items-start gap-3"><span class="mt-0.5 px-1.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">✓</span><span class="flex-1"><strong>App ↔ API: pruebas de punta a punta</strong><br><span class="text-slate-500">Contrato de la API y emuladores Android 10 y 15 · 15 min</span></span></li>
+            <li class="flex items-start gap-3"><span class="mt-0.5 px-1.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">✓</span><span class="flex-1"><strong>App móvil: APK</strong><br><span class="text-slate-500">APK disponible como artefacto · 14 min</span></span></li>
+          </ul>
+          <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">En la Fase 1, una prueba nueva de turnos falló solo en MySQL porque MySQL ordena las llaves de los JSON de otra forma; se corrigió la prueba, no los datos.</p>
+        </div>
+      </div>
+
+      <div class="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6">
+        <h3 class="font-semibold mb-1">Al desplegar en producción</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">Marca cada paso a medida que lo completes (se recuerda en este navegador).</p>
+        <ol class="space-y-3 text-sm" id="checklist">
+          <li><label class="flex gap-3 items-start p-3 rounded-lg border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"><input type="checkbox" class="mt-0.5 w-4 h-4 accent-indigo-600"><span><strong>1.</strong> <code>php artisan migrate</code>: dos migraciones nuevas (horario por día de los turnos y jefe de área).</span></label></li>
+          <li><label class="flex gap-3 items-start p-3 rounded-lg border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"><input type="checkbox" class="mt-0.5 w-4 h-4 accent-indigo-600"><span><strong>2.</strong> Asignar el <strong>jefe de cada área</strong> en Organización (la pantalla avisa cuáles faltan).</span></label></li>
+          <li><label class="flex gap-3 items-start p-3 rounded-lg border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"><input type="checkbox" class="mt-0.5 w-4 h-4 accent-indigo-600"><span><strong>3.</strong> Cargar la <strong>firma del gerente</strong> en Finanzas › Firmantes para las constancias.</span></label></li>
+          <li><label class="flex gap-3 items-start p-3 rounded-lg border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"><input type="checkbox" class="mt-0.5 w-4 h-4 accent-indigo-600"><span><strong>4.</strong> Instalar el <strong>APK nuevo</strong> (logo oficial, boletas, salida, "olvidé mi contraseña").</span></label></li>
+        </ol>
+      </div>
+
+      <p class="text-sm text-slate-500 dark:text-slate-400 text-right">— Equipo de desarrollo</p>
+    </section>
+  </main>
+</div>
+
+<script>
+  // Tema claro/oscuro
+  document.getElementById('themeBtn').onclick = () => {
+    const dark = document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('qa-theme', dark ? 'dark' : 'light'); } catch (e) {}
+  };
+
+  // Menú lateral en móvil
+  const sidebar = document.getElementById('sidebar');
+  document.getElementById('menuBtn').onclick = () => sidebar.classList.remove('hidden');
+  sidebar.addEventListener('click', e => {
+    if (e.target.matches('[data-close]') || (e.target.closest('a') && innerWidth < 1024)) sidebar.classList.add('hidden');
+  });
+
+  // Resaltar la sección visible en el menú
+  const links = [...document.querySelectorAll('.nav-link')];
+  const targets = links.map(a => document.querySelector(a.getAttribute('href')));
+  const spy = () => {
+    let current = targets[0];
+    for (const t of targets) if (t.getBoundingClientRect().top < 120) current = t;
+    links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + current.id));
+  };
+  addEventListener('scroll', spy, { passive: true }); spy();
+
+  // Filtro por severidad
+  document.querySelectorAll('#sevFilter button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#sevFilter button').forEach(x => x.className = 'px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800');
+    b.className = 'px-2.5 py-1 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900';
+    document.querySelectorAll('#findingsBody tr').forEach(r => r.hidden = b.dataset.sev !== 'all' && r.dataset.sev !== b.dataset.sev);
+  });
+
+  // Pestañas de estrés
+  const tabs = document.querySelectorAll('#stressTabs .tab');
+  const showTab = id => tabs.forEach(t => {
+    const on = t.dataset.tab === id;
+    t.classList.toggle('border-indigo-600', on); t.classList.toggle('text-indigo-600', on);
+    t.classList.toggle('dark:text-indigo-400', on); t.classList.toggle('border-transparent', !on);
+    t.classList.toggle('text-slate-500', !on);
+    document.getElementById(t.dataset.tab).classList.toggle('hidden', !on);
+  });
+  tabs.forEach(t => t.onclick = () => showTab(t.dataset.tab)); showTab('t-res');
+
+  // Copiar comandos
+  document.querySelectorAll('.copy').forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(document.getElementById(b.dataset.target).innerText); b.textContent = '¡Copiado!'; }
+    catch (e) { b.textContent = 'No se pudo copiar'; }
+    setTimeout(() => b.textContent = 'Copiar', 1500);
+  });
+
+  // Checklist de despliegue (solo en este navegador)
+  const boxes = document.querySelectorAll('#checklist input');
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem('qa-deploy') || '[]'); } catch (e) {}
+  boxes.forEach((c, i) => { c.checked = !!saved[i]; c.onchange = () => {
+    try { localStorage.setItem('qa-deploy', JSON.stringify([...boxes].map(x => x.checked))); } catch (e) {}
+  }; });
+</script>
+</body>
+</html>

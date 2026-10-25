@@ -1,3 +1,5 @@
+import '../../../core/utils/json_num.dart';
+
 class Payslip {
   const Payslip({
     required this.id,
@@ -18,11 +20,11 @@ class Payslip {
   final DateTime? publishedAt;
 
   factory Payslip.fromJson(Map<String, dynamic> json) => Payslip(
-        id: (json['id'] as num).toInt(),
+        id: asInt(json['id'])!,
         title: json['title']?.toString() ?? 'Boleta de pago',
         periodLabel: json['period_label']?.toString() ?? '${json['period_month']}/${json['period_year']}',
-        month: (json['period_month'] as num?)?.toInt() ?? 0,
-        year: (json['period_year'] as num?)?.toInt() ?? 0,
+        month: asInt(json['period_month']) ?? 0,
+        year: asInt(json['period_year']) ?? 0,
         isRead: json['is_read'] == true,
         publishedAt: DateTime.tryParse(json['published_at']?.toString() ?? ''),
       );

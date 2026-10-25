@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import '../../../core/utils/json_num.dart';
 
 import 'package:uuid/uuid.dart';
 
@@ -205,11 +206,11 @@ class QueuedPunch {
     return QueuedPunch(
       clientUuid: uuid,
       action: action,
-      latitude: (row['latitude'] as num).toDouble(),
-      longitude: (row['longitude'] as num).toDouble(),
-      accuracy: (row['accuracy'] as num?)?.toDouble() ?? 0,
+      latitude: asDouble(row['latitude'])!,
+      longitude: asDouble(row['longitude'])!,
+      accuracy: asDouble(row['accuracy']) ?? 0,
       deviceTime: time.toUtc(),
-      userId: (row['user_id'] as num?)?.toInt(),
+      userId: asInt(row['user_id']),
       isMocked: row['is_mocked'] == 1,
       faceDetected: face == null ? null : face == 1,
       deviceId: row['device_id'] as String?,
@@ -217,7 +218,7 @@ class QueuedPunch {
       appVersion: row['app_version'] as String?,
       photoPath: row['photo_path'] as String?,
       photoMime: row['photo_mime'] as String?,
-      attempts: (row['attempts'] as num?)?.toInt() ?? 0,
+      attempts: asInt(row['attempts']) ?? 0,
       nextAttemptAt: DateTime.tryParse(row['next_attempt_at']?.toString() ?? '')?.toUtc(),
       lastError: row['last_error'] as String?,
       server: row['server'] as String?,
@@ -288,7 +289,7 @@ class RejectedPunch {
       message: row['message']?.toString() ?? '',
       code: row['code'] as String?,
       rejectedAt: DateTime.tryParse(row['rejected_at']?.toString() ?? '')?.toUtc() ?? time.toUtc(),
-      userId: (row['user_id'] as num?)?.toInt(),
+      userId: asInt(row['user_id']),
       server: row['server'] as String?,
     );
   }
@@ -339,8 +340,8 @@ Map<String, BatchItemResult> parseBatchResults(Map<String, dynamic> json) {
       status: status,
       code: raw['code']?.toString(),
       message: raw['message']?.toString(),
-      attendanceId: (raw['attendance_id'] as num?)?.toInt(),
-      punchId: (raw['punch_id'] as num?)?.toInt(),
+      attendanceId: asInt(raw['attendance_id']),
+      punchId: asInt(raw['punch_id']),
     );
   }
   return map;
