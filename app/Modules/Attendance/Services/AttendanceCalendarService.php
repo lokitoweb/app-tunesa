@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Calendario con semáforo (Asistencia > Calendario): una fila por colaborador
@@ -155,12 +156,24 @@ class AttendanceCalendarService
     /** Invalida la caché del mes (lo llaman los eventos de Attendance y LeaveRequest) */
     public static function bump(?int $tenantId, string $date): void
     {
-        // La vista global del Super Admin (sin empresa) también se invalida
-        foreach (array_unique([$tenantId, null]) as $id) {
-            $key = self::versionKey($id, substr($date, 0, 7));
-            Cache::add($key, 0, now()->addDays(40));
-            Cache::increment($key);
+        // Solo se cachean meses cerrados (ver cached()): las marcaciones del mes en curso no
+        // invalidan nada. Así la marcación diaria no pasa por la tabla cache, que bajo
+        // concurrencia (prueba de estrés, MySQL) daba deadlocks en estas filas compartidas.
+        $month = substr($date, 0, 7);
+        if ($month >= CarbonImmutable::now(tenant_timezone())->format('Y-m')) {
+            return;
         }
+
+        // Después del commit: cada incremento en su propia transacción corta, sin
+        // retener el bloqueo de la fila mientras dura la transacción de la marcación
+        DB::afterCommit(function () use ($tenantId, $month) {
+            // La vista global del Super Admin (sin empresa) también se invalida
+            foreach (array_unique([$tenantId, null]) as $id) {
+                $key = self::versionKey($id, $month);
+                Cache::add($key, 0, now()->addDays(40));
+                Cache::increment($key);
+            }
+        });
     }
 
     /**

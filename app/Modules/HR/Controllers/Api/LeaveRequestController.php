@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Modules\Core\Rules\SafeUpload;
 
 /**
@@ -64,30 +65,39 @@ class LeaveRequestController extends Controller
 
         $user = $request->user();
 
-        $overlaps = LeaveRequest::where('user_id', $user->id)
-            ->whereIn('status', ['pending', 'approved'])
-            ->overlapping($validated['start_date'], $validated['end_date'])
-            ->exists();
+        // Una solicitud a la vez por persona (como la marcación): dos envíos simultáneos
+        // (doble toque, reintento) creaban fechas cruzadas. Lo encontró la prueba de estrés.
+        $leave = DB::transaction(function () use ($request, $validated, $user) {
+            DB::table('users')->where('id', $user->id)->lockForUpdate()->value('id');
 
-        if ($overlaps) {
+            $overlaps = LeaveRequest::where('user_id', $user->id)
+                ->whereIn('status', ['pending', 'approved'])
+                ->overlapping($validated['start_date'], $validated['end_date'])
+                ->exists();
+            if ($overlaps) {
+                return null;
+            }
+
+            if ($request->hasFile('attachment')) {
+                $validated['attachment_path'] = $request->file('attachment')
+                    ->store("leave-requests/{$user->tenant_id}/{$user->id}", 'private');
+            }
+            unset($validated['attachment']);
+
+            return LeaveRequest::create(array_merge($validated, [
+                'user_id' => $user->id,
+                'days'    => Carbon::parse($validated['start_date'])->diffInDays(Carbon::parse($validated['end_date'])) + 1,
+                'status'  => 'pending',
+            ]));
+        });
+
+        if (! $leave) {
             return response()->json([
                 'success' => false,
                 'message' => 'Ya tienes una solicitud pendiente o aprobada en esas fechas.',
                 'code'    => 'OVERLAPPING_REQUEST',
             ], 409);
         }
-
-        if ($request->hasFile('attachment')) {
-            $validated['attachment_path'] = $request->file('attachment')
-                ->store("leave-requests/{$user->tenant_id}/{$user->id}", 'private');
-        }
-        unset($validated['attachment']);
-
-        $leave = LeaveRequest::create(array_merge($validated, [
-            'user_id' => $user->id,
-            'days'    => Carbon::parse($validated['start_date'])->diffInDays(Carbon::parse($validated['end_date'])) + 1,
-            'status'  => 'pending',
-        ]));
 
         return response()->json([
             'success' => true,

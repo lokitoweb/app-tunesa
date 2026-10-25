@@ -27,7 +27,8 @@ export const options = {
 
 export default function () {
     const emp = data.employees[(__VU - 1) % data.employees.length];
-    const base = BASES[(__VU - 1) % BASES.length];
+    // El 2.º intento de la misma persona va a OTRO servidor: si no, el servidor (un hilo) los atiende en fila y no hay carrera
+    const base = BASES[(__VU - 1 + Math.floor((__VU - 1) / data.employees.length)) % BASES.length];
     const jitter = () => (Math.random() - 0.5) * 0.0002; // ±10 m alrededor del centro de la sede
 
     const res = http.post(`${base}/api/attendance/clock-in`, {

@@ -175,6 +175,17 @@ class AttendanceCalendarTest extends TestCase
         $this->assertSame('present', $state());
     }
 
+    public function test_punches_of_the_current_month_do_not_write_the_cache_table(): void
+    {
+        // Prueba de estrés: estas filas compartidas daban deadlocks con marcaciones simultáneas
+        $this->travelTo(Carbon::parse('2026-10-05 10:00:00', 'America/Lima'));
+        $this->day($this->emp, '2026-10-05', ['clock_in_at' => '2026-10-05 07:58:00']);
+        $this->assertNull(\Illuminate\Support\Facades\Cache::get('attendance-calendar:v:' . $this->acme->id . ':2026-10'));
+
+        $this->day($this->emp, '2026-09-03', ['clock_in_at' => '2026-09-03 07:58:00']);
+        $this->assertSame(1, (int) \Illuminate\Support\Facades\Cache::get('attendance-calendar:v:' . $this->acme->id . ':2026-09'));
+    }
+
     public function test_panel_renders_the_matrix_and_exports_excel_with_colors(): void
     {
         $this->day($this->emp, '2026-09-02', ['status' => 'late', 'late_minutes' => 12, 'clock_in_at' => '2026-09-02 08:22:00', 'clock_out_at' => '2026-09-02 17:00:00']);

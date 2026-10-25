@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tunesa_mobile/app.dart';
 import 'package:tunesa_mobile/core/providers.dart';
+import 'package:tunesa_mobile/core/widgets/brand_logo.dart';
 import 'package:tunesa_mobile/features/auth/data/auth_repository.dart';
 import 'package:tunesa_mobile/features/auth/presentation/auth_controller.dart';
 
@@ -86,5 +87,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(fake?.askedFor, 'ana@empresa.pe');
     expect(find.byKey(const Key('password-help-done')), findsOneWidget);
+  });
+
+  testWidgets('el login muestra el logo oficial de Grupo Negreiros sin deformarlo', (tester) async {
+    tester.view.physicalSize = const Size(320 * 3, 640 * 3); // teléfono angosto
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await _pumpApp(tester, {});
+    final logo = tester.widget<Image>(find.descendant(of: find.byType(BrandLogo), matching: find.byType(Image)));
+    expect((logo.image as AssetImage).assetName, BrandLogo.asset);
+    expect(logo.fit, BoxFit.contain);
+    expect(tester.takeException(), isNull); // sin desbordes
   });
 }
