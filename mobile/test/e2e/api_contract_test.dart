@@ -26,6 +26,7 @@ import 'package:tunesa_mobile/features/attendance/data/attendance_repository.dar
 import 'package:tunesa_mobile/features/attendance/domain/models.dart';
 import 'package:tunesa_mobile/features/attendance/domain/punch.dart';
 import 'package:tunesa_mobile/features/auth/data/auth_repository.dart';
+import 'package:tunesa_mobile/features/birthdays/data/birthday_repository.dart';
 import 'package:tunesa_mobile/features/notifications/data/notification_repository.dart';
 import 'package:tunesa_mobile/features/payslips/data/payslip_repository.dart';
 import 'package:tunesa_mobile/features/profile/data/profile_repository.dart';
@@ -233,6 +234,28 @@ void main() {
     late _Session supervisor;
 
     setUpAll(() async => supervisor = await _Session.shared('supervisor@empresa-demo.com', 'Supervisor2024!'));
+
+    test('cumpleaños: Inicio ve la semana y le envía un regalo a Ana (cumple hoy)', () async {
+      final ana = await _Session.shared('ana.torres@empresa-demo.com', 'Employee2024!');
+      final mine = await BirthdayRepository(ana.api).upcoming(days: 7, limit: 5);
+      final anaId = mine.greeting!.userId!;
+      expect(mine.items.map((b) => b.id), contains(anaId)); // misma lista que la pantalla completa
+
+      final repo = BirthdayRepository(supervisor.api);
+      final board = await repo.gifts(anaId);
+      expect(board.canSend, isTrue);
+      expect(board.catalog, hasLength(6));
+      expect(board.sentByMe, contains('galaxy')); // sembrado
+
+      final sent = await repo.sendGift(anaId, 'cake');
+      expect(sent.playable, isTrue);
+      await expectLater(repo.sendGift(anaId, 'cake'), throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 409)));
+
+      final received = await BirthdayRepository(ana.api).gifts(anaId);
+      expect(received.isSelf, isTrue);
+      expect(received.canSend, isFalse);
+      expect(received.gifts.map((g) => g.gift.type), containsAll(['cake', 'galaxy']));
+    });
 
     test('aprueba la solicitud de su equipo y ve la asistencia en vivo', () async {
       final ana = await _Session.shared('ana.torres@empresa-demo.com', 'Employee2024!');

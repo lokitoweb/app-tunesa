@@ -104,6 +104,9 @@ class BirthdayService
         return [
             'date'       => $today->toDateString(),
             'first_name' => $user->first_name,
+            'user_id'    => $user->id,
+            // Tarjeta de la app: paleta según el género registrado (male / female / other / null)
+            'gender'     => $user->gender,
             'company'    => $company,
             'title'      => $note->title(),
             'body'       => $note->body(),

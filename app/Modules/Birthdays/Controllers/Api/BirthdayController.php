@@ -2,10 +2,12 @@
 
 namespace App\Modules\Birthdays\Controllers\Api;
 
+use App\Modules\Birthdays\Services\BirthdayGiftService;
 use App\Modules\Birthdays\Services\BirthdayService;
 use App\Modules\Core\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Cumpleaños en la app: próximos (Inicio), por mes y ficha de cada persona.
@@ -13,13 +15,14 @@ use Illuminate\Http\Request;
  */
 class BirthdayController extends Controller
 {
-    public function __construct(private readonly BirthdayService $birthdays) {}
+    public function __construct(private readonly BirthdayService $birthdays, private readonly BirthdayGiftService $gifts) {}
 
     /**
      * GET /api/birthdays/upcoming?days=30&limit=10
      *
-     * Inicio de la app: ?period=month&scope=team&limit=5 → lo que queda del mes
-     * en la empresa y sede de quien consulta (sin incluirlo). meta.greeting
+     * Inicio de la app: ?days=7&scope=company&limit=5 → los próximos 7 días con el
+     * mismo filtro (empresa) que la pantalla de cumpleaños. scope=team limita a su
+     * sede sin incluirlo; period=month, a lo que queda del mes. meta.greeting
      * trae el saludo de la empresa solo el día del cumpleaños de quien consulta.
      */
     public function upcoming(Request $request): JsonResponse
@@ -86,5 +89,34 @@ class BirthdayController extends Controller
         $user = $this->birthdays->people(current_tenant_id())->where('users.id', $id)->firstOrFail();
 
         return response()->json(['success' => true, 'data' => $this->birthdays->present($user, now(tenant_timezone()))]);
+    }
+
+    /** GET /api/birthdays/{id}/gifts — regalos de su cumpleaños, catálogo y si se puede enviar hoy */
+    public function gifts(Request $request, int $id): JsonResponse
+    {
+        $recipient = $this->birthdays->people(current_tenant_id())->where('users.id', $id)->firstOrFail();
+
+        return response()->json(['success' => true, 'data' => $this->gifts->board($recipient, $request->user(), now(tenant_timezone()))]);
+    }
+
+    /** POST /api/birthdays/{id}/gifts {type} — solo el día de su cumpleaños y no a uno mismo */
+    public function sendGift(Request $request, int $id): JsonResponse
+    {
+        $data      = $request->validate(['type' => ['required', Rule::in(array_keys(BirthdayGiftService::CATALOG))]]);
+        $recipient = $this->birthdays->people(current_tenant_id())->where('users.id', $id)->firstOrFail();
+        $sender    = $request->user();
+        $today     = now(tenant_timezone());
+
+        if ($recipient->id === $sender->id) {
+            return response()->json(['success' => false, 'message' => 'No puedes enviarte regalos a ti mismo.'], 422);
+        }
+        if (! $this->gifts->isBirthday($recipient, $today)) {
+            return response()->json(['success' => false, 'message' => 'Los regalos solo se pueden enviar el día de su cumpleaños.', 'code' => 'GIFT_EXPIRED'], 422);
+        }
+        if (! $gift = $this->gifts->send($recipient, $sender, $data['type'], $today)) {
+            return response()->json(['success' => false, 'message' => 'Ya le enviaste este regalo hoy.', 'code' => 'GIFT_ALREADY_SENT'], 409);
+        }
+
+        return response()->json(['success' => true, 'message' => '¡Regalo enviado!', 'data' => $this->gifts->present($gift->load('sender'), $today)], 201);
     }
 }

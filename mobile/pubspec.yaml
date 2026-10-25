@@ -36,6 +36,7 @@ dependencies:
   sqflite_sqlcipher: ^3.4.1
   uuid: ^4.6.0
   share_plus: ^13.3.1
+  lottie: ^3.6.1
 
 # connectivity_plus 7.3 (nm) exige dbus 0.8 y flutter_local_notifications_linux
 # declara ^0.7.8. dbus solo se usa en Linux de escritorio (no se compila).
@@ -54,3 +55,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/logo-grupo-negreiros.png
+    - assets/gifts/

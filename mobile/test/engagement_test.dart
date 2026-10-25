@@ -211,6 +211,8 @@ void main() {
 
       await tester.pumpWidget(MaterialApp(
         theme: AppTheme.light(),
+        // Confeti quieto ("reducir movimiento"): pumpAndSettle no espera un bucle infinito
+        builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: true), child: child!),
         home: Builder(builder: (context) => Scaffold(
           body: TextButton(
             onPressed: () => BirthdayCelebration.maybeShow(context, prefs, 7, greeting),
@@ -224,6 +226,7 @@ void main() {
       expect(find.byKey(const Key('birthday-celebration')), findsOneWidget);
       expect(find.text('¡Feliz Cumpleaños, Fidel!'), findsOneWidget);
       expect(find.text('Con cariño, el equipo de TUNESA'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('birthday-celebration-close'))); // pantalla de prueba baja: se desplaza
       await tester.tap(find.byKey(const Key('birthday-celebration-close')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('birthday-celebration')), findsNothing);

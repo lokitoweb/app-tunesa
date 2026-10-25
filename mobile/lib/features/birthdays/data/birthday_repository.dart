@@ -27,6 +27,18 @@ class BirthdayRepository {
     );
   }
 
+  /// Regalos del cumpleaños de [userId], catálogo y si hoy se puede enviar.
+  Future<GiftBoard> gifts(int userId) async {
+    final json = await _api.get(ApiEndpoints.birthdayGifts(userId));
+    return GiftBoard.fromJson(Map<String, dynamic>.from(json['data'] as Map));
+  }
+
+  /// Envía un regalo (solo el día del cumpleaños; 409 si ya lo envió).
+  Future<BirthdayGift> sendGift(int userId, String type) async {
+    final json = await _api.post(ApiEndpoints.birthdayGifts(userId), data: {'type': type});
+    return BirthdayGift.fromJson(Map<String, dynamic>.from(json['data'] as Map));
+  }
+
   Future<BirthdayMonth> month(int month, {String scope = 'company', String search = ''}) async {
     final json = await _api.get(ApiEndpoints.birthdays, query: {
       'month': month,

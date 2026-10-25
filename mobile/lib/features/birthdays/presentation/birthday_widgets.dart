@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../domain/models.dart';
+import 'birthday_gifts.dart';
 
 /// Foto de la persona (o sus iniciales). Si cumple hoy, lleva un aro de color.
 class BirthdayAvatar extends StatelessWidget {
@@ -25,18 +26,31 @@ class BirthdayAvatar extends StatelessWidget {
     );
     if (!birthday.isToday) return avatar;
 
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(colors: [scheme.primary, scheme.tertiary, scheme.secondary]),
+    // Cumple hoy: aro de color y un regalo en la esquina (se le pueden enviar regalos)
+    return Stack(clipBehavior: Clip.none, children: [
+      Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(colors: [scheme.primary, scheme.tertiary, scheme.secondary]),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.surface),
+          child: avatar,
+        ),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.surface),
-        child: avatar,
+      Positioned(
+        right: -2,
+        bottom: -2,
+        child: Container(
+          key: const Key('birthday-gift-badge'),
+          padding: EdgeInsets.all(radius * 0.09),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: scheme.surface, border: Border.all(color: scheme.primary, width: 1.5)),
+          child: Text('🎁', style: TextStyle(fontSize: radius * 0.42, height: 1)),
+        ),
       ),
-    );
+    ]);
   }
 }
 
@@ -152,10 +166,24 @@ Future<void> showBirthdayDetail(BuildContext context, Birthday b) => showModalBo
               row(Icons.badge_outlined, 'Cargo', b.position),
               row(Icons.apartment_outlined, 'Área', b.department),
               row(Icons.place_outlined, 'Sede', b.branch),
-              if (b.isToday) ...[
-                const SizedBox(height: 8),
-                Text('¡No olvides saludarlo hoy!', style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
-              ],
+              const SizedBox(height: 12),
+              // Hoy: galería para enviarle un regalo; otro día: los regalos que recibió
+              SizedBox(
+                width: double.infinity,
+                child: b.isToday
+                    ? FilledButton.icon(
+                        key: const Key('birthday-send-gift'),
+                        onPressed: () => showGiftsSheet(context, userId: b.id, firstName: b.firstName),
+                        icon: const Text('🎁', style: TextStyle(fontSize: 18)),
+                        label: const Text('Regalos de cumpleaños'),
+                      )
+                    : OutlinedButton.icon(
+                        key: const Key('birthday-gift-history'),
+                        onPressed: () => showGiftsSheet(context, userId: b.id, firstName: b.firstName),
+                        icon: const Icon(Icons.card_giftcard_rounded),
+                        label: const Text('Regalos recibidos'),
+                      ),
+              ),
             ]),
           ),
         );

@@ -8,4 +8,5 @@ Route::middleware(['auth', 'web.tenant', 'can:birthdays.manage'])->prefix('birth
     Route::get('/', [BirthdayWebController::class, 'index'])->name('index');
     Route::put('/settings', [BirthdayWebController::class, 'settings'])->name('settings');
     Route::get('/export', [BirthdayWebController::class, 'export'])->name('export');
+    Route::get('/gifts/export', [BirthdayWebController::class, 'exportGifts'])->name('gifts.export');
 });

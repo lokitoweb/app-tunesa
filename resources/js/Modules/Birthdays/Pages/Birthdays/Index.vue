@@ -46,6 +46,18 @@ const props = defineProps({
         type: Number,
         default: 0,
     },
+    gifts: {
+        type: Array,
+        default: () => [],
+    },
+    giftsToday: {
+        type: Number,
+        default: 0,
+    },
+    giftsThisMonth: {
+        type: Number,
+        default: 0,
+    },
     filters: {
         type: Object,
         default: () => ({ branch: null, search: '' }),
@@ -524,6 +536,47 @@ const hourLabel = (h) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'a. m.' : 'p. m.'
                             Siguiente<i class="bi bi-chevron-right ms-1"></i>
                         </button>
                     </div>
+                </div>
+            </div>
+
+            <!-- =========================================================================
+                 REGALOS ANIMADOS ENTRE COMPAÑEROS (auditoría)
+                 ========================================================================= -->
+            <div v-if="!needsTenant" class="birthdays-section-card shadow-sm p-4 mb-4">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 pb-2 border-bottom">
+                    <h2 class="h6 fw-bold mb-0 text-body d-flex align-items-center">
+                        <i class="bi bi-gift-fill me-2 text-primary fs-5"></i>
+                        Regalos de cumpleaños en la app
+                    </h2>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-secondary-subtle text-secondary">Hoy: {{ giftsToday }} · Este mes: {{ giftsThisMonth }}</span>
+                        <a :href="`/birthdays/gifts/export?month=${currentMonth}`" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-download me-1"></i>CSV del mes
+                        </a>
+                    </div>
+                </div>
+                <p v-if="!gifts.length" class="text-body-secondary small mb-0">
+                    Aún no hay regalos este mes. Los compañeros pueden enviarlos desde la app solo el día del cumpleaños.
+                </p>
+                <div v-else class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr class="text-body-secondary small">
+                                <th>Fecha</th>
+                                <th>Cumpleañero</th>
+                                <th>Regalo</th>
+                                <th>Enviado por</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="g in gifts" :key="g.id">
+                                <td class="text-nowrap">{{ g.date }}</td>
+                                <td class="fw-semibold">{{ g.recipient }}</td>
+                                <td>{{ g.emoji }} {{ g.label }}</td>
+                                <td>{{ g.sender }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

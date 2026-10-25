@@ -366,6 +366,13 @@ class DatabaseSeeder extends Seeder
         foreach ($birthdays as [$person, $date]) {
             $person->update(['birth_date' => $date->toDateString()]);
         }
+        // Regalos animados que Ana ya recibió hoy (sin aviso push en el seed)
+        foreach ([[$employeeUsers[1], 'crown'], [$employeeUsers[2], 'lion'], [$supervisor, 'galaxy']] as [$sender, $gift]) {
+            \App\Modules\Birthdays\Models\BirthdayGift::create([
+                'tenant_id' => $tenant->id, 'user_id' => $employeeUsers[0]->id, 'sender_id' => $sender->id,
+                'gift_type' => $gift, 'date' => $today->toDateString(),
+            ]);
+        }
 
         $categories = [];
         foreach (\App\Modules\Benefits\Models\BenefitCategory::DEFAULTS as $i => [$name, $icon, $color]) {

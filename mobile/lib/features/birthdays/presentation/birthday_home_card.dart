@@ -7,16 +7,11 @@ import 'birthday_providers.dart';
 import 'birthday_widgets.dart';
 
 /// "Próximos cumpleaños" en Inicio (entre las marcaciones y los accesos
-/// rápidos): carrusel horizontal con hasta 5 personas de lo que queda del mes,
-/// solo de la empresa y sede de quien usa la app.
+/// rápidos): carrusel horizontal con hasta 5 personas que cumplen en los
+/// próximos 7 días, de toda la empresa (igual que la pantalla de cumpleaños).
 /// No se muestra si la empresa no usa el módulo o si la consulta falla.
 class BirthdayHomeCard extends ConsumerWidget {
   const BirthdayHomeCard({super.key});
-
-  static const _months = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,7 +23,6 @@ class BirthdayHomeCard extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final shown = upcoming.items.take(homeBirthdaysLimit).toList();
     final rest = upcoming.total - shown.length;
-    final month = _months[DateTime.now().month - 1];
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -49,7 +43,7 @@ class BirthdayHomeCard extends ConsumerWidget {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Próximos cumpleaños', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                  Text('En tu sede · resto de $month',
+                  Text('Toda la empresa · próximos $homeBirthdaysDays días',
                       style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                 ]),
               ),
@@ -60,7 +54,7 @@ class BirthdayHomeCard extends ConsumerWidget {
               Padding(
                 key: const Key('home-birthdays-empty'),
                 padding: const EdgeInsets.only(right: 8, bottom: 2),
-                child: Text('Nadie de tu sede cumple años en lo que queda de $month.',
+                child: Text('Nadie cumple años en los próximos $homeBirthdaysDays días.',
                     style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant)),
               )
             else

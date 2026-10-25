@@ -107,6 +107,7 @@ class ApiEndpoints {
   static const birthdays = '/birthdays';
   static const birthdaysUpcoming = '/birthdays/upcoming';
   static String birthday(int id) => '/birthdays/$id';
+  static String birthdayGifts(int id) => '/birthdays/$id/gifts';
 
   // Documentos de la empresa
   static const companyDocuments = '/company-documents';

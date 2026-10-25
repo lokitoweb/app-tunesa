@@ -90,7 +90,10 @@ Future<void> dismissBirthdayCelebration(WidgetTester tester) async {
   }
   if (modal.evaluate().isEmpty) return;
   await tester.pump(const Duration(milliseconds: 400)); // termina la animación de entrada
-  await tester.tap(find.descendant(of: modal, matching: find.text('¡Gracias!')));
+  final thanks = find.descendant(of: modal, matching: find.text('¡Gracias!'));
+  await tester.ensureVisible(thanks); // en pantallas bajas el modal se desplaza
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.tap(thanks);
   for (var i = 0; i < 10 && modal.evaluate().isNotEmpty; i++) {
     await tester.pump(const Duration(milliseconds: 200));
   }

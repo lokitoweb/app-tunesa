@@ -2,7 +2,9 @@
 
 namespace App\Modules\Birthdays\Controllers\Web;
 
+use App\Modules\Birthdays\Models\BirthdayGift;
 use App\Modules\Birthdays\Models\BirthdayGreeting;
+use App\Modules\Birthdays\Services\BirthdayGiftService;
 use App\Modules\Birthdays\Services\BirthdayService;
 use App\Modules\Birthdays\Services\BirthdaySettings;
 use App\Modules\Core\Controllers\Controller;
@@ -57,6 +59,9 @@ class BirthdayWebController extends Controller
             'settings' => BirthdaySettings::for($tenantId ? Tenant::find($tenantId) : null),
             'scopes'   => BirthdaySettings::SCOPES,
             'sentThisYear' => $tenantId ? BirthdayGreeting::where('year', $today->year)->count() : 0,
+            'gifts'          => $tenantId ? $this->giftRows($today->month, $today->year)->take(50)->values() : [],
+            'giftsToday'     => $tenantId ? BirthdayGift::whereDate('date', $today->toDateString())->count() : 0,
+            'giftsThisMonth' => $tenantId ? BirthdayGift::whereYear('date', $today->year)->whereMonth('date', $today->month)->count() : 0,
             'filters'  => ['branch' => $branch, 'search' => $search],
             'canEdit'  => $tenantId !== null && $request->user()->can('company.configure'),
             'needsTenant' => $tenantId === null,
@@ -100,5 +105,42 @@ class BirthdayWebController extends Controller
             }
             fclose($out);
         }, 'cumpleanos_' . str_pad((string) $month, 2, '0', STR_PAD_LEFT) . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** CSV de regalos animados del mes (auditoría: quién envió qué a quién) */
+    public function exportGifts(Request $request): StreamedResponse
+    {
+        abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa en el selector para exportar sus regalos.');
+        $today = now(tenant_timezone());
+        $month = max(1, min(12, $request->integer('month') ?: $today->month));
+        $rows  = $this->giftRows($month, $today->year);
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Fecha', 'Cumpleañero', 'Regalo', 'Enviado por', 'Hora de envío']);
+            foreach ($rows as $r) {
+                fputcsv($out, [$r['date'], $r['recipient'], $r['label'], $r['sender'], $r['sent_at']]);
+            }
+            fclose($out);
+        }, 'regalos_cumpleanos_' . str_pad((string) $month, 2, '0', STR_PAD_LEFT) . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** Regalos de un mes, del más reciente al más antiguo */
+    private function giftRows(int $month, int $year)
+    {
+        return BirthdayGift::with(['recipient:id,first_name,last_name', 'sender:id,first_name,last_name'])
+            ->whereYear('date', $year)->whereMonth('date', $month)
+            ->latest('id')
+            ->get()
+            ->map(fn (BirthdayGift $g) => [
+                'id'        => $g->id,
+                'date'      => $g->date->toDateString(),
+                'recipient' => $g->recipient?->full_name,
+                'sender'    => $g->sender?->full_name,
+                'label'     => BirthdayGiftService::CATALOG[$g->gift_type]['label'] ?? $g->gift_type,
+                'emoji'     => BirthdayGiftService::CATALOG[$g->gift_type]['emoji'] ?? '🎁',
+                'sent_at'   => $g->created_at?->timezone(tenant_timezone())->format('H:i'),
+            ]);
     }
 }
