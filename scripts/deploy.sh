@@ -11,9 +11,11 @@
 #   PHP_BIN=php                 binario de PHP (ej. /usr/bin/php8.3)
 #   PHP_FPM_SERVICE=php8.3-fpm  servicio a recargar al final para limpiar OPcache (necesita sudo sin contraseña)
 #   SKIP_NPM=1                  no compilar el panel (si public/build llega por otro medio)
+#   DEPLOY_BACKUP_DIR=~/backups/deploy  respaldos de la base antes de migrar (carpeta 700, archivos 600)
+#   DEPLOY_BACKUP_KEEP=15       cuántos respaldos se conservan
 #
 # Pasos: git → composer (sin dev) → npm ci + npm run build (solo si cambió el frontend) → modo mantenimiento →
-# migrate --force → storage:link → config/route/view/event:cache → queue:restart → fuera de mantenimiento.
+# respaldo de la base (si falla, no migra) → migrate --force → storage:link → config/route/view/event:cache → queue:restart → fuera de mantenimiento.
 # Si algo falla vuelve al commit anterior (el código; una migración ya aplicada no se deshace sola).
 set -Eeuo pipefail
 
@@ -34,7 +36,7 @@ while [[ $# -gt 0 ]]; do
     --ref) REF="${2:-}"; shift 2 ;;
     --if-changed) IF_CHANGED=1; shift ;;
     --force) FORCE=1; shift ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "Opción desconocida: $1" >&2; exit 2 ;;
   esac
 done
@@ -84,6 +86,50 @@ clear_compiled() {
   "$PHP" artisan route:clear
   "$PHP" artisan view:clear
   "$PHP" artisan event:clear
+}
+
+# Respaldo de la base antes de migrar. Si falla, backup_db devuelve 1 y el trap ERR aborta el
+# despliegue (vuelve al commit anterior) ANTES de migrar y sin reiniciar servicios.
+# Credenciales: las que usa Laravel (.env o config:cache), a un archivo 600 dentro de la carpeta
+# de respaldos; nunca en la línea de comandos. Se conservan los DEPLOY_BACKUP_KEEP más recientes.
+BACKUP_DIR="${DEPLOY_BACKUP_DIR:-$HOME/backups/deploy}"
+BACKUP_KEEP="${DEPLOY_BACKUP_KEEP:-15}"
+laravel_db() {
+  "$PHP" -r '
+    require "vendor/autoload.php";
+    $app = require "bootstrap/app.php";
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    $c = config("database.connections." . config("database.default"));
+    if (! in_array($c["driver"] ?? "", ["mysql", "mariadb"], true)) {
+        fwrite(STDERR, "Conexión no soportada para el respaldo: " . ($c["driver"] ?? "?") . PHP_EOL);
+        exit(3);
+    }
+    $q = fn ($v) => "\"" . addcslashes((string) $v, "\\\"") . "\"";
+    if ($argv[1] === "database") { echo $c["database"]; exit; }
+    echo "[client]\nuser=", $q($c["username"]), "\npassword=", $q($c["password"]), "\n";
+    echo empty($c["unix_socket"]) ? "host=" . $q($c["host"]) . "\nport=" . (int) $c["port"] . "\n" : "socket=" . $q($c["unix_socket"]) . "\n";
+  ' "$1"
+}
+backup_db() {
+  local cnf db file
+  command -v mysqldump >/dev/null || { log "ERROR: falta mysqldump (paquete mysql-client)."; return 1; }
+  ( umask 077 && mkdir -p "$BACKUP_DIR" ) && chmod 700 "$BACKUP_DIR" || { log "ERROR: no se pudo preparar $BACKUP_DIR"; return 1; }
+  cnf="$(mktemp "$BACKUP_DIR/.client.cnf.XXXXXX")" || return 1
+  file="$BACKUP_DIR/tunesa_$(date +%Y%m%d_%H%M%S)_${PREVIOUS:0:7}.sql.gz"
+  if ! laravel_db credentials >"$cnf" || ! db="$(laravel_db database)" \
+     || ! ( umask 077 && mysqldump --defaults-extra-file="$cnf" --single-transaction --quick --routines --triggers \
+            --no-tablespaces --default-character-set=utf8mb4 "$db" | gzip -c >"$file.partial" ) \
+     || ! gzip -t "$file.partial"; then
+    rm -f "$cnf" "$file.partial"
+    log "ERROR: falló el respaldo de la base. No se migra."
+    return 1
+  fi
+  rm -f "$cnf"
+  mv "$file.partial" "$file"
+  log "Respaldo de la base: $file ($(du -h "$file" | cut -f1))"
+  find "$BACKUP_DIR" -maxdepth 1 -type f -name 'tunesa_*.sql.gz' -printf '%T@ %p\n' | sort -rn \
+    | tail -n +"$((BACKUP_KEEP + 1))" | cut -d' ' -f2- | xargs -r rm -f -- \
+    || log "AVISO: no se pudieron borrar respaldos antiguos de $BACKUP_DIR"
 }
 
 IN_MAINTENANCE=0
@@ -144,6 +190,7 @@ log "Modo mantenimiento"
 IN_MAINTENANCE=1
 
 clear_compiled
+backup_db
 "$PHP" artisan migrate --force
 [[ -e public/storage ]] || "$PHP" artisan storage:link || true
 
