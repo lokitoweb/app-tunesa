@@ -76,7 +76,7 @@
                             @csrf
                             <input type="hidden" name="tenant_id" id="topbarTenantInput" value="{{ $brand?->id ?? '' }}">
                             <div class="dropdown topbar-tenant-dropdown">
-                                <button type="button" class="topbar-tenant-btn" data-bs-toggle="dropdown" aria-expanded="false" title="{{ $brand?->company_name ?? 'Todas las empresas' }}">
+                                <button type="button" class="topbar-tenant-btn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="{{ $brand?->company_name ?? 'Todas las empresas' }}">
                                     <span class="tenant-btn-icon">
                                         <i class="bi {{ $brand ? 'bi-building' : 'bi-globe2' }}"></i>
                                     </span>

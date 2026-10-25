@@ -636,6 +636,8 @@ body {
     padding: 0 1.5rem;
     background-color: var(--bg-surface);
     border-bottom: 1px solid var(--border-color);
+    /* Sin position el z-index no aplica y el contenido tapaba los menús del topbar */
+    position: relative;
     z-index: 1020;
     gap: 1rem;
 }
@@ -2561,6 +2563,21 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+/* Selector de empresa del topbar: siempre justo debajo del botón (data-bs-display="static",
+   sin Popper que lo voltee hacia arriba) y sin pasar del alto de la ventana */
+.topbar-tenant-menu {
+    position: absolute;
+    top: 100% !important;
+    left: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    margin-top: 0.5rem !important;
+    z-index: 1080;
+    max-height: min(400px, calc(100vh - var(--topbar-h, 64px) - 1.5rem));
+    overflow-y: auto;
 }
 
 /* Menu Header */
