@@ -24,7 +24,7 @@ class ColleagueBirthday extends AppNotification
     {
         $position = $this->celebrant->position ? " ({$this->celebrant->position})" : '';
 
-        return "Salúdalo{$position} y hazle el día especial.";
+        return "Salúdalo{$position} y envíale un regalo animado en la app 🎁 (solo hoy).";
     }
 
     public function payload(): array

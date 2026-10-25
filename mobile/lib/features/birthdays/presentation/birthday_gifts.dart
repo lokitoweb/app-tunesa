@@ -324,9 +324,9 @@ class _GiftOptionTile extends StatelessWidget {
     return Material(
       key: Key('gift-option-${option.type}'),
       color: scheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(6),

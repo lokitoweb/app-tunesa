@@ -9,7 +9,7 @@ import '../providers.dart';
 /// para recuperarlo si el sistema cerró la app en segundo plano; vence a las
 /// [ttl] horas, así al día siguiente el listado vuelve al mes actual.
 class MonthFilter extends Notifier<DateTime> {
-  MonthFilter(this.key, {DateTime Function()? now}) : _now = now ?? DateTime.now;
+  MonthFilter(this.key, {DateTime Function()? now}) : _now = now ?? peruNow;
 
   final String key;
   final DateTime Function() _now;
@@ -52,6 +52,13 @@ class MonthFilter extends Notifier<DateTime> {
   }
 
   void shift(int delta) => select(DateTime(state.year, state.month + delta));
+}
+
+/// Fecha y hora de Perú (UTC−5, sin horario de verano), aunque el teléfono
+/// tenga otra zona: el "mes actual" es el de la empresa.
+DateTime peruNow() {
+  final lima = DateTime.now().toUtc().subtract(const Duration(hours: 5));
+  return DateTime(lima.year, lima.month, lima.day, lima.hour, lima.minute);
 }
 
 final monthFilterProvider = NotifierProvider.family<MonthFilter, DateTime, String>(MonthFilter.new);

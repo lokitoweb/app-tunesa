@@ -82,6 +82,11 @@ return [
 
     'timezone' => env('APP_TIMEZONE', 'America/Lima'),
 
+    // Hora de las tareas programadas (routes/console.php): siempre la de Perú,
+    // aunque el servidor o APP_TIMEZONE estén en UTC. Cada comando decide además
+    // con la zona de cada empresa (recordatorios, cumpleaños).
+    'schedule_timezone' => env('SCHEDULE_TIMEZONE', 'America/Lima'),
+
     // Proxies de confianza (Cloudflare Tunnel, Nginx, balanceadores). Se lee aquí y no con env() en
     // bootstrap/app.php para que siga valiendo con `php artisan config:cache` (ahí .env ya no se carga).
     'trusted_proxies' => env('TRUSTED_PROXIES', '127.0.0.1,::1'),

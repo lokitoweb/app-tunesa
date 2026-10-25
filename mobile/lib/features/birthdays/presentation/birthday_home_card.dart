@@ -28,6 +28,7 @@ class BirthdayHomeCard extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 16),
       child: Card(
         key: const Key('home-birthdays'),
+        shape: birthdayCardShape(context),
         clipBehavior: Clip.antiAlias,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
@@ -92,7 +93,7 @@ class _Person extends StatelessWidget {
     return SizedBox(
       width: 84,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(birthdayRadius),
         onTap: () => showBirthdayDetail(context, birthday),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
@@ -108,7 +109,7 @@ class _Person extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: today ? scheme.primary : scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(today ? '¡Hoy! 🎂' : birthday.shortDate,
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -138,7 +139,7 @@ class _More extends StatelessWidget {
     return SizedBox(
       width: 84,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(birthdayRadius),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),

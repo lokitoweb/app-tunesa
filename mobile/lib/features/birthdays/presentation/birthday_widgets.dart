@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../domain/models.dart';
 import 'birthday_gifts.dart';
+
+/// Esquinas de las tarjetas de cumpleaños: sobrias (12), como el resto del panel.
+const birthdayRadius = 12.0;
+
+/// Forma de tarjeta del tema (con su borde fino) y esquinas de [birthdayRadius].
+ShapeBorder birthdayCardShape(BuildContext context) {
+  final base = Theme.of(context).cardTheme.shape;
+  final radius = BorderRadius.circular(birthdayRadius);
+  return base is RoundedRectangleBorder ? base.copyWith(borderRadius: radius) : RoundedRectangleBorder(borderRadius: radius);
+}
 
 /// Foto de la persona (o sus iniciales). Si cumple hoy, lleva un aro de color.
 class BirthdayAvatar extends StatelessWidget {
@@ -71,9 +80,10 @@ class BirthdayTile extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
+      shape: birthdayCardShape(context),
       color: today ? scheme.primaryContainer : null,
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radius),
+        borderRadius: BorderRadius.circular(birthdayRadius),
         onTap: () => showBirthdayDetail(context, birthday),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -124,7 +134,7 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(6)),
         child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
       );
 }
@@ -156,7 +166,7 @@ Future<void> showBirthdayDetail(BuildContext context, Birthday b) => showModalBo
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(24)),
+                decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(8)),
                 child: Text(
                   b.isToday ? '🎂 ¡Hoy es su cumpleaños!' : '🎈 ${b.dateLabel} · ${b.whenLabel}',
                   style: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.w700),

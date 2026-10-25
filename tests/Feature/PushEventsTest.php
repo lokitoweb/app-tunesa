@@ -241,6 +241,69 @@ class PushEventsTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_payslip_push_goes_out_once_when_published(): void
+    {
+        $this->fakeFcm();
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $payslipPushes = fn () => collect($this->pushes())->where('data.type', 'payslip.published')->values();
+
+        // Borrador: nada; al publicar: un push al colaborador; volver a guardar no lo repite
+        $payslip = \App\Modules\Payroll\Models\Payslip::create([
+            'tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'uploaded_by' => $hr->id, 'title' => 'Boleta',
+            'period_month' => 10, 'period_year' => 2026, 'file_path' => 'x.pdf', 'file_name' => 'x.pdf', 'status' => 'draft',
+        ]);
+        $this->assertCount(0, $payslipPushes());
+        $payslip->update(['status' => 'published', 'published_at' => now()]);
+        $payslip->update(['notes' => 'Corregida']);
+        $this->assertCount(1, $payslipPushes());
+        $this->assertSame('device-token-123', $payslipPushes()[0]['token']);
+        $this->assertStringContainsString('10/2026', $payslipPushes()[0]['notification']['body']);
+
+        // Carga masiva con "publicar ya": push inmediato al crearla
+        \App\Modules\Payroll\Models\Payslip::create([
+            'tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'uploaded_by' => $hr->id, 'title' => 'Boleta',
+            'period_month' => 11, 'period_year' => 2026, 'file_path' => 'y.pdf', 'file_name' => 'y.pdf', 'status' => 'published', 'published_at' => now(),
+        ]);
+        $this->assertCount(2, $payslipPushes());
+    }
+
+    public function test_birthday_push_in_the_morning_to_celebrant_and_colleagues(): void
+    {
+        $this->fakeFcm();
+        $mate = $this->makeUser($this->acme, 'employee', ['fcm_token' => 'mate-token']);
+        $this->emp->update(['birth_date' => '1994-10-12']);
+        \App\Modules\Birthdays\Services\BirthdaySettings::save($this->acme, ['notify_colleagues' => 'company', 'greet_celebrant' => true, 'hour' => 8]);
+        app(TenantContext::class)->clear();
+        $types = fn () => collect($this->pushes())->pluck('data.type')->filter(fn ($t) => str_starts_with((string) $t, 'birthday.'))->values()->all();
+
+        // Antes de la hora configurada (hora de Lima): nada
+        Carbon::setTestNow(Carbon::parse('2026-10-12 07:05', 'America/Lima'));
+        $this->artisan('birthdays:notify')->assertSuccessful();
+        $this->assertSame([], $types());
+
+        // 08:05: saludo al cumpleañero y aviso al compañero, una sola vez
+        Carbon::setTestNow(Carbon::parse('2026-10-12 08:05', 'America/Lima'));
+        $this->artisan('birthdays:notify')->assertSuccessful();
+        Carbon::setTestNow(Carbon::parse('2026-10-12 09:05', 'America/Lima'));
+        $this->artisan('birthdays:notify')->assertSuccessful();
+        $this->assertEqualsCanonicalizing(['birthday.greeting', 'birthday.colleague'], $types());
+        $colleague = collect($this->pushes())->firstWhere('data.type', 'birthday.colleague');
+        $this->assertSame('mate-token', $colleague['token']);
+        $this->assertStringContainsString('regalo', $colleague['notification']['body']);
+        Carbon::setTestNow();
+    }
+
+    public function test_scheduled_tasks_run_on_lima_time(): void
+    {
+        $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events());
+        $this->assertNotEmpty($events);
+        $this->assertSame(['America/Lima'], $events->map(fn ($e) => (string) $e->timezone)->unique()->values()->all());
+
+        $byCommand = fn (string $name) => $events->first(fn ($e) => str_contains((string) $e->command, $name));
+        $this->assertSame('* * * * *', $byCommand('attendance:remind-entry')->expression); // ±5 min al minuto
+        $this->assertSame('5 * * * *', $byCommand('birthdays:notify')->expression);
+    }
+
     private function fakeFcm(): void
     {
         Http::fake([

@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lottie/lottie.dart';
 import 'package:tunesa_mobile/core/theme/app_theme.dart';
+import 'package:tunesa_mobile/core/utils/list_filters.dart';
 import 'package:tunesa_mobile/features/birthdays/domain/models.dart';
 import 'package:tunesa_mobile/features/birthdays/presentation/birthday_celebration.dart';
 import 'package:tunesa_mobile/features/birthdays/presentation/birthday_gifts.dart';
 import 'package:tunesa_mobile/features/birthdays/presentation/birthday_providers.dart';
+import 'package:tunesa_mobile/features/birthdays/presentation/birthdays_screen.dart';
 
 const _catalog = [
   {'type': 'lion', 'label': 'León rugiendo', 'emoji': '🦁'},
@@ -89,6 +91,36 @@ void main() {
       expect(composition.duration, const Duration(seconds: 3), reason: g);
       expect(composition.layers, isNotEmpty, reason: g);
     }
+  });
+
+  testWidgets('el selector de meses abre centrado en el mes elegido (octubre) en un teléfono angosto', (tester) async {
+    tester.view.physicalSize = const Size(360 * 3, 640 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    var month = 10;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: StatefulBuilder(
+          builder: (context, setState) => BirthdayMonthStrip(month: month, onSelected: (m) => setState(() => month = m)),
+        ),
+      ),
+    ));
+    await tester.pump();
+    final october = tester.getCenter(find.text('Octubre'));
+    expect(october.dx, closeTo(180, 40)); // centrado, no al inicio (enero)
+    expect(tester.getRect(find.text('Enero')).right, lessThan(0)); // enero quedó fuera, a la izquierda
+
+    // Cambiar de mes lo centra
+    await tester.tap(find.text('Noviembre'));
+    await tester.pumpAndSettle();
+    expect(month, 11);
+    expect(tester.getCenter(find.text('Noviembre')).dx, closeTo(180, 40));
+  });
+
+  test('el mes actual se toma en hora de Perú', () {
+    final lima = DateTime.now().toUtc().subtract(const Duration(hours: 5));
+    expect(peruNow().month, lima.month);
+    expect(peruNow().day, lima.day);
   });
 
   testWidgets('el día del cumpleaños: galería para enviar y el ya enviado deshabilitado', (tester) async {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/list_filters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/page_padding.dart';
@@ -20,30 +19,17 @@ class BirthdaysScreen extends ConsumerStatefulWidget {
 }
 
 class _BirthdaysScreenState extends ConsumerState<BirthdaysScreen> {
-  static const _months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  static const _months = BirthdayMonthStrip.months;
 
   // El mes elegido se conserva al navegar o minimizar la app (MonthFilter)
   int get _month => ref.read(monthFilterProvider('birthdays')).month;
   String _search = '';
   bool _searching = false;
   final _searchCtrl = TextEditingController();
-  final _monthsCtrl = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    // Lleva el chip del mes actual a la vista
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_monthsCtrl.hasClients) {
-        _monthsCtrl.jumpTo(((_month - 1) * 104.0).clamp(0, _monthsCtrl.position.maxScrollExtent));
-      }
-    });
-  }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
-    _monthsCtrl.dispose();
     super.dispose();
   }
 
@@ -53,7 +39,6 @@ class _BirthdaysScreenState extends ConsumerState<BirthdaysScreen> {
   Widget build(BuildContext context) {
     ref.watch(monthFilterProvider('birthdays'));
     final data = ref.watch(birthdayMonthProvider(_query));
-    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -100,26 +85,11 @@ class _BirthdaysScreenState extends ConsumerState<BirthdaysScreen> {
               ),
             ],
             _Heading('Todos'),
-            SizedBox(
-              height: 44,
-              child: ListView.separated(
-                controller: _monthsCtrl,
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: 12,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (_, i) => ChoiceChip(
-                  label: Text(_months[i]),
-                  selected: _month == i + 1,
-                  showCheckmark: false,
-                  labelStyle: TextStyle(fontWeight: FontWeight.w600, color: _month == i + 1 ? theme.colorScheme.onPrimary : null),
-                  selectedColor: theme.colorScheme.primary,
-                  shape: const StadiumBorder(),
-                  onSelected: (_) => ref
-                      .read(monthFilterProvider('birthdays').notifier)
-                      .select(DateTime(DateTime.now().year, i + 1)),
-                ),
-              ),
+            // Con clave: al aparecer "Mi equipo" no se recrea ni vuelve a enero
+            BirthdayMonthStrip(
+              key: const ValueKey('birthday-months'),
+              month: _month,
+              onSelected: (m) => ref.read(monthFilterProvider('birthdays').notifier).select(DateTime(peruNow().year, m)),
             ),
             const SizedBox(height: 8),
             Padding(
@@ -196,9 +166,10 @@ class _TeamCard extends StatelessWidget {
       width: 150,
       child: Card(
         margin: EdgeInsets.zero,
+        shape: birthdayCardShape(context),
         color: birthday.isToday ? theme.colorScheme.primaryContainer : null,
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppTheme.radius),
+          borderRadius: BorderRadius.circular(birthdayRadius),
           onTap: () => showBirthdayDetail(context, birthday),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -222,6 +193,75 @@ class _TeamCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Meses del año en una tira horizontal: el elegido (por defecto el actual, en
+/// hora de Perú) queda centrado al abrir la pantalla y al cambiar de mes.
+class BirthdayMonthStrip extends StatefulWidget {
+  const BirthdayMonthStrip({super.key, required this.month, required this.onSelected});
+
+  static const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+  final int month;
+  final ValueChanged<int> onSelected;
+
+  @override
+  State<BirthdayMonthStrip> createState() => _BirthdayMonthStripState();
+}
+
+class _BirthdayMonthStripState extends State<BirthdayMonthStrip> {
+  // Los 12 chips se construyen siempre (no es una lista perezosa): así se puede
+  // centrar el elegido midiendo el chip real y no un ancho estimado.
+  final _keys = List.generate(12, (_) => GlobalKey());
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _center(animate: false));
+  }
+
+  @override
+  void didUpdateWidget(BirthdayMonthStrip old) {
+    super.didUpdateWidget(old);
+    if (old.month != widget.month) WidgetsBinding.instance.addPostFrameCallback((_) => _center(animate: true));
+  }
+
+  void _center({required bool animate}) {
+    final chip = _keys[widget.month - 1].currentContext;
+    if (chip == null || !mounted) return;
+    Scrollable.ensureVisible(
+      chip,
+      alignment: 0.5,
+      duration: animate ? const Duration(milliseconds: 280) : Duration.zero,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(children: [
+        for (var i = 0; i < 12; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          ChoiceChip(
+            key: _keys[i],
+            label: Text(BirthdayMonthStrip.months[i]),
+            selected: widget.month == i + 1,
+            showCheckmark: false,
+            labelStyle: TextStyle(fontWeight: FontWeight.w600, color: widget.month == i + 1 ? scheme.onPrimary : null),
+            selectedColor: scheme.primary,
+            // Esquinas sobrias, en línea con las tarjetas
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            onSelected: (_) => widget.onSelected(i + 1),
+          ),
+        ],
+      ]),
     );
   }
 }
