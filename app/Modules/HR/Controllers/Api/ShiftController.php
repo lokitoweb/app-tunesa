@@ -2,6 +2,7 @@
 
 namespace App\Modules\HR\Controllers\Api;
 
+use App\Modules\Attendance\Services\ScheduleResolver;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Shift;
@@ -161,12 +162,10 @@ class ShiftController extends Controller
             ->get();
 
         $days = [];
+        $schedules = app(ScheduleResolver::class);
         foreach (CarbonPeriod::create($from, $to) as $day) {
-            $assignment = $assignments->first(fn (EmployeeShift $a) =>
-                $a->effective_from->lte($day)
-                && (is_null($a->effective_until) || $a->effective_until->gte($day))
-                && $a->worksOn($day)
-            );
+            $resolved = $schedules->resolve($assignments, $day, ScheduleResolver::LEGACY_FIRST_WORKING);
+            $assignment = $resolved->works ? $resolved->assignment : null;
 
             $days[] = [
                 'date'       => $day->toDateString(),

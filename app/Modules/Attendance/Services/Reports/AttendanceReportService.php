@@ -3,6 +3,7 @@
 namespace App\Modules\Attendance\Services\Reports;
 
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Services\ScheduleResolver;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Holiday;
 use App\Modules\HR\Models\LeaveRequest;
@@ -59,6 +60,8 @@ class AttendanceReportService
 
     /** @var array<int, bool> refrigerio pagado por empresa */
     private array $lunchPaid = [];
+
+    private ?ScheduleResolver $schedules = null;
 
     /** @var array<int, array<string, true>> feriados por empresa */
     private array $holidays = [];
@@ -222,14 +225,15 @@ class AttendanceReportService
             $isHoliday = isset($holidays[$day]);
             $employed = (! $user->hire_date || $user->hire_date->toDateString() <= $day)
                 && (! $user->termination_date || $user->termination_date->toDateString() >= $day);
-            $assignment = $this->assignmentOn($assignments, $date);
-            $scheduled  = $employed && ! $isHoliday && $assignment?->worksOn($date);
+            $resolved   = ($this->schedules ??= app(ScheduleResolver::class))->resolve($assignments, $date, ScheduleResolver::LEGACY_LATEST);
+            $assignment = $resolved->reference;
+            $scheduled  = $employed && ! $isHoliday && $resolved->works;
             $leave      = $leaves->first(fn (LeaveRequest $l) => $l->start_date->toDateString() <= $day && $l->end_date->toDateString() >= $day);
 
             $worked = $records->filter(fn (Attendance $a) => $a->clock_in_at !== null);
 
             if ($worked->isNotEmpty()) {
-                $row = $this->workedDay($worked, $assignment?->shift, $lunchPaid);
+                $row = $this->workedDay($worked, $resolved->assignment?->shift, $lunchPaid);
                 $row += ['date' => $day, 'status' => 'worked', 'scheduled' => (bool) $scheduled, 'holiday' => $isHoliday, 'note' => $isHoliday ? 'Feriado trabajado' : ''];
 
                 $summary['days_worked']++;
@@ -294,15 +298,6 @@ class AttendanceReportService
             'summary'         => self::roundSummary($summary),
             'days'            => $days,
         ];
-    }
-
-    /** Asignación vigente en la fecha (la de vigencia más reciente) */
-    private function assignmentOn(Collection $assignments, CarbonImmutable $date): ?EmployeeShift
-    {
-        $day = $date->toDateString();
-
-        return $assignments->first(fn (EmployeeShift $a) => $a->effective_from->toDateString() <= $day
-            && (! $a->effective_until || $a->effective_until->toDateString() >= $day));
     }
 
     /**

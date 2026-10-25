@@ -46,16 +46,16 @@ class ScheduleResolutionCharacterizationTest extends TestCase
 {
     use CreatesTenants, RefreshDatabase;
 
-    private const MONDAY = '2026-10-05';
-    private const SATURDAY = '2026-10-10';
-    private const SUNDAY = '2026-10-11';
+    protected const MONDAY = '2026-10-05';
+    protected const SATURDAY = '2026-10-10';
+    protected const SUNDAY = '2026-10-11';
 
-    private Tenant $acme;
-    private Branch $branch;
-    private User $hr;
-    private User $emp;
-    private Shift $a;
-    private Shift $b;
+    protected Tenant $acme;
+    protected Branch $branch;
+    protected User $hr;
+    protected User $emp;
+    protected Shift $a;
+    protected Shift $b;
 
     protected function setUp(): void
     {
@@ -142,6 +142,17 @@ class ScheduleResolutionCharacterizationTest extends TestCase
         Notification::assertSentTo($this->emp, EntryReminder::class, fn (EntryReminder $n) => $n->shift->name === 'B');
 
         Notification::assertSentToTimes($this->emp, EntryReminder::class, 2);
+    }
+
+    public function test_actual_app_schedule_uses_the_working_assignment(): void
+    {
+        // Octava copia: calendario "Mis turnos" de la app (GET /api/schedule)
+        $days = collect($this->actingIn($this->emp, $this->acme)->getJson('/api/schedule?from=' . self::MONDAY . '&to=' . self::SUNDAY)
+            ->assertOk()->json('data'))->keyBy('date');
+
+        $this->assertSame(['A', '08:00'], [$days[self::MONDAY]['shift']['name'], $days[self::MONDAY]['shift']['start_time']]);
+        $this->assertSame('B', $days[self::SATURDAY]['shift']['name']);
+        $this->assertSame([false, null], [$days[self::SUNDAY]['is_workday'], $days[self::SUNDAY]['shift']]);
     }
 
     // =========================================================================
@@ -252,7 +263,7 @@ class ScheduleResolutionCharacterizationTest extends TestCase
 
     // =========================================================================
 
-    private function shift(string $name, string $start, string $end, array $days): Shift
+    protected function shift(string $name, string $start, string $end, array $days): Shift
     {
         return Shift::create([
             'tenant_id' => $this->acme->id, 'name' => $name, 'type' => 'fixed',
@@ -260,7 +271,7 @@ class ScheduleResolutionCharacterizationTest extends TestCase
         ]);
     }
 
-    private function assign(User $user, Shift $shift, string $from): EmployeeShift
+    protected function assign(User $user, Shift $shift, string $from): EmployeeShift
     {
         return EmployeeShift::create([
             'tenant_id' => $this->acme->id, 'user_id' => $user->id, 'shift_id' => $shift->id,
@@ -268,7 +279,7 @@ class ScheduleResolutionCharacterizationTest extends TestCase
         ]);
     }
 
-    private function punch(): array
+    protected function punch(): array
     {
         return [
             'latitude' => -12.09418, 'longitude' => -77.03560, 'accuracy_meters' => 12,

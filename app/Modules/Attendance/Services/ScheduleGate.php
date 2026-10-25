@@ -35,16 +35,17 @@ class ScheduleGate
             ->with('shift')
             ->get();
         $day = Carbon::parse($date);
-        $working = $assignments->first(fn (EmployeeShift $a) => $a->worksOn($day));
+        $resolved = app(ScheduleResolver::class)->resolve($assignments, $day, ScheduleResolver::LEGACY_FIRST_WORKING);
+        $working = $resolved->works ? $resolved->assignment : null;
 
-        $scheduled = (bool) $working;
+        $scheduled = $resolved->works;
         $authorized = ! $scheduled && OffShiftAuthorization::withoutGlobalScopes()
             ->where('user_id', $user->id)
             ->whereDate('work_date', $date)
             ->exists();
 
         $canClockIn = ! $required || $scheduled || $authorized;
-        $reason = $scheduled ? null : ($assignments->isEmpty() ? 'unscheduled' : 'rest_day');
+        $reason = $scheduled ? null : ($resolved->hasAssignments ? 'rest_day' : 'unscheduled');
 
         return [
             'required'     => $required,

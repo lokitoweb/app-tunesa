@@ -118,6 +118,7 @@ class LiveBoardService
 
         $rows = [];
         $models = [];
+        $schedules = app(ScheduleResolver::class);
 
         foreach ($users as $user) {
             $c = $clock->get($user->tenant_id);
@@ -129,8 +130,8 @@ class LiveBoardService
             $current = $records->first(fn (Attendance $a) => $a->work_date->toDateString() === $c['today'] && $a->clock_in_at)
                 ?? $records->first(fn (Attendance $a) => $a->work_date->toDateString() === $c['yesterday'] && $a->clock_in_at && ! $a->clock_out_at);
 
-            $assignment = $assignments->get($user->id, collect())->first(fn (EmployeeShift $a) => $a->effective_from->toDateString() <= $c['today']
-                && (! $a->effective_until || $a->effective_until->toDateString() >= $c['today']));
+            $resolved = $schedules->resolve($assignments->get($user->id, collect()), Carbon::parse($c['today']), ScheduleResolver::LEGACY_LATEST);
+            $assignment = $resolved->reference;
             $shift = ($current?->shift ?? $assignment?->shift)?->forDate($current?->work_date ?? $c['today']);
 
             $row = [
@@ -170,9 +171,8 @@ class LiveBoardService
                 $onLeave = $leaves->get($user->id, collect())->contains(fn (LeaveRequest $l) => $l->start_date->toDateString() <= $c['today'] && $l->end_date->toDateString() >= $c['today'])
                     || $todayRecord?->status === 'excused';
 
-                $worksToday = $assignment
-                    && ! $holidays->has($user->tenant_id . '|' . $c['today'])
-                    && $assignment->worksOn(Carbon::parse($c['today']));
+                $worksToday = $resolved->works
+                    && ! $holidays->has($user->tenant_id . '|' . $c['today']);
 
                 if ($onLeave) {
                     $row['status'] = 'on_leave';
