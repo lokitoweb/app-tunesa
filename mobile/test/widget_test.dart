@@ -89,12 +89,15 @@ void main() {
     expect(find.byKey(const Key('password-help-done')), findsOneWidget);
   });
 
-  testWidgets('sin logo de empresa, el login muestra la marca genérica sin desbordes', (tester) async {
+  testWidgets('el login muestra fijo el logo oficial de Grupo Negreiros sin deformarlo', (tester) async {
     tester.view.physicalSize = const Size(320 * 3, 640 * 3); // teléfono angosto
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await _pumpApp(tester, {});
-    expect(find.descendant(of: find.byType(BrandLogo), matching: find.byIcon(Icons.fingerprint_rounded)), findsOneWidget);
+    expect(find.byType(BrandLogo), findsNothing); // el de la empresa solo dentro de la app
+    final logo = tester.widget<Image>(find.descendant(of: find.byType(OfficialLogo), matching: find.byType(Image)));
+    expect((logo.image as AssetImage).assetName, OfficialLogo.asset);
+    expect(logo.fit, BoxFit.contain);
     expect(tester.takeException(), isNull); // sin desbordes
   });
 }

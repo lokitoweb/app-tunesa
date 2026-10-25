@@ -82,8 +82,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo de la plataforma hasta ingresar; luego el de la empresa del usuario
-                  const BrandLogo(height: 104),
+                  // Logo oficial fijo; dentro de la app se ve el de la empresa del usuario
+                  const OfficialLogo(height: 104),
                   const SizedBox(height: 28),
                   Text('Iniciar sesión',
                       textAlign: TextAlign.center,

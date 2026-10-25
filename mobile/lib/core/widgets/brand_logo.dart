@@ -87,7 +87,7 @@ class LogoCache {
 }
 
 /// Logo de la empresa: `logo_dark_url` en tema oscuro (si existe), si no
-/// `logo_url`; sin logo o si falla, una marca genérica.
+/// `logo_url`; sin logo o si falla, el logo oficial de Grupo Negreiros.
 class BrandLogo extends ConsumerWidget {
   const BrandLogo({super.key, this.height = 72});
 
@@ -100,7 +100,7 @@ class BrandLogo extends ConsumerWidget {
     final url = branding.logoFor(dark: dark);
 
     final Widget logo = url == null
-        ? _FallbackLogo(size: height)
+        ? OfficialLogo(height: height)
         : _NetworkLogo(key: ValueKey(url), url: url, height: height);
 
     return Semantics(label: 'Logo', child: Center(child: logo));
@@ -135,7 +135,7 @@ class _NetworkLogoState extends State<_NetworkLogo> {
         final bytes = snapshot.data;
         if (bytes == null) {
           return snapshot.connectionState == ConnectionState.done
-              ? _FallbackLogo(size: widget.height)
+              ? OfficialLogo(height: widget.height)
               : SizedBox(height: widget.height);
         }
         return Image.memory(
@@ -143,27 +143,38 @@ class _NetworkLogoState extends State<_NetworkLogo> {
           height: widget.height,
           fit: BoxFit.contain,
           gaplessPlayback: true,
-          errorBuilder: (_, _, _) => _FallbackLogo(size: widget.height),
+          errorBuilder: (_, _, _) => OfficialLogo(height: widget.height),
         );
       },
     );
   }
 }
 
-class _FallbackLogo extends StatelessWidget {
-  const _FallbackLogo({required this.size});
+/// Logo oficial de Grupo Negreiros, incluido en la app: fijo en el login y
+/// respaldo de [BrandLogo]. Mantiene su proporción en cualquier pantalla.
+class OfficialLogo extends StatelessWidget {
+  const OfficialLogo({super.key, this.height = 72});
 
-  final double size;
+  static const asset = 'assets/branding/logo-grupo-negreiros.png';
+
+  final double height;
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // Marca genérica: la app no trae el logo de ninguna empresa
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(size / 3)),
-      child: Icon(Icons.fingerprint_rounded, size: size * 0.66, color: scheme.onPrimaryContainer),
-    );
-  }
+  Widget build(BuildContext context) => Semantics(
+        label: 'Grupo Negreiros',
+        image: true,
+        child: Center(
+          child: Image.asset(
+            asset,
+            height: height,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
+            // Si faltara el archivo, el nombre en texto (nunca un hueco)
+            errorBuilder: (context, _, _) => Text(
+              'GRUPO NEGREIROS',
+              style: TextStyle(fontSize: height * 0.3, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary),
+            ),
+          ),
+        ),
+      );
 }
