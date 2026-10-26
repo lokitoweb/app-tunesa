@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { Link, useForm } from '@inertiajs/vue3';
+import { useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import { useSkeleton } from '@/Modules/Core/Composables/useSkeleton';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
@@ -230,9 +230,9 @@ const hourLabel = (h) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'a. m.' : 'p. m.'
                         <strong>{{ missing }} colaborador(es) activos</strong> no tienen fecha de nacimiento configurada.
                     </span>
                 </div>
-                <Link href="/employees" class="btn btn-sm btn-warning text-dark fw-bold text-nowrap">
+                <a href="/employees" class="btn btn-sm btn-warning text-dark fw-bold text-nowrap">
                     <i class="bi bi-person-gear me-1"></i>Completar en Colaboradores
-                </Link>
+                </a>
             </div>
 
             <!-- =========================================================================

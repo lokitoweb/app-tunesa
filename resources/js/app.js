@@ -26,3 +26,15 @@ createInertiaApp({
 
 // Skeleton loaders al cambiar de filtro, pestaña o pantalla
 installSkeletonNavigation(router);
+
+// Un enlace de una pantalla Vue a una pantalla Blade (aún no migrada) recibe HTML normal:
+// en vez de mostrarlo en el modal de Inertia (la web entera dentro de otra), se abre la página.
+// Solo visitas GET exitosas: un POST con error sigue en el modal para no perder lo escrito.
+router.on('invalid', (event) => {
+    const res = event.detail.response;
+    const url = res?.request?.responseURL;
+    if (res?.status >= 200 && res?.status < 300 && url && (res.config?.method || 'get').toLowerCase() === 'get') {
+        event.preventDefault();
+        window.location.href = url;
+    }
+});
