@@ -137,6 +137,9 @@ jobs:
 
       - name: Recorrido de la app en el emulador (Android API ${{ matrix.api-level }})
         uses: reactivecircus/android-emulator-runner@v2
+        # El recorrido tarda ~3 min con el arranque. A veces el emulador no termina tras
+        # "emu kill" (las pruebas ya pasaron): falla aquí y no a los 60 min del job; se relanza el job
+        timeout-minutes: 25
         with:
           api-level: ${{ matrix.api-level }}
           target: google_apis
