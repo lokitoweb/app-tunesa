@@ -302,17 +302,22 @@
                                         @endif
                                     </div>
 
-                                    {{-- Fecha de Ingreso y Sueldo Base --}}
-                                    <div class="col-12 col-md-6">
+                                    {{-- Fecha de ingreso, sueldo base y bono --}}
+                                    <div class="col-12 col-md-4">
                                         <label for="modal_hire_date" class="emp-form-label">Fecha de Ingreso Laboral</label>
                                         <input type="date" id="modal_hire_date" name="hire_date" value="{{ date('Y-m-d') }}" class="emp-form-input">
                                         <div class="invalid-feedback" id="err_hire_date"></div>
                                     </div>
 
-                                    <div class="col-12 col-md-6">
+                                    <div class="col-12 col-md-4">
                                         <label for="modal_base_salary" class="emp-form-label">Sueldo Base Mensual (S/.)</label>
                                         <input type="number" step="0.01" min="0" id="modal_base_salary" name="base_salary" class="emp-form-input" placeholder="0.00">
                                         <div class="invalid-feedback" id="err_base_salary"></div>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label for="modal_bonus" class="emp-form-label">Bono mensual (S/.) <span class="text-muted fw-normal">opcional</span></label>
+                                        <input type="number" step="0.01" min="0" id="modal_bonus" name="bonus" class="emp-form-input" placeholder="0.00">
+                                        <div class="invalid-feedback" id="err_bonus"></div>
                                     </div>
                                 </div>
                             </div>

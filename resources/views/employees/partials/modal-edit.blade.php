@@ -281,17 +281,22 @@
                                         @endif
                                     </div>
 
-                                    {{-- Fecha de Ingreso y Sueldo Base --}}
-                                    <div class="col-12 col-md-6">
+                                    {{-- Fecha de ingreso, sueldo base y bono --}}
+                                    <div class="col-12 col-md-4">
                                         <label for="edit_hire_date" class="emp-form-label">Fecha de Ingreso</label>
                                         <input type="date" id="edit_hire_date" name="hire_date" class="emp-form-input">
                                         <div class="invalid-feedback" id="edit_err_hire_date"></div>
                                     </div>
 
-                                    <div class="col-12 col-md-6">
+                                    <div class="col-12 col-md-4">
                                         <label for="edit_base_salary" class="emp-form-label">Sueldo Base Mensual (S/.)</label>
                                         <input type="number" step="0.01" min="0" id="edit_base_salary" name="base_salary" class="emp-form-input" placeholder="0.00">
                                         <div class="invalid-feedback" id="edit_err_base_salary"></div>
+                                    </div>
+                                    <div class="col-12 col-md-4">
+                                        <label for="edit_bonus" class="emp-form-label">Bono mensual (S/.) <span class="text-muted fw-normal">opcional</span></label>
+                                        <input type="number" step="0.01" min="0" id="edit_bonus" name="bonus" class="emp-form-input" placeholder="0.00">
+                                        <div class="invalid-feedback" id="edit_err_bonus"></div>
                                     </div>
                                 </div>
                             </div>

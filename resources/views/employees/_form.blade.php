@@ -142,6 +142,10 @@
                         <label for="base_salary" class="form-label">Sueldo base mensual</label>
                         <input type="number" step="0.01" min="0" id="base_salary" name="base_salary" value="{{ $val('base_salary') }}" placeholder="0.00" class="form-control">
                     </div>
+                    <div class="col-md-4">
+                        <label for="bonus" class="form-label">Bono mensual <span class="text-muted">(opcional)</span></label>
+                        <input type="number" step="0.01" min="0" id="bonus" name="bonus" value="{{ $val('bonus') }}" placeholder="0.00" class="form-control">
+                    </div>
                     @php
                         $departments = \App\Modules\Core\Models\Department::where('is_active', true)->orderBy('name')->get(['id', 'name']);
                         $scopeActor  = Auth::user();
