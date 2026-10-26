@@ -130,6 +130,18 @@ class DaySchedule {
   final String? end;
   final String? branch;
 
+  /// Rango de horas al final del nombre, p. ej. "(08:00-13:00)": la tarjeta ya muestra la hora
+  static final _trailingRange = RegExp(r'\s*[\(\[]\s*\d{1,2}[:.]\d{2}\s*[-–a]+\s*\d{1,2}[:.]\d{2}\s*[\)\]]\s*$');
+
+  /// Nombre del horario sin repetir la hora que ya va aparte ("TR-ADM-SB(08:00-13:00)" → "TR-ADM-SB").
+  /// Si el nombre fuera solo el rango, se deja tal cual.
+  String? get displayName {
+    final name = shiftName?.trim();
+    if (name == null || name.isEmpty) return null;
+    final clean = name.replaceFirst(_trailingRange, '').trim();
+    return clean.isEmpty ? name : clean;
+  }
+
   factory DaySchedule.fromJson(Map<String, dynamic> json) {
     final shift = json['shift'] as Map?;
     return DaySchedule(

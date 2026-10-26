@@ -121,7 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               data: (status) => Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _ShiftCard(schedule: status.schedule),
+                  ShiftCard(schedule: status.schedule),
                   const SizedBox(height: 12),
                   if (canPunch)
                     PunchBoard(status: status, onPunch: (action) => context.push('/clock/${action.apiName}'))
@@ -292,8 +292,9 @@ class _PendingDocumentsCard extends ConsumerWidget {
   }
 }
 
-class _ShiftCard extends StatelessWidget {
-  const _ShiftCard({required this.schedule});
+/// Horario del día en Inicio (público para sus pruebas)
+class ShiftCard extends StatelessWidget {
+  const ShiftCard({super.key, required this.schedule});
 
   final DaySchedule? schedule;
 
@@ -301,23 +302,57 @@ class _ShiftCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = schedule;
     final works = s != null && s.isWorkday;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final accent = works ? scheme.primary : scheme.onSurfaceVariant;
+    // Debajo de la hora: nombre del horario (sin repetir la hora) y agencia
+    final details = works ? [s.displayName, s.branch].whereType<String>().where((t) => t.isNotEmpty).join(' · ') : null;
 
     return Card(
-      child: ListTile(
-        leading: Icon(works ? Icons.schedule : Icons.weekend_outlined, size: 32),
-        // Turno y horario siempre en una línea: con nombres largos se achica
-        title: FittedBox(
-          key: const Key('shift-title'),
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            works ? '${s.shiftName ?? 'Turno'} · ${Fmt.clock(s.start)} – ${Fmt.clock(s.end)}' : 'Hoy no tienes turno programado',
-            maxLines: 1,
-            softWrap: false,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+              child: Icon(works ? Icons.schedule_rounded : Icons.event_busy_outlined, color: accent, size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(works ? 'Tu horario de hoy' : 'Hoy',
+                      key: const Key('shift-label'),
+                      style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant, letterSpacing: 0.2)),
+                  const SizedBox(height: 2),
+                  // La hora en una línea: en pantallas angostas se achica en vez de cortarse
+                  FittedBox(
+                    key: const Key('shift-title'),
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      works ? '${Fmt.clock(s.start)} – ${Fmt.clock(s.end)}' : 'Sin horario programado',
+                      maxLines: 1,
+                      softWrap: false,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()]),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    works ? (details!.isEmpty ? 'Agencia asignada' : details) : 'Día libre o sin horario asignado para hoy.',
+                    key: const Key('shift-details'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        subtitle: Text(works ? (s.branch ?? 'Sucursal asignada') : 'Día libre según tu horario.'),
       ),
     );
   }
