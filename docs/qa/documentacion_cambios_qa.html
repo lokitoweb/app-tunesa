@@ -71,7 +71,7 @@
     <li><a href="#cruces">Con qué se cruza cada cambio</a></li>
     <li><a href="#casos">Casos de prueba CP-01 a CP-09</a></li>
     <li><a href="#auditoria">Auditoría final</a></li>
-    <li><a href="#pendientes">Lo que falta definir</a></li>
+    <li><a href="#pendientes">Reglas de negocio vigentes</a></li>
     <li><a href="#tecnico">Para el equipo técnico</a></li>
   </ol>
 </nav>
@@ -84,7 +84,7 @@
 </div>
 <div class="grid">
   <div class="stat"><b>9 de 9</b>hallazgos atendidos</div>
-  <div class="stat"><b>8 + 1</b>casos CP en verde; CP-04 parcial (saldo)</div>
+  <div class="stat"><b>8 + 1</b>casos CP en verde; CP-04 parcial (saldo por desarrollar)</div>
   <div class="stat"><b>650</b>pruebas backend en verde (9111 aserciones)</div>
   <div class="stat"><b>238</b>pruebas de la app móvil, análisis sin observaciones</div>
   <div class="stat"><b>120</b>marcaciones simultáneas sin duplicados ni errores</div>
@@ -119,8 +119,8 @@ php artisan attendance:flag &lt;empresa&gt; schedule_v2 off --reason="Vuelta atr
   <tr><td><strong>HQ-03</strong></td><td>Corregir una salida no marcada con motivo y auditoría; "Marcación incompleta".</td><td><strong>Causa encontrada:</strong> en la base de producción faltaban permisos que solo estaban en el seeder. Gerencia no podía corregir, y nadie (salvo el super admin) podía autorizar marcar fuera de turno. Se repararon con una migración que solo agrega lo que falta. RR. HH., Gerencia y el supervisor de su equipo corrigen en <em>Calendario › persona › día</em>; queda el motivo y el antes y después.</td><td><span class="tag ok">Hecho</span></td></tr>
   <tr><td><strong>HQ-04</strong></td><td>Filtrar el calendario por sede, recordar la última y usar un color por horario.</td><td>Se recuerda la última sede elegida (también "Todas"). Cada celda lleva una franja con el color de su horario, y hay leyendas de horarios y de estados. Área y colaborador ya filtraban; se verificó que funcionan.</td><td><span class="tag ok">Hecho</span></td></tr>
   <tr><td><strong>HQ-05</strong></td><td>Programar eligiendo agencia, horario y días; copiar semana, repetir, varios a la vez, alerta de sin programación.</td><td>Pantalla <em>Administración › Programación de horarios</em> con los 4 pasos del informe. Incluye copiar semana, repetir semanas hasta una fecha, marcar varios colaboradores a la vez y alerta de días sin programación. Cada guardado se audita. Además, ya no se puede crear una asignación semanal que choque con otra vigente.</td><td><span class="tag ok">Hecho</span></td></tr>
-  <tr><td><strong>RP-01</strong></td><td>Horas desde las marcaciones reales; fórmula en el pie.</td><td>Había dos fórmulas: la jornada guardada daba 5:57 y el reporte 6:57 para el mismo día. Ahora hay una sola, y el pie del reporte la escribe con los valores de la empresa. El "08:00" del informe venía del reporte de ejemplo, no de este sistema.</td><td><span class="tag ok">Hecho</span><br><span class="muted">break: confirma RR. HH.</span></td></tr>
-  <tr><td><strong>RP-02</strong></td><td>Tolerancia única en tardanza, estado y reporte, impresa en el encabezado.</td><td>La tolerancia ya era configurable y se aplicaba igual en todo. Con 08:06 da tardanza 0 y estado Normal, como espera QA. Ahora el encabezado del reporte la muestra.</td><td><span class="tag ok">Hecho</span><br><span class="muted">minutos: confirma RR. HH.</span></td></tr>
+  <tr><td><strong>RP-01</strong></td><td>Horas desde las marcaciones reales; fórmula en el pie.</td><td>Había dos fórmulas: la jornada guardada daba 5:57 y el reporte 6:57 para el mismo día. Ahora hay una sola, y el pie del reporte la escribe con los valores de la empresa. El "08:00" del informe venía del reporte de ejemplo, no de este sistema.</td><td><span class="tag ok">Hecho</span><br><span class="muted">cumple la regla 3 vigente</span></td></tr>
+  <tr><td><strong>RP-02</strong></td><td>Tolerancia única en tardanza, estado y reporte, impresa en el encabezado.</td><td>La tolerancia ya era configurable y se aplicaba igual en todo. Con 08:06 da tardanza 0 y estado Normal, como espera QA. Ahora el encabezado del reporte la muestra.</td><td><span class="tag ok">Hecho</span><br><span class="muted">cumple la regla 1 vigente (10 min)</span></td></tr>
   <tr><td><strong>RP-03</strong></td><td>Separar Descanso y Vacaciones, agregar Permiso y Marcación incompleta; saber cuántos días de vacaciones se usaron.</td><td>Una sola fuente de estados y textos (<code>DayStatus</code> + <code>lang/es/attendance.php</code>): Normal, Tardanza, Faltó, Marcación incompleta, Descanso, Vacaciones, Permiso, Descanso médico, Feriado, Media jornada y Falta justificada. La usan el calendario, el reporte, el Excel de marcaciones, la API y la app móvil. Los días de vacaciones usados se cuentan igual que en planilla.</td><td><span class="tag ok">Hecho</span></td></tr>
   <tr><td><strong>RP-04</strong></td><td>Reporte final con faltas, horas y descanso/vacaciones, que cuadre con los diarios; DNI completo.</td><td>Resumen (Excel/PDF/web): colaborador, cargo, tipo y número de documento (tal cual), agencia, tardanzas, horas extra, faltas, horas en H:MM, y días de descanso, feriado, vacaciones, permiso y descanso médico. Detalle diario: un día por fila con su estado, horario programado y lo marcado. Cada total cuadra con la suma de sus días.</td><td><span class="tag ok">Hecho</span></td></tr>
 </table></div>
@@ -163,7 +163,7 @@ php artisan attendance:flag &lt;empresa&gt; schedule_v2 off --reason="Vuelta atr
   <tr><td>CP-01</td><td>08:06–15:03: tardanza y estado coherentes; horas según la fórmula (6:57 antes del break).</td><td>Tardanza 0, <strong>Normal</strong>; <strong>5:57</strong> en jornada y reporte (6:57 − 60); <strong>6:57</strong> si se paga el refrigerio; horario 08:00/15:00 junto a lo marcado.</td><td><span class="tag ok">Pasa</span></td></tr>
   <tr><td>CP-02</td><td>Faltó, 0:00 y 1 falta en el final.</td><td><strong>Faltó</strong>, <strong>0:00</strong>, falta registrada por el control nocturno, <strong>1</strong> en el resumen.</td><td><span class="tag ok">Pasa</span></td></tr>
   <tr><td>CP-03</td><td>Día libre: Descanso, no es falta.</td><td><strong>Descanso</strong> en reporte y calendario; 0 faltas.</td><td><span class="tag ok">Pasa</span></td></tr>
-  <tr><td>CP-04</td><td>Vacaciones; no es falta; descuenta del saldo.</td><td><strong>Vacaciones</strong> (V); 0 faltas; <strong>4</strong> días usados, igual que planilla. El saldo espera la regla de RR. HH.</td><td><span class="tag block">Saldo bloqueado</span></td></tr>
+  <tr><td>CP-04</td><td>Vacaciones; no es falta; descuenta del saldo.</td><td><strong>Vacaciones</strong> (V); 0 faltas; <strong>4</strong> días usados, igual que planilla. La regla del saldo ya está definida (regla 9); falta construir el acumulado anual.</td><td><span class="tag block">Saldo por desarrollar</span></td></tr>
   <tr><td>CP-05</td><td>Marcación incompleta; RR. HH. corrige con motivo y auditoría.</td><td><strong>Marcación incompleta</strong>; corrección con motivo en la bitácora (quién, cuándo, antes y después); horas recalculadas <strong>6:02</strong>.</td><td><span class="tag ok">Pasa</span></td></tr>
   <tr><td>CP-06</td><td>A y B en días distintos: cada día con su horario.</td><td>Patrón del Anexo A.2: cada día con su horario en marcación, calendario, reporte, faltas, recordatorio y app.</td><td><span class="tag ok">Pasa</span></td></tr>
   <tr><td>CP-07</td><td>Marcación antes del horario del día.</td><td>Horario B 14:00; marca 13:55: tardanza 0, Normal, sin "fuera de horario".</td><td><span class="tag ok">Pasa</span></td></tr>
@@ -219,30 +219,34 @@ php artisan attendance:flag &lt;empresa&gt; schedule_v2 off --reason="Vuelta atr
   <li><strong>App móvil:</strong> los endpoints que usa mantienen su forma (<code>/api/schedule</code>, estado de marcación, historial). Solo cambia el texto de <code>status_label</code>, que ahora es el estado unificado, y la app lo muestra tal cual.</li>
 </ul>
 
-<h2 id="pendientes">8. Lo que falta definir (no se inventó ninguna regla)</h2>
-<p>Donde RR. HH. no ha definido una regla, el sistema quedó <strong>configurable con los valores de hoy</strong> y la pregunta queda abierta.</p>
-<h3>Para RR. HH.</h3>
+<h2 id="pendientes">8. Reglas de negocio vigentes para el piloto</h2>
+<p>Estas son las respuestas formales de RR. HH. y QA a los puntos que estaban abiertos. Pasan a ser la regla oficial del cierre de la Ronda 2. Para cada una se indica, con honestidad, si el sistema ya la aplica tal cual o si falta un desarrollo para cumplirla.</p>
+<p><span class="tag ok">Aplicada</span> el sistema ya funciona así · <span class="tag warn">Aplicada con matiz</span> funciona, con la diferencia que se indica · <span class="tag block">Requiere desarrollo</span> la regla está definida pero el sistema aún no la cumple</p>
+<div class="table-wrap"><table>
+  <tr><th>#</th><th>Regla vigente</th><th>Cómo lo hace hoy el sistema</th><th>Estado</th></tr>
+  <tr><td>1</td><td><strong>Tolerancia:</strong> 10 minutos estándar por ingreso.</td><td>Tolerancia de 10 min por defecto de la empresa y de cada turno nuevo; se aplica igual en la tardanza, el estado y el reporte, y se imprime en el encabezado.</td><td><span class="tag ok">Aplicada</span></td></tr>
+  <tr><td>2</td><td><strong>Tardanzas:</strong> sin redondeo, calculadas desde la entrada real o fin de tolerancia.</td><td>Sin redondeo. Dentro de la tolerancia no hay tardanza; pasada la tolerancia se cuenta desde la <em>hora de entrada del horario</em>: con horario 08:00, entrar 08:11 da 11 min. Si "fin de tolerancia" significa contar desde 08:10 (entrar 08:11 daría 1 min), es un cambio de cálculo que hay que confirmar.</td><td><span class="tag warn">Aplicada con matiz</span><br><span class="muted">confirmar desde dónde se cuenta</span></td></tr>
+  <tr><td>3</td><td><strong>Descanso:</strong> descuento automático si la jornada supera las 5 horas, salvo refrigerio pagado.</td><td>Se descuenta el mayor entre el descanso marcado y el fijo del turno (o el de la empresa) cuando la jornada pasa de 5 h; no se descuenta si la empresa paga el refrigerio. Igual en la jornada guardada y en el reporte con <code>hours_v2</code>; la regla se imprime en el pie.</td><td><span class="tag ok">Aplicada</span></td></tr>
+  <tr><td>4</td><td><strong>Horas extra:</strong> aprobación posterior por el supervisor o jefe de área al cierre del reporte mensual.</td><td>Las horas extra quedan "por aprobar" y se aprueban o rechazan después, en <em>Aprobaciones</em>: el supervisor las de su equipo, y RR. HH. y Gerencia las de toda la empresa. Revisarlas al cierre del mes es un procedimiento del área.</td><td><span class="tag ok">Aplicada</span></td></tr>
+  <tr><td>5</td><td><strong>Estados:</strong> Normal, Tardanza, Faltó, Marcación incompleta, Descanso, Vacaciones, Permiso, Descanso médico, Feriado, Media jornada y Falta justificada.</td><td>Es exactamente la lista de <code>lang/es/attendance.php</code>, la usan el calendario, los reportes, el Excel, la API y la app.</td><td><span class="tag ok">Aplicada</span></td></tr>
+  <tr><td>6</td><td><strong>Programación:</strong> a cargo de los supervisores de agencia y jefes de operaciones, con 5 días de anticipación al mes; colaboradores con acceso de solo lectura en la app.</td><td>Los colaboradores ven su horario en la app ("Mis turnos"), solo lectura. <strong>Pero</strong> hoy programan RR. HH. y el administrador (permiso <code>shifts.assign</code>); el rol Supervisor no lo tiene. Y nada controla ni avisa los 5 días de anticipación.</td><td><span class="tag block">Requiere desarrollo</span><br><span class="muted">permiso al supervisor sobre su agencia + aviso de mes sin programar</span></td></tr>
+  <tr><td>7</td><td><strong>Salida anticipada:</strong> registrada formalmente como "Salida anticipada", con alerta en el panel del supervisor.</td><td>Hoy se calcula y se muestra como minutos ("Salida anticipada") en el reporte de horas, pero no es un estado del día ni genera alerta al supervisor.</td><td><span class="tag block">Requiere desarrollo</span><br><span class="muted">estado + alerta</span></td></tr>
+  <tr><td>8</td><td><strong>Feriado trabajado:</strong> si asiste con turno programado en feriado, no es falta; se registra como "Feriado trabajado".</td><td>Un feriado nunca genera falta y, si marca, el reporte lo anota como "Feriado trabajado". El estado del día sigue siendo el de su marcación (Normal o Tardanza), con esa nota.</td><td><span class="tag warn">Aplicada con matiz</span><br><span class="muted">nota, no estado propio</span></td></tr>
+  <tr><td>9</td><td><strong>Vacaciones:</strong> descuento automático del acumulado anual del colaborador tras aprobarse en el módulo de licencias.</td><td>Hoy se muestran "Vacaciones", no cuentan como falta y se cuentan los días usados (igual que planilla). <strong>No existe aún el acumulado anual</strong> de cada colaborador del cual descontar. Para construirlo falta además el dato de cuántos días se ganan al año (por ejemplo, según régimen laboral) y si se cuentan días calendario o hábiles.</td><td><span class="tag block">Requiere desarrollo</span><br><span class="muted">CP-04: regla definida; saldo por construir</span></td></tr>
+  <tr><td>10</td><td><strong>Horas extra:</strong> computadas estrictamente después de superar la salida oficial del turno programado.</td><td>Hoy se calculan como horas trabajadas por encima de la jornada base del turno, así que llegar antes también suma. Cambiarlo altera el pago de horas extra: debe ir detrás de la bandera <code>hours_v2</code> y con sus pruebas.</td><td><span class="tag block">Requiere desarrollo</span></td></tr>
+  <tr><td>11</td><td><strong>Días sin horario:</strong> restringidos por política de empresa; requieren autorización explícita del supervisor.</td><td>La restricción ya está activa por defecto ("marcar solo con turno programado"), y marcar ese día exige una autorización registrada. <strong>Pero</strong> hoy autorizan RR. HH., Gerencia y el administrador (<code>attendance.authorize_offshift</code>), no el supervisor.</td><td><span class="tag warn">Aplicada con matiz</span><br><span class="muted">dar el permiso al supervisor sobre su equipo</span></td></tr>
+</table></div>
+
+<h3>Acuerdos con QA</h3>
 <ol>
-  <li>Tolerancia en minutos (hoy: por turno, y 10 min por defecto de la empresa).</li>
-  <li>¿Se redondea la tardanza? ¿Desde la hora de entrada o desde el fin de la tolerancia? (hoy: sin redondeo, desde la entrada).</li>
-  <li>¿Se descuenta el break aunque no se marque? (hoy: sí, salvo refrigerio pagado).</li>
-  <li>¿Horas extra con aprobación previa? (hoy: aprobación posterior).</li>
-  <li>Lista final de estados (incluye Descanso médico).</li>
-  <li>¿Quién programa y con cuánta anticipación?</li>
-  <li>Salida anticipada (el informe no la define).</li>
-  <li>Feriado con horario programado (hoy: no es falta; si marca, "Feriado trabajado").</li>
-  <li><strong>Vacaciones:</strong> días de derecho, generación o acumulación, días calendario o hábiles, y saldo por periodo o histórico. <span class="tag block">Bloquea el saldo de CP-04</span></li>
-  <li>Horas extra: "después de la salida del horario" (informe) o "por encima de la jornada base" (hoy).</li>
-  <li>Marcar en un día sin horario: hoy manda la configuración de la empresa ("marcar solo con turno programado").</li>
-</ol>
-<h3>Para QA</h3>
-<ol>
-  <li>"Fuera de programación" se maneja como alerta sobre la marcación, no como un estado más.</li>
-  <li>Se mantienen Media jornada, Feriado y Falta justificada además de los estados de la sección 5.4.</li>
+  <li>"Fuera de programación" se maneja como alerta sobre la marcación (motivo y aviso a la jefatura), no como un estado más.</li>
+  <li>Se mantienen Media jornada, Feriado y Falta justificada en la lista oficial de estados (regla 5).</li>
   <li>Los reportes 5.1 y 5.2 son el detalle diario del "Reporte de horas y faltas" (filtrable por fecha o colaborador); el 5.3 es su resumen.</li>
   <li>"Repetir un patrón" = copiar semana y repetir semanas hasta una fecha.</li>
-  <li>HQ-03: ¿con qué usuario y rol se intentó y qué mensaje se vio? La causa encontrada ya está reparada.</li>
+  <li>HQ-03: la causa encontrada (permisos) ya está reparada; QA lo confirma en la re-prueba con el usuario y el rol que usó.</li>
 </ol>
+
+<div class="note"><strong>Para que el piloto cumpla todas las reglas</strong> faltan los desarrollos de las reglas 6, 7, 9 y 10, el ajuste de permiso de la 11 y confirmar el punto de partida de la tardanza (regla 2). Mientras tanto, el sistema aplica las reglas marcadas como <em>Aplicada</em> y los valores de hoy en las demás.</div>
 
 <h2 id="tecnico">9. Para el equipo técnico</h2>
 <h3>Commits en master (cada push se despliega solo)</h3>
