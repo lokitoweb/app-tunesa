@@ -108,14 +108,28 @@ function paint(userId, date, value = brush.value) {
 // desmarca (vuelve a libre) en vez de pintar: clic de nuevo = quitar, igual al arrastrar.
 const dragging = ref(false);
 const dragValue = ref(null);
+const unmarking = ref(false);
+// Lo que vino del servidor: desmarcar una celda que estaba sin programar la deja como estaba
+let saved = JSON.parse(JSON.stringify(state.grid));
+function unpaint(userId, date) {
+    if ((saved[userId]?.[date]?.source ?? 'none') !== 'none') return paint(userId, date, null);
+    if (isLocked(userId, date)) return;
+    state.grid[userId] = state.grid[userId] || {};
+    state.grid[userId][date] = { shift_id: null, source: 'none' };
+    dirty.value = true;
+}
 function startPaint(userId, date) {
     if (isLocked(userId, date)) return;
     const current = cell(userId, date).shift_id;
-    dragValue.value = brush.value !== null && current === brush.value ? null : brush.value;
+    unmarking.value = brush.value !== null && Number(current) === Number(brush.value);
+    dragValue.value = unmarking.value ? null : brush.value;
     dragging.value = true;
-    paint(userId, date, dragValue.value);
+    overPaint(userId, date);
 }
-function overPaint(userId, date) { if (dragging.value) paint(userId, date, dragValue.value); }
+function overPaint(userId, date) {
+    if (!dragging.value) return;
+    unmarking.value ? unpaint(userId, date) : paint(userId, date, dragValue.value);
+}
 function stopPaint() { dragging.value = false; }
 window.addEventListener('mouseup', stopPaint);
 onBeforeUnmount(() => window.removeEventListener('mouseup', stopPaint));
@@ -127,8 +141,8 @@ function targets() {
 // Columna: si todos los elegidos ya tienen el horario del pincel ese día, se desmarca
 function paintColumn(date) {
     const who = targets().filter((p) => !isLocked(p.id, date));
-    const all = brush.value !== null && who.length && who.every((p) => cell(p.id, date).shift_id === brush.value);
-    who.forEach((p) => paint(p.id, date, all ? null : brush.value));
+    const all = brush.value !== null && who.length && who.every((p) => Number(cell(p.id, date).shift_id) === Number(brush.value));
+    who.forEach((p) => (all ? unpaint(p.id, date) : paint(p.id, date, brush.value)));
 }
 function toggle(id) {
     const s = new Set(selected.value);
@@ -139,11 +153,12 @@ const allSelected = computed(() => state.people.length > 0 && selected.value.siz
 function toggleAll() { selected.value = allSelected.value ? new Set() : new Set(state.people.map((p) => p.id)); }
 
 async function load(params) {
-    if (dirty.value && !(await ask({ title: 'Cambios sin guardar', message: 'Tienes cambios sin guardar en este mes. ¿Descartarlos?', confirmText: 'Descartar', cancelText: 'Volver', variant: 'danger' }))) return;
+    if (dirty.value && !(await ask({ title: 'Cambios sin guardar', message: 'Tienes cambios sin guardar en este mes. ¿Descartarlos?', confirmText: 'Descartar', cancelText: 'Volver', variant: 'warning' }))) return;
     loading.value = true;
     try {
         const res = await axios.get('/shifts/schedule', { params: { branch_id: state.branchId, month: state.month, ...params }, headers });
         Object.assign(state, { ...res.data, grid: res.data.grid || {}, holidays: res.data.holidays || {}, shifts: res.data.shifts || [] });
+        saved = JSON.parse(JSON.stringify(state.grid));
         state.branchId = res.data.branchId;
         // El pincel sigue si el horario existe en la nueva agencia; si no, el primero de ella
         if (brush.value !== null && !state.shifts.some((s) => s.id === brush.value)) brush.value = state.shifts[0]?.id ?? null;
@@ -336,7 +351,7 @@ async function repeat() {
                                     : (cell(p.id, d.date).source === 'none' ? 'Sin programación' : 'Día libre')"
                                 @mousedown.prevent="startPaint(p.id, d.date)" @mouseenter="overPaint(p.id, d.date)">
                                 <template v-if="isLocked(p.id, d.date)">VAC</template>
-                                <template v-else>{{ cell(p.id, d.date).shift_id ? (shiftById[cell(p.id, d.date).shift_id]?.name || '?').substring(0, 3) : '' }}</template>
+                                <template v-else>{{ cell(p.id, d.date).shift_id ? (shiftById[cell(p.id, d.date).shift_id]?.start || '?') : '' }}</template>
                             </td>
                         </tr>
                         <tr v-if="!state.people.length">
