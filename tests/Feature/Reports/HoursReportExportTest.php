@@ -123,14 +123,19 @@ class HoursReportExportTest extends TestCase
         $this->assertStringContainsString('state="frozen"', $sheet1);
         $this->assertStringContainsString('Ana Rojas', $strings);
         $this->assertStringContainsString('Faltas injustificadas', $strings);
-        $this->assertStringContainsString('Falta injustificada', $strings);
+        // QA Ronda 2: estado con la etiqueta única, cargo, tipo de documento y días por estado (5.1–5.3)
+        foreach (['Faltó', 'Normal', 'Cargo', 'Tipo doc.', 'Entrada', 'Marcado entrada', 'Descanso (días)', 'Vacaciones (días)'] as $text) {
+            $this->assertStringContainsString($text, $strings);
+        }
 
-        // Fila 2 del resumen: programados 4, trabajados 1, 10 h, 2 h extra diurnas, 3 faltas
-        $this->assertMatchesRegularExpression('/<c r="E2"[^>]*><v>4(\.0)?<\/v>/', $sheet1);
-        $this->assertMatchesRegularExpression('/<c r="F2"[^>]*><v>1(\.0)?<\/v>/', $sheet1);
-        $this->assertMatchesRegularExpression('/<c r="G2"[^>]*><v>10(\.0)?<\/v>/', $sheet1);
-        $this->assertMatchesRegularExpression('/<c r="K2"[^>]*><v>2(\.0)?<\/v>/', $sheet1);
-        $this->assertMatchesRegularExpression('/<c r="N2"[^>]*><v>3(\.0)?<\/v>/', $sheet1);
+        // Fila 2 del resumen: programados 4, trabajados 1, 10:00 h, 2:00 h extra diurnas, 3 faltas.
+        // Las duraciones van como fracción de día con formato [h]:mm (Excel muestra 10:00 y se pueden sumar)
+        $this->assertMatchesRegularExpression('/<c r="G2"[^>]*><v>4(\.0)?<\/v>/', $sheet1);
+        $this->assertMatchesRegularExpression('/<c r="H2"[^>]*><v>1(\.0)?<\/v>/', $sheet1);
+        $this->assertMatchesRegularExpression('/<c r="I2"[^>]*><v>0\.41666/', $sheet1);
+        $this->assertMatchesRegularExpression('/<c r="M2"[^>]*><v>0\.08333/', $sheet1);
+        $this->assertMatchesRegularExpression('/<c r="P2"[^>]*><v>3(\.0)?<\/v>/', $sheet1);
+        $this->assertStringContainsString('[h]:mm', $zip->getFromName('xl/styles.xml'));
         // Detalle: 1 día trabajado + 3 faltas (+ encabezado)
         $this->assertSame(5, substr_count($sheet2, '<row '));
     }
@@ -159,7 +164,10 @@ class HoursReportExportTest extends TestCase
 
         $text = $this->pdfText($pdf);
         $this->assertStringContainsString('Ana Rojas', $text);
-        $this->assertStringContainsString('Reporte de horas y faltas', $text);
+        $this->assertStringContainsString('Reporte final de asistencias', $text);
+        // RP-02 tolerancia en el encabezado; RP-01 fórmula en el pie
+        $this->assertStringContainsString('Tolerancia de entrada', $text);
+        $this->assertStringContainsString('Horas trabajadas = salida marcada', $text);
     }
 
     public function test_monthly_command_stores_excel_and_notifies_admins_with_signed_link(): void

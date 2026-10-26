@@ -120,7 +120,7 @@ class CalendarExporter
         $sheet->getStyle('A1:B1')->getFont()->setBold(true);
 
         $row = 2;
-        foreach (AttendanceCalendarService::STATES as $state => [$letter, , $label]) {
+        foreach (AttendanceCalendarService::states() as $state => [$letter, , $label]) {
             $this->paint($sheet, 1, $row, ['state' => $state, 'letter' => $letter, 'label' => $label, 'suspicious' => false,
                 'clock_in' => null, 'clock_out' => null, 'late_minutes' => 0, 'note' => null]);
             $sheet->setCellValue("B{$row}", $label);

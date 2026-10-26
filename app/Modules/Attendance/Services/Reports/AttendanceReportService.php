@@ -3,7 +3,9 @@
 namespace App\Modules\Attendance\Services\Reports;
 
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\Attendance\Services\ScheduleResolver;
+use App\Modules\Attendance\Support\DayStatus;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Holiday;
 use App\Modules\HR\Models\LeaveRequest;
@@ -62,6 +64,12 @@ class AttendanceReportService
     private array $lunchPaid = [];
 
     private ?ScheduleResolver $schedules = null;
+
+    /** @var array<int, TenantSetting> empresas con hours_v2: el reporte descuenta igual que la jornada guardada */
+    private array $unified = [];
+
+    /** @var array<int, int> tolerancia por defecto de cada empresa (encabezado del reporte, RP-02) */
+    private array $graces = [];
 
     /** @var array<int, array<string, true>> feriados por empresa */
     private array $holidays = [];
@@ -134,6 +142,36 @@ class AttendanceReportService
     }
 
     /** Totales del periodo para todos los colaboradores filtrados */
+    /**
+     * Reglas de cálculo en palabras para el encabezado (tolerancia, RP-02) y el pie
+     * (fórmula de horas, RP-01) de los reportes. Salen de la configuración de la empresa.
+     *
+     * @return array{tolerance: string, formula: string}
+     */
+    public function rules(?int $tenantId): array
+    {
+        $tenant = $tenantId ? Tenant::find($tenantId) : null;
+        $s = TenantSetting::forTenant($tenant);
+        $span = intdiv(AttendanceService::FIXED_BREAK_MIN_SPAN_MINUTES, 60);
+        $break = match (true) {
+            (bool) $s->lunch_paid => 'sin descontar el refrigerio (la empresa lo paga)',
+            (bool) $tenant?->setting('flags.hours_v2') => "menos el descanso: el mayor entre lo marcado y el fijo del turno (o {$s->lunch_minutes} min de la empresa) si la jornada pasa de {$span} h",
+            default => 'menos el descanso marcado',
+        };
+
+        return [
+            'tolerance' => "Tolerancia de entrada: la de cada turno (por defecto de la empresa: {$s->default_grace_minutes} min). "
+                . 'Dentro de la tolerancia no hay tardanza; pasada, se cuenta desde la hora de entrada del horario.',
+            'formula' => "Horas trabajadas = salida marcada − entrada marcada, {$break}.",
+        ];
+    }
+
+    /** Minutos en H:MM (6:57) para pantallas y PDF (QA Ronda 2, decisión 6) */
+    public static function hm(int $minutes): string
+    {
+        return sprintf('%s%d:%02d', $minutes < 0 ? '-' : '', intdiv(abs($minutes), 60), abs($minutes) % 60);
+    }
+
     public function totals(ReportFilters $f): array
     {
         $totals = self::emptySummary() + ['employees' => 0];
@@ -241,6 +279,12 @@ class AttendanceReportService
             if ($worked->isNotEmpty()) {
                 $row = $this->workedDay($worked, $resolved->assignment?->shift, $lunchPaid);
                 $row += ['date' => $day, 'status' => 'worked', 'scheduled' => (bool) $scheduled, 'holiday' => $isHoliday, 'note' => $isHoliday ? 'Feriado trabajado' : ''];
+                $row += self::scheduledTimes($resolved->assignment?->shift ?? $worked->first()->shift, $day) + self::dayStatus(match (true) {
+                    $row['open'] && $day < $today                 => DayStatus::INCOMPLETE,
+                    $row['late_minutes'] > 0                      => DayStatus::LATE,
+                    $worked->first()->status === 'half_day'       => DayStatus::HALF_DAY,
+                    default                                       => DayStatus::NORMAL,
+                });
 
                 $summary['days_worked']++;
                 $summary['worked_minutes']         += $row['worked_minutes'];
@@ -257,43 +301,64 @@ class AttendanceReportService
                 continue;
             }
 
-            $markedAbsent = $records->contains(fn (Attendance $a) => in_array($a->status, ['absent', 'excused'], true));
+            if (! $employed) {
+                continue;
+            }
 
-            // Solo días laborables (o con falta registrada), que no sean feriado, ya cerrados
-            if ($isHoliday || ! $employed || (! $scheduled && ! $markedAbsent) || $day >= $today) {
-                $summary['scheduled_days'] += ($scheduled && $day < $today) ? 1 : 0;
+            $markedAbsent = $records->contains(fn (Attendance $a) => in_array($a->status, ['absent', 'excused'], true));
+            $past = $day < $today;
+            $summary['scheduled_days'] += ($scheduled && $past) ? 1 : 0;
+            $base = ['date' => $day, 'scheduled' => (bool) $scheduled, 'holiday' => $isHoliday, 'branch' => $records->first()?->branch?->name]
+                + self::scheduledTimes($resolved->assignment?->shift, $day);
+
+            // Licencia aprobada (vacaciones, permiso, descanso médico): todos sus días del periodo, como en planilla
+            if ($leave) {
+                $kind = DayStatus::fromLeave($leave->type);
+                $summary[$kind . '_days'] = ($summary[$kind . '_days'] ?? 0) + 1;
+                if ($scheduled && $past) {
+                    $summary['absences_justified']++;
+                }
+                $days[] = $base + self::dayStatus($kind) + ['status' => 'justified', 'note' => $leave->type_label . ' aprobada', 'shift' => $assignment?->shift?->name] + self::emptyDay();
 
                 continue;
             }
 
-            $summary['scheduled_days'] += $scheduled ? 1 : 0;
+            if ($isHoliday) {
+                $summary['holiday_days']++;
+                $days[] = $base + self::dayStatus(DayStatus::HOLIDAY) + ['status' => 'rest', 'note' => 'Feriado'] + self::emptyDay();
 
-            $justifiedRecord = $records->first(fn (Attendance $a) => $a->status === 'excused' || $a->justification_status === 'approved');
-            $justified = $leave !== null || $justifiedRecord !== null;
+                continue;
+            }
 
-            $note = match (true) {
-                $leave !== null           => $leave->type_label . ' aprobada',
-                $justifiedRecord !== null => $justifiedRecord->status === 'excused' ? 'Justificado' : 'Justificación aprobada',
-                default                   => 'Sin marcación',
-            };
+            // Día laborable ya cerrado sin marcación (o falta registrada en un día libre): falta
+            if ($past && ($scheduled || $markedAbsent)) {
+                $justifiedRecord = $records->first(fn (Attendance $a) => $a->status === 'excused' || $a->justification_status === 'approved');
+                $summary[$justifiedRecord ? 'absences_justified' : 'absences_unjustified']++;
+                $days[] = $base + self::dayStatus($justifiedRecord ? DayStatus::EXCUSED : DayStatus::ABSENT) + [
+                    'status' => $justifiedRecord ? 'justified' : 'absent',
+                    'note'   => match (true) {
+                        $justifiedRecord === null           => 'Sin marcación',
+                        $justifiedRecord->status === 'excused' => 'Justificado',
+                        default                             => 'Justificación aprobada',
+                    },
+                    'shift' => $assignment?->shift?->name,
+                ] + self::emptyDay();
 
-            $summary[$justified ? 'absences_justified' : 'absences_unjustified']++;
+                continue;
+            }
 
-            $days[] = self::emptyDay() + [
-                'date'      => $day,
-                'status'    => $justified ? 'justified' : 'absent',
-                'scheduled' => (bool) $scheduled,
-                'holiday'   => false,
-                'note'      => $note,
-                'branch'    => $records->first()?->branch?->name,
-                'shift'     => $assignment?->shift?->name,
-            ];
+            // Día libre de su programación (RP-03: "Descanso", distinto de vacaciones)
+            if (! $scheduled && $resolved->hasAssignments) {
+                $summary['rest_days']++;
+                $days[] = $base + self::dayStatus(DayStatus::REST) + ['status' => 'rest', 'note' => ''] + self::emptyDay();
+            }
         }
 
         return [
             'user_id'         => $user->id,
             'tenant_id'       => $tenantId,
             'employee_code'   => $user->employee_code,
+            'document_type'   => $user->document_type,
             'document_number' => $user->document_number,
             'first_name'      => $user->first_name,
             'last_name'       => $user->last_name,
@@ -318,7 +383,7 @@ class AttendanceReportService
         $last  = $records->last();
 
         foreach ($records as $attendance) {
-            $calc = $this->calculate($attendance, $attendance->shift ?? $assignedShift, $lunchPaid);
+            $calc = $this->calculate($attendance, $attendance->shift ?? $assignedShift, $lunchPaid, $this->unified[(int) $attendance->tenant_id] ?? null);
             foreach ($calc as $key => $value) {
                 if (is_int($value)) {
                     $row[$key] += $value;
@@ -340,7 +405,7 @@ class AttendanceReportService
      *
      * @return array{worked_minutes:int, break_minutes:int, night_minutes:int, overtime_day_minutes:int, overtime_night_minutes:int, late_minutes:int, early_minutes:int}
      */
-    public function calculate(Attendance $attendance, ?Shift $shift, bool $lunchPaid): array
+    public function calculate(Attendance $attendance, ?Shift $shift, bool $lunchPaid, ?TenantSetting $unified = null): array
     {
         $shift = $shift?->forDate($attendance->work_date);
         $result = [
@@ -369,6 +434,23 @@ class AttendanceReportService
         $breakSeconds = 0;
         if (! $lunchPaid) {
             [$intervals, $breakSeconds] = $this->subtractBreak($intervals, $attendance, $a, $b);
+
+            // hours_v2 (RP-01): misma regla que la jornada guardada (AttendanceService::breakToDeduct):
+            // se descuenta el mayor entre el descanso marcado y el fijo del turno (o de la empresa)
+            if ($unified) {
+                $deduct = app(AttendanceService::class)->breakToDeduct(intdiv($b - $a, 60), intdiv($breakSeconds, 60), $shift, $unified) * 60;
+                // Lo que falta por descontar sale del centro del tramo más largo, hasta completarlo
+                for ($left = $deduct - $breakSeconds; $left > 0 && $intervals;) {
+                    usort($intervals, fn ($x, $y) => ($y[1] - $y[0]) <=> ($x[1] - $x[0]));
+                    [$s, $e] = $intervals[0];
+                    $len = min($left, $e - $s);
+                    $from = intdiv($s + $e, 2) - intdiv($len, 2);
+                    [$intervals, $removed] = $this->removeRange($intervals, $from, $from + $len);
+                    $breakSeconds += $removed;
+                    $left -= max(1, $removed);
+                }
+                usort($intervals, fn ($x, $y) => $x[0] <=> $y[0]);
+            }
         }
 
         $workedSeconds = array_sum(array_map(fn ($i) => $i[1] - $i[0], $intervals));
@@ -427,10 +509,21 @@ class AttendanceReportService
             $be  = $bs + $len;
         }
 
+        return $this->removeRange($intervals, $bs, $be);
+    }
+
+    /**
+     * Quita [$bs, $be) de los tramos.
+     *
+     * @return array{0: list<array{0:int,1:int}>, 1:int}  [tramos, segundos quitados]
+     */
+    private function removeRange(array $intervals, int $bs, int $be): array
+    {
         if ($be <= $bs) {
             return [$intervals, 0];
         }
 
+        $before = array_sum(array_map(fn ($i) => $i[1] - $i[0], $intervals));
         $out = [];
         foreach ($intervals as [$s, $e]) {
             if ($be <= $s || $bs >= $e) {
@@ -445,7 +538,7 @@ class AttendanceReportService
             }
         }
 
-        return [$out, $be - $bs];
+        return [$out, $before - array_sum(array_map(fn ($i) => $i[1] - $i[0], $out))];
     }
 
     /** Fin programado del turno para la jornada (día siguiente si cruza medianoche) */
@@ -515,7 +608,12 @@ class AttendanceReportService
         if ($missing) {
             $tenants = Tenant::whereIn('id', $missing)->get()->keyBy('id');
             foreach ($missing as $id) {
-                $this->lunchPaid[$id] = (bool) TenantSetting::forTenant($tenants->get($id))->lunch_paid;
+                $settings = TenantSetting::forTenant($tenants->get($id));
+                $this->lunchPaid[$id] = (bool) $settings->lunch_paid;
+                $this->graces[$id] = (int) $settings->default_grace_minutes;
+                if ($tenants->get($id)?->setting('flags.hours_v2')) {
+                    $this->unified[$id] = $settings;
+                }
                 $this->timezones[$id] = $tenants->get($id)?->timezone ?: config('app.timezone');
             }
         }
@@ -582,6 +680,31 @@ class AttendanceReportService
             'night_minutes'          => 0,
             'absences_unjustified'   => 0,
             'absences_justified'     => 0,
+            // Días por estado sin marcación (RP-03 / RP-04): descanso y feriado de la programación,
+            // licencias por tipo (mismo conteo que planilla: LeaveRequest::daysWithin)
+            'rest_days'              => 0,
+            'holiday_days'           => 0,
+            'vacation_days'          => 0,
+            'permission_days'        => 0,
+            'medical_leave_days'     => 0,
+            'excused_days'           => 0,
+        ];
+    }
+
+    /** @return array{day_status: string, day_status_label: string} */
+    private static function dayStatus(string $status): array
+    {
+        return ['day_status' => $status, 'day_status_label' => DayStatus::label($status)];
+    }
+
+    /** Horario programado del día (columnas Entrada / Salida de los reportes 5.1 y 5.2) */
+    private static function scheduledTimes(?Shift $shift, string $day): array
+    {
+        $s = $shift?->forDate($day);
+
+        return [
+            'scheduled_in'  => $s?->start_time ? substr((string) $s->start_time, 0, 5) : null,
+            'scheduled_out' => $s?->end_time ? substr((string) $s->end_time, 0, 5) : null,
         ];
     }
 

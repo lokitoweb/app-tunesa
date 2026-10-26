@@ -3,6 +3,7 @@
 namespace App\Modules\Attendance\Services;
 
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Support\DayStatus;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\SecureFileUrl;
@@ -36,20 +37,31 @@ class AttendanceCalendarService
 
     private ?ScheduleResolver $schedules = null;
 
-    /**
-     * Semáforo: [letra, tono Bootstrap, etiqueta]. El tono se repite en la
-     * exportación a Excel (FILLS) y la letra permite leerlo impreso o con daltonismo.
-     */
-    public const STATES = [
-        'present'    => ['P', 'success', 'Puntual'],
-        'late'       => ['T', 'warning', 'Tardanza'],
-        'incomplete' => ['I', 'warning', 'Sin salida'],
-        'absent'     => ['F', 'danger', 'Falta'],
-        'excused'    => ['J', 'primary', 'Justificado o permiso'],
-        'half_day'   => ['M', 'info', 'Medio día'],
-        'rest'       => ['D', 'secondary', 'Descanso o feriado'],
-        'scheduled'  => ['–', 'light', 'Programado'],
+    /** Estado del semáforo → estado para mostrar (DayStatus) y tono Bootstrap */
+    private const TONES = [
+        'present'    => [DayStatus::NORMAL, 'success'],
+        'late'       => [DayStatus::LATE, 'warning'],
+        'incomplete' => [DayStatus::INCOMPLETE, 'warning'],
+        'absent'     => [DayStatus::ABSENT, 'danger'],
+        'excused'    => [DayStatus::EXCUSED, 'primary'],
+        'half_day'   => [DayStatus::HALF_DAY, 'info'],
+        'rest'       => [DayStatus::REST, 'secondary'],
+        'scheduled'  => [DayStatus::SCHEDULED, 'light'],
+        // Detalle de 'excused' y 'rest' (QA Ronda 2, RP-03): misma celda y color, su propia letra y etiqueta
+        'vacation'      => [DayStatus::VACATION, 'primary'],
+        'permission'    => [DayStatus::PERMISSION, 'primary'],
+        'medical_leave' => [DayStatus::MEDICAL_LEAVE, 'primary'],
+        'holiday'       => [DayStatus::HOLIDAY, 'secondary'],
     ];
+
+    /**
+     * Semáforo: [letra, tono Bootstrap, etiqueta]. El tono se repite en la exportación a
+     * Excel (FILLS) y la letra permite leerlo impreso o con daltonismo. Textos: DayStatus.
+     */
+    public static function states(): array
+    {
+        return array_map(fn ($t) => [DayStatus::letter($t[0]), $t[1], DayStatus::label($t[0])], self::TONES);
+    }
 
     /** Relleno para Excel (RGB) por estado */
     public const FILLS = [
@@ -61,6 +73,11 @@ class AttendanceCalendarService
         'half_day'   => '9EC5FE',
         'rest'       => 'CED4DA',
         'scheduled'  => 'FFFFFF',
+        // Detalles (solo en la leyenda): mismo color que su estado
+        'vacation'      => '0D6EFD',
+        'permission'    => '0D6EFD',
+        'medical_leave' => '0D6EFD',
+        'holiday'       => 'CED4DA',
     ];
 
     // =========================================================================
@@ -386,14 +403,18 @@ class AttendanceCalendarService
                 'overtime_status' => $overtimeStatus,
                 'overtime_hours'  => round($overtimeHours, 2),
                 'manual'          => $records->contains(fn (Attendance $a) => $a->manual_edited_at !== null),
-            ]);
+            ], match (true) {
+                $state === 'excused' && $leave !== null => DayStatus::fromLeave($leave->type),
+                $state === 'rest' && $record->status === 'holiday' => DayStatus::HOLIDAY,
+                default => null,
+            });
         }
 
         if ($leave) {
-            return $this->make('excused', $shift + ['note' => $leave->type_label]);
+            return $this->make('excused', $shift + ['note' => $leave->type_label], DayStatus::fromLeave($leave->type));
         }
         if (isset($holidays[$day])) {
-            return $this->make('rest', $shift + ['note' => $holidays[$day]]);
+            return $this->make('rest', $shift + ['note' => $holidays[$day]], DayStatus::HOLIDAY);
         }
 
         if (! $resolved->hasAssignments) {
@@ -410,9 +431,11 @@ class AttendanceCalendarService
             : $this->make('absent', $shift + ['note' => 'Sin marcación']);
     }
 
-    private function make(string $state, array $extra = []): array
+    /** @param  string|null  $kind  detalle de 'excused' o 'rest' (vacation, permission, medical_leave, holiday) */
+    private function make(string $state, array $extra = [], ?string $kind = null): array
     {
-        [$letter, $tone, $label] = self::STATES[$state];
+        [, $tone] = self::TONES[$state];
+        [$letter, , $label] = self::states()[$kind ?? $state];
 
         return array_merge([
             'state'         => $state,

@@ -108,7 +108,7 @@ class PayrollExportService
 
             $leaveDays = fn (string $type) => ($leaves->get($user->id) ?? collect())
                 ->where('type', $type)
-                ->sum(fn (LeaveRequest $l) => $this->overlapDays($l, $from, $to));
+                ->sum(fn (LeaveRequest $l) => $l->daysWithin($from, $to));
 
             return [
                 'tenant_id'          => $user->tenant_id,
@@ -182,13 +182,5 @@ class PayrollExportService
             'Content-Type'  => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'private, no-store',
         ]);
-    }
-
-    private function overlapDays(LeaveRequest $leave, CarbonImmutable $from, CarbonImmutable $to): int
-    {
-        $start = CarbonImmutable::parse($leave->start_date)->max($from);
-        $end   = CarbonImmutable::parse($leave->end_date)->min($to);
-
-        return $end->lt($start) ? 0 : (int) $start->diffInDays($end) + 1;
     }
 }

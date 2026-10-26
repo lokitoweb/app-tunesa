@@ -245,8 +245,11 @@ class AttendanceReportServiceTest extends TestCase
         $this->assertSame('justified', $byDate['2026-09-30']['status']);
         $this->assertStringContainsString('Vacaciones', $byDate['2026-09-30']['note']);
         $this->assertSame('justified', $byDate['2026-10-02']['status']);
-        $this->assertFalse($byDate->has('2026-09-29'), 'El feriado no es falta');
-        $this->assertFalse($byDate->has('2026-10-03'), 'El sábado es descanso');
+        $this->assertSame('vacation', $byDate['2026-09-30']['day_status']);
+        // QA Ronda 2 (RP-03 / 5.2): feriado y descanso salen como su propio estado, no como falta
+        $this->assertSame(['rest', 'holiday', 'Feriado'], [$byDate['2026-09-29']['status'], $byDate['2026-09-29']['day_status'], $byDate['2026-09-29']['day_status_label']]);
+        $this->assertSame(['rest', 'Descanso'], [$byDate['2026-10-03']['day_status'], $byDate['2026-10-03']['day_status_label']]);
+        $this->assertSame([1, 2, 1], [$s['holiday_days'], $s['rest_days'], $s['vacation_days']]);
     }
 
     public function test_lunch_paid_tenant_setting_changes_worked_hours(): void

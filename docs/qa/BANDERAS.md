@@ -8,7 +8,7 @@ Los cambios que alteran el comportamiento existente quedan detrás de una bander
 | Bandera | Qué cambia al encenderla | Estado |
 |---|---|---|
 | `schedule_v2` | `ScheduleResolver` en modo v2. Todas las pantallas, reportes y procesos eligen la asignación que **trabaja** ese día (empate: vigencia más reciente, luego id). Un día sin turno ya no se mide contra otro horario: sin tardanza, sin descanso del turno, y la marcación queda "fuera de programación" (`OUTSIDE_SCHEDULE`). | Lista para piloto |
-| `hours_v2` | Fórmula única de horas trabajadas. | Reservada: el comando no deja encenderla hasta que RR. HH. defina si se descuenta el break |
+| `hours_v2` | Fórmula única de horas trabajadas (RP-01): el reporte descuenta el descanso igual que la jornada guardada (el mayor entre lo marcado y el fijo del turno, o el de la empresa, si la jornada pasa de 5 h). Si la empresa paga el refrigerio (`lunch_paid`), no se descuenta nada. La regla está escrita en el pie del reporte. | Lista. Valores de hoy; RR. HH. confirma si se descuenta el break (pregunta 3) |
 
 ## Activar, desactivar y consultar
 
