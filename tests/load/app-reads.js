@@ -13,7 +13,7 @@ const notOk = new Counter('app_not_200'); // por status y ruta (--summary-mode=f
 
 // Lo que pide la app al abrir cada pantalla (mobile/lib/core/network/api_endpoints.dart)
 const SCREENS = [
-    '/api/auth/me', '/api/attendance/today', '/api/my-shifts', '/api/my-branches', '/api/birthdays/upcoming',
+    '/api/auth/me', '/api/attendance/today', '/api/schedule', '/api/my-shifts', '/api/my-branches', '/api/birthdays/upcoming',
     '/api/leave-requests', '/api/payslips', '/api/notifications', '/api/trainings', '/api/announcements',
 ];
 

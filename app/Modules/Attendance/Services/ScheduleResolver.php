@@ -13,15 +13,18 @@ use Illuminate\Support\Collection;
 /**
  * Fuente única de "qué turno le toca a una persona en una fecha" (QA Ronda 2, HQ-01).
  *
- * Con la bandera de empresa schedule_v2 encendida (tenants.settings.flags.schedule_v2):
- *   1. Fila del día en employee_schedule_days (calendario de programación): turno, o
- *      día libre si shift_id es NULL.
- *   2. Asignación vigente que sí trabaja ese día; empate: vigencia más reciente, luego id.
- *   3. Si ninguna trabaja: día libre, sin respaldo (para calcular no hay turno; la
- *      referencia de sede sigue siendo la vigente más reciente).
+ * Siempre, en toda empresa y agencia: si la persona tiene ese día programado en el
+ * calendario (employee_schedule_days), manda esa fila: su turno en esa agencia, o día
+ * libre si shift_id es NULL. Programar a alguien basta para que la app, la marcación,
+ * las faltas y los reportes lo usen; quien no tiene el día programado sigue como antes.
  *
- * Con la bandera apagada (valor por defecto) reproduce exactamente lo que hacían las
- * ocho copias anteriores, según la estrategia que pide el llamador:
+ * Días sin programar, con la bandera de empresa schedule_v2 encendida:
+ *   - Asignación vigente que sí trabaja ese día; empate: vigencia más reciente, luego id.
+ *   - Si ninguna trabaja: día libre, sin respaldo (para calcular no hay turno; la
+ *     referencia de sede sigue siendo la vigente más reciente).
+ *
+ * Días sin programar con la bandera apagada (valor por defecto): reproduce exactamente
+ * lo que hacían las ocho copias anteriores, según la estrategia que pide el llamador:
  *   - LEGACY_FIRST_WORKING (marcación, corrección manual, faltas, recordatorio de entrada,
  *     ScheduleGate, "Mis turnos" de la app): la primera vigente que trabaja en el orden
  *     recibido; para calcular, si ninguna trabaja, la primera vigente.
@@ -59,10 +62,13 @@ class ScheduleResolver
         $tenantId ??= $assignments->first()?->tenant_id;
         $userId ??= $assignments->first()?->user_id;
 
+        // El día programado manda siempre (no depende de la bandera)
+        $row = $tenantId && $userId ? $this->dayRow((int) $tenantId, (int) $userId, $day->toDateString()) : null;
+        if ($row) {
+            return $this->fromRow($row, $assignments, $day, $eligible);
+        }
         if ($tenantId && $this->enabled((int) $tenantId)) {
-            $row = $userId ? $this->dayRow((int) $tenantId, (int) $userId, $day->toDateString()) : null;
-
-            return $row ? $this->fromRow($row, $assignments, $day, $eligible) : $this->v2($assignments, $day, $eligible);
+            return $this->v2($assignments, $day, $eligible);
         }
 
         if ($legacy === self::LEGACY_LATEST) {
@@ -104,12 +110,12 @@ class ScheduleResolver
     }
 
     /**
-     * Lee de una vez las filas por fecha de varias personas (calendario, reportes, procesos por lote).
-     * Solo consulta si la empresa usa schedule_v2.
+     * Lee de una vez las filas por fecha de varias personas (calendario, reportes, procesos por lote):
+     * una consulta por grupo, no por celda.
      */
     public function preload(int $tenantId, array $userIds, string $from, string $to): void
     {
-        if (! $userIds || ! $this->enabled($tenantId)) {
+        if (! $userIds) {
             return;
         }
         $rows = EmployeeScheduleDay::withoutGlobalScopes()->where('tenant_id', $tenantId)
@@ -125,10 +131,6 @@ class ScheduleResolver
     /** Personas con un horario programado ese día (para procesos que recorren asignaciones) */
     public function programmedUserIds(int $tenantId, string $date): array
     {
-        if (! $this->enabled($tenantId)) {
-            return [];
-        }
-
         return EmployeeScheduleDay::withoutGlobalScopes()->where('tenant_id', $tenantId)
             ->where('work_date', $date)->whereNotNull('shift_id')->pluck('user_id')->all();
     }

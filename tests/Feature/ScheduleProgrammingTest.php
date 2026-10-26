@@ -192,36 +192,76 @@ class ScheduleProgrammingTest extends TestCase
             'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 8, 'working_days' => [1]])->assertSessionHasNoErrors();
     }
 
-    public function test_programming_mode_is_managed_from_the_panel_and_the_app_shows_what_was_programmed(): void
+    public function test_programmed_days_rule_automatically_in_the_app_without_activating_anything(): void
     {
         $juan = $this->people['Juan'];
-        $this->program(); // Juan: A del 5 al 9, B del 12 al 16
-        $appDay = fn (string $date) => $this->actingIn($juan, $this->acme)->getJson("/api/schedule?from={$date}&to={$date}")->assertOk()->json('data.0');
+        $this->program(); // Juan (sin asignación semanal): A del 5 al 9, B del 12 al 16, fines de semana libres
+        $this->assertFalse((bool) $this->acme->fresh()->setting('flags.schedule_v2')); // nada que activar
+        $appDay = function (string $date) use ($juan) {
+            app(\App\Modules\Core\Services\TenantContext::class)->clear();
 
-        // Apagado (por defecto): se guarda pero no rige; Juan no tiene asignación semanal → la app no muestra horario
-        $this->assertFalse($appDay('2026-10-12')['is_workday']);
-        $this->flushHeaders()->actingAs($this->hr)->get(route('shifts.schedule'))->assertOk()->assertInertia(fn ($p) => $p->where('flagEnabled', false)->where('canChangeMode', false));
+            return $this->actingIn($juan, $this->acme)->getJson("/api/schedule?from={$date}&to={$date}")->assertOk()->json('data.0');
+        };
 
-        // RR. HH. programa pero no cambia cómo se evalúa la asistencia; quien configura la empresa sí, con motivo
-        $this->putJson(route('shifts.schedule.mode'), ['enabled' => true, 'reason' => 'Inicio del horario programado'])->assertForbidden();
-        $admin = $this->makeUser($this->acme, 'company_admin');
-        $this->actingAs($admin)->putJson(route('shifts.schedule.mode'), ['enabled' => true])->assertStatus(422)->assertJsonValidationErrors('reason');
-        $this->putJson(route('shifts.schedule.mode'), ['enabled' => true, 'reason' => 'Inicio del horario programado'])->assertOk()->assertJsonPath('enabled', true);
-        $this->assertTrue((bool) $this->acme->fresh()->setting('flags.schedule_v2'));
-        $log = AuditLog::where('action', 'tenant.flag_changed')->sole();
-        $this->assertSame(['Inicio del horario programado', $admin->email], [$log->meta['context']['reason'], $log->meta['context']['operator']]);
-        $this->flushHeaders()->get(route('shifts.schedule'))->assertInertia(fn ($p) => $p->where('flagEnabled', true)->where('canChangeMode', true));
-
-        // Encendido: la app muestra el horario programado de cada día (sin asignación semanal)
-        app(\App\Modules\Core\Services\TenantContext::class)->clear();
-        $this->assertSame(['Horario B', '14:00'], [$appDay('2026-10-12')['shift']['name'], $appDay('2026-10-12')['shift']['start_time']]);
+        // La app (inicio y "Mis turnos") muestra lo programado de cada día
+        $this->assertSame(['Horario B', '14:00', '21:00'], [$appDay('2026-10-12')['shift']['name'], $appDay('2026-10-12')['shift']['start_time'], $appDay('2026-10-12')['shift']['end_time']]);
         $this->assertSame('Horario A', $appDay('2026-10-05')['shift']['name']);
-        $this->assertFalse($appDay('2026-10-10')['is_workday']); // sábado en blanco = día libre
+        $this->assertFalse($appDay('2026-10-10')['is_workday']); // sábado marcado como libre
 
-        // Se puede volver atrás desde el panel
-        $this->actingAs($admin)->putJson(route('shifts.schedule.mode'), ['enabled' => false, 'reason' => 'Vuelta atrás de prueba'])->assertOk()->assertJsonPath('enabled', false);
+        // Ese día la marcación está habilitada y se mide contra el horario programado (B, 14:00)
+        $this->travelTo(Carbon::parse('2026-10-12 14:20', 'America/Lima'));
         app(\App\Modules\Core\Services\TenantContext::class)->clear();
-        $this->assertFalse($appDay('2026-10-12')['is_workday']);
+        $today = $this->actingIn($juan, $this->acme)->getJson('/api/attendance/today')->assertOk();
+        $this->assertTrue($today->json('schedule.can_clock_in'));
+        $this->assertSame('Horario B', $today->json('schedule.shift.name'));
+        $this->assertNotSame('NOT_SCHEDULED', $today->json('next_action.code'));
+    }
+
+    public function test_saving_only_writes_the_marked_days_and_copy_only_repeats_programmed_days(): void
+    {
+        $juan = $this->people['Juan'];
+        $fidel = $this->people['Fidel'];
+        // Fidel tiene asignación semanal A de lunes a viernes; Juan no
+        EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $fidel->id, 'shift_id' => $this->a->id,
+            'branch_id' => $this->trujillo->id, 'effective_from' => '2026-01-01', 'is_active' => true]);
+
+        // Guardar solo dos días de Juan en octubre: el resto del mes no se toca
+        $this->actingAs($this->hr)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-10-01', 'to' => '2026-10-31',
+            'rows' => [['user_id' => $juan->id, 'days' => ['2026-10-26' => $this->b->id, '2026-10-27' => null]]],
+        ])->assertOk()->assertJsonPath('result.created', 2);
+        $this->assertSame(2, EmployeeScheduleDay::count());
+        $this->assertNull(EmployeeScheduleDay::where('work_date', '2026-10-27')->sole()->shift_id); // libre a propósito
+
+        // Copiar la semana del 26 al 1 de noviembre: copia esos dos días programados, no la asignación semanal de Fidel
+        $this->postJson(route('shifts.schedule.repeat'), [
+            'branch_id' => $this->trujillo->id, 'source_from' => '2026-10-26', 'source_to' => '2026-11-01',
+            'target_from' => '2026-11-02', 'until' => '2026-11-08',
+        ])->assertOk()->assertJsonPath('result.created', 2);
+        $this->assertSame([$this->b->id, null], [
+            EmployeeScheduleDay::where('user_id', $juan->id)->where('work_date', '2026-11-02')->value('shift_id'),
+            EmployeeScheduleDay::where('user_id', $juan->id)->where('work_date', '2026-11-03')->sole()->shift_id,
+        ]);
+        $this->assertFalse(EmployeeScheduleDay::where('user_id', $fidel->id)->exists(), 'la asignación semanal no se duplica como programación');
+
+        // Fidel sigue con su asignación semanal en la app
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+        $this->assertSame('Horario A', $this->actingIn($fidel, $this->acme)->getJson('/api/schedule?from=2026-11-02&to=2026-11-02')->json('data.0.shift.name'));
+    }
+
+    public function test_reprogramming_a_closed_month_refreshes_the_cached_calendar(): void
+    {
+        $juan = $this->people['Juan'];
+        $this->travelTo(Carbon::parse('2026-11-20 10:00', 'America/Lima')); // octubre ya cerrado (se cachea)
+        $cell = fn () => collect(app(AttendanceCalendarService::class)->paginate(new CalendarFilters($this->acme->id, '2026-10', viewer: $this->hr))->items())
+            ->firstWhere('user_id', $juan->id)['cells']['2026-10-14'];
+        $this->assertNull($cell()); // sin programación ni asignación
+
+        $this->actingAs($this->hr)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-10-01', 'to' => '2026-10-31',
+            'rows' => [['user_id' => $juan->id, 'days' => ['2026-10-14' => $this->a->id]]],
+        ])->assertOk();
+        $this->assertSame(['absent', 'Horario A'], [$cell()['state'], $cell()['shift']]);
     }
 
     public function test_shifts_belong_to_an_agency_and_the_matrix_only_offers_its_own(): void
@@ -313,11 +353,24 @@ class ScheduleProgrammingTest extends TestCase
         $this->assertNotContains('OUTSIDE_SCHEDULE', Attendance::withoutGlobalScopes()->where('user_id', $nuevo->id)->sole()->clock_in_meta['suspicion_reasons'] ?? []);
     }
 
-    public function test_flag_off_keeps_the_previous_behaviour(): void
+    public function test_without_the_flag_programmed_days_rule_and_the_rest_keeps_the_weekly_assignment(): void
     {
         $this->program();
-        // Sin schedule_v2 la programación se guarda pero no rige: sin asignación semanal, sin programación
-        $this->assertSame('unscheduled', app(ScheduleGate::class)->statusFor($this->people['Juan'], '2026-10-05')['reason']);
+        $gate = app(ScheduleGate::class);
+        // Sin schedule_v2 (por defecto): el día programado rige igual; el día libre programado es descanso
+        $this->assertSame('Horario A', $gate->statusFor($this->people['Juan'], '2026-10-05')['shift']['name']);
+        $this->assertSame('rest_day', $gate->statusFor($this->people['Juan'], '2026-10-10')['reason']);
+        // Un día sin programar, sin asignación semanal: como antes, sin programación
+        $this->assertSame('unscheduled', $gate->statusFor($this->people['Juan'], '2026-10-25')['reason']);
+
+        // Otra agencia que no programa: su asignación semanal sigue exactamente igual
+        $lima = $this->makeBranch($this->acme, ['name' => 'Ag. Lima']);
+        $rosa = $this->makeUser($this->acme, 'employee', ['first_name' => 'Rosa']);
+        $rosa->branches()->attach($lima->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $rosa->id, 'shift_id' => $this->b->id, 'branch_id' => $lima->id,
+            'effective_from' => '2026-01-01', 'is_active' => true]);
+        $this->assertSame('Horario B', $gate->statusFor($rosa, '2026-10-05')['shift']['name']);
+        $this->assertSame('rest_day', $gate->statusFor($rosa, '2026-10-10')['reason']); // sábado: B es lun-vie
     }
 
     public function test_copy_and_repeat_weeks_until_a_date(): void

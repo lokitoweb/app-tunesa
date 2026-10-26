@@ -2,6 +2,7 @@
 
 namespace App\Modules\HR\Services;
 
+use App\Modules\Attendance\Services\AttendanceCalendarService;
 use App\Modules\Attendance\Services\ScheduleResolver;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\User;
@@ -17,10 +18,11 @@ use Illuminate\Support\Facades\DB;
 /**
  * Programación por calendario (QA Ronda 2, HQ-05): agencia → horario → días.
  *
- * Guardar un rango explícito (periodo + agencia + colaboradores) graba TODOS los días
- * del rango: los días con horario y los días en blanco como día libre (shift_id NULL).
- * Fuera del rango no se toca nada. Cada guardado deja una entrada en la bitácora con
- * quién, cuándo, el motivo y el antes/después de cada día que cambió.
+ * Guardar graba solo los días que se marcaron: un horario o día libre (shift_id NULL).
+ * Ese día programado rige al instante en la app, la marcación, las faltas y los reportes
+ * (ScheduleResolver); los días no programados siguen con la asignación semanal. Cada
+ * guardado deja una entrada en la bitácora con quién, cuándo, el motivo y el antes/después
+ * de cada día que cambió.
  */
 class ScheduleProgramming
 {
@@ -85,21 +87,19 @@ class ScheduleProgramming
     }
 
     /**
-     * Graba el rango completo: lo que no venga con horario queda como día libre.
+     * Graba solo los días enviados (los que se marcaron en la matriz): un horario, o null = día
+     * libre puesto a propósito. Un día que no se envía no se toca: si no estaba programado
+     * sigue con la asignación semanal. Así guardar el mes no borra días pasados ni copia
+     * la asignación semanal como programación.
      *
      * @param  array<int, array<string, ?int>>  $values  user_id => fecha => shift_id (null = libre)
-     * @return array{created: int, updated: int, unchanged: int}
+     * @return array{created: int, updated: int, unchanged: int, locked: int}
      */
     public function saveRange(User $editor, Branch $branch, array $userIds, string $from, string $to, array $values, string $reason): array
     {
-        $full = [];
-        foreach ($userIds as $userId) {
-            foreach (CarbonPeriod::create($from, $to) as $date) {
-                $full[$userId][$date->toDateString()] = $values[$userId][$date->toDateString()] ?? null;
-            }
-        }
+        $sent = array_intersect_key($values, array_flip($userIds));
 
-        return $this->write($editor, $branch, $full, $reason, ['from' => $from, 'to' => $to]);
+        return $this->write($editor, $branch, $sent, $reason, ['from' => $from, 'to' => $to]);
     }
 
     /**
@@ -111,11 +111,16 @@ class ScheduleProgramming
         $grid = $this->grid($people, $sourceFrom, $sourceTo);
         $length = (int) CarbonImmutable::parse($sourceFrom)->diffInDays(CarbonImmutable::parse($sourceTo)) + 1;
 
+        // Solo se copian los días programados (horario o día libre): los heredados de la asignación
+        // semanal o sin programar no se copian, así no se duplica la asignación como programación
         $values = [];
         foreach ($people as $person) {
-            $pattern = array_values(array_map(fn ($cell) => $cell['shift_id'], $grid[$person->id] ?? []));
+            $pattern = array_values($grid[$person->id] ?? []);
             foreach (CarbonPeriod::create($targetFrom, $until) as $i => $date) {
-                $values[$person->id][$date->toDateString()] = $pattern[$i % $length] ?? null;
+                $cell = $pattern[$i % $length] ?? null;
+                if ($cell && $cell['source'] === 'programmed') {
+                    $values[$person->id][$date->toDateString()] = $cell['shift_id'];
+                }
             }
         }
 
@@ -207,6 +212,10 @@ class ScheduleProgramming
         });
 
         if ($changes) {
+            // El calendario de asistencia guarda en caché los meses cerrados: se invalida cada mes que cambió
+            foreach (collect($changes)->map(fn ($c) => substr($c['date'], 0, 7))->unique() as $month) {
+                AttendanceCalendarService::bump((int) $branch->tenant_id, "{$month}-01");
+            }
             $this->audit->log('schedule.programmed', $branch, $range + [
                 'reason' => mb_substr($reason, 0, 500), 'changed_days' => count($changes), 'changes' => $changes,
             ]);

@@ -158,7 +158,8 @@ class AttendanceCalendarTest extends TestCase
         }
 
         $this->assertSame($few, $count());
-        $this->assertLessThanOrEqual(9, $few);
+        // 10: incluye la consulta única de días programados (la programación rige siempre)
+        $this->assertLessThanOrEqual(10, $few);
     }
 
     public function test_closed_month_is_cached_until_a_change_in_that_month(): void

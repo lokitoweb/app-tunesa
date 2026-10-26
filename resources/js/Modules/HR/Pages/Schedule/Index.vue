@@ -18,25 +18,7 @@ const props = defineProps({
     holidays: { type: [Object, Array], default: () => ({}) },
     deadline: { type: String, default: null },
     today: { type: String, required: true },
-    flagEnabled: { type: Boolean, default: false },
-    canChangeMode: { type: Boolean, default: false },
 });
-
-// ¿La programación rige la asistencia (app, marcación, tardanzas, faltas)? Lo cambia quien configura la empresa
-const mode = reactive({ enabled: props.flagEnabled, open: false, reason: '', saving: false, error: '' });
-async function changeMode(enabled) {
-    mode.saving = true;
-    mode.error = '';
-    try {
-        const res = await axios.put('/shifts/schedule/mode', { enabled, reason: mode.reason }, { headers });
-        Object.assign(mode, { enabled: res.data.enabled, open: false, reason: '' });
-        showToast(res.data.message);
-    } catch (e) {
-        mode.error = errorText(e, 'No se pudo cambiar.');
-    } finally {
-        mode.saving = false;
-    }
-}
 
 const { ask } = useConfirm();
 const headers = { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
@@ -201,22 +183,33 @@ function errorText(e, fallback) {
     return errs ? Object.values(errs).flat()[0] : (e.response?.data?.message || fallback);
 }
 
+// Solo se envían los días marcados en esta pantalla (horario o día libre). Los demás no se tocan:
+// lo ya programado se mantiene y lo no programado sigue con la asignación semanal.
+// Las vacaciones nunca se envían (el servidor igual las respeta)
+function editedRows(who) {
+    return who.map((p) => ({
+        user_id: p.id,
+        days: Object.fromEntries(days.value
+            .filter((d) => !isLocked(p.id, d.date) && cell(p.id, d.date).source === 'edited')
+            .map((d) => [d.date, cell(p.id, d.date).shift_id ?? null])),
+    })).filter((r) => Object.keys(r.days).length);
+}
+
 async function save() {
-    const who = targets();
-    if (!who.length) return;
+    const rows = editedRows(targets());
+    if (!rows.length) {
+        showToast('No hay cambios para guardar.', 'danger');
+        return;
+    }
+    const total = rows.reduce((n, r) => n + Object.keys(r.days).length, 0);
     const ok = await ask({
         title: 'Guardar programación',
-        message: `Se guardará ${monthLabel.value} completo para ${who.length} colaborador(es) de la agencia. Los días en blanco quedarán como día libre.`,
+        message: `Se guardarán ${total} día(s) marcados de ${rows.length} colaborador(es). Rigen desde ya en la app y la marcación; los días que no marcaste no cambian.`,
         confirmText: 'Guardar', cancelText: 'Cancelar', variant: 'primary', icon: 'bi bi-floppy2-fill',
     });
     if (!ok) return;
     saving.value = true;
     try {
-        // Los días de vacaciones no se envían (el servidor igual los respeta)
-        const rows = who.map((p) => ({
-            user_id: p.id,
-            days: Object.fromEntries(days.value.filter((d) => !isLocked(p.id, d.date)).map((d) => [d.date, cell(p.id, d.date).shift_id ?? null])),
-        }));
         const res = await axios.post('/shifts/schedule', { branch_id: state.branchId, from: state.from, to: state.to, reason: reason.value, rows }, { headers });
         dirty.value = false;
         showToast(res.data.message);
@@ -273,53 +266,8 @@ async function repeat() {
         <div class="mb-3">
             <h1 class="h2 fw-bold text-body-emphasis mb-1">Programación de horarios</h1>
             <p class="text-body-secondary mb-0 small">
-                Elige la agencia y el horario, y marca los días que asiste cada colaborador. Clic otra vez sobre la celda para quitarlo.
+                Elige la agencia y el horario, y marca los días que asiste cada colaborador. Al guardar, lo programado se ve al instante en la app; los días sin programar siguen con su asignación semanal.
             </p>
-        </div>
-
-        <!-- Si la programación rige o no la asistencia (sin términos técnicos) -->
-        <div v-if="!mode.enabled" class="sched-mode is-off mb-3" role="status">
-            <div class="sched-mode-row">
-                <i class="bi bi-info-circle-fill"></i>
-                <div class="flex-grow-1">
-                    <div class="fw-semibold">La programación se guarda, pero aún no rige la asistencia.</div>
-                    <div class="small">Hasta activarla, la app, la marcación, las tardanzas y las faltas usan la asignación semanal de cada colaborador.</div>
-                </div>
-                <button v-if="canChangeMode && !mode.open" type="button" class="btn btn-primary sched-btn" @click="mode.open = true">
-                    <i class="bi bi-toggle-on"></i><span>Activar programación</span>
-                </button>
-            </div>
-            <div v-if="mode.open" class="sched-mode-form">
-                <label for="mode-reason" class="sched-label">Motivo del cambio (queda en la bitácora) <span class="text-danger">*</span></label>
-                <div class="d-flex flex-wrap" style="gap: 10px;">
-                    <input id="mode-reason" v-model="mode.reason" type="text" class="form-control sched-input flex-grow-1" maxlength="300"
-                        placeholder="Ej.: Inicio del horario programado en todas las agencias" :class="{ 'is-invalid': mode.error }">
-                    <button type="button" class="btn btn-primary sched-btn" :disabled="mode.saving" @click="changeMode(true)">
-                        <span v-if="mode.saving" class="spinner-border spinner-border-sm"></span><i v-else class="bi bi-check2"></i><span>Confirmar</span>
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary sched-btn" :disabled="mode.saving" @click="mode.open = false">Cancelar</button>
-                </div>
-                <div v-if="mode.error" class="small text-danger mt-1">{{ mode.error }}</div>
-                <div class="small mt-2">Desde ese momento cada día se evalúa con el horario programado; los días sin programar quedan "fuera de programación". Se puede volver atrás.</div>
-            </div>
-        </div>
-        <div v-else class="sched-mode is-on mb-3" role="status">
-            <div class="sched-mode-row">
-                <i class="bi bi-check-circle-fill"></i>
-                <div class="flex-grow-1 small"><span class="fw-semibold">La programación rige la asistencia:</span> la app y la marcación usan el horario programado de cada día.</div>
-                <button v-if="canChangeMode && !mode.open" type="button" class="btn btn-link btn-sm text-decoration-none" @click="mode.open = true">Desactivar</button>
-            </div>
-            <div v-if="mode.open" class="sched-mode-form">
-                <label for="mode-reason-off" class="sched-label">Motivo para volver a la asignación semanal <span class="text-danger">*</span></label>
-                <div class="d-flex flex-wrap" style="gap: 10px;">
-                    <input id="mode-reason-off" v-model="mode.reason" type="text" class="form-control sched-input flex-grow-1" maxlength="300" :class="{ 'is-invalid': mode.error }">
-                    <button type="button" class="btn btn-outline-danger sched-btn" :disabled="mode.saving" @click="changeMode(false)">
-                        <span v-if="mode.saving" class="spinner-border spinner-border-sm"></span><span>Desactivar</span>
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary sched-btn" :disabled="mode.saving" @click="mode.open = false">Cancelar</button>
-                </div>
-                <div v-if="mode.error" class="small text-danger mt-1">{{ mode.error }}</div>
-            </div>
         </div>
 
         <div v-if="deadlineInfo || unscheduled.length" class="sched-alerts mb-3">
@@ -447,7 +395,7 @@ async function repeat() {
                         <button type="button" class="btn btn-primary sched-btn" :disabled="saving || !state.people.length" @click="save">
                             <span v-if="saving" class="spinner-border spinner-border-sm"></span>
                             <i v-else class="bi bi-floppy2-fill"></i>
-                            <span>Guardar {{ monthLabel }} {{ selected.size ? `(${selected.size} seleccionados)` : '(todos)' }}</span>
+                            <span>Guardar cambios {{ selected.size ? `(${selected.size} seleccionados)` : '' }}</span>
                         </button>
                         <span v-if="dirty" class="sched-dirty"><i class="bi bi-circle-fill"></i>Cambios sin guardar</span>
                     </div>
@@ -485,7 +433,7 @@ async function repeat() {
                         </div>
                         <button type="button" class="btn btn-outline-primary sched-btn" @click="repeat"><i class="bi bi-copy"></i><span>Aplicar</span></button>
                     </div>
-                    <div class="small text-body-secondary mt-2">Se aplica a los seleccionados (o a todos) y usa la programación ya guardada.</div>
+                    <div class="small text-body-secondary mt-2">Se aplica a los seleccionados (o a todos) y copia solo los días ya programados y guardados.</div>
                 </div>
             </div>
         </div>
@@ -556,13 +504,6 @@ async function repeat() {
 .sched-alert.is-warning { background: var(--bs-warning-bg-subtle); border-color: var(--bs-warning-border-subtle); color: var(--bs-warning-text-emphasis); }
 .sched-alert.is-danger { background: var(--bs-danger-bg-subtle); border-color: var(--bs-danger-border-subtle); color: var(--bs-danger-text-emphasis); }
 
-.sched-mode { padding: 12px 16px; border-radius: 12px; border: 1px solid; font-size: 0.85rem; }
-.sched-mode.is-off { background: var(--bs-info-bg-subtle); border-color: var(--bs-info-border-subtle); color: var(--bs-info-text-emphasis); }
-.sched-mode.is-on { background: var(--bs-success-bg-subtle); border-color: var(--bs-success-border-subtle); color: var(--bs-success-text-emphasis); padding: 8px 16px; }
-.sched-mode-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.sched-mode-row > i { font-size: 1.1rem; }
-.sched-mode-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid currentColor; border-top-color: color-mix(in srgb, currentColor 20%, transparent); }
-.sched-mode-form .sched-label { color: inherit; }
 .sched-panel { padding: 16px; }
 .sched-panel-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; color: var(--bs-emphasis-color); margin-bottom: 12px; }
 .sched-panel-title i { color: var(--bs-primary); }
