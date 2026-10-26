@@ -2,6 +2,7 @@
 
 namespace App\Modules\Attendance\Resources;
 
+use App\Modules\Attendance\Support\DayStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -98,16 +99,7 @@ class AttendanceResource extends JsonResource
 
     private function getStatusLabel(): string
     {
-        return match ($this->status) {
-            'present'    => 'Presente',
-            'late'       => 'Tardanza',
-            'absent'     => 'Ausente',
-            'excused'    => 'Justificado',
-            'half_day'   => 'Medio Día',
-            'holiday'    => 'Feriado',
-            'day_off'    => 'Franco',
-            'incomplete' => 'Incompleto',
-            default      => 'Desconocido',
-        };
+        // Etiquetas únicas de estado (QA Ronda 2, RP-03)
+        return DayStatus::label(DayStatus::fromRecord($this->status));
     }
 }

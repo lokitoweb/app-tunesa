@@ -6,6 +6,8 @@ use App\Modules\Core\Models\User;
 use App\Modules\Core\Models\Concerns\BelongsToBranchScope;
 use App\Modules\Core\Models\Concerns\BelongsToTenant;
 use App\Modules\Core\Models\Concerns\HasDateOnlyColumns;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -136,6 +138,15 @@ class LeaveRequest extends Model
     }
 
     /** Solicitudes que se cruzan con el rango [from, to] */
+    /** Días calendario de la licencia dentro de [$from, $to] (planilla y reportes cuentan igual) */
+    public function daysWithin(CarbonInterface $from, CarbonInterface $to): int
+    {
+        $start = CarbonImmutable::parse($this->start_date)->max($from);
+        $end   = CarbonImmutable::parse($this->end_date)->min($to);
+
+        return $end->lt($start) ? 0 : (int) $start->diffInDays($end) + 1;
+    }
+
     public function scopeOverlapping($query, string $from, string $to)
     {
         return $query->where('start_date', '<=', $to)

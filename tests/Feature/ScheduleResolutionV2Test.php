@@ -68,9 +68,12 @@ class ScheduleResolutionV2Test extends ScheduleResolutionCharacterizationTest
         // De lunes a viernes con A y el sábado con B: 6 días programados, 6 faltas
         $this->assertSame(6, $report['summary']['scheduled_days']);
         $this->assertSame(6, $report['summary']['absences_unjustified']);
-        $this->assertSame(['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', self::SATURDAY], array_column($report['days'], 'date'));
-        // Defecto previo (los dos modos): emptyDay() + [...] conserva 'shift' => null en las filas de falta. Fase 6.
-        $this->assertSame([null, null], [$report['days'][0]['shift'], $report['days'][5]['shift']]);
+        $absent = array_values(array_filter($report['days'], fn ($d) => $d['status'] === 'absent'));
+        $this->assertSame(['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', self::SATURDAY], array_column($absent, 'date'));
+        // Corregido en RP-03/RP-04 (antes salía null): la fila de falta trae su turno y su horario programado
+        $this->assertSame(['A', '08:00', '15:00'], [$absent[0]['shift'], $absent[0]['scheduled_in'], $absent[0]['scheduled_out']]);
+        $this->assertSame(['B', '14:00'], [$absent[5]['shift'], $absent[5]['scheduled_in']]);
+        $this->assertSame(['rest', 'Descanso'], [collect($report['days'])->firstWhere('date', self::SUNDAY)['day_status'], collect($report['days'])->firstWhere('date', self::SUNDAY)['day_status_label']]);
     }
 
     public function test_actual_live_board_takes_the_latest_assignment(): void
@@ -134,9 +137,9 @@ class ScheduleResolutionV2Test extends ScheduleResolutionCharacterizationTest
         $this->assertSame('Prueba en modo v2', $log->meta['context']['reason']);
         $this->assertSame(['field' => 'flags.schedule_v2', 'old' => false, 'new' => true], collect($log->meta['changes'])->first());
 
-        // Motivo obligatorio, hours_v2 bloqueada hasta la regla de RR. HH., otra empresa sigue apagada
+        // Motivo obligatorio; una bandera desconocida se rechaza; otra empresa sigue apagada
         $this->artisan('attendance:flag', ['tenant' => 'acme', 'flag' => 'schedule_v2', 'state' => 'off'])->assertExitCode(2);
-        $this->artisan('attendance:flag', ['tenant' => 'acme', 'flag' => 'hours_v2', 'state' => 'on', '--reason' => 'Probar'])->assertFailed();
+        $this->artisan('attendance:flag', ['tenant' => 'acme', 'flag' => 'otra_cosa', 'state' => 'on', '--reason' => 'Probar'])->assertExitCode(2);
         $this->makeTenant('globex');
         $this->artisan('attendance:flag', ['tenant' => 'globex', 'flag' => 'schedule_v2'])->expectsOutput('globex · schedule_v2: off');
 

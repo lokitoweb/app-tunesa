@@ -24,20 +24,25 @@ class HoursReportExporter
 {
     public function __construct(private readonly AttendanceReportService $reports) {}
 
+    /** Reporte final del periodo (QA Ronda 2, 5.3). Duraciones en H:MM (número de Excel con formato [h]:mm, se puede sumar) */
     public const SUMMARY_HEADERS = [
-        'Código', 'Colaborador', 'Documento', 'Sucursal',
+        'Código', 'Colaborador', 'Cargo', 'Tipo doc.', 'Documento', 'Sucursal',
         'Días programados', 'Días trabajados', 'Horas trabajadas',
-        'Tardanza (min)', 'Días con tardanza', 'Salida anticipada (min)',
-        'HE diurnas (h)', 'HE nocturnas (h)', 'Horas nocturnas (h)',
+        'Tardanza', 'Días con tardanza', 'Salida anticipada',
+        'HE diurnas', 'HE nocturnas', 'Horas nocturnas',
         'Faltas injustificadas', 'Faltas justificadas',
+        'Descanso (días)', 'Feriados (días)', 'Vacaciones (días)', 'Permiso (días)', 'Descanso médico (días)',
     ];
 
+    /** Reporte por día y por colaborador (QA Ronda 2, 5.1 y 5.2): un día por fila con su estado */
     public const DETAIL_HEADERS = [
-        'Código', 'Colaborador', 'Fecha', 'Estado', 'Turno', 'Sucursal',
-        'Entrada', 'Salida', 'Descanso descontado (min)', 'Horas trabajadas',
-        'Tardanza (min)', 'Salida anticipada (min)', 'HE diurnas (h)', 'HE nocturnas (h)',
-        'Horas nocturnas (h)', 'Observación',
+        'Código', 'Colaborador', 'Cargo', 'Fecha', 'Estado', 'Turno', 'Sucursal',
+        'Entrada', 'Marcado entrada', 'Salida', 'Marcado salida', 'Descanso descontado (min)', 'Horas trabajadas',
+        'Tardanza', 'Salida anticipada', 'HE diurnas', 'HE nocturnas', 'Horas nocturnas', 'Observación',
     ];
+
+    /** Formato H:MM de Excel para duraciones (no se corta en 24 h) */
+    private const DURATION_FORMAT = '[h]:mm';
 
     /** Escribe el .xlsx en $path */
     public function xlsx(ReportFilters $f, string $path): void
@@ -125,26 +130,34 @@ class HoursReportExporter
         $s = $r['summary'];
 
         return [
-            $r['employee_code'] ?? '', $r['name'], $r['document_number'] ?? '', $r['branch'] ?? '',
-            $s['scheduled_days'], $s['days_worked'], $s['worked_hours'],
-            $s['late_minutes'], $s['late_days'], $s['early_minutes'],
-            $s['overtime_day_hours'], $s['overtime_night_hours'], $s['night_hours'],
+            $r['employee_code'] ?? '', $r['name'], $r['position'] ?? '', strtoupper((string) ($r['document_type'] ?? '')), $r['document_number'] ?? '', $r['branch'] ?? '',
+            $s['scheduled_days'], $s['days_worked'], self::duration($s['worked_minutes']),
+            self::duration($s['late_minutes']), $s['late_days'], self::duration($s['early_minutes']),
+            self::duration($s['overtime_day_minutes']), self::duration($s['overtime_night_minutes']), self::duration($s['night_minutes']),
             $s['absences_unjustified'], $s['absences_justified'],
+            $s['rest_days'], $s['holiday_days'], $s['vacation_days'], $s['permission_days'], $s['medical_leave_days'],
         ];
     }
 
     public static function detailRow(array $r, array $d): array
     {
         return [
-            $r['employee_code'] ?? '', $r['name'], $d['date'],
-            AttendanceReportService::STATUS_LABELS[$d['status']] ?? $d['status'],
+            $r['employee_code'] ?? '', $r['name'], $r['position'] ?? '', $d['date'],
+            $d['day_status_label'] ?? '',
             $d['shift'] ?? '', $d['branch'] ?? '',
-            $d['clock_in'] ?? '', $d['clock_out'] ?? ($d['open'] ? 'Sin salida' : ''),
-            $d['break_minutes'], round($d['worked_minutes'] / 60, 2),
-            $d['late_minutes'], $d['early_minutes'],
-            round($d['overtime_day_minutes'] / 60, 2), round($d['overtime_night_minutes'] / 60, 2),
-            round($d['night_minutes'] / 60, 2), $d['note'] ?? '',
+            $d['scheduled_in'] ?? '', $d['clock_in'] ?? '',
+            $d['scheduled_out'] ?? '', $d['clock_out'] ?? ($d['open'] ? 'Sin salida' : ''),
+            $d['break_minutes'], self::duration($d['worked_minutes']),
+            self::duration($d['late_minutes']), self::duration($d['early_minutes']),
+            self::duration($d['overtime_day_minutes']), self::duration($d['overtime_night_minutes']),
+            self::duration($d['night_minutes']), $d['note'] ?? '',
         ];
+    }
+
+    /** Duración para la celda: minutos como fracción de día, que Excel muestra en H:MM */
+    private static function duration(int $minutes): array
+    {
+        return ['duration' => $minutes];
     }
 
     private function header(Worksheet $sheet, array $headers): void
@@ -165,7 +178,10 @@ class HoursReportExporter
     {
         foreach (array_values($values) as $i => $value) {
             $cell = [$i + 1, $row];
-            if (is_int($value) || is_float($value)) {
+            if (is_array($value) && array_key_exists('duration', $value)) {
+                $sheet->setCellValueExplicit($cell, $value['duration'] / 1440, DataType::TYPE_NUMERIC);
+                $sheet->getStyle($cell)->getNumberFormat()->setFormatCode(self::DURATION_FORMAT);
+            } elseif (is_int($value) || is_float($value)) {
                 $sheet->setCellValueExplicit($cell, $value, DataType::TYPE_NUMERIC);
             } else {
                 $sheet->setCellValueExplicit($cell, (string) $value, DataType::TYPE_STRING);

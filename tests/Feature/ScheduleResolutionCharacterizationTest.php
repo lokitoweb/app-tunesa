@@ -182,7 +182,10 @@ class ScheduleResolutionCharacterizationTest extends TestCase
         // De lunes a viernes le toca A (5 días) y el sábado B, pero el reporte solo ve el sábado
         $this->assertSame(1, $report['summary']['scheduled_days']);
         $this->assertSame(1, $report['summary']['absences_unjustified']);
-        $this->assertSame([self::SATURDAY], array_column($report['days'], 'date'));
+        $absent = array_values(array_filter($report['days'], fn ($d) => $d['status'] === 'absent'));
+        $this->assertSame([self::SATURDAY], array_column($absent, 'date'));
+        // Desde RP-03 los días libres salen como "Descanso": aquí el lunes, por mirar B
+        $this->assertSame('rest', collect($report['days'])->firstWhere('date', self::MONDAY)['day_status']);
     }
 
     public function test_actual_live_board_takes_the_latest_assignment(): void

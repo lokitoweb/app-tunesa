@@ -2,6 +2,7 @@
 
 namespace App\Modules\Attendance\Exports;
 
+use App\Modules\Attendance\Support\DayStatus;
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Core\Models\User;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -127,14 +128,7 @@ class AttendanceExport
 
     private function mapStatus(?string $status): string
     {
-        return match ($status) {
-            'on_time'    => 'Puntual',
-            'late'       => 'Tardanza',
-            'absent'     => 'Inasistencia',
-            'justified'  => 'Justificado',
-            'holiday'    => 'Feriado',
-            'day_off'    => 'Día Libre',
-            default      => ucfirst($status ?? 'Pendiente'),
-        };
+        // Etiquetas únicas de estado (QA Ronda 2, RP-03)
+        return DayStatus::label(DayStatus::fromRecord($status));
     }
 }

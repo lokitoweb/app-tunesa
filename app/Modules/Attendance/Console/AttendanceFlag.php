@@ -22,8 +22,8 @@ use Illuminate\Support\Facades\Cache;
  */
 class AttendanceFlag extends Command
 {
-    /** hours_v2 se reserva: no tiene efecto hasta que RR. HH. defina si se descuenta el break */
-    public const FLAGS = [ScheduleResolver::FLAG => true, 'hours_v2' => false];
+    /** schedule_v2: horario por fecha (HQ-01/02/05). hours_v2: el reporte descuenta el break igual que la jornada guardada (RP-01) */
+    public const FLAGS = [ScheduleResolver::FLAG, 'hours_v2'];
 
     protected $signature = 'attendance:flag
                             {tenant : Id o slug de la empresa}
@@ -36,8 +36,8 @@ class AttendanceFlag extends Command
     public function handle(AuditLogger $audit, TenantContext $context): int
     {
         $flag = (string) $this->argument('flag');
-        if (! array_key_exists($flag, self::FLAGS)) {
-            $this->error('Bandera desconocida. Opciones: ' . implode(', ', array_keys(self::FLAGS)) . '.');
+        if (! in_array($flag, self::FLAGS, true)) {
+            $this->error('Bandera desconocida. Opciones: ' . implode(', ', self::FLAGS) . '.');
 
             return self::INVALID;
         }
@@ -63,11 +63,6 @@ class AttendanceFlag extends Command
             return self::INVALID;
         }
         $after = $state === 'on';
-        if ($after && ! self::FLAGS[$flag]) {
-            $this->error("{$flag} todavía no tiene efecto: espera la regla de RR. HH. sobre el descuento del break.");
-
-            return self::FAILURE;
-        }
         $reason = trim((string) $this->option('reason'));
         if (mb_strlen($reason) < 5) {
             $this->error('Indica el motivo con --reason (mínimo 5 caracteres).');
