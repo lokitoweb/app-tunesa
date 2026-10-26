@@ -141,7 +141,8 @@ class MissingExitCorrectionTest extends TestCase
         $this->assertNotNull($a->fresh()->clock_out_at);
         $this->assertTrue(User::find($this->hr->id)->can('attendance.authorize_offshift'));
         $this->assertTrue(User::find($manager->id)->can('attendance.authorize_offshift'));
-        $this->assertFalse(User::find($this->supervisor->id)->can('attendance.authorize_offshift'));
+        // Regla vigente 11: el supervisor también autoriza (a su equipo)
+        $this->assertTrue(User::find($this->supervisor->id)->can('attendance.authorize_offshift'));
 
         // Rollback: quita solo lo que agregó; lo que ya existía (attendance.edit de RR. HH.) queda
         $migration->down();

@@ -244,9 +244,66 @@ class ScheduleProgrammingTest extends TestCase
         $post($this->hr, ['reason' => '', 'rows' => [['user_id' => $this->people['Juan']->id, 'days' => []]]])->assertStatus(422)->assertJsonValidationErrors('reason');
         $post($this->hr, ['rows' => [['user_id' => $this->people['Juan']->id, 'days' => ['2026-10-02' => 999999]]]])->assertStatus(422)->assertJsonValidationErrors('rows');
 
+        // Regla 6: un supervisor programa, pero solo sus agencias: esta no es suya
         $supervisor = $this->makeUser($this->acme, 'supervisor');
-        $post($supervisor, ['rows' => [['user_id' => $this->people['Juan']->id, 'days' => []]]])->assertForbidden();
+        $post($supervisor, ['rows' => [['user_id' => $this->people['Juan']->id, 'days' => []]]])->assertNotFound();
+        // Contabilidad no programa
+        $post($this->makeUser($this->acme, 'accountant'), ['rows' => [['user_id' => $this->people['Juan']->id, 'days' => []]]])->assertForbidden();
         $this->assertSame(0, EmployeeScheduleDay::count());
+    }
+
+    public function test_rule6_agency_supervisor_programs_only_his_agency_and_team(): void
+    {
+        $supervisor = $this->makeUser($this->acme, 'supervisor');
+        $this->trujillo->update(['supervisor_id' => $supervisor->id]);
+        $lima = $this->makeBranch($this->acme, ['name' => 'Ag. Lima']);
+        $ajeno = $this->makeUser($this->acme, 'employee', ['first_name' => 'Ajeno']);
+        $ajeno->branches()->attach($lima->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+
+        // Solo ve su agencia y su equipo, con el plazo de 5 días antes del mes
+        $json = $this->actingAs($supervisor)->getJson(route('shifts.schedule', ['branch_id' => $this->trujillo->id, 'month' => '2026-11']))->assertOk()->json();
+        $this->assertCount(3, $json['people']);
+        $this->assertSame('2026-10-27', $json['deadline']);
+        $this->actingAs($supervisor)->get(route('shifts.schedule'))->assertOk()->assertDontSee('Ag. Lima');
+
+        // Programa su equipo; no la agencia ajena ni a alguien de otro equipo
+        $this->actingAs($supervisor)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-11-02', 'to' => '2026-11-02', 'reason' => 'Programación de noviembre',
+            'rows' => [['user_id' => $this->people['Juan']->id, 'days' => ['2026-11-02' => $this->a->id]]],
+        ])->assertOk()->assertJsonPath('result.created', 1);
+        $this->actingAs($supervisor)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $lima->id, 'from' => '2026-11-02', 'to' => '2026-11-02', 'reason' => 'Agencia ajena',
+            'rows' => [['user_id' => $ajeno->id, 'days' => []]],
+        ])->assertNotFound();
+        $this->actingAs($supervisor)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-11-02', 'to' => '2026-11-02', 'reason' => 'Colaborador ajeno',
+            'rows' => [['user_id' => $ajeno->id, 'days' => []]],
+        ])->assertStatus(422);
+
+        // Programar no le da crear ni editar turnos, ni la asignación semanal
+        $this->actingAs($supervisor)->get(route('shifts.index'))->assertForbidden();
+        $this->actingAs($supervisor)->post(route('shifts.assign'), [])->assertForbidden();
+        $this->assertSame(1, EmployeeScheduleDay::count());
+    }
+
+    public function test_rule11_supervisor_authorizes_days_without_schedule_only_for_his_team(): void
+    {
+        $supervisor = $this->makeUser($this->acme, 'supervisor');
+        $this->trujillo->update(['supervisor_id' => $supervisor->id]);
+        $ajeno = $this->makeUser($this->acme, 'employee', ['first_name' => 'Ajeno']);
+        $ajeno->branches()->attach($this->makeBranch($this->acme)->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        $authorize = fn (User $who) => $this->actingAs($supervisor)->post('/attendance-offshift', ['user_id' => $who->id, 'work_date' => '2026-10-03', 'reason' => 'Inventario de sábado']);
+
+        $authorize($this->people['Juan'])->assertSessionHasNoErrors()->assertRedirect('/attendance-offshift');
+        $authorize($ajeno)->assertForbidden();
+        $authorize($supervisor)->assertForbidden();
+        $this->assertSame(1, \App\Modules\Attendance\Models\OffShiftAuthorization::count());
+
+        // No ve ni retira autorizaciones de otro equipo
+        $otra = \App\Modules\Attendance\Models\OffShiftAuthorization::create(['tenant_id' => $this->acme->id, 'user_id' => $ajeno->id, 'work_date' => '2026-10-03', 'reason' => 'De RR. HH.', 'authorized_by' => $this->hr->id]);
+        $this->actingAs($supervisor)->get('/attendance-offshift')->assertOk()->assertSee('Juan')->assertDontSee('Ajeno');
+        $this->actingAs($supervisor)->delete("/attendance-offshift/{$otra->id}")->assertForbidden();
+        $this->assertModelExists($otra);
     }
 
     public function test_security_no_cross_tenant_shift_and_bounded_writes(): void

@@ -26,6 +26,9 @@ class ScheduleWebController extends Controller
     public const MAX_RANGE_DAYS = 62;
     public const MAX_REPEAT_DAYS = 366;
 
+    /** Regla vigente 6: el mes se programa al menos 5 días antes de que empiece */
+    public const PROGRAMMING_LEAD_DAYS = 5;
+
     /** Tope de colaboradores por guardado y de días a escribir en una repetición (una petición no debe escribir sin límite) */
     public const MAX_PEOPLE = 500;
     public const MAX_REPEAT_CELLS = 40000;
@@ -38,7 +41,7 @@ class ScheduleWebController extends Controller
             'branch_id' => ['nullable', 'integer'],
             'month'     => ['nullable', 'date_format:Y-m'],
         ]);
-        $branches = Branch::where('is_active', true)->orderBy('name')->get(['id', 'name', 'tenant_id']);
+        $branches = Branch::visibleTo($request->user())->where('is_active', true)->orderBy('name')->get(['id', 'name', 'tenant_id']);
         $branch = $branches->firstWhere('id', (int) ($data['branch_id'] ?? 0)) ?? $branches->first();
         $month = CarbonImmutable::parse(($data['month'] ?? CarbonImmutable::now(tenant_timezone())->format('Y-m')) . '-01');
         [$from, $to] = [$month->toDateString(), $month->endOfMonth()->toDateString()];
@@ -51,6 +54,8 @@ class ScheduleWebController extends Controller
             'to'       => $to,
             'people'   => $people->map(fn ($u) => ['id' => $u->id, 'name' => trim("{$u->last_name}, {$u->first_name}"), 'code' => $u->employee_code, 'position' => $u->position])->values(),
             'grid'     => $branch ? $this->programming->grid($people, $from, $to) : [],
+            // Regla 6: el mes se programa con PROGRAMMING_LEAD_DAYS días de anticipación
+            'deadline' => $month->subDays(self::PROGRAMMING_LEAD_DAYS)->toDateString(),
             'holidays' => Holiday::where('tenant_id', $branch?->tenant_id)->whereBetween('date', [$from, $to])->get(['date', 'name'])
                 ->mapWithKeys(fn (Holiday $h) => [$h->date->toDateString() => $h->name]),
         ];
@@ -125,7 +130,7 @@ class ScheduleWebController extends Controller
         $this->guardRange($data['source_from'], $data['source_to'], self::MAX_RANGE_DAYS, 'source_to');
         $this->guardRange($data['target_from'], $data['until'], self::MAX_REPEAT_DAYS, 'until');
 
-        $branch = Branch::findOrFail((int) $data['branch_id']);
+        $branch = Branch::visibleTo($request->user())->findOrFail((int) $data['branch_id']);
         $people = $this->programming->people($branch, $request->user(), $data['source_from'], $data['until']);
         if ($data['user_ids'] ?? null) {
             [, $ids] = $this->scope($request, $branch->id, $data['user_ids'], $data['source_from'], $data['until']);
@@ -145,7 +150,7 @@ class ScheduleWebController extends Controller
     /** La agencia es de la empresa y cada colaborador está en ella y al alcance de quien programa */
     private function scope(Request $request, int $branchId, array $userIds, string $from, string $to): array
     {
-        $branch = Branch::findOrFail($branchId);
+        $branch = Branch::visibleTo($request->user())->findOrFail($branchId);
         $allowed = $this->programming->people($branch, $request->user(), $from, $to)->pluck('id')->all();
         $foreign = array_diff(array_map('intval', $userIds), $allowed);
         if ($foreign) {

@@ -16,5 +16,7 @@ return [
         'holiday'       => 'Feriado',
         'half_day'      => 'Media jornada',
         'scheduled'     => 'Programado',
+        'early_exit'    => 'Salida anticipada',
+        'holiday_worked' => 'Feriado trabajado',
     ],
 ];

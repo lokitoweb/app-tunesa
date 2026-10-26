@@ -319,6 +319,7 @@ final class Labels
         'max_gps_accuracy_meters' => 'Precisión GPS máxima (m)',
         'default_grace_minutes'   => 'Tolerancia por defecto (min)',
         'lunch_minutes'           => 'Duración del almuerzo (min)',
+        'vacation_days_per_year'  => 'Días de vacaciones por año de servicio',
         'lunch_paid'              => 'Almuerzo pagado',
         'punch_requires_schedule' => 'Marcar solo con turno programado',
         'default_geofence_radius' => 'Radio de geocerca por defecto (m)',

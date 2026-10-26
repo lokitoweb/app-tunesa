@@ -7,6 +7,7 @@ use App\Modules\Attendance\Models\AttendancePunch;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Scopes\TenantScope;
 use App\Modules\Core\Models\User;
+use App\Modules\Attendance\Notifications\AttendanceEarlyExit;
 use App\Modules\Attendance\Notifications\AttendanceMockRepeated;
 use App\Modules\Attendance\Notifications\AttendanceOutsideGeofence;
 use App\Modules\Attendance\Notifications\AttendanceOutsideSchedule;
@@ -44,6 +45,20 @@ class AttendanceAlertNotifier
 
             $this->supervisorOf($punch->branch_id, $employee)
                 ?->notify((new AttendanceOutsideSchedule($attendance, $punch, $employee, forSupervisor: true))->withoutPush());
+        });
+    }
+
+    /** Regla vigente 7: salida anticipada, solo al panel del supervisor de la sucursal (in-app) */
+    public function earlyExit(Attendance $attendance, int $minutes, string $scheduledEnd): void
+    {
+        $this->safely(function () use ($attendance, $minutes, $scheduledEnd) {
+            $employee = $this->activeUser($attendance->user_id);
+            if (! $employee) {
+                return;
+            }
+
+            $this->supervisorOf($attendance->branch_id, $employee)
+                ?->notify((new AttendanceEarlyExit($attendance, $minutes, $scheduledEnd, $employee))->withoutPush());
         });
     }
 

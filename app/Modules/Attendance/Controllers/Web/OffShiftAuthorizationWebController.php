@@ -32,6 +32,8 @@ class OffShiftAuthorizationWebController extends Controller
         $today = Carbon::now(tenant_timezone())->toDateString();
 
         $authorizations = OffShiftAuthorization::with(['user:id,first_name,last_name,employee_code,position', 'authorizer:id,first_name,last_name'])
+            // Supervisor: solo las de su equipo
+            ->when(! $request->user()->hasPermission('attendance.view_all'), fn ($q) => $q->whereHas('user', fn ($u) => $u->visibleTo($request->user())))
             ->when($request->query('period') !== 'past', fn ($q) => $q->whereDate('work_date', '>=', $today), fn ($q) => $q->whereDate('work_date', '<', $today))
             ->orderBy('work_date', $request->query('period') === 'past' ? 'desc' : 'asc')
             ->paginate(25)->withQueryString();
@@ -74,7 +76,7 @@ class OffShiftAuthorizationWebController extends Controller
         ]);
 
         $employee = User::findOrFail($data['user_id']);
-        abort_unless($request->user()->canManage($employee) || $request->user()->hasPermission('attendance.view_all'), 403);
+        abort_unless($this->canAuthorize($request->user(), $employee), 403);
 
         $status = $this->gate->statusFor($employee, $data['work_date']);
         if ($status['scheduled']) {
@@ -93,9 +95,20 @@ class OffShiftAuthorizationWebController extends Controller
             "Listo: {$employee->full_name} puede marcar el " . Carbon::parse($data['work_date'])->format('d/m/Y') . ' aunque no tenga turno.');
     }
 
-    public function destroy(int $id): RedirectResponse
+    /**
+     * QA Ronda 2 · regla 11: RR. HH., Gerencia y administración (ven toda la asistencia) autorizan a
+     * cualquiera; el supervisor, solo a su equipo y nunca a sí mismo.
+     */
+    private function canAuthorize(User $editor, User $employee): bool
+    {
+        return $editor->hasPermission('attendance.view_all')
+            || ((int) $editor->id !== (int) $employee->id && User::whereKey($employee->id)->visibleTo($editor)->exists());
+    }
+
+    public function destroy(Request $request, int $id): RedirectResponse
     {
         $authorization = OffShiftAuthorization::with('user')->findOrFail($id);
+        abort_unless($authorization->user && $this->canAuthorize($request->user(), $authorization->user), 403);
         $authorization->delete();
         $this->audit->log('attendance.offshift_revoked', $authorization->user, ['date' => $authorization->work_date->toDateString()]);
 

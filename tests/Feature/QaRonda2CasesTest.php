@@ -161,7 +161,32 @@ class QaRonda2CasesTest extends TestCase
         $cell = collect(app(AttendanceCalendarService::class)->paginate(new CalendarFilters($this->tunesa->id, '2026-10', viewer: $this->hr))->items())
             ->firstWhere('user_id', $juana->id)['cells']['2026-10-02'];
         $this->assertSame(['excused', 'V', 'Vacaciones'], [$cell['state'], $cell['letter'], $cell['label']]);
-        // Saldo de vacaciones: bloqueado por regla pendiente de RR. HH. (pregunta 9)
+        // Regla vigente 9: 30 días calendario por año de servicio; el saldo descuenta lo aprobado (ver test_cp04_balance…)
+    }
+
+    public function test_cp04_balance_discounts_approved_vacation_automatically(): void
+    {
+        $juana = $this->p['Juana'];
+        $juana->update(['hire_date' => '2024-03-01']); // al 31/10/2026: 2 años cumplidos → 60 días ganados
+        $balance = fn () => app(\App\Modules\HR\Services\VacationBalance::class)->for($juana->fresh(), CarbonImmutable::parse('2026-10-31'));
+
+        $leave = LeaveRequest::create(['tenant_id' => $this->tunesa->id, 'user_id' => $juana->id, 'type' => 'vacation',
+            'start_date' => '2026-10-01', 'end_date' => '2026-10-04', 'days' => 4, 'status' => 'pending']);
+        $this->assertSame(['years' => 2, 'earned' => 60, 'used' => 0, 'balance' => 60], $balance(), 'Pendiente: no descuenta');
+
+        $leave->update(['status' => 'approved']);
+        $this->assertSame(['years' => 2, 'earned' => 60, 'used' => 4, 'balance' => 56], $balance(), 'Aprobada: descuenta sola');
+
+        // En el reporte final, al cierre de octubre
+        $this->travelTo(Carbon::parse('2026-11-02 09:00', 'America/Lima'));
+        $this->assertSame(56, $this->report('2026-10-01', '2026-10-31')[$juana->id]['vacation_balance']['balance']);
+
+        // Días por año configurables por empresa; régimen distinto del general o sin ingreso: no se calcula
+        \App\Modules\Core\Models\TenantSetting::updateOrCreate(['tenant_id' => $this->tunesa->id], ['vacation_days_per_year' => 15]);
+        $this->assertSame(26, $balance()['balance']);
+        \App\Modules\HR\Models\EmployeeProfile::create(['tenant_id' => $this->tunesa->id, 'user_id' => $juana->id, 'labor_regime' => 'micro_company']);
+        $this->assertNull($balance());
+        $this->assertNull(app(\App\Modules\HR\Services\VacationBalance::class)->for($this->p['Fidel'], CarbonImmutable::parse('2026-10-31')), 'Sin fecha de ingreso');
     }
 
     public function test_cp05_open_day_is_incomplete_and_hr_corrects_it_with_audit(): void
@@ -185,6 +210,64 @@ class QaRonda2CasesTest extends TestCase
         $this->assertSame('2026-10-01 15:00', collect($log->meta['changes'])->firstWhere('field', 'clock_out_at')['new']);
         $after = $this->day($this->report('2026-10-01', '2026-10-01'), $yohana, '2026-10-01');
         $this->assertSame(['normal', '6:02'], [$after['day_status'], AttendanceReportService::hm($after['worked_minutes'])]);
+    }
+
+    public function test_rule7_early_exit_is_its_own_status_and_alerts_the_supervisor(): void
+    {
+        $supervisor = $this->makeUser($this->tunesa, 'supervisor');
+        $this->trujillo->update(['supervisor_id' => $supervisor->id]);
+        $juan = $this->p['Juan'];
+        $this->punch($juan, '2026-10-05 07:58', 'clock-in');
+        $this->punch($juan, '2026-10-05 14:30', 'clock-out'); // salida oficial 15:00
+
+        $alert = $supervisor->notifications()->where('type', 'attendance.early_exit')->sole();
+        $this->assertStringContainsString('30 min antes de su salida oficial (15:00)', $alert->data['body']);
+        $this->assertSame(0, $juan->notifications()->where('type', 'attendance.early_exit')->count(), 'Va al panel del supervisor');
+
+        $this->travelTo(Carbon::parse('2026-10-06 09:00', 'America/Lima'));
+        $day = $this->day($this->report('2026-10-05', '2026-10-05'), $juan, '2026-10-05');
+        $this->assertSame(['early_exit', 'Salida anticipada', 30], [$day['day_status'], $day['day_status_label'], $day['early_minutes']]);
+        $cell = collect(app(AttendanceCalendarService::class)->paginate(new CalendarFilters($this->tunesa->id, '2026-10', viewer: $this->hr))->items())
+            ->firstWhere('user_id', $juan->id)['cells']['2026-10-05'];
+        $this->assertSame(['SA', 'Salida anticipada'], [$cell['letter'], $cell['label']]);
+    }
+
+    public function test_rule10_overtime_only_after_the_official_exit(): void
+    {
+        $juan = $this->p['Juan'];
+        // Llega 07:30 y sale 16:00: 8:30 de permanencia − 60 min de break = 7:30 trabajadas.
+        // Antes: 7,5 h no pasan la jornada base de 8 h → 0 h extra. Regla 10: 1 h, la de 15:00 a 16:00.
+        $this->punch($juan, '2026-10-06 07:30', 'clock-in');
+        $this->punch($juan, '2026-10-06 16:00', 'clock-out');
+
+        $saved = Attendance::withoutGlobalScopes()->where('user_id', $juan->id)->sole();
+        $this->assertEquals([7.5, 1.0], [(float) $saved->worked_hours, (float) $saved->overtime_hours]);
+        $this->assertSame(Attendance::OVERTIME_PENDING, $saved->overtime_status, 'Regla 4: queda por aprobar');
+
+        $this->travelTo(Carbon::parse('2026-10-07 09:00', 'America/Lima'));
+        $day = $this->day($this->report('2026-10-06', '2026-10-06'), $juan, '2026-10-06');
+        $this->assertSame([450, 60], [$day['worked_minutes'], $day['overtime_day_minutes'] + $day['overtime_night_minutes']]);
+
+        // La corrección manual calcula igual (misma función)
+        $this->actingAs($this->hr)->put(route('attendance.manual.update', ['id' => $juan->id, 'date' => '2026-10-06']), [
+            'clock_in' => '07:30', 'clock_out' => '15:30', 'reason' => 'Ajuste de salida confirmado.',
+        ])->assertSessionHasNoErrors();
+        $this->assertEquals(0.5, (float) $saved->fresh()->overtime_hours);
+    }
+
+    public function test_rule8_working_a_holiday_is_holiday_worked_and_never_an_absence(): void
+    {
+        \App\Modules\HR\Models\Holiday::create(['tenant_id' => $this->tunesa->id, 'date' => '2026-10-08', 'name' => 'Combate de Angamos']);
+        $this->punch($this->p['Juan'], '2026-10-08 08:00', 'clock-in');
+        $this->punch($this->p['Juan'], '2026-10-08 15:00', 'clock-out');
+        $this->travelTo(Carbon::parse('2026-10-09 09:00', 'America/Lima'));
+
+        $report = $this->report('2026-10-08', '2026-10-08');
+        $this->assertSame(['holiday_worked', 'Feriado trabajado'], [$this->day($report, $this->p['Juan'], '2026-10-08')['day_status'], $this->day($report, $this->p['Juan'], '2026-10-08')['day_status_label']]);
+        $this->assertSame(['holiday', 0], [$this->day($report, $this->p['Fidel'], '2026-10-08')['day_status'], $report[$this->p['Fidel']->id]['summary']['absences_unjustified']]);
+        $cell = collect(app(AttendanceCalendarService::class)->paginate(new CalendarFilters($this->tunesa->id, '2026-10', viewer: $this->hr))->items())
+            ->firstWhere('user_id', $this->p['Juan']->id)['cells']['2026-10-08'];
+        $this->assertSame(['FT', 'Feriado trabajado'], [$cell['letter'], $cell['label']]);
     }
 
     public function test_cp08_october_close_final_totals_equal_the_sum_of_daily_rows(): void

@@ -32,6 +32,8 @@ class HoursReportExporter
         'HE diurnas', 'HE nocturnas', 'Horas nocturnas',
         'Faltas injustificadas', 'Faltas justificadas',
         'Descanso (días)', 'Feriados (días)', 'Vacaciones (días)', 'Permiso (días)', 'Descanso médico (días)',
+        // Regla vigente 9: acumulado desde el ingreso al cierre del periodo
+        'Vacaciones ganadas', 'Vacaciones usadas (total)', 'Saldo de vacaciones',
     ];
 
     /** Reporte por día y por colaborador (QA Ronda 2, 5.1 y 5.2): un día por fila con su estado */
@@ -136,6 +138,10 @@ class HoursReportExporter
             self::duration($s['overtime_day_minutes']), self::duration($s['overtime_night_minutes']), self::duration($s['night_minutes']),
             $s['absences_unjustified'], $s['absences_justified'],
             $s['rest_days'], $s['holiday_days'], $s['vacation_days'], $s['permission_days'], $s['medical_leave_days'],
+            // Sin fecha de ingreso o con régimen sin regla definida: no se calcula
+            ...($r['vacation_balance'] ?? null
+                ? [$r['vacation_balance']['earned'], $r['vacation_balance']['used'], $r['vacation_balance']['balance']]
+                : ['—', '—', '—']),
         ];
     }
 
