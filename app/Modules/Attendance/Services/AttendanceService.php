@@ -288,7 +288,9 @@ class AttendanceService
         [$assignment, $hasAssignments] = $this->getCurrentShift($employee, $today);
         $shift = $assignment?->shift?->forDate($today);
 
-        if ($hasAssignments && $this->isOutsideSchedule($assignment, $today, $at, $c['tenant']->timezone)) {
+        // schedule_v2 (HQ-02): sin horario ese día también es "fuera de programación", tenga o no asignaciones
+        $judge = $hasAssignments || $this->schedules->enabled((int) $employee->tenant_id);
+        if ($judge && $this->isOutsideSchedule($assignment, $today, $at, $c['tenant']->timezone)) {
             $reasons[] = AttendancePunch::REASON_OUTSIDE_SCHEDULE;
         }
 
