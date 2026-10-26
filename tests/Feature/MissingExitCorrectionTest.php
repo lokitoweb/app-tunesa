@@ -12,6 +12,7 @@ use App\Modules\Core\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
 
@@ -120,6 +121,33 @@ class MissingExitCorrectionTest extends TestCase
         $this->actingAs($manager)->get($this->url($this->emp))->assertForbidden()->assertSee(self::NO_PERMISSION);
         $this->fixExit($manager, $this->emp)->assertForbidden();
         $this->assertStillOpen($a);
+    }
+
+    public function test_migration_restores_the_missing_grants_and_rolls_back_only_what_it_added(): void
+    {
+        // Base desplegada solo con migraciones: Gerencia sin attendance.edit y sin el permiso de fuera de turno
+        $edit = Permission::where('slug', 'attendance.edit')->sole();
+        $managerRole = Role::whereNull('tenant_id')->where('slug', 'manager')->sole();
+        $managerRole->permissions()->detach($edit->id);
+        Permission::where('slug', 'attendance.authorize_offshift')->sole()->delete();
+        $before = DB::table('permission_role')->orderBy('role_id')->orderBy('permission_id')->get()->map(fn ($r) => (array) $r)->all();
+
+        $migration = require database_path('../app/Modules/Core/Database/Migrations/2026_11_01_000001_sync_attendance_correction_permissions.php');
+        $migration->up();
+
+        $manager = $this->makeUser($this->acme, 'manager');
+        $a = $this->openDay($this->emp);
+        $this->fixExit($manager, $this->emp)->assertSessionHasNoErrors();
+        $this->assertNotNull($a->fresh()->clock_out_at);
+        $this->assertTrue(User::find($this->hr->id)->can('attendance.authorize_offshift'));
+        $this->assertTrue(User::find($manager->id)->can('attendance.authorize_offshift'));
+        $this->assertFalse(User::find($this->supervisor->id)->can('attendance.authorize_offshift'));
+
+        // Rollback: quita solo lo que agregó; lo que ya existía (attendance.edit de RR. HH.) queda
+        $migration->down();
+        $this->assertSame($before, DB::table('permission_role')->orderBy('role_id')->orderBy('permission_id')->get()->map(fn ($r) => (array) $r)->all());
+        $this->assertSame(0, Permission::where('slug', 'attendance.authorize_offshift')->count());
+        $this->assertTrue(User::find($this->hr->id)->can('attendance.edit'));
     }
 
     public function test_block_2_nobody_corrects_their_own_day(): void
