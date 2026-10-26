@@ -4,6 +4,7 @@ use App\Modules\HR\Controllers\Web\ApprovalWebController;
 use App\Modules\HR\Controllers\Web\DocumentWebController;
 use App\Modules\HR\Controllers\Web\EmployeeController;
 use App\Modules\HR\Controllers\Web\HolidayWebController;
+use App\Modules\HR\Controllers\Web\ScheduleWebController;
 use App\Modules\HR\Controllers\Web\ShiftWebController;
 use App\Modules\HR\Controllers\Web\UniformWebController;
 use Illuminate\Support\Facades\Route;
@@ -56,6 +57,13 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::delete('/{id}', [ShiftWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
         Route::post('/assign', [ShiftWebController::class, 'assign'])->name('assign')->middleware('can:shifts.assign');
         Route::delete('/assignments/{id}', [ShiftWebController::class, 'unassign'])->name('unassign')->middleware('can:shifts.assign')->whereNumber('id');
+
+        // Programación por calendario (QA Ronda 2, HQ-05): agencia → horario → días
+        Route::middleware('can:shifts.assign')->group(function () {
+            Route::get('/schedule', [ScheduleWebController::class, 'index'])->name('schedule');
+            Route::post('/schedule', [ScheduleWebController::class, 'save'])->name('schedule.save');
+            Route::post('/schedule/repeat', [ScheduleWebController::class, 'repeat'])->name('schedule.repeat');
+        });
     });
 
     // Feriados: el control de faltas no registra ausencias en estas fechas

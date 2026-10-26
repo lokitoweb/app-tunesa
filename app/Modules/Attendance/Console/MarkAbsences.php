@@ -73,13 +73,20 @@ class MarkAbsences extends Command
         }
 
         $schedules = app(ScheduleResolver::class);
-        $assignments = EmployeeShift::current($day)
+        $tenantId = app(TenantContext::class)->id();
+        $byUser = EmployeeShift::current($day)
             ->with(['shift', 'user:id,status,hire_date,termination_date'])
             ->whereHas('user', fn ($q) => $q->where('status', 'active'))
             ->get()
-            ->groupBy('user_id')
-            ->map(fn ($mine) => $schedules->resolve($mine, $date, ScheduleResolver::LEGACY_FIRST_WORKING))
-            ->filter(fn (DaySchedule $d) => $d->works)
+            ->groupBy('user_id');
+        // schedule_v2: también quien solo tiene el día programado en el calendario
+        foreach ($schedules->programmedUserIds($tenantId, $day) as $userId) {
+            $byUser[$userId] ??= collect();
+        }
+        $schedules->preload($tenantId, $byUser->keys()->all(), $day, $day);
+        $assignments = $byUser
+            ->map(fn ($mine, $userId) => $schedules->resolve($mine, $date, ScheduleResolver::LEGACY_FIRST_WORKING, userId: (int) $userId, tenantId: $tenantId))
+            ->filter(fn (DaySchedule $d) => $d->works && $d->assignment->user?->status === 'active')
             ->map(fn (DaySchedule $d) => $d->assignment)
             ->values();
 

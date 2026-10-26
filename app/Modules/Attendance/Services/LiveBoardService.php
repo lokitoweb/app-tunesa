@@ -119,6 +119,9 @@ class LiveBoardService
         $rows = [];
         $models = [];
         $schedules = app(ScheduleResolver::class);
+        foreach ($users->groupBy('tenant_id') as $tenantId => $group) {
+            $schedules->preload((int) $tenantId, $group->pluck('id')->all(), min($todays), max($todays));
+        }
 
         foreach ($users as $user) {
             $c = $clock->get($user->tenant_id);
@@ -130,7 +133,8 @@ class LiveBoardService
             $current = $records->first(fn (Attendance $a) => $a->work_date->toDateString() === $c['today'] && $a->clock_in_at)
                 ?? $records->first(fn (Attendance $a) => $a->work_date->toDateString() === $c['yesterday'] && $a->clock_in_at && ! $a->clock_out_at);
 
-            $resolved = $schedules->resolve($assignments->get($user->id, collect()), Carbon::parse($c['today']), ScheduleResolver::LEGACY_LATEST);
+            $resolved = $schedules->resolve($assignments->get($user->id, collect()), Carbon::parse($c['today']), ScheduleResolver::LEGACY_LATEST,
+                userId: $user->id, tenantId: $user->tenant_id);
             $assignment = $resolved->reference;
             $shift = ($current?->shift ?? $assignment?->shift)?->forDate($current?->work_date ?? $c['today']);
 

@@ -162,9 +162,11 @@ class ShiftController extends Controller
             ->get();
 
         $days = [];
+        $me = $request->user();
         $schedules = app(ScheduleResolver::class);
+        $schedules->preload($me->tenant_id, [$me->id], $from->toDateString(), $to->toDateString());
         foreach (CarbonPeriod::create($from, $to) as $day) {
-            $resolved = $schedules->resolve($assignments, $day, ScheduleResolver::LEGACY_FIRST_WORKING);
+            $resolved = $schedules->resolve($assignments, $day, ScheduleResolver::LEGACY_FIRST_WORKING, userId: $me->id, tenantId: $me->tenant_id);
             $assignment = $resolved->works ? $resolved->assignment : null;
 
             $days[] = [

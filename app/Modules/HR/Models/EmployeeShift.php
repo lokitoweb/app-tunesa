@@ -28,6 +28,9 @@ class EmployeeShift extends Model
     /** Columnas DATE guardadas como Y-m-d (ver HasDateOnlyColumns) */
     protected array $dateOnly = ['effective_from', 'effective_until', 'rotation_anchor_date'];
 
+    /** Fecha única cuando la asignación sale de una fila del calendario (EmployeeScheduleDay::asAssignment) */
+    public ?string $scheduledDate = null;
+
     protected $fillable = [
         'tenant_id',
         'user_id',
@@ -82,6 +85,10 @@ class EmployeeShift extends Model
      */
     public function worksOn(CarbonInterface $date): bool
     {
+        if ($this->scheduledDate !== null) {
+            return $date->toDateString() === $this->scheduledDate;
+        }
+
         return $this->shift?->appliesOnDate($date, $this->rotation_anchor_date ?? $this->effective_from) ?? false;
     }
 

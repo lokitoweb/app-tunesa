@@ -230,6 +230,10 @@ class AttendanceCalendarService
             });
 
         $today = $this->todayByTenant($tenantIds);
+        // Horario por fecha (schedule_v2): una consulta por empresa, no por celda
+        foreach ($users->groupBy('tenant_id') as $tenantId => $group) {
+            $this->schedules->preload((int) $tenantId, $group->pluck('id')->all(), $from, $to);
+        }
 
         $secureUrls = app(SecureFileUrl::class);
         $userSelfies = Attendance::withoutGlobalScopes()
@@ -324,7 +328,8 @@ class AttendanceCalendarService
         }
 
         $leave = $leaves->first(fn (LeaveRequest $l) => $l->start_date->toDateString() <= $day && $l->end_date->toDateString() >= $day);
-        $resolved = ($this->schedules ??= app(ScheduleResolver::class))->resolve($assignments, $day, ScheduleResolver::LEGACY_LATEST);
+        $resolved = ($this->schedules ??= app(ScheduleResolver::class))->resolve($assignments, $day, ScheduleResolver::LEGACY_LATEST,
+            userId: $user->id, tenantId: $user->tenant_id);
         $assignment = $resolved->reference;
         $dayShift = $assignment?->shift?->forDate($day);
         $shift = $assignment?->shift ? [
@@ -391,7 +396,7 @@ class AttendanceCalendarService
             return $this->make('rest', $shift + ['note' => $holidays[$day]]);
         }
 
-        if (! $assignment) {
+        if (! $resolved->hasAssignments) {
             return null;
         }
 

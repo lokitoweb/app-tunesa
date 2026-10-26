@@ -929,7 +929,8 @@ class AttendanceService
             ->with('shift')
             ->get();
 
-        $day = $this->schedules->resolve($assignments, Carbon::parse($date), ScheduleResolver::LEGACY_FIRST_WORKING);
+        $day = $this->schedules->resolve($assignments, Carbon::parse($date), ScheduleResolver::LEGACY_FIRST_WORKING,
+            userId: $employee->id, tenantId: $employee->tenant_id);
 
         return [$day->assignment, $day->hasAssignments, $day->reference];
     }

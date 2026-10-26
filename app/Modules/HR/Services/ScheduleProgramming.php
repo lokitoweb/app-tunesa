@@ -1,0 +1,173 @@
+<?php
+
+namespace App\Modules\HR\Services;
+
+use App\Modules\Attendance\Services\ScheduleResolver;
+use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\User;
+use App\Modules\Core\Services\AuditLogger;
+use App\Modules\HR\Models\EmployeeScheduleDay;
+use App\Modules\HR\Models\EmployeeShift;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonPeriod;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Programación por calendario (QA Ronda 2, HQ-05): agencia → horario → días.
+ *
+ * Guardar un rango explícito (periodo + agencia + colaboradores) graba TODOS los días
+ * del rango: los días con horario y los días en blanco como día libre (shift_id NULL).
+ * Fuera del rango no se toca nada. Cada guardado deja una entrada en la bitácora con
+ * quién, cuándo, el motivo y el antes/después de cada día que cambió.
+ */
+class ScheduleProgramming
+{
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly ScheduleResolver $resolver,
+    ) {}
+
+    /** Colaboradores activos que marcan y están asignados a la agencia, dentro del alcance de quien mira */
+    public function people(Branch $branch, User $viewer, string $from, string $to): Collection
+    {
+        return User::where('status', 'active')
+            ->whereIn('role', User::CLOCKING_ROLES)
+            ->whereHas('branches', fn ($q) => $q->where('branches.id', $branch->id)
+                ->where(fn ($w) => $w->whereNull('employee_branch.assigned_from')->orWhere('employee_branch.assigned_from', '<=', $to))
+                ->where(fn ($w) => $w->whereNull('employee_branch.assigned_until')->orWhere('employee_branch.assigned_until', '>=', $from)))
+            ->visibleTo($viewer)
+            ->orderBy('last_name')->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name', 'employee_code', 'position', 'tenant_id']);
+    }
+
+    /**
+     * Programación de cada persona en el rango: fila del día si existe (programado), si no
+     * la asignación semanal o rotativa que trabaja ese día (heredado), si no nada.
+     *
+     * @return array<int, array<string, array{shift_id: ?int, source: string}>>  user_id => fecha => celda
+     */
+    public function grid(Collection $people, string $from, string $to): array
+    {
+        $ids = $people->pluck('id')->all();
+        $days = EmployeeScheduleDay::whereIn('user_id', $ids)->whereBetween('work_date', [$from, $to])->get()
+            ->groupBy('user_id');
+        $assignments = EmployeeShift::whereIn('user_id', $ids)->where('is_active', true)
+            ->where('effective_from', '<=', $to)
+            ->where(fn ($q) => $q->whereNull('effective_until')->orWhere('effective_until', '>=', $from))
+            ->with('shift')->get()->groupBy('user_id');
+
+        $grid = [];
+        foreach ($people as $person) {
+            $mine = $days->get($person->id, collect())->keyBy(fn (EmployeeScheduleDay $d) => $d->work_date->toDateString());
+            foreach (CarbonPeriod::create($from, $to) as $date) {
+                $day = $date->toDateString();
+                if ($row = $mine->get($day)) {
+                    $grid[$person->id][$day] = ['shift_id' => $row->shift_id, 'source' => 'programmed'];
+
+                    continue;
+                }
+                $working = $this->resolver->working($assignments->get($person->id, collect()), CarbonImmutable::parse($day));
+                $grid[$person->id][$day] = ['shift_id' => $working?->shift_id, 'source' => $working ? 'assignment' : 'none'];
+            }
+        }
+
+        return $grid;
+    }
+
+    /**
+     * Graba el rango completo: lo que no venga con horario queda como día libre.
+     *
+     * @param  array<int, array<string, ?int>>  $values  user_id => fecha => shift_id (null = libre)
+     * @return array{created: int, updated: int, unchanged: int}
+     */
+    public function saveRange(User $editor, Branch $branch, array $userIds, string $from, string $to, array $values, string $reason): array
+    {
+        $full = [];
+        foreach ($userIds as $userId) {
+            foreach (CarbonPeriod::create($from, $to) as $date) {
+                $full[$userId][$date->toDateString()] = $values[$userId][$date->toDateString()] ?? null;
+            }
+        }
+
+        return $this->write($editor, $branch, $full, $reason, ['from' => $from, 'to' => $to]);
+    }
+
+    /**
+     * Repite el patrón de [sourceFrom, sourceTo] día a día desde el día siguiente hasta $until
+     * ("copiar semana" = una semana de origen hasta el fin de la semana destino).
+     */
+    public function repeat(User $editor, Branch $branch, Collection $people, string $sourceFrom, string $sourceTo, string $targetFrom, string $until, string $reason): array
+    {
+        $grid = $this->grid($people, $sourceFrom, $sourceTo);
+        $length = (int) CarbonImmutable::parse($sourceFrom)->diffInDays(CarbonImmutable::parse($sourceTo)) + 1;
+
+        $values = [];
+        foreach ($people as $person) {
+            $pattern = array_values(array_map(fn ($cell) => $cell['shift_id'], $grid[$person->id] ?? []));
+            foreach (CarbonPeriod::create($targetFrom, $until) as $i => $date) {
+                $values[$person->id][$date->toDateString()] = $pattern[$i % $length] ?? null;
+            }
+        }
+
+        return $this->write($editor, $branch, $values, $reason, ['source_from' => $sourceFrom, 'source_to' => $sourceTo, 'from' => $targetFrom, 'to' => $until]);
+    }
+
+    private static function id(mixed $value): ?int
+    {
+        return $value === null ? null : (int) $value;
+    }
+
+    /** @param  array<int, array<string, ?int>>  $values */
+    private function write(User $editor, Branch $branch, array $values, string $reason, array $range): array
+    {
+        $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0];
+        $changes = [];
+        $dates = collect($values)->flatMap(fn ($days) => array_keys($days));
+        if ($dates->isEmpty()) {
+            return $counts;
+        }
+
+        DB::transaction(function () use ($editor, $branch, $values, $reason, $dates, &$counts, &$changes) {
+            $existing = EmployeeScheduleDay::whereIn('user_id', array_keys($values))
+                ->whereBetween('work_date', [$dates->min(), $dates->max()])
+                ->lockForUpdate()->get()
+                ->keyBy(fn (EmployeeScheduleDay $d) => $d->user_id . '|' . $d->work_date->toDateString());
+
+            foreach ($values as $userId => $days) {
+                foreach ($days as $date => $shiftId) {
+                    $shiftId = $shiftId ? (int) $shiftId : null;
+                    $branchId = $shiftId ? $branch->id : null;
+                    $row = $existing->get("{$userId}|{$date}");
+
+                    if ($row && self::id($row->shift_id) === $shiftId && self::id($row->branch_id) === $branchId) {
+                        $counts['unchanged']++;
+
+                        continue;
+                    }
+
+                    $changes[] = ['user_id' => $userId, 'date' => $date, 'old' => $row ? ($row->shift_id ?? 'libre') : null, 'new' => $shiftId ?? 'libre'];
+                    if ($row) {
+                        $row->update(['shift_id' => $shiftId, 'branch_id' => $branchId, 'updated_by' => $editor->id, 'notes' => mb_substr($reason, 0, 300)]);
+                        $counts['updated']++;
+                    } else {
+                        EmployeeScheduleDay::create([
+                            'tenant_id' => $branch->tenant_id, 'user_id' => $userId, 'work_date' => $date, 'shift_id' => $shiftId,
+                            'branch_id' => $branchId, 'source' => 'calendar', 'notes' => mb_substr($reason, 0, 300),
+                            'created_by' => $editor->id, 'updated_by' => $editor->id,
+                        ]);
+                        $counts['created']++;
+                    }
+                }
+            }
+        });
+
+        if ($changes) {
+            $this->audit->log('schedule.programmed', $branch, $range + [
+                'reason' => mb_substr($reason, 0, 500), 'changed_days' => count($changes), 'changes' => $changes,
+            ]);
+        }
+
+        return $counts;
+    }
+}
