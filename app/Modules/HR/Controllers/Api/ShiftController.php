@@ -85,10 +85,10 @@ class ShiftController extends Controller
     {
         $shift = Shift::findOrFail($id);
 
-        if ($shift->employeeShifts()->current()->exists()) {
+        if ($shift->inUse()) {
             return response()->json([
                 'success' => false,
-                'message' => 'El turno tiene colaboradores asignados. Reasígnalos antes de eliminarlo.',
+                'message' => 'El turno tiene colaboradores asignados o días programados. Reasígnalos antes de eliminarlo.',
                 'code'    => 'SHIFT_IN_USE',
             ], 409);
         }

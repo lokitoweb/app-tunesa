@@ -131,8 +131,8 @@ class ShiftWebController extends Controller
     {
         $shift = Shift::findOrFail($id);
 
-        if ($shift->employeeShifts()->current()->exists()) {
-            return back()->with('error', 'El turno tiene colaboradores asignados. Reasígnalos antes de eliminarlo.');
+        if ($shift->inUse()) {
+            return back()->with('error', 'El turno tiene colaboradores asignados o días programados. Reasígnalos antes de eliminarlo.');
         }
 
         $shift->delete();

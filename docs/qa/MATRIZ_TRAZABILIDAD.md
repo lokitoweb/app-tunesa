@@ -117,3 +117,14 @@ Consumidores de horas decimales hoy (decisión 6), según el código:
 - `HoursReportExporter`, usado por el reporte web de horas (Excel y PDF) y por `reports:send-monthly` (Excel mensual por correo).
 - `PayrollExportService` ("Cruce con planilla", web y `GET /api/admin/payroll/export`): `worked_hours`, `overtime_hours`, `payable_hours`.
 - `AttendanceResource` y `AttendanceController` (API de la app): `worked_hours`; la app móvil lo lee en `mobile/lib/features/attendance/domain/models.dart`.
+
+## 9. Auditoría final (25/10/2026)
+
+| Frente | Verificación | Resultado | Corrección |
+|---|---|---|---|
+| Trazabilidad | Word releído (texto e imágenes) contra backend, web y app | 9/9 hallazgos cubiertos | App móvil: el historial usaba textos propios ("Falta", "Sin salida", "Completo", "Puntual"); ahora usa los estados unificados (`history_screen.dart`). |
+| Seguridad | Permisos, aislamiento por empresa, validación, topes, inyección, auditoría | Sin fugas; super admin sin empresa → 409; turno de otra empresa → 422 | Programación atada a la empresa de la agencia (turnos, feriados, validación); topes de 500 colaboradores y 40 000 días por repetición (`ScheduleProgrammingTest::test_security…`). |
+| Integridad | Borrar un turno con días programados | Antes se permitía | `Shift::inUse()` bloquea en web y API (`test_a_shift_programmed…`). |
+| No-regresión | Suite backend, MySQL 8, app móvil, git sobre módulos sensibles | Backend en verde; 83 pruebas QA en MySQL; `flutter analyze` limpio y 238 pruebas; cumpleaños, boletas, Firebase, geocerca y selfies sin cambios | — |
+| Estrés | 160 entradas concurrentes (40 duplicadas) + 120 salidas + 240 trabajos de cola, en MySQL 8 | 120 × 201, 40 × 409, 120 × 200, 0 errores 500, 0 duplicados, 0 deadlocks, 0 trabajos fallidos | Cola de geocodificación opcional (`GEOCODING_QUEUE`) para que la hora pico no retrase los push (`GeocodingQueueTest`). |
+| BD | DDL real en MySQL 8 de `employee_schedule_days` | Única (empresa, colaborador, fecha), índices y llaves foráneas correctas | — |

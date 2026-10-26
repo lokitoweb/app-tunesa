@@ -287,6 +287,19 @@ WantedBy=multi-user.target
 sudo systemctl enable --now tunesa-queue
 ```
 
+**Hora pico de marcaciones (recomendado):** cada marcación encola una geocodificación de la
+dirección, y Nominatim admite 1 petición por segundo. Con 300 entradas a las 08:00 son ~5 min de
+cola, y los avisos push esperarían detrás. Para que los push vayan primero, separa la geocodificación
+en su propia cola de baja prioridad:
+
+1. En el `.env`: `GEOCODING_QUEUE=geocoding`, y luego `php artisan config:cache`.
+2. En el servicio: `ExecStart=/usr/bin/php artisan queue:work --queue=default,geocoding --sleep=3 --tries=3 --max-time=3600`,
+   y luego `sudo systemctl daemon-reload && sudo systemctl restart tunesa-queue`.
+
+Haz los dos pasos juntos: con `GEOCODING_QUEUE` y un worker que solo escucha `default`, las direcciones
+no se llenarían (la marcación igual queda registrada). El worker que corre desde el scheduler ya
+incluye la cola nueva por sí solo. Sin `GEOCODING_QUEUE`, todo sigue en una sola cola, como hasta hoy.
+
 y pon `QUEUE_WORK_FROM_SCHEDULER=false` en el `.env` (luego `php artisan config:cache`). El deploy
 reinicia los workers solo (`queue:restart`).
 
