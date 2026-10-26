@@ -4,6 +4,7 @@ namespace App\Modules\Attendance\Services;
 
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Services\TenantContext;
+use App\Modules\HR\Models\EmployeeScheduleDay;
 use App\Modules\HR\Models\EmployeeShift;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -13,8 +14,10 @@ use Illuminate\Support\Collection;
  * Fuente única de "qué turno le toca a una persona en una fecha" (QA Ronda 2, HQ-01).
  *
  * Con la bandera de empresa schedule_v2 encendida (tenants.settings.flags.schedule_v2):
- *   1. Asignación vigente que sí trabaja ese día; empate: vigencia más reciente, luego id.
- *   2. Si ninguna trabaja: día libre, sin respaldo (para calcular no hay turno; la
+ *   1. Fila del día en employee_schedule_days (calendario de programación): turno, o
+ *      día libre si shift_id es NULL.
+ *   2. Asignación vigente que sí trabaja ese día; empate: vigencia más reciente, luego id.
+ *   3. Si ninguna trabaja: día libre, sin respaldo (para calcular no hay turno; la
  *      referencia de sede sigue siendo la vigente más reciente).
  *
  * Con la bandera apagada (valor por defecto) reproduce exactamente lo que hacían las
@@ -39,18 +42,27 @@ class ScheduleResolver
     /** @var array<int, bool> */
     private array $enabled = [];
 
+    /** @var array<string, EmployeeScheduleDay> filas por fecha leídas ("user|fecha") */
+    private array $rows = [];
+
+    /** @var array<int, array<int, array{0: string, 1: string}>> rangos ya leídos por persona */
+    private array $loaded = [];
+
     /**
      * @param  Collection<int, EmployeeShift>  $assignments  de UNA persona: las vigentes en la fecha o un rango que las incluya
      * @param  null|callable(EmployeeShift): bool  $eligible  condición extra del llamador (p. ej. ventana del recordatorio):
      *                                                       legacy la aplica antes de elegir, como antes; v2 después de elegir
      */
-    public function resolve(Collection $assignments, CarbonInterface|string $date, string $legacy, ?callable $eligible = null): DaySchedule
+    public function resolve(Collection $assignments, CarbonInterface|string $date, string $legacy, ?callable $eligible = null, ?int $userId = null, ?int $tenantId = null): DaySchedule
     {
         $day = $date instanceof CarbonInterface ? $date : CarbonImmutable::parse($date);
-        $tenantId = $assignments->first()?->tenant_id;
+        $tenantId ??= $assignments->first()?->tenant_id;
+        $userId ??= $assignments->first()?->user_id;
 
         if ($tenantId && $this->enabled((int) $tenantId)) {
-            return $this->v2($assignments, $day, $eligible);
+            $row = $userId ? $this->dayRow((int) $tenantId, (int) $userId, $day->toDateString()) : null;
+
+            return $row ? $this->fromRow($row, $assignments, $day, $eligible) : $this->v2($assignments, $day, $eligible);
         }
 
         if ($legacy === self::LEGACY_LATEST) {
@@ -91,16 +103,79 @@ class ScheduleResolver
         $this->enabled[$tenant->id] = (bool) $tenant->setting('flags.' . self::FLAG, false);
     }
 
+    /**
+     * Lee de una vez las filas por fecha de varias personas (calendario, reportes, procesos por lote).
+     * Solo consulta si la empresa usa schedule_v2.
+     */
+    public function preload(int $tenantId, array $userIds, string $from, string $to): void
+    {
+        if (! $userIds || ! $this->enabled($tenantId)) {
+            return;
+        }
+        $rows = EmployeeScheduleDay::withoutGlobalScopes()->where('tenant_id', $tenantId)
+            ->whereIn('user_id', $userIds)->whereBetween('work_date', [$from, $to])->with('shift')->get();
+        foreach ($userIds as $userId) {
+            $this->loaded[$userId][] = [$from, $to];
+        }
+        foreach ($rows as $row) {
+            $this->rows[$row->user_id . '|' . $row->work_date->toDateString()] = $row;
+        }
+    }
+
+    /** Personas con un horario programado ese día (para procesos que recorren asignaciones) */
+    public function programmedUserIds(int $tenantId, string $date): array
+    {
+        if (! $this->enabled($tenantId)) {
+            return [];
+        }
+
+        return EmployeeScheduleDay::withoutGlobalScopes()->where('tenant_id', $tenantId)
+            ->where('work_date', $date)->whereNotNull('shift_id')->pluck('user_id')->all();
+    }
+
+    /** Asignación semanal o rotativa vigente que trabaja ese día; empate: vigencia más reciente, luego id */
+    public function working(Collection $assignments, CarbonInterface $day): ?EmployeeShift
+    {
+        return self::current($assignments, $day)->first(fn (EmployeeShift $a) => $a->worksOn($day));
+    }
+
     private function v2(Collection $assignments, CarbonInterface $day, ?callable $eligible): DaySchedule
     {
-        $current = $assignments
-            ->filter(fn (EmployeeShift $a) => $a->is_active && self::inRange($a, $day))
-            ->sort(fn (EmployeeShift $a, EmployeeShift $b) => [$b->effective_from->toDateString(), $b->id] <=> [$a->effective_from->toDateString(), $a->id]);
-
+        $current = self::current($assignments, $day);
         $working = $current->first(fn (EmployeeShift $a) => $a->worksOn($day));
         $assignment = $working && (! $eligible || $eligible($working)) ? $working : null;
 
         return new DaySchedule($assignment, $working ?? $current->first(), $assignment !== null, $current->isNotEmpty());
+    }
+
+    /** La fila del día manda: con turno, ese turno en esa agencia; sin turno, día libre */
+    private function fromRow(EmployeeScheduleDay $row, Collection $assignments, CarbonInterface $day, ?callable $eligible): DaySchedule
+    {
+        if (! $row->shift_id) {
+            return new DaySchedule(null, self::current($assignments, $day)->first(), false, true);
+        }
+        $programmed = $row->asAssignment();
+        $assignment = ! $eligible || $eligible($programmed) ? $programmed : null;
+
+        return new DaySchedule($assignment, $programmed, $assignment !== null, true);
+    }
+
+    private function dayRow(int $tenantId, int $userId, string $date): ?EmployeeScheduleDay
+    {
+        $covered = collect($this->loaded[$userId] ?? [])->contains(fn ($r) => $r[0] <= $date && $r[1] >= $date);
+        if (! $covered) {
+            $month = CarbonImmutable::parse($date);
+            $this->preload($tenantId, [$userId], $month->startOfMonth()->toDateString(), $month->endOfMonth()->toDateString());
+        }
+
+        return $this->rows["{$userId}|{$date}"] ?? null;
+    }
+
+    private static function current(Collection $assignments, CarbonInterface $day): Collection
+    {
+        return $assignments
+            ->filter(fn (EmployeeShift $a) => $a->is_active && self::inRange($a, $day))
+            ->sort(fn (EmployeeShift $a, EmployeeShift $b) => [$b->effective_from->toDateString(), $b->id] <=> [$a->effective_from->toDateString(), $a->id]);
     }
 
     private static function inRange(EmployeeShift $a, CarbonInterface $day): bool

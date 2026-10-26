@@ -9,6 +9,7 @@ use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\TenantContext;
 use App\Modules\HR\Models\Shift;
 use App\Modules\Core\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -154,6 +155,12 @@ class ShiftWebController extends Controller
             'replace_current'      => ['nullable', 'boolean'],
         ]);
 
+        // QA Ronda 2: sin reemplazar la vigente, no se crea una asignación que trabaje un día que otra ya cubre
+        if (! $request->boolean('replace_current', true) && $clash = $this->overlaps($validated)) {
+            return back()->withInput()->withErrors(['user_ids' => 'Ya tienen un turno vigente que trabaja alguno de esos días: '
+                . implode(', ', $clash) . '. Reemplaza la asignación vigente o programa esos días en el calendario.']);
+        }
+
         foreach ($validated['user_ids'] as $userId) {
             if ($request->boolean('replace_current', true)) {
                 // Cierra la asignación vigente el día anterior al nuevo turno
@@ -177,6 +184,38 @@ class ShiftWebController extends Controller
         }
 
         return back()->with('success', 'Turno asignado a ' . count($validated['user_ids']) . ' colaborador(es).');
+    }
+
+    /**
+     * Nombres de quienes ya tienen una asignación vigente que trabaja algún día en común con la nueva.
+     * Las existentes no se tocan. ponytail: revisa hasta 62 días del cruce de vigencias (cubre semanas y ciclos rotativos usuales).
+     */
+    private function overlaps(array $v): array
+    {
+        $from = Carbon::parse($v['effective_from']);
+        $until = isset($v['effective_until']) ? Carbon::parse($v['effective_until']) : null;
+        $new = new EmployeeShift(['shift_id' => $v['shift_id'], 'effective_from' => $from, 'rotation_anchor_date' => $v['rotation_anchor_date'] ?? $from]);
+        $new->setRelation('shift', Shift::find($v['shift_id']));
+
+        $names = [];
+        $existing = EmployeeShift::whereIn('user_id', $v['user_ids'])->where('is_active', true)
+            ->where(fn ($q) => $q->whereNull('effective_until')->orWhere('effective_until', '>=', $from->toDateString()))
+            ->when($until, fn ($q) => $q->where('effective_from', '<=', $until->toDateString()))
+            ->with(['shift', 'user:id,first_name,last_name'])->get();
+
+        foreach ($existing as $a) {
+            $start = $from->max($a->effective_from);
+            $end = collect([$until, $a->effective_until, $start->copy()->addDays(61)])->filter()->min();
+            for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
+                if ($a->worksOn($d) && $new->worksOn($d)) {
+                    $names[$a->user_id] = $a->user?->full_name;
+
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_filter($names));
     }
 
     public function unassign(int $id): RedirectResponse

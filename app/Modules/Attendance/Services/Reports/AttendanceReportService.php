@@ -190,6 +190,11 @@ class AttendanceReportService
             ->groupBy('user_id');
 
         $branchNames = $this->primaryBranches($ids);
+        // Horario por fecha (schedule_v2): una consulta por empresa, no por día
+        $this->schedules ??= app(ScheduleResolver::class);
+        foreach ($users->groupBy('tenant_id') as $tenantId => $group) {
+            $this->schedules->preload((int) $tenantId, $group->pluck('id')->all(), $f->from, $f->to);
+        }
 
         return $users->map(fn (User $user) => $this->forUser(
             $user,
@@ -225,7 +230,8 @@ class AttendanceReportService
             $isHoliday = isset($holidays[$day]);
             $employed = (! $user->hire_date || $user->hire_date->toDateString() <= $day)
                 && (! $user->termination_date || $user->termination_date->toDateString() >= $day);
-            $resolved   = ($this->schedules ??= app(ScheduleResolver::class))->resolve($assignments, $date, ScheduleResolver::LEGACY_LATEST);
+            $resolved   = ($this->schedules ??= app(ScheduleResolver::class))->resolve($assignments, $date, ScheduleResolver::LEGACY_LATEST,
+                userId: $user->id, tenantId: $tenantId);
             $assignment = $resolved->reference;
             $scheduled  = $employed && ! $isHoliday && $resolved->works;
             $leave      = $leaves->first(fn (LeaveRequest $l) => $l->start_date->toDateString() <= $day && $l->end_date->toDateString() >= $day);

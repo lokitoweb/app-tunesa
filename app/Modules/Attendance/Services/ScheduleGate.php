@@ -35,7 +35,8 @@ class ScheduleGate
             ->with('shift')
             ->get();
         $day = Carbon::parse($date);
-        $resolved = app(ScheduleResolver::class)->resolve($assignments, $day, ScheduleResolver::LEGACY_FIRST_WORKING);
+        $resolved = app(ScheduleResolver::class)->resolve($assignments, $day, ScheduleResolver::LEGACY_FIRST_WORKING,
+            userId: $user->id, tenantId: $user->tenant_id);
         $working = $resolved->works ? $resolved->assignment : null;
 
         $scheduled = $resolved->works;

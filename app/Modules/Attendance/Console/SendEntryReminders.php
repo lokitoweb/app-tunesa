@@ -90,14 +90,22 @@ class SendEntryReminders extends Command
         $date = Carbon::parse($day, $now->getTimezone());
         $schedules = app(ScheduleResolver::class);
 
-        $due = EmployeeShift::current($day)
+        $tenantId = app(TenantContext::class)->id();
+        $byUser = EmployeeShift::current($day)
             ->with(['shift', 'user'])
             ->whereHas('user', fn ($q) => $q->where('status', 'active')->whereNotNull('fcm_token'))
             ->get()
             // Horario propio de ese día de la semana (sábado corto, etc.)
             ->each(fn (EmployeeShift $a) => $a->setRelation('shift', $a->shift?->forDate($date)))
-            ->groupBy('user_id')
-            ->map(fn ($mine) => $schedules->resolve($mine, $date, ScheduleResolver::LEGACY_FIRST_WORKING, function (EmployeeShift $a) use ($now, $day) {
+            ->groupBy('user_id');
+        // schedule_v2: también quien solo tiene el día programado en el calendario
+        foreach ($schedules->programmedUserIds($tenantId, $day) as $userId) {
+            $byUser[$userId] ??= collect();
+        }
+        $schedules->preload($tenantId, $byUser->keys()->all(), $day, $day);
+
+        $due = $byUser
+            ->map(fn ($mine, $userId) => $schedules->resolve($mine, $date, ScheduleResolver::LEGACY_FIRST_WORKING, function (EmployeeShift $a) use ($now, $day) {
                 if (! $a->shift?->start_time) {
                     return false;
                 }
@@ -105,8 +113,8 @@ class SendEntryReminders extends Command
                 $until = $start->copy()->addMinutes((int) $a->shift->grace_period_minutes + self::WINDOW_MINUTES);
 
                 return $now->gte($start->copy()->subMinutes(self::LEAD_MINUTES)) && $now->lt($until);
-            }))
-            ->filter(fn (DaySchedule $d) => $d->works)
+            }, userId: (int) $userId, tenantId: $tenantId))
+            ->filter(fn (DaySchedule $d) => $d->works && $d->assignment->user?->status === 'active' && $d->assignment->user?->fcm_token)
             ->map(fn (DaySchedule $d) => $d->assignment)
             ->values();
 
