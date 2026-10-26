@@ -11,9 +11,12 @@
 #   PHP_BIN=php                 binario de PHP (ej. /usr/bin/php8.3)
 #   PHP_FPM_SERVICE=php8.3-fpm  servicio a recargar al final para limpiar OPcache (necesita sudo sin contraseña)
 #   SKIP_NPM=1                  no compilar el panel (si public/build llega por otro medio)
+#   DEPLOY_BACKUP_DIR=~/backups/deploy  respaldos de la base antes de migrar (carpeta 700, archivos 600)
+#   DEPLOY_BACKUP_KEEP=15       cuántos respaldos se conservan
 #
-# Pasos: git → composer (sin dev) → npm ci + npm run build (solo si cambió el frontend) → modo mantenimiento →
-# migrate --force → storage:link → config/route/view/event:cache → queue:restart → fuera de mantenimiento.
+# Pasos: git → composer (sin dev) → npm ci + npm run build (solo si cambió el frontend) → respaldo de la base
+# (solo con migraciones pendientes; si falla, no despliega) → modo mantenimiento → migrate --force → storage:link →
+# config/route/view/event:cache → queue:restart → fuera de mantenimiento.
 # Si algo falla vuelve al commit anterior (el código; una migración ya aplicada no se deshace sola).
 set -Eeuo pipefail
 
@@ -34,7 +37,7 @@ while [[ $# -gt 0 ]]; do
     --ref) REF="${2:-}"; shift 2 ;;
     --if-changed) IF_CHANGED=1; shift ;;
     --force) FORCE=1; shift ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "Opción desconocida: $1" >&2; exit 2 ;;
   esac
 done
@@ -84,6 +87,54 @@ clear_compiled() {
   "$PHP" artisan route:clear
   "$PHP" artisan view:clear
   "$PHP" artisan event:clear
+}
+
+# Respaldo de la base antes de migrar. Si falla, backup_db devuelve 1 y el trap ERR aborta el
+# despliegue (vuelve al commit anterior) antes de entrar en mantenimiento y sin reiniciar servicios.
+# Credenciales: las que usa Laravel (.env o config:cache), a un archivo 600 dentro de la carpeta
+# de respaldos; nunca en la línea de comandos. Se conservan los DEPLOY_BACKUP_KEEP más recientes.
+BACKUP_DIR="${DEPLOY_BACKUP_DIR:-$HOME/backups/deploy}"
+BACKUP_KEEP="${DEPLOY_BACKUP_KEEP:-15}"
+laravel_db() {
+  "$PHP" -r '
+    require "vendor/autoload.php";
+    $app = require "bootstrap/app.php";
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    $c = config("database.connections." . config("database.default"));
+    if (! in_array($c["driver"] ?? "", ["mysql", "mariadb"], true)) {
+        fwrite(STDERR, "Conexión no soportada para el respaldo: " . ($c["driver"] ?? "?") . PHP_EOL);
+        exit(3);
+    }
+    $q = fn ($v) => "\"" . addcslashes((string) $v, "\\\"") . "\"";
+    if ($argv[1] === "database") { echo $c["database"]; exit; }
+    echo "[client]\nuser=", $q($c["username"]), "\npassword=", $q($c["password"]), "\n";
+    echo empty($c["unix_socket"]) ? "host=" . $q($c["host"]) . "\nport=" . (int) $c["port"] . "\n" : "socket=" . $q($c["unix_socket"]) . "\n";
+  ' "$1"
+}
+backup_db() {
+  local cnf db file
+  if ! command -v mysqldump >/dev/null; then
+    log "ERROR: ${TARGET:0:7} trae migraciones y no se puede respaldar la base: falta mysqldump."
+    log "Instálalo (Ubuntu: sudo apt install mysql-client) y corre bash scripts/deploy.sh. No se tocó la base ni el sitio."
+    return 1
+  fi
+  ( umask 077 && mkdir -p "$BACKUP_DIR" ) && chmod 700 "$BACKUP_DIR" || { log "ERROR: no se pudo preparar $BACKUP_DIR"; return 1; }
+  cnf="$(mktemp "$BACKUP_DIR/.client.cnf.XXXXXX")" || return 1
+  file="$BACKUP_DIR/tunesa_$(date +%Y%m%d_%H%M%S)_${PREVIOUS:0:7}.sql.gz"
+  if ! laravel_db credentials >"$cnf" || ! db="$(laravel_db database)" \
+     || ! ( umask 077 && mysqldump --defaults-extra-file="$cnf" --single-transaction --quick --routines --triggers \
+            --no-tablespaces --default-character-set=utf8mb4 "$db" | gzip -c >"$file.partial" ) \
+     || ! gzip -t "$file.partial"; then
+    rm -f "$cnf" "$file.partial"
+    log "ERROR: falló el respaldo de la base. No se migra."
+    return 1
+  fi
+  rm -f "$cnf"
+  mv "$file.partial" "$file"
+  log "Respaldo de la base: $file ($(du -h "$file" | cut -f1))"
+  find "$BACKUP_DIR" -maxdepth 1 -type f -name 'tunesa_*.sql.gz' -printf '%T@ %p\n' | sort -rn \
+    | tail -n +"$((BACKUP_KEEP + 1))" | cut -d' ' -f2- | xargs -r rm -f -- \
+    || log "AVISO: no se pudieron borrar respaldos antiguos de $BACKUP_DIR"
 }
 
 IN_MAINTENANCE=0
@@ -137,6 +188,20 @@ if [[ -z "${SKIP_NPM:-}" ]]; then
   else
     log "Frontend sin cambios: se conserva public/build"
   fi
+fi
+
+# Respaldo antes de entrar en mantenimiento y solo si hay migraciones pendientes
+# (migrate:status --pending=10 sale con 10 si las hay y con 0 si no). Ante cualquier otra
+# respuesta se respalda igual: backup_db falla con un mensaje claro si la base no responde.
+# Si el respaldo falla, el sitio nunca entra en mantenimiento, vuelve al commit anterior y el
+# cron no reintenta ese commit cada 2 minutos (deploy.failed): hace falta una corrida a mano
+# o un commit nuevo. Lo que se escriba entre el respaldo y la migración (segundos) no queda en él.
+PENDING=0
+"$PHP" artisan migrate:status --pending=10 >/dev/null 2>&1 || PENDING=$?
+if [[ $PENDING -eq 0 ]]; then
+  log "Sin migraciones pendientes: no hace falta respaldar la base"
+else
+  backup_db
 fi
 
 log "Modo mantenimiento"
