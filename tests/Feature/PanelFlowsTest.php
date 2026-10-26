@@ -63,9 +63,13 @@ class PanelFlowsTest extends TestCase
             'first_name' => 'Rosa', 'last_name' => 'Quispe Díaz', 'email' => 'rosa@acme.pe', 'status' => 'active',
             'role' => 'employee', 'document_type' => 'ce', 'document_number' => '70112233',
             'branch_ids' => [$branch->id], 'primary_branch_id' => $branch->id, 'shift_id' => $other->id,
+            'base_salary' => 1600, 'bonus' => 250.5,
         ])->assertRedirect(route('employees.index'))->assertSessionHasNoErrors();
 
         $this->assertSame('Quispe Díaz', $rosa->fresh()->last_name);
+        // Planilla: remuneración = sueldo base + bono
+        $row = app(\App\Modules\Payroll\Services\PayrollExportService::class)->rows((int) now()->year, (int) now()->month)->firstWhere('document_number', '70112233');
+        $this->assertEquals([1600, 250.5, 1850.5], [$row['base_salary'], $row['bonus'], $row['total_salary']]);
         $this->assertSame($other->id, EmployeeShift::where('user_id', $rosa->id)->where('is_active', true)->sole()->shift_id);
     }
 

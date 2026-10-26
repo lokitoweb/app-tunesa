@@ -74,8 +74,9 @@ class SuperAdminTenantPickerTest extends TestCase
             ->assertSee('value="Turno Noche"', false);
         $this->assertDatabaseMissing('shifts', ['name' => 'Turno Noche']);
 
-        // El selector reenvía lo escrito con _tenant
-        $this->post('/shifts', self::SHIFT + ['_tenant' => $other->id])->assertRedirect();
+        // El selector reenvía lo escrito con _tenant (el horario va a una agencia de esa empresa)
+        $branch = $this->makeBranch($other);
+        $this->post('/shifts', self::SHIFT + ['_tenant' => $other->id, 'branch_id' => $branch->id])->assertRedirect();
         $shift = Shift::withoutGlobalScopes()->where('name', 'Turno Noche')->sole();
         $this->assertSame($other->id, $shift->tenant_id);
         $this->assertSame($other->id, session('admin_tenant_id'), 'El panel queda en esa empresa');
@@ -98,7 +99,8 @@ class SuperAdminTenantPickerTest extends TestCase
         $this->makeTenant('off', ['status' => 'suspended']);
         $root = $this->makeUser(null, 'super_admin');
 
-        $this->actingAs($root)->post('/shifts', self::SHIFT)->assertRedirect()->assertSessionHasNoErrors();
+        $branch = $this->makeBranch($acme);
+        $this->actingAs($root)->post('/shifts', self::SHIFT + ['branch_id' => $branch->id])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame($acme->id, Shift::withoutGlobalScopes()->where('name', 'Turno Noche')->value('tenant_id'));
         $this->assertNull(session('admin_tenant_id'), 'Sigue en la vista global');
 

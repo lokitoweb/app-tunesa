@@ -33,6 +33,7 @@ const state = reactive({
     grid: JSON.parse(JSON.stringify(props.grid || {})),
     holidays: { ...(props.holidays || {}) },
     deadline: props.deadline,
+    shifts: [...props.shifts], // cambian con la agencia (vienen también en la recarga)
 });
 const loading = ref(false);
 
@@ -44,7 +45,7 @@ const deadlineInfo = computed(() => {
 });
 const saving = ref(false);
 const dirty = ref(false);
-const brush = ref(props.shifts[0]?.id ?? null); // id de turno, o null = día libre
+const brush = ref(state.shifts[0]?.id ?? null); // id de turno, o null = día libre
 const selected = ref(new Set());
 const reason = ref('');
 const toast = ref({ show: false, message: '', type: 'success' });
@@ -56,7 +57,7 @@ function showToast(message, type = 'success') {
     toastTimer = setTimeout(() => (toast.value.show = false), 4000);
 }
 
-const shiftById = computed(() => Object.fromEntries(props.shifts.map((s) => [s.id, s])));
+const shiftById = computed(() => Object.fromEntries(state.shifts.map((s) => [s.id, s])));
 
 const days = computed(() => {
     const out = [];
@@ -92,16 +93,29 @@ const unscheduled = computed(() => state.people
     .map((p) => ({ ...p, count: days.value.filter((d) => cell(p.id, d.date).source === 'none' && !state.holidays[d.date]).length }))
     .filter((p) => p.count > 0));
 
-function paint(userId, date) {
+// Vacaciones aprobadas (módulo de licencias): bloqueadas, el pincel no las cambia
+const isLocked = (userId, date) => cell(userId, date).source === 'vacation';
+
+// value: id de turno, o null = día libre (borrador)
+function paint(userId, date, value = brush.value) {
+    if (isLocked(userId, date)) return;
     state.grid[userId] = state.grid[userId] || {};
-    state.grid[userId][date] = { shift_id: brush.value, source: 'edited' };
+    state.grid[userId][date] = { shift_id: value, source: 'edited' };
     dirty.value = true;
 }
 
-// Pintar arrastrando el mouse
+// Pintar arrastrando el mouse. Si la primera celda ya tiene el horario del pincel, el gesto
+// desmarca (vuelve a libre) en vez de pintar: clic de nuevo = quitar, igual al arrastrar.
 const dragging = ref(false);
-function startPaint(userId, date) { dragging.value = true; paint(userId, date); }
-function overPaint(userId, date) { if (dragging.value) paint(userId, date); }
+const dragValue = ref(null);
+function startPaint(userId, date) {
+    if (isLocked(userId, date)) return;
+    const current = cell(userId, date).shift_id;
+    dragValue.value = brush.value !== null && current === brush.value ? null : brush.value;
+    dragging.value = true;
+    paint(userId, date, dragValue.value);
+}
+function overPaint(userId, date) { if (dragging.value) paint(userId, date, dragValue.value); }
 function stopPaint() { dragging.value = false; }
 window.addEventListener('mouseup', stopPaint);
 onBeforeUnmount(() => window.removeEventListener('mouseup', stopPaint));
@@ -110,7 +124,12 @@ onBeforeUnmount(() => window.removeEventListener('mouseup', stopPaint));
 function targets() {
     return selected.value.size ? state.people.filter((p) => selected.value.has(p.id)) : state.people;
 }
-function paintColumn(date) { targets().forEach((p) => paint(p.id, date)); }
+// Columna: si todos los elegidos ya tienen el horario del pincel ese día, se desmarca
+function paintColumn(date) {
+    const who = targets().filter((p) => !isLocked(p.id, date));
+    const all = brush.value !== null && who.length && who.every((p) => cell(p.id, date).shift_id === brush.value);
+    who.forEach((p) => paint(p.id, date, all ? null : brush.value));
+}
 function toggle(id) {
     const s = new Set(selected.value);
     s.has(id) ? s.delete(id) : s.add(id);
@@ -124,8 +143,10 @@ async function load(params) {
     loading.value = true;
     try {
         const res = await axios.get('/shifts/schedule', { params: { branch_id: state.branchId, month: state.month, ...params }, headers });
-        Object.assign(state, { ...res.data, grid: res.data.grid || {}, holidays: res.data.holidays || {} });
+        Object.assign(state, { ...res.data, grid: res.data.grid || {}, holidays: res.data.holidays || {}, shifts: res.data.shifts || [] });
         state.branchId = res.data.branchId;
+        // El pincel sigue si el horario existe en la nueva agencia; si no, el primero de ella
+        if (brush.value !== null && !state.shifts.some((s) => s.id === brush.value)) brush.value = state.shifts[0]?.id ?? null;
         selected.value = new Set();
         dirty.value = false;
     } catch (e) {
@@ -156,9 +177,10 @@ async function save() {
     if (!ok) return;
     saving.value = true;
     try {
+        // Los días de vacaciones no se envían (el servidor igual los respeta)
         const rows = who.map((p) => ({
             user_id: p.id,
-            days: Object.fromEntries(days.value.map((d) => [d.date, cell(p.id, d.date).shift_id ?? null])),
+            days: Object.fromEntries(days.value.filter((d) => !isLocked(p.id, d.date)).map((d) => [d.date, cell(p.id, d.date).shift_id ?? null])),
         }));
         const res = await axios.post('/shifts/schedule', { branch_id: state.branchId, from: state.from, to: state.to, reason: reason.value, rows }, { headers });
         dirty.value = false;
@@ -217,18 +239,8 @@ async function repeat() {
             <div>
                 <h1 class="h2 fw-bold text-dark mb-1">Programación de horarios</h1>
                 <p class="text-secondary mb-0" style="font-size: 0.875rem;">
-                    1. Elige la agencia · 2. Elige el horario · 3. Marca los días que asiste con ese horario · 4. Repite con otro horario. Los días en blanco son días sin labor.
+                    1. Elige la agencia · 2. Elige el horario · 3. Marca los días que asiste con ese horario (clic otra vez para quitarlo) · 4. Repite con otro horario. Los días en blanco son días sin labor.
                 </p>
-            </div>
-            <div class="d-flex align-items-center flex-wrap" style="gap: 10px;">
-                <select v-model.number="state.branchId" class="form-select" style="min-width: 220px; height: 38px;" aria-label="Agencia" @change="load({ branch_id: state.branchId })">
-                    <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-                </select>
-                <div class="btn-group shadow-sm" role="group" aria-label="Mes">
-                    <button type="button" class="btn btn-outline-secondary" :disabled="loading" title="Mes anterior" @click="shiftMonth(-1)"><i class="bi bi-chevron-left"></i></button>
-                    <span class="btn btn-outline-secondary disabled fw-bold text-dark text-capitalize" style="opacity: 1; min-width: 150px;">{{ monthLabel }}</span>
-                    <button type="button" class="btn btn-outline-secondary" :disabled="loading" title="Mes siguiente" @click="shiftMonth(1)"><i class="bi bi-chevron-right"></i></button>
-                </div>
             </div>
         </div>
 
@@ -254,7 +266,7 @@ async function repeat() {
         <div class="emp-table-card shadow-sm p-3 mb-3">
             <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
                 <span class="small fw-semibold text-secondary me-1">Horario para marcar:</span>
-                <button v-for="s in shifts" :key="s.id" type="button" class="btn btn-sm sched-chip" :class="{ active: brush === s.id }"
+                <button v-for="s in state.shifts" :key="s.id" type="button" class="btn btn-sm sched-chip" :class="{ active: brush === s.id }"
                     :style="{ '--chip': s.color }" :aria-pressed="brush === s.id" @click="brush = s.id">
                     <span class="sched-dot" :style="{ background: s.color }"></span>{{ s.name }} <span class="text-muted">{{ s.start }}–{{ s.end }}</span>
                 </button>
@@ -267,9 +279,29 @@ async function repeat() {
             </div>
         </div>
 
-        <!-- 3. Marcar los días -->
+        <!-- 3. Marcar los días: la agencia (obligatoria) y el mes van en la cabecera de la matriz -->
         <div class="emp-table-card shadow-sm mb-3">
-            <div class="emp-table-responsive" :class="{ 'sk-loading': loading }" style="overflow-x: auto;" @mouseleave="stopPaint">
+            <div class="sched-toolbar d-flex align-items-center flex-wrap" style="gap: 10px;">
+                <label for="sched-branch" class="small fw-semibold text-secondary mb-0">Agencia <span class="text-danger">*</span></label>
+                <select id="sched-branch" v-model.number="state.branchId" class="form-select sched-branch" aria-label="Agencia" required
+                    :class="{ 'is-invalid': !state.branchId }" @change="load({ branch_id: state.branchId })">
+                    <option :value="null" disabled>Elige la agencia…</option>
+                    <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+                </select>
+                <div class="btn-group shadow-sm" role="group" aria-label="Mes y año">
+                    <button type="button" class="btn btn-outline-secondary" :disabled="loading" title="Mes anterior" aria-label="Mes anterior" @click="shiftMonth(-1)"><i class="bi bi-chevron-left"></i></button>
+                    <span class="btn btn-outline-secondary disabled fw-bold text-dark text-capitalize" style="opacity: 1; min-width: 160px;">{{ monthLabel }}</span>
+                    <button type="button" class="btn btn-outline-secondary" :disabled="loading" title="Mes siguiente" aria-label="Mes siguiente" @click="shiftMonth(1)"><i class="bi bi-chevron-right"></i></button>
+                </div>
+                <span class="small text-muted ms-auto d-inline-flex align-items-center" style="gap: 6px;">
+                    <span class="sched-legend sched-vacation"></span>Vacaciones (bloqueado)
+                </span>
+            </div>
+            <div v-if="!state.branchId" class="text-center text-muted py-5">
+                <i class="bi bi-geo-alt fs-3 d-block mb-2"></i>
+                Elige la agencia para ver y programar a sus colaboradores.
+            </div>
+            <div v-else class="emp-table-responsive" :class="{ 'sk-loading': loading }" style="overflow-x: auto;" @mouseleave="stopPaint">
                 <table class="table table-sm mb-0 sched-table" style="user-select: none;">
                     <thead>
                         <tr>
@@ -292,11 +324,19 @@ async function repeat() {
                                 <div v-if="p.position" class="small text-muted ms-4">{{ p.position }}</div>
                             </td>
                             <td v-for="d in days" :key="d.date" class="sched-cell"
-                                :class="{ 'sched-none': cell(p.id, d.date).source === 'none' && !state.holidays[d.date], 'sched-inherited': cell(p.id, d.date).source === 'assignment' }"
+                                :class="{
+                                    'sched-vacation': isLocked(p.id, d.date),
+                                    'sched-none': cell(p.id, d.date).source === 'none' && !state.holidays[d.date],
+                                    'sched-inherited': cell(p.id, d.date).source === 'assignment',
+                                }"
                                 :style="cell(p.id, d.date).shift_id ? { background: shiftById[cell(p.id, d.date).shift_id]?.color } : {}"
-                                :title="cell(p.id, d.date).shift_id ? `${shiftById[cell(p.id, d.date).shift_id]?.name} (${cell(p.id, d.date).source === 'assignment' ? 'de la asignación semanal' : 'programado'})` : (cell(p.id, d.date).source === 'none' ? 'Sin programación' : 'Día libre')"
+                                :aria-disabled="isLocked(p.id, d.date) || undefined"
+                                :title="isLocked(p.id, d.date) ? 'Vacaciones aprobadas: bloqueado'
+                                    : cell(p.id, d.date).shift_id ? `${shiftById[cell(p.id, d.date).shift_id]?.name} (${cell(p.id, d.date).source === 'assignment' ? 'de la asignación semanal' : 'programado'}) · clic para quitar`
+                                    : (cell(p.id, d.date).source === 'none' ? 'Sin programación' : 'Día libre')"
                                 @mousedown.prevent="startPaint(p.id, d.date)" @mouseenter="overPaint(p.id, d.date)">
-                                {{ cell(p.id, d.date).shift_id ? (shiftById[cell(p.id, d.date).shift_id]?.name || '?').substring(0, 3) : '' }}
+                                <template v-if="isLocked(p.id, d.date)">VAC</template>
+                                <template v-else>{{ cell(p.id, d.date).shift_id ? (shiftById[cell(p.id, d.date).shift_id]?.name || '?').substring(0, 3) : '' }}</template>
                             </td>
                         </tr>
                         <tr v-if="!state.people.length">
@@ -367,6 +407,17 @@ async function repeat() {
 .sched-cell { min-width: 34px; height: 34px; text-align: center; font-size: 0.7rem; font-weight: 700; color: #fff; cursor: crosshair; border: 1px solid var(--border-color, #e2e8f0); }
 .sched-inherited { opacity: 0.55; }
 .sched-none { box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.55); }
+/* Vacaciones aprobadas: franja diagonal y sin cursor de pincel (no se puede sobrescribir) */
+.sched-vacation {
+    cursor: not-allowed;
+    color: #fff;
+    background: repeating-linear-gradient(135deg, #7c3aed 0 6px, #6d28d9 6px 12px) !important;
+    font-size: 0.6rem;
+    letter-spacing: 0.02em;
+}
+.sched-legend { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+.sched-toolbar { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color, #e2e8f0); }
+.sched-branch { min-width: 220px; max-width: 320px; height: 38px; }
 .sched-chip { border: 1.5px solid var(--border-color, #cbd5e1); border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; }
 .sched-chip.active { border-color: var(--chip, #0d6efd); box-shadow: 0 0 0 2px var(--chip, #0d6efd); font-weight: 600; }
 .sched-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }

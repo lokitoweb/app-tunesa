@@ -46,7 +46,7 @@ class PanelNavigation
                 ['HR', 'users.manage', 'employees.index', [], 'people', 'Colaboradores', $request->routeIs('employees.index', 'employees.create', 'employees.edit')],
                 ['Onboarding', 'onboarding.review', 'onboarding.index', [], 'person-badge', 'Incorporación', $request->routeIs('onboarding.*'), fn () => $hasTenant ? OnboardingProcess::where('status', OnboardingProcess::SUBMITTED)->count() : 0],
                 ['Ethics', 'ethics.investigate', 'ethics.index', [], 'shield-exclamation', 'Canal ético', $request->routeIs('ethics.*'), fn () => $hasTenant ? EthicsCase::where('investigator_unread', true)->count() : 0],
-                ['HR', 'shifts.manage', 'shifts.index', [], 'calendar-week', 'Turnos y horarios', $request->routeIs('shifts*') && ! $request->routeIs('shifts.schedule*'), null, true],
+                ['HR', 'shifts.manage', 'shifts.index', [], 'calendar-week', 'Horarios', $request->routeIs('shifts*') && ! $request->routeIs('shifts.schedule*'), null, true],
                 ['HR', 'shifts.program', 'shifts.schedule', [], 'calendar3', 'Programación de horarios', $request->routeIs('shifts.schedule*')],
                 ['HR', 'shifts.manage', 'holidays.index', [], 'calendar-heart', 'Feriados', $request->routeIs('holidays*')],
                 ['Core', 'branches.manage', 'organization.index', [], 'diagram-3', 'Organización', $request->routeIs('organization*'), null, true],

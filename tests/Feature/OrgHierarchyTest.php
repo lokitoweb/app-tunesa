@@ -170,10 +170,15 @@ class OrgHierarchyTest extends TestCase
         $this->post('/organization/zones', ['name' => 'Nueva', 'is_active' => true])->assertForbidden();
         $this->patch("/organization/branches/{$this->trujillo->id}", ['zone_id' => $this->south->id, 'branch_type' => 'agency'])->assertForbidden();
 
-        // Turnos: asigna dentro de su sede; las listas del formulario solo traen lo suyo
+        // Horarios: solo ve su sede; la programación (matriz por agencia) solo trae a su personal
         $shifts = $this->get('/shifts')->assertOk();
         $this->assertSame(['Terminal Trujillo'], array_column($shifts->prop('branches'), 'name'));
-        $this->assertSame(['Ana'], array_column($shifts->prop('employees'), 'first_name'));
+        $people = $this->getJson("/shifts/schedule?branch_id={$this->trujillo->id}&month=2026-10")->assertOk()->json('people');
+        $this->assertSame([$this->ana->id], array_column($people, 'id'));
+        // Pedir una agencia fuera de su alcance no la abre: queda en la suya (la única) y sin personal ajeno
+        $foreign = $this->getJson("/shifts/schedule?branch_id={$this->arequipa->id}&month=2026-10")->assertOk();
+        $this->assertSame($this->trujillo->id, $foreign->json('branchId'));
+        $this->assertSame([$this->ana->id], array_column($foreign->json('people'), 'id'));
         $this->post('/shifts/assign', ['shift_id' => $shift->id, 'branch_id' => $this->trujillo->id, 'user_ids' => [$this->ana->id], 'effective_from' => '2026-10-01'])
             ->assertSessionHas('success');
 

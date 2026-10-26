@@ -984,6 +984,7 @@ window.openLegajoEditModal = async function(id) {
         if (document.getElementById('edit_department_id')) document.getElementById('edit_department_id').value = emp.department_id || '';
         if (document.getElementById('edit_hire_date')) document.getElementById('edit_hire_date').value = emp.hire_date || '';
         if (document.getElementById('edit_base_salary')) document.getElementById('edit_base_salary').value = emp.base_salary || 0;
+        if (document.getElementById('edit_bonus')) document.getElementById('edit_bonus').value = emp.bonus || '';
         if (document.getElementById('edit_roaming_attendance_enabled')) document.getElementById('edit_roaming_attendance_enabled').checked = !!emp.roaming_attendance_enabled;
         if (document.getElementById('edit_role')) document.getElementById('edit_role').value = emp.role || 'employee';
 

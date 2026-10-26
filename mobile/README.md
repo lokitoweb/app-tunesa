@@ -103,7 +103,7 @@ una **cuenta de Apple Developer** (de pago para TestFlight / App Store) y el **e
 flutter pub get
 cd ios && pod install && cd ..                      # la primera vez o al cambiar plugins
 flutter run --dart-define-from-file=env/dev.json    # simulador → backend en localhost
-flutter build ipa --release --dart-define-from-file=env/tunnel.json
+flutter build ipa --release --dart-define-from-file=env/prod.json   # App Store / TestFlight
 ```
 
 El `.ipa` queda en `build/ios/ipa/`; se sube con Xcode (*Organizer*) o con la app

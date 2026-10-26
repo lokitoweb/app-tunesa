@@ -209,6 +209,7 @@
                     <tr>
                         <th class="ps-3 py-3">Colaborador</th>
                         <th class="py-3">Régimen</th>
+                        <th class="py-3 text-end" title="Sueldo base + bono">Remuneración</th>
                         <th class="py-3 text-end">Días</th>
                         <th class="py-3 text-end">Horas</th>
                         <th class="py-3 text-end" title="Horas extra aprobadas por jefatura">Extra</th>
@@ -402,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pageItems.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="12" class="p-5 text-center">
+                    <td colspan="13" class="p-5 text-center">
                         <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle bg-primary-subtle text-primary mb-3" style="width: 56px; height: 56px;">
                             <i class="bi bi-file-earmark-person fs-3"></i>
                         </div>
@@ -431,6 +432,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="text-body-secondary small">${r.employee_code || '—'} • DNI: ${r.document_number || '—'}</div>
                     </td>
                     <td>${r.labor_regime || '—'}</td>
+                    <td class="text-end text-nowrap">
+                        <div class="fw-semibold">S/ ${Number(r.total_salary).toFixed(2)}</div>
+                        ${Number(r.bonus) > 0 ? `<div class="text-body-secondary small">${Number(r.base_salary).toFixed(2)} + bono ${Number(r.bonus).toFixed(2)}</div>` : ''}
+                    </td>
                     <td class="text-end fw-semibold">${r.days_worked}</td>
                     <td class="text-end">${Number(r.worked_hours).toFixed(2)}</td>
                     <td class="text-end">

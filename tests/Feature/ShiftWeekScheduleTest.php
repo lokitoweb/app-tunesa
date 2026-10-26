@@ -38,9 +38,10 @@ class ShiftWeekScheduleTest extends TestCase
         $this->seedRoles();
         $acme = $this->makeTenant('acme');
         $hr = $this->makeUser($acme, 'hr_manager');
+        $branch = $this->makeBranch($acme);
 
         $this->actingAs($hr)->post('/shifts', [
-            'name' => 'Oficina', 'type' => 'fixed', 'profile' => 'administrative',
+            'branch_id' => $branch->id, 'name' => 'Oficina', 'type' => 'fixed', 'profile' => 'administrative',
             'start_time' => '08:00', 'end_time' => '17:00', 'grace_period_minutes' => 10,
             'break_allowed' => true, 'break_duration_minutes' => 60, 'daily_hours' => 8,
             'working_days' => [1, 2, 3, 4, 5, 6], 'color' => '#0284C7', 'is_active' => true,
@@ -58,13 +59,13 @@ class ShiftWeekScheduleTest extends TestCase
 
         // Editar sin enviar el horario por día (otro cliente) lo conserva
         $this->actingAs($hr)->put("/shifts/{$shift->id}", [
-            'name' => 'Oficina central', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '17:00',
+            'branch_id' => $branch->id, 'name' => 'Oficina central', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '17:00',
             'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 8,
             'working_days' => [1, 2, 3, 4, 5, 6], 'color' => '#0284C7',
         ])->assertSessionHasNoErrors();
         $this->assertNotNull($shift->fresh()->day_schedules);
 
-        $this->actingAs($hr)->post('/shifts', ['name' => 'X', 'type' => 'fixed', 'profile' => 'gerencia', 'start_time' => '08:00', 'end_time' => '17:00',
+        $this->actingAs($hr)->post('/shifts', ['branch_id' => $branch->id, 'name' => 'X', 'type' => 'fixed', 'profile' => 'gerencia', 'start_time' => '08:00', 'end_time' => '17:00',
             'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 8, 'working_days' => [1], 'color' => '#0284C7'])
             ->assertSessionHasErrors('profile');
     }

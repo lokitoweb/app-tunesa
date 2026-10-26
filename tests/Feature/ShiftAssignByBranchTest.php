@@ -6,12 +6,15 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
 
-/** Asignar turnos: el personal llega con sus sedes vigentes y su DNI (caso Agencia Trujillo) */
+/**
+ * La asignación de horarios se hace en la matriz de "Programación de horarios": la agencia es
+ * obligatoria y solo trae a su personal con sede vigente (caso Agencia Trujillo).
+ */
 class ShiftAssignByBranchTest extends TestCase
 {
     use CreatesTenants, RefreshDatabase;
 
-    public function test_assign_modal_receives_current_branches_and_document(): void
+    public function test_schedule_matrix_requires_the_agency_and_lists_only_its_current_staff(): void
     {
         $this->seedRoles();
         $acme = $this->makeTenant('acme');
@@ -28,13 +31,14 @@ class ShiftAssignByBranchTest extends TestCase
         $old = $this->makeUser($acme, 'employee', ['first_name' => 'Pedro']);
         $old->branches()->attach($trujillo->id, ['is_primary' => true, 'assigned_from' => '2020-01-01', 'assigned_until' => '2021-01-01']);
 
-        $this->actingAs($hr)->get('/shifts')->assertOk()->assertInertia(function ($page) use ($misael, $rosa, $old, $accountant, $trujillo, $lima) {
-            $employees = collect($page->toArray()['props']['employees'])->keyBy('id');
-            $this->assertSame([$trujillo->id], $employees[$accountant->id]['branch_ids'] ?? null, 'Contabilidad se puede asignar a un turno');
-            $this->assertSame([$trujillo->id], $employees[$misael->id]['branch_ids']);
-            $this->assertSame('45678912', $employees[$misael->id]['document_number'], 'la búsqueda por DNI necesita el documento');
-            $this->assertSame([$lima->id], $employees[$rosa->id]['branch_ids']);
-            $this->assertSame([], $employees[$old->id]['branch_ids'], 'una asignación vencida no cuenta como sede vigente');
-        });
+        // Con varias agencias, sin elegir no se carga a nadie
+        $this->actingAs($hr)->getJson('/shifts/schedule?month=2026-10')->assertOk()
+            ->assertJsonPath('branchId', null)->assertJsonPath('people', []);
+
+        $ids = array_column($this->getJson("/shifts/schedule?branch_id={$trujillo->id}&month=2026-10")->assertOk()->json('people'), 'id');
+        $this->assertContains($misael->id, $ids);
+        $this->assertContains($accountant->id, $ids, 'Contabilidad se programa en su agencia');
+        $this->assertNotContains($rosa->id, $ids, 'otra agencia');
+        $this->assertNotContains($old->id, $ids, 'una asignación vencida no cuenta como sede vigente');
     }
 }

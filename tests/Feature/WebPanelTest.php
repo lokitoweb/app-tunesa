@@ -73,7 +73,7 @@ class WebPanelTest extends TestCase
         $branch = $this->makeBranch($acme);
 
         $this->actingAs($hr)->post('/shifts', [
-            'name' => 'Mina 14x7', 'type' => 'rotating', 'start_time' => '07:00', 'end_time' => '19:00',
+            'branch_id' => $branch->id, 'name' => 'Mina 14x7', 'type' => 'rotating', 'start_time' => '07:00', 'end_time' => '19:00',
             'grace_period_minutes' => 5, 'break_duration_minutes' => 60, 'daily_hours' => 11, 'color' => '#10B981',
             'rotation_work_days' => 14, 'rotation_rest_days' => 7, 'is_active' => 1, 'break_allowed' => 1,
         ])->assertRedirect(route('shifts.index'));
