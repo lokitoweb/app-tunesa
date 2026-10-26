@@ -228,4 +228,37 @@ class QaRonda2CasesTest extends TestCase
         $this->assertSame(collect($this->p)->pluck('id')->sort()->values()->all(), $ids($this->trujillo->id));
         $this->assertSame([$otro->id], $ids($lima->id));
     }
+
+    public function test_hq04_area_and_collaborator_filters_already_work(): void
+    {
+        $operaciones = \App\Modules\Core\Models\Department::create(['tenant_id' => $this->tunesa->id, 'name' => 'Operaciones']);
+        $this->p['Fidel']->update(['department_id' => $operaciones->id]);
+        $ids = fn (array $f) => collect(app(AttendanceCalendarService::class)->paginate(new CalendarFilters($this->tunesa->id, '2026-10', ...$f, viewer: $this->hr))->items())->pluck('user_id')->all();
+
+        $this->assertSame([$this->p['Fidel']->id], $ids(['departmentId' => $operaciones->id]));
+        $this->assertSame([$this->p['Juana']->id], $ids(['search' => 'Pereda']));
+    }
+
+    public function test_hq04_calendar_remembers_the_last_branch_and_paints_each_schedule_color(): void
+    {
+        $this->a->update(['color' => '#3C729E']);
+        $lima = $this->makeBranch($this->tunesa, ['name' => 'Ag. Lima']);
+        $otro = $this->makeUser($this->tunesa, 'employee', ['first_name' => 'Otro', 'last_name' => 'Agencia']);
+        $otro->branches()->attach($lima->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        $this->travelTo(Carbon::parse('2026-10-20 10:00', 'America/Lima'));
+        $cookie = 'calendar_branch_' . $this->hr->id;
+
+        // Elige Ag. Trujillo: queda recordada
+        $first = $this->actingAs($this->hr)->get(route('attendance.calendar', ['month' => '2026-10', 'branch_id' => $this->trujillo->id]))->assertOk()
+            ->assertSee('Pereda')->assertDontSee('Agencia</', false)->assertCookie($cookie, (string) $this->trujillo->id);
+
+        // Vuelve sin indicar sede: usa la última elegida, con la franja de color del horario y su leyenda
+        $this->withCookie($cookie, (string) $this->trujillo->id)->actingAs($this->hr)->get(route('attendance.calendar', ['month' => '2026-10']))->assertOk()
+            ->assertSee('Pereda')->assertDontSee('Otro Agencia')
+            ->assertSee('box-shadow: inset 0 -3px 0 #3C729E', false)->assertSee('Horario A');
+
+        // "Todas las sucursales" también se recuerda; una sede fuera de alcance se ignora
+        $this->actingAs($this->hr)->get(route('attendance.calendar', ['month' => '2026-10', 'branch_id' => '']))->assertCookie($cookie, '');
+        $this->withCookie($cookie, '999999')->actingAs($this->hr)->get(route('attendance.calendar', ['month' => '2026-10']))->assertOk()->assertSee('Otro');
+    }
 }

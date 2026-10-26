@@ -1785,6 +1785,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                                     };
                                     $tip = $c ? implode(' · ', array_filter([
                                         $c['label'],
+                                        $c['shift'] ? 'Turno ' . $c['shift'] : null,
                                         $c['clock_in'] ? 'Entrada ' . $c['clock_in'] : null,
                                         $c['clock_out'] ? 'Salida ' . $c['clock_out'] : null,
                                         $c['late_minutes'] ? $c['late_minutes'] . ' min tarde' : null,
@@ -1801,12 +1802,12 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                                 <td>
                                     @if($c)
                                         @if($canOpen && $c['attendance_id'])
-                                            <button type="button" class="cal-cell-token {{ $stateClass }}" onclick="openEvidence({{ $c['attendance_id'] }})" title="{{ $tip }}" aria-label="{{ $date }}: {{ $tip }}">
+                                            <button type="button" class="cal-cell-token {{ $stateClass }}" @if($c['shift_color']) style="box-shadow: inset 0 -3px 0 {{ $c['shift_color'] }};" @endif onclick="openEvidence({{ $c['attendance_id'] }})" title="{{ $tip }}" aria-label="{{ $date }}: {{ $tip }}">
                                                 {{ $c['letter'] }}
                                                 @if($c['suspicious'])<span class="cal-flag"></span>@endif
                                             </button>
                                         @else
-                                            <span class="cal-cell-token {{ $stateClass }}" title="{{ $tip }}" aria-label="{{ $date }}: {{ $tip }}">
+                                            <span class="cal-cell-token {{ $stateClass }}" @if($c['shift_color']) style="box-shadow: inset 0 -3px 0 {{ $c['shift_color'] }};" @endif title="{{ $tip }}" aria-label="{{ $date }}: {{ $tip }}">
                                                 {{ $c['letter'] }}
                                                 @if($c['suspicious'])<span class="cal-flag"></span>@endif
                                             </span>
@@ -1841,27 +1842,29 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     {{-- Convenciones / Indicadores --}}
     <div class="cal-legend-bar">
         <span class="fw-bold" style="color: var(--cal-text-main);"><i class="bi bi-info-circle text-primary me-1"></i> Convenciones:</span>
-        <div class="cal-legend-item">
-            <span class="badge-dot" style="background: #16a34a;"></span>
-            <span>Puntual (P)</span>
-        </div>
-        <div class="cal-legend-item">
-            <span class="badge-dot" style="background: #d97706;"></span>
-            <span>Tardanza (T)</span>
-        </div>
-        <div class="cal-legend-item">
-            <span class="badge-dot" style="background: #dc2626;"></span>
-            <span>Falta (F)</span>
-        </div>
-        <div class="cal-legend-item">
-            <span class="badge-dot" style="background: #2563eb;"></span>
-            <span>Justificado (J)</span>
-        </div>
-        <div class="cal-legend-item">
-            <span class="badge-dot" style="background: #64748b;"></span>
-            <span>Descanso (D)</span>
-        </div>
+        {{-- Estados: misma fuente que las celdas (DayStatus / AttendanceCalendarService::states) --}}
+        @php($toneColors = ['success' => '#16a34a', 'warning' => '#d97706', 'danger' => '#dc2626', 'primary' => '#2563eb', 'secondary' => '#64748b', 'info' => '#0ea5e9', 'light' => '#e2e8f0'])
+        @foreach($states as $state => [$letter, $tone, $label])
+            @continue($state === 'scheduled')
+            <div class="cal-legend-item">
+                <span class="badge-dot" style="background: {{ $toneColors[$tone] ?? '#94a3b8' }};"></span>
+                <span>{{ $label }} ({{ $letter }})</span>
+            </div>
+        @endforeach
     </div>
+    {{-- HQ-04: color por horario (franja inferior de cada celda) --}}
+    @php($shiftColors = collect($rows->items())->flatMap(fn ($r) => collect($r['cells'])->filter(fn ($c) => $c && $c['shift'] && $c['shift_color'])->mapWithKeys(fn ($c) => [$c['shift'] => $c['shift_color']]))->sortKeys())
+    @if($shiftColors->isNotEmpty())
+        <div class="cal-legend-bar">
+            <span class="fw-bold" style="color: var(--cal-text-main);"><i class="bi bi-palette text-primary me-1"></i> Horarios:</span>
+            @foreach($shiftColors as $name => $color)
+                <div class="cal-legend-item">
+                    <span class="badge-dot" style="background: {{ $color }};"></span>
+                    <span>{{ $name }}</span>
+                </div>
+            @endforeach
+        </div>
+    @endif
 
     @if($rows->total() > 0)
         <div class="card-footer border-0 py-3 px-4 d-flex justify-content-between align-items-center" style="background: var(--cal-bg); border-top: 1px solid var(--cal-border) !important;">
