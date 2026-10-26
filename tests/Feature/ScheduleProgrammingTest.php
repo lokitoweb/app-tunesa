@@ -128,6 +128,42 @@ class ScheduleProgrammingTest extends TestCase
         $this->assertSame(1, AuditLog::where('action', 'schedule.programmed')->count());
     }
 
+    public function test_approved_vacation_days_are_locked_in_the_matrix_and_reports(): void
+    {
+        $juan = $this->people['Juan'];
+        \App\Modules\HR\Models\LeaveRequest::create(['tenant_id' => $this->acme->id, 'user_id' => $juan->id, 'type' => 'vacation',
+            'start_date' => '2026-10-07', 'end_date' => '2026-10-08', 'days' => 2, 'status' => 'approved']);
+
+        $url = route('shifts.schedule', ['branch_id' => $this->trujillo->id, 'month' => '2026-10']);
+        $this->assertSame('vacation', $this->actingAs($this->hr)->getJson($url)->json("grid.{$juan->id}.2026-10-07.source"));
+
+        // Aunque el cliente los envíe, los días de vacaciones no se sobrescriben
+        $this->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-10-05', 'to' => '2026-10-09', 'reason' => 'Semana',
+            'rows' => [['user_id' => $juan->id, 'days' => array_fill_keys(['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09'], $this->a->id)]],
+        ])->assertOk()->assertJsonPath('result.locked', 2)->assertJsonPath('result.created', 3);
+        $this->assertFalse(EmployeeScheduleDay::where('user_id', $juan->id)->whereIn('work_date', ['2026-10-07', '2026-10-08'])->exists());
+
+        $row = collect(app(AttendanceCalendarService::class)->paginate(new CalendarFilters($this->acme->id, '2026-10', viewer: $this->hr))->items())
+            ->firstWhere('user_id', $juan->id);
+        $this->assertSame(['excused', 'Vacaciones'], [$row['cells']['2026-10-07']['state'], $row['cells']['2026-10-07']['label']]);
+    }
+
+    public function test_shifts_belong_to_an_agency_and_the_matrix_only_offers_its_own(): void
+    {
+        $lima = $this->makeBranch($this->acme, ['name' => 'Ag. Lima']);
+        $this->a->update(['branch_id' => $this->trujillo->id]);
+        $this->b->update(['branch_id' => $lima->id]);
+        $general = Shift::create(['tenant_id' => $this->acme->id, 'name' => 'General', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '17:00', 'working_days' => [1], 'color' => '#111111']);
+
+        $ids = array_column($this->actingAs($this->hr)->getJson(route('shifts.schedule', ['branch_id' => $this->trujillo->id, 'month' => '2026-10']))->json('shifts'), 'id');
+        $this->assertEqualsCanonicalizing([$this->a->id, $general->id], $ids);
+
+        $this->post('/shifts', ['name' => 'Sin agencia', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '17:00',
+            'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 8, 'working_days' => [1], 'color' => '#0284C7'])
+            ->assertSessionHasErrors('branch_id');
+    }
+
     public function test_cp06_each_day_is_evaluated_with_its_own_schedule(): void
     {
         $this->program();

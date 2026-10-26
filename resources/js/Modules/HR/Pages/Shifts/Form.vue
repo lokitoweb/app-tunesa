@@ -3,7 +3,7 @@ import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import ShiftWeekSchedule, { emptyDays } from '@/Modules/HR/Components/ShiftWeekSchedule.vue';
 
-const props = defineProps({ shift: Object, profiles: { type: Object, default: () => ({}) } });
+const props = defineProps({ shift: Object, profiles: { type: Object, default: () => ({}) }, branches: { type: Array, default: () => [] } });
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const ORDERED_DAYS = [
@@ -23,6 +23,8 @@ const PRESET_COLORS = [
 const editing = props.shift.id !== null;
 const form = useForm({
     ...props.shift,
+    // Agencia obligatoria; con una sola agencia ya viene elegida
+    branch_id: props.shift.branch_id ?? (props.branches.length === 1 ? props.branches[0].id : null),
     start_time: props.shift.start_time ? props.shift.start_time.substring(0, 5) : '08:00',
     end_time: props.shift.end_time ? props.shift.end_time.substring(0, 5) : '17:00',
     working_days: Array.isArray(props.shift.working_days) ? [...props.shift.working_days] : [1, 2, 3, 4, 5],
@@ -68,7 +70,7 @@ function submit() {
         <div class="mb-3">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb small mb-2">
-                    <li class="breadcrumb-item"><Link href="/shifts">Turnos y horarios</Link></li>
+                    <li class="breadcrumb-item"><Link href="/shifts">Horarios</Link></li>
                     <li class="breadcrumb-item active" aria-current="page">{{ editing ? 'Editar turno' : 'Nuevo turno' }}</li>
                 </ol>
             </nav>
@@ -91,6 +93,14 @@ function submit() {
                     <span>Identificación & Tipo</span>
                 </div>
                 <div class="row g-3">
+                    <div class="col-12">
+                        <label for="branch_id" class="emp-form-label">Agencia / Sede *</label>
+                        <select id="branch_id" v-model.number="form.branch_id" class="form-select" :class="{ 'is-invalid': form.errors.branch_id }" required>
+                            <option :value="null" disabled>Elige la agencia del horario…</option>
+                            <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+                        </select>
+                        <div v-if="form.errors.branch_id" class="text-danger small mt-1">{{ form.errors.branch_id }}</div>
+                    </div>
                     <div class="col-md-5">
                         <label for="name" class="emp-form-label">Nombre del turno *</label>
                         <input id="name" v-model="form.name" class="emp-form-input" :class="{ 'is-invalid': form.errors.name }" required>

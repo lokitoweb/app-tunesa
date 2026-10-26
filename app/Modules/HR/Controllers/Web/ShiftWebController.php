@@ -27,41 +27,17 @@ class ShiftWebController extends Controller
 {
     public function index(Request $request): Response
     {
-        $shifts = Shift::withCount(['employeeShifts as employees_count' => fn ($q) => $q->current()])
+        $shifts = Shift::with('branch:id,name')
+            ->withCount(['employeeShifts as employees_count' => fn ($q) => $q->current()])
             ->orderBy('start_time')
             ->get();
 
-        $assignments = EmployeeShift::current()
-            ->with(['user:id,first_name,last_name,employee_code', 'shift:id,name,color,type', 'branch:id,name'])
-            ->when($request->shift_id, fn ($q) => $q->where('shift_id', $request->shift_id))
-            ->orderByDesc('effective_from')
-            ->paginate(25)
-            ->withQueryString()
-            ->through(fn (EmployeeShift $a) => [
-                'id'        => $a->id,
-                'tenant_id' => $a->tenant_id,
-                'employee'  => $a->user?->full_name,
-                'shift'     => $a->shift?->name,
-                'color'     => $a->shift?->color,
-                'branch'    => $a->branch?->name,
-                'from'      => $a->effective_from?->format('d/m/Y'),
-                'until'     => $a->effective_until?->format('d/m/Y'),
-            ]);
-
+        // La asignación de horarios se hace solo en la matriz de "Programación de horarios":
+        // esta pantalla administra los horarios (sin listado de asignaciones ni botón de asignar)
         return Inertia::render('HR/Pages/Shifts/Index', [
-            'shifts'      => $shifts->map(fn (Shift $s) => self::present($s) + ['employees_count' => $s->employees_count]),
-            'assignments' => $assignments,
-            // Con sus sedes vigentes: el modal filtra por la sucursal elegida (antes listaba a todos
-            // sin filtrar y la búsqueda por DNI nunca encontraba porque no se enviaba el documento)
-            'employees'   => User::whereIn('role', User::CLOCKING_ROLES)->where('status', 'active')
-                ->with(['branches' => fn ($q) => $q->select('branches.id')
-                    ->where(fn ($w) => $w->whereNull('employee_branch.assigned_until')->orWhere('employee_branch.assigned_until', '>=', now(tenant_timezone())->toDateString()))])
-                ->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'employee_code', 'document_number'])
-                ->map(fn (User $u) => $u->only(['id', 'first_name', 'last_name', 'employee_code', 'document_number']) + ['branch_ids' => $u->branches->pluck('id')->all()]),
-            'branches'    => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'today'       => now()->toDateString(),
-            'canAssign'   => $request->user()->can('shifts.assign'),
-            'profiles'    => Shift::PROFILES,
+            'shifts'   => $shifts->map(fn (Shift $s) => self::present($s) + ['employees_count' => $s->employees_count]),
+            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'profiles' => Shift::PROFILES,
         ]);
     }
 
@@ -75,7 +51,7 @@ class ShiftWebController extends Controller
             'color' => '#3B82F6', 'is_active' => true, 'break_allowed' => true,
             'break_duration_minutes' => $rules->lunch_minutes, 'daily_hours' => 8,
             'start_time' => '08:00', 'end_time' => '17:00',
-        ])), 'profiles' => Shift::PROFILES]);
+        ])), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name'])]);
     }
 
     /** Turno tal como lo consume el panel (listado y formulario) */
@@ -84,6 +60,8 @@ class ShiftWebController extends Controller
         return [
             'id'                     => $shift->id,
             'tenant_id'              => $shift->tenant_id,
+            'branch_id'              => $shift->branch_id,
+            'branch'                 => $shift->branch?->name,
             'name'                   => $shift->name,
             'code'                   => $shift->code,
             'type'                   => $shift->type,
@@ -116,7 +94,7 @@ class ShiftWebController extends Controller
 
     public function edit(int $id): Response
     {
-        return Inertia::render('HR/Pages/Shifts/Form', ['shift' => self::present(Shift::findOrFail($id)), 'profiles' => Shift::PROFILES]);
+        return Inertia::render('HR/Pages/Shifts/Form', ['shift' => self::present(Shift::findOrFail($id)), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name'])]);
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -233,6 +211,8 @@ class ShiftWebController extends Controller
         $rotating = $request->input('type') === 'rotating';
 
         $data = $request->validate([
+            // El horario se amarra a una agencia de la empresa (la programación solo ofrece los suyos)
+            'branch_id'              => ['required', 'integer', Rule::exists('branches', 'id')->where('tenant_id', current_tenant_id())->whereNull('deleted_at')],
             'name'                   => ['required', 'string', 'max:100'],
             'code'                   => ['nullable', 'string', 'max:50',
                 Rule::unique('shifts', 'code')->where('tenant_id', current_tenant_id())->whereNull('deleted_at')->ignore($shift?->id)],

@@ -8,6 +8,7 @@ use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\HR\Models\EmployeeScheduleDay;
 use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\LeaveRequest;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
@@ -57,11 +58,19 @@ class ScheduleProgramming
             ->where(fn ($q) => $q->whereNull('effective_until')->orWhere('effective_until', '>=', $from))
             ->with('shift')->get()->groupBy('user_id');
 
+        $vacations = $this->vacationDays($ids, $from, $to);
+
         $grid = [];
         foreach ($people as $person) {
             $mine = $days->get($person->id, collect())->keyBy(fn (EmployeeScheduleDay $d) => $d->work_date->toDateString());
             foreach (CarbonPeriod::create($from, $to) as $date) {
                 $day = $date->toDateString();
+                // Vacaciones aprobadas: el día queda bloqueado (no se programa encima)
+                if (isset($vacations[$person->id][$day])) {
+                    $grid[$person->id][$day] = ['shift_id' => null, 'source' => 'vacation'];
+
+                    continue;
+                }
                 if ($row = $mine->get($day)) {
                     $grid[$person->id][$day] = ['shift_id' => $row->shift_id, 'source' => 'programmed'];
 
@@ -113,6 +122,30 @@ class ScheduleProgramming
         return $this->write($editor, $branch, $values, $reason, ['source_from' => $sourceFrom, 'source_to' => $sourceTo, 'from' => $targetFrom, 'to' => $until]);
     }
 
+    /**
+     * Días de vacaciones aprobadas (módulo de licencias) de cada persona en el rango.
+     *
+     * @return array<int, array<string, true>>  user_id => fecha => true
+     */
+    public function vacationDays(array $userIds, string $from, string $to): array
+    {
+        $out = [];
+        LeaveRequest::whereIn('user_id', $userIds)->where('status', 'approved')->where('type', 'vacation')
+            ->overlapping($from, $to)->get(['user_id', 'start_date', 'end_date'])
+            ->each(function (LeaveRequest $l) use (&$out, $from, $to) {
+                $start = max($l->start_date->toDateString(), $from);
+                $end = min($l->end_date->toDateString(), $to);
+                if ($start > $end) {
+                    return;
+                }
+                foreach (CarbonPeriod::create($start, $end) as $date) {
+                    $out[$l->user_id][$date->toDateString()] = true;
+                }
+            });
+
+        return $out;
+    }
+
     private static function id(mixed $value): ?int
     {
         return $value === null ? null : (int) $value;
@@ -121,11 +154,22 @@ class ScheduleProgramming
     /** @param  array<int, array<string, ?int>>  $values */
     private function write(User $editor, Branch $branch, array $values, string $reason, array $range): array
     {
-        $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0];
+        $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'locked' => 0];
         $changes = [];
         $dates = collect($values)->flatMap(fn ($days) => array_keys($days));
         if ($dates->isEmpty()) {
             return $counts;
+        }
+
+        // Los días de vacaciones aprobadas no se sobrescriben (aunque el navegador los envíe)
+        $vacations = $this->vacationDays(array_keys($values), $dates->min(), $dates->max());
+        foreach ($values as $userId => $days) {
+            foreach (array_keys($days) as $date) {
+                if (isset($vacations[$userId][$date])) {
+                    unset($values[$userId][$date]);
+                    $counts['locked']++;
+                }
+            }
         }
 
         DB::transaction(function () use ($editor, $branch, $values, $reason, $dates, &$counts, &$changes) {

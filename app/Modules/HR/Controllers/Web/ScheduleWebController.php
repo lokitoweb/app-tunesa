@@ -42,7 +42,9 @@ class ScheduleWebController extends Controller
             'month'     => ['nullable', 'date_format:Y-m'],
         ]);
         $branches = Branch::visibleTo($request->user())->where('is_active', true)->orderBy('name')->get(['id', 'name', 'tenant_id']);
-        $branch = $branches->firstWhere('id', (int) ($data['branch_id'] ?? 0)) ?? $branches->first();
+        // La agencia es obligatoria: solo se cargan los colaboradores de la agencia elegida
+        // (si hay una sola, se elige sola)
+        $branch = $branches->firstWhere('id', (int) ($data['branch_id'] ?? 0)) ?? ($branches->count() === 1 ? $branches->first() : null);
         $month = CarbonImmutable::parse(($data['month'] ?? CarbonImmutable::now(tenant_timezone())->format('Y-m')) . '-01');
         [$from, $to] = [$month->toDateString(), $month->endOfMonth()->toDateString()];
 
@@ -58,6 +60,11 @@ class ScheduleWebController extends Controller
             'deadline' => $month->subDays(self::PROGRAMMING_LEAD_DAYS)->toDateString(),
             'holidays' => Holiday::where('tenant_id', $branch?->tenant_id)->whereBetween('date', [$from, $to])->get(['date', 'name'])
                 ->mapWithKeys(fn (Holiday $h) => [$h->date->toDateString() => $h->name]),
+            // Pincel: los horarios de la agencia elegida (y los anteriores, sin agencia). Va también
+            // en la recarga por JSON: al cambiar de agencia cambian los horarios disponibles
+            'shifts'   => $branch ? Shift::where('tenant_id', $branch->tenant_id)->where('is_active', true)->forBranch($branch->id)->orderBy('start_time')->get()
+                ->map(fn (Shift $s) => ['id' => $s->id, 'name' => $s->name, 'color' => $s->color ?: '#64748B',
+                    'start' => substr((string) $s->start_time, 0, 5), 'end' => substr((string) $s->end_time, 0, 5)]) : [],
         ];
 
         if ($request->wantsJson()) {
@@ -68,9 +75,6 @@ class ScheduleWebController extends Controller
 
         return Inertia::render('HR/Pages/Schedule/Index', $payload + [
             'branches'    => $branches->map(fn (Branch $b) => $b->only(['id', 'name'])),
-            'shifts'      => Shift::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('start_time')->get()
-                ->map(fn (Shift $s) => ['id' => $s->id, 'name' => $s->name, 'color' => $s->color ?: '#64748B',
-                    'start' => substr((string) $s->start_time, 0, 5), 'end' => substr((string) $s->end_time, 0, 5)]),
             'today'       => CarbonImmutable::now(tenant_timezone())->toDateString(),
             'flagEnabled' => $tenantId ? app(ScheduleResolver::class)->enabled($tenantId) : false,
         ]);
@@ -108,7 +112,7 @@ class ScheduleWebController extends Controller
 
         $result = $this->programming->saveRange($request->user(), $branch, $userIds, $data['from'], $data['to'], $values, $data['reason']);
 
-        return response()->json(['message' => "Programación guardada: {$result['created']} días nuevos, {$result['updated']} cambiados.", 'result' => $result]);
+        return response()->json(['message' => "Programación guardada: {$result['created']} días nuevos, {$result['updated']} cambiados." . self::lockedNote($result), 'result' => $result]);
     }
 
     /** Copiar semana o repetir las semanas elegidas hasta una fecha */
@@ -144,7 +148,12 @@ class ScheduleWebController extends Controller
 
         $result = $this->programming->repeat($request->user(), $branch, $people, $data['source_from'], $data['source_to'], $data['target_from'], $data['until'], $data['reason']);
 
-        return response()->json(['message' => "Programación repetida hasta el " . CarbonImmutable::parse($data['until'])->format('d/m/Y') . ": {$result['created']} días nuevos, {$result['updated']} cambiados.", 'result' => $result]);
+        return response()->json(['message' => "Programación repetida hasta el " . CarbonImmutable::parse($data['until'])->format('d/m/Y') . ": {$result['created']} días nuevos, {$result['updated']} cambiados." . self::lockedNote($result), 'result' => $result]);
+    }
+
+    private static function lockedNote(array $result): string
+    {
+        return ($result['locked'] ?? 0) > 0 ? " {$result['locked']} día(s) de vacaciones se respetaron sin cambios." : '';
     }
 
     /** La agencia es de la empresa y cada colaborador está en ella y al alcance de quien programa */

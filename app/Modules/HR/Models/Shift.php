@@ -27,6 +27,7 @@ class Shift extends Model
 
     protected $fillable = [
         'tenant_id',
+        'branch_id',
         'name',
         'code',
         'type',
@@ -71,6 +72,18 @@ class Shift extends Model
     // =========================================================================
     // RELACIONES
     // =========================================================================
+
+    /** Agencia del horario (NULL = horario anterior, disponible en todas las agencias) */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\Core\Models\Branch::class);
+    }
+
+    /** Horarios que se ofrecen en una agencia: los suyos y los que no tienen agencia */
+    public function scopeForBranch($query, ?int $branchId)
+    {
+        return $query->where(fn ($q) => $q->whereNull('branch_id')->when($branchId, fn ($w) => $w->orWhere('branch_id', $branchId)));
+    }
 
     public function employeeShifts(): HasMany
     {
