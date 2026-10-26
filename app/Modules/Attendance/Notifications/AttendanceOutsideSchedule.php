@@ -38,13 +38,15 @@ class AttendanceOutsideSchedule extends AppNotification
         $time   = $this->punch->type === 'clock_out' ? $this->attendance->clock_out_at : $this->attendance->clock_in_at;
         $shift  = $this->attendance->shift?->forDate($this->attendance->work_date);
         $window = $shift ? sprintf(' (turno %s–%s)', substr((string) $shift->start_time, 0, 5), substr((string) $shift->end_time, 0, 5)) : '';
+        // Sin turno ese día (QA Ronda 2, HQ-02): fuera de programación
+        $where = $shift ? 'fuera de su horario' : 'fuera de programación (no tenía horario ese día)';
 
         if ($this->forSupervisor) {
-            return sprintf('%s marcó %s a las %s, fuera de su horario%s.',
-                $this->employee?->full_name ?? 'Un colaborador', mb_strtolower($moment), hora($time), $window);
+            return sprintf('%s marcó %s a las %s, %s%s.',
+                $this->employee?->full_name ?? 'Un colaborador', mb_strtolower($moment), hora($time), $where, $window);
         }
 
-        return sprintf('%s registrada a las %s, fuera de tu horario%s. RRHH la revisará.', $moment, hora($time), $window);
+        return sprintf('%s registrada a las %s, %s%s. RRHH la revisará.', $moment, hora($time), str_replace('su horario', 'tu horario', $where), $window);
     }
 
     public function payload(): array

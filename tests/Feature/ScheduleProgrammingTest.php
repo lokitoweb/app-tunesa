@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Notifications\AttendanceOutsideSchedule;
+use Illuminate\Support\Facades\Notification;
 use App\Modules\Attendance\Services\AttendanceCalendarService;
 use App\Modules\Attendance\Services\CalendarFilters;
 use App\Modules\Attendance\Services\Reports\AttendanceReportService;
@@ -171,6 +173,33 @@ class ScheduleProgrammingTest extends TestCase
         $day = Attendance::withoutGlobalScopes()->where('user_id', $juan->id)->sole();
         $this->assertSame([$this->b->id, 0, 'present'], [$day->shift_id, (int) $day->late_minutes, $day->status]);
         $this->assertNotContains('OUTSIDE_SCHEDULE', $day->clock_in_meta['suspicion_reasons'] ?? []);
+    }
+
+    public function test_hq02_punch_without_any_schedule_is_outside_programming_and_alerts_the_supervisor(): void
+    {
+        Notification::fake();
+        $supervisor = $this->makeUser($this->acme, 'supervisor');
+        $this->trujillo->update(['supervisor_id' => $supervisor->id]);
+        $nuevo = $this->makeUser($this->acme, 'employee', ['first_name' => 'Sin', 'last_name' => 'Horario']);
+        $nuevo->branches()->attach($this->trujillo->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        $reasons = fn () => Attendance::withoutGlobalScopes()->where('user_id', $nuevo->id)->sole()->clock_in_meta['suspicion_reasons'] ?? [];
+
+        // schedule_v2: fuera de programación y aviso a la jefatura de la agencia
+        $this->flag('on');
+        $this->travelTo(Carbon::parse('2026-10-06 09:00', 'America/Lima'));
+        $this->actingIn($nuevo, $this->acme)->post('/api/attendance/clock-in', $this->punch())->assertCreated();
+        $this->assertContains('OUTSIDE_SCHEDULE', $reasons());
+        Notification::assertSentTo($supervisor, AttendanceOutsideSchedule::class,
+            fn (AttendanceOutsideSchedule $n) => str_contains($n->body(), 'fuera de programación (no tenía horario ese día)'));
+    }
+
+    public function test_hq02_flag_off_punch_without_assignments_is_not_flagged_as_before(): void
+    {
+        $nuevo = $this->makeUser($this->acme, 'employee');
+        $nuevo->branches()->attach($this->trujillo->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        $this->travelTo(Carbon::parse('2026-10-05 09:00', 'America/Lima'));
+        $this->actingIn($nuevo, $this->acme)->post('/api/attendance/clock-in', $this->punch())->assertCreated();
+        $this->assertNotContains('OUTSIDE_SCHEDULE', Attendance::withoutGlobalScopes()->where('user_id', $nuevo->id)->sole()->clock_in_meta['suspicion_reasons'] ?? []);
     }
 
     public function test_flag_off_keeps_the_previous_behaviour(): void
