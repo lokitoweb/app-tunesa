@@ -51,14 +51,34 @@ class ShiftWebController extends Controller
             'color' => '#3B82F6', 'is_active' => true, 'break_allowed' => true,
             'break_duration_minutes' => $rules->lunch_minutes, 'daily_hours' => 8,
             'start_time' => '08:00', 'end_time' => '17:00',
-        ])), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']), 'usedColors' => self::usedColors()]);
+        ])), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']), 'colorShifts' => self::colorShifts()]);
     }
 
-    /** Color (en mayúsculas) => horario de la empresa que ya lo usa */
-    private static function usedColors(?int $except = null): array
+    /**
+     * Horarios con color de la empresa, para bloquear en el formulario los colores usados en la
+     * agencia elegida (el cálculo por agencia lo hace la pantalla con colorTakenIn).
+     *
+     * @return list<array{id: int, name: string, color: string, branch_id: ?int}>
+     */
+    private static function colorShifts(?int $except = null): array
     {
-        return Shift::whereNotNull('color')->when($except, fn ($q) => $q->whereKeyNot($except))->get(['id', 'name', 'color'])
-            ->mapWithKeys(fn (Shift $s) => [strtoupper($s->color) => $s->name])->all();
+        return Shift::whereNotNull('color')->when($except, fn ($q) => $q->whereKeyNot($except))->get(['id', 'name', 'color', 'branch_id'])
+            ->map(fn (Shift $s) => ['id' => $s->id, 'name' => $s->name, 'color' => strtoupper($s->color), 'branch_id' => $s->branch_id])->all();
+    }
+
+    /**
+     * Horario de la agencia que ya usa ese color. Cuentan los de la misma agencia y los que no
+     * tienen agencia: la programación ofrece estos en todas las agencias, se verían iguales.
+     */
+    private static function colorTakenIn(?int $branchId, string $color, ?int $except = null): ?string
+    {
+        if (! $branchId) {
+            return null; // sin agencia válida, la regla de branch_id ya responde
+        }
+
+        return Shift::whereRaw('UPPER(color) = ?', [strtoupper($color)])
+            ->where(fn ($q) => $q->where('branch_id', $branchId)->orWhereNull('branch_id'))
+            ->when($except, fn ($q) => $q->whereKeyNot($except))->value('name');
     }
 
     /** Turno tal como lo consume el panel (listado y formulario) */
@@ -101,7 +121,7 @@ class ShiftWebController extends Controller
 
     public function edit(int $id): Response
     {
-        return Inertia::render('HR/Pages/Shifts/Form', ['shift' => self::present(Shift::findOrFail($id)), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']), 'usedColors' => self::usedColors($id)]);
+        return Inertia::render('HR/Pages/Shifts/Form', ['shift' => self::present(Shift::findOrFail($id)), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']), 'colorShifts' => self::colorShifts($id)]);
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -241,10 +261,10 @@ class ShiftWebController extends Controller
             'rotation_rest_days'     => [$rotating ? 'required' : 'nullable', 'integer', 'between:1,60'],
             'daily_hours'            => ['required', 'numeric', 'between:0.5,24'],
             // Cada horario con su color: en la programación se distinguen por él
-            'color'                  => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/', function (string $attr, mixed $value, \Closure $fail) use ($shift) {
-                $taken = self::usedColors($shift?->id)[strtoupper((string) $value)] ?? null;
+            'color'                  => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/', function (string $attr, mixed $value, \Closure $fail) use ($request, $shift) {
+                $taken = self::colorTakenIn($request->integer('branch_id') ?: null, (string) $value, $shift?->id);
                 if ($taken) {
-                    $fail("Ese color ya lo usa el horario «{$taken}». Elige otro.");
+                    $fail("En esta agencia ese color ya lo usa el horario «{$taken}». Elige otro.");
                 }
             }],
             'is_active'            => ['nullable', 'boolean'],

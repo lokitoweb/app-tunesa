@@ -2,9 +2,11 @@
 
 namespace App\Modules\HR\Controllers\Web;
 
+use App\Modules\Attendance\Services\AttendanceFlags;
 use App\Modules\Attendance\Services\ScheduleResolver;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\Tenant;
 use App\Modules\HR\Models\Holiday;
 use App\Modules\HR\Models\Shift;
 use App\Modules\HR\Services\ScheduleProgramming;
@@ -71,12 +73,41 @@ class ScheduleWebController extends Controller
             return response()->json($payload);
         }
 
-        $tenantId = $branch?->tenant_id;
+        // Empresa de la sesión; en la vista global, la de la agencia elegida
+        $tenantId = current_tenant_id_or_null() ?? $branch?->tenant_id;
 
         return Inertia::render('HR/Pages/Schedule/Index', $payload + [
             'branches'    => $branches->map(fn (Branch $b) => $b->only(['id', 'name'])),
             'today'       => CarbonImmutable::now(tenant_timezone())->toDateString(),
             'flagEnabled' => $tenantId ? app(ScheduleResolver::class)->enabled($tenantId) : false,
+            // Activar "la programación rige" cambia cómo se evalúa la asistencia: solo quien configura la empresa
+            // (en la vista global de Super Admin, primero se elige la empresa en el selector)
+            'canChangeMode' => current_tenant_id_or_null() !== null && $request->user()->can('company.configure'),
+        ]);
+    }
+
+    /**
+     * Enciende o apaga que la programación del calendario rija la asistencia de la empresa
+     * (bandera schedule_v2): app, marcación, tardanzas, faltas y reportes. Queda en la bitácora.
+     */
+    public function mode(Request $request, AttendanceFlags $flags): JsonResponse
+    {
+        abort_unless($request->user()->can('company.configure'), 403);
+        $tenant = Tenant::find(current_tenant_id_or_null());
+        abort_unless($tenant, 409, 'Elige primero la empresa.');
+        $data = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'reason'  => ['required', 'string', 'min:5', 'max:300'],
+        ], ['reason.required' => 'Indica el motivo del cambio.', 'reason.min' => 'Explica un poco más el motivo.']);
+
+        $on = (bool) $data['enabled'];
+        $flags->set($tenant, ScheduleResolver::FLAG, $on, $data['reason'], $request->user()->email);
+
+        return response()->json([
+            'enabled' => $on,
+            'message' => $on
+                ? 'Listo: la programación de horarios ya rige la asistencia y la app muestra lo programado.'
+                : 'La asistencia volvió a evaluarse con la asignación semanal.',
         ]);
     }
 

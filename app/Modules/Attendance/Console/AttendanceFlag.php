@@ -2,17 +2,15 @@
 
 namespace App\Modules\Attendance\Console;
 
-use App\Modules\Attendance\Services\ScheduleResolver;
+use App\Modules\Attendance\Services\AttendanceFlags;
 use App\Modules\Core\Models\Tenant;
-use App\Modules\Core\Services\AuditLogger;
-use App\Modules\Core\Services\TenantContext;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * Banderas por empresa de la ronda 2 de QA (tenants.settings.flags.*). Apagadas por
  * defecto: el comportamiento anterior sigue igual hasta encenderlas. Cada cambio queda
  * en la bitácora con el motivo y el usuario del sistema que corrió el comando.
+ * El panel (Programación de horarios) cambia schedule_v2 con el mismo servicio.
  *
  *   php artisan attendance:flag empresa-demo schedule_v2               # estado actual
  *   php artisan attendance:flag empresa-demo schedule_v2 on --reason="Piloto Ag. Trujillo"
@@ -22,8 +20,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class AttendanceFlag extends Command
 {
-    /** schedule_v2: horario por fecha (HQ-01/02/05). hours_v2: el reporte descuenta el break igual que la jornada guardada (RP-01) */
-    public const FLAGS = [ScheduleResolver::FLAG, 'hours_v2'];
+    public const FLAGS = AttendanceFlags::FLAGS;
 
     protected $signature = 'attendance:flag
                             {tenant : Id o slug de la empresa}
@@ -33,7 +30,7 @@ class AttendanceFlag extends Command
 
     protected $description = 'Muestra, enciende o apaga una bandera de asistencia (QA Ronda 2) en una empresa';
 
-    public function handle(AuditLogger $audit, TenantContext $context): int
+    public function handle(AttendanceFlags $flags): int
     {
         $flag = (string) $this->argument('flag');
         if (! in_array($flag, self::FLAGS, true)) {
@@ -50,7 +47,7 @@ class AttendanceFlag extends Command
             return self::FAILURE;
         }
 
-        $before = (bool) $tenant->setting("flags.{$flag}", false);
+        $before = AttendanceFlags::enabled($tenant, $flag);
         $state = $this->argument('state');
         if ($state === null) {
             $this->line("{$tenant->slug} · {$flag}: " . ($before ? 'on' : 'off'));
@@ -62,31 +59,17 @@ class AttendanceFlag extends Command
 
             return self::INVALID;
         }
-        $after = $state === 'on';
         $reason = trim((string) $this->option('reason'));
         if (mb_strlen($reason) < 5) {
             $this->error('Indica el motivo con --reason (mínimo 5 caracteres).');
 
             return self::INVALID;
         }
-        if ($after === $before) {
+        if (! $flags->set($tenant, $flag, $state === 'on', $reason, get_current_user())) {
             $this->info("{$tenant->slug} · {$flag} ya estaba en {$state}. Sin cambios.");
 
             return self::SUCCESS;
         }
-
-        $settings = (array) $tenant->settings;
-        data_set($settings, "flags.{$flag}", $after);
-        $tenant->forceFill(['settings' => $settings])->save();
-        Cache::add(ScheduleResolver::flagsVersionKey($tenant->id), 0);
-        Cache::increment(ScheduleResolver::flagsVersionKey($tenant->id));
-
-        $context->set($tenant);
-        $audit->logChanges('tenant.flag_changed', $tenant, ["flags.{$flag}" => $before], ["flags.{$flag}" => $after], [
-            'reason'   => mb_substr($reason, 0, 500),
-            'operator' => get_current_user(),
-        ]);
-        $context->clear();
 
         $this->info("{$tenant->slug} · {$flag}: " . ($before ? 'on' : 'off') . " → {$state}. Quedó en la bitácora.");
 

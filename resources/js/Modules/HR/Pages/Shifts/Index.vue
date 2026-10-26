@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { Modal } from 'bootstrap';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
@@ -8,6 +8,7 @@ import DateRangePicker from '@/Modules/Core/Components/DateRangePicker.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
 import ShiftWeekSchedule, { emptyDays } from '@/Modules/HR/Components/ShiftWeekSchedule.vue';
+import { PRESET_COLORS, colorOwner, firstFreeColor } from '@/Modules/HR/shiftColors';
 
 const { ask } = useConfirm();
 const { ensureTenant, consumeIntent, withTenant } = useTenantPicker();
@@ -61,25 +62,12 @@ const ORDERED_DAYS = [
     { index: 0, label: 'Domingo' },
 ];
 
-const PRESET_COLORS = [
-    '#0284C7', // Azul Corporativo
-    '#2563EB', // Azul Real
-    '#059669', // Esmeralda
-    '#D97706', // Ámbar
-    '#7C3AED', // Púrpura
-    '#DC2626', // Rojo
-    '#0D9488', // Verde Azulado
-    '#475569', // Pizarra
-];
-
 const activeShifts = computed(() => props.shifts.filter((s) => s.is_active));
 
-// Colores ya usados por otro horario de la misma empresa (el servidor también lo valida)
-const colorOwners = computed(() => Object.fromEntries(props.shifts
-    .filter((s) => s.color && s.id !== editingShiftId.value && (!editingTenantId.value || s.tenant_id === editingTenantId.value))
-    .map((s) => [s.color.toUpperCase(), s.name])));
-const colorTaken = (c) => colorOwners.value[String(c || '').toUpperCase()];
-const firstFreeColor = () => PRESET_COLORS.find((c) => !colorTaken(c)) || '#0284C7';
+// Colores usados por otro horario de la agencia elegida (el servidor también lo valida).
+// Vista global: solo los horarios de la misma empresa (las agencias son de una empresa)
+const sameCompany = computed(() => props.shifts.filter((s) => !editingTenantId.value || s.tenant_id === editingTenantId.value));
+const colorTaken = (c) => colorOwner(sameCompany.value, shiftForm.branch_id, c, editingShiftId.value);
 function pickColor(c) {
     if (!colorTaken(c)) shiftForm.color = c;
 }
@@ -117,6 +105,13 @@ const defaultShiftData = () => ({
 
 const shiftForm = useForm(defaultShiftData());
 
+// Horario nuevo: al elegir la agencia, si su color ya está usado ahí, se pasa al primero libre
+watch(() => shiftForm.branch_id, () => {
+    if (!modalEditing.value && colorTaken(shiftForm.color)) {
+        shiftForm.color = firstFreeColor(sameCompany.value, shiftForm.branch_id);
+    }
+});
+
 // La asignación de horarios a colaboradores se hace solo en "Programación de horarios" (matriz)
 
 onMounted(() => {
@@ -140,7 +135,7 @@ function openCreateModal() {
     Object.keys(defaults).forEach((k) => {
         shiftForm[k] = defaults[k];
     });
-    shiftForm.color = firstFreeColor();
+    shiftForm.color = firstFreeColor(sameCompany.value, shiftForm.branch_id);
     shiftModalInstance?.show();
 }
 
@@ -497,7 +492,7 @@ async function destroy(shift) {
                                             <button v-for="c in PRESET_COLORS" :key="c" type="button" role="radio"
                                                     class="shift-swatch" :class="{ 'is-selected': shiftForm.color?.toUpperCase() === c, 'is-taken': colorTaken(c) }"
                                                     :style="{ '--swatch': c }" :disabled="!!colorTaken(c)" :aria-checked="shiftForm.color?.toUpperCase() === c"
-                                                    :title="colorTaken(c) ? `En uso por «${colorTaken(c)}»` : 'Disponible'" @click="pickColor(c)">
+                                                    :title="colorTaken(c) ? `En esta agencia lo usa «${colorTaken(c)}»` : 'Disponible'" @click="pickColor(c)">
                                                 <i v-if="colorTaken(c)" class="bi bi-lock-fill"></i>
                                                 <i v-else-if="shiftForm.color?.toUpperCase() === c" class="bi bi-check-lg"></i>
                                             </button>
@@ -508,8 +503,9 @@ async function destroy(shift) {
                                         </div>
                                     </div>
                                     <div v-if="shiftForm.errors.color" class="small text-danger mt-2"><i class="bi bi-exclamation-circle me-1"></i>{{ shiftForm.errors.color }}</div>
-                                    <div v-else-if="colorTaken(shiftForm.color)" class="small text-danger mt-2"><i class="bi bi-exclamation-circle me-1"></i>Ese color ya lo usa «{{ colorTaken(shiftForm.color) }}». Elige otro.</div>
-                                    <div v-else class="small text-secondary mt-2"><i class="bi bi-lock me-1"></i>Los colores con candado ya los usa otro horario.</div>
+                                    <div v-else-if="colorTaken(shiftForm.color)" class="small text-danger mt-2"><i class="bi bi-exclamation-circle me-1"></i>En esta agencia ese color ya lo usa «{{ colorTaken(shiftForm.color) }}». Elige otro.</div>
+                                    <div v-else-if="!shiftForm.branch_id" class="small text-secondary mt-2"><i class="bi bi-geo-alt me-1"></i>Elige la agencia para ver qué colores ya usa.</div>
+                                    <div v-else class="small text-secondary mt-2"><i class="bi bi-lock me-1"></i>Los colores con candado ya los usa otro horario de esta agencia.</div>
                                 </div>
 
                                 <div class="emp-section-card">

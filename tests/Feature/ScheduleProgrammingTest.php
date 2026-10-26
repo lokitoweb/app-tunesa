@@ -149,30 +149,79 @@ class ScheduleProgrammingTest extends TestCase
         $this->assertSame(['excused', 'Vacaciones'], [$row['cells']['2026-10-07']['state'], $row['cells']['2026-10-07']['label']]);
     }
 
-    public function test_a_color_already_used_by_another_shift_is_rejected(): void
+    public function test_shift_colors_are_unique_per_agency(): void
     {
-        $payload = ['branch_id' => $this->trujillo->id, 'name' => 'Nuevo', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '17:00',
-            'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 8, 'working_days' => [1]];
+        $lima = $this->makeBranch($this->acme, ['name' => 'Ag. Lima']);
+        $piura = $this->makeBranch($this->acme, ['name' => 'Ag. Piura']); // nueva: sin horarios
+        $this->a->update(['branch_id' => $this->trujillo->id]); // #3C729E
+        $this->b->update(['branch_id' => $lima->id]);           // #2E9E8C
+        $new = fn (int $branchId, string $color, string $name = 'Nuevo') => $this->actingAs($this->hr)->post('/shifts', [
+            'branch_id' => $branchId, 'name' => $name, 'color' => $color, 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '17:00',
+            'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 8, 'working_days' => [1]]);
 
-        // El horario A ya usa #3C729E (sin importar mayúsculas)
-        $this->actingAs($this->hr)->post('/shifts', $payload + ['color' => '#3c729e'])->assertSessionHasErrors('color');
-        $this->post('/shifts', $payload + ['color' => '#123abc'])->assertSessionHasNoErrors();
-        $this->assertSame('#123ABC', Shift::where('name', 'Nuevo')->value('color'));
+        // En la misma agencia, no (sin importar mayúsculas); en otra agencia o una nueva, sí
+        $new($this->trujillo->id, '#3c729e')->assertSessionHasErrors('color');
+        $new($lima->id, '#3C729E', 'Lima A')->assertSessionHasNoErrors();
+        $new($piura->id, '#2E9E8C', 'Piura B')->assertSessionHasNoErrors();
+        $this->assertSame('#2E9E8C', Shift::where('name', 'Piura B')->value('color'));
 
-        // Editar un horario conservando su propio color sí se puede; tomar el de otro, no
-        $edit = ['name' => 'Horario A', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '15:00', 'branch_id' => $this->trujillo->id,
-            'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 7, 'working_days' => [1, 2, 3, 4, 5]];
-        $this->put("/shifts/{$this->a->id}", $edit + ['color' => '#3C729E'])->assertSessionHasNoErrors();
-        $this->put("/shifts/{$this->a->id}", $edit + ['color' => '#2E9E8C'])->assertSessionHasErrors('color');
+        // Un horario antiguo sin agencia se ofrece en todas: su color queda tomado en todas
+        Shift::create(['tenant_id' => $this->acme->id, 'name' => 'General', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '17:00', 'working_days' => [1], 'color' => '#111111']);
+        foreach ([$this->trujillo, $lima, $piura] as $branch) {
+            $new($branch->id, '#111111', "X {$branch->id}")->assertSessionHasErrors('color');
+        }
 
-        // Otra empresa puede usar el mismo color
+        // Editar: conservar su color sí; tomar el de otro horario de su agencia no; el de otra agencia sí
+        $edit = fn (string $color) => $this->put("/shifts/{$this->a->id}", ['name' => 'Horario A', 'color' => $color, 'branch_id' => $this->trujillo->id,
+            'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '15:00', 'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 7, 'working_days' => [1, 2, 3, 4, 5]]);
+        $edit('#3C729E')->assertSessionHasNoErrors();
+        $new($this->trujillo->id, '#AAAAAA', 'Trujillo 2')->assertSessionHasNoErrors();
+        $edit('#AAAAAA')->assertSessionHasErrors('color');
+        $edit('#2E9E8C')->assertSessionHasNoErrors(); // lo usa Lima, no Trujillo
+
+        // La pantalla recibe agencia y color de cada horario para bloquear por agencia
+        $colors = collect($this->get('/shifts/create')->prop('colorShifts'));
+        $this->assertEquals(['color' => '#2E9E8C', 'branch_id' => $piura->id], collect($colors->firstWhere('name', 'Piura B'))->only(['color', 'branch_id'])->all());
+
+        // Otra empresa puede usar el mismo color en su agencia
         app(\App\Modules\Core\Services\TenantContext::class)->clear();
         $other = $this->makeTenant('other');
         $otherHr = $this->makeUser($other, 'hr_manager');
         $otherBranch = $this->makeBranch($other);
-        $this->actingAs($otherHr)->post('/shifts', ['branch_id' => $otherBranch->id, 'color' => '#3C729E'] + $payload)->assertSessionHasNoErrors();
+        $this->actingAs($otherHr)->post('/shifts', ['branch_id' => $otherBranch->id, 'name' => 'Otra', 'color' => '#3C729E', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '17:00',
+            'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 8, 'working_days' => [1]])->assertSessionHasNoErrors();
+    }
+
+    public function test_programming_mode_is_managed_from_the_panel_and_the_app_shows_what_was_programmed(): void
+    {
+        $juan = $this->people['Juan'];
+        $this->program(); // Juan: A del 5 al 9, B del 12 al 16
+        $appDay = fn (string $date) => $this->actingIn($juan, $this->acme)->getJson("/api/schedule?from={$date}&to={$date}")->assertOk()->json('data.0');
+
+        // Apagado (por defecto): se guarda pero no rige; Juan no tiene asignación semanal → la app no muestra horario
+        $this->assertFalse($appDay('2026-10-12')['is_workday']);
+        $this->flushHeaders()->actingAs($this->hr)->get(route('shifts.schedule'))->assertOk()->assertInertia(fn ($p) => $p->where('flagEnabled', false)->where('canChangeMode', false));
+
+        // RR. HH. programa pero no cambia cómo se evalúa la asistencia; quien configura la empresa sí, con motivo
+        $this->putJson(route('shifts.schedule.mode'), ['enabled' => true, 'reason' => 'Inicio del horario programado'])->assertForbidden();
+        $admin = $this->makeUser($this->acme, 'company_admin');
+        $this->actingAs($admin)->putJson(route('shifts.schedule.mode'), ['enabled' => true])->assertStatus(422)->assertJsonValidationErrors('reason');
+        $this->putJson(route('shifts.schedule.mode'), ['enabled' => true, 'reason' => 'Inicio del horario programado'])->assertOk()->assertJsonPath('enabled', true);
+        $this->assertTrue((bool) $this->acme->fresh()->setting('flags.schedule_v2'));
+        $log = AuditLog::where('action', 'tenant.flag_changed')->sole();
+        $this->assertSame(['Inicio del horario programado', $admin->email], [$log->meta['context']['reason'], $log->meta['context']['operator']]);
+        $this->flushHeaders()->get(route('shifts.schedule'))->assertInertia(fn ($p) => $p->where('flagEnabled', true)->where('canChangeMode', true));
+
+        // Encendido: la app muestra el horario programado de cada día (sin asignación semanal)
         app(\App\Modules\Core\Services\TenantContext::class)->clear();
-        $this->assertSame(['#123ABC' => 'Nuevo', '#2E9E8C' => 'Horario B'], collect($this->actingAs($this->hr)->get('/shifts/create')->prop('usedColors'))->except('#3C729E')->all());
+        $this->assertSame(['Horario B', '14:00'], [$appDay('2026-10-12')['shift']['name'], $appDay('2026-10-12')['shift']['start_time']]);
+        $this->assertSame('Horario A', $appDay('2026-10-05')['shift']['name']);
+        $this->assertFalse($appDay('2026-10-10')['is_workday']); // sábado en blanco = día libre
+
+        // Se puede volver atrás desde el panel
+        $this->actingAs($admin)->putJson(route('shifts.schedule.mode'), ['enabled' => false, 'reason' => 'Vuelta atrás de prueba'])->assertOk()->assertJsonPath('enabled', false);
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+        $this->assertFalse($appDay('2026-10-12')['is_workday']);
     }
 
     public function test_shifts_belong_to_an_agency_and_the_matrix_only_offers_its_own(): void

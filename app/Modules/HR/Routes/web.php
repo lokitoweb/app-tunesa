@@ -65,6 +65,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/schedule', [ScheduleWebController::class, 'index'])->name('schedule');
         Route::post('/schedule', [ScheduleWebController::class, 'save'])->name('schedule.save');
         Route::post('/schedule/repeat', [ScheduleWebController::class, 'repeat'])->name('schedule.repeat');
+        Route::put('/schedule/mode', [ScheduleWebController::class, 'mode'])->name('schedule.mode');
     });
 
     // Feriados: el control de faltas no registra ausencias en estas fechas

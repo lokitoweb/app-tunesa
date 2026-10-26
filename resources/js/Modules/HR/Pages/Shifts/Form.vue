@@ -1,15 +1,16 @@
 <script setup>
+import { watch } from 'vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import ShiftWeekSchedule, { emptyDays } from '@/Modules/HR/Components/ShiftWeekSchedule.vue';
+import { PRESET_COLORS, colorOwner, firstFreeColor } from '@/Modules/HR/shiftColors';
 
 const props = defineProps({
     shift: Object,
     profiles: { type: Object, default: () => ({}) },
     branches: { type: Array, default: () => [] },
-    usedColors: { type: Object, default: () => ({}) }, // color => horario que ya lo usa
+    colorShifts: { type: Array, default: () => [] }, // otros horarios de la empresa con su agencia y color
 });
-const colorTaken = (c) => props.usedColors[String(c || '').toUpperCase()];
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const ORDERED_DAYS = [
@@ -22,22 +23,25 @@ const ORDERED_DAYS = [
     { index: 0, label: 'Dom' },
 ];
 
-const PRESET_COLORS = [
-    '#0284C7', '#2563EB', '#059669', '#D97706', '#7C3AED', '#DC2626', '#0D9488', '#475569',
-];
-
 const editing = props.shift.id !== null;
+// Agencia obligatoria; con una sola agencia ya viene elegida
+const initialBranch = props.shift.branch_id ?? (props.branches.length === 1 ? props.branches[0].id : null);
 const form = useForm({
     ...props.shift,
-    // Nuevo: el primer color libre
-    color: editing || !colorTaken(props.shift.color) ? props.shift.color : (PRESET_COLORS.find((c) => !colorTaken(c)) || props.shift.color),
-    // Agencia obligatoria; con una sola agencia ya viene elegida
-    branch_id: props.shift.branch_id ?? (props.branches.length === 1 ? props.branches[0].id : null),
+    branch_id: initialBranch,
+    // Nuevo: si el color sugerido ya se usa en la agencia, el primero libre
+    color: editing || !colorOwner(props.colorShifts, initialBranch, props.shift.color) ? props.shift.color : firstFreeColor(props.colorShifts, initialBranch),
     start_time: props.shift.start_time ? props.shift.start_time.substring(0, 5) : '08:00',
     end_time: props.shift.end_time ? props.shift.end_time.substring(0, 5) : '17:00',
     working_days: Array.isArray(props.shift.working_days) ? [...props.shift.working_days] : [1, 2, 3, 4, 5],
     profile: props.shift.profile ?? '',
     day_schedules: emptyDays(props.shift.day_schedules),
+});
+
+// Color usado por otro horario de la agencia elegida (el servidor también lo valida)
+const colorTaken = (c) => colorOwner(props.colorShifts, form.branch_id, c, props.shift.id);
+watch(() => form.branch_id, () => {
+    if (!editing && colorTaken(form.color)) form.color = firstFreeColor(props.colorShifts, form.branch_id);
 });
 
 function normalizeTime(field) {
