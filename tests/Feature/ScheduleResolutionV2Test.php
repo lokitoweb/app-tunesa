@@ -135,7 +135,8 @@ class ScheduleResolutionV2Test extends ScheduleResolutionCharacterizationTest
         $log = \App\Modules\Core\Models\AuditLog::where('action', 'tenant.flag_changed')->sole();
         $this->assertSame($this->acme->id, $log->tenant_id);
         $this->assertSame('Prueba en modo v2', $log->meta['context']['reason']);
-        $this->assertSame(['field' => 'flags.schedule_v2', 'old' => false, 'new' => true], collect($log->meta['changes'])->first());
+        // assertEquals: MySQL reordena las claves del JSON de la bitácora
+        $this->assertEquals(['field' => 'flags.schedule_v2', 'old' => false, 'new' => true], collect($log->meta['changes'])->first());
 
         // Motivo obligatorio; una bandera desconocida se rechaza; otra empresa sigue apagada
         $this->artisan('attendance:flag', ['tenant' => 'acme', 'flag' => 'schedule_v2', 'state' => 'off'])->assertExitCode(2);
