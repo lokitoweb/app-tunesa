@@ -249,6 +249,44 @@ class ScheduleProgrammingTest extends TestCase
         $this->assertSame(0, EmployeeScheduleDay::count());
     }
 
+    public function test_security_no_cross_tenant_shift_and_bounded_writes(): void
+    {
+        $globex = $this->makeTenant('globex');
+        $foreign = Shift::create(['tenant_id' => $globex->id, 'name' => 'Ajeno', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '15:00', 'working_days' => [1]]);
+        $body = ['branch_id' => $this->trujillo->id, 'from' => '2026-10-05', 'to' => '2026-10-05', 'reason' => 'Prueba de aislamiento',
+            'rows' => [['user_id' => $this->people['Juan']->id, 'days' => ['2026-10-05' => $foreign->id]]]];
+
+        // Super admin sin empresa elegida: el panel le pide elegir una (no opera "entre empresas")
+        $this->actingAs($this->makeUser(null, 'super_admin'))->postJson(route('shifts.schedule.save'), $body)->assertStatus(409);
+        // RR. HH. de una empresa no puede usar un turno de otra
+        $this->actingAs($this->hr)->postJson(route('shifts.schedule.save'), $body)->assertStatus(422)->assertJsonValidationErrors('rows');
+        $this->assertSame(0, EmployeeScheduleDay::count());
+
+        // Una repetición que escribiría más de MAX_REPEAT_CELLS días se rechaza antes de escribir (110 personas × 366 días)
+        foreach (range(1, 107) as $i) {
+            $this->makeUser($this->acme, 'employee', ['first_name' => "Extra{$i}"])->branches()->attach($this->trujillo->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        }
+        $this->actingAs($this->hr)->postJson(route('shifts.schedule.repeat'), [
+            'branch_id' => $this->trujillo->id, 'source_from' => '2026-10-05', 'source_to' => '2026-10-11',
+            'target_from' => '2026-10-12', 'until' => '2027-10-12', 'reason' => 'Repetir un año',
+        ])->assertStatus(422)->assertJsonValidationErrors('until');
+        $this->assertSame(0, EmployeeScheduleDay::count());
+    }
+
+    public function test_a_shift_programmed_in_the_future_cannot_be_deleted(): void
+    {
+        $this->program(); // horario B programado del 5 al 16 de octubre (hoy es 1 de octubre)
+
+        $this->actingAs($this->hr)->from(route('shifts.index'))->delete(route('shifts.destroy', $this->b->id))->assertSessionHas('error');
+        $this->actingIn($this->hr, $this->acme)->deleteJson("/api/admin/shifts/{$this->b->id}")->assertStatus(409)->assertJsonPath('code', 'SHIFT_IN_USE');
+        $this->assertNotSoftDeleted($this->b);
+
+        // Un turno sin asignaciones ni días programados sí se elimina
+        $libre = Shift::create(['tenant_id' => $this->acme->id, 'name' => 'Libre', 'type' => 'fixed', 'start_time' => '09:00', 'end_time' => '13:00', 'working_days' => [1]]);
+        $this->actingAs($this->hr)->from(route('shifts.index'))->delete(route('shifts.destroy', $libre->id))->assertSessionHas('success');
+        $this->assertSoftDeleted($libre);
+    }
+
     public function test_new_assignment_overlapping_a_current_one_is_blocked(): void
     {
         $juan = $this->people['Juan'];

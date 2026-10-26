@@ -27,7 +27,10 @@ class ReverseGeocodePunch implements ShouldQueue
 
     public int $timeout = 60;
 
-    public function __construct(public readonly int $punchId) {}
+    public function __construct(public readonly int $punchId)
+    {
+        $this->onQueue(config('services.nominatim.queue'));
+    }
 
     public function backoff(): array
     {

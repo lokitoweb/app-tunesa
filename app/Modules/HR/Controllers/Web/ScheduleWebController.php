@@ -26,6 +26,10 @@ class ScheduleWebController extends Controller
     public const MAX_RANGE_DAYS = 62;
     public const MAX_REPEAT_DAYS = 366;
 
+    /** Tope de colaboradores por guardado y de días a escribir en una repetición (una petición no debe escribir sin límite) */
+    public const MAX_PEOPLE = 500;
+    public const MAX_REPEAT_CELLS = 40000;
+
     public function __construct(private readonly ScheduleProgramming $programming) {}
 
     public function index(Request $request): Response|JsonResponse
@@ -47,7 +51,7 @@ class ScheduleWebController extends Controller
             'to'       => $to,
             'people'   => $people->map(fn ($u) => ['id' => $u->id, 'name' => trim("{$u->last_name}, {$u->first_name}"), 'code' => $u->employee_code, 'position' => $u->position])->values(),
             'grid'     => $branch ? $this->programming->grid($people, $from, $to) : [],
-            'holidays' => Holiday::whereBetween('date', [$from, $to])->get(['date', 'name'])
+            'holidays' => Holiday::where('tenant_id', $branch?->tenant_id)->whereBetween('date', [$from, $to])->get(['date', 'name'])
                 ->mapWithKeys(fn (Holiday $h) => [$h->date->toDateString() => $h->name]),
         ];
 
@@ -59,7 +63,7 @@ class ScheduleWebController extends Controller
 
         return Inertia::render('HR/Pages/Schedule/Index', $payload + [
             'branches'    => $branches->map(fn (Branch $b) => $b->only(['id', 'name'])),
-            'shifts'      => Shift::where('is_active', true)->orderBy('start_time')->get()
+            'shifts'      => Shift::where('tenant_id', $tenantId)->where('is_active', true)->orderBy('start_time')->get()
                 ->map(fn (Shift $s) => ['id' => $s->id, 'name' => $s->name, 'color' => $s->color ?: '#64748B',
                     'start' => substr((string) $s->start_time, 0, 5), 'end' => substr((string) $s->end_time, 0, 5)]),
             'today'       => CarbonImmutable::now(tenant_timezone())->toDateString(),
@@ -75,7 +79,7 @@ class ScheduleWebController extends Controller
             'from'      => ['required', 'date_format:Y-m-d'],
             'to'        => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
             'reason'    => ['required', 'string', 'min:5', 'max:300'],
-            'rows'      => ['required', 'array', 'min:1'],
+            'rows'      => ['required', 'array', 'min:1', 'max:' . self::MAX_PEOPLE],
             'rows.*.user_id' => ['required', 'integer', 'distinct'],
             'rows.*.days'    => ['present', 'array'],
             'rows.*.days.*'  => ['nullable', 'integer'],
@@ -95,7 +99,7 @@ class ScheduleWebController extends Controller
                 $values[(int) $row['user_id']][$date] = $shiftId;
             }
         }
-        $this->guardShifts(collect($values)->flatten()->filter()->unique()->all());
+        $this->guardShifts(collect($values)->flatten()->filter()->unique()->all(), (int) $branch->tenant_id);
 
         $result = $this->programming->saveRange($request->user(), $branch, $userIds, $data['from'], $data['to'], $values, $data['reason']);
 
@@ -128,6 +132,11 @@ class ScheduleWebController extends Controller
             $people = $people->whereIn('id', $ids)->values();
         }
 
+        $cells = $people->count() * (CarbonImmutable::parse($data['target_from'])->diffInDays(CarbonImmutable::parse($data['until'])) + 1);
+        if ($cells > self::MAX_REPEAT_CELLS) {
+            throw ValidationException::withMessages(['until' => 'Es demasiado para una sola vez: repite por menos semanas o para menos colaboradores.']);
+        }
+
         $result = $this->programming->repeat($request->user(), $branch, $people, $data['source_from'], $data['source_to'], $data['target_from'], $data['until'], $data['reason']);
 
         return response()->json(['message' => "Programación repetida hasta el " . CarbonImmutable::parse($data['until'])->format('d/m/Y') . ": {$result['created']} días nuevos, {$result['updated']} cambiados.", 'result' => $result]);
@@ -146,9 +155,10 @@ class ScheduleWebController extends Controller
         return [$branch, array_map('intval', $userIds)];
     }
 
-    private function guardShifts(array $ids): void
+    /** Los turnos existen y son de la empresa de la agencia (también para el super admin, sin empresa fija) */
+    private function guardShifts(array $ids, int $tenantId): void
     {
-        if ($ids && Shift::whereIn('id', $ids)->count() !== count($ids)) {
+        if ($ids && Shift::where('tenant_id', $tenantId)->whereIn('id', $ids)->count() !== count($ids)) {
             throw ValidationException::withMessages(['rows' => 'Hay horarios que no existen en la empresa.']);
         }
     }

@@ -43,6 +43,10 @@ return [
         'email'           => env('NOMINATIM_EMAIL'),
         'min_interval_ms' => (int) env('NOMINATIM_MIN_INTERVAL_MS', 1000),
         'timeout'         => (int) env('NOMINATIM_TIMEOUT', 8),
+        // Cola de la geocodificación de marcaciones. Vacío = la cola por defecto (como siempre).
+        // Con "geocoding" y el worker en --queue=default,geocoding, una hora pico de marcaciones
+        // no retrasa los avisos push (docs/deployment/produccion-servidor.md).
+        'queue'           => env('GEOCODING_QUEUE') ?: null,
     ],
 
     'google_geocoding' => [

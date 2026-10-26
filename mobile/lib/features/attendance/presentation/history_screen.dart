@@ -125,7 +125,7 @@ class _SummaryRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(children: [
-          cell('Puntual', '${summary.present}', Colors.green.shade700),
+          cell('Normal', '${summary.present}', Colors.green.shade700),
           divider,
           cell('Tardanzas', '${summary.late}', Colors.orange.shade800),
           divider,
@@ -146,18 +146,20 @@ class _AttendanceTile extends StatelessWidget {
   final Attendance attendance;
   final VoidCallback onJustify;
 
-  /// Etiqueta corta de la jornada, como en el reloj: "Completo" cuando hay
-  /// entrada y salida a tiempo, "En curso" si falta la salida de hoy.
+  /// Estado de la jornada con la misma etiqueta que el panel y los reportes
+  /// (status_label del API: Normal, Tardanza, Faltó, Marcación incompleta…,
+  /// QA Ronda 2 · RP-03). Solo "En curso" es propio de la app: hoy sin salida aún.
   static (String, Color) dayState(Attendance a, ColorScheme scheme) {
     final today = DateUtils.isSameDay(a.workDate, DateTime.now());
-    if (a.status == 'absent') return ('Falta', scheme.error);
-    if (a.status == 'excused') return ('Justificado', Colors.blue.shade700);
+    String label(String fallback) => a.statusLabel.isNotEmpty ? a.statusLabel : fallback;
+    if (a.status == 'absent') return (label('Faltó'), scheme.error);
+    if (a.status == 'excused') return (label('Falta justificada'), Colors.blue.shade700);
     if (a.clockIn != null && a.clockOut == null) {
-      return today ? ('En curso', AppTheme.skyDeep) : ('Sin salida', Colors.orange.shade800);
+      return today ? ('En curso', AppTheme.skyDeep) : ('Marcación incompleta', Colors.orange.shade800);
     }
-    if (a.status == 'late') return ('Tardanza', Colors.orange.shade800);
+    if (a.status == 'late') return (label('Tardanza'), Colors.orange.shade800);
     if (a.status == 'incomplete' || a.status == 'half_day') return (a.statusLabel, Colors.orange.shade800);
-    if (a.clockIn != null && a.clockOut != null) return ('Completo', Colors.green.shade700);
+    if (a.clockIn != null && a.clockOut != null) return (label('Normal'), Colors.green.shade700);
     return (a.statusLabel, scheme.onSurfaceVariant);
   }
 

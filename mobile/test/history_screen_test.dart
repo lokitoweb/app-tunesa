@@ -19,7 +19,7 @@ void main() {
       id: 1,
       workDate: day,
       status: 'present',
-      statusLabel: 'Presente',
+      statusLabel: 'Normal', // etiqueta que envía hoy el API
       clockIn: DateTime(day.year, day.month, day.day, 8, 0),
       clockOut: DateTime(day.year, day.month, day.day, 17, 30),
       workedHours: 8.75,
@@ -57,7 +57,7 @@ void main() {
     expect(find.text('SALIDA'), findsNWidgets(2));
     expect(find.text('08:00 am'), findsOneWidget);
     expect(find.text('05:30 pm'), findsOneWidget);
-    expect(find.text('Completo'), findsOneWidget);
+    expect(find.text('Normal'), findsWidgets); // estado del día y total del resumen
     expect(find.text('Tardanza'), findsWidgets);
     expect(find.byKey(const Key('open-overtime')), findsOneWidget);
   });

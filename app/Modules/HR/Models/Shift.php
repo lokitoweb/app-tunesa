@@ -77,6 +77,13 @@ class Shift extends Model
         return $this->hasMany(EmployeeShift::class);
     }
 
+    /** No se elimina si tiene asignaciones vigentes o días programados desde hoy en el calendario (QA Ronda 2) */
+    public function inUse(): bool
+    {
+        return $this->employeeShifts()->current()->exists()
+            || EmployeeScheduleDay::where('shift_id', $this->id)->where('work_date', '>=', now(tenant_timezone())->toDateString())->exists();
+    }
+
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
