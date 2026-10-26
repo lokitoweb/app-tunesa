@@ -128,3 +128,23 @@ Consumidores de horas decimales hoy (decisión 6), según el código:
 | No-regresión | Suite backend, MySQL 8, app móvil, git sobre módulos sensibles | Backend en verde; 83 pruebas QA en MySQL; `flutter analyze` limpio y 238 pruebas; cumpleaños, boletas, Firebase, geocerca y selfies sin cambios | — |
 | Estrés | 160 entradas concurrentes (40 duplicadas) + 120 salidas + 240 trabajos de cola, en MySQL 8 | 120 × 201, 40 × 409, 120 × 200, 0 errores 500, 0 duplicados, 0 deadlocks, 0 trabajos fallidos | Cola de geocodificación opcional (`GEOCODING_QUEUE`) para que la hora pico no retrase los push (`GeocodingQueueTest`). |
 | BD | DDL real en MySQL 8 de `employee_schedule_days` | Única (empresa, colaborador, fecha), índices y llaves foráneas correctas | — |
+
+## 10. Reglas de negocio vigentes del piloto (respuestas formales de RR. HH. y QA)
+
+Reemplazan las filas "bloqueado por regla pendiente" de las secciones 5 y 6: CP-04 (saldo) y las reglas de 5.4 quedan **hecho**.
+
+| # | Regla | Implementación | Prueba | Estado |
+|---|---|---|---|---|
+| 1 | Tolerancia 10 min | `default_grace_minutes` = 10 | `test_cp01…` | hecho |
+| 2 | Tardanza desde la hora oficial, sin redondeo (08:11 → 11 min) | `AttendanceService::calculateLateMinutes` (sin cambios) | `test_cp08…` (08:25 → 25 min) | hecho |
+| 3 | Descanso automático si pasa de 5 h, salvo refrigerio pagado | `breakToDeduct` + `hours_v2` en el reporte | `test_cp01…` | hecho |
+| 4 | Horas extra con aprobación posterior | `overtime_status` pendiente → Aprobaciones | `test_rule10…` | hecho |
+| 5 | Lista oficial de estados (+ Salida anticipada, Feriado trabajado) | `DayStatus`, `lang/es/attendance.php` | `test_cp02…` a `test_cp05…` | hecho |
+| 6 | Programan supervisores de agencia con 5 días de anticipación; app solo lectura | permiso `shifts.program` (migración `2026_11_02_000001`), agencias por `Branch::visibleTo`, plazo en pantalla | `ScheduleProgrammingTest::test_rule6…` | hecho |
+| 7 | Salida anticipada como estado + alerta al supervisor | `AttendanceService::earlyExitMinutes`, `AttendanceEarlyExit` | `test_rule7…` | hecho (alerta con `schedule_v2`) |
+| 8 | Feriado trabajado como estado, nunca falta | `DayStatus::HOLIDAY_WORKED` | `test_rule8…` | hecho |
+| 9 | 30 días calendario por año (régimen general), descuento automático al aprobar | `VacationBalance`, `tenant_settings.vacation_days_per_year` (migración `2026_11_02_000002`) | `test_cp04_balance…` | hecho |
+| 10 | Horas extra solo después de la salida oficial | `AttendanceService::overtimeHours`, reporte con `hours_v2` | `test_rule10…` | hecho (con `hours_v2`) |
+| 11 | Días sin horario con autorización del supervisor | `attendance.authorize_offshift` al supervisor, solo su equipo | `ScheduleProgrammingTest::test_rule11…` | hecho |
+
+Migraciones probadas en MySQL 8 (`tunesa_load`): permisos 12 → 0 diferencias con `migrate`, y de vuelta a 12 con `rollback`.

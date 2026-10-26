@@ -34,6 +34,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'shifts.view'            => ['Ver turnos de la empresa', 'shifts'],
         'shifts.manage'          => ['Crear y editar turnos', 'shifts'],
         'shifts.assign'          => ['Asignar turnos a colaboradores', 'shifts'],
+        'shifts.program'         => ['Programar horarios en el calendario (su agencia)', 'shifts'],
 
         // Asistencia
         'attendance.mark'        => ['Marcar asistencia (selfie + GPS)', 'attendance'],
@@ -165,8 +166,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'Supervisor',
             'Supervisa la asistencia y solicitudes de su equipo.',
             [
-                'users.view', 'branches.view', 'shifts.view', 'shifts.view_own',
-                'attendance.mark', 'attendance.view_own', 'attendance.view_team', 'attendance.edit',
+                'users.view', 'branches.view', 'shifts.view', 'shifts.view_own', 'shifts.program',
+                'attendance.mark', 'attendance.view_own', 'attendance.view_team', 'attendance.edit', 'attendance.authorize_offshift',
                 'dashboard.view', 'reports.view',
                 'leave.request', 'leave.approve_team',
                 'payslips.view_own', 'profile.manage_own', 'training.view_own',

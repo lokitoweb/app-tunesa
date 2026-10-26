@@ -6,6 +6,7 @@ use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\Attendance\Services\ScheduleResolver;
 use App\Modules\Attendance\Support\DayStatus;
+use App\Modules\HR\Services\VacationBalance;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Holiday;
 use App\Modules\HR\Models\LeaveRequest;
@@ -234,6 +235,13 @@ class AttendanceReportService
             $this->schedules->preload((int) $tenantId, $group->pluck('id')->all(), $f->from, $f->to);
         }
 
+        // Regla vigente 9: saldo de vacaciones al cierre del periodo (o a hoy, si el periodo sigue abierto)
+        $balances = [];
+        foreach ($users->groupBy('tenant_id') as $tenantId => $group) {
+            $asOf = min($f->to, Carbon::now($this->tenantTimezone((int) $tenantId))->toDateString());
+            $balances += app(VacationBalance::class)->forUsers($group, CarbonImmutable::parse($asOf));
+        }
+
         return $users->map(fn (User $user) => $this->forUser(
             $user,
             $f,
@@ -241,7 +249,7 @@ class AttendanceReportService
             $assignments->get($user->id, collect()),
             $leaves->get($user->id, collect()),
             $branchNames[$user->id] ?? null,
-        ))->values()->all();
+        ) + ['vacation_balance' => $balances[$user->id] ?? null])->values()->all();
     }
 
     // =========================================================================
@@ -281,7 +289,9 @@ class AttendanceReportService
                 $row += ['date' => $day, 'status' => 'worked', 'scheduled' => (bool) $scheduled, 'holiday' => $isHoliday, 'note' => $isHoliday ? 'Feriado trabajado' : ''];
                 $row += self::scheduledTimes($resolved->assignment?->shift ?? $worked->first()->shift, $day) + self::dayStatus(match (true) {
                     $row['open'] && $day < $today                 => DayStatus::INCOMPLETE,
+                    $isHoliday                                    => DayStatus::HOLIDAY_WORKED,
                     $row['late_minutes'] > 0                      => DayStatus::LATE,
+                    $row['early_minutes'] > 0                     => DayStatus::EARLY_EXIT,
                     $worked->first()->status === 'half_day'       => DayStatus::HALF_DAY,
                     default                                       => DayStatus::NORMAL,
                 });
@@ -456,6 +466,11 @@ class AttendanceReportService
         $workedSeconds = array_sum(array_map(fn ($i) => $i[1] - $i[0], $intervals));
         $dailyHours    = $shift && (float) $shift->daily_hours > 0 ? (float) $shift->daily_hours : self::DEFAULT_DAILY_HOURS;
         $overtime      = max(0, $workedSeconds - (int) round($dailyHours * 3600));
+        // hours_v2 (regla vigente 10): solo lo marcado después de la salida oficial del horario
+        $officialEnd = $unified && $shift?->start_time && $shift->end_time ? $this->scheduledEnd($attendance, $shift) : null;
+        if ($officialEnd) {
+            $overtime = min($workedSeconds, max(0, $b - $officialEnd->getTimestamp()));
+        }
 
         // Horas extra = cola de la jornada: se toman desde la salida hacia atrás
         $otNight = 0;

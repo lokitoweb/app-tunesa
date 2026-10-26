@@ -97,7 +97,7 @@ class ManualAttendanceEdit
                 $deduct = $settings->lunch_paid ? 0 : $this->attendance->breakToDeduct($total, max(0, (int) $breakMinutes), $shift, $settings);
                 $worked = round(max(0, $total - $deduct) / 60, 2);
                 $base = AttendanceService::baseDailyHours($shift, $employee);
-                $overtime = max(0, round($worked - $base, 2));
+                $overtime = $this->attendance->overtimeHours($shift, $date, $tz, $out, $worked, $base, (bool) $employee->tenant?->setting('flags.hours_v2'));
 
                 $values['clock_out_at']   = $out->format('Y-m-d H:i:s');
                 $values['worked_hours']   = $worked;

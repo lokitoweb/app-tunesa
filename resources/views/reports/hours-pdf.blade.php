@@ -56,6 +56,7 @@
             <th class="num">Vacaciones</th>
             <th class="num">Permiso</th>
             <th class="num">D. médico</th>
+            <th class="num">Saldo vac.</th>
         </tr>
     </thead>
     <tbody>
@@ -80,9 +81,10 @@
                 <td class="num">{{ $s['vacation_days'] }}</td>
                 <td class="num">{{ $s['permission_days'] }}</td>
                 <td class="num">{{ $s['medical_leave_days'] }}</td>
+                <td class="num">{{ $r['vacation_balance']['balance'] ?? '—' }}</td>
             </tr>
         @empty
-            <tr><td colspan="{{ $withCompany ? 18 : 17 }}">Sin colaboradores para los filtros elegidos.</td></tr>
+            <tr><td colspan="{{ $withCompany ? 19 : 18 }}">Sin colaboradores para los filtros elegidos.</td></tr>
         @endforelse
     </tbody>
     @if(count($rows))
@@ -102,6 +104,7 @@
                 <td class="num">{{ $totals['vacation_days'] }}</td>
                 <td class="num">{{ $totals['permission_days'] }}</td>
                 <td class="num">{{ $totals['medical_leave_days'] }}</td>
+                <td class="num">—</td>
             </tr>
         </tfoot>
     @endif

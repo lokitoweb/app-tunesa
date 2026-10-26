@@ -43,6 +43,8 @@ class TenantSetting extends Model
         'max_gps_accuracy_meters' => 100,
         'default_grace_minutes'   => 10,
         'lunch_minutes'           => 45,
+        // Regla vigente 9 (QA Ronda 2): días de vacaciones por año de servicio, régimen general
+        'vacation_days_per_year'  => 30,
         'lunch_paid'              => false,
         // Solo se marca entrada un día con turno programado (o autorizado por RRHH)
         'punch_requires_schedule' => true,
@@ -69,7 +71,7 @@ class TenantSetting extends Model
         'accent_color', 'navbar_color',
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
-        'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'punch_requires_schedule', 'default_geofence_radius',
+        'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
         'webhook_url', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled', 'self_password_change',
         // Servicios externos (solo SuperAdmin, ver SERVICE_FIELDS); los secretos van en SECRET_FIELDS
@@ -110,7 +112,7 @@ class TenantSetting extends Model
         'primary_color', 'secondary_color', 'accent_color', 'navbar_color',
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
-        'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'punch_requires_schedule', 'default_geofence_radius',
+        'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
         'webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_service_account_json', 'fcm_enabled', 'self_password_change',
         'migo_api_token', 'migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'nubefact_token',
@@ -130,6 +132,7 @@ class TenantSetting extends Model
         'max_gps_accuracy_meters' => 'integer',
         'default_grace_minutes'   => 'integer',
         'lunch_minutes'           => 'integer',
+        'vacation_days_per_year'  => 'integer',
         'default_geofence_radius' => 'integer',
         'webhook_secret'          => 'encrypted',
         'maps_api_key'            => 'encrypted',

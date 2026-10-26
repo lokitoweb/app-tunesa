@@ -7,7 +7,7 @@
     // Pestaña a abrir: la pedida, o la del primer campo con error
     $fieldTabs = [
         'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'self_password_change'],
-        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'punch_requires_schedule', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds'],
+        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds'],
     ];
     // Campos que dependen de columnas nuevas de tenant_settings: solo se muestran si existen
     $has = fn (string $column) => in_array($column, $columns, true);
@@ -458,6 +458,15 @@
                                         <input type="number" id="lunch_minutes" name="lunch_minutes" min="0" max="480" value="{{ $val('lunch_minutes') }}" placeholder="{{ $inh('lunch_minutes') }}" class="modern-input-control @error('lunch_minutes') is-invalid @enderror">
                                         <span class="modern-input-suffix">min</span>
                                     </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <label for="vacation_days_per_year" class="form-label small fw-semibold text-secondary mb-1">Vacaciones por año de servicio</label>
+                                    <div class="modern-input-wrapper">
+                                        <span class="modern-input-icon"><i class="bi bi-sun"></i></span>
+                                        <input type="number" id="vacation_days_per_year" name="vacation_days_per_year" min="0" max="60" value="{{ $val('vacation_days_per_year') }}" placeholder="{{ $inh('vacation_days_per_year') }}" class="modern-input-control @error('vacation_days_per_year') is-invalid @enderror">
+                                        <span class="modern-input-suffix">días</span>
+                                    </div>
+                                    <div class="form-text small">Días calendario que se ganan por cada año cumplido (régimen general: 30). El saldo descuenta las vacaciones aprobadas.</div>
                                 </div>
                                 <div class="col-12">
                                     <label for="default_geofence_radius" class="form-label small fw-semibold text-secondary mb-1">Radio de geocerca por defecto</label>

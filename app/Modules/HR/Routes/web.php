@@ -57,13 +57,14 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::delete('/{id}', [ShiftWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
         Route::post('/assign', [ShiftWebController::class, 'assign'])->name('assign')->middleware('can:shifts.assign');
         Route::delete('/assignments/{id}', [ShiftWebController::class, 'unassign'])->name('unassign')->middleware('can:shifts.assign')->whereNumber('id');
+    });
 
-        // Programación por calendario (QA Ronda 2, HQ-05): agencia → horario → días
-        Route::middleware('can:shifts.assign')->group(function () {
-            Route::get('/schedule', [ScheduleWebController::class, 'index'])->name('schedule');
-            Route::post('/schedule', [ScheduleWebController::class, 'save'])->name('schedule.save');
-            Route::post('/schedule/repeat', [ScheduleWebController::class, 'repeat'])->name('schedule.repeat');
-        });
+    // Programación por calendario (QA Ronda 2, HQ-05 y regla 6): RR. HH., administración y el
+    // supervisor de agencia (solo sus agencias y su equipo). No requiere crear/editar turnos.
+    Route::prefix('shifts')->name('shifts.')->middleware('can:shifts.program')->group(function () {
+        Route::get('/schedule', [ScheduleWebController::class, 'index'])->name('schedule');
+        Route::post('/schedule', [ScheduleWebController::class, 'save'])->name('schedule.save');
+        Route::post('/schedule/repeat', [ScheduleWebController::class, 'repeat'])->name('schedule.repeat');
     });
 
     // Feriados: el control de faltas no registra ausencias en estas fechas

@@ -457,7 +457,8 @@ class AttendanceService
         $workedHours  = round(max(0, $totalMinutes - $breakMinutes) / 60, 2);
 
         $dailyHours    = self::baseDailyHours($shift, $employee);
-        $overtimeHours = max(0, round($workedHours - $dailyHours, 2));
+        $overtimeHours = $this->overtimeHours($shift, $attendance->work_date->toDateString(), $c['tenant']->timezone, $clockOutTime,
+            $workedHours, $dailyHours, (bool) $c['tenant']->setting('flags.hours_v2'));
 
         $attendance->update([
             'clock_out_at'              => $clockOutTime,
@@ -775,6 +776,17 @@ class AttendanceService
             $this->alerts->outsideSchedule($result->attendance, $result->punch);
         }
 
+        // Regla vigente 7: salida antes de la salida oficial → aviso al panel del supervisor.
+        // Solo con schedule_v2: sin él, el "horario del día" puede ser el respaldo de otro día.
+        $attendance = $result->attendance;
+        if ($result->punch->type === 'clock_out' && $attendance->clock_out_at && $this->schedules->enabled((int) $attendance->tenant_id)) {
+            $date = $attendance->work_date->toDateString();
+            $minutes = $this->earlyExitMinutes($attendance->shift, $date, tenant_timezone(), $this->localTime($attendance->clock_out_at));
+            if ($minutes > 0) {
+                $this->alerts->earlyExit($attendance, $minutes, $this->scheduledEnd($attendance->shift, $date, tenant_timezone())->format('H:i'));
+            }
+        }
+
         if (in_array(AttendancePunch::REASON_OUT_OF_GEOFENCE, $reasons, true)) {
             $this->alerts->outsideGeofence($result->attendance->user ?? User::find($result->punch->user_id), [
                 'branch_id'       => $result->punch->branch_id,
@@ -974,6 +986,42 @@ class AttendanceService
     }
 
     /** Jornada base: la del turno; sin turno, 8 h (tiempo completo) o 4 h (medio tiempo) */
+    /** Salida oficial del horario del día, en hora local de la empresa (día siguiente si cruza medianoche) */
+    public static function scheduledEnd(?Shift $shift, string $date, string $timezone): ?Carbon
+    {
+        $shift = $shift?->forDate($date);
+        if (! $shift?->start_time || ! $shift->end_time) {
+            return null;
+        }
+        $start = Carbon::parse("{$date} {$shift->start_time}", $timezone);
+        $end   = Carbon::parse("{$date} {$shift->end_time}", $timezone);
+
+        return ($shift->crosses_midnight || $end->lte($start)) ? $end->addDay() : $end;
+    }
+
+    /** Regla vigente 7: minutos que salió antes de la salida oficial (0 si salió a tiempo o no hay horario) */
+    public static function earlyExitMinutes(?Shift $shift, string $date, string $timezone, Carbon $out): int
+    {
+        $end = self::scheduledEnd($shift, $date, $timezone);
+
+        return $end && $out->lt($end) ? (int) $out->diffInMinutes($end) : 0;
+    }
+
+    /**
+     * Horas extra de la jornada. Con hours_v2 (regla vigente 10): solo lo marcado después de la
+     * salida oficial del horario, sin pasar de lo trabajado. Sin horario ese día (no hay salida
+     * oficial) o sin hours_v2: horas trabajadas sobre la jornada base, como antes.
+     */
+    public function overtimeHours(?Shift $shift, string $date, string $timezone, Carbon $out, float $workedHours, float $baseHours, bool $afterOfficialExit): float
+    {
+        $end = $afterOfficialExit ? self::scheduledEnd($shift, $date, $timezone) : null;
+        if (! $end) {
+            return max(0, round($workedHours - $baseHours, 2));
+        }
+
+        return round(min($workedHours * 60, max(0, $end->diffInMinutes($out, false))) / 60, 2);
+    }
+
     public static function baseDailyHours(?Shift $shift, User $employee): float
     {
         if ($shift && (float) $shift->daily_hours > 0) {

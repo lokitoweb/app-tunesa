@@ -187,6 +187,7 @@ class TenantSettingsService
 
             'default_grace_minutes'   => ['sometimes', 'nullable', 'integer', 'between:0,240'],
             'lunch_minutes'           => ['sometimes', 'nullable', 'integer', 'between:0,480'],
+            'vacation_days_per_year'  => ['sometimes', 'nullable', 'integer', 'between:0,60'],
             'lunch_paid'              => ['sometimes', 'nullable', 'boolean'],
             'punch_requires_schedule' => ['sometimes', 'nullable', 'boolean'],
             'default_geofence_radius' => ['sometimes', 'nullable', 'integer', 'between:10,5000'],

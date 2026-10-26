@@ -10,6 +10,8 @@ use App\Modules\Core\Services\SecureFileUrl;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Holiday;
 use App\Modules\HR\Models\LeaveRequest;
+use App\Modules\HR\Models\Shift;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -52,6 +54,8 @@ class AttendanceCalendarService
         'permission'    => [DayStatus::PERMISSION, 'primary'],
         'medical_leave' => [DayStatus::MEDICAL_LEAVE, 'primary'],
         'holiday'       => [DayStatus::HOLIDAY, 'secondary'],
+        'early_exit'    => [DayStatus::EARLY_EXIT, 'warning'],
+        'holiday_worked' => [DayStatus::HOLIDAY_WORKED, 'success'],
     ];
 
     /**
@@ -78,6 +82,8 @@ class AttendanceCalendarService
         'permission'    => '0D6EFD',
         'medical_leave' => '0D6EFD',
         'holiday'       => 'CED4DA',
+        'early_exit'    => 'FFC107',
+        'holiday_worked' => '198754',
     ];
 
     // =========================================================================
@@ -408,6 +414,10 @@ class AttendanceCalendarService
             ], match (true) {
                 $state === 'excused' && $leave !== null => DayStatus::fromLeave($leave->type),
                 $state === 'rest' && $record->status === 'holiday' => DayStatus::HOLIDAY,
+                // Regla vigente 8: asistió en un feriado
+                isset($holidays[$day]) && in_array($state, ['present', 'late'], true) => DayStatus::HOLIDAY_WORKED,
+                // Regla vigente 7 (con schedule_v2, para comparar contra el horario de ese día)
+                $state === 'present' && $this->schedules->enabled((int) $user->tenant_id) && $this->leftEarly($records, $dayShift, $day) => DayStatus::EARLY_EXIT,
                 default => null,
             });
         }
@@ -433,7 +443,16 @@ class AttendanceCalendarService
             : $this->make('absent', $shift + ['note' => 'Sin marcación']);
     }
 
-    /** @param  string|null  $kind  detalle de 'excused' o 'rest' (vacation, permission, medical_leave, holiday) */
+    /** ¿La última salida del día fue antes de la salida oficial? (horas de pared, misma zona para ambas) */
+    private function leftEarly(Collection $records, ?Shift $dayShift, string $day): bool
+    {
+        $out = $records->last(fn (Attendance $a) => $a->clock_out_at !== null)?->clock_out_at;
+
+        return $out && AttendanceService::earlyExitMinutes($dayShift, $day, 'UTC',
+            Carbon::createFromFormat('Y-m-d H:i:s', $out->format('Y-m-d H:i:s'), 'UTC')) > 0;
+    }
+
+    /** @param  string|null  $kind  detalle de 'excused' o 'rest' (vacation, permission, medical_leave, holiday, early_exit) */
     private function make(string $state, array $extra = [], ?string $kind = null): array
     {
         [, $tone] = self::TONES[$state];

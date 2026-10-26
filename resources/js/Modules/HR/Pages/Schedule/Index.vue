@@ -16,6 +16,7 @@ const props = defineProps({
     people: { type: Array, default: () => [] },
     grid: { type: [Object, Array], default: () => ({}) },
     holidays: { type: [Object, Array], default: () => ({}) },
+    deadline: { type: String, default: null },
     today: { type: String, required: true },
     flagEnabled: { type: Boolean, default: false },
 });
@@ -31,8 +32,16 @@ const state = reactive({
     people: [...props.people],
     grid: JSON.parse(JSON.stringify(props.grid || {})),
     holidays: { ...(props.holidays || {}) },
+    deadline: props.deadline,
 });
 const loading = ref(false);
+
+// Regla 6: programar el mes hasta 5 días antes de que empiece (solo meses que aún no empiezan)
+const deadlineInfo = computed(() => {
+    if (!state.deadline || state.from <= props.today) return null;
+    const [y, m, d] = state.deadline.split('-');
+    return { label: `${d}/${m}/${y}`, overdue: props.today > state.deadline };
+});
 const saving = ref(false);
 const dirty = ref(false);
 const brush = ref(props.shifts[0]?.id ?? null); // id de turno, o null = día libre
@@ -226,6 +235,12 @@ async function repeat() {
         <div v-if="!flagEnabled" class="alert alert-warning py-2 small" role="status">
             <i class="bi bi-info-circle me-1"></i>
             Esta empresa todavía evalúa la asistencia con la asignación semanal. Lo que programes aquí se guarda y empieza a regir cuando se active el horario por fecha (<code>schedule_v2</code>).
+        </div>
+
+        <div v-if="deadlineInfo" class="alert py-2 small" :class="deadlineInfo.overdue && unscheduled.length ? 'alert-danger' : 'alert-info'" role="status">
+            <i class="bi bi-calendar-check me-1"></i>
+            <template v-if="deadlineInfo.overdue && unscheduled.length">Venció el plazo para programar {{ monthLabel }} ({{ deadlineInfo.label }}, 5 días antes del mes) y aún hay colaboradores sin programación.</template>
+            <template v-else>Plazo para programar {{ monthLabel }}: hasta el {{ deadlineInfo.label }} (5 días antes del mes).</template>
         </div>
 
         <div v-if="unscheduled.length" class="alert alert-danger py-2 small" role="alert">

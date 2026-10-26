@@ -27,7 +27,8 @@
                 <th class="py-3 text-end" title="Días de descanso de su programación">Desc.</th>
                 <th class="py-3 text-end" title="Días de vacaciones aprobadas en el periodo">Vacac.</th>
                 <th class="py-3 text-end">Permiso</th>
-                <th class="pe-3 py-3 text-end" title="Descanso médico">D. méd.</th>
+                <th class="py-3 text-end" title="Descanso médico">D. méd.</th>
+                <th class="pe-3 py-3 text-end" title="Saldo de vacaciones al cierre del periodo: ganadas por año de servicio − usadas">Saldo vac.</th>
             </tr>
         </thead>
         <tbody>
@@ -55,11 +56,13 @@
                     <td class="text-end small text-body-secondary">{{ $s['rest_days'] }}</td>
                     <td class="text-end small text-body">{{ $s['vacation_days'] }}</td>
                     <td class="text-end small text-body-secondary">{{ $s['permission_days'] }}</td>
-                    <td class="pe-3 text-end small text-body-secondary">{{ $s['medical_leave_days'] }}</td>
+                    <td class="text-end small text-body-secondary">{{ $s['medical_leave_days'] }}</td>
+                    @php($vb = $r['vacation_balance'] ?? null)
+                    <td class="pe-3 text-end small {{ $vb && $vb['balance'] < 0 ? 'text-danger fw-bold' : 'text-body' }}" title="{{ $vb ? "Ganadas {$vb['earned']} · usadas {$vb['used']}" : 'Sin fecha de ingreso o régimen sin regla definida' }}">{{ $vb['balance'] ?? '—' }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="16" class="p-5 text-center">
+                    <td colspan="17" class="p-5 text-center">
                         <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle bg-primary-subtle text-primary mb-3" style="width: 56px; height: 56px;">
                             <i class="bi bi-inbox fs-3"></i>
                         </div>
