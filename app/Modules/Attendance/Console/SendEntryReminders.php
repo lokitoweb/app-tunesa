@@ -6,6 +6,8 @@ use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Notifications\EntryReminder;
 use App\Modules\Attendance\Notifications\ExitReminder;
 use App\Modules\Attendance\Services\AttendanceService;
+use App\Modules\Attendance\Services\DaySchedule;
+use App\Modules\Attendance\Services\ScheduleResolver;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\TenantContext;
@@ -86,6 +88,7 @@ class SendEntryReminders extends Command
             return 0;
         }
         $date = Carbon::parse($day, $now->getTimezone());
+        $schedules = app(ScheduleResolver::class);
 
         $due = EmployeeShift::current($day)
             ->with(['shift', 'user'])
@@ -93,16 +96,19 @@ class SendEntryReminders extends Command
             ->get()
             // Horario propio de ese día de la semana (sábado corto, etc.)
             ->each(fn (EmployeeShift $a) => $a->setRelation('shift', $a->shift?->forDate($date)))
-            ->filter(function (EmployeeShift $a) use ($now, $day, $date) {
-                if (! $a->shift?->start_time || ! $a->worksOn($date)) {
+            ->groupBy('user_id')
+            ->map(fn ($mine) => $schedules->resolve($mine, $date, ScheduleResolver::LEGACY_FIRST_WORKING, function (EmployeeShift $a) use ($now, $day) {
+                if (! $a->shift?->start_time) {
                     return false;
                 }
                 $start = Carbon::parse("{$day} {$a->shift->start_time}", $now->getTimezone());
                 $until = $start->copy()->addMinutes((int) $a->shift->grace_period_minutes + self::WINDOW_MINUTES);
 
                 return $now->gte($start->copy()->subMinutes(self::LEAD_MINUTES)) && $now->lt($until);
-            })
-            ->unique('user_id');
+            }))
+            ->filter(fn (DaySchedule $d) => $d->works)
+            ->map(fn (DaySchedule $d) => $d->assignment)
+            ->values();
 
         if ($due->isEmpty()) {
             return 0;

@@ -3,6 +3,8 @@
 namespace App\Modules\Attendance\Console;
 
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Services\DaySchedule;
+use App\Modules\Attendance\Services\ScheduleResolver;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Holiday;
 use App\Modules\HR\Models\LeaveRequest;
@@ -70,12 +72,16 @@ class MarkAbsences extends Command
             return [0, 0];
         }
 
+        $schedules = app(ScheduleResolver::class);
         $assignments = EmployeeShift::current($day)
             ->with(['shift', 'user:id,status,hire_date,termination_date'])
             ->whereHas('user', fn ($q) => $q->where('status', 'active'))
             ->get()
-            ->filter(fn (EmployeeShift $a) => $a->worksOn($date))
-            ->unique('user_id');
+            ->groupBy('user_id')
+            ->map(fn ($mine) => $schedules->resolve($mine, $date, ScheduleResolver::LEGACY_FIRST_WORKING))
+            ->filter(fn (DaySchedule $d) => $d->works)
+            ->map(fn (DaySchedule $d) => $d->assignment)
+            ->values();
 
         $alreadyMarked = Attendance::where('work_date', $day)
             ->whereIn('user_id', $assignments->pluck('user_id'))

@@ -34,6 +34,8 @@ class AttendanceCalendarService
 
     public const CACHE_MINUTES = 10;
 
+    private ?ScheduleResolver $schedules = null;
+
     /**
      * Semáforo: [letra, tono Bootstrap, etiqueta]. El tono se repite en la
      * exportación a Excel (FILLS) y la letra permite leerlo impreso o con daltonismo.
@@ -322,8 +324,8 @@ class AttendanceCalendarService
         }
 
         $leave = $leaves->first(fn (LeaveRequest $l) => $l->start_date->toDateString() <= $day && $l->end_date->toDateString() >= $day);
-        $assignment = $assignments->first(fn (EmployeeShift $a) => $a->effective_from->toDateString() <= $day
-            && (! $a->effective_until || $a->effective_until->toDateString() >= $day));
+        $resolved = ($this->schedules ??= app(ScheduleResolver::class))->resolve($assignments, $day, ScheduleResolver::LEGACY_LATEST);
+        $assignment = $resolved->reference;
         $dayShift = $assignment?->shift?->forDate($day);
         $shift = $assignment?->shift ? [
             'shift_id'    => $assignment->shift->id,
@@ -393,8 +395,7 @@ class AttendanceCalendarService
             return null;
         }
 
-        $scheduled = $assignment->worksOn(CarbonImmutable::parse($day));
-        if (! $scheduled) {
+        if (! $resolved->works) {
             return $this->make('rest', $shift + ['note' => 'Sin turno ese día']);
         }
 
@@ -433,8 +434,10 @@ class AttendanceCalendarService
     /** @return array<int, string> fecha de hoy (Y-m-d) en la zona horaria de cada empresa */
     private function todayByTenant(array $tenantIds): array
     {
-        return Tenant::whereIn('id', $tenantIds)->pluck('timezone', 'id')
-            ->map(fn ($tz) => CarbonImmutable::now($tz ?: config('app.timezone'))->toDateString())
+        // La misma consulta deja leídas las banderas de cada empresa (sin una consulta por empresa en las celdas)
+        return Tenant::whereIn('id', $tenantIds)->get(['id', 'timezone', 'settings'])
+            ->each(fn (Tenant $t) => ($this->schedules ??= app(ScheduleResolver::class))->remember($t))
+            ->mapWithKeys(fn (Tenant $t) => [$t->id => CarbonImmutable::now($t->timezone ?: config('app.timezone'))->toDateString()])
             ->all();
     }
 
@@ -450,7 +453,9 @@ class AttendanceCalendarService
         }
 
         $version = (int) Cache::get(self::versionKey($f->tenantId, $f->month), 0);
-        $key = 'attendance-calendar:' . sha1(json_encode([$f->toQuery(), $f->tenantId, $f->viewer?->id, $f->userId, $part, $version]));
+        // attendance:flag sube esta versión: encender o apagar schedule_v2 se ve al instante (vista global: hasta CACHE_MINUTES)
+        $flags = $f->tenantId ? (int) Cache::get(ScheduleResolver::flagsVersionKey($f->tenantId), 0) : null;
+        $key = 'attendance-calendar:' . sha1(json_encode([$f->toQuery(), $f->tenantId, $f->viewer?->id, $f->userId, $part, $version, $flags]));
 
         return Cache::remember($key, now()->addMinutes(self::CACHE_MINUTES), $build);
     }

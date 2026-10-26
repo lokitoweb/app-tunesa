@@ -65,6 +65,7 @@ class AttendanceService
         private readonly SelfieStorage           $selfies,
         private readonly AttendanceAlertNotifier $alerts,
         private readonly PunchAttemptRecorder    $attempts,
+        private readonly ScheduleResolver        $schedules,
     ) {}
 
     // =========================================================================
@@ -916,10 +917,10 @@ class AttendanceService
     }
 
     /**
-     * Asignación de turno para la fecha: la que realmente toca ese día (fija o
-     * rotativa) o, si ninguna aplica, la primera vigente.
+     * Asignación de turno para la fecha (ScheduleResolver): la que toca ese día. Sin
+     * schedule_v2, si ninguna aplica, la primera vigente (comportamiento anterior).
      *
-     * @return array{0: ?EmployeeShift, 1: bool}  [asignación, ¿tiene asignaciones vigentes?]
+     * @return array{0: ?EmployeeShift, 1: bool, 2: ?EmployeeShift}  [asignación para calcular, ¿tiene asignaciones vigentes?, asignación de referencia para la sede]
      */
     public function getCurrentShift(User $employee, string $date): array
     {
@@ -928,12 +929,9 @@ class AttendanceService
             ->with('shift')
             ->get();
 
-        $day = Carbon::parse($date);
+        $day = $this->schedules->resolve($assignments, Carbon::parse($date), ScheduleResolver::LEGACY_FIRST_WORKING);
 
-        return [
-            $assignments->first(fn (EmployeeShift $a) => $a->worksOn($day)) ?? $assignments->first(),
-            $assignments->isNotEmpty(),
-        ];
+        return [$day->assignment, $day->hasAssignments, $day->reference];
     }
 
     /** Minutos de tardanza contra la hora de entrada del turno (más la tolerancia). */

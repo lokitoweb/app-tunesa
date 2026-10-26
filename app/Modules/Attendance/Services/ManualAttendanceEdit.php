@@ -63,7 +63,7 @@ class ManualAttendanceEdit
         $tz = tenant_timezone();
         $record = $this->find($employee, $date);
         $before = $record ? $this->snapshot($record) : [];
-        [$assignment] = $this->attendance->getCurrentShift($employee, $date);
+        [$assignment, , $reference] = $this->attendance->getCurrentShift($employee, $date);
         $shift = ($record?->shift ?? $assignment?->shift)?->forDate($date);
 
         $values = [
@@ -124,7 +124,7 @@ class ManualAttendanceEdit
         if ($record) {
             $record->update($values);
         } else {
-            $branchId = $assignment?->branch_id ?? $employee->primaryBranch()->value('branches.id') ?? $employee->branches()->value('branches.id');
+            $branchId = $reference?->branch_id ?? $employee->primaryBranch()->value('branches.id') ?? $employee->branches()->value('branches.id');
             if (! $branchId) {
                 throw ValidationException::withMessages(['reason' => 'Esta persona no tiene sucursal asignada.']);
             }
