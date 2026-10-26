@@ -131,6 +131,8 @@ jobs:
       # compitiendo con el emulador dejaban al runner sin recursos
       - name: Compilar la app de prueba
         working-directory: mobile
+        # Normalmente ~3 min: si se cuelga (descarga de librerías nativas), falla aquí y no a los 60 min
+        timeout-minutes: 20
         run: |
           flutter pub get
           flutter build apk --debug --dart-define-from-file=env/dev.json
