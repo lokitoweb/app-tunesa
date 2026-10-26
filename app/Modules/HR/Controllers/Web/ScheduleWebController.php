@@ -87,15 +87,13 @@ class ScheduleWebController extends Controller
             'branch_id' => ['required', 'integer'],
             'from'      => ['required', 'date_format:Y-m-d'],
             'to'        => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'reason'    => ['required', 'string', 'min:5', 'max:300'],
+            'reason'    => ['nullable', 'string', 'max:300'],
             'rows'      => ['required', 'array', 'min:1', 'max:' . self::MAX_PEOPLE],
             'rows.*.user_id' => ['required', 'integer', 'distinct'],
             'rows.*.days'    => ['present', 'array'],
             'rows.*.days.*'  => ['nullable', 'integer'],
-        ], [
-            'reason.required' => 'Indica el motivo de la programación.',
-            'reason.min'      => 'Explica un poco más el motivo.',
         ]);
+        $data['reason'] = self::reason($data['reason'] ?? null, 'Programación de horarios');
         $this->guardRange($data['from'], $data['to'], self::MAX_RANGE_DAYS, 'to');
         [$branch, $userIds] = $this->scope($request, (int) $data['branch_id'], array_column($data['rows'], 'user_id'), $data['from'], $data['to']);
 
@@ -115,6 +113,14 @@ class ScheduleWebController extends Controller
         return response()->json(['message' => "Programación guardada: {$result['created']} días nuevos, {$result['updated']} cambiados." . self::lockedNote($result), 'result' => $result]);
     }
 
+    /** Motivo opcional para la bitácora: sin motivo queda uno genérico */
+    private static function reason(?string $reason, string $default): string
+    {
+        $reason = trim((string) $reason);
+
+        return $reason !== '' ? $reason : $default;
+    }
+
     /** Copiar semana o repetir las semanas elegidas hasta una fecha */
     public function repeat(Request $request): JsonResponse
     {
@@ -126,11 +132,11 @@ class ScheduleWebController extends Controller
             'source_to'   => ['required', 'date_format:Y-m-d', 'after_or_equal:source_from'],
             'target_from' => ['required', 'date_format:Y-m-d', 'after:source_to'],
             'until'       => ['required', 'date_format:Y-m-d', 'after_or_equal:target_from'],
-            'reason'      => ['required', 'string', 'min:5', 'max:300'],
+            'reason'      => ['nullable', 'string', 'max:300'],
         ], [
             'target_from.after' => 'La copia empieza después de las semanas de origen.',
-            'reason.required'   => 'Indica el motivo de la programación.',
         ]);
+        $data['reason'] = self::reason($data['reason'] ?? null, 'Copia de semanas');
         $this->guardRange($data['source_from'], $data['source_to'], self::MAX_RANGE_DAYS, 'source_to');
         $this->guardRange($data['target_from'], $data['until'], self::MAX_REPEAT_DAYS, 'until');
 

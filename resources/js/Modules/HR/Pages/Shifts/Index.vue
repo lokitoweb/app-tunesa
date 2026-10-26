@@ -21,8 +21,23 @@ const props = defineProps({
 
 // Filtro por perfil de personal (administrativo, ventas…): '' = todos
 const profileFilter = ref('');
-const visibleShifts = computed(() => props.shifts.filter((s) => !profileFilter.value
-    || (profileFilter.value === 'none' ? !s.profile : s.profile === profileFilter.value)));
+const branchFilter = ref('');   // '' = todas, 'none' = sin agencia, o id
+const search = ref('');
+const matchesProfile = (s, key) => !key || (key === 'none' ? !s.profile : s.profile === key);
+const matchesRest = (s) => {
+    const q = search.value.trim().toLowerCase();
+    const branchOk = !branchFilter.value || (branchFilter.value === 'none' ? !s.branch_id : s.branch_id === Number(branchFilter.value));
+    return branchOk && (!q || `${s.name} ${s.code || ''}`.toLowerCase().includes(q));
+};
+const visibleShifts = computed(() => props.shifts.filter((s) => matchesRest(s) && matchesProfile(s, profileFilter.value)));
+const profileOptions = computed(() => Object.entries({ '': 'Todos', ...props.profiles, none: 'General' })
+    .map(([key, label]) => ({ key, label, count: props.shifts.filter((s) => matchesRest(s) && matchesProfile(s, key)).length })));
+const hasFilters = computed(() => !!(profileFilter.value || branchFilter.value || search.value.trim()));
+function clearFilters() {
+    profileFilter.value = '';
+    branchFilter.value = '';
+    search.value = '';
+}
 // Días con horario propio, p. ej. "Sáb 08:00–13:00"
 const ownDays = (shift) => Object.entries(shift.day_schedules || {})
     .filter(([, v]) => v.start_time || v.end_time)
@@ -58,6 +73,16 @@ const PRESET_COLORS = [
 ];
 
 const activeShifts = computed(() => props.shifts.filter((s) => s.is_active));
+
+// Colores ya usados por otro horario de la misma empresa (el servidor también lo valida)
+const colorOwners = computed(() => Object.fromEntries(props.shifts
+    .filter((s) => s.color && s.id !== editingShiftId.value && (!editingTenantId.value || s.tenant_id === editingTenantId.value))
+    .map((s) => [s.color.toUpperCase(), s.name])));
+const colorTaken = (c) => colorOwners.value[String(c || '').toUpperCase()];
+const firstFreeColor = () => PRESET_COLORS.find((c) => !colorTaken(c)) || '#0284C7';
+function pickColor(c) {
+    if (!colorTaken(c)) shiftForm.color = c;
+}
 
 // =========================================================================
 // 1. MODAL DIALOG: CREAR Y EDITAR TURNO (IN-PLACE)
@@ -115,6 +140,7 @@ function openCreateModal() {
     Object.keys(defaults).forEach((k) => {
         shiftForm[k] = defaults[k];
     });
+    shiftForm.color = firstFreeColor();
     shiftModalInstance?.show();
 }
 
@@ -180,6 +206,12 @@ function setWorkingDaysPreset(preset) {
     else if (preset === 'all') shiftForm.working_days = [0, 1, 2, 3, 4, 5, 6];
 }
 
+// Si el error está en la pestaña 1 (agencia, nombre, código, color), se vuelve a ella
+const GENERAL_FIELDS = ['branch_id', 'name', 'code', 'color', 'profile'];
+const showErrorTab = (errors) => {
+    if (GENERAL_FIELDS.some((f) => errors[f])) modalTab.value = 'general';
+};
+
 function submitShiftModal() {
     normalizeTime('start_time');
     normalizeTime('end_time');
@@ -188,6 +220,7 @@ function submitShiftModal() {
         // Vista global: se guarda en la empresa del turno, sin preguntar
         shiftForm.transform((data) => withTenant(data, editingTenantId.value)).put(`/shifts/${editingShiftId.value}`, {
             preserveScroll: true,
+            onError: showErrorTab,
             onSuccess: () => {
                 shiftModalInstance?.hide();
             },
@@ -195,6 +228,7 @@ function submitShiftModal() {
     } else {
         shiftForm.transform((data) => data).post('/shifts', {
             preserveScroll: true,
+            onError: showErrorTab,
             onSuccess: () => {
                 shiftModalInstance?.hide();
                 const defaults = defaultShiftData();
@@ -239,12 +273,31 @@ async function destroy(shift) {
             </div>
         </div>
 
-        <!-- Filtro por perfil de personal -->
-        <div v-if="Object.keys(profiles).length" class="d-flex flex-wrap align-items-center gap-2 mb-3" role="group" aria-label="Filtrar por perfil">
-            <span class="small text-secondary fw-semibold me-1">Perfil:</span>
-            <button v-for="(label, key) in { '': 'Todos', ...profiles, none: 'General' }" :key="key" type="button"
-                    class="btn btn-sm" :class="profileFilter === key ? 'btn-primary' : 'btn-outline-secondary'" style="border-radius: 999px;"
-                    @click="profileFilter = key">{{ label }}</button>
+        <!-- Filtros: búsqueda, agencia y perfil (en el navegador, sin recargar) -->
+        <div class="shift-toolbar mb-3">
+            <div class="shift-toolbar-row">
+                <div class="shift-search">
+                    <i class="bi bi-search"></i>
+                    <input v-model="search" type="search" class="form-control" placeholder="Buscar por nombre o código…" aria-label="Buscar horario">
+                </div>
+                <div class="shift-branch">
+                    <i class="bi bi-geo-alt"></i>
+                    <select v-model="branchFilter" class="form-select" aria-label="Filtrar por agencia">
+                        <option value="">Todas las agencias</option>
+                        <option v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</option>
+                        <option value="none">Sin agencia asignada</option>
+                    </select>
+                </div>
+                <button v-if="hasFilters" type="button" class="btn btn-link btn-sm text-decoration-none shift-clear" @click="clearFilters">
+                    <i class="bi bi-x-circle me-1"></i>Limpiar
+                </button>
+            </div>
+            <div v-if="Object.keys(profiles).length" class="shift-segment" role="tablist" aria-label="Filtrar por perfil">
+                <button v-for="o in profileOptions" :key="o.key" type="button" role="tab" class="shift-segment-btn"
+                        :class="{ active: profileFilter === o.key }" :aria-selected="profileFilter === o.key" @click="profileFilter = o.key">
+                    <span>{{ o.label }}</span><span class="shift-segment-count">{{ o.count }}</span>
+                </button>
+            </div>
         </div>
 
         <!-- 1. TABLA PRINCIPAL DE TURNOS (Executive Design System: .emp-table-card) -->
@@ -326,7 +379,14 @@ async function destroy(shift) {
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="!visibleShifts.length">
+                        <tr v-if="!visibleShifts.length && shifts.length">
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-funnel fs-1 d-block mb-2 opacity-50"></i>
+                                <div class="fw-medium">Ningún horario coincide con los filtros.</div>
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" style="border-radius: 8px;" @click="clearFilters">Limpiar filtros</button>
+                            </td>
+                        </tr>
+                        <tr v-else-if="!visibleShifts.length">
                             <td colspan="8" class="text-center py-5 text-muted">
                                 <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-50"></i>
                                 <div class="fw-medium">Aún no hay turnos registrados.</div>
@@ -433,12 +493,13 @@ async function destroy(shift) {
                                         <span>Color distintivo en calendario</span>
                                     </div>
                                     <div class="d-flex align-items-center flex-wrap" style="gap: 16px !important;">
-                                        <div style="display: flex; align-items: center; gap: 10px !important; flex-wrap: wrap;">
-                                            <button v-for="c in PRESET_COLORS" :key="c" type="button" 
-                                                    class="shadow-sm p-0 d-inline-flex align-items-center justify-content-center transition" 
-                                                    :style="{ width: '32px', height: '32px', borderRadius: '8px', background: c, border: shiftForm.color === c ? '2px solid #0f172a' : '1px solid rgba(0,0,0,0.1)', transform: shiftForm.color === c ? 'scale(1.1)' : 'scale(1)' }" 
-                                                    :title="c" @click="shiftForm.color = c">
-                                                <i v-if="shiftForm.color === c" class="bi bi-check-lg text-white" style="font-size: 1rem;"></i>
+                                        <div class="shift-swatches" role="radiogroup" aria-label="Color del horario">
+                                            <button v-for="c in PRESET_COLORS" :key="c" type="button" role="radio"
+                                                    class="shift-swatch" :class="{ 'is-selected': shiftForm.color?.toUpperCase() === c, 'is-taken': colorTaken(c) }"
+                                                    :style="{ '--swatch': c }" :disabled="!!colorTaken(c)" :aria-checked="shiftForm.color?.toUpperCase() === c"
+                                                    :title="colorTaken(c) ? `En uso por «${colorTaken(c)}»` : 'Disponible'" @click="pickColor(c)">
+                                                <i v-if="colorTaken(c)" class="bi bi-lock-fill"></i>
+                                                <i v-else-if="shiftForm.color?.toUpperCase() === c" class="bi bi-check-lg"></i>
                                             </button>
                                         </div>
                                         <div class="d-flex align-items-center ps-3 border-start" style="gap: 10px !important;">
@@ -446,6 +507,9 @@ async function destroy(shift) {
                                             <input id="custom_shift_color" v-model="shiftForm.color" type="color" class="form-control form-control-color p-0 shadow-sm" style="width: 32px; height: 32px; border-radius: 8px; cursor: pointer;">
                                         </div>
                                     </div>
+                                    <div v-if="shiftForm.errors.color" class="small text-danger mt-2"><i class="bi bi-exclamation-circle me-1"></i>{{ shiftForm.errors.color }}</div>
+                                    <div v-else-if="colorTaken(shiftForm.color)" class="small text-danger mt-2"><i class="bi bi-exclamation-circle me-1"></i>Ese color ya lo usa «{{ colorTaken(shiftForm.color) }}». Elige otro.</div>
+                                    <div v-else class="small text-secondary mt-2"><i class="bi bi-lock me-1"></i>Los colores con candado ya los usa otro horario.</div>
                                 </div>
 
                                 <div class="emp-section-card">
@@ -637,3 +701,60 @@ async function destroy(shift) {
 
     </AppLayout>
 </template>
+
+<style scoped>
+/* Barra de filtros: misma tarjeta y altura (42 px) que el resto del panel */
+.shift-toolbar {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 14px 16px; border-radius: 12px;
+    background: var(--bg-surface, #fff); border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.shift-toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.shift-search, .shift-branch { position: relative; flex: 1 1 220px; }
+.shift-branch { flex: 0 1 280px; }
+.shift-search > i, .shift-branch > i {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--text-secondary, #64748b); pointer-events: none; z-index: 1;
+}
+.shift-search .form-control, .shift-branch .form-select { height: 42px; padding-left: 36px; border-radius: 10px; }
+.shift-clear { white-space: nowrap; }
+
+/* Perfil: control segmentado con conteo */
+.shift-segment {
+    display: inline-flex; flex-wrap: wrap; gap: 4px; align-self: flex-start;
+    padding: 4px; border-radius: 10px; background: var(--bg-surface-elevated, #f1f5f9);
+}
+.shift-segment-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 0; background: transparent; border-radius: 8px; padding: 6px 12px;
+    font-size: 0.82rem; font-weight: 600; color: var(--text-secondary, #475569);
+    transition: background-color .15s, color .15s, box-shadow .15s;
+}
+.shift-segment-btn:hover { color: var(--text-primary, #0f172a); }
+.shift-segment-btn.active { background: var(--bg-surface, #fff); color: var(--brand, #0284c7); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
+.shift-segment-btn:focus-visible { outline: 2px solid var(--brand, #0284c7); outline-offset: 1px; }
+.shift-segment-count {
+    min-width: 22px; padding: 1px 7px; border-radius: 999px; font-size: 0.72rem; text-align: center;
+    background: rgba(100, 116, 139, 0.14); color: inherit;
+}
+.shift-segment-btn.active .shift-segment-count { background: rgba(2, 132, 199, 0.12); }
+
+/* Colores del horario: los usados por otro horario quedan bloqueados */
+.shift-swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.shift-swatch {
+    width: 34px; height: 34px; padding: 0; border-radius: 9px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--swatch); color: #fff; font-size: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.1); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    transition: transform .12s, box-shadow .12s;
+}
+.shift-swatch:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(15, 23, 42, 0.18); }
+.shift-swatch.is-selected { outline: 2px solid var(--text-primary, #0f172a); outline-offset: 2px; }
+.shift-swatch.is-taken {
+    cursor: not-allowed; opacity: 0.45; font-size: 0.8rem;
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.28) 0 4px, transparent 4px 8px);
+    background-color: var(--swatch);
+}
+.shift-swatch:focus-visible { outline: 2px solid var(--brand, #0284c7); outline-offset: 2px; }
+</style>

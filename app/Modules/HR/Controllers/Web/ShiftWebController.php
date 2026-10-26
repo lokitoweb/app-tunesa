@@ -51,7 +51,14 @@ class ShiftWebController extends Controller
             'color' => '#3B82F6', 'is_active' => true, 'break_allowed' => true,
             'break_duration_minutes' => $rules->lunch_minutes, 'daily_hours' => 8,
             'start_time' => '08:00', 'end_time' => '17:00',
-        ])), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name'])]);
+        ])), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']), 'usedColors' => self::usedColors()]);
+    }
+
+    /** Color (en mayúsculas) => horario de la empresa que ya lo usa */
+    private static function usedColors(?int $except = null): array
+    {
+        return Shift::whereNotNull('color')->when($except, fn ($q) => $q->whereKeyNot($except))->get(['id', 'name', 'color'])
+            ->mapWithKeys(fn (Shift $s) => [strtoupper($s->color) => $s->name])->all();
     }
 
     /** Turno tal como lo consume el panel (listado y formulario) */
@@ -94,7 +101,7 @@ class ShiftWebController extends Controller
 
     public function edit(int $id): Response
     {
-        return Inertia::render('HR/Pages/Shifts/Form', ['shift' => self::present(Shift::findOrFail($id)), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name'])]);
+        return Inertia::render('HR/Pages/Shifts/Form', ['shift' => self::present(Shift::findOrFail($id)), 'profiles' => Shift::PROFILES, 'branches' => Branch::where('is_active', true)->orderBy('name')->get(['id', 'name']), 'usedColors' => self::usedColors($id)]);
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -233,11 +240,18 @@ class ShiftWebController extends Controller
             'rotation_work_days'     => [$rotating ? 'required' : 'nullable', 'integer', 'between:1,60'],
             'rotation_rest_days'     => [$rotating ? 'required' : 'nullable', 'integer', 'between:1,60'],
             'daily_hours'            => ['required', 'numeric', 'between:0.5,24'],
-            'color'                  => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'is_active'              => ['nullable', 'boolean'],
+            // Cada horario con su color: en la programación se distinguen por él
+            'color'                  => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/', function (string $attr, mixed $value, \Closure $fail) use ($shift) {
+                $taken = self::usedColors($shift?->id)[strtoupper((string) $value)] ?? null;
+                if ($taken) {
+                    $fail("Ese color ya lo usa el horario «{$taken}». Elige otro.");
+                }
+            }],
+            'is_active'            => ['nullable', 'boolean'],
             'description'            => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $data['color']            = strtoupper($data['color']);
         $data['break_allowed']    = $request->boolean('break_allowed');
         $data['is_active']        = $request->boolean('is_active');
         $data['crosses_midnight'] = $data['end_time'] <= $data['start_time'];

@@ -93,6 +93,9 @@ const unscheduled = computed(() => state.people
     .map((p) => ({ ...p, count: days.value.filter((d) => cell(p.id, d.date).source === 'none' && !state.holidays[d.date]).length }))
     .filter((p) => p.count > 0));
 
+// Etiqueta de la celda: hora de entrada, corta si es en punto ("08" o "08:30")
+const cellLabel = (shiftId) => (shiftById.value[shiftId]?.start || '?').replace(/:00$/, '');
+
 // Vacaciones aprobadas (módulo de licencias): bloqueadas, el pincel no las cambia
 const isLocked = (userId, date) => cell(userId, date).source === 'vacation';
 
@@ -187,7 +190,7 @@ async function save() {
     const ok = await ask({
         title: 'Guardar programación',
         message: `Se guardará ${monthLabel.value} completo para ${who.length} colaborador(es) de la agencia. Los días en blanco quedarán como día libre.`,
-        confirmText: 'Guardar', cancelText: 'Cancelar',
+        confirmText: 'Guardar', cancelText: 'Cancelar', variant: 'primary', icon: 'bi bi-floppy2-fill',
     });
     if (!ok) return;
     saving.value = true;
@@ -250,93 +253,103 @@ async function repeat() {
             </div>
         </div>
 
-        <div class="d-flex align-items-start justify-content-between flex-wrap mb-3" style="gap: 1rem;">
-            <div>
-                <h1 class="h2 fw-bold text-dark mb-1">Programación de horarios</h1>
-                <p class="text-secondary mb-0" style="font-size: 0.875rem;">
-                    1. Elige la agencia · 2. Elige el horario · 3. Marca los días que asiste con ese horario (clic otra vez para quitarlo) · 4. Repite con otro horario. Los días en blanco son días sin labor.
-                </p>
+        <div class="mb-3">
+            <h1 class="h2 fw-bold text-body-emphasis mb-1">Programación de horarios</h1>
+            <p class="text-body-secondary mb-0 small">
+                Elige la agencia y el horario, y marca los días que asiste cada colaborador. Clic otra vez sobre la celda para quitarlo.
+            </p>
+        </div>
+
+        <div v-if="deadlineInfo || unscheduled.length" class="sched-alerts mb-3">
+            <div v-if="deadlineInfo" class="sched-alert" :class="deadlineInfo.overdue && unscheduled.length ? 'is-danger' : 'is-info'" role="status">
+                <i class="bi bi-calendar-check"></i>
+                <span v-if="deadlineInfo.overdue && unscheduled.length">Venció el plazo para programar {{ monthLabel }} ({{ deadlineInfo.label }}) y aún hay días sin programar.</span>
+                <span v-else>Plazo para programar {{ monthLabel }}: hasta el {{ deadlineInfo.label }}.</span>
             </div>
-        </div>
-
-        <div v-if="!flagEnabled" class="alert alert-warning py-2 small" role="status">
-            <i class="bi bi-info-circle me-1"></i>
-            Esta empresa todavía evalúa la asistencia con la asignación semanal. Lo que programes aquí se guarda y empieza a regir cuando se active el horario por fecha (<code>schedule_v2</code>).
-        </div>
-
-        <div v-if="deadlineInfo" class="alert py-2 small" :class="deadlineInfo.overdue && unscheduled.length ? 'alert-danger' : 'alert-info'" role="status">
-            <i class="bi bi-calendar-check me-1"></i>
-            <template v-if="deadlineInfo.overdue && unscheduled.length">Venció el plazo para programar {{ monthLabel }} ({{ deadlineInfo.label }}, 5 días antes del mes) y aún hay colaboradores sin programación.</template>
-            <template v-else>Plazo para programar {{ monthLabel }}: hasta el {{ deadlineInfo.label }} (5 días antes del mes).</template>
-        </div>
-
-        <div v-if="unscheduled.length" class="alert alert-danger py-2 small" role="alert">
-            <i class="bi bi-exclamation-triangle me-1"></i>
-            <strong>{{ unscheduled.length }} colaborador(es) con días sin programación</strong> en {{ monthLabel }}:
-            {{ unscheduled.map((p) => `${p.name} (${p.count})`).join(' · ') }}.
-            Asigna un horario o márcalos como día libre.
-        </div>
-
-        <!-- 2. Elegir el horario (pincel) -->
-        <div class="emp-table-card shadow-sm p-3 mb-3">
-            <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
-                <span class="small fw-semibold text-secondary me-1">Horario para marcar:</span>
-                <button v-for="s in state.shifts" :key="s.id" type="button" class="btn btn-sm sched-chip" :class="{ active: brush === s.id }"
-                    :style="{ '--chip': s.color }" :aria-pressed="brush === s.id" @click="brush = s.id">
-                    <span class="sched-dot" :style="{ background: s.color }"></span>{{ s.name }} <span class="text-muted">{{ s.start }}–{{ s.end }}</span>
-                </button>
-                <button type="button" class="btn btn-sm sched-chip" :class="{ active: brush === null }" :aria-pressed="brush === null" @click="brush = null">
-                    <span class="sched-dot sched-dot-free"></span>Día libre
-                </button>
-            </div>
-            <div class="small text-muted mt-2">
-                Clic o arrastra sobre las celdas para marcar. Clic en el número del día marca ese día a los colaboradores seleccionados (o a todos si no seleccionas ninguno).
-            </div>
-        </div>
-
-        <!-- 3. Marcar los días: la agencia (obligatoria) y el mes van en la cabecera de la matriz -->
-        <div class="emp-table-card shadow-sm mb-3">
-            <div class="sched-toolbar d-flex align-items-center flex-wrap" style="gap: 10px;">
-                <label for="sched-branch" class="small fw-semibold text-secondary mb-0">Agencia <span class="text-danger">*</span></label>
-                <select id="sched-branch" v-model.number="state.branchId" class="form-select sched-branch" aria-label="Agencia" required
-                    :class="{ 'is-invalid': !state.branchId }" @change="load({ branch_id: state.branchId })">
-                    <option :value="null" disabled>Elige la agencia…</option>
-                    <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
-                </select>
-                <div class="btn-group shadow-sm" role="group" aria-label="Mes y año">
-                    <button type="button" class="btn btn-outline-secondary" :disabled="loading" title="Mes anterior" aria-label="Mes anterior" @click="shiftMonth(-1)"><i class="bi bi-chevron-left"></i></button>
-                    <span class="btn btn-outline-secondary disabled fw-bold text-dark text-capitalize" style="opacity: 1; min-width: 160px;">{{ monthLabel }}</span>
-                    <button type="button" class="btn btn-outline-secondary" :disabled="loading" title="Mes siguiente" aria-label="Mes siguiente" @click="shiftMonth(1)"><i class="bi bi-chevron-right"></i></button>
-                </div>
-                <span class="small text-muted ms-auto d-inline-flex align-items-center" style="gap: 6px;">
-                    <span class="sched-legend sched-vacation"></span>Vacaciones (bloqueado)
+            <div v-if="unscheduled.length" class="sched-alert is-warning" role="alert">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span>
+                    <strong>{{ unscheduled.length }} colaborador(es) con días sin programar:</strong>
+                    {{ unscheduled.slice(0, 3).map((p) => `${p.name} (${p.count})`).join(' · ') }}<template v-if="unscheduled.length > 3"> y {{ unscheduled.length - 3 }} más</template>.
                 </span>
             </div>
-            <div v-if="!state.branchId" class="text-center text-muted py-5">
+        </div>
+
+        <!-- Agencia (obligatoria), mes, horario para marcar y la matriz en una sola tarjeta -->
+        <div class="emp-table-card shadow-sm mb-3 sched-card">
+            <div class="sched-toolbar">
+                <div class="sched-field">
+                    <label for="sched-branch" class="sched-label">Agencia <span class="text-danger">*</span></label>
+                    <div class="sched-select">
+                        <i class="bi bi-geo-alt"></i>
+                        <select id="sched-branch" v-model.number="state.branchId" class="form-select" aria-label="Agencia" required
+                            :class="{ 'is-invalid': !state.branchId }" @change="load({ branch_id: state.branchId })">
+                            <option :value="null" disabled>Elige la agencia…</option>
+                            <option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="sched-field">
+                    <span class="sched-label">Mes</span>
+                    <div class="sched-month" role="group" aria-label="Mes y año">
+                        <button type="button" class="sched-month-btn" :disabled="loading" title="Mes anterior" aria-label="Mes anterior" @click="shiftMonth(-1)"><i class="bi bi-chevron-left"></i></button>
+                        <span class="sched-month-label text-capitalize">{{ monthLabel }}</span>
+                        <button type="button" class="sched-month-btn" :disabled="loading" title="Mes siguiente" aria-label="Mes siguiente" @click="shiftMonth(1)"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="sched-legends ms-lg-auto">
+                    <span><i class="sched-legend sched-vacation"></i>Vacaciones (bloqueado)</span>
+                    <span><i class="sched-legend sched-legend-none"></i>Sin programar</span>
+                    <span><i class="sched-legend sched-legend-free"></i>Día libre</span>
+                </div>
+            </div>
+
+            <div v-if="state.branchId" class="sched-brushbar">
+                <span class="sched-label me-1">Horario para marcar</span>
+                <button v-for="s in state.shifts" :key="s.id" type="button" class="sched-chip" :class="{ active: brush === s.id }"
+                    :style="{ '--chip': s.color }" :aria-pressed="brush === s.id" @click="brush = s.id">
+                    <span class="sched-dot" :style="{ background: s.color }"></span>
+                    <span class="fw-semibold">{{ s.name }}</span>
+                    <span class="sched-chip-time">{{ s.start }}–{{ s.end }}</span>
+                </button>
+                <button type="button" class="sched-chip" :class="{ active: brush === null }" :aria-pressed="brush === null" @click="brush = null">
+                    <span class="sched-dot sched-dot-free"></span><span class="fw-semibold">Día libre</span>
+                </button>
+                <span v-if="!state.shifts.length" class="small text-body-secondary">Esta agencia aún no tiene horarios. Créalos en <a href="/shifts">Horarios</a>.</span>
+                <span class="sched-hint d-none d-xl-inline"><i class="bi bi-hand-index me-1"></i>Clic o arrastra · clic en el número del día marca a los seleccionados</span>
+            </div>
+
+            <div v-if="!state.branchId" class="text-center text-body-secondary py-5">
                 <i class="bi bi-geo-alt fs-3 d-block mb-2"></i>
                 Elige la agencia para ver y programar a sus colaboradores.
             </div>
-            <div v-else class="emp-table-responsive" :class="{ 'sk-loading': loading }" style="overflow-x: auto;" @mouseleave="stopPaint">
+            <div v-else class="sched-scroll" :class="{ 'sk-loading': loading }" @mouseleave="stopPaint">
                 <table class="table table-sm mb-0 sched-table" style="user-select: none;">
                     <thead>
                         <tr>
                             <th class="sched-name">
-                                <input type="checkbox" class="form-check-input me-2" :checked="allSelected" aria-label="Seleccionar todos" @change="toggleAll">
-                                Colaborador
+                                <div class="sched-person">
+                                    <input type="checkbox" class="form-check-input" :checked="allSelected" aria-label="Seleccionar todos" @change="toggleAll">
+                                    <span class="sched-th">Colaborador</span>
+                                </div>
                             </th>
                             <th v-for="d in days" :key="d.date" class="text-center sched-day" :class="{ 'sched-weekend': d.dow === 0 || d.dow === 6, 'sched-holiday': state.holidays[d.date] }"
                                 :title="state.holidays[d.date] || 'Marcar este día a los seleccionados'" role="button" @click="paintColumn(d.date)">
-                                <div class="small text-muted">{{ d.label }}</div>
-                                <div class="fw-bold">{{ d.num }}</div>
+                                <div class="sched-dow">{{ d.label }}</div>
+                                <div class="sched-num">{{ d.num }}</div>
                             </th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="p in state.people" :key="p.id">
                             <td class="sched-name">
-                                <input type="checkbox" class="form-check-input me-2" :checked="selected.has(p.id)" :aria-label="`Seleccionar ${p.name}`" @change="toggle(p.id)">
-                                <span class="fw-semibold">{{ p.name }}</span>
-                                <div v-if="p.position" class="small text-muted ms-4">{{ p.position }}</div>
+                                <div class="sched-person">
+                                    <input type="checkbox" class="form-check-input" :checked="selected.has(p.id)" :aria-label="`Seleccionar ${p.name}`" @change="toggle(p.id)">
+                                    <div class="text-truncate">
+                                        <div class="sched-person-name text-truncate" :title="p.name">{{ p.name }}</div>
+                                        <div v-if="p.position" class="sched-person-role text-truncate">{{ p.position }}</div>
+                                    </div>
+                                </div>
                             </td>
                             <td v-for="d in days" :key="d.date" class="sched-cell"
                                 :class="{
@@ -351,7 +364,7 @@ async function repeat() {
                                     : (cell(p.id, d.date).source === 'none' ? 'Sin programación' : 'Día libre')"
                                 @mousedown.prevent="startPaint(p.id, d.date)" @mouseenter="overPaint(p.id, d.date)">
                                 <template v-if="isLocked(p.id, d.date)">VAC</template>
-                                <template v-else>{{ cell(p.id, d.date).shift_id ? (shiftById[cell(p.id, d.date).shift_id]?.start || '?') : '' }}</template>
+                                <template v-else>{{ cell(p.id, d.date).shift_id ? cellLabel(cell(p.id, d.date).shift_id) : '' }}</template>
                             </td>
                         </tr>
                         <tr v-if="!state.people.length">
@@ -362,51 +375,55 @@ async function repeat() {
             </div>
         </div>
 
-        <div class="row g-3">
+        <div v-if="state.branchId" class="row g-3">
             <div class="col-12 col-xl-7">
-                <div class="emp-table-card shadow-sm p-3 h-100">
-                    <label for="sched-reason" class="form-label small fw-semibold">Motivo (queda en la bitácora) <span class="text-danger">*</span></label>
-                    <input id="sched-reason" v-model="reason" type="text" class="form-control mb-3" maxlength="300" placeholder="Ej.: Programación de noviembre, Ag. Trujillo">
-                    <button type="button" class="btn btn-primary" :disabled="saving || !state.people.length" @click="save">
-                        <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>
-                        <i v-else class="bi bi-check2-circle me-1"></i>
-                        Guardar {{ monthLabel }} {{ selected.size ? `(${selected.size} seleccionados)` : '(todos)' }}
-                    </button>
-                    <span v-if="dirty" class="small text-warning ms-2"><i class="bi bi-pencil"></i> Cambios sin guardar</span>
+                <div class="emp-table-card shadow-sm sched-panel h-100">
+                    <div class="sched-panel-title"><i class="bi bi-floppy2"></i>Guardar programación</div>
+                    <label for="sched-reason" class="sched-label">Motivo <span class="text-body-secondary fw-normal">(opcional, queda en la bitácora)</span></label>
+                    <input id="sched-reason" v-model="reason" type="text" class="form-control sched-input mb-3" maxlength="300" placeholder="Ej.: Programación de noviembre">
+                    <div class="d-flex align-items-center flex-wrap" style="gap: 12px;">
+                        <button type="button" class="btn btn-primary sched-btn" :disabled="saving || !state.people.length" @click="save">
+                            <span v-if="saving" class="spinner-border spinner-border-sm"></span>
+                            <i v-else class="bi bi-floppy2-fill"></i>
+                            <span>Guardar {{ monthLabel }} {{ selected.size ? `(${selected.size} seleccionados)` : '(todos)' }}</span>
+                        </button>
+                        <span v-if="dirty" class="sched-dirty"><i class="bi bi-circle-fill"></i>Cambios sin guardar</span>
+                    </div>
                 </div>
             </div>
             <div class="col-12 col-xl-5">
-                <div class="emp-table-card shadow-sm p-3 h-100">
-                    <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Copiar o repetir">
-                        <button type="button" class="btn" :class="copy.mode === 'copy' ? 'btn-primary' : 'btn-outline-primary'" @click="copy.mode = 'copy'">Copiar semana</button>
-                        <button type="button" class="btn" :class="copy.mode === 'repeat' ? 'btn-primary' : 'btn-outline-primary'" @click="copy.mode = 'repeat'">Repetir semanas hasta…</button>
+                <div class="emp-table-card shadow-sm sched-panel h-100">
+                    <div class="sched-panel-title"><i class="bi bi-copy"></i>Copiar o repetir semanas</div>
+                    <div class="sched-segment mb-3" role="tablist" aria-label="Copiar o repetir">
+                        <button type="button" role="tab" :class="{ active: copy.mode === 'copy' }" :aria-selected="copy.mode === 'copy'" @click="copy.mode = 'copy'">Copiar semana</button>
+                        <button type="button" role="tab" :class="{ active: copy.mode === 'repeat' }" :aria-selected="copy.mode === 'repeat'" @click="copy.mode = 'repeat'">Repetir hasta…</button>
                     </div>
-                    <div class="d-flex flex-wrap align-items-end" style="gap: 8px;">
+                    <div class="sched-copy-grid">
                         <div>
-                            <label class="form-label small mb-1">{{ copy.mode === 'copy' ? 'Semana origen' : 'Desde' }}</label>
-                            <select v-model.number="copy.source" class="form-select form-select-sm">
+                            <label class="sched-label" for="copy-source">{{ copy.mode === 'copy' ? 'Semana origen' : 'Desde' }}</label>
+                            <select id="copy-source" v-model.number="copy.source" class="form-select sched-input">
                                 <option v-for="(w, i) in weeks" :key="w.from" :value="i">{{ w.label }}</option>
                             </select>
                         </div>
                         <div v-if="copy.mode === 'repeat'">
-                            <label class="form-label small mb-1">Hasta la</label>
-                            <select v-model.number="copy.sourceTo" class="form-select form-select-sm">
+                            <label class="sched-label" for="copy-source-to">Hasta la</label>
+                            <select id="copy-source-to" v-model.number="copy.sourceTo" class="form-select sched-input">
                                 <option v-for="(w, i) in weeks" :key="w.from" :value="i">{{ w.label }}</option>
                             </select>
                         </div>
                         <div v-if="copy.mode === 'copy'">
-                            <label class="form-label small mb-1">Semana destino</label>
-                            <select v-model.number="copy.target" class="form-select form-select-sm">
+                            <label class="sched-label" for="copy-target">Semana destino</label>
+                            <select id="copy-target" v-model.number="copy.target" class="form-select sched-input">
                                 <option v-for="(w, i) in weeks" :key="w.from" :value="i">{{ w.label }}</option>
                             </select>
                         </div>
                         <div v-else>
-                            <label class="form-label small mb-1">Repetir hasta</label>
-                            <input v-model="copy.until" type="date" class="form-control form-control-sm" :min="state.from">
+                            <label class="sched-label" for="copy-until">Repetir hasta</label>
+                            <input id="copy-until" v-model="copy.until" type="date" class="form-control sched-input" :min="state.from">
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary" @click="repeat"><i class="bi bi-copy me-1"></i>Aplicar</button>
+                        <button type="button" class="btn btn-outline-primary sched-btn" @click="repeat"><i class="bi bi-copy"></i><span>Aplicar</span></button>
                     </div>
-                    <div class="small text-muted mt-2">Se aplica a los seleccionados (o a todos) y usa la programación ya guardada.</div>
+                    <div class="small text-body-secondary mt-2">Se aplica a los seleccionados (o a todos) y usa la programación ya guardada.</div>
                 </div>
             </div>
         </div>
@@ -414,14 +431,80 @@ async function repeat() {
 </template>
 
 <style scoped>
-.sched-table th, .sched-table td { border-color: var(--border-color, #e2e8f0); }
-.sched-name { position: sticky; left: 0; background: var(--bg-surface, #fff); min-width: 220px; z-index: 2; white-space: nowrap; }
-.sched-day { min-width: 34px; cursor: pointer; }
+/* Colores del tema (claro/oscuro): variables del panel con respaldo de Bootstrap */
+.sched-card { overflow: hidden; }
+.sched-label { display: block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bs-secondary-color); margin-bottom: 4px; }
+.sched-brushbar .sched-label { display: inline; margin: 0; }
+
+.sched-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; padding: 14px 16px; border-bottom: 1px solid var(--bs-border-color); }
+.sched-field { min-width: 0; }
+.sched-select { position: relative; width: min(320px, 100%); }
+.sched-select > i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--bs-secondary-color); pointer-events: none; z-index: 1; }
+.sched-select .form-select { height: 40px; padding-left: 36px; border-radius: 10px; }
+.sched-month { display: inline-flex; align-items: stretch; height: 40px; border: 1px solid var(--bs-border-color); border-radius: 10px; overflow: hidden; background: var(--bs-body-bg); }
+.sched-month-btn { width: 38px; border: 0; background: transparent; color: var(--bs-body-color); transition: background-color .15s; }
+.sched-month-btn:hover:not(:disabled) { background: var(--bs-tertiary-bg); }
+.sched-month-btn:disabled { opacity: .5; }
+.sched-month-label { display: inline-flex; align-items: center; padding: 0 14px; min-width: 150px; justify-content: center; font-weight: 700; color: var(--bs-emphasis-color); border-left: 1px solid var(--bs-border-color); border-right: 1px solid var(--bs-border-color); }
+.sched-legends { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.78rem; color: var(--bs-secondary-color); }
+.sched-legends span { display: inline-flex; align-items: center; gap: 6px; }
+.sched-legend { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.sched-legend-none { box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.6); }
+.sched-legend-free { border: 1px solid var(--bs-border-color); background: var(--bs-body-bg); }
+
+.sched-brushbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
+.sched-chip {
+    display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px;
+    border: 1px solid var(--bs-border-color); border-radius: 999px; background: var(--bs-body-bg); color: var(--bs-body-color);
+    font-size: 0.82rem; transition: border-color .15s, box-shadow .15s;
+}
+.sched-chip:hover { border-color: var(--chip, var(--bs-secondary-color)); }
+.sched-chip.active { border-color: var(--chip, var(--bs-primary)); box-shadow: 0 0 0 2px var(--chip, var(--bs-primary)); }
+.sched-chip:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.sched-chip-time { color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
+.sched-hint { margin-left: auto; font-size: 0.75rem; color: var(--bs-secondary-color); }
+.sched-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.sched-dot-free { background: var(--bs-body-bg); border: 1.5px solid var(--bs-secondary-color); }
+
+/* Matriz: columnas fijas que reparten el ancho (sin scroll en pantallas normales) */
+.sched-scroll { overflow-x: auto; }
+.sched-table { table-layout: fixed; width: 100%; min-width: 860px; --bs-table-bg: transparent; }
+.sched-table th, .sched-table td { border-color: var(--bs-border-color); padding: 0; vertical-align: middle; }
+.sched-name { position: sticky; left: 0; z-index: 2; width: 200px; background: var(--bs-body-bg) !important; padding: 6px 10px !important; }
+.sched-person { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sched-person .form-check-input { flex-shrink: 0; margin: 0; }
+.sched-person-name { font-size: 0.8rem; font-weight: 600; color: var(--bs-emphasis-color); }
+.sched-person-role { font-size: 0.7rem; color: var(--bs-secondary-color); }
+.sched-th { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bs-secondary-color); }
+.sched-day { cursor: pointer; text-align: center; padding: 6px 0 !important; color: var(--bs-body-color); }
+.sched-day:hover { background: var(--bs-tertiary-bg); }
+.sched-dow { font-size: 0.62rem; color: var(--bs-secondary-color); line-height: 1; }
+.sched-num { font-size: 0.78rem; font-weight: 700; line-height: 1.3; }
 .sched-weekend { background: rgba(148, 163, 184, 0.12); }
 .sched-holiday { background: rgba(239, 68, 68, 0.12); }
-.sched-cell { min-width: 34px; height: 34px; text-align: center; font-size: 0.7rem; font-weight: 700; color: #fff; cursor: crosshair; border: 1px solid var(--border-color, #e2e8f0); }
+.sched-cell { height: 32px; text-align: center; font-size: 0.6rem; font-weight: 700; color: #fff; cursor: crosshair; border: 1px solid var(--bs-border-color); overflow: hidden; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sched-inherited { opacity: 0.55; }
 .sched-none { box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.55); }
+@media (max-width: 1399.98px) { .sched-name { width: 170px; } .sched-cell { font-size: 0.55rem; } }
+
+.sched-alerts { display: flex; flex-direction: column; gap: 8px; }
+.sched-alert { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: 10px; font-size: 0.82rem; border: 1px solid; }
+.sched-alert > i { margin-top: 1px; }
+.sched-alert.is-info { background: var(--bs-info-bg-subtle); border-color: var(--bs-info-border-subtle); color: var(--bs-info-text-emphasis); }
+.sched-alert.is-warning { background: var(--bs-warning-bg-subtle); border-color: var(--bs-warning-border-subtle); color: var(--bs-warning-text-emphasis); }
+.sched-alert.is-danger { background: var(--bs-danger-bg-subtle); border-color: var(--bs-danger-border-subtle); color: var(--bs-danger-text-emphasis); }
+
+.sched-panel { padding: 16px; }
+.sched-panel-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; color: var(--bs-emphasis-color); margin-bottom: 12px; }
+.sched-panel-title i { color: var(--bs-primary); }
+.sched-input { height: 40px; border-radius: 10px; }
+.sched-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 10px; font-weight: 600; }
+.sched-dirty { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--bs-warning-text-emphasis); }
+.sched-dirty i { font-size: 0.45rem; }
+.sched-segment { display: inline-flex; padding: 4px; border-radius: 10px; background: var(--bs-tertiary-bg); gap: 4px; }
+.sched-segment button { border: 0; background: transparent; padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; color: var(--bs-secondary-color); }
+.sched-segment button.active { background: var(--bs-body-bg); color: var(--bs-primary); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15); }
+.sched-copy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
 /* Vacaciones aprobadas: franja diagonal y sin cursor de pincel (no se puede sobrescribir) */
 .sched-vacation {
     cursor: not-allowed;
@@ -430,11 +513,4 @@ async function repeat() {
     font-size: 0.6rem;
     letter-spacing: 0.02em;
 }
-.sched-legend { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
-.sched-toolbar { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color, #e2e8f0); }
-.sched-branch { min-width: 220px; max-width: 320px; height: 38px; }
-.sched-chip { border: 1.5px solid var(--border-color, #cbd5e1); border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; }
-.sched-chip.active { border-color: var(--chip, #0d6efd); box-shadow: 0 0 0 2px var(--chip, #0d6efd); font-weight: 600; }
-.sched-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-.sched-dot-free { background: #fff; border: 1.5px solid #94a3b8; }
 </style>

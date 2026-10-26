@@ -19,6 +19,20 @@ class BirthdaysEdgeCasesTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_inertia_visit_gets_a_page_not_plain_json(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $hr = $this->makeUser($acme, 'hr_manager');
+
+        // Visita desde el menú: Inertia manda X-Inertia y X-Requested-With (axios)
+        $version = (string) app(\App\Modules\Core\Middleware\HandleInertiaRequests::class)->version(request());
+        $this->actingAs($hr)->withHeaders(['X-Inertia' => 'true', 'X-Requested-With' => 'XMLHttpRequest', 'X-Inertia-Version' => $version])
+            ->get('/birthdays')->assertHeader('X-Inertia', 'true')->assertJsonPath('component', 'Birthdays/Pages/Birthdays/Index');
+        // El filtro AJAX propio de la pantalla sigue recibiendo JSON
+        $this->flushHeaders()->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])->get('/birthdays?month=6')->assertOk()->assertJsonStructure(['people', 'months']);
+    }
+
     public function test_birthdays_screens_survive_edge_dates_in_panel_and_app(): void
     {
         $this->seedRoles();

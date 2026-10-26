@@ -149,6 +149,32 @@ class ScheduleProgrammingTest extends TestCase
         $this->assertSame(['excused', 'Vacaciones'], [$row['cells']['2026-10-07']['state'], $row['cells']['2026-10-07']['label']]);
     }
 
+    public function test_a_color_already_used_by_another_shift_is_rejected(): void
+    {
+        $payload = ['branch_id' => $this->trujillo->id, 'name' => 'Nuevo', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '17:00',
+            'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 8, 'working_days' => [1]];
+
+        // El horario A ya usa #3C729E (sin importar mayúsculas)
+        $this->actingAs($this->hr)->post('/shifts', $payload + ['color' => '#3c729e'])->assertSessionHasErrors('color');
+        $this->post('/shifts', $payload + ['color' => '#123abc'])->assertSessionHasNoErrors();
+        $this->assertSame('#123ABC', Shift::where('name', 'Nuevo')->value('color'));
+
+        // Editar un horario conservando su propio color sí se puede; tomar el de otro, no
+        $edit = ['name' => 'Horario A', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '15:00', 'branch_id' => $this->trujillo->id,
+            'grace_period_minutes' => 10, 'break_duration_minutes' => 60, 'daily_hours' => 7, 'working_days' => [1, 2, 3, 4, 5]];
+        $this->put("/shifts/{$this->a->id}", $edit + ['color' => '#3C729E'])->assertSessionHasNoErrors();
+        $this->put("/shifts/{$this->a->id}", $edit + ['color' => '#2E9E8C'])->assertSessionHasErrors('color');
+
+        // Otra empresa puede usar el mismo color
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+        $other = $this->makeTenant('other');
+        $otherHr = $this->makeUser($other, 'hr_manager');
+        $otherBranch = $this->makeBranch($other);
+        $this->actingAs($otherHr)->post('/shifts', ['branch_id' => $otherBranch->id, 'color' => '#3C729E'] + $payload)->assertSessionHasNoErrors();
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+        $this->assertSame(['#123ABC' => 'Nuevo', '#2E9E8C' => 'Horario B'], collect($this->actingAs($this->hr)->get('/shifts/create')->prop('usedColors'))->except('#3C729E')->all());
+    }
+
     public function test_shifts_belong_to_an_agency_and_the_matrix_only_offers_its_own(): void
     {
         $lima = $this->makeBranch($this->acme, ['name' => 'Ag. Lima']);
@@ -277,7 +303,11 @@ class ScheduleProgrammingTest extends TestCase
 
         $post($this->hr, ['rows' => [['user_id' => $other->id, 'days' => []]]])->assertStatus(422)->assertJsonValidationErrors('rows');
         $post($this->hr, ['to' => '2026-12-31', 'rows' => [['user_id' => $this->people['Juan']->id, 'days' => []]]])->assertStatus(422)->assertJsonValidationErrors('to');
-        $post($this->hr, ['reason' => '', 'rows' => [['user_id' => $this->people['Juan']->id, 'days' => []]]])->assertStatus(422)->assertJsonValidationErrors('reason');
+        // El motivo es opcional: sin él la bitácora queda con uno genérico
+        $post($this->hr, ['reason' => '', 'rows' => [['user_id' => $this->people['Juan']->id, 'days' => ['2026-10-05' => $this->a->id]]]])->assertOk();
+        $this->assertSame('Programación de horarios', AuditLog::where('action', 'schedule.programmed')->latest('id')->first()->meta['context']['reason']);
+        EmployeeScheduleDay::query()->delete(); // el resto del test parte sin programación
+        $post($this->hr, ['reason' => str_repeat('x', 301), 'rows' => [['user_id' => $this->people['Juan']->id, 'days' => []]]])->assertStatus(422)->assertJsonValidationErrors('reason');
         $post($this->hr, ['rows' => [['user_id' => $this->people['Juan']->id, 'days' => ['2026-10-02' => 999999]]]])->assertStatus(422)->assertJsonValidationErrors('rows');
 
         // Regla 6: un supervisor programa, pero solo sus agencias: esta no es suya

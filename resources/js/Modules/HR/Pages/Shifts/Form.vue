@@ -3,7 +3,13 @@ import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import ShiftWeekSchedule, { emptyDays } from '@/Modules/HR/Components/ShiftWeekSchedule.vue';
 
-const props = defineProps({ shift: Object, profiles: { type: Object, default: () => ({}) }, branches: { type: Array, default: () => [] } });
+const props = defineProps({
+    shift: Object,
+    profiles: { type: Object, default: () => ({}) },
+    branches: { type: Array, default: () => [] },
+    usedColors: { type: Object, default: () => ({}) }, // color => horario que ya lo usa
+});
+const colorTaken = (c) => props.usedColors[String(c || '').toUpperCase()];
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const ORDERED_DAYS = [
@@ -23,6 +29,8 @@ const PRESET_COLORS = [
 const editing = props.shift.id !== null;
 const form = useForm({
     ...props.shift,
+    // Nuevo: el primer color libre
+    color: editing || !colorTaken(props.shift.color) ? props.shift.color : (PRESET_COLORS.find((c) => !colorTaken(c)) || props.shift.color),
     // Agencia obligatoria; con una sola agencia ya viene elegida
     branch_id: props.shift.branch_id ?? (props.branches.length === 1 ? props.branches[0].id : null),
     start_time: props.shift.start_time ? props.shift.start_time.substring(0, 5) : '08:00',
@@ -116,9 +124,15 @@ function submit() {
                         <div class="d-flex align-items-center gap-2">
                             <input v-model="form.color" type="color" class="form-control form-control-color p-0" style="width: 38px; height: 38px; border-radius: 7px; cursor: pointer;">
                             <div class="d-flex align-items-center gap-1 flex-wrap">
-                                <button v-for="c in PRESET_COLORS" :key="c" type="button" class="border-0 p-0 shadow-sm" :style="{ width: '18px', height: '18px', borderRadius: '4px', background: c, outline: form.color === c ? '2px solid var(--accent-cyan)' : 'none' }" :title="c" @click="form.color = c"></button>
+                                <button v-for="c in PRESET_COLORS" :key="c" type="button" class="border-0 p-0 shadow-sm d-inline-flex align-items-center justify-content-center"
+                                        :style="{ width: '18px', height: '18px', borderRadius: '4px', background: c, color: '#fff', fontSize: '0.6rem', opacity: colorTaken(c) ? 0.4 : 1, cursor: colorTaken(c) ? 'not-allowed' : 'pointer', outline: form.color?.toUpperCase() === c ? '2px solid var(--accent-cyan)' : 'none' }"
+                                        :disabled="!!colorTaken(c)" :title="colorTaken(c) ? `En uso por «${colorTaken(c)}»` : c" @click="form.color = c">
+                                    <i v-if="colorTaken(c)" class="bi bi-lock-fill"></i>
+                                </button>
                             </div>
                         </div>
+                        <div v-if="form.errors.color" class="text-danger small mt-1">{{ form.errors.color }}</div>
+                        <div v-else-if="colorTaken(form.color)" class="text-danger small mt-1">Ese color ya lo usa «{{ colorTaken(form.color) }}».</div>
                     </div>
                     <div class="col-md-6">
                         <ShiftWeekSchedule :form="form" :profiles="profiles" part="profile" />

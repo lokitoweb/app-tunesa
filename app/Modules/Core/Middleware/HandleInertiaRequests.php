@@ -22,6 +22,20 @@ class HandleInertiaRequests extends Middleware
 {
     protected $rootView = 'app';
 
+    /**
+     * Una visita de Inertia trae X-Requested-With (axios) y los controladores que
+     * responden JSON con $request->ajax() le devolvían JSON crudo ("plain JSON
+     * response"). Se quita aquí, una sola vez para todo el panel.
+     */
+    public function handle(Request $request, \Closure $next)
+    {
+        if ($request->header('X-Inertia')) {
+            $request->headers->remove('X-Requested-With');
+        }
+
+        return parent::handle($request, $next);
+    }
+
     public function share(Request $request): array
     {
         $user = $request->user();
