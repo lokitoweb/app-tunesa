@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cambios QA Ronda 2</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --text: #1f2937; --muted: #5b6472; --border: #e3e6ea;
+    --brand: #3c729e; --ok: #15803d; --ok-bg: #e8f5ec; --warn: #b45309; --warn-bg: #fdf3e2;
+    --block: #9a3412; --block-bg: #fdece4; --code-bg: #f1f3f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151a; --surface: #1a1e25; --text: #e6e8eb; --muted: #a2a9b4; --border: #2c323b;
+      --brand: #7fb0d8; --ok: #6fd18f; --ok-bg: #16281d; --warn: #f2b45c; --warn-bg: #2d2416;
+      --block: #f59a76; --block-bg: #2e1c15; --code-bg: #22272f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12151a; --surface: #1a1e25; --text: #e6e8eb; --muted: #a2a9b4; --border: #2c323b;
+    --brand: #7fb0d8; --ok: #6fd18f; --ok-bg: #16281d; --warn: #f2b45c; --warn-bg: #2d2416;
+    --block: #f59a76; --block-bg: #2e1c15; --code-bg: #22272f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 6px; }
+  h2 { font-size: 1.3rem; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 1.05rem; margin: 22px 0 8px; }
+  p, li { color: var(--text); }
+  .lead { color: var(--muted); font-size: 1.05rem; margin: 0 0 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin: 14px 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .stat b { display: block; font-size: 1.6rem; color: var(--brand); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { font-size: 0.82rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); background: var(--bg); }
+  tr:last-child td { border-bottom: 0; }
+  .tag { display: inline-block; font-size: 0.78rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .ok { color: var(--ok); background: var(--ok-bg); }
+  .warn { color: var(--warn); background: var(--warn-bg); }
+  .block { color: var(--block); background: var(--block-bg); }
+  code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 0.88rem; background: var(--code-bg); border-radius: 6px; }
+  code { padding: 1px 5px; }
+  pre { padding: 12px 14px; overflow-x: auto; margin: 8px 0; }
+  .note { border-left: 4px solid var(--warn); background: var(--warn-bg); padding: 12px 16px; border-radius: 6px; margin: 14px 0; }
+  .muted { color: var(--muted); }
+  ol li, ul li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Cambios de la Ronda 2 de QA: horarios, marcaciones y reportes</h1>
+<p class="lead">Qué pidió el informe de QA, qué se cambió en el sistema, dónde se ve, cómo se probó y qué falta definir. Actualizado al 25/10/2026.</p>
+
+<div class="card">
+  <p><strong>El problema de fondo, en una frase:</strong> el sistema pensaba en <em>un horario fijo por colaborador</em>, pero la operación <em>rota los horarios</em> (un horario un día, otro horario otro día, o día libre). De ahí salían las tardanzas mal calculadas, la programación incómoda y los reportes con datos incorrectos.</p>
+  <p><strong>Lo que se hizo:</strong> ahora cada colaborador tiene su horario <em>por fecha</em>. Se programa en un calendario por agencia, pintando los días, y todo (marcación, tardanzas, faltas, calendario, reportes y la app) se calcula contra el horario de ese día.</p>
+  <p class="muted">Los nombres del informe (Juan Pérez, Fidel Alvarez, Juana Pereda, Yohana Contreras) se usaron solo como datos de prueba. Nada en el sistema depende de una persona concreta.</p>
+</div>
+
+<div class="grid">
+  <div class="stat"><b>9 de 9</b>hallazgos atendidos (HQ-01 a HQ-05, RP-01 a RP-04)</div>
+  <div class="stat"><b>9 de 9</b>casos de prueba CP-01 a CP-09 en verde</div>
+  <div class="stat"><b>0</b>cambios destructivos: 2 migraciones, solo aditivas</div>
+  <div class="stat"><b>1</b>punto bloqueado: saldo de vacaciones (regla de RR. HH.)</div>
+</div>
+
+<h2>1. Antes de usarlo: cómo se activa</h2>
+<p>Para no romper nada en producción, los cambios que alteran cómo se calcula la asistencia vienen <strong>apagados</strong> y se encienden por empresa. Con la bandera apagada, el sistema hace exactamente lo de antes.</p>
+<div class="table-wrap"><table>
+  <tr><th>Bandera</th><th>Qué enciende</th></tr>
+  <tr><td><code>schedule_v2</code></td><td>Horario por fecha: el calendario de programación empieza a regir; todas las pantallas eligen el horario de ese día; marcar sin horario queda "fuera de programación" (HQ-01, HQ-02, HQ-05, CP-06, CP-07).</td></tr>
+  <tr><td><code>hours_v2</code></td><td>Fórmula única de horas trabajadas: el reporte descuenta el descanso igual que la jornada guardada (RP-01).</td></tr>
+</table></div>
+<p>Se encienden en el servidor, y cada cambio queda en la bitácora con el motivo:</p>
+<pre>php artisan attendance:flag &lt;id o slug de la empresa&gt; schedule_v2 on --reason="Piloto Ag. Trujillo"
+php artisan attendance:flag &lt;id o slug de la empresa&gt; hours_v2 on    --reason="Piloto Ag. Trujillo"
+php artisan attendance:flag &lt;id o slug de la empresa&gt; schedule_v2           # ver el estado
+php artisan attendance:flag &lt;id o slug de la empresa&gt; schedule_v2 off --reason="Vuelta atrás"</pre>
+<p>Recomendación: primero programar el mes en el calendario y después encender <code>schedule_v2</code>. Lo que ya estaba guardado (jornadas, tardanzas) no se recalcula; el cambio rige desde que se enciende.</p>
+<p><strong>Ya activo sin bandera</strong>, para todas las empresas:</p>
+<ul>
+  <li>corrección de permisos (HQ-03);</li>
+  <li>la pantalla de programación (guarda, pero no rige hasta encender <code>schedule_v2</code>);</li>
+  <li>los estados separados y sus etiquetas (RP-03);</li>
+  <li>las columnas nuevas de los reportes (RP-04);</li>
+  <li>la tolerancia y la fórmula impresas en el reporte (RP-01, RP-02);</li>
+  <li>el filtro de sede recordado y los colores por horario (HQ-04).</li>
+</ul>
+
+<h2>2. Hallazgo por hallazgo</h2>
+<div class="table-wrap"><table>
+  <tr><th>Código</th><th>Lo que pidió QA</th><th>Lo que se hizo y dónde se ve</th><th>Estado</th></tr>
+  <tr><td><strong>HQ-01</strong><br><span class="muted">Crítica</span></td><td>Horario por fecha: cada día con su horario o día libre.</td><td>Nueva tabla de horario por fecha (colaborador + fecha → horario o día libre). Una sola regla, en un solo lugar, decide el horario de cada día para todo el sistema. Antes había 8 copias de esa regla que no coincidían entre sí.</td><td><span class="tag ok">Hecho</span><br><span class="muted">con <code>schedule_v2</code></span></td></tr>
+  <tr><td><strong>HQ-02</strong></td><td>Comparar la marcación con el horario de ese día; sin horario, "fuera de programación" y avisar a la jefatura.</td><td>La marcación se mide contra el horario del día. Si ese día no tiene horario, la marcación queda "fuera de programación" y se avisa al colaborador y al supervisor de la agencia con ese texto. Si la empresa exige horario para marcar, se respeta: hace falta la autorización de RR. HH.</td><td><span class="tag ok">Hecho</span><br><span class="muted">con <code>schedule_v2</code></span></td></tr>
+  <tr><td><strong>HQ-03</strong></td><td>Poder corregir una salida no marcada, con motivo y auditoría; estado "Marcación incompleta".</td><td><strong>Causa encontrada:</strong> en la base de producción faltaban permisos. Gerencia no tenía permiso para corregir, y el permiso para autorizar marcar fuera de turno no existía, así que solo el super admin podía autorizarlo. Se repararon con una migración que solo agrega lo que falta. RR. HH., Gerencia y el supervisor de su equipo corrigen en <em>Calendario › persona › día</em>; queda el motivo y el antes y después en la bitácora. Los demás bloqueos son a propósito: Contabilidad no corrige, nadie se corrige a sí mismo y un supervisor no corrige fuera de su equipo.</td><td><span class="tag ok">Hecho</span></td></tr>
+  <tr><td><strong>HQ-04</strong></td><td>Filtrar el calendario por sede, recordar la última, color por horario.</td><td>El calendario recuerda la última sede elegida (también "Todas"). Cada celda lleva una franja con el color de su horario, y hay una leyenda de horarios. El filtro por área y la búsqueda por colaborador ya existían; se verificó que funcionan.</td><td><span class="tag ok">Hecho</span></td></tr>
+  <tr><td><strong>HQ-05</strong></td><td>Programar eligiendo agencia, horario y días; copiar semana, repetir, varios a la vez y alerta de quien no tiene programación.</td><td>Nueva pantalla <em>Administración › Programación de horarios</em>, con los cuatro pasos del informe: elegir la agencia, elegir el horario, marcar los días (clic o arrastrando) y repetir con otro horario. Los días en blanco del mes guardado quedan como día libre. Incluye "Copiar semana", "Repetir semanas hasta una fecha", marcar un día a varios colaboradores seleccionados a la vez y una alerta de quién tiene días sin programación. Cada guardado queda en la bitácora con el motivo. Además, ya no se puede crear una asignación semanal que choque con otra vigente.</td><td><span class="tag ok">Hecho</span></td></tr>
+  <tr><td><strong>RP-01</strong></td><td>Horas trabajadas según las marcaciones; la fórmula escrita en el pie.</td><td>Había dos fórmulas distintas: la jornada guardada daba 5:57 y el reporte 6:57 para el mismo día. Ahora hay una sola, y el pie del reporte la escribe con los valores de la empresa. El "08:00" que vio QA no salió de este sistema: venía del reporte de ejemplo.</td><td><span class="tag ok">Hecho</span><br><span class="muted">con <code>hours_v2</code>; RR. HH. confirma el break</span></td></tr>
+  <tr><td><strong>RP-02</strong></td><td>Tolerancia definida, igual en tardanza, estado y reporte; mostrada en el encabezado.</td><td>La tolerancia ya era configurable (por turno, y por defecto 10 min por empresa) y se aplicaba igual en todo. Con 08:06 da tardanza 0 y estado Normal, como espera QA. Ahora el encabezado del reporte la muestra.</td><td><span class="tag ok">Hecho</span><br><span class="muted">RR. HH. confirma minutos y redondeo</span></td></tr>
+  <tr><td><strong>RP-03</strong></td><td>Separar Descanso y Vacaciones, agregar Permiso y Marcación incompleta; saber cuántos días de vacaciones se usaron.</td><td>Hay una sola fuente de estados y etiquetas: Normal, Tardanza, Faltó, Marcación incompleta, Descanso, Vacaciones, Permiso, Descanso médico, Feriado, Media jornada y Falta justificada. La usan el calendario, el reporte, el Excel de marcaciones y la app. El reporte cuenta los días de vacaciones usados igual que el cruce con planilla. "DESCANZO" nunca existió en el código.</td><td><span class="tag ok">Hecho</span></td></tr>
+  <tr><td><strong>RP-04</strong></td><td>Reporte final con faltas, horas trabajadas y días de descanso/vacaciones, que cuadre con los diarios; DNI completo.</td><td>El reporte final (Excel y PDF) trae colaborador, cargo, tipo y número de documento (tal cual, con sus ceros), agencia, tardanzas, horas extra, faltas, horas trabajadas en H:MM, y días de Descanso, Feriado, Vacaciones, Permiso y Descanso médico. El detalle diario trae un día por fila con su estado, el horario programado y lo marcado. Se probó que cada total del mes es igual a la suma de sus días.</td><td><span class="tag ok">Hecho</span></td></tr>
+</table></div>
+
+<h2>3. Casos de prueba del informe (resultado real)</h2>
+<p>Se ejecutaron con datos equivalentes a los del informe: Tunesa expres, Ag. Trujillo, horario A 08:00–15:00 con tolerancia de 10 min y break de 60 min, octubre de 2026, y las banderas encendidas. Son pruebas automáticas que corren en cada cambio; los números son los que dio el sistema.</p>
+<div class="table-wrap"><table>
+  <tr><th>Caso</th><th>Esperado por QA</th><th>Resultado real</th><th></th></tr>
+  <tr><td>CP-01</td><td>08:06–15:03: tardanza y estado coherentes con la tolerancia; horas según la fórmula (6:57 antes del break).</td><td>Tardanza 0, estado <strong>Normal</strong>. Horas <strong>5:57</strong> en la jornada y en el reporte (6:57 − 60 min de break). Si la empresa paga el refrigerio: <strong>6:57</strong>. Horario 08:00/15:00 junto a lo marcado: 08:06/15:03.</td><td><span class="tag ok">Pasa</span></td></tr>
+  <tr><td>CP-02</td><td>Sin marcaciones y con horario: Faltó, 0:00 y 1 falta en el final.</td><td>Estado <strong>Faltó</strong>, <strong>0:00</strong>, falta registrada por el control de faltas y <strong>1</strong> falta en el resumen.</td><td><span class="tag ok">Pasa</span></td></tr>
+  <tr><td>CP-03</td><td>Día libre: Descanso, no cuenta como falta.</td><td>Sábado en blanco: <strong>Descanso</strong> en el reporte y en el calendario; 0 faltas, 1 día de descanso.</td><td><span class="tag ok">Pasa</span></td></tr>
+  <tr><td>CP-04</td><td>Vacaciones aprobadas: Vacaciones, no falta, descuenta del saldo.</td><td><strong>Vacaciones</strong> (letra V) en el reporte y el calendario; 0 faltas; <strong>4</strong> días usados, igual que el cruce con planilla. <em>El saldo aún no se descuenta</em>: falta que RR. HH. defina la regla de derecho y acumulación.</td><td><span class="tag block">Parcial: saldo bloqueado</span></td></tr>
+  <tr><td>CP-05</td><td>Entrada sin salida: Marcación incompleta; RR. HH. corrige con motivo y queda auditado.</td><td><strong>Marcación incompleta</strong> en el reporte y el calendario. RR. HH. completa la salida 15:00 con motivo; la bitácora guarda quién, cuándo, el motivo y el antes y después. Las horas se recalculan: <strong>6:02</strong>.</td><td><span class="tag ok">Pasa</span></td></tr>
+  <tr><td>CP-06</td><td>Horarios A y B en días distintos: cada día con su horario.</td><td>Programación del Anexo A.2 (Juan A/B, Fidel B/A, Juana mixta): cada día se evalúa con su horario en la marcación, el calendario, el reporte, el control de faltas, el recordatorio y la app. Ejemplo: Juana trabaja B un sábado porque así se programó.</td><td><span class="tag ok">Pasa</span></td></tr>
+  <tr><td>CP-07</td><td>Marcación antes del horario del día: se compara con ese horario.</td><td>Horario B (14:00) ese lunes; marca 13:55: tardanza 0, estado Normal, sin "fuera de horario".</td><td><span class="tag ok">Pasa</span></td></tr>
+  <tr><td>CP-08</td><td>Cierre de octubre: cada total del final igual a la suma de los diarios.</td><td>Para cada colaborador, las horas, tardanza, horas extra, faltas, descansos, vacaciones, descanso médico y días trabajados del resumen son iguales a la suma de sus días. Ejemplo, Juan: 22 programados, 2 trabajados, 20 faltas, 9 descansos y 25 min de tardanza.</td><td><span class="tag ok">Pasa</span></td></tr>
+  <tr><td>CP-09</td><td>Calendario con varias sedes: al filtrar una sede, solo sus colaboradores.</td><td>Ag. Trujillo muestra solo a sus 4 colaboradores; Ag. Lima solo al suyo. La sede elegida se recuerda.</td><td><span class="tag ok">Pasa</span></td></tr>
+</table></div>
+
+<h3>Criterios de conformidad (sección 7 del informe)</h3>
+<ul>
+  <li><strong>Cero hallazgos críticos y altos abiertos:</strong> atendidos HQ-01 (crítico), HQ-02, HQ-03, HQ-05 y RP-01 (altos). Para verlos en producción hay que encender las banderas.</li>
+  <li><strong>CP-01 a CP-09 aprobados:</strong> 8 pasan completos; CP-04 pasa salvo el saldo de vacaciones.</li>
+  <li><strong>El reporte final cuadra con la suma de los diarios:</strong> sí (CP-08).</li>
+  <li><strong>Reglas de cálculo firmadas por RR. HH.:</strong> pendiente; ver la sección 4.</li>
+</ul>
+
+<h2>4. Lo que falta definir (no se inventó ninguna regla)</h2>
+<p>Donde RR. HH. no ha definido una regla, el sistema quedó <strong>configurable con los valores de hoy</strong> y la pregunta queda abierta. Ninguna de estas reglas se inventó.</p>
+<h3>Para RR. HH. (reunión del 30/oct)</h3>
+<ol>
+  <li>Tolerancia en minutos. Hoy: por turno, y 10 min por defecto de la empresa.</li>
+  <li>¿Se redondea la tardanza? ¿Se cuenta desde la hora de entrada o desde el fin de la tolerancia? Hoy: sin redondeo, desde la hora de entrada.</li>
+  <li>¿Se descuenta el break aunque no se marque? Hoy: se descuenta el mayor entre lo marcado y el break del turno, salvo si la empresa paga el refrigerio.</li>
+  <li>¿Las horas extra requieren aprobación previa? Hoy: se aprueban después.</li>
+  <li>Lista final de estados (incluye "Descanso médico" como estado propio).</li>
+  <li>¿Quién programa los horarios y con cuánta anticipación?</li>
+  <li>Salida anticipada: el informe no la define.</li>
+  <li>Feriado con horario programado: hoy no genera falta y, si marca, figura como "Feriado trabajado". ¿Se confirma?</li>
+  <li><strong>Vacaciones:</strong> cuántos días de derecho, cómo se generan o acumulan, si se cuentan días calendario o hábiles, y si el saldo es por periodo vacacional o histórico. <span class="tag block">Bloquea el saldo de CP-04</span></li>
+  <li>Horas extra: el informe dice "horas marcadas después de la salida del horario"; hoy son las horas trabajadas por encima de la jornada base. ¿Cuál vale?</li>
+  <li>Marcar en un día sin horario: hoy manda la configuración de la empresa ("marcar solo con turno programado", encendida de fábrica). ¿Se confirma?</li>
+</ol>
+<h3>Para QA (confirmar)</h3>
+<ol>
+  <li>"Fuera de programación" se maneja como alerta sobre la marcación (motivo y aviso a la jefatura), no como un estado más.</li>
+  <li>Se mantienen Media jornada, Feriado y Falta justificada además de los estados de la sección 5.4.</li>
+  <li>Los títulos "Reporte de asistencias por día / por colaborador / final" no existían. Se tomó como 5.1 y 5.2 el detalle diario del "Reporte de horas y faltas" (se filtra por fecha o colaborador) y como 5.3 su resumen.</li>
+  <li>"Repetir un patrón" se implementó como "copiar semana" y "repetir las semanas elegidas hasta una fecha".</li>
+  <li>HQ-03: ¿con qué usuario y rol se intentó la corrección y qué mensaje se vio? La causa encontrada (permisos) ya está reparada, pero conviene confirmarlo con su caso.</li>
+</ol>
+
+<h2>5. Para el equipo técnico</h2>
+<h3>Cambios en master (cada push se despliega solo)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Commit</th><th>Contenido</th></tr>
+  <tr><td><code>c45bfc4</code></td><td>Respaldo de la base en <code>deploy.sh</code>: antes de entrar en mantenimiento, solo si hay migraciones; si falla, no despliega.</td></tr>
+  <tr><td><code>d9f1c82</code></td><td>Pruebas HQ-03, matriz de trazabilidad, regla única de horario con bandera.</td></tr>
+  <tr><td><code>fc9acae</code></td><td>HQ-03: permisos de corrección (migración <code>2026_11_01_000001</code>).</td></tr>
+  <tr><td><code>f9365e0</code></td><td>HQ-01/HQ-05: horario por fecha (migración <code>2026_11_01_000002</code>, tabla <code>employee_schedule_days</code>) y calendario de programación.</td></tr>
+  <tr><td><code>ab346f3</code></td><td>HQ-02: fuera de programación y aviso a la jefatura.</td></tr>
+  <tr><td><code>d59d56c</code></td><td>RP-01 a RP-04: fórmula única, estados, reporte final; casos CP.</td></tr>
+  <tr><td><em>último</em></td><td>HQ-04: sede recordada y colores por horario; esta documentación.</td></tr>
+</table></div>
+<div class="note"><strong>Requisito del servidor:</strong> desde ahora, un despliegue con migraciones exige <code>mysqldump</code> instalado (<code>sudo apt install mysql-client</code>). Si falta, el despliegue se detiene sin tocar la base ni el sitio, con un mensaje claro en el log. Verificar con <code>command -v mysqldump</code>.</div>
+<h3>Verificación en producción (solo lectura)</h3>
+<pre>php artisan migrate:status | grep 2026_11_01        # las 2 migraciones: Ran
+ls -lh ~/backups/deploy/ | tail -3                  # respaldo previo a migrar
+php artisan attendance:flag &lt;empresa&gt; schedule_v2   # off hasta encenderla
+php artisan route:list --path=shifts/schedule       # pantalla de programación</pre>
+<p>Para la comparación de permisos del seeder contra la base y las consultas de jornadas abiertas, ver <code>consultas_produccion.md</code> (sección 7: debe dar <code>diferencias: 0</code>).</p>
+<h3>Vuelta atrás</h3>
+<ul>
+  <li><strong>Comportamiento:</strong> apagar las banderas (<code>attendance:flag … off</code>). No toca datos.</li>
+  <li><strong>Código:</strong> <code>git revert -m 1 &lt;merge&gt;</code> del merge que se quiera deshacer, y <code>git push origin master</code>.</li>
+  <li><strong>Migraciones:</strong> <code>php artisan migrate:rollback --step=1</code> por cada una, en orden inverso. La de permisos quita solo lo que agregó; la de horario por fecha borra la tabla nueva, así que conviene exportar antes lo programado.</li>
+</ul>
+<h3>Documentos relacionados</h3>
+<ul>
+  <li><code>docs/qa/INFORME_QA_RONDA2.md</code>: transcripción del informe, con sus imágenes.</li>
+  <li><code>docs/qa/MATRIZ_TRAZABILIDAD.md</code>: una fila por requisito, con su prueba y evidencia.</li>
+  <li><code>docs/qa/BANDERAS.md</code>: activación y plan de retiro de las banderas.</li>
+  <li><code>docs/qa/MAPA_FASE0.md</code>: análisis inicial y decisiones.</li>
+</ul>
+
+</main>
+</body>
+</html>

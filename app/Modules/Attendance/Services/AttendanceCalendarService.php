@@ -354,6 +354,8 @@ class AttendanceCalendarService
             'shift'       => $assignment->shift->name,
             'shift_start' => $dayShift->start_time ? substr($dayShift->start_time, 0, 5) : null,
             'shift_grace' => (int) ($dayShift->grace_period_minutes ?? 0),
+            // HQ-04: color por horario (solo hex válido; va a un atributo style)
+            'shift_color' => preg_match('/^#[0-9A-Fa-f]{3,8}$/', (string) $assignment->shift->color) ? $assignment->shift->color : null,
         ] : [];
 
         // Con marcación: manda el estado guardado (el mismo que usan los reportes)
@@ -453,6 +455,7 @@ class AttendanceCalendarService
             'shift'         => null,
             'shift_start'   => null,
             'shift_grace'   => 0,
+            'shift_color'   => null,
             'overtime_status' => null,
             'manual'          => false,
             'overtime_hours'  => 0.0,

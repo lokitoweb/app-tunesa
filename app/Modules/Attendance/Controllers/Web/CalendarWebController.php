@@ -17,6 +17,7 @@ use App\Modules\HR\Models\Shift;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -36,6 +37,7 @@ class CalendarWebController extends Controller
     {
         $this->authorizeCalendar($request);
         $tenantId = current_tenant_id_or_null();
+        $this->rememberBranch($request, $tenantId);
         $filters  = CalendarFilters::fromRequest($request, $tenantId);
 
         return view('attendance.calendar', [
@@ -60,6 +62,7 @@ class CalendarWebController extends Controller
     {
         $this->authorizeCalendar($request);
         $tenantId = current_tenant_id_or_null();
+        $this->rememberBranch($request, $tenantId);
         $filters  = CalendarFilters::fromRequest($request, $tenantId, daily: true);
         $date     = $filters->day;
 
@@ -192,6 +195,25 @@ class CalendarWebController extends Controller
             'canOpen'      => $request->user()->can('attendance.view_all'),
             'canEdit'      => app(ManualAttendanceEdit::class)->canEdit($request->user(), $employee),
         ]);
+    }
+
+    /**
+     * QA Ronda 2 · HQ-04: el calendario recuerda la última sede elegida (cookie cifrada por
+     * usuario, 1 año). Elegir "Todas las sucursales" también se recuerda. Una sede guardada
+     * que ya no está al alcance de quien mira se ignora.
+     */
+    private function rememberBranch(Request $request, ?int $tenantId): void
+    {
+        $key = 'calendar_branch_' . $request->user()->id;
+        if ($request->has('branch_id')) {
+            Cookie::queue($key, (string) $request->input('branch_id'), 60 * 24 * 365);
+
+            return;
+        }
+        $saved = (int) $request->cookie($key);
+        if ($saved && Branch::forTenant($tenantId)->visibleTo($request->user())->whereKey($saved)->exists()) {
+            $request->merge(['branch_id' => $saved]);
+        }
     }
 
     public function excel(Request $request): BinaryFileResponse
