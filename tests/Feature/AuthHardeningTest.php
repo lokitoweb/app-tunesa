@@ -96,7 +96,10 @@ class AuthHardeningTest extends TestCase
         $ana  = $this->makeUser($acme, 'employee', ['email' => 'ana@acme.pe', 'password' => 'Secret123']);
 
         $res = $this->login('acme', 'ana@acme.pe', 'Secret123')->assertOk();
-        $this->assertMatchesRegularExpression('/^\d+\|tunesa_/', $res->json('data.token'), 'Prefijo detectable por secret scanning');
+        // El prefijo es configurable por instalación (SANCTUM_TOKEN_PREFIX); lo que importa es que exista
+        $prefix = (string) config('sanctum.token_prefix');
+        $this->assertNotSame('', $prefix, 'Sin prefijo, el secret scanning no detecta tokens filtrados');
+        $this->assertMatchesRegularExpression('/^\d+\|' . preg_quote($prefix, '/') . '/', $res->json('data.token'), 'Prefijo detectable por secret scanning');
         $this->assertNotNull($res->json('data.expires_at'));
 
         foreach (['tablet', 'web', 'otro'] as $device) {
