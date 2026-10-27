@@ -78,10 +78,9 @@ class InstallerController
             return back()->withInput($request->except('password'))->withErrors(['database' => $error]);
         }
 
-        EnvWriter::forApp()->set([
+        EnvWriter::forApp()->set(self::domainSettings($request) + [
             'APP_ENV'       => 'production',
             'APP_DEBUG'     => false,
-            'APP_URL'       => rtrim($request->root(), '/'),
             'LOG_LEVEL'     => 'warning',
             'DB_CONNECTION' => $data['driver'],
             'DB_HOST'       => $data['host'],
@@ -194,6 +193,25 @@ class InstallerController
     private function view(int $step, array $data = []): View
     {
         return view('installer.wizard', ['step' => $step, 'steps' => self::STEPS] + $data);
+    }
+
+    /**
+     * Lo que depende del dominio sale de la dirección con la que se abrió /install: el .env de
+     * partida (.env.example) trae valores de desarrollo (localhost, tunesa.app) que no sirven.
+     *
+     * @return array<string, string|bool>
+     */
+    public static function domainSettings(Request $request): array
+    {
+        $host = strtolower($request->getHost());
+        $domain = preg_replace('/^www\./', '', $host);
+
+        return [
+            'APP_URL'                  => rtrim($request->root(), '/'),
+            'APP_DOMAIN'               => $domain,
+            'SANCTUM_STATEFUL_DOMAINS' => $domain === $host ? "$domain,www.$domain" : "$domain,$host",
+            'SESSION_SECURE_COOKIE'    => $request->isSecure(),
+        ];
     }
 
     private function validatedDatabase(Request $request): array

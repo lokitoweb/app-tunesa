@@ -159,7 +159,7 @@ class Tenant extends Model
      */
     public static function fromHost(string $host): ?self
     {
-        $appDomain = config('app.domain', 'tunesa.app');
+        $appDomain = config('app.domain');
 
         if (str_ends_with($host, ".{$appDomain}")) {
             $slug = substr($host, 0, -strlen(".{$appDomain}"));

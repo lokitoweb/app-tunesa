@@ -75,6 +75,9 @@ cada PR que toca `mobile/`).
 
 ## Producción
 
+**Instalar en un servidor nuevo, desde cero: [INSTALACION.md](INSTALACION.md)** (7 pasos; el instalador toma
+el dominio solo).
+
 **Paso a paso del servidor (Ubuntu + Nginx + MySQL, https://group-cyp.com) y deploy automático en cada push a `master`:
 [docs/deployment/produccion-servidor.md](docs/deployment/produccion-servidor.md).** Plantilla del `.env`:
 `.env.production.example`. Script de despliegue: `scripts/deploy.sh`, que corre en el propio servidor (cron cada 2 minutos o

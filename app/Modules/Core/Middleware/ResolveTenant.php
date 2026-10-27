@@ -111,7 +111,7 @@ class ResolveTenant
     private function extractSlugFromSubdomain(Request $request): ?string
     {
         $host       = $request->getHost();
-        $appDomain  = config('app.domain', 'tunesa.app');
+        $appDomain  = config('app.domain');
 
         // Si el host coincide exactamente con el dominio base, no hay subdominio
         if ($host === $appDomain) {
@@ -139,7 +139,7 @@ class ResolveTenant
      */
     private function findTenantByCustomDomain(string $host): ?Tenant
     {
-        $appDomain = config('app.domain', 'tunesa.app');
+        $appDomain = config('app.domain');
 
         if ($host === $appDomain || str_ends_with($host, ".{$appDomain}")) {
             return null;

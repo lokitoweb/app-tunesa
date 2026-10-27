@@ -45,6 +45,26 @@ class InstallerTest extends TestCase
         is_dir($this->dir) && rmdir($this->dir);
     }
 
+    public function test_domain_settings_come_from_the_address_used_to_install(): void
+    {
+        $settings = fn (string $url) => \App\Installer\Http\InstallerController::domainSettings(\Illuminate\Http\Request::create($url));
+
+        $this->assertSame([
+            'APP_URL' => 'https://cliente.com.pe', 'APP_DOMAIN' => 'cliente.com.pe',
+            'SANCTUM_STATEFUL_DOMAINS' => 'cliente.com.pe,www.cliente.com.pe', 'SESSION_SECURE_COOKIE' => true,
+        ], $settings('https://cliente.com.pe/install/database'));
+
+        $www = $settings('https://WWW.Cliente.com/install/database');
+        $this->assertSame('cliente.com', $www['APP_DOMAIN']);
+        $this->assertSame('cliente.com,www.cliente.com', $www['SANCTUM_STATEFUL_DOMAINS']);
+
+        // Sin HTTPS la cookie no puede ser "secure" o no se podría iniciar sesión
+        $this->assertFalse($settings('http://erp.cliente.com/install/database')['SESSION_SECURE_COOKIE']);
+
+        (new EnvWriter($this->dir . '/.env'))->set($settings('https://cliente.com.pe/install'));
+        $this->assertStringContainsString("SANCTUM_STATEFUL_DOMAINS='cliente.com.pe,www.cliente.com.pe'", file_get_contents($this->dir . '/.env'));
+    }
+
     public function test_fresh_server_goes_to_the_wizard_and_api_answers_503(): void
     {
         $this->get('/login')->assertRedirect('/install');

@@ -29,6 +29,9 @@ class InstallerServiceProvider extends ServiceProvider
         } catch (\Throwable) {
             // El paso 1 muestra que el .env no tiene permisos de escritura
         }
+
+        // Sin instalar todavía no hay base: la sesión y la caché (límites del asistente) van a archivos
+        config(['cache.default' => 'file', 'session.driver' => 'file']);
     }
 
     public function boot(): void
