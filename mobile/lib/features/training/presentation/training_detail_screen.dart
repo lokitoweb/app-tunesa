@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 import 'training_providers.dart';
@@ -69,7 +70,7 @@ class TrainingDetailBody extends StatelessWidget {
                   child: l.completed ? const Icon(Icons.check_rounded) : Text('${i + 1}'),
                 ),
                 title: Text(l.title),
-                subtitle: Text([_typeLabel(l.type), if (l.durationMinutes != null) '${l.durationMinutes} min'].join(' · ')),
+                subtitle: Text([_typeLabel(l.type), if (l.durationMinutes != null) Fmt.minutes(l.durationMinutes)].join(' · ')),
                 trailing: Icon(_typeIcon(l.type), color: scheme.onSurfaceVariant),
                 onTap: () => context.push('/trainings/${s.id}/lessons/${l.id}'),
               ),

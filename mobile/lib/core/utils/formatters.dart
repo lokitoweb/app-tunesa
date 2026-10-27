@@ -35,6 +35,14 @@ class Fmt {
   }
   static String apiDate(DateTime d) => _apiDate.format(d);
 
+  /// Duración legible: 45 → "45 min", 60 → "1 h", 70 → "1 h 10 min", 626 → "10 h 26 min".
+  static String minutes(int? total) {
+    final m = (total ?? 0) < 0 ? 0 : (total ?? 0);
+    if (m < 60) return '$m min';
+    final h = m ~/ 60, rest = m % 60;
+    return rest == 0 ? '$h h' : '$h h $rest min';
+  }
+
   /// ISO 8601 en hora local con desfase: 2026-10-09T08:01:02-05:00.
   static String isoWithOffset(DateTime d) {
     final local = d.toLocal();

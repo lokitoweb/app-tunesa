@@ -177,7 +177,7 @@ class _AttendanceTile extends StatelessWidget {
       _ => null,
     };
     final notes = [
-      if (a.lateMinutes > 0) '${a.lateMinutes} min tarde',
+      if (a.lateMinutes > 0) '${Fmt.minutes(a.lateMinutes)} tarde',
       ?a.overtimeLabel,
       ?justification,
     ];

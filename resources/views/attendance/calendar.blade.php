@@ -2139,7 +2139,7 @@ function openDayDetailModal(date, dayNum, weekday) {
                             ${c.late_minutes ? `
                                 <div class="mt-1 text-end">
                                     <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-bold" style="font-size: 0.7rem; padding: 3px 8px; border-radius: 6px;">
-                                        <i class="bi bi-alarm me-1"></i>+${parseInt(c.late_minutes, 10) || 0} min tarde
+                                        <i class="bi bi-alarm me-1"></i>+${Panel.minutes(c.late_minutes)} tarde
                                     </span>
                                 </div>
                             ` : ''}

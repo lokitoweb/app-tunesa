@@ -312,7 +312,7 @@
                                 @if($key === 'in')
                                     <dt class="text-secondary fw-semibold">Tardanza</dt>
                                     <dd class="{{ $attendance->late_minutes > 0 ? 'text-warning fw-bold' : 'text-dark' }}">
-                                        {{ $attendance->late_minutes ?? 0 }} min
+                                        {{ minutes_label($attendance->late_minutes) }}
                                     </dd>
                                     
                                     <dt class="text-secondary fw-semibold">Dispositivo</dt>

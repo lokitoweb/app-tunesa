@@ -816,7 +816,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (elWorked) elWorked.textContent = data.totals.worked_hours;
                     if (elWorkedDays) elWorkedDays.textContent = data.totals.days_worked;
-                    if (elLate) elLate.textContent = data.totals.late_minutes;
+                    if (elLate) elLate.textContent = Panel.minutes(data.totals.late_minutes);
                     if (elLateDays) elLateDays.textContent = data.totals.late_days;
                     if (elOtDay) elOtDay.textContent = data.totals.overtime_day_hours;
                     if (elOtNight) elOtNight.textContent = data.totals.overtime_night_hours;

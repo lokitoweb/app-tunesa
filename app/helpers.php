@@ -94,6 +94,20 @@ if (! function_exists('label')) {
     }
 }
 
+if (! function_exists('minutes_label')) {
+    /** Duración legible: 45 → "45 min", 60 → "1 h", 70 → "1 h 10 min", 626 → "10 h 26 min" (igual que la app y Panel.minutes) */
+    function minutes_label(int|float|string|null $minutes): string
+    {
+        $m = max(0, (int) $minutes);
+        if ($m < 60) {
+            return "{$m} min";
+        }
+        [$h, $rest] = [intdiv($m, 60), $m % 60];
+
+        return $rest === 0 ? "{$h} h" : "{$h} h {$rest} min";
+    }
+}
+
 if (! function_exists('field_label')) {
     /** Nombre en español de una columna: field_label('default_grace_minutes') → "Tolerancia por defecto (min)" */
     function field_label(string $field): string

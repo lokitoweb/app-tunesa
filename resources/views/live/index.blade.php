@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const lateTag = r.late_minutes > 0 
-            ? `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-2 px-1.5 py-0 ms-1" style="font-size:0.675rem;">+${r.late_minutes} min tarde</span>` 
+            ? `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-2 px-1.5 py-0 ms-1" style="font-size:0.675rem;">+${Panel.minutes(r.late_minutes)} tarde</span>` 
             : '';
 
         {{-- Empresa (DONDE EL USUARIO PIDIÓ MOVERLA, EN EL CENTRO) --}}

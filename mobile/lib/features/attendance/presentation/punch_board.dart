@@ -122,7 +122,7 @@ class PunchBoard extends StatelessWidget {
             child: Row(children: [
               Icon(Icons.warning_amber_rounded, size: 16, color: scheme.error),
               const SizedBox(width: 4),
-              Text('${a.lateMinutes} min de tardanza',
+              Text('${Fmt.minutes(a.lateMinutes)} de tardanza',
                   style: theme.textTheme.labelMedium?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
             ]),
           ),

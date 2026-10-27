@@ -443,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${r.overtime_pending_hours > 0 ? `<a href="/approvals?tab=overtime" class="d-block text-warning fw-semibold text-decoration-none small">+${Number(r.overtime_pending_hours).toFixed(2)} por aprobar</a>` : ''}
                     </td>
                     <td class="text-end fw-bold text-primary">${Number(r.payable_hours).toFixed(2)}</td>
-                    <td>${r.late_count} <span class="text-body-secondary">(${r.late_minutes} min)</span></td>
+                    <td>${r.late_count} <span class="text-body-secondary">(${Panel.minutes(r.late_minutes)})</span></td>
                     <td>${r.absences} ${r.excused ? `<span class="text-body-secondary">+${r.excused} just.</span>` : ''}</td>
                     <td class="text-body-secondary text-nowrap">
                         <span title="Vacaciones">V: ${r.vacation_days}</span> •

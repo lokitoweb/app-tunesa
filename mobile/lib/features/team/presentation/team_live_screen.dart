@@ -198,7 +198,7 @@ class _AttendanceTile extends StatelessWidget {
             const SizedBox(height: 6),
             Wrap(spacing: 8, runSpacing: 4, children: [
               if (item.isLate)
-                _Flag(icon: Icons.schedule_rounded, text: a.lateMinutes > 0 ? 'Tardanza ${a.lateMinutes} min' : 'Tardanza', color: Colors.orange),
+                _Flag(icon: Icons.schedule_rounded, text: a.lateMinutes > 0 ? 'Tardanza ${Fmt.minutes(a.lateMinutes)}' : 'Tardanza', color: Colors.orange),
               if (item.outOfGeofence)
                 _Flag(icon: Icons.wrong_location_outlined, text: 'Fuera de geocerca', color: theme.colorScheme.error),
             ]),

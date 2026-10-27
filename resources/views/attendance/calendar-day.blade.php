@@ -875,7 +875,7 @@
                                                 @elseif($c['state'] === 'late' || $c['state'] === 'incomplete') <i class="bi bi-clock-fill"></i>
                                                 @elseif($c['state'] === 'absent') <i class="bi bi-x-circle-fill"></i>
                                                 @else <i class="bi bi-shield-check"></i> @endif
-                                                <span>{{ $c['label'] }}{{ $c['late_minutes'] ? ' · ' . $c['late_minutes'] . ' min' : '' }}</span>
+                                                <span>{{ $c['label'] }}{{ $c['late_minutes'] ? ' · ' . minutes_label($c['late_minutes']) : '' }}</span>
                                             </span>
                                         @else
                                             <span class="cal-day-badge {{ $outcomeClass }}">

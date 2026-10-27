@@ -14,6 +14,14 @@
         }[c]));
     }
 
+    /** Duración legible: 45 → "45 min", 70 → "1 h 10 min", 626 → "10 h 26 min" (igual que minutes_label() en PHP) */
+    function minutes(value) {
+        const m = Math.max(0, parseInt(value, 10) || 0);
+        if (m < 60) return `${m} min`;
+        const h = Math.floor(m / 60), rest = m % 60;
+        return rest ? `${h} h ${rest} min` : `${h} h`;
+    }
+
     function tiles(map) {
         return L.tileLayer(OSM_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION }).addTo(map);
     }
@@ -657,7 +665,7 @@
         }
     };
 
-    window.Panel = { esc, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton };
+    window.Panel = { esc, minutes, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;
     window.openCommandPalette = openCommandPalette;

@@ -54,7 +54,7 @@
                         @endif
                     </td>
                     <td class="text-end small {{ $att->late_minutes > 0 ? 'text-warning-emphasis fw-bold' : 'text-body-secondary' }}">
-                        {{ $att->late_minutes > 0 ? ($att->late_minutes . ' min') : '0 min' }}
+                        {{ minutes_label($att->late_minutes) }}
                     </td>
                     <td class="text-end fw-bold text-body small">
                         {{ number_format((float) ($att->worked_hours ?? 0), 2) }}

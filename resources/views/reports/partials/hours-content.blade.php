@@ -25,7 +25,7 @@
                 </div>
                 <div class="min-w-0">
                     <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">Tardanza</div>
-                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiHoursLate">{{ $totals['late_minutes'] }} min</div>
+                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiHoursLate">{{ minutes_label($totals['late_minutes']) }}</div>
                     <div class="small text-body-secondary mt-1" id="kpiHoursLateDays">{{ $totals['late_days'] }} días con tardanza</div>
                 </div>
             </div>

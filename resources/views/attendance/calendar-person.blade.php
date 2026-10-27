@@ -540,7 +540,7 @@
             </div>
             <div>
                 <div class="cal-person-kpi-value text-warning-emphasis">{{ $t['late'] }}</div>
-                <div class="cal-person-kpi-label">Tardanzas ({{ $t['late_minutes'] }} min)</div>
+                <div class="cal-person-kpi-label">Tardanzas ({{ minutes_label($t['late_minutes']) }})</div>
             </div>
         </div>
 
@@ -645,7 +645,7 @@
 
                                 @if($c['late_minutes'])
                                     <div class="cal-person-badge-late">
-                                        <i class="bi bi-alarm me-1"></i>+{{ $c['late_minutes'] }} min tarde
+                                        <i class="bi bi-alarm me-1"></i>+{{ minutes_label($c['late_minutes']) }} tarde
                                     </div>
                                 @endif
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:tunesa_mobile/core/utils/formatters.dart';
 import 'package:tunesa_mobile/features/attendance/domain/models.dart';
 import 'package:tunesa_mobile/features/home/presentation/home_screen.dart';
 
@@ -28,6 +29,16 @@ void main() {
       expect(_day(name: '  ').displayName, isNull);
       expect(_day().displayName, isNull);
     });
+  });
+
+  test('los minutos se muestran en horas y minutos', () {
+    expect(Fmt.minutes(0), '0 min');
+    expect(Fmt.minutes(45), '45 min');
+    expect(Fmt.minutes(60), '1 h');
+    expect(Fmt.minutes(70), '1 h 10 min');
+    expect(Fmt.minutes(626), '10 h 26 min');
+    expect(Fmt.minutes(null), '0 min');
+    expect(Fmt.minutes(-5), '0 min');
   });
 
   test('el día de hoy es el de la empresa (server_time), no el del teléfono', () {

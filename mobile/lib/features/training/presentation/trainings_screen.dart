@@ -111,7 +111,7 @@ class TrainingCard extends StatelessWidget {
                   Text(t.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
                   Text(
-                    [t.categoryLabel, if (t.estimatedMinutes != null) '${t.estimatedMinutes} min', if (t.isMandatory) 'Obligatoria'].join(' · '),
+                    [t.categoryLabel, if (t.estimatedMinutes != null) Fmt.minutes(t.estimatedMinutes), if (t.isMandatory) 'Obligatoria'].join(' · '),
                     style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
                   ),
                 ]),

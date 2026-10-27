@@ -128,7 +128,7 @@
                     <td>{{ $att->branch->name ?? '' }}</td>
                     <td>{{ $att->clock_in_at ? $att->clock_in_at->format('h:i a') : '--' }}</td>
                     <td>{{ $att->clock_out_at ? $att->clock_out_at->format('h:i a') : '--' }}</td>
-                    <td>{{ $att->late_minutes ? $att->late_minutes . ' min' : '-' }}</td>
+                    <td>{{ $att->late_minutes ? minutes_label($att->late_minutes) : '-' }}</td>
                     <td style="text-align: right;">{{ number_format((float) ($att->worked_hours ?? 0), 2) }}</td>
                     <td style="text-align: right;">{{ number_format((float) ($att->overtime_hours ?? 0), 2) }}</td>
                     <td>{{ $att->clock_in_within_geofence ? 'Válida' : 'Fuera' }}</td>

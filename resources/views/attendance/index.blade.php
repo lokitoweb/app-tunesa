@@ -188,7 +188,7 @@
                             @endif
                             @if($att->late_minutes > 0)
                                 <div class="small text-warning fw-semibold mt-0.5" style="font-size: 0.75rem;">
-                                    <i class="bi bi-clock-history me-0.5"></i> +{{ $att->late_minutes }} min
+                                    <i class="bi bi-clock-history me-0.5"></i> +{{ minutes_label($att->late_minutes) }}
                                 </div>
                             @endif
                         </td>
