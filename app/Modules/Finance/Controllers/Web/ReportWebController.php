@@ -126,8 +126,11 @@ class ReportWebController extends Controller
     {
         return [['Anticipo', 'Proveedor', 'Detalle', 'Moneda', 'Monto', 'Estado', 'Pagado el', 'Aplicado a'],
             PaymentInstallment::where('is_advance', true)->whereHas('requisition', fn ($q) => $q->whereBetween('ordered_at', [$from, $to]))
-                ->with(['requisition.supplier:id,name'])->get()->map(function ($p) {
-                    $applied = $p->advance_applied_to_id ? Requisition::find($p->advance_applied_to_id) : null;
+                ->with(['requisition.supplier:id,name'])->get()->tap(function ($rows) use (&$appliedTo) {
+                    // Las órdenes a las que se aplicaron, en una sola consulta (antes una por fila)
+                    $appliedTo = Requisition::whereKey($rows->pluck('advance_applied_to_id')->filter()->unique())->get()->keyBy('id');
+                })->map(function ($p) use (&$appliedTo) {
+                    $applied = $p->advance_applied_to_id ? $appliedTo->get($p->advance_applied_to_id) : null;
 
                     return [$p->requisition->code(), $p->requisition->supplier?->name, $p->requisition->detail, $p->requisition->currency, (float) $p->amount,
                         $applied ? 'Aplicado' : ($p->status === 'paid' ? 'Pagado, por aplicar' : 'Por pagar'), $p->paid_at?->format('d/m/Y'), $applied?->orderNumber()];

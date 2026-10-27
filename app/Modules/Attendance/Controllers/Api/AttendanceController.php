@@ -582,12 +582,8 @@ class AttendanceController extends Controller
         $attendance = Attendance::where('tenant_id', current_tenant_id())
             ->findOrFail($id);
 
-        $attendance->update([
-            'justification_status' => 'approved',
-            'status'               => 'excused',
-            'reviewed_by'          => $request->user()->id,
-            'reviewed_at'          => now(),
-        ]);
+        $request->validate(['note' => ['sometimes', 'nullable', 'string', 'max:500']]);
+        $attendance->reviewJustification($request->user(), 'approved', $request->input('note'));
 
         return response()->json([
             'success' => true,
@@ -608,12 +604,8 @@ class AttendanceController extends Controller
         $attendance = Attendance::where('tenant_id', current_tenant_id())
             ->findOrFail($id);
 
-        $attendance->update([
-            'justification_status' => 'rejected',
-            'reviewed_by'          => $request->user()->id,
-            'reviewed_at'          => now(),
-            'notes'                => $request->input('reason'),
-        ]);
+        // Antes reemplazaba las notas (borraba el texto del colaborador): ahora se agregan
+        $attendance->reviewJustification($request->user(), 'rejected', $request->input('reason'));
 
         return response()->json([
             'success' => true,

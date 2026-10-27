@@ -84,10 +84,12 @@ class OfflineSyncEngine {
   }
 
   /// Errores que no son culpa de la marcación: se reintenta más tarde.
+  /// 403 es de la cuenta (contraseña por cambiar, incorporación pendiente, permiso
+  /// quitado), no de la marcación: se conserva hasta que se arregle o venza `offline_max_hours`.
   static bool isRetryable(ApiException e) {
     final status = e.statusCode;
     if (status == null || e.isNetwork) return true;
-    return status >= 500 || const {401, 408, 425, 426, 429}.contains(status);
+    return status >= 500 || const {401, 403, 408, 425, 426, 429}.contains(status);
   }
 
   /// Envía lo pendiente. Llamadas simultáneas comparten el mismo envío.
@@ -142,8 +144,9 @@ class OfflineSyncEngine {
           syncedAt = _now().toUtc();
           for (final item in chunk) {
             final r = results[item.clientUuid];
-            if (r == null) {
-              await _retryLater(item, now, 'Sin respuesta para esta marcación');
+            if (r == null || r.status == BatchItemStatus.retry) {
+              // Sin respuesta o fallo del servidor (no de la marcación): se reenvía después
+              await _retryLater(item, now, r?.message ?? 'Sin respuesta para esta marcación');
             } else if (r.accepted) {
               await _accept(item);
               sent.add(item);

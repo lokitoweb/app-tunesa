@@ -156,7 +156,10 @@ class FixedCostWebController extends Controller
             'operation_number'        => ['required', 'string', 'max:50'],
         ], self::MESSAGES, ['paid_at' => 'la fecha de pago', 'company_bank_account_id' => 'la cuenta de origen', 'operation_number' => 'el número de operación']);
 
-        $cost->update($data);
+        // Solo si sigue impaga y activa en este instante: dos clics no pagan dos veces
+        $updated = FixedCost::whereKey($cost->id)->whereNull('paid_at')->where('is_active', true)->update($data);
+        abort_if($updated === 0, 422, 'La cuota ya está pagada o anulada.');
+        $cost->refresh();
         $this->audit->log('fixed_cost.paid', $cost, ['batch' => $cost->batch, 'installment' => $cost->installment, 'operation' => $data['operation_number']]);
 
         return back()->with('success', 'Cuota de costo fijo pagada.');

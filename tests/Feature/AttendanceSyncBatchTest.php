@@ -71,7 +71,7 @@ class AttendanceSyncBatchTest extends TestCase
             array_column($results, 'client_uuid'));
         $this->assertSame(['created', 'created', 'created', 'created', 'rejected', 'rejected', 'rejected'], array_column($results, 'status'));
         $this->assertSame([null, null, null, null, 'OFFLINE_TOO_OLD', 'VALIDATION_ERROR', 'VALIDATION_ERROR'], array_column($results, 'code'));
-        $this->assertSame(['created' => 4, 'duplicates' => 0, 'rejected' => 3], $res->json('meta'));
+        $this->assertSame(['created' => 4, 'duplicates' => 0, 'rejected' => 3, 'retry' => 0], $res->json('meta'));
 
         $attendance = Attendance::withoutGlobalScopes()->sole();
         $this->assertSame($attendance->id, $results[0]['attendance_id']);
@@ -102,7 +102,7 @@ class AttendanceSyncBatchTest extends TestCase
             ->assertOk()->assertJsonPath('meta.created', 2);
 
         $again = $this->actingIn($this->emp, $this->acme)->post('/api/attendances/sync-batch', ['punches' => $items])
-            ->assertOk()->assertJsonPath('meta', ['created' => 0, 'duplicates' => 2, 'rejected' => 0]);
+            ->assertOk()->assertJsonPath('meta', ['created' => 0, 'duplicates' => 2, 'rejected' => 0, 'retry' => 0]);
 
         $this->assertSame(['duplicate', 'duplicate'], array_column($again->json('data.results'), 'status'));
         $this->assertSame(2, AttendancePunch::withoutGlobalScopes()->count());
@@ -111,6 +111,32 @@ class AttendanceSyncBatchTest extends TestCase
         $b = $this->item('break_start', '2026-10-09T12:00:00-05:00');
         $this->actingIn($this->emp, $this->acme)->post('/api/attendances/sync-batch', ['punches' => [$b, $b]])
             ->assertOk()->assertJsonPath('meta.created', 0)->assertJsonPath('meta.rejected', 2); // jornada ya cerrada
+    }
+
+    public function test_a_server_failure_keeps_the_punch_and_the_rest_of_the_batch_for_retry(): void
+    {
+        $in  = $this->item('clock_in', '2026-10-09T08:00:00-05:00');
+        $out = $this->item('clock_out', '2026-10-09T17:00:00-05:00');
+
+        // La base falla justo en la entrada (bloqueo, caída): antes se rechazaba y la app la borraba
+        $calls = 0;
+        $this->partialMock(\App\Modules\Attendance\Services\AttendanceService::class, function ($mock) use (&$calls) {
+            $mock->shouldReceive('punch')->andReturnUsing(function (...$args) use (&$calls, $mock) {
+                if (++$calls === 1) {
+                    throw new \RuntimeException('SQLSTATE[HY000]: deadlock');
+                }
+
+                return $mock->makePartial()->punch(...$args);
+            });
+        });
+
+        $res = $this->actingIn($this->emp, $this->acme)->post('/api/v1/attendances/sync-batch', ['punches' => [$out, $in]])
+            ->assertOk()->assertJsonPath('meta', ['created' => 0, 'duplicates' => 0, 'rejected' => 0, 'retry' => 2]);
+
+        // Ni la entrada ni la salida (que va después) se pierden ni se procesan a medias
+        $this->assertSame(['retry', 'retry'], array_column($res->json('data.results'), 'status'));
+        $this->assertSame(1, $calls, 'La salida no se intenta sin la entrada');
+        $this->assertSame(0, AttendancePunch::withoutGlobalScopes()->count());
     }
 
     public function test_offline_window_and_permission_are_checked_per_item(): void

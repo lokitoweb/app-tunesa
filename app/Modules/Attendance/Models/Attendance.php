@@ -267,6 +267,31 @@ class Attendance extends Model
         return ! is_null($this->clock_in_at) && ! is_null($this->clock_out_at);
     }
 
+    /**
+     * Aprueba o rechaza la justificación (panel y API usan esta misma regla).
+     * Solo si está pendiente; la nota del revisor se agrega sin borrar lo que escribió el colaborador.
+     */
+    public function reviewJustification(User $reviewer, string $decision, ?string $note = null): void
+    {
+        if (! in_array($decision, ['approved', 'rejected'], true)) {
+            throw new \InvalidArgumentException("Decisión inválida: {$decision}");
+        }
+        if ($this->justification_status !== 'pending') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'justification_status' => 'Esta justificación ya fue revisada o no se envió.',
+            ]);
+        }
+
+        $this->update([
+            'justification_status' => $decision,
+            'status'               => $decision === 'approved' ? 'excused' : $this->status,
+            'reviewed_by'          => $reviewer->id,
+            'reviewed_at'          => now(),
+            'notes'                => ($this->notes ? $this->notes . "\n---\n" : '')
+                . "Revisión: {$decision}. Nota: " . (filled($note) ? $note : 'Sin comentarios adicionales.'),
+        ]);
+    }
+
     // =========================================================================
     // SCOPES
     // =========================================================================

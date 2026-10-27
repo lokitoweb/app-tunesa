@@ -34,7 +34,9 @@ use Illuminate\Validation\ValidationException;
  * simulado, precisión, rostro, geocerca...) se aplican a cada elemento.
  *
  * Respuesta 200: results[] en el mismo orden que punches[], con status
- * created | duplicate | rejected y meta con los totales.
+ * created | duplicate | rejected | retry y meta con los totales. "retry" = fallo
+ * del servidor, no de la marcación: la app la conserva y la reenvía (junto con las
+ * siguientes del lote, que no se procesan para respetar el orden).
  */
 class AttendanceSyncController extends Controller
 {
@@ -57,9 +59,15 @@ class AttendanceSyncController extends Controller
         $sentAt   = $request->input('device_sent_at');
         $employee = $request->user();
 
-        $results = [];
+        // Tras un fallo del servidor (no de la marcación) las siguientes no se procesan: quedan para el
+        // próximo envío en el mismo orden (si no, la salida del día fallaría por falta de entrada).
+        $results  = [];
+        $deferred = false;
         foreach ($this->chronological($items) as $key) {
-            $results[$key] = $this->processItem($request, $key, $items[$key], $settings, $employee, $sentAt);
+            $results[$key] = $deferred
+                ? $this->retry($items[$key]['client_uuid'] ?? null, 'Se enviará en el próximo intento.')
+                : $this->processItem($request, $key, $items[$key], $settings, $employee, $sentAt);
+            $deferred = $deferred || $results[$key]['status'] === 'retry';
         }
 
         // Respuesta en el mismo orden que punches[]
@@ -73,6 +81,7 @@ class AttendanceSyncController extends Controller
                 'created'    => $count('created'),
                 'duplicates' => $count('duplicate'),
                 'rejected'   => $count('rejected'),
+                'retry'      => $count('retry'),
             ],
         ]);
     }
@@ -156,8 +165,22 @@ class AttendanceSyncController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
-            return $this->rejected($clientUuid, 'SERVER_ERROR', 'No se pudo registrar la marcación. Intenta de nuevo en unos minutos.');
+            // Fallo del servidor (base caída, bloqueo, disco): la marcación es válida, se reintenta.
+            // Las apps que no conocen "retry" ya ignoran estados desconocidos y la reintentan.
+            return $this->retry($clientUuid, 'No se pudo registrar ahora; se reintentará automáticamente.');
         }
+    }
+
+    private function retry(mixed $clientUuid, string $message): array
+    {
+        return [
+            'client_uuid'   => is_string($clientUuid) ? strtolower($clientUuid) : null,
+            'status'        => 'retry',
+            'code'          => 'SERVER_ERROR',
+            'message'       => $message,
+            'attendance_id' => null,
+            'punch_id'      => null,
+        ];
     }
 
     private function rejected(?string $clientUuid, string $code, string $message): array

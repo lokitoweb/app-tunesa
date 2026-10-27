@@ -453,6 +453,13 @@ class RequisitionWebController extends Controller
             ?? throw ValidationException::withMessages(['schedule' => 'Las cuotas deben sumar el neto a pagar: ' . FinanceDocumentPdf::money($quotation->currency, $payable) . '.']);
 
         $number = DB::transaction(function () use ($r, $data, $request, $pricing, $quotation, $total, $hasDetraction, $reason, $percent, $detraction, $payable, $schedule, $advances, $advance) {
+            // Doble clic o dos pestañas: el segundo envío espera al primero y ya no encuentra "quoting"
+            // (si no, se emitían dos órdenes con dos juegos de cuotas: la misma deuda pagable dos veces)
+            $fresh = Requisition::whereKey($r->id)->lockForUpdate()->first();
+            if (! $fresh || $fresh->stage !== 'quoting') {
+                throw ValidationException::withMessages(['quotation_id' => 'Esta orden ya se emitió. Actualiza la pantalla.']);
+            }
+
             // Con el anticipo bloqueado se revisa otra vez: dos órdenes a la vez no aplican el mismo anticipo
             if ($advances->isNotEmpty()) {
                 $locked = PaymentInstallment::whereKey($advances->modelKeys())->whereNull('advance_applied_to_id')->lockForUpdate()->count();

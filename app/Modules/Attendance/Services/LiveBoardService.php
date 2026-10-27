@@ -81,7 +81,7 @@ class LiveBoardService
         $attendances = $ids ? Attendance::forTenant($tenantId)
             ->whereIn('user_id', $ids)
             ->whereIn('work_date', $dates)
-            ->with('branch:id,name')
+            ->with('branch:id,name', 'shift')   // shift: se lee por fila más abajo (era una consulta por persona)
             ->orderByDesc('clock_in_at')
             ->get()
             ->groupBy('user_id') : collect();

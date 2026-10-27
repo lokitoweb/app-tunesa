@@ -386,6 +386,10 @@ class TreasuryWebController extends Controller
         $changedAmount = abs($payable - (float) $p->amount) > 0.004 || $data['currency'] !== $r->currency;
 
         DB::transaction(function () use ($r, $p, $data, $total, $detraction, $payable, $changedAmount) {
+            // Con la cuota bloqueada se revisa otra vez: un pago registrado en paralelo no se pisa
+            $locked = PaymentInstallment::whereKey($p->id)->lockForUpdate()->first();
+            abort_if((float) $locked->paid_amount > 0 || $locked->advance_applied_to_id, 422, 'El pago directo ya tiene pagos registrados: no se puede corregir.');
+
             $r->update(['detail' => $data['detail'], 'currency' => $data['currency'], 'amount' => $total, 'amount_payable' => $payable, 'detraction_amount' => $detraction]);
             $p->update(['amount' => $payable] + ($changedAmount ? ['authorized_by_id' => null, 'authorized_at' => null] : []));
         });

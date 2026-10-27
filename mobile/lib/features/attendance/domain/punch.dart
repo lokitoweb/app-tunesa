@@ -295,7 +295,8 @@ class RejectedPunch {
   }
 }
 
-enum BatchItemStatus { created, duplicate, rejected }
+/// `retry`: fallo del servidor, no de la marcación (se conserva y se reenvía).
+enum BatchItemStatus { created, duplicate, rejected, retry }
 
 /// Resultado de una marcación en `POST /v1/attendances/sync-batch`.
 class BatchItemResult {
@@ -315,7 +316,7 @@ class BatchItemResult {
   final int? attendanceId;
   final int? punchId;
 
-  bool get accepted => status != BatchItemStatus.rejected;
+  bool get accepted => status == BatchItemStatus.created || status == BatchItemStatus.duplicate;
 }
 
 /// Lee `data.results` del lote, indexado por `client_uuid`. Entradas sin
@@ -332,6 +333,7 @@ Map<String, BatchItemResult> parseBatchResults(Map<String, dynamic> json) {
       'created' => BatchItemStatus.created,
       'duplicate' => BatchItemStatus.duplicate,
       'rejected' => BatchItemStatus.rejected,
+      'retry' => BatchItemStatus.retry,
       _ => null,
     };
     if (uuid == null || uuid.isEmpty || status == null) continue;

@@ -52,16 +52,18 @@ class PayslipController extends Controller
 
         $user    = $request->user();
         $query   = Payslip::where('tenant_id', current_tenant_id());
+        // Igual que download(): sin payslips.manage solo las propias y publicadas. Antes se
+        // miraba el rol "employee", y supervisores, gerentes o logística veían sueldos ajenos.
+        $ownOnly = ! $user->hasPermission('payslips.manage');
 
-        // Si es empleado, solo puede ver sus propias boletas
-        if ($user->isEmployee()) {
+        if ($ownOnly) {
             $query->where('user_id', $user->id)->published();
         }
 
         $payslip = $query->findOrFail($id);
 
-        // Marcar como leída la primera vez que el empleado la abre
-        if ($user->isEmployee()) {
+        // Marcar como leída la primera vez que el dueño la abre
+        if ($payslip->user_id === $user->id) {
             $payslip->markAsRead();
         }
 
@@ -364,7 +366,8 @@ class PayslipController extends Controller
      */
     private function moduleDisabledFor(\App\Modules\Core\Models\User $user): ?JsonResponse
     {
-        if (! $user->isEmployee() || \App\Modules\Core\Models\CompanyConfiguration::current()->allows('mobile_payslips_enabled')) {
+        // Quien gestiona boletas (RR. HH., admin) sigue entrando; el resto (supervisores incluidos) no
+        if ($user->hasPermission('payslips.manage') || \App\Modules\Core\Models\CompanyConfiguration::current()->allows('mobile_payslips_enabled')) {
             return null;
         }
 

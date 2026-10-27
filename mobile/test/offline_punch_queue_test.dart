@@ -245,6 +245,43 @@ void main() {
       expect(OfflineSyncEngine.backoff(20), const Duration(minutes: 30));
     });
 
+    test('"retry" del servidor (fallo suyo, no de la marcación): se conserva con su foto', () async {
+      await store.insert(punch('in', const Duration(hours: 2), photo: '/vault/in.enc'));
+      vault.files['/vault/in.enc'] = Uint8List.fromList([9]);
+      await store.insert(punch('out', const Duration(hours: 1)));
+      final transport = _FakeTransport(
+        onBatch: (_) => parseBatchResults({
+          'data': {
+            'results': [
+              {'client_uuid': 'in', 'status': 'retry', 'code': 'SERVER_ERROR', 'message': 'Se reintentará.'},
+              {'client_uuid': 'out', 'status': 'retry', 'code': 'SERVER_ERROR'},
+            ],
+          },
+        }),
+      );
+
+      final result = await engine.sync(transport: transport, maxAge: const Duration(hours: 24));
+
+      expect(result.rejected, isEmpty);
+      expect(result.remaining, 2);
+      expect(await store.rejected(), isEmpty);
+      expect(vault.deleted, isNot(contains('/vault/in.enc')), reason: 'la selfie no se borra');
+      expect((await store.get('in'))!.attempts, 1);
+    });
+
+    test('403 de la cuenta (contraseña por cambiar, incorporación): no rechaza la cola', () async {
+      await store.insert(punch('a', const Duration(hours: 2)));
+      await store.insert(punch('b', const Duration(hours: 1)));
+      final transport = _FakeTransport(onBatch: (_) => throw const ApiException('Debes cambiar tu contraseña.', statusCode: 403));
+
+      final result = await engine.sync(transport: transport, maxAge: const Duration(hours: 24));
+
+      expect(OfflineSyncEngine.isRetryable(const ApiException('x', statusCode: 403)), isTrue);
+      expect(result.rejected, isEmpty);
+      expect(result.remaining, 2);
+      expect(await store.rejected(), isEmpty);
+    });
+
     test('marcación sin resultado en la respuesta: se reintenta luego', () async {
       await store.insert(punch('a', const Duration(hours: 1)));
       final transport = _FakeTransport(onBatch: (_) => const {});

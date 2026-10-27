@@ -135,18 +135,7 @@ class AttendanceWebController extends Controller
             'review_notes'         => ['nullable', 'string', 'max:500'],
         ]);
 
-        $statusToApply = ($validated['justification_status'] === 'approved')
-            ? 'excused'
-            : $attendance->status;
-
-        $attendance->update([
-            'justification_status' => $validated['justification_status'],
-            'status'               => $statusToApply,
-            'reviewed_by'          => Auth::id(),
-            'reviewed_at'          => Carbon::now(),
-            'notes'                => ($attendance->notes ? $attendance->notes . "\n---\n" : '') .
-                                      "Revisión: {$validated['justification_status']}. Nota: " . ($validated['review_notes'] ?? 'Sin comentarios adicionales.'),
-        ]);
+        $attendance->reviewJustification(Auth::user(), $validated['justification_status'], $validated['review_notes'] ?? null);
 
         $action = $validated['justification_status'] === 'approved' ? 'aprobada' : 'rechazada';
 

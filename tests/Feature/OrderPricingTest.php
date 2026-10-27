@@ -114,6 +114,18 @@ class OrderPricingTest extends TestCase
         $this->get("/requisitions/{$r->id}")->assertInertia(fn ($p) => $p->where('requisition.pricing', null));
     }
 
+    public function test_issuing_the_same_order_twice_creates_a_single_debt(): void
+    {
+        [$r, $q, $logistics] = $this->quotedRequisition();
+        $this->actingAs($logistics)->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id))->assertSessionHasNoErrors();
+        $number = $r->refresh()->purchase_order_number;
+
+        // Doble clic / otra pestaña: no hay segunda orden ni segundo juego de cuotas
+        $this->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id))->assertStatus(422);
+        $this->assertSame($number, $r->refresh()->purchase_order_number);
+        $this->assertSame(2, PaymentInstallment::withoutGlobalScopes()->where('requisition_id', $r->id)->count());
+    }
+
     public function test_detraction_by_reason_pays_the_net_to_the_supplier(): void
     {
         // calcular_detrac de sisgere: un decimal y luego al entero (desde ,5 hacia arriba)
