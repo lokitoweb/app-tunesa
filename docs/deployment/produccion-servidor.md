@@ -23,7 +23,7 @@ Lo que tienes que reemplazar en los comandos:
 Hasta esa fecha el crontab de `cyp` estaba **vacío**: no corría el scheduler ni el despliegue automático;
 los pushes no llegaban a producción. Ver pasos 9 y 10.
 
-Todo lo de los pasos 1 a 9 se hace **una sola vez**. Después, cada push a `master` se despliega solo (paso 10).
+Todo lo de los pasos 1 a 9 se hace **una sola vez**. Después, cada push a `master` que pase las pruebas se despliega solo (paso 10).
 
 ---
 
@@ -374,8 +374,14 @@ conexión en GitHub, y no gasta minutos de Actions). El servidor lee el reposito
 */2 * * * * cd /var/www/group-cyp.com/app && PHP_FPM_SERVICE=php8.2-fpm bash scripts/deploy.sh --if-changed >> storage/logs/deploy.log 2>&1
 ```
 
-`--if-changed` solo hace `git fetch`; si `origin/master` no cambió termina sin tocar nada. Un push a `master`
-queda en producción en máximo 2 minutos.
+`--if-changed` solo hace `git fetch`; si `origin/production` no cambió termina sin tocar nada.
+
+**Solo se despliega lo que pasó las pruebas.** El servidor no sigue `master` sino la rama `production`.
+GitHub Actions (`backend-tests.yml`, job `deployable`) la mueve a un commit de `master` solo cuando
+pasan las tres pruebas: PHPUnit con SQLite, PHPUnit con **MySQL 8** y la compilación del panel. Un push
+queda en producción unos 6 minutos después (pruebas + cron); si una prueba falla, producción sigue en
+el último commit bueno. `production` solo avanza, nunca retrocede. Sin esa rama (repositorio nuevo) el
+script despliega `master`; `DEPLOY_BRANCH=master` lo fuerza.
 
 **A mano (consola).** Cuando quieras publicar al instante:
 

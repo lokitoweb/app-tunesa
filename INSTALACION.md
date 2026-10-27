@@ -58,7 +58,7 @@ cd /var/www/midominio.com/app && sudo bash scripts/server-setup.sh
 ```
 
 Deja las tareas programadas (faltas, recordatorios, avisos) y el despliegue automático: cada push a
-`master` queda en producción en máximo 2 minutos.
+`master` que pase las pruebas de GitHub queda en producción en unos minutos.
 
 **7. Comprobar:**
 

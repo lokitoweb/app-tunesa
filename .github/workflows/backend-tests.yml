@@ -100,3 +100,31 @@ jobs:
           ls public/build/assets
           for chunk in core hr integrations training; do ls public/build/assets/$chunk-*.js; done
           ! ls public/build/assets/*.map 2>/dev/null
+
+  # El servidor despliega la rama "production", no master (scripts/deploy.sh). Solo avanza cuando las
+  # tres pruebas pasan en un push a master: un commit roto nunca llega a producción.
+  deployable:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [phpunit, phpunit-mysql, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Un push más nuevo que termine antes no puede ser pisado por uno viejo
+    concurrency:
+      group: deployable
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mover production a este commit (solo hacia adelante)
+        run: |
+          git fetch origin production || true
+          if git rev-parse --verify -q origin/production >/dev/null \
+             && ! git merge-base --is-ancestor origin/production "$GITHUB_SHA"; then
+            echo "::notice::production ya está en un commit más nuevo; no se retrocede."
+            exit 0
+          fi
+          git push origin "$GITHUB_SHA:refs/heads/production"
+          echo "::notice::production → ${GITHUB_SHA::7}: el servidor lo despliega en máximo 2 minutos."

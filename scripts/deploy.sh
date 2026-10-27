@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Despliegue en el servidor de producción (se ejecuta DENTRO del servidor, en la carpeta del proyecto).
 #
-#   bash scripts/deploy.sh                 # trae origin/master y despliega
+#   bash scripts/deploy.sh                 # trae origin/production (lo que pasó las pruebas) y despliega
 #   bash scripts/deploy.sh --ref <sha>     # despliega ese commit (volver a una versión anterior)
-#   bash scripts/deploy.sh --if-changed    # solo si origin/master cambió (modo cron, sin GitHub Actions)
+#   bash scripts/deploy.sh --if-changed    # solo si origin/production cambió (modo cron)
 #   bash scripts/deploy.sh --force         # vuelve a correr todo aunque no haya cambios
 #
 # Variables opcionales (en el entorno o en el crontab):
-#   DEPLOY_BRANCH=master        rama que se despliega
+#   DEPLOY_BRANCH=master        otra rama (por defecto production, o master si production no existe)
 #   PHP_BIN=php                 binario de PHP (ej. /usr/bin/php8.3)
 #   PHP_FPM_SERVICE=php8.3-fpm  servicio a recargar al final para limpiar OPcache (necesita sudo sin contraseña)
 #   SKIP_NPM=1                  no compilar el panel (si public/build llega por otro medio)
@@ -27,7 +27,15 @@ main() {
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP_DIR"
 
-BRANCH="${DEPLOY_BRANCH:-master}"
+# Rama "production": la mueve GitHub Actions solo cuando las pruebas de un commit de master pasan
+# (backend-tests.yml, job deployable). Si todavía no existe (repositorio nuevo), master.
+if [[ -n "${DEPLOY_BRANCH:-}" ]]; then
+  BRANCH="$DEPLOY_BRANCH"
+elif git ls-remote --exit-code --heads origin production >/dev/null 2>&1; then
+  BRANCH=production
+else
+  BRANCH=master
+fi
 PHP="${PHP_BIN:-php}"
 REF=""
 IF_CHANGED=0

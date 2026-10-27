@@ -51,9 +51,13 @@ La app móvil: ver [`mobile/README.md`](mobile/README.md) (`flutter run --dart-d
 ## Pruebas
 
 ```bash
-php artisan test            # backend (tests/Feature y tests/Unit)
+php artisan test --parallel # backend en paralelo (~4 min; sin --parallel, ~9 min)
 cd mobile && flutter test   # app
 ```
+
+Producción usa MySQL: lo que decide es la suite **phpunit-mysql** de GitHub (en local, MySQL en
+Docker sobre Windows es muy lento). Nada llega a producción sin pasar las pruebas: el servidor
+despliega la rama `production`, que GitHub mueve solo cuando SQLite, MySQL y el panel pasan.
 
 En GitHub Actions corren solas: **Backend: pruebas** (`.github/workflows/backend-tests.yml`) y
 **App móvil: APK** (`.github/workflows/mobile-apk.yml`, que además analiza y compila el APK en
