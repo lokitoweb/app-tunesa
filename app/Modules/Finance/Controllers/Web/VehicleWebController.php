@@ -37,7 +37,19 @@ class VehicleWebController extends Controller
     public function store(Request $request): RedirectResponse
     {
         abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa.');
-        $vehicle = Vehicle::create($this->validated($request));
+        $data = $this->validated($request);
+
+        // La placa identifica al vehículo (índice único por empresa, también entre los eliminados):
+        // si se había eliminado, se reactiva el mismo con los datos nuevos, sin duplicar
+        if ($deleted = Vehicle::onlyTrashed()->where('plate', $data['plate'])->first()) {
+            $deleted->restore();
+            $deleted->update($data);
+            $this->audit->log('vehicle.restored', $deleted, ['plate' => $deleted->plate]);
+
+            return back()->with('success', "La placa {$deleted->plate} era de un vehículo eliminado: se reactivó con los datos nuevos.");
+        }
+
+        $vehicle = Vehicle::create($data);
         $this->audit->log('vehicle.created', $vehicle, ['plate' => $vehicle->plate]);
 
         return back()->with('success', "Vehículo {$vehicle->plate} registrado.");
@@ -68,8 +80,11 @@ class VehicleWebController extends Controller
         $request->merge(['plate' => Vehicle::normalizePlate($request->input('plate'))]);
 
         return $request->validate([
-            'plate'     => ['required', 'string', 'max:15', 'regex:/^[A-Z0-9-]+$/',
-                Rule::unique('vehicles')->where('tenant_id', current_tenant_id_or_null())->whereNull('deleted_at')->ignore($ignoreId)],
+            // Al registrar, la placa de un vehículo eliminado se reactiva (store); al editar no puede
+            // tomar la de otro, ni siquiera eliminado (el índice único de la base no lo permite)
+            'plate'     => ['required', 'string', 'max:15', 'regex:/^[A-Z0-9-]+$/', $ignoreId
+                ? Rule::unique('vehicles')->where('tenant_id', current_tenant_id_or_null())->ignore($ignoreId)
+                : Rule::unique('vehicles')->where('tenant_id', current_tenant_id_or_null())->whereNull('deleted_at')],
             'brand'     => ['nullable', 'string', 'max:60'],
             'model'     => ['nullable', 'string', 'max:60'],
             'type'      => ['required', Rule::in(Vehicle::TYPES)],

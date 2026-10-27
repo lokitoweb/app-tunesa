@@ -52,7 +52,20 @@ class SupplierWebController extends Controller
     public function store(Request $request): RedirectResponse
     {
         abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa para registrar el proveedor.');
-        $supplier = $this->save(new Supplier(), $this->validated($request));
+        $data = $this->validated($request);
+
+        // El RUC identifica al proveedor (índice único por empresa, también entre los eliminados):
+        // si se había eliminado, se reactiva el mismo con los datos nuevos (conserva su historial)
+        $deleted = filled($data['ruc'] ?? null) ? Supplier::onlyTrashed()->where('ruc', $data['ruc'])->first() : null;
+        if ($deleted) {
+            $deleted->restore();
+            $supplier = $this->save($deleted, $data);
+            $this->audit->log('supplier.restored', $supplier, ['name' => $supplier->name, 'ruc' => $supplier->ruc]);
+
+            return back()->with('success', 'Ese RUC era de un proveedor eliminado: se reactivó con los datos nuevos.');
+        }
+
+        $supplier = $this->save(new Supplier(), $data);
         $this->audit->log('supplier.created', $supplier, ['name' => $supplier->name, 'ruc' => $supplier->ruc]);
 
         return back()->with('success', 'Proveedor registrado.');
@@ -109,7 +122,11 @@ class SupplierWebController extends Controller
     {
         return $request->validate([
             'name'                          => ['required', 'string', 'max:250'],
-            'ruc'                           => ['nullable', 'digits:11', Rule::unique('suppliers')->where('tenant_id', current_tenant_id_or_null())->whereNull('deleted_at')->ignore($ignoreId)],
+            // Al registrar, un RUC de un proveedor eliminado se reactiva (store); al editar, no puede
+            // tomar el RUC de otro, ni siquiera eliminado (el índice único de la base no lo permite)
+            'ruc'                           => ['nullable', 'digits:11', $ignoreId
+                ? Rule::unique('suppliers')->where('tenant_id', current_tenant_id_or_null())->ignore($ignoreId)
+                : Rule::unique('suppliers')->where('tenant_id', current_tenant_id_or_null())->whereNull('deleted_at')],
             'dni'                           => ['nullable', 'digits:8'],
             'address'                       => ['nullable', 'string', 'max:100'],
             'phone'                         => ['nullable', 'string', 'max:50'],
@@ -125,7 +142,7 @@ class SupplierWebController extends Controller
         ], [
             // Los mensajes genéricos vienen de lang/es/validation.php; aquí solo los propios del caso
             'bank_accounts.*.account_number.distinct' => 'Esa cuenta está repetida.',
-            'ruc.unique'                              => 'Ya hay un proveedor con ese RUC.',
+            'ruc.unique'                              => 'Ya hay un proveedor con ese RUC (o lo tuvo uno eliminado).',
         ], [
             'name' => 'la razón social', 'ruc' => 'el RUC', 'dni' => 'el DNI', 'address' => 'la dirección',
             'bank_accounts.*.bank' => 'el banco', 'bank_accounts.*.account_number' => 'el número de cuenta',

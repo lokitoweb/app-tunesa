@@ -347,7 +347,8 @@ class EmployeeController extends Controller
             'last_name'       => ['required', 'string', 'max:100'],
             'email'           => [
                 'required', 'email', 'max:150',
-                Rule::unique('users')->where(fn($q) => $q->where('tenant_id', $effectiveTenantId))->ignore($employee->id)
+                // Único en todo el sistema, como el índice de la base (el login reconoce la empresa por el correo)
+                Rule::unique('users')->ignore($employee->id)
             ],
             'role'            => ['required', 'in:company_admin,hr_manager,manager,accountant,logistics,supervisor,employee'],
             'status'          => ['required', 'in:active,inactive,suspended'],

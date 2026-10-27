@@ -173,6 +173,26 @@ class LogisticsTraceTest extends TestCase
         $this->actingAs($logistics)->delete("/vehicles/{$vehicle->id}")->assertStatus(422);
     }
 
+    public function test_the_plate_of_a_deleted_vehicle_reactivates_it_instead_of_failing(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $logistics = $this->makeUser($acme, 'logistics');
+        $this->actingAs($logistics)->post('/vehicles', ['plate' => 'XYZ-987', 'type' => 'BUS', 'brand' => 'Volvo'])->assertSessionHasNoErrors();
+        $old = Vehicle::withoutGlobalScopes()->sole();
+        $this->delete("/vehicles/{$old->id}")->assertSessionHasNoErrors(); // sin cargas: borrado lógico
+
+        // Antes: 500 por el índice único (tenant_id, plate). Ahora se reactiva el mismo
+        $this->post('/vehicles', ['plate' => 'xyz-987', 'type' => 'AUTO', 'brand' => 'Toyota'])->assertSessionHasNoErrors();
+        $vehicle = Vehicle::withoutGlobalScopes()->sole();
+        $this->assertSame([$old->id, 'AUTO', 'Toyota', null], [$vehicle->id, $vehicle->type, $vehicle->brand, $vehicle->deleted_at]);
+
+        // Editar otro con la placa de uno eliminado: mensaje claro, no 500
+        $other = Vehicle::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'plate' => 'OTR-111', 'type' => 'BUS']);
+        $this->delete("/vehicles/{$vehicle->id}");
+        $this->put("/vehicles/{$other->id}", ['plate' => 'XYZ-987', 'type' => 'BUS'])->assertSessionHasErrors('plate');
+    }
+
     public function test_signatories_are_managed_by_admin_and_signature_is_private_image(): void
     {
         Storage::fake('private');

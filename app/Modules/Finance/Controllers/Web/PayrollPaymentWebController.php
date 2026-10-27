@@ -109,7 +109,8 @@ class PayrollPaymentWebController extends Controller
         // Colaboradores por DNI y pagos ya emitidos del periodo/concepto, en dos consultas
         $dnis = array_map(fn ($r) => trim((string) ($r['dni'] ?? '')), $rows);
         $employees = User::with(['profile', 'primaryBranch', 'assignedBranch'])->whereIn('document_number', array_filter($dnis))->get()->keyBy('document_number');
-        $already = Requisition::where(['payroll_period' => $data['period'], 'payroll_concept' => $data['concept']])->pluck('employee_id')->flip();
+        // withTrashed: el índice único (empresa, colaborador, periodo, concepto) también cuenta los eliminados
+        $already = Requisition::withTrashed()->where(['payroll_period' => $data['period'], 'payroll_concept' => $data['concept']])->pluck('employee_id')->flip();
         $liquidation = $data['concept'] === 'LIQUIDACION';
 
         $errors = [];

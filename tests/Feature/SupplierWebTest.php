@@ -47,6 +47,33 @@ class SupplierWebTest extends TestCase
         $this->assertSoftDeleted($supplier);
     }
 
+    public function test_registering_the_ruc_of_a_deleted_supplier_reactivates_it_instead_of_failing(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $user = $this->makeUser($acme, 'logistics');
+        $this->actingAs($user)->post('/suppliers', ['name' => 'Ferretería Sur SAC', 'ruc' => '20123456789'])->assertSessionHasNoErrors();
+        $old = Supplier::withoutGlobalScopes()->sole();
+        $this->delete("/suppliers/{$old->id}");
+
+        // Antes: la validación ignoraba al eliminado y la base respondía 500 (índice único tenant_id + ruc)
+        $this->post('/suppliers', ['name' => 'Ferretería Sur (nueva razón)', 'ruc' => '20123456789', 'city' => 'Piura'])
+            ->assertSessionHasNoErrors()->assertSessionHas('success', 'Ese RUC era de un proveedor eliminado: se reactivó con los datos nuevos.');
+        $supplier = Supplier::withoutGlobalScopes()->sole(); // el mismo, sin duplicar
+        $this->assertSame([$old->id, 'Ferretería Sur (nueva razón)', 'Piura', null], [$supplier->id, $supplier->name, $supplier->city, $supplier->deleted_at]);
+
+        // Editar otro proveedor para ponerle el RUC de uno eliminado: mensaje claro, no 500
+        $other = Supplier::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Otro', 'ruc' => '20999999999']);
+        $this->delete("/suppliers/{$supplier->id}");
+        $this->put("/suppliers/{$other->id}", ['name' => 'Otro', 'ruc' => '20123456789'])->assertSessionHasErrors('ruc');
+
+        // Otra empresa puede registrar el mismo RUC
+        $other2 = $this->makeTenant('other');
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+        $this->actingAs($this->makeUser($other2, 'logistics'))->post('/suppliers', ['name' => 'Sur en otra empresa', 'ruc' => '20123456789'])->assertSessionHasNoErrors();
+        $this->assertSame(1, Supplier::withoutGlobalScopes()->where('tenant_id', $other2->id)->count());
+    }
+
     public function test_permissions_and_tenant_isolation(): void
     {
         $this->seedRoles();

@@ -52,6 +52,24 @@ class EndWebSessionsTest extends TestCase
         $this->assertFalse(DB::table('sessions')->where('user_id', $ana->id)->exists());
     }
 
+    public function test_editing_an_employee_with_an_email_of_another_company_is_a_clear_error(): void
+    {
+        // users.email es único en todo el sistema: antes la edición solo revisaba la empresa y daba 500
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $this->makeUser($this->makeTenant('other'), 'employee', ['email' => 'ocupado@other.pe']);
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+        $hr = $this->makeUser($acme, 'hr_manager');
+        $branch = $this->makeBranch($acme);
+        $ana = $this->makeUser($acme, 'employee', ['first_name' => 'Ana', 'document_number' => '70112233']);
+
+        $this->actingAs($hr)->put("/employees/{$ana->id}", [
+            'first_name' => 'Ana', 'last_name' => 'Q', 'email' => 'ocupado@other.pe', 'status' => 'active', 'role' => 'employee',
+            'document_type' => 'dni', 'document_number' => '70112233', 'branch_ids' => [$branch->id], 'primary_branch_id' => $branch->id,
+        ])->assertSessionHasErrors('email');
+        $this->assertNotSame('ocupado@other.pe', $ana->fresh()->email);
+    }
+
     public function test_other_session_drivers_are_left_alone(): void
     {
         config(['session.driver' => 'array']);
