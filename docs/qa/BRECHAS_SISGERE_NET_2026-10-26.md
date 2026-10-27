@@ -48,7 +48,7 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 | # | Estado | Dónde |
 |---|---|---|
 | 1 | Hecho | Emitir OC/OS: precio, descuento, Igv / S/Igv; PDF con valor venta, IGV y total |
-| 2 | **Pendiente: decide la empresa** | Requiere SQL Server para restaurar el .bak y cargar datos reales a producción |
+| 2 | Descartada (27/10/2026) | La empresa no necesita la data histórica; se replica solo la lógica, estructura y flujos del .NET |
 | 3 | Hecho | Requerimiento › Solicitud de cotización: SC por proveedor, entrega, condición, PDF por correo. La etapa DIFUSION no se agregó: el web pasa de Aprobado a Cotización |
 | 4 | Hecho | Cuotas a mano al emitir; anticipos (pago directo marcado) que se descuentan de la siguiente orden del proveedor |
 | 5 | Hecho | Finanzas › Reportes de finanzas (9 en Excel) y Colaboradores › Exportar. Liquidación: el .NET no la calculaba |

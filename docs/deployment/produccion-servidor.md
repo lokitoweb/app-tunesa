@@ -10,6 +10,19 @@ Lo que tienes que reemplazar en los comandos:
 | `IP_DEL_SERVIDOR` | IP pública del VPS | `203.0.113.10` |
 | `CLAVE_MYSQL` | Contraseña del usuario MySQL `tunesa` | (larga y única) |
 
+**Servidor actual (verificado el 27/10/2026):**
+
+| Dato | Valor |
+|---|---|
+| Carpeta del proyecto | `/var/www/group-cyp.com/app` (clon de git) |
+| Usuario dueño (el que despliega) | `cyp`. Root no puede usar git ahí (*dubious ownership*): siempre `sudo -u cyp -H …` |
+| PHP | 8.2 (CLI y FPM), pool propio `/etc/php/8.2/fpm/pool.d/group-cyp.conf` → `/run/php/group-cyp.sock` |
+| Respaldos del deploy | `/var/www/group-cyp.com/backups/deploy` (home de `cyp`) |
+| Otros sitios en el mismo servidor | ChatPro (crontabs de root y www-data): no se tocan |
+
+Hasta esa fecha el crontab de `cyp` estaba **vacío**: no corría el scheduler ni el despliegue automático;
+los pushes no llegaban a producción. Ver pasos 9 y 10.
+
 Todo lo de los pasos 1 a 9 se hace **una sola vez**. Después, cada push a `master` se despliega solo (paso 10).
 
 ---
@@ -20,9 +33,9 @@ Todo lo de los pasos 1 a 9 se hace **una sola vez**. Después, cada push a `mast
 GitHub (master) ◀──git fetch cada 2 min── cron del servidor (scripts/deploy.sh --if-changed)
                                 │
                                 ▼
-VPS Ubuntu ─ /var/www/tunesa  (clon de git, .env propio)
-  ├─ Nginx  ──▶ /var/www/tunesa/public   (HTTPS con Let's Encrypt)
-  ├─ PHP 8.3-FPM
+VPS Ubuntu ─ /var/www/group-cyp.com/app  (clon de git, .env propio)
+  ├─ Nginx  ──▶ /var/www/group-cyp.com/app/public   (HTTPS con Let's Encrypt)
+  ├─ PHP 8.2-FPM
   ├─ MySQL 8 (base tunesa)
   └─ cron: schedule:run cada minuto (faltas, recordatorios, cola de push/webhooks)
 ```
@@ -55,11 +68,11 @@ Entra por SSH como root (o un usuario con sudo):
 sudo apt update && sudo apt -y upgrade
 sudo apt -y install software-properties-common curl git unzip acl nginx mysql-server certbot python3-certbot-nginx
 
-# PHP 8.3 con las extensiones que pide el proyecto
-sudo add-apt-repository -y ppa:ondrej/php   # en Ubuntu 24.04 no hace falta, ya trae 8.3
+# PHP 8.2 con las extensiones que pide el proyecto
+sudo add-apt-repository -y ppa:ondrej/php   # en Ubuntu 24.04 no hace falta, trae 8.3; el servidor usa 8.2
 sudo apt update
-sudo apt -y install php8.3-fpm php8.3-cli php8.3-mysql php8.3-mbstring php8.3-xml php8.3-curl \
-  php8.3-gd php8.3-zip php8.3-bcmath php8.3-intl php8.3-opcache
+sudo apt -y install php8.2-fpm php8.2-cli php8.2-mysql php8.2-mbstring php8.2-xml php8.2-curl \
+  php8.2-gd php8.2-zip php8.2-bcmath php8.2-intl php8.2-opcache
 
 # Composer
 curl -sS https://getcomposer.org/installer | php && sudo mv composer.phar /usr/local/bin/composer
@@ -71,7 +84,7 @@ sudo apt -y install nodejs
 php -v && composer -V && node -v && mysql --version
 ```
 
-Límites de subida (selfies, documentos, Excel). En `/etc/php/8.3/fpm/php.ini`:
+Límites de subida (selfies, documentos, Excel). En `/etc/php/8.2/fpm/php.ini`:
 
 ```ini
 upload_max_filesize = 20M
@@ -107,20 +120,20 @@ sudo systemctl restart mysql
 
 ## 4. Usuario de despliegue y código
 
-Un usuario `deploy` es dueño del código; PHP-FPM (`www-data`) solo escribe en `storage/` y `bootstrap/cache/`.
+El usuario `cyp` es dueño del código; PHP-FPM (`www-data`) solo escribe en `storage/` y `bootstrap/cache/`.
 
 ```bash
-sudo adduser --disabled-password --gecos "" deploy
-sudo usermod -aG www-data deploy
-sudo mkdir -p /var/www/tunesa && sudo chown deploy:www-data /var/www/tunesa
-sudo -iu deploy
+sudo adduser --disabled-password --gecos "" cyp
+sudo usermod -aG www-data cyp
+sudo mkdir -p /var/www/group-cyp.com/app && sudo chown cyp:www-data /var/www/group-cyp.com/app
+sudo -iu cyp
 ```
 
 El repositorio es privado: el servidor necesita una **deploy key** (solo lectura) para clonarlo.
 
 ```bash
-# (como deploy)
-ssh-keygen -t ed25519 -C "deploy@tunesa-servidor" -f ~/.ssh/id_ed25519 -N ""
+# (como cyp)
+ssh-keygen -t ed25519 -C "cyp@group-cyp" -f ~/.ssh/id_ed25519 -N ""
 cat ~/.ssh/id_ed25519.pub
 ```
 
@@ -129,14 +142,14 @@ Copia esa línea en GitHub → repositorio `app-tunesa` → **Settings → Deplo
 
 ```bash
 ssh -T git@github.com            # responde "Hi lokitoweb/app-tunesa! ..." → listo
-git clone git@github.com:lokitoweb/app-tunesa.git /var/www/tunesa
-cd /var/www/tunesa
+git clone git@github.com:lokitoweb/app-tunesa.git /var/www/group-cyp.com/app
+cd /var/www/group-cyp.com/app
 ```
 
 ## 5. `.env` de producción
 
 ```bash
-cd /var/www/tunesa
+cd /var/www/group-cyp.com/app
 cp .env.production.example .env
 nano .env
 ```
@@ -146,7 +159,7 @@ La plantilla ya trae `APP_URL=https://group-cyp.com`, `APP_DOMAIN=group-cyp.com`
 `SEED_SUPERADMIN_EMAIL` / `SEED_SUPERADMIN_PASSWORD` (12+ caracteres).
 
 ```bash
-sudo chgrp www-data .env && chmod 640 .env   # lo leen deploy y PHP-FPM, nadie más
+sudo chgrp www-data .env && chmod 640 .env   # lo leen cyp y PHP-FPM, nadie más
 composer install --no-dev --no-interaction --optimize-autoloader
 php artisan key:generate
 ```
@@ -157,11 +170,11 @@ php artisan key:generate
 ## 6. Permisos de `storage` y `bootstrap/cache`
 
 ```bash
-# (como deploy, dentro de /var/www/tunesa)
-sudo chown -R deploy:www-data storage bootstrap/cache
+# (como cyp, dentro de /var/www/group-cyp.com/app)
+sudo chown -R cyp:www-data storage bootstrap/cache
 sudo chmod -R ug+rwX storage bootstrap/cache
-sudo setfacl -R  -m u:www-data:rwX -m u:deploy:rwX storage bootstrap/cache
-sudo setfacl -dR -m u:www-data:rwX -m u:deploy:rwX storage bootstrap/cache
+sudo setfacl -R  -m u:www-data:rwX -m u:cyp:rwX storage bootstrap/cache
+sudo setfacl -dR -m u:www-data:rwX -m u:cyp:rwX storage bootstrap/cache
 ```
 
 Las ACL por defecto (`-d`) hacen que los archivos nuevos (logs, selfies, caché) sigan siendo escribibles por
@@ -170,7 +183,7 @@ los dos usuarios, sin `chmod 777`.
 ## 7. Primer despliegue y Super Admin
 
 ```bash
-# (como deploy, dentro de /var/www/tunesa)
+# (como cyp, dentro de /var/www/group-cyp.com/app)
 bash scripts/deploy.sh --force         # composer, npm build, migraciones, storage:link y cachés
 php artisan db:seed --force            # crea SOLO el Super Admin (sin datos demo) con SEED_SUPERADMIN_*
 ```
@@ -201,7 +214,7 @@ server {
     listen 80;
     listen [::]:80;
     server_name group-cyp.com *.group-cyp.com;
-    root /var/www/tunesa/public;
+    root /var/www/group-cyp.com/app/public;
     index index.php;
 
     client_max_body_size 25M;
@@ -219,7 +232,7 @@ server {
     location = /robots.txt  { access_log off; log_not_found off; }
 
     location ~ \.php$ {
-        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_pass unix:/run/php/group-cyp.sock;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
         fastcgi_hide_header X-Powered-By;
@@ -257,11 +270,11 @@ Comprueba: `https://group-cyp.com/up` debe responder 200 y `https://group-cyp.co
 **Cron del scheduler** (faltas a la 01:30, recordatorios de entrada, limpieza de tokens y la cola de push/webhooks):
 
 ```bash
-sudo crontab -u deploy -e
+sudo crontab -u cyp -e
 ```
 
 ```cron
-* * * * * cd /var/www/tunesa && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /var/www/group-cyp.com/app && php artisan schedule:run >> /dev/null 2>&1
 ```
 
 Con eso basta para la cola (`QUEUE_WORK_FROM_SCHEDULER=true`). Si prefieres un worker permanente,
@@ -273,9 +286,9 @@ Description=TuneSA queue worker
 After=network.target mysql.service
 
 [Service]
-User=deploy
+User=cyp
 Group=www-data
-WorkingDirectory=/var/www/tunesa
+WorkingDirectory=/var/www/group-cyp.com/app
 ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=3 --max-time=3600
 Restart=always
 
@@ -305,14 +318,14 @@ y los avisos push nunca esperan detrás:
 lo corre el instalador). Ya no hace falta `db:seed --class=RolesAndPermissionsSeeder` ni
 `optimize:clear` a mano tras cada actualización.
 
-**Recargar PHP-FPM tras cada deploy** (limpia OPcache). Permite que `deploy` lo haga sin contraseña:
+**Recargar PHP-FPM tras cada deploy** (limpia OPcache). Permite que `cyp` lo haga sin contraseña:
 
 ```bash
-echo 'deploy ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.3-fpm' | sudo tee /etc/sudoers.d/tunesa-deploy
+echo 'cyp ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.2-fpm' | sudo tee /etc/sudoers.d/tunesa-deploy
 sudo chmod 440 /etc/sudoers.d/tunesa-deploy
 ```
 
-y define `PHP_FPM_SERVICE=php8.3-fpm` en el entorno del deploy (ya va en la línea del cron del paso 10). Sin esto el deploy funciona igual, pero PHP puede tardar en ver el código nuevo
+y define `PHP_FPM_SERVICE=php8.2-fpm` en el entorno del deploy (ya va en la línea del cron del paso 10). Sin esto el deploy funciona igual, pero PHP puede tardar en ver el código nuevo
 si `opcache.validate_timestamps=0`.
 
 ## 10. Despliegue automático en cada push a master
@@ -320,10 +333,10 @@ si `opcache.validate_timestamps=0`.
 El servidor se actualiza solo: GitHub no se conecta al servidor (no hay SSH desde Actions, ni IP ni secrets de
 conexión en GitHub, y no gasta minutos de Actions). El servidor lee el repositorio con la deploy key del paso 4.
 
-**Automático (cron).** Agrega al crontab de `deploy` (`sudo crontab -u deploy -e`), debajo del scheduler:
+**Automático (cron).** Agrega al crontab de `cyp` (`sudo crontab -u cyp -e`), debajo del scheduler:
 
 ```cron
-*/2 * * * * cd /var/www/tunesa && PHP_FPM_SERVICE=php8.3-fpm bash scripts/deploy.sh --if-changed >> storage/logs/deploy.log 2>&1
+*/2 * * * * cd /var/www/group-cyp.com/app && PHP_FPM_SERVICE=php8.2-fpm bash scripts/deploy.sh --if-changed >> storage/logs/deploy.log 2>&1
 ```
 
 `--if-changed` solo hace `git fetch`; si `origin/master` no cambió termina sin tocar nada. Un push a `master`
@@ -332,14 +345,14 @@ queda en producción en máximo 2 minutos.
 **A mano (consola).** Cuando quieras publicar al instante:
 
 ```bash
-cd /var/www/tunesa && bash scripts/deploy.sh
+cd /var/www/group-cyp.com/app && bash scripts/deploy.sh
 ```
 
 Hace el `git pull` (fetch + reset al último `master`) y todo lo demás. No corras `git pull` por separado: el script
 necesita saber qué commit había antes para volver atrás si algo falla. El script tiene un candado: si el cron y tú
 coinciden, uno espera su turno sin pisar al otro.
 
-Historial: `tail -f /var/www/tunesa/storage/logs/deploy.log`.
+Historial: `tail -f /var/www/group-cyp.com/app/storage/logs/deploy.log`.
 
 Si un despliegue falla (por ejemplo, una migración con error), el script vuelve solo al commit anterior, saca la
 app de mantenimiento y anota el commit fallido en `storage/framework/deploy.failed`: el cron no lo reintenta cada
@@ -348,7 +361,7 @@ app de mantenimiento y anota el commit fallido en `storage/framework/deploy.fail
 ### Volver a una versión anterior
 
 ```bash
-cd /var/www/tunesa
+cd /var/www/group-cyp.com/app
 git log --oneline -10
 bash scripts/deploy.sh --ref <commit>
 ```
@@ -359,7 +372,7 @@ El cron volvería a subir `master` a los 2 minutos: para un rollback que dure, r
 ## 11. Verificación final
 
 ```bash
-cd /var/www/tunesa
+cd /var/www/group-cyp.com/app
 php artisan app:check-production     # APP_DEBUG, HTTPS, cookie segura, cola, correo y base de datos
 php artisan about --only=environment,cache,drivers
 curl -I https://group-cyp.com/up
@@ -372,16 +385,16 @@ curl -I https://group-cyp.com/up
 Respaldo diario de la base (recomendado):
 
 ```cron
-30 3 * * * mysqldump --single-transaction -u tunesa -p'CLAVE_MYSQL' tunesa | gzip > /home/deploy/backups/tunesa-$(date +\%F).sql.gz
+30 3 * * * mysqldump --single-transaction -u tunesa -p'CLAVE_MYSQL' tunesa | gzip > /home/cyp/backups/tunesa-$(date +\%F).sql.gz
 ```
 
-(crea antes `/home/deploy/backups` y borra los viejos de vez en cuando; mejor aún, guarda la clave en
+(crea antes `/home/cyp/backups` y borra los viejos de vez en cuando; mejor aún, guarda la clave en
 `~/.my.cnf` con `chmod 600` en lugar de escribirla en el crontab).
 
 ## 12. Si usas un panel de hosting (cPanel, Hostinger, Plesk)
 
 - **Raíz del dominio**: apúntala a la carpeta `public/` del proyecto (no a la raíz).
-- **PHP**: elige 8.3 con las extensiones del paso 2 en el selector de PHP.
+- **PHP**: elige 8.2 o superior con las extensiones del paso 2 en el selector de PHP.
 - **MySQL**: crea base y usuario con el asistente del panel y usa esos datos en el `.env`. Muchos hostings
   compartidos **no** permiten crear triggers (no puedes cambiar `log_bin_trust_function_creators`): si
   `migrate` falla con el error 1419, pide al soporte que lo active o usa un VPS.
