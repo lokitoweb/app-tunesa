@@ -159,7 +159,11 @@ class RequisitionWebController extends Controller
             'requisition' => [
                 ...$r->only(['id', 'detail', 'area', 'requested_by', 'email', 'plate', 'km', 'agency', 'site', 'delivery_place',
                     'classification', 'stage', 'priority', 'notes', 'reviewed_by', 'payment_terms', 'payment_method', 'payment_origin',
-                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number', 'is_express', 'is_direct_payment', 'amount_payable']),
+                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number', 'is_express', 'is_direct_payment', 'amount_payable', 'delivery_mode', 'quote_payment_terms', 'quote_notes']),
+                'quote_requests' => $r->quoteRequests()->with('supplier:id,name,ruc,email')->orderBy('id')->get()->map(fn ($q) => [
+                    'id' => $q->id, 'code' => $q->code, 'supplier' => $q->supplier?->name, 'has_email' => (bool) $q->supplier?->email,
+                    'emailed_at' => $q->emailed_at?->timezone(tenant_timezone())->format('d/m/Y H:i'), 'supplier_id' => $q->supplier_id,
+                ]),
                 'code'         => $r->code(),
                 'order_number' => $r->orderNumber(),
                 'advance_amount' => $r->advance_amount !== null ? (float) $r->advance_amount : null,
@@ -504,6 +508,74 @@ class RequisitionWebController extends Controller
         }
 
         return back()->with('success', "Orden {$number} emitida: las cuotas quedaron pendientes de pago.");
+    }
+
+    /**
+     * Solicitud de cotización a varios proveedores (FrmReq › Registrar solicitud): un SC-… por
+     * proveedor con las condiciones pedidas, y el PDF por correo. Reenviar a un proveedor conserva su SC.
+     */
+    public function sendQuoteRequests(Request $request, int $id): RedirectResponse
+    {
+        $r = Requisition::with('tenant')->findOrFail($id);
+        abort_unless(in_array($r->stage, ['approved', 'quoting'], true), 422, 'La solicitud de cotización se envía con el requerimiento aprobado.');
+        $data = $request->validate([
+            'supplier_ids'        => ['required', 'array', 'min:1', 'max:30'],
+            'supplier_ids.*'      => ['integer', 'distinct', Rule::exists('suppliers', 'id')->where('tenant_id', $r->tenant_id)->where('is_active', true)->whereNull('deleted_at')],
+            'delivery_mode'       => ['required', Rule::in(['pickup', 'delivery'])],
+            'delivery_place'      => ['nullable', 'required_if:delivery_mode,delivery', 'string', 'max:100'],
+            'quote_payment_terms' => ['nullable', 'string', 'max:100'],
+            'quote_notes'         => ['nullable', 'string', 'max:300'],
+        ], ['supplier_ids.required' => 'Elige al menos un proveedor.', 'supplier_ids.*.exists' => 'Uno de los proveedores no está activo.',
+            'delivery_place.required_if' => 'Indica el lugar de entrega.'],
+            ['delivery_mode' => 'el tipo de entrega', 'delivery_place' => 'el lugar de entrega', 'quote_payment_terms' => 'la condición de pago', 'quote_notes' => 'la observación']);
+
+        $user = $request->user();
+        $requests = DB::transaction(function () use ($r, $data, $user) {
+            $r->update(collect($data)->only(['delivery_mode', 'delivery_place', 'quote_payment_terms', 'quote_notes'])->all());
+
+            return collect($data['supplier_ids'])->map(function ($sid) use ($r, $user) {
+                $existing = $r->quoteRequests()->where('supplier_id', $sid)->first();
+                if ($existing) {
+                    $existing->update(['sent_by' => $user->full_name]);
+
+                    return $existing;
+                }
+                [, $code] = DocumentSequence::next($r->tenant, 'SC', DocumentSequence::seriesFrom($r->year ? $r->series : null), (int) now()->year);
+
+                return $r->quoteRequests()->create(['tenant_id' => $r->tenant_id, 'supplier_id' => $sid, 'code' => $code, 'sent_by' => $user->full_name]);
+            });
+        });
+        $this->audit->log('requisition.quote_requested', $r, ['code' => $r->code(), 'requests' => $requests->pluck('code')->all()]);
+
+        // El PDF a cada proveedor con correo (SMTP de la empresa); un fallo de correo no deshace la solicitud
+        $mailed = 0;
+        foreach ((new \Illuminate\Database\Eloquent\Collection($requests->all()))->load('supplier') as $q) {
+            if (! $q->supplier?->email) {
+                continue;
+            }
+            $ok = rescue(fn () => Notification::route('mail', $q->supplier->email)->notify(new SupplierDocument(
+                $r->tenant, "Solicitud de cotización {$q->code} · {$r->tenant->company_name}",
+                ["Le solicitamos su cotización para: {$r->detail}.", 'Adjuntamos el detalle de lo requerido y las condiciones.'],
+                FinanceDocumentPdf::quoteRequest($q), "{$q->code}.pdf",
+            )) ?? true, false, report: true);
+            if ($ok) {
+                $q->update(['emailed_at' => now()]);
+                $mailed++;
+            }
+        }
+        $without = $requests->count() - $mailed;
+
+        return back()->with('success', "Solicitud de cotización registrada para {$requests->count()} proveedor(es)"
+            . ($mailed ? ": {$mailed} enviada(s) por correo" : '') . ($without ? ". {$without} sin correo: descarga su PDF y envíalo." : '.'));
+    }
+
+    public function quoteRequestPdf(Request $request, int $id, int $quoteRequest): HttpResponse
+    {
+        $q = $this->visible($request)->findOrFail($id)->quoteRequests()->findOrFail($quoteRequest);
+
+        return response(FinanceDocumentPdf::quoteRequest($q), 200, [
+            'Content-Type' => 'application/pdf', 'Content-Disposition' => "inline; filename=\"{$q->code}.pdf\"", 'Cache-Control' => 'private, no-store',
+        ]);
     }
 
     /** Columnas del Excel de ítems (sisgere FrmEXCEL: nombre, cantidad, unidad, justificación) */

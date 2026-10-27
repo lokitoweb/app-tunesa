@@ -54,6 +54,8 @@ Route::middleware(['auth', 'web.tenant', 'can:requisitions.create'])->prefix('re
         Route::delete('/{id}/quotations/{quotation}', [RequisitionWebController::class, 'destroyQuotation'])->name('quotations.destroy')
             ->whereNumber(['id', 'quotation']);
         Route::post('/{id}/order', [RequisitionWebController::class, 'order'])->name('order')->whereNumber('id');
+        Route::post('/{id}/quote-requests', [RequisitionWebController::class, 'sendQuoteRequests'])->name('quote-requests.store')->whereNumber('id')->middleware('throttle:20,1');
+        Route::get('/{id}/quote-requests/{quoteRequest}/pdf', [RequisitionWebController::class, 'quoteRequestPdf'])->name('quote-requests.pdf')->whereNumber(['id', 'quoteRequest']);
     });
 });
 

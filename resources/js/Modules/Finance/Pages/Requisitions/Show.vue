@@ -56,6 +56,21 @@ function saveQuote() {
         .post(`/requisitions/${r.value.id}/quotations`, { preserveScroll: true, forceFormData: true, onSuccess: () => { Object.assign(quote, blankQuote()); showQuote.value = false; } });
 }
 
+// ---------------------------------------------------------------- solicitud de cotización
+const showQr = ref(false);
+const qr = useForm({ supplier_ids: [], delivery_mode: 'pickup', delivery_place: '', quote_payment_terms: '', quote_notes: '' });
+function openQr() {
+    showQr.value = !showQr.value;
+    Object.assign(qr, {
+        supplier_ids: r.value.quote_requests.map((q) => q.supplier_id), delivery_mode: r.value.delivery_mode || 'pickup',
+        delivery_place: r.value.delivery_place || '', quote_payment_terms: r.value.quote_payment_terms || '', quote_notes: r.value.quote_notes || '',
+    });
+    qr.clearErrors();
+}
+function sendQr() {
+    qr.post(`/requisitions/${r.value.id}/quote-requests`, { preserveScroll: true, onSuccess: () => (showQr.value = false) });
+}
+
 // ---------------------------------------------------------------- factura (sin factura no se paga)
 const invoice = useForm({ invoice_number: props.requisition.invoice?.number || '', invoice_date: today, file: null });
 const showInvoice = ref(false);
@@ -383,6 +398,49 @@ function emitOrder() {
 
             <!-- Cotizaciones -->
             <div class="col-lg-5">
+                <!-- Solicitud de cotización a proveedores (FrmReq › SC) -->
+                <div v-if="can.purchase && (['approved', 'quoting'].includes(requisition.stage) || requisition.quote_requests.length)" class="card shadow-sm mb-3">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold">Solicitud de cotización <span class="badge bg-primary-subtle text-primary ms-1">{{ requisition.quote_requests.length }}</span></span>
+                        <button v-if="['approved', 'quoting'].includes(requisition.stage)" type="button" class="btn btn-sm btn-outline-primary" @click="openQr">
+                            <i class="bi bi-envelope-paper me-1"></i>{{ showQr ? 'Cerrar' : 'Solicitar' }}
+                        </button>
+                    </div>
+                    <form v-if="showQr" class="card-body row g-2 border-bottom" novalidate @submit.prevent="sendQr">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold">Proveedores *</label>
+                            <div class="border rounded p-2" style="max-height: 160px; overflow: auto">
+                                <div v-for="s in suppliers" :key="s.id" class="form-check small">
+                                    <input :id="`qr-${s.id}`" v-model="qr.supplier_ids" class="form-check-input" type="checkbox" :value="s.id" />
+                                    <label class="form-check-label" :for="`qr-${s.id}`">{{ s.name }} <span class="text-body-secondary">{{ s.ruc }}</span></label>
+                                </div>
+                            </div>
+                            <div v-if="qr.errors.supplier_ids" class="small text-danger">{{ qr.errors.supplier_ids }}</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="btn-group btn-group-sm w-100" role="group" aria-label="Tipo de entrega">
+                                <input id="qr-pick" v-model="qr.delivery_mode" type="radio" class="btn-check" value="pickup" />
+                                <label class="btn btn-outline-primary" for="qr-pick">Recojo en tienda</label>
+                                <input id="qr-deliv" v-model="qr.delivery_mode" type="radio" class="btn-check" value="delivery" />
+                                <label class="btn btn-outline-primary" for="qr-deliv">Entrega a domicilio</label>
+                            </div>
+                        </div>
+                        <div v-if="qr.delivery_mode === 'delivery'" class="col-12">
+                            <input v-model.trim="qr.delivery_place" maxlength="100" class="form-control form-control-sm" placeholder="Lugar de entrega *" aria-label="Lugar de entrega" :class="{ 'is-invalid': qr.errors.delivery_place }" />
+                            <div class="invalid-feedback">{{ qr.errors.delivery_place }}</div>
+                        </div>
+                        <div class="col-12"><input v-model.trim="qr.quote_payment_terms" maxlength="100" class="form-control form-control-sm" placeholder="Condición de pago (p. ej. crédito 30 días)" aria-label="Condición de pago" /></div>
+                        <div class="col-12"><textarea v-model.trim="qr.quote_notes" maxlength="300" rows="2" class="form-control form-control-sm" placeholder="Observación" aria-label="Observación"></textarea></div>
+                        <div class="col-12 text-end"><button type="submit" class="btn btn-sm btn-primary" :disabled="qr.processing"><i class="bi bi-send me-1"></i>Registrar y enviar</button></div>
+                    </form>
+                    <ul v-if="requisition.quote_requests.length" class="list-group list-group-flush small">
+                        <li v-for="q in requisition.quote_requests" :key="q.id" class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                            <span><span class="font-monospace fw-semibold">{{ q.code }}</span> · {{ q.supplier }}
+                                <span class="d-block text-body-secondary">{{ q.emailed_at ? `Enviada por correo ${q.emailed_at}` : q.has_email ? 'Sin enviar' : 'Proveedor sin correo: envía el PDF' }}</span></span>
+                            <a :href="`/requisitions/${requisition.id}/quote-requests/${q.id}/pdf`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="bi bi-filetype-pdf"></i></a>
+                        </li>
+                    </ul>
+                </div>
                 <div class="card shadow-sm">
                     <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
                         <span class="fw-semibold">Cotizaciones <span class="badge bg-primary-subtle text-primary ms-1">{{ requisition.quotations.length }}</span></span>

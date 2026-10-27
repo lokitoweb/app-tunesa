@@ -77,8 +77,11 @@
             <tr><td style="font-size: 14px; font-weight: bold; padding-top: 4px;">Total</td><td style="text-align: right; font-size: 14px; font-weight: bold; padding-top: 4px;">{{ \App\Modules\Finance\Services\FinanceDocumentPdf::money($currency, $amount) }}</td></tr>
         </table>
         <div class="muted" style="text-align: right; font-size: 9px;">Precios {{ $breakdown['includes_igv'] ? 'con IGV incluido' : 'sin IGV (el IGV se suma)' }}</div>
-    @else
+    @elseif ($amount !== null)
         <div class="total">Total: {{ \App\Modules\Finance\Services\FinanceDocumentPdf::money($currency, $amount) }}</div>
+    @else
+        {{-- Solicitud de cotización: sin montos; el proveedor responde con su cotización --}}
+        <p class="muted" style="margin-top: 14px;">Agradeceremos enviar su cotización con precios unitarios, plazo de entrega y validez de la oferta.</p>
     @endif
 
     @if ($signature)

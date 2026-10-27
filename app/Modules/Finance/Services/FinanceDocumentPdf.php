@@ -47,6 +47,30 @@ final class FinanceDocumentPdf
         ]);
     }
 
+    /** Solicitud de cotización al proveedor (sisgere CRsolcoti): ítems sin precios y condiciones pedidas */
+    public static function quoteRequest(\App\Modules\Finance\Models\QuoteRequest $q): string
+    {
+        $q->loadMissing(['requisition.items.product', 'requisition.tenant', 'supplier']);
+        $r = $q->requisition;
+
+        return self::render([
+            'title'     => 'SOLICITUD DE COTIZACIÓN',
+            'number'    => $q->code,
+            'date'      => $q->created_at?->timezone(tenant_timezone())->format('d/m/Y'),
+            'tenant'    => $r->tenant,
+            'supplier'  => $q->supplier,
+            'rows'      => [
+                ['Requerimiento', $r->code()], ['Detalle', $r->detail], ['Placa', $r->plate],
+                ['Entrega', ['pickup' => 'Recojo en tienda', 'delivery' => 'Entrega a domicilio'][$r->delivery_mode] ?? null], ['Lugar de entrega', $r->delivery_place],
+                ['Condición de pago', $r->quote_payment_terms], ['Observación', $r->quote_notes],
+            ],
+            'items'     => $r->items->map(fn ($i) => [$i->product?->name, $i->product?->unit, (float) $i->quantity])->all(),
+            'amount'    => null,
+            'currency'  => null,
+            'signature' => null,
+        ]);
+    }
+
     public static function paymentOrder(PaymentInstallment $p): string
     {
         $p->loadMissing(['requisition.supplier.bankAccounts', 'requisition.tenant', 'requisition.employee.profile']);

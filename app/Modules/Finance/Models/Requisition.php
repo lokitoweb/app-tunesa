@@ -60,6 +60,7 @@ class Requisition extends Model
         'detraction_number', 'detraction_amount', 'detraction_percent', 'detraction_reason',
         'installments', 'attachments',
         'prices_include_igv', 'igv_rate', 'taxable_amount', 'igv_amount', 'is_direct_payment', 'advance_amount',
+        'quote_payment_terms', 'delivery_mode', 'quote_notes',
     ];
 
     protected $casts = [
@@ -134,6 +135,11 @@ class Requisition extends Model
     public function items(): HasMany
     {
         return $this->hasMany(RequisitionItem::class);
+    }
+
+    public function quoteRequests(): HasMany
+    {
+        return $this->hasMany(QuoteRequest::class);
     }
 
     public function quotations(): HasMany
