@@ -1,5 +1,8 @@
 # Instalación en un servidor nuevo
 
+> Versión completa y detallada para entregar (tecnología, requisitos, cada comando, el `.env`, qué se
+> prueba): [docs/instalacion.html](docs/instalacion.html) — se abre en cualquier navegador.
+
 El sistema se instala vacío y neutro: sin empresas, sin datos de prueba y sin marca de nadie (logo e
 íconos genéricos). Toma solo el dominio con el que se abre el instalador y arma el `.env` completo de
 producción. No hay que copiar ni editar archivos de otro servidor. El nombre, los logos, los colores

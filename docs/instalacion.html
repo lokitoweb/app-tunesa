@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía de instalación</title>
+<style>
+  :root {
+    --bg: #f6f8fb; --card: #ffffff; --text: #1d2530; --muted: #5b6676; --line: #e2e7ee;
+    --brand: #3c729e; --brand-soft: #e7f0f7; --code-bg: #0f1722; --code-text: #e6edf5;
+    --ok: #1f7a4d; --ok-soft: #e5f5ec; --warn: #8a5a00; --warn-soft: #fdf3dd; --bad: #a12d2d; --bad-soft: #fbe9e9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e141b; --card: #151d27; --text: #e3e9f1; --muted: #9aa6b5; --line: #253141;
+      --brand: #7db2dc; --brand-soft: #1a2a3a; --code-bg: #0a0f15; --code-text: #e6edf5;
+      --ok: #6fd3a0; --ok-soft: #12291e; --warn: #f0c56b; --warn-soft: #2b2312; --bad: #f19a9a; --bad-soft: #2d1717;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e141b; --card: #151d27; --text: #e3e9f1; --muted: #9aa6b5; --line: #253141;
+    --brand: #7db2dc; --brand-soft: #1a2a3a; --code-bg: #0a0f15; --code-text: #e6edf5;
+    --ok: #6fd3a0; --ok-soft: #12291e; --warn: #f0c56b; --warn-soft: #2b2312; --bad: #f19a9a; --bad-soft: #2d1717;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 56px 16px 64px; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+  h2 { font-size: 1.35rem; margin: 0 0 12px; padding-top: 4px; }
+  h3 { font-size: 1.05rem; margin: 22px 0 8px; }
+  p { margin: 0 0 12px; }
+  .lead { color: var(--muted); font-size: 1.05rem; max-width: 70ch; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; margin: 0 0 20px; }
+  nav.toc { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 24px; margin-bottom: 20px; }
+  nav.toc ol { margin: 6px 0 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc a { color: var(--brand); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  @media (max-width: 640px) { nav.toc ol { columns: 1; } h1 { font-size: 1.6rem; } section { padding: 18px; } }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: .95rem; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; }
+  .table-scroll { overflow-x: auto; }
+  code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .9em; background: var(--brand-soft); padding: 1px 6px; border-radius: 5px; overflow-wrap: anywhere; }
+  .cmd { position: relative; margin: 10px 0 14px; }
+  .cmd pre { margin: 0; background: var(--code-bg); color: var(--code-text); padding: 14px 16px; padding-right: 86px; border-radius: 10px; overflow-x: auto; font: .88rem/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; }
+  .cmd button { position: absolute; top: 8px; right: 8px; background: #2b3a4c; color: #e6edf5; border: 0; border-radius: 6px; padding: 5px 10px; font-size: .8rem; cursor: pointer; }
+  .cmd button:hover { background: #3a4d63; }
+  .step { display: flex; gap: 14px; margin: 18px 0 6px; align-items: baseline; }
+  .step .n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: .9rem; }
+  .step h3 { margin: 0; }
+  .note { border-left: 4px solid var(--brand); background: var(--brand-soft); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .note.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .note.ok { border-color: var(--ok); background: var(--ok-soft); }
+  .note.bad { border-color: var(--bad); background: var(--bad-soft); }
+  .pill { display: inline-block; font-size: .78rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.auto { background: var(--brand-soft); color: var(--brand); }
+  ul { margin: 0 0 12px; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; }
+  .flow div { background: var(--brand-soft); border-radius: 10px; padding: 12px; font-size: .9rem; }
+  .flow b { display: block; color: var(--brand); margin-bottom: 4px; }
+  @media (max-width: 720px) { .flow { grid-template-columns: 1fr 1fr; } }
+  footer { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 28px; }
+  .theme { position: absolute; top: 12px; right: 12px; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: .85rem; }
+</style>
+</head>
+<body>
+<button class="theme" type="button" id="theme" aria-label="Cambiar tema claro u oscuro">◐ Tema</button>
+<div class="wrap">
+
+<header>
+  <h1>Guía de instalación del ERP</h1>
+  <p class="lead">Cómo instalar el sistema desde cero en un servidor nuevo: qué tecnología usa, qué hay que instalar,
+  qué comandos correr y qué queda configurado solo. El resultado es un sistema vacío (sin datos de prueba ni marca de
+  nadie), listo para que cada empresa lo configure a su modo.</p>
+</header>
+
+<nav class="toc" aria-label="Contenido">
+  <strong>Contenido</strong>
+  <ol>
+    <li><a href="#tecnologia">Con qué está hecho el sistema</a></li>
+    <li><a href="#requisitos">Qué necesita el servidor</a></li>
+    <li><a href="#quien">Qué hace el instalador y qué hace el servidor</a></li>
+    <li><a href="#pasos">Instalación paso a paso</a></li>
+    <li><a href="#env">El archivo .env</a></li>
+    <li><a href="#base">Qué se crea en la base de datos</a></li>
+    <li><a href="#despues">Después de instalar</a></li>
+    <li><a href="#actualizaciones">Actualizaciones automáticas</a></li>
+    <li><a href="#movil">App móvil</a></li>
+    <li><a href="#problemas">Si algo falla</a></li>
+    <li><a href="#garantias">Qué está probado y qué no</a></li>
+  </ol>
+</nav>
+
+<section id="tecnologia">
+  <h2>1. Con qué está hecho el sistema</h2>
+  <div class="table-scroll"><table>
+    <tr><th>Parte</th><th>Tecnología</th><th>Para qué</th></tr>
+    <tr><td>Servidor (backend)</td><td><b>Laravel 12</b> sobre <b>PHP 8.2 o superior</b></td><td>Reglas del negocio, API de la app móvil, seguridad, tareas programadas</td></tr>
+    <tr><td>Panel web</td><td><b>Vue 3</b> + <b>Inertia</b>, <b>Bootstrap 5</b>, compilado con <b>Vite 6</b></td><td>Pantallas del panel (algunas en Blade, la plantilla de Laravel)</td></tr>
+    <tr><td>Base de datos</td><td><b>MySQL 8</b> o <b>MariaDB 10.6+</b></td><td>Datos, sesiones, caché y cola de trabajos (todo en la misma base)</td></tr>
+    <tr><td>Servidor web</td><td><b>Nginx</b> + <b>PHP-FPM</b>, HTTPS con Let's Encrypt</td><td>Publicar el sitio con certificado</td></tr>
+    <tr><td>Compilación del panel</td><td><b>Node.js 22</b> y npm</td><td>Solo para compilar el panel; no queda corriendo</td></tr>
+    <tr><td>App móvil</td><td><b>Flutter 3.47</b> (Android e iOS)</td><td>App de los colaboradores; se compila aparte (sección 9)</td></tr>
+    <tr><td>Documentos</td><td>DomPDF (PDF) y PhpSpreadsheet (Excel)</td><td>Órdenes, reportes, importaciones</td></tr>
+  </table></div>
+  <p>Módulos incluidos: asistencia (GPS y selfie), RR. HH., planilla y boletas, finanzas (requerimientos, órdenes de compra y
+  servicio, tesorería, flujo de caja, caja chica, costos fijos, almacén, combustible, flota), incorporación, capacitaciones,
+  comunicados, beneficios, cumpleaños, documentos de la empresa, canal ético e integraciones.</p>
+</section>
+
+<section id="requisitos">
+  <h2>2. Qué necesita el servidor</h2>
+  <div class="table-scroll"><table>
+    <tr><th>Recurso</th><th>Mínimo</th></tr>
+    <tr><td>Sistema operativo</td><td>Ubuntu 22.04 o 24.04 (VPS con acceso root por SSH)</td></tr>
+    <tr><td>Memoria / disco</td><td>2 GB de RAM (1 GB + swap también sirve) y 20 GB de disco</td></tr>
+    <tr><td>Dominio</td><td>Un dominio apuntando a la IP del servidor (registro A, y <code>www</code> si se usa)</td></tr>
+    <tr><td>Código</td><td>Acceso de lectura al repositorio (deploy key de GitHub)</td></tr>
+    <tr><td>Extensiones de PHP</td><td><code>pdo</code> <code>pdo_mysql</code> <code>mbstring</code> <code>openssl</code> <code>tokenizer</code> <code>xml</code> <code>ctype</code> <code>json</code> <code>bcmath</code> <code>fileinfo</code> <code>curl</code> <code>gd</code> <code>zip</code> <code>intl</code> — el paso 1 del instalador las revisa una por una</td></tr>
+    <tr><td>Programas</td><td><code>git</code>, <code>composer</code>, <code>node</code>/<code>npm</code>, <code>mysqldump</code> (respaldo antes de cada migración), <code>nginx</code>, <code>certbot</code></td></tr>
+  </table></div>
+</section>
+
+<section id="quien">
+  <h2>3. Qué hace el instalador y qué hace el servidor</h2>
+  <p>Una página web no puede tocar el sistema operativo (crear tareas programadas ni dar permisos): es así en cualquier
+  sistema web, por seguridad. Por eso la instalación tiene dos partes:</p>
+  <div class="table-scroll"><table>
+    <tr><th>Lo hace el instalador web (<code>/install</code>)</th><th>Lo hace un comando en el servidor (<code>server-setup.sh</code>)</th></tr>
+    <tr><td>
+      <ul>
+        <li>Revisa PHP, extensiones y permisos de carpetas</li>
+        <li>Crea el <code>.env</code> de producción completo y la clave de cifrado</li>
+        <li>Configura dominio, cookie segura y remitente del correo</li>
+        <li>Crea todas las tablas, los roles y los permisos</li>
+        <li>Crea el administrador principal</li>
+        <li>Se apaga solo al terminar</li>
+      </ul>
+    </td><td>
+      <ul>
+        <li>Revisa los programas del servidor</li>
+        <li>Corrige el dueño de <code>storage/</code></li>
+        <li>Instala las tareas programadas (faltas, recordatorios, avisos push, comunicados)</li>
+        <li>Instala el despliegue automático</li>
+        <li>Permite recargar PHP después de cada actualización</li>
+      </ul>
+    </td></tr>
+  </table></div>
+</section>
+
+<section id="pasos">
+  <h2>4. Instalación paso a paso</h2>
+  <p>En los comandos, reemplaza <code>midominio.com</code> por tu dominio y <code>CLAVE</code> por una contraseña larga y única.
+  <code>erp</code> es el usuario de Linux dueño del sistema (puede ser otro nombre). Todo se corre como <b>root</b> salvo donde dice <code>sudo -u erp</code>.</p>
+
+  <div class="step"><span class="n">1</span><h3>Instalar los programas</h3></div>
+  <div class="cmd"><pre>apt update &amp;&amp; apt -y install nginx mysql-server git unzip acl certbot python3-certbot-nginx \
+  php8.2-fpm php8.2-cli php8.2-mysql php8.2-mbstring php8.2-xml php8.2-curl php8.2-gd \
+  php8.2-zip php8.2-bcmath php8.2-intl php8.2-opcache</pre><button type="button">Copiar</button></div>
+  <div class="cmd"><pre>curl -sS https://getcomposer.org/installer | php &amp;&amp; mv composer.phar /usr/local/bin/composer
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash - &amp;&amp; apt -y install nodejs</pre><button type="button">Copiar</button></div>
+  <div class="note">Si <code>php8.2</code> no aparece en tu versión de Ubuntu: <code>add-apt-repository -y ppa:ondrej/php &amp;&amp; apt update</code> y repite.
+  Sirve cualquier PHP 8.2 o superior (cambia el número en todos los comandos).</div>
+
+  <div class="step"><span class="n">2</span><h3>Crear la base de datos vacía</h3></div>
+  <div class="cmd"><pre>mysql -e "CREATE DATABASE erp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE USER 'erp'@'localhost' IDENTIFIED BY 'CLAVE'; GRANT ALL ON erp.* TO 'erp'@'localhost';"
+printf '[mysqld]\nlog_bin_trust_function_creators = 1\n' &gt; /etc/mysql/mysql.conf.d/erp.cnf &amp;&amp; systemctl restart mysql</pre><button type="button">Copiar</button></div>
+  <div class="note warn"><b>La segunda línea es obligatoria.</b> Una tabla tiene un trigger que impide modificar las marcaciones
+  ya registradas (auditoría) y MySQL 8 lo rechaza sin ese ajuste (error 1419). En MariaDB el archivo va en <code>/etc/mysql/mariadb.conf.d/</code>.</div>
+
+  <div class="step"><span class="n">3</span><h3>Descargar el código y compilar</h3></div>
+  <div class="cmd"><pre>adduser --disabled-password --gecos "" erp &amp;&amp; mkdir -p /var/www/midominio.com &amp;&amp; chown erp: /var/www/midominio.com
+sudo -u erp -H bash -c 'git clone git@github.com:lokitoweb/app-tunesa.git /var/www/midominio.com/app &amp;&amp; cd /var/www/midominio.com/app &amp;&amp; composer install --no-dev --optimize-autoloader &amp;&amp; npm ci &amp;&amp; npm run build'</pre><button type="button">Copiar</button></div>
+  <div class="note">El repositorio es privado: antes, crea una <b>deploy key</b> para el usuario <code>erp</code>
+  (<code>sudo -u erp ssh-keygen -t ed25519</code>) y agrégala en GitHub › Settings › Deploy keys, solo lectura.</div>
+
+  <div class="step"><span class="n">4</span><h3>Nginx y HTTPS</h3></div>
+  <p>Crea <code>/etc/nginx/sites-available/erp</code> con este contenido (cambia el dominio y el socket de PHP si usas otra versión):</p>
+  <div class="cmd"><pre>server {
+    listen 80;
+    server_name midominio.com www.midominio.com;
+    root /var/www/midominio.com/app/public;
+    index index.php;
+    client_max_body_size 25M;
+
+    location / { try_files $uri $uri/ /index.php?$query_string; }
+    location ~ \.php$ {
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_read_timeout 120;
+    }
+    location ~ /\.(?!well-known).* { deny all; }
+}</pre><button type="button">Copiar</button></div>
+  <div class="cmd"><pre>ln -s /etc/nginx/sites-available/erp /etc/nginx/sites-enabled/erp &amp;&amp; nginx -t &amp;&amp; systemctl reload nginx
+certbot --nginx -d midominio.com -d www.midominio.com --redirect</pre><button type="button">Copiar</button></div>
+
+  <div class="step"><span class="n">5</span><h3>Instalador web</h3></div>
+  <p>Abre <code>https://midominio.com/install</code> <b>con el dominio real y https</b> (no con la IP): de esa dirección
+  salen el dominio, la cookie segura y el remitente del correo. Son 5 pantallas:</p>
+  <ol>
+    <li><b>Requisitos:</b> PHP, extensiones y carpetas con permiso de escritura (si algo sale en rojo, dice qué falta).</li>
+    <li><b>Base de datos:</b> los datos del paso 2 (botón para probar la conexión antes de guardar).</li>
+    <li><b>Estructura:</b> crea las tablas, los roles y los permisos (tarda 1 a 3 minutos).</li>
+    <li><b>Plataforma y administrador:</b> nombre del sistema, dominio de los correos de acceso, zona horaria y el administrador principal.</li>
+    <li><b>Listo:</b> el asistente se apaga y muestra el último comando del paso 6.</li>
+  </ol>
+
+  <div class="step"><span class="n">6</span><h3>Configuración del servidor (una sola vez)</h3></div>
+  <div class="cmd"><pre>cd /var/www/midominio.com/app &amp;&amp; sudo bash scripts/server-setup.sh --dry-run</pre><button type="button">Copiar</button></div>
+  <p>Muestra lo que haría sin cambiar nada. Si se ve bien, aplícalo:</p>
+  <div class="cmd"><pre>cd /var/www/midominio.com/app &amp;&amp; sudo bash scripts/server-setup.sh</pre><button type="button">Copiar</button></div>
+  <p>Tiene que terminar con <code>Servidor listo.</code> Se puede volver a correr cuando quieras: no duplica nada y no toca
+  tareas de otros sistemas del mismo servidor.</p>
+
+  <div class="step"><span class="n">7</span><h3>Comprobar</h3></div>
+  <div class="cmd"><pre>sudo -u erp -H bash -c 'cd /var/www/midominio.com/app &amp;&amp; php artisan app:check-production'</pre><button type="button">Copiar</button></div>
+  <p>Revisa modo depuración, HTTPS, cookie segura, base de datos, cola, correo y que las tareas programadas estén
+  corriendo. Al inicio el único aviso esperado es el del correo (sección 7). Espera 2 minutos después del paso 6 para que
+  las tareas programadas den su primera señal.</p>
+</section>
+
+<section id="env">
+  <h2>5. El archivo .env</h2>
+  <p>El <code>.env</code> guarda la configuración de cada instalación (dominio, base de datos, claves). <b>No se copia de otro
+  servidor ni se edita a mano:</b> el instalador lo crea desde la plantilla de producción
+  (<code>.env.production.example</code>) y completa solo lo que cambia en cada servidor.</p>
+  <div class="table-scroll"><table>
+    <tr><th>Valor</th><th>Quién lo pone</th><th>De dónde sale</th></tr>
+    <tr><td><code>APP_KEY</code> (clave de cifrado)</td><td><span class="pill auto">Instalador</span></td><td>Se genera al abrir <code>/install</code> por primera vez</td></tr>
+    <tr><td><code>APP_URL</code>, <code>APP_DOMAIN</code>, <code>SANCTUM_STATEFUL_DOMAINS</code></td><td><span class="pill auto">Instalador</span></td><td>La dirección con la que se abrió <code>/install</code></td></tr>
+    <tr><td><code>SESSION_SECURE_COOKIE</code></td><td><span class="pill auto">Instalador</span></td><td>Activa si se entró con https</td></tr>
+    <tr><td><code>DB_HOST</code>, <code>DB_DATABASE</code>, <code>DB_USERNAME</code>, <code>DB_PASSWORD</code></td><td><span class="pill auto">Instalador</span></td><td>Pantalla 2</td></tr>
+    <tr><td><code>APP_NAME</code>, <code>APP_TIMEZONE</code></td><td><span class="pill auto">Instalador</span></td><td>Pantalla 4</td></tr>
+    <tr><td><code>MAIL_FROM_ADDRESS</code></td><td><span class="pill auto">Instalador</span></td><td><code>no-reply@</code> + el dominio</td></tr>
+    <tr><td><code>INSTALLER_ENABLED=false</code></td><td><span class="pill auto">Instalador</span></td><td>Al terminar: apaga el asistente</td></tr>
+    <tr><td>Producción: <code>APP_ENV=production</code>, <code>APP_DEBUG=false</code>, logs diarios, sesiones, caché y cola en MySQL, bloqueo de intentos de login, archivos privados</td><td><span class="pill ok">Plantilla</span></td><td>Ya vienen en <code>.env.production.example</code></td></tr>
+    <tr><td>Correo SMTP (<code>MAIL_MAILER</code>, <code>MAIL_HOST</code>…)</td><td><span class="pill warn">A mano</span></td><td>Datos del proveedor de correo de cada empresa (sección 7)</td></tr>
+    <tr><td>Opcionales: <code>MIGO_API_TOKEN</code>, <code>NUBEFACT_*</code>, <code>FINANCE_IGV_RATE</code>, bancos y AFP</td><td><span class="pill warn">Opcional</span></td><td>Sin valor, la función queda apagada o con su valor por defecto. Migo y Nubefact también se configuran en el panel</td></tr>
+  </table></div>
+  <div class="note ok"><b>¿Queda igual que el de un servidor en producción?</b> Queda con <b>la misma configuración de
+  funcionamiento</b>. Cambian solo los valores propios de cada servidor: dominio, base de datos, clave de cifrado, nombre
+  y correo. Se revisaron una por una todas las variables que lee el sistema: las que no están en la plantilla tienen un
+  valor por defecto que funciona.</div>
+  <div class="note warn"><b>Guarda una copia del <code>APP_KEY</code></b> en un lugar seguro. Con ella se cifran las claves
+  guardadas en el panel (correo, Migo, Nubefact, Firebase). Si se pierde o se cambia, hay que volver a cargarlas.</div>
+</section>
+
+<section id="base">
+  <h2>6. Qué se crea en la base de datos</h2>
+  <ul>
+    <li><b>Todas las tablas</b>: 91 migraciones, en orden, desde una base vacía. Son las mismas que usa producción.</li>
+    <li><b>8 roles y 65 permisos</b> del sistema (los mismos de producción).</li>
+    <li><b>Un solo usuario</b>: el administrador que se crea en la pantalla 4.</li>
+    <li><b>Ningún dato de prueba</b>: ni empresas, ni colaboradores, ni requerimientos. Cada empresa carga lo suyo.</li>
+  </ul>
+  <div class="note"><b>Instalar desde cero no copia los datos de otro servidor.</b> Para mudar una instalación que ya está
+  en uso (con sus datos) hay que llevar la base (<code>mysqldump</code>), la carpeta <code>storage/app</code> y el
+  <code>APP_KEY</code>; eso es una mudanza, no una instalación nueva.</div>
+</section>
+
+<section id="despues">
+  <h2>7. Después de instalar (desde el panel)</h2>
+  <ul>
+    <li><b>Configuración › Marca y app:</b> nombre, logos (claro y oscuro), colores, ícono del navegador, dominio de los correos de acceso. Hasta subirlos se ve un logo genérico.</li>
+    <li><b>Empresas:</b> crear la primera empresa y su administrador.</li>
+    <li><b>Integraciones:</b> correo SMTP para avisos y documentos a proveedores, consulta de RUC y DNI (token de Migo), facturación electrónica, webhooks.</li>
+  </ul>
+  <p>La <b>recuperación de contraseña</b> usa el correo del <code>.env</code>. Edita estas líneas en <code>/var/www/midominio.com/app/.env</code>:</p>
+  <div class="cmd"><pre>MAIL_MAILER=smtp
+MAIL_HOST=smtp.tu-proveedor.com
+MAIL_PORT=587
+MAIL_USERNAME=usuario@midominio.com
+MAIL_PASSWORD=la-clave-del-correo
+MAIL_ENCRYPTION=tls</pre><button type="button">Copiar</button></div>
+  <div class="cmd"><pre>sudo -u erp -H bash -c 'cd /var/www/midominio.com/app &amp;&amp; php artisan config:cache'</pre><button type="button">Copiar</button></div>
+</section>
+
+<section id="actualizaciones">
+  <h2>8. Actualizaciones automáticas</h2>
+  <p>Después del paso 6 no hay que correr comandos para actualizar. Cada cambio sigue este camino:</p>
+  <div class="flow">
+    <div><b>1. Push</b>Se sube un cambio a <code>master</code> en GitHub.</div>
+    <div><b>2. Pruebas</b>GitHub corre ~700 pruebas con SQLite y con <b>MySQL 8</b>, y compila el panel.</div>
+    <div><b>3. Aprobado</b>Solo si todo pasa, GitHub mueve la rama <code>production</code> a ese cambio.</div>
+    <div><b>4. Despliegue</b>El servidor lo detecta en máximo 2 minutos y se actualiza solo.</div>
+  </div>
+  <p>En cada despliegue el servidor:</p>
+  <ul>
+    <li>Respalda la base si hay migraciones.</li>
+    <li>Pone el sitio en mantenimiento unos segundos y corre las migraciones.</li>
+    <li>Actualiza roles y permisos, compila el panel si cambió y recarga PHP.</li>
+  </ul>
+  <div class="note ok">Si una prueba falla, <b>producción no cambia</b>: sigue en la última versión que pasó. Si el propio
+  despliegue falla, vuelve solo al código anterior y deja el error en <code>storage/logs/deploy.log</code>.</div>
+  <p>Publicar al instante, sin esperar al cron, o reintentar un despliegue:</p>
+  <div class="cmd"><pre>sudo -u erp -H bash -c 'cd /var/www/midominio.com/app &amp;&amp; bash scripts/deploy.sh 2&gt;&amp;1 | tee -a storage/logs/deploy.log'</pre><button type="button">Copiar</button></div>
+</section>
+
+<section id="movil">
+  <h2>9. App móvil</h2>
+  <p>La app no se instala en el servidor: se compila (APK para Android, IPA para iOS) y se reparte a los colaboradores.
+  En GitHub se compila sola cada vez que cambia la carpeta <code>mobile/</code>.</p>
+  <ul>
+    <li><b>Servidor al que se conecta:</b> <code>API_BASE_URL</code> en <code>mobile/env/&lt;entorno&gt;.json</code>. Las apps ya instaladas también pueden cambiar de servidor desde el login (“¿Otra empresa o servidor?”).</li>
+    <li><b>Marca:</b> nombre bajo el ícono, ícono, pantalla de arranque y logo salen de un kit de <code>mobile/branding/&lt;cliente&gt;/</code>. El kit <code>default</code> es neutro. Lo de adentro de la app (logo, colores, nombre) lo manda el servidor desde Marca y app.</li>
+    <li><b>Cliente nuevo:</b> copiar <code>mobile/branding/default</code>, reemplazar las imágenes (mismas medidas), poner el nombre en <code>brand.json</code> y <code>"BRAND"</code> en su <code>env/&lt;cliente&gt;.json</code>.</li>
+    <li><b>Avisos push:</b> necesitan un proyecto de Firebase; sin él la app funciona igual, sin notificaciones.</li>
+  </ul>
+</section>
+
+<section id="problemas">
+  <h2>10. Si algo falla</h2>
+  <div class="table-scroll"><table>
+    <tr><th>Síntoma</th><th>Causa y solución</th></tr>
+    <tr><td>El paso 1 del instalador sale en rojo</td><td>Falta una extensión de PHP o permisos de escritura. El instalador dice cuál; instálala (<code>apt install php8.2-&lt;nombre&gt;</code>) y recarga.</td></tr>
+    <tr><td>La estructura falla con el error 1419</td><td>Falta <code>log_bin_trust_function_creators</code> (paso 2). Agrégalo, reinicia MySQL y vuelve a “Crear estructura”.</td></tr>
+    <tr><td>No se puede iniciar sesión después de instalar</td><td>Se instaló por <code>http</code> o por IP. Abre el sitio con el dominio y <code>https</code>; en <code>.env</code> revisa <code>APP_URL</code> y <code>SESSION_SECURE_COOKIE</code>.</td></tr>
+    <tr><td><code>check-production</code> dice que las tareas programadas no corren</td><td>Falta el paso 6, o hay que esperar 2 minutos.</td></tr>
+    <tr><td>Los cambios no llegan solos</td><td>Revisa que las pruebas de GitHub estén en verde y mira <code>storage/logs/deploy.log</code>.</td></tr>
+    <tr><td>Git dice <i>dubious ownership</i></td><td>Se corrió git como root. Úsalo siempre como el dueño: <code>sudo -u erp -H …</code></td></tr>
+    <tr><td>No llegan correos</td><td><code>MAIL_MAILER=log</code>: completa los datos SMTP (sección 7).</td></tr>
+  </table></div>
+</section>
+
+<section id="garantias">
+  <h2>11. Qué está probado y qué no</h2>
+  <div class="table-scroll"><table>
+    <tr><th>Parte</th><th>Estado</th></tr>
+    <tr><td>Instalación desde cero con el instalador (base MySQL vacía, dominio nuevo, inicio de sesión, panel vacío y neutro, asistente apagado)</td><td><span class="pill ok">Probado</span></td></tr>
+    <tr><td>Las 91 migraciones en MySQL 8 vacío</td><td><span class="pill ok">Probado en cada cambio</span></td></tr>
+    <tr><td>~700 pruebas automáticas del sistema, con SQLite y con MySQL</td><td><span class="pill ok">En cada cambio</span></td></tr>
+    <tr><td><code>server-setup.sh</code> y el despliegue solo de lo aprobado</td><td><span class="pill ok">Probado en Linux y en el servidor actual</span></td></tr>
+    <tr><td>Pasos 1 y 4 (instalar paquetes de Ubuntu, Nginx y certificado)</td><td><span class="pill warn">Comandos estándar; revisar en el primer servidor nuevo</span></td></tr>
+    <tr><td>Envío real de correos y consultas reales a Migo</td><td><span class="pill warn">Dependen de las credenciales de cada empresa</span></td></tr>
+  </table></div>
+  <div class="note">Las pruebas automáticas cubren las reglas del negocio y las pantallas, pero ningún sistema puede
+  garantizar cero errores. Lo que sí está garantizado: <b>nada llega a producción sin pasar esas pruebas en MySQL</b>, y si
+  un despliegue falla, el servidor vuelve solo a la versión anterior.</div>
+</section>
+
+<footer>Guía de instalación · versión del 27/10/2026 · Fuente técnica completa: <code>docs/deployment/produccion-servidor.md</code></footer>
+</div>
+<script>
+  document.querySelectorAll('.cmd button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.previousElementSibling.innerText;
+      var done = function () { btn.textContent = 'Copiado'; setTimeout(function () { btn.textContent = 'Copiar'; }, 1500); };
+      if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function () {}); }
+    });
+  });
+  (function () {
+    var root = document.documentElement, btn = document.getElementById('theme');
+    try { var saved = localStorage.getItem('guia-tema'); if (saved) root.setAttribute('data-theme', saved); } catch (e) {}
+    btn.addEventListener('click', function () {
+      var dark = root.getAttribute('data-theme') === 'dark' || (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+      var next = dark ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('guia-tema', next); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>
