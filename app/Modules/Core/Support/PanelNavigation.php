@@ -71,6 +71,7 @@ class PanelNavigation
                 ['Finance', 'suppliers.view', 'suppliers.index', [], 'truck', 'Proveedores', $request->routeIs('suppliers.*')],
                 ['Finance', 'payroll.payments', 'payroll-payments.index', [], 'people', 'Pagos de RRHH', $request->routeIs('payroll-payments.*')],
                 ['Finance', 'suppliers.view', 'purchases.by-product', [], 'search', 'Compras por producto', $request->routeIs('purchases.*')],
+                ['Finance', 'purchasing.manage', 'products.index', [], 'box', 'Productos', $request->routeIs('products.*')],
                 ['Finance', 'inventory.manage', 'inventory.index', [], 'box-seam', 'Almacén y kardex', $request->routeIs('inventory.*'),
                     fn () => $hasTenant ? \App\Modules\Finance\Models\Requisition::where('stage', 'ordered')->whereNotNull('purchase_order_number')->whereNull('received_at')->count() : 0],
                 ['Finance', 'fuel.manage', 'fuel.index', [], 'fuel-pump', 'Combustible', $request->routeIs('fuel.*')],

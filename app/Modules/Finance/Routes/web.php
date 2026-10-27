@@ -136,6 +136,13 @@ Route::middleware(['auth', 'web.tenant', 'can:payroll.payments'])->prefix('payro
     Route::get('/template', [PayrollPaymentWebController::class, 'template'])->name('template');
 });
 
+// Maestros: catálogo de productos y servicios (Modificar_producto / eliminar_producto)
+Route::middleware(['auth', 'web.tenant', 'can:purchasing.manage'])->prefix('products')->name('products.')->group(function () {
+    Route::get('/', [\App\Modules\Finance\Controllers\Web\ProductWebController::class, 'index'])->name('index');
+    Route::put('/{id}', [\App\Modules\Finance\Controllers\Web\ProductWebController::class, 'update'])->name('update')->whereNumber('id');
+    Route::delete('/{id}', [\App\Modules\Finance\Controllers\Web\ProductWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
+});
+
 // Consulta de compras por producto (FrmConsultar)
 Route::middleware(['auth', 'web.tenant', 'can:suppliers.view'])->get('/purchases/by-product', [InventoryWebController::class, 'purchases'])->name('purchases.by-product');
 

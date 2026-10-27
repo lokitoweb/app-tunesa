@@ -11,4 +11,9 @@ class Product extends Model
     use BelongsToTenant;
 
     protected $fillable = ['tenant_id', 'name', 'classification', 'unit'];
+
+    public function items(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(RequisitionItem::class);
+    }
 }
