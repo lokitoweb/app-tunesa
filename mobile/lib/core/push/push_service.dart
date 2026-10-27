@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../config/env.dart';
 import 'push_options.dart';
 
 /// Notificaciones push con Firebase Cloud Messaging.
@@ -22,7 +23,7 @@ class PushService {
   final FirebaseOptions options;
 
   static const _channelId = 'tunesa_default';
-  static const _channelName = 'Avisos de Grupo Negreiros';
+  static const _channelName = 'Avisos de ${Env.appName}';
 
   /// Ícono blanco de la barra de estado (res/drawable/ic_stat_notification.xml).
   static const _smallIcon = 'ic_stat_notification';

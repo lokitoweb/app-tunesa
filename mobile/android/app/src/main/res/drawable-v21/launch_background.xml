@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Pantalla de carga: fondo blanco con el logo de Grupo Negreiros al centro -->
+<!-- Pantalla de carga: fondo blanco con el logo del kit de marca al centro -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@android:color/white" />
     <item>

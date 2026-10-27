@@ -1,5 +1,6 @@
 {
   "ENV_NAME": "prod",
+  "BRAND": "grupo-negreiros",
   "API_BASE_URL": "https://group-cyp.com",
   "DEFAULT_TENANT": "",
   "MAX_GPS_ACCURACY": "50",

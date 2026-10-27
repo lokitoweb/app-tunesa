@@ -101,7 +101,7 @@ void main() {
     expect(find.byKey(const Key('password-help-done')), findsOneWidget);
   });
 
-  testWidgets('el login muestra fijo el logo oficial de Grupo Negreiros sin deformarlo', (tester) async {
+  testWidgets('el login muestra fijo el logo del kit de marca sin deformarlo', (tester) async {
     tester.view.physicalSize = const Size(320 * 3, 640 * 3); // teléfono angosto
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);

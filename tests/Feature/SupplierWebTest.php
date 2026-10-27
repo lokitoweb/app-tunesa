@@ -106,4 +106,31 @@ class SupplierWebTest extends TestCase
 
         Http::assertSent(fn ($req) => $req->hasHeader('Authorization', 'Token token=tok-test') && $req['ruc'] === '20123456789');
     }
+
+    public function test_dni_lookup_fills_the_name_of_a_natural_person(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $user = $this->makeUser($acme, 'logistics');
+        config(['services.migo.token' => 'tok-test', 'services.migo.dni_url' => 'https://migo.test/dni']);
+
+        Http::fake(['migo.test/dni' => Http::sequence()
+            ->push(['success' => true, 'dni' => '44556677', 'nombre' => 'QUISPE MAMANI ROSA'])
+            ->push(['errors' => 'DNI no encontrado'])
+            ->pushStatus(500)]);
+
+        $this->actingAs($user)->getJson('/suppliers/dni/44556677')
+            ->assertOk()->assertJsonPath('data.name', 'QUISPE MAMANI ROSA');
+        Http::assertSent(fn ($req) => $req->url() === 'https://migo.test/dni' && $req['dni'] === '44556677' && $req['token'] === 'tok-test');
+
+        // Como el .NET: si la respuesta trae "errors" no se usa
+        $this->actingAs($user)->getJson('/suppliers/dni/11111111')->assertNotFound()->assertJsonPath('success', false);
+        // Servicio caído: se avisa que no respondió (no que el DNI no existe) y no se inventa un nombre
+        $this->actingAs($user)->getJson('/suppliers/dni/22222222')->assertStatus(502)->assertJsonPath('message', 'Migo no respondió. Completa los datos a mano.');
+
+        $this->actingAs($user)->getJson('/suppliers/dni/123')->assertNotFound();   // solo 8 dígitos
+
+        config(['services.migo.token' => null]);
+        $this->actingAs($user)->getJson('/suppliers/dni/44556677')->assertStatus(503);
+    }
 }

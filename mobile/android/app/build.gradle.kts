@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -14,6 +15,16 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+
+// Nombre bajo el ícono: APP_NAME de los --dart-define (scripts/build_apk.sh lo toma del kit de
+// marca, mobile/branding/<kit>/brand.json). Flutter los pasa a Gradle en base64 separados por coma.
+val appName: String = (project.findProperty("dart-defines") as String?)
+    ?.split(",")
+    ?.map { String(Base64.getDecoder().decode(it)) }
+    ?.firstOrNull { it.startsWith("APP_NAME=") }
+    ?.substringAfter("=")
+    ?.takeIf { it.isNotBlank() }
+    ?: "ERP"
 
 android {
     // Igual al applicationId (MainActivity vive en com.tunesa.mobile)
@@ -40,7 +51,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["appLabel"] = "Grupo Negreiros"
+        manifestPlaceholders["appLabel"] = appName
         manifestPlaceholders["usesCleartextTraffic"] = "false"
     }
 

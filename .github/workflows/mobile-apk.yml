@@ -218,9 +218,17 @@ jobs:
           flutter pub get
           cd ios && pod install --repo-update
 
+      # Kit de marca del entorno (íconos, logo, nombre); scripts/build_apk.sh hace lo mismo en Android
+      - name: Marca (kit de mobile/branding)
+        run: |
+          BRAND=$(sed -n 's/.*"BRAND": *"\([^"]*\)".*/\1/p' "env/$ENV_NAME.json")
+          BRAND=${BRAND:-default}
+          scripts/apply_brand.sh "$BRAND"
+
       - name: Defines de compilación
         run: |
-          EXTRA=""
+          # El nombre de la app va en su propio archivo: con espacios no se puede pasar suelto
+          EXTRA="--dart-define-from-file=branding/$(sed -n 's/.*"BRAND": *"\([^"]*\)".*/\1/p' "env/$ENV_NAME.json" | grep . || echo default)/brand.json"
           if [ -n "$API_BASE_URL" ]; then EXTRA="$EXTRA --dart-define=API_BASE_URL=$API_BASE_URL"; fi
           for VAR in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_IOS_APP_ID FIREBASE_IOS_BUNDLE_ID; do
             if [ -n "${!VAR}" ]; then EXTRA="$EXTRA --dart-define=$VAR=${!VAR}"; fi

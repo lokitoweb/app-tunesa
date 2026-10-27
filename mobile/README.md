@@ -1,4 +1,4 @@
-# TuneSA — App móvil (Flutter)
+# App móvil (Flutter)
 
 App del colaborador para Android e iOS: login por empresa, inicio con el turno del día,
 marcación con GPS estricto + selfie frontal, historial y justificaciones, solicitudes
@@ -32,6 +32,33 @@ flutter run --dart-define-from-file=env/dev.json   # emulador Android → backen
 
 En un teléfono físico usa la IP de tu PC en `env/dev.json` (ej. `http://192.168.1.20:8000`)
 y arranca el backend con `php artisan serve --host 0.0.0.0`.
+
+## Marca de la app (kit por cliente)
+
+Lo que se ve **fuera** de la app (nombre bajo el ícono, ícono, pantalla de arranque) y el logo de
+respaldo se eligen al compilar con un kit de `branding/<kit>/`. Lo de **adentro** (logo, colores y
+nombre) lo manda el servidor desde **Marca y app**, sin recompilar.
+
+| Kit | Para qué |
+|---|---|
+| `default` | Neutro ("ERP", ícono genérico). Es el que queda en el repositorio. |
+| `grupo-negreiros` | La marca actual; la usan `env/dev`, `prod`, `staging` y `tunnel` (`"BRAND"`). |
+
+`scripts/build_apk.sh` lee `"BRAND"` del `env/<entorno>.json`, aplica el kit con
+`scripts/apply_brand.sh`, pasa su `brand.json` (`APP_NAME`) como defines y, al terminar, deja otra
+vez el kit neutro. El job de iOS hace lo mismo.
+
+**Cliente nuevo:**
+
+1. Copia `branding/default` a `branding/<cliente>` (minúsculas y guiones).
+2. Reemplaza las imágenes por las suyas **con las mismas medidas** y pon su nombre en `brand.json`.
+3. Crea `env/<cliente>.json` (copia de `prod.json`) con su `API_BASE_URL` y `"BRAND": "<cliente>"`.
+4. `scripts/build_apk.sh <cliente>`.
+
+El identificador de la app (`com.tunesa.mobile`) **no** cambia con la marca: Firebase (avisos push)
+está registrado con él y cambiarlo obligaría a desinstalar la app en todos los teléfonos. Una app
+separada en Google Play por cliente sí necesita su propio identificador y su propio proyecto de
+Firebase: se decide aparte.
 
 ## Compilar el APK
 

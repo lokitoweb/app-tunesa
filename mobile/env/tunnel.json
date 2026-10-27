@@ -1,5 +1,6 @@
 {
   "ENV_NAME": "tunnel",
+  "BRAND": "grupo-negreiros",
   "API_BASE_URL": "https://rather-inner-inherited-produces.trycloudflare.com",
   "DEFAULT_TENANT": "",
   "MAX_GPS_ACCURACY": "100",

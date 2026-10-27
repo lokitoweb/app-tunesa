@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compila el APK de TuneSA.
+# Compila el APK de la app (marca: kit de mobile/branding indicado por "BRAND" en env/<entorno>.json).
 #
 #   scripts/build_apk.sh                  # release contra env/prod.json
 #   scripts/build_apk.sh staging          # release contra env/staging.json
@@ -45,7 +45,15 @@ if grep -q 'CAMBIA-ESTE-SUBDOMINIO' "$ENV_FILE" && [[ -z "${API_BASE_URL:-}" ]];
   exit 1
 fi
 
-EXTRA_DEFINES=()
+# Kit de marca del entorno ("BRAND" en env/<entorno>.json, por defecto el neutro): íconos, pantalla
+# de arranque, logo y nombre. Al terminar (bien o mal) vuelve la marca neutra del repositorio.
+BRAND="$(sed -n 's/.*"BRAND": *"\([^"]*\)".*/\1/p' "$ENV_FILE")"
+BRAND="${BRAND:-default}"
+scripts/apply_brand.sh "$BRAND"
+trap 'scripts/apply_brand.sh default >/dev/null' EXIT
+
+# Nombre de la app: brand.json del kit como segundo archivo de defines (APP_NAME)
+EXTRA_DEFINES=("--dart-define-from-file=branding/${BRAND}/brand.json")
 if [[ -n "${API_BASE_URL:-}" ]]; then
   EXTRA_DEFINES+=("--dart-define=API_BASE_URL=${API_BASE_URL}")
 fi

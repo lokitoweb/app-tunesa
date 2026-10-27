@@ -64,7 +64,7 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 | 15 | Hecho | Finanzas › Productos: corregir y eliminar solo los no usados |
 | 16 | Hecho | El .NET avisaba "Se registró un pago": aviso en la campana a quien pidió |
 | 17 | Hecho | Tesorería › Programadas: marcar y autorizar varias |
-| 18 | Parcial | RUC: hecho con Migo (Proveedores, token en Integraciones). DNI: la configuración de Migo existe, falta usarla en Colaboradores y en el pago a personas |
+| 18 | Hecho | Proveedores: consulta de RUC (SUNAT) y de DNI (RENIEC) con Migo, como FrmReq/FrmReqProg (los únicos formularios del .NET que la usaban). Se activa con el token de Migo en Integraciones |
 
 ## Reglas que el web hace distinto (a propósito o a decidir)
 - Aprobador: el .NET tenía fijo "MERCY NEGREIROS PIZAN" en el código; el web usa el permiso de aprobar.
@@ -73,4 +73,4 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 - Cuotas: el .NET las dejaba editar y con anticipo; el web genera cuotas iguales (ver brecha 4).
 - Liquidación: el .NET **no la calculaba**, se escribía a mano; el web importa el monto: equivalente.
 - Login: el .NET era empresa + clave sin usuario; el web, usuario con roles.
-- Seguridad: el .NET tiene la contraseña del correo Gmail escrita en el código (FrmReq.vb:2575 y 3774) y Crystal conecta como "sa". **Conviene cambiar esas contraseñas si siguen vigentes.**
+- Seguridad: el .NET tiene la contraseña del correo Gmail escrita en el código (FrmReq.vb:2575 y 3774), el token de Migo también (FrmReq.vb:1559, FrmReqProg.vb) y Crystal conecta como "sa". **Conviene cambiar esas contraseñas y pedir a Migo un token nuevo si siguen vigentes.**

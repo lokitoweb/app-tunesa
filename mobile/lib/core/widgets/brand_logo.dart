@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../config/app_config_controller.dart';
+import '../config/env.dart';
 
 /// Caché de logos en disco (directorio de soporte de la app) + memoria, para
 /// que la marca se vea al instante y sin red en los siguientes arranques.
@@ -87,7 +88,7 @@ class LogoCache {
 }
 
 /// Logo de la empresa: `logo_dark_url` en tema oscuro (si existe), si no
-/// `logo_url`; sin logo o si falla, el logo oficial de Grupo Negreiros.
+/// `logo_url`; sin logo o si falla, el logo del kit de marca con que se compiló.
 class BrandLogo extends ConsumerWidget {
   const BrandLogo({super.key, this.height = 72});
 
@@ -150,18 +151,18 @@ class _NetworkLogoState extends State<_NetworkLogo> {
   }
 }
 
-/// Logo oficial de Grupo Negreiros, incluido en la app: fijo en el login y
+/// Logo del kit de marca (`mobile/branding/<kit>`), incluido en la app: fijo en el login y
 /// respaldo de [BrandLogo]. Mantiene su proporción en cualquier pantalla.
 class OfficialLogo extends StatelessWidget {
   const OfficialLogo({super.key, this.height = 72});
 
-  static const asset = 'assets/branding/logo-grupo-negreiros.png';
+  static const asset = 'assets/branding/logo.png';
 
   final double height;
 
   @override
   Widget build(BuildContext context) => Semantics(
-        label: 'Grupo Negreiros',
+        label: Env.appName,
         image: true,
         child: Center(
           child: Image.asset(
@@ -171,7 +172,7 @@ class OfficialLogo extends StatelessWidget {
             filterQuality: FilterQuality.medium,
             // Si faltara el archivo, el nombre en texto (nunca un hueco)
             errorBuilder: (context, _, _) => Text(
-              'GRUPO NEGREIROS',
+              Env.appName.toUpperCase(),
               style: TextStyle(fontSize: height * 0.3, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary),
             ),
           ),

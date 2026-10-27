@@ -7,11 +7,11 @@ use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\TenantContext;
 use App\Modules\Finance\Models\Supplier;
+use App\Modules\Integrations\Services\MigoLookup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -89,31 +89,33 @@ class SupplierWebController extends Controller
         return back()->with('success', 'Proveedor eliminado.');
     }
 
-    /** Razón social y dirección desde Migo (POST {ruc, token}, como el ERP de escritorio) */
+    /** Razón social y dirección desde SUNAT (Migo) */
     public function lookupRuc(string $ruc): JsonResponse
     {
+        return $this->lookup(fn (MigoLookup $migo) => $migo->ruc($ruc), 'No se encontró el RUC en SUNAT.');
+    }
+
+    /** Nombre de la persona natural desde RENIEC (Migo), como FrmReq / FrmReqProg del .NET */
+    public function lookupDni(string $dni): JsonResponse
+    {
+        return $this->lookup(fn (MigoLookup $migo) => $migo->dni($dni), 'No se encontró el DNI en RENIEC.');
+    }
+
+    private function lookup(\Closure $query, string $notFound): JsonResponse
+    {
         // Credenciales de la empresa (o de la plataforma) administradas en Integraciones
-        ['token' => $token, 'ruc_url' => $url] = TenantSetting::forTenant(app(TenantContext::class)->getOrNull())->migo();
-        abort_unless($token, 503, 'La consulta de RUC no está configurada.');
+        $migo = new MigoLookup(TenantSetting::forTenant(app(TenantContext::class)->getOrNull()));
+        abort_unless($migo->enabled(), 503, 'La consulta por documento no está configurada.');
 
         try {
-            $data = Http::timeout(10)->acceptJson()
-                ->withHeaders(['Authorization' => "Token token={$token}"])
-                ->post($url, ['ruc' => $ruc, 'token' => $token])
-                ->json();
-        } catch (\Throwable) {
-            return response()->json(['success' => false, 'message' => 'Migo no respondió. Completa los datos a mano.'], 502);
+            $data = $query($migo);
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 502);
         }
 
-        if (! is_array($data) || empty($data['nombre_o_razon_social'])) {
-            return response()->json(['success' => false, 'message' => 'No se encontró el RUC en SUNAT.'], 404);
-        }
-
-        return response()->json(['success' => true, 'data' => [
-            'name'    => $data['nombre_o_razon_social'],
-            'address' => trim(($data['direccion'] ?? '') ?: ''),
-            'city'    => $data['distrito'] ?? $data['provincia'] ?? null,
-        ]]);
+        return $data
+            ? response()->json(['success' => true, 'data' => $data])
+            : response()->json(['success' => false, 'message' => $notFound], 404);
     }
 
     // ------------------------------------------------------------------ privado

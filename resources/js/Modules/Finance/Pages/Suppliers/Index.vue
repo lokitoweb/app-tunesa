@@ -70,22 +70,29 @@ function addAccount() {
     form.bank_accounts.push({ bank: '', account_number: '', account_type: '' });
 }
 
-async function lookupRuc() {
-    if (!/^\d{11}$/.test(form.ruc)) {
-        lookup.value = { loading: false, message: 'El RUC tiene 11 dígitos.', ok: false };
+// Consulta por documento (Migo): RUC en SUNAT o DNI en RENIEC; completa nombre y dirección
+const DOCS = {
+    ruc: { digits: 11, label: 'RUC', source: 'SUNAT' },
+    dni: { digits: 8, label: 'DNI', source: 'RENIEC' },
+};
+
+async function lookupDoc(kind) {
+    const doc = DOCS[kind];
+    if (!new RegExp(`^\\d{${doc.digits}}$`).test(form[kind])) {
+        lookup.value = { loading: false, message: `El ${doc.label} tiene ${doc.digits} dígitos.`, ok: false, kind };
         return;
     }
-    lookup.value = { loading: true, message: '', ok: false };
+    lookup.value = { loading: true, message: '', ok: false, kind };
     try {
-        const res = await fetch(`/suppliers/ruc/${form.ruc}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+        const res = await fetch(`/suppliers/${kind}/${form[kind]}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
         const body = await res.json().catch(() => ({}));
         if (res.ok && body.success) {
             form.name = body.data.name;
-            form.address = (body.data.address || '').slice(0, 100);
+            if (body.data.address) form.address = body.data.address.slice(0, 100);
             if (body.data.city) form.city = body.data.city.slice(0, 50);
-            lookup.value = { loading: false, message: 'Datos de SUNAT cargados.', ok: true };
+            lookup.value = { loading: false, message: `Datos de ${doc.source} cargados.`, ok: true, kind };
         } else {
-            lookup.value = { loading: false, message: body.message || 'No se pudo consultar el RUC.', ok: false };
+            lookup.value = { loading: false, message: body.message || `No se pudo consultar el ${doc.label}.`, ok: false, kind };
         }
     } catch {
         lookup.value = { loading: false, message: 'Sin conexión con el servidor.', ok: false };
@@ -211,18 +218,25 @@ async function destroy(s) {
                             <label class="form-label small fw-semibold" for="sup-ruc">RUC</label>
                             <div class="input-group">
                                 <input id="sup-ruc" v-model.trim="form.ruc" class="form-control font-monospace" :class="{ 'is-invalid': form.errors.ruc }" inputmode="numeric" maxlength="11" />
-                                <button v-if="ruc_lookup" type="button" class="btn btn-outline-primary" :disabled="lookup.loading" title="Consultar en SUNAT" @click="lookupRuc">
-                                    <span v-if="lookup.loading" class="spinner-border spinner-border-sm"></span>
+                                <button v-if="ruc_lookup" type="button" class="btn btn-outline-primary" :disabled="lookup.loading" title="Consultar en SUNAT" aria-label="Consultar RUC en SUNAT" @click="lookupDoc('ruc')">
+                                    <span v-if="lookup.loading && lookup.kind === 'ruc'" class="spinner-border spinner-border-sm"></span>
                                     <i v-else class="bi bi-cloud-download"></i>
                                 </button>
                                 <div class="invalid-feedback">{{ form.errors.ruc }}</div>
                             </div>
-                            <div v-if="lookup.message" class="small mt-1" :class="lookup.ok ? 'text-success' : 'text-danger'">{{ lookup.message }}</div>
+                            <div v-if="lookup.message && lookup.kind === 'ruc'" class="small mt-1" :class="lookup.ok ? 'text-success' : 'text-danger'">{{ lookup.message }}</div>
                         </div>
                         <div class="col-sm-5">
                             <label class="form-label small fw-semibold" for="sup-dni">DNI</label>
-                            <input id="sup-dni" v-model.trim="form.dni" class="form-control font-monospace" :class="{ 'is-invalid': form.errors.dni }" inputmode="numeric" maxlength="8" />
-                            <div class="invalid-feedback">{{ form.errors.dni }}</div>
+                            <div class="input-group">
+                                <input id="sup-dni" v-model.trim="form.dni" class="form-control font-monospace" :class="{ 'is-invalid': form.errors.dni }" inputmode="numeric" maxlength="8" />
+                                <button v-if="ruc_lookup" type="button" class="btn btn-outline-primary" :disabled="lookup.loading" title="Consultar en RENIEC" aria-label="Consultar DNI en RENIEC" @click="lookupDoc('dni')">
+                                    <span v-if="lookup.loading && lookup.kind === 'dni'" class="spinner-border spinner-border-sm"></span>
+                                    <i v-else class="bi bi-cloud-download"></i>
+                                </button>
+                                <div class="invalid-feedback">{{ form.errors.dni }}</div>
+                            </div>
+                            <div v-if="lookup.message && lookup.kind === 'dni'" class="small mt-1" :class="lookup.ok ? 'text-success' : 'text-danger'">{{ lookup.message }}</div>
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold" for="sup-name">Razón social *</label>

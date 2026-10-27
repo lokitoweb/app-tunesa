@@ -1,5 +1,5 @@
 name: tunesa_mobile
-description: "Grupo Negreiros: marcación de asistencia con GPS y selfie, solicitudes y boletas de pago."
+description: "App de colaboradores: marcación de asistencia con GPS y selfie, solicitudes y boletas de pago."
 publish_to: 'none'
 version: 1.0.0+2
 
@@ -54,5 +54,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/branding/logo-grupo-negreiros.png
+    - assets/branding/logo.png
     - assets/gifts/

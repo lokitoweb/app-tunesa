@@ -10,6 +10,10 @@
 class Env {
   const Env._();
 
+  /// Nombre de la app del kit de marca (`mobile/branding/<kit>/brand.json`, lo pasa `scripts/build_apk.sh`).
+  /// En pantalla manda la marca del servidor (nombre y logo de "Marca y app"); este es el respaldo.
+  static const String appName = String.fromEnvironment('APP_NAME', defaultValue: 'ERP');
+
   /// Nombre del entorno: dev | staging | prod.
   static const String name = String.fromEnvironment('ENV_NAME', defaultValue: 'dev');
 

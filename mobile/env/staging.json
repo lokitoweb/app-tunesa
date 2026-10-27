@@ -1,5 +1,6 @@
 {
   "ENV_NAME": "staging",
+  "BRAND": "grupo-negreiros",
   "API_BASE_URL": "https://staging.tunesa.app",
   "DEFAULT_TENANT": "",
   "MAX_GPS_ACCURACY": "100",
