@@ -60,6 +60,7 @@ Route::middleware(['auth', 'web.tenant', 'can:treasury.view'])->prefix('treasury
     Route::get('/payments/{id}/voucher', [TreasuryWebController::class, 'voucher'])->name('voucher')->whereNumber('id');
 
     // Autoriza la persona designada (apoderado con "autoriza pagos"): regla en PaymentInstallment::authorizeBy
+    Route::post('/installments/authorize', [TreasuryWebController::class, 'authorizeMany'])->name('authorize-many');
     Route::post('/installments/{id}/authorize', [TreasuryWebController::class, 'authorizePayment'])->name('authorize')->whereNumber('id');
     Route::get('/installments/{id}/op.pdf', [TreasuryWebController::class, 'paymentOrderPdf'])->name('op.pdf')->whereNumber('id');
 

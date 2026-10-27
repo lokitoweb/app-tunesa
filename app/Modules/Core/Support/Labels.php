@@ -96,6 +96,7 @@ final class Labels
         'requisition.updated'                => ['Requerimiento actualizado', 'primary', 'cart'],
         'requisition.approved'               => ['Requerimiento aprobado', 'success', 'cart-check'],
         'requisition.rejected'               => ['Requerimiento rechazado', 'danger', 'cart-x'],
+        'requisition.paid'                   => ['Se registró un pago', 'success', 'cash-coin'],
         'requisition.cancelled'              => ['Requerimiento anulado', 'secondary', 'cart-x'],
         'requisition.ordered'                => ['Orden de compra/servicio emitida', 'success', 'receipt'],
         'quotation.created'                  => ['Cotización agregada', 'primary', 'file-earmark-text'],

@@ -117,6 +117,24 @@ class TreasuryWebController extends Controller
         return back()->with('success', 'Pago autorizado: tesorería ya puede pagarlo.');
     }
 
+    /** Autoriza varias cuotas marcadas a la vez (FrmRegpagos); misma regla que una por una */
+    public function authorizeMany(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:100'], 'ids.*' => ['integer', 'distinct']], ['ids.required' => 'Marca al menos una cuota.']);
+        $rows = PaymentInstallment::with('requisition')->whereKey($data['ids'])->get();
+        abort_if($rows->count() !== count($data['ids']), 404);
+        abort_unless(Signatory::canAuthorize($request->user()), 403, 'Solo la persona designada por la empresa autoriza pagos.');
+
+        DB::transaction(function () use ($rows, $request) {
+            foreach ($rows as $p) {
+                $p->authorizeBy($request->user());
+                $this->audit->log('installment.authorized', $p->requisition, ['installment' => $p->installment]);
+            }
+        });
+
+        return back()->with('success', "{$rows->count()} pagos autorizados: tesorería ya puede pagarlos.");
+    }
+
     /** Orden de pago (OP) en PDF con la firma de quien la autorizó */
     public function paymentOrderPdf(int $id): HttpResponse
     {
@@ -175,7 +193,11 @@ class TreasuryWebController extends Controller
         $this->audit->log('installment.paid', $p->requisition, ['installment' => $p->installment, 'amount' => $data['amount'], 'operation' => $data['operation_number']]);
 
         // Comprobante al proveedor o al colaborador (SMTP de la empresa) con el voucher adjunto
-        $r = $p->requisition->load(['supplier', 'tenant', 'employee']);
+        $r = $p->requisition->load(['supplier', 'tenant', 'employee', 'user']);
+        // Aviso en la campana a quien pidió el requerimiento (si no es quien pagó)
+        if (! $r->isPayroll() && $r->user && $r->user_id !== $request->user()->id) {
+            rescue(fn () => $r->user->notify(new \App\Modules\Finance\Notifications\RequisitionPaid($p, (float) $data['amount'])), report: true);
+        }
         $email = $r->isPayroll() ? $r->employee?->email : $r->supplier?->email;
         if ($email) {
             $status = $paidOff ? 'Pago cancelado' : 'Pago amortizado';
@@ -249,7 +271,8 @@ class TreasuryWebController extends Controller
             'supplier_id'       => ['required', Rule::exists('suppliers', 'id')->where('tenant_id', $tenant->id)->where('is_active', true)->whereNull('deleted_at')],
             'detail'            => ['required', 'string', 'max:1000'],
             'document_type'     => ['required', Rule::in(array_keys(self::DOCUMENT_TYPES))],
-            'document_number'   => ['required', 'string', 'max:40'],
+            // Orden de pago sin número: el sistema le da su correlativo OP-… (sisgere: requerimiento_mostrar_nroODP)
+            'document_number'   => ['required_unless:document_type,ORDP', 'nullable', 'string', 'max:40'],
             'document_date'     => ['required', 'date', 'before_or_equal:today'],
             'file'              => ['nullable', 'file', 'mimes:pdf', 'max:5120', SafeUpload::pdf()],
             'currency'          => ['required', Rule::in(array_keys(Requisition::CURRENCIES))],
@@ -279,12 +302,15 @@ class TreasuryWebController extends Controller
                 $year = (int) now()->year;
                 $series = \App\Modules\Finance\Models\DocumentSequence::seriesFrom(null);
                 [$number, $code] = \App\Modules\Finance\Models\DocumentSequence::next($tenant, 'PG', $series, $year);
+                $document = $data['document_number'] ?? null
+                    ? strtoupper($data['document_number'])
+                    : \App\Modules\Finance\Models\DocumentSequence::next($tenant, 'OP', $series, $year)[1];
                 $r = Requisition::create([
                     'series' => $series, 'number' => $number, 'code' => $code, 'year' => $year, 'is_direct_payment' => true,
                     'requested_at' => now(), 'detail' => $data['detail'], 'area' => 'TESORERIA', 'requested_by' => $user->full_name, 'user_id' => $user->id,
                     'classification' => 'GASTOS FIJOS', 'priority' => 'NORMAL', 'stage' => 'ordered', 'ordered_at' => now(),
                     'reviewed_by' => $user->full_name, 'reviewed_by_id' => $user->id, 'reviewed_at' => now(), 'supplier_id' => $data['supplier_id'],
-                    'invoice_number' => "{$data['document_type']} " . strtoupper($data['document_number']), 'invoice_date' => $data['document_date'], 'invoice_path' => $path,
+                    'invoice_number' => "{$data['document_type']} {$document}", 'invoice_date' => $data['document_date'], 'invoice_path' => $path,
                     'amount' => $total, 'amount_payable' => $payable, 'currency' => $data['currency'], 'installments' => 1,
                     'has_detraction' => (bool) $reason, 'detraction_reason' => $reason, 'detraction_percent' => $percent, 'detraction_amount' => $detraction,
                     'payment_terms' => 'CREDITO', 'payment_method' => $data['payment_method'], 'payment_origin' => 'TRANSFERENCIA',

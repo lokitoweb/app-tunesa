@@ -43,6 +43,16 @@ async function authorize(p) {
     if (ok) router.post(`/treasury/installments/${p.id}/authorize`, {}, { preserveScroll: true });
 }
 
+// Varias a la vez (FrmRegpagos: cuotas marcadas)
+const canAuthorizeRow = (p) => p.status === 'pending' && p.scheduled_for && !p.authorized && props.can.authorize;
+const markable = computed(() => props.installments.data.filter(canAuthorizeRow));
+const marked = ref([]);
+async function authorizeMarked() {
+    const total = markable.value.filter((p) => marked.value.includes(p.id)).reduce((s, p) => s + Number(p.balance), 0);
+    const ok = await ask({ title: `¿Autorizar ${marked.value.length} pagos?`, message: `Total ${money(total)}`, confirmText: 'Sí, autorizar', variant: 'primary', icon: 'bi bi-check2-all' });
+    if (ok) router.post('/treasury/installments/authorize', { ids: marked.value }, { preserveScroll: true, onSuccess: () => (marked.value = []) });
+}
+
 // ---------------------------------------------------------------- pagar
 const payTarget = ref(null);
 const pay = useForm({ paid_at: props.today, amount: '', company_bank_account_id: '', operation_number: '', voucher: null });
@@ -180,6 +190,10 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
                     <input v-model="search" type="search" class="form-control" placeholder="Proveedor, RUC, N.º de orden o detalle" aria-label="Buscar cuota" @input="onSearch" />
                 </div>
+                <div v-if="markable.length" class="d-flex flex-wrap align-items-center gap-2 mt-2 small">
+                    <button type="button" class="btn btn-sm btn-link px-0" @click="marked = marked.length === markable.length ? [] : markable.map((p) => p.id)">{{ marked.length === markable.length ? 'Desmarcar todas' : 'Marcar todas' }}</button>
+                    <button type="button" class="btn btn-sm btn-success" :disabled="!marked.length" @click="authorizeMarked"><i class="bi bi-check2-all me-1"></i>Autorizar marcadas ({{ marked.length }})</button>
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="table align-middle mb-0">
@@ -196,7 +210,9 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                         <template v-for="p in installments.data" :key="p.id">
                             <tr :class="{ 'table-danger': isOverdue(p) }">
                                 <td style="max-width: 280px">
-                                    <div class="fw-semibold text-truncate">{{ p.supplier?.name || '—' }}</div>
+                                    <div class="fw-semibold text-truncate">
+                                        <input v-if="canAuthorizeRow(p)" v-model="marked" type="checkbox" class="form-check-input me-2" :value="p.id" :aria-label="`Marcar para autorizar: ${p.supplier?.name}`" />{{ p.supplier?.name || '—' }}
+                                    </div>
                                     <div class="small text-body-secondary text-truncate">
                                         <Link :href="`/requisitions/${p.requisition?.id}`" class="font-monospace">{{ p.requisition?.order || p.requisition?.code }}</Link> · {{ p.requisition?.detail }}
                                     </div>
@@ -389,8 +405,8 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                             <select id="dp-doctype" v-model="directForm.document_type" class="form-select"><option v-for="(label, code) in direct.document_types" :key="code" :value="code">{{ label }}</option></select>
                         </div>
                         <div class="col-sm-4">
-                            <label class="form-label small fw-semibold" for="dp-docnum">Serie y número *</label>
-                            <input id="dp-docnum" v-model.trim="directForm.document_number" class="form-control font-monospace" maxlength="40" placeholder="F001-000123" :class="{ 'is-invalid': directForm.errors.document_number }" />
+                            <label class="form-label small fw-semibold" for="dp-docnum">Serie y número{{ directForm.document_type === 'ORDP' ? '' : ' *' }}</label>
+                            <input id="dp-docnum" v-model.trim="directForm.document_number" class="form-control font-monospace" maxlength="40" :placeholder="directForm.document_type === 'ORDP' ? 'Vacío: correlativo OP automático' : 'F001-000123'" :class="{ 'is-invalid': directForm.errors.document_number }" />
                             <div class="invalid-feedback">{{ directForm.errors.document_number }}</div>
                         </div>
                         <div class="col-sm-4">
