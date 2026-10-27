@@ -29,6 +29,9 @@ final class FinanceDocumentPdf
             'rows'      => [
                 ['Requerimiento', $r->code()], ['Detalle', $r->detail], ['Área', $r->area], ['Placa', $r->plate],
                 ['Condición', trim("{$r->payment_terms} · {$r->payment_method}", ' ·')], ['Cuotas', $r->installments],
+                ['Detracción', $r->detraction_reason ? "{$r->detraction_reason} - " . config("finance.detraction_reasons.{$r->detraction_reason}.0")
+                    . " · {$r->detraction_percent} %: " . self::money($r->currency, $r->detraction_amount) : null],
+                ['Neto a pagar', $r->detraction_reason ? self::money($r->currency, $r->amount_payable) : null],
             ],
             // [producto, unidad, cantidad, precio unitario, descuento %, importe]; sin precios, solo las 3 primeras
             'items'     => $r->items->map(fn ($i) => [$i->product?->name, $i->product?->unit, (float) $i->quantity,

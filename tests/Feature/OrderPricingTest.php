@@ -114,6 +114,40 @@ class OrderPricingTest extends TestCase
         $this->get("/requisitions/{$r->id}")->assertInertia(fn ($p) => $p->where('requisition.pricing', null));
     }
 
+    public function test_detraction_by_reason_pays_the_net_to_the_supplier(): void
+    {
+        // calcular_detrac de sisgere: un decimal y luego al entero (desde ,5 hacia arriba)
+        $this->assertSame(144.0, OrderPricing::detraction(1200, 12));
+        $this->assertSame(135.0, OrderPricing::detraction(1121, 12)); // 134.52 → 134.5 → 135
+        $this->assertSame(134.0, OrderPricing::detraction(1117, 12)); // 134.04 → 134
+
+        [$r, $q, $logistics] = $this->quotedRequisition();
+        // Con detracción, el motivo es obligatorio y debe ser del catálogo
+        $this->actingAs($logistics)->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id, ['has_detraction' => true]))->assertSessionHasErrors('detraction_reason');
+        $this->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id, ['has_detraction' => true, 'detraction_reason' => '999']))->assertSessionHasErrors('detraction_reason');
+
+        $this->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id, ['has_detraction' => true, 'detraction_reason' => '037']))->assertSessionHasNoErrors();
+        $r->refresh();
+        $this->assertSame(['1200.00', '1056.00', '144.00', 12, '037'], [$r->amount, $r->amount_payable, $r->detraction_amount, $r->detraction_percent, $r->detraction_reason]);
+        // Cuotas sobre el neto (1056), no sobre el total
+        $this->assertSame(['528.00', '528.00'], PaymentInstallment::withoutGlobalScopes()->orderBy('installment')->pluck('amount')->all());
+    }
+
+    public function test_manual_installments_must_add_up_to_the_net(): void
+    {
+        [$r, $q, $logistics] = $this->quotedRequisition();
+        $bad = ['schedule' => [['due_date' => '2026-11-01', 'amount' => 500], ['due_date' => '2026-12-15', 'amount' => 600]]];
+        $this->actingAs($logistics)->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id, $bad))->assertSessionHasErrors('schedule');
+        $this->assertSame('quoting', $r->fresh()->stage);
+
+        $ok = ['schedule' => [['due_date' => '2026-11-01', 'amount' => 200], ['due_date' => '2026-11-20', 'amount' => 300.5], ['due_date' => '2027-01-10', 'amount' => 699.5]]];
+        $this->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id, $ok))->assertSessionHasNoErrors();
+        $this->assertSame(3, $r->fresh()->installments);
+        $rows = PaymentInstallment::withoutGlobalScopes()->orderBy('installment')->get();
+        $this->assertSame(['200.00', '300.50', '699.50'], $rows->pluck('amount')->all());
+        $this->assertSame(['2026-11-01', '2026-11-20', '2027-01-10'], $rows->map(fn ($p) => $p->due_date->toDateString())->all());
+    }
+
     public function test_pdf_template_prints_taxable_value_igv_and_total(): void
     {
         $html = view('finance.document', [

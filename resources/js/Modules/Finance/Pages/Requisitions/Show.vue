@@ -89,16 +89,21 @@ async function removeQuote(q) {
 // ---------------------------------------------------------------- orden
 const order = useForm({
     quotation_id: '', type: 'purchase', payment_terms: 'CONTADO', payment_method: 'TRANSFERENCIA', payment_origin: 'TRANSFERENCIA',
-    priority: r.value.priority || 'NORMAL', installments: 1, first_due_date: today, interval_days: 30, has_detraction: false,
+    priority: r.value.priority || 'NORMAL', installments: 1, first_due_date: today, interval_days: 30, has_detraction: false, detraction_reason: '',
     // Precios por ítem (opcionales, como en sisgere): vacíos = total de la cotización
     prices_include_igv: true,
     items: [],
+    // Cuotas escritas a mano (vacío = cuotas iguales)
+    schedule: [],
 });
+const manualSchedule = ref(false);
 const showOrder = ref(false);
 function openOrder(q) {
     order.quotation_id = q.id;
     order.items = r.value.items.map((i) => ({ id: i.id, unit_price: i.unit_price ?? '', discount_percent: i.discount_percent || 0 }));
     order.clearErrors();
+    manualSchedule.value = false;
+    order.schedule = [];
     showOrder.value = true;
 }
 const chosen = computed(() => r.value.quotations.find((q) => q.id === order.quotation_id));
@@ -123,8 +128,31 @@ const orderTotals = computed(() => {
 const differsFromQuote = computed(() => priced.value && chosen.value && Math.abs(orderTotals.value.total - Number(chosen.value.amount)) > 0.009);
 const itemFor = (id) => r.value.items.find((i) => i.id === id);
 
+// Detracción y neto a pagar (mismo cálculo que OrderPricing::detraction: soles enteros)
+const orderTotal = computed(() => (priced.value ? orderTotals.value.total : Number(chosen.value?.amount || 0)));
+const detrReason = computed(() => props.options.detraction_reasons.find((d) => d.code === order.detraction_reason));
+const detrAmount = computed(() => (order.has_detraction && detrReason.value ? Math.round(Math.round(orderTotal.value * detrReason.value.percent * 10 / 100) / 10) : 0));
+const payable = computed(() => round2(orderTotal.value - detrAmount.value));
+
+// Cuotas iguales (la última absorbe el redondeo), base para editarlas a mano
+function equalSchedule() {
+    const n = Math.max(1, Number(order.installments) || 1);
+    const base = Math.floor((payable.value / n) * 100) / 100;
+    const due = new Date(`${order.first_due_date}T12:00:00`);
+    return Array.from({ length: n }, (_, i) => {
+        const d = new Date(due);
+        d.setDate(d.getDate() + i * (Number(order.interval_days) || 30));
+        return { due_date: d.toLocaleDateString('en-CA'), amount: i === n - 1 ? round2(payable.value - base * (n - 1)) : base };
+    });
+}
+function toggleManual() {
+    manualSchedule.value = !manualSchedule.value;
+    order.schedule = manualSchedule.value ? equalSchedule() : [];
+}
+const scheduleSum = computed(() => round2(order.schedule.reduce((s, c) => s + Number(c.amount || 0), 0)));
+
 function emitOrder() {
-    order.transform((d) => ({ ...d, items: priced.value ? d.items : [] }))
+    order.transform((d) => ({ ...d, items: priced.value ? d.items : [], schedule: manualSchedule.value ? d.schedule : [], detraction_reason: d.has_detraction ? d.detraction_reason : null }))
         .post(`/requisitions/${r.value.id}/order`, { preserveScroll: true, onSuccess: () => (showOrder.value = false) });
 }
 </script>
@@ -245,6 +273,15 @@ function emitOrder() {
                         <dl class="row small mb-3">
                             <dt class="col-sm-4 text-body-secondary fw-normal">Proveedor</dt><dd class="col-sm-8">{{ requisition.supplier?.name }} <span class="font-monospace text-body-secondary">{{ requisition.supplier?.ruc }}</span></dd>
                             <dt class="col-sm-4 text-body-secondary fw-normal">Monto</dt><dd class="col-sm-8 fw-semibold">{{ money(requisition.amount, requisition.currency) }}</dd>
+                            <template v-if="requisition.detraction">
+                                <dt class="col-sm-4 text-body-secondary fw-normal">Detracción</dt>
+                                <dd class="col-sm-8">
+                                    <template v-if="requisition.detraction.amount !== null">{{ requisition.detraction.reason || '' }} · {{ requisition.detraction.percent }} %: {{ money(requisition.detraction.amount, requisition.currency) }}</template>
+                                    <span v-else class="text-body-secondary">la registra Tesorería</span>
+                                    <span v-if="requisition.detraction.number" class="text-body-secondary"> · constancia {{ requisition.detraction.number }}</span>
+                                </dd>
+                                <dt class="col-sm-4 text-body-secondary fw-normal">Neto a pagar</dt><dd class="col-sm-8 fw-semibold">{{ money(requisition.detraction.payable, requisition.currency) }}</dd>
+                            </template>
                             <dt class="col-sm-4 text-body-secondary fw-normal">Pago</dt><dd class="col-sm-8">{{ requisition.payment_terms }} · {{ requisition.payment_method }} · {{ requisition.payment_origin }}</dd>
                             <dt class="col-sm-4 text-body-secondary fw-normal">Emitida</dt><dd class="col-sm-8">{{ requisition.ordered_at }}</dd>
                         </dl>
@@ -451,26 +488,41 @@ function emitOrder() {
                         </div>
                         <div class="col-sm-3">
                             <label class="form-label small fw-semibold" for="o-inst">Cuotas</label>
-                            <input id="o-inst" v-model="order.installments" type="number" min="1" max="36" class="form-control" :class="{ 'is-invalid': order.errors.installments }" />
+                            <input id="o-inst" v-model="order.installments" type="number" min="1" max="36" class="form-control" :disabled="manualSchedule" :class="{ 'is-invalid': order.errors.installments }" />
                             <div class="invalid-feedback">{{ order.errors.installments }}</div>
                         </div>
                         <div class="col-sm-3">
                             <label class="form-label small fw-semibold" for="o-due">Primer vencimiento</label>
-                            <input id="o-due" v-model="order.first_due_date" type="date" class="form-control" :class="{ 'is-invalid': order.errors.first_due_date }" />
+                            <input id="o-due" v-model="order.first_due_date" type="date" class="form-control" :disabled="manualSchedule" :class="{ 'is-invalid': order.errors.first_due_date }" />
                             <div class="invalid-feedback">{{ order.errors.first_due_date }}</div>
                         </div>
                         <div class="col-sm-3">
                             <label class="form-label small fw-semibold" for="o-int">Cada (días)</label>
-                            <input id="o-int" v-model="order.interval_days" type="number" min="1" class="form-control" :disabled="Number(order.installments) === 1" />
+                            <input id="o-int" v-model="order.interval_days" type="number" min="1" class="form-control" :disabled="manualSchedule || Number(order.installments) === 1" />
                         </div>
                         <div class="col-sm-3">
                             <label class="form-label small fw-semibold" for="o-prio">Prioridad</label>
                             <select id="o-prio" v-model="order.priority" class="form-select"><option v-for="t in options.priorities" :key="t" :value="t">{{ t }}</option></select>
                         </div>
-                        <div class="col-12">
-                            <div class="form-check">
+                        <div class="col-sm-4 d-flex align-items-end">
+                            <div class="form-check mb-2">
                                 <input id="o-detr" v-model="order.has_detraction" class="form-check-input" type="checkbox" />
                                 <label class="form-check-label small" for="o-detr">Afecta a detracción</label>
+                            </div>
+                        </div>
+                        <div v-if="order.has_detraction" class="col-sm-8">
+                            <label class="form-label small fw-semibold" for="o-detr-reason">Motivo de detracción *</label>
+                            <select id="o-detr-reason" v-model="order.detraction_reason" class="form-select" :class="{ 'is-invalid': order.errors.detraction_reason }">
+                                <option value="" disabled>Elige el motivo…</option>
+                                <option v-for="d in options.detraction_reasons" :key="d.code" :value="d.code">{{ d.label }} ({{ d.percent }} %)</option>
+                            </select>
+                            <div class="invalid-feedback">{{ order.errors.detraction_reason }}</div>
+                        </div>
+                        <div v-if="order.has_detraction && detrReason" class="col-12">
+                            <div class="alert alert-info py-2 small mb-0 d-flex flex-wrap gap-3 justify-content-between">
+                                <span>Total {{ money(orderTotal, chosen?.currency) }}</span>
+                                <span>Detracción {{ detrReason.percent }} %: <strong>{{ money(detrAmount, chosen?.currency) }}</strong></span>
+                                <span>Neto a pagar al proveedor: <strong>{{ money(payable, chosen?.currency) }}</strong></span>
                             </div>
                         </div>
 
@@ -512,6 +564,36 @@ function emitOrder() {
                                 <i class="bi bi-exclamation-triangle me-1"></i>El total con precios ({{ money(orderTotals.total, chosen?.currency) }}) es distinto de la cotización ({{ money(chosen?.amount, chosen?.currency) }}). La orden y sus cuotas usarán el total con precios.
                             </div>
                             <div v-else-if="!priced" class="small text-body-secondary mt-2">Sin precios por ítem, la orden usa el total de la cotización: {{ money(chosen?.amount, chosen?.currency) }}.</div>
+                        </div>
+
+                        <!-- Cuotas: iguales o editadas a mano (sisgere FrmReq: lista de cuotas) -->
+                        <div class="col-12">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <span class="small fw-semibold">Cuotas sobre el neto: {{ money(payable, chosen?.currency) }}</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="toggleManual">
+                                    <i class="bi me-1" :class="manualSchedule ? 'bi-arrow-counterclockwise' : 'bi-pencil-square'"></i>{{ manualSchedule ? 'Volver a cuotas iguales' : 'Editar cuotas a mano' }}
+                                </button>
+                            </div>
+                            <div v-if="manualSchedule" class="table-responsive mt-2">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead class="table-light"><tr><th style="width: 60px;">N.º</th><th>Vence</th><th>Monto</th><th style="width: 50px;"></th></tr></thead>
+                                    <tbody>
+                                        <tr v-for="(c, i) in order.schedule" :key="i">
+                                            <td class="small">{{ i + 1 }}</td>
+                                            <td><input v-model="c.due_date" type="date" class="form-control form-control-sm" :aria-label="`Vencimiento de la cuota ${i + 1}`" :class="{ 'is-invalid': order.errors[`schedule.${i}.due_date`] }" /></td>
+                                            <td><input v-model="c.amount" type="number" min="0.01" step="0.01" class="form-control form-control-sm text-end" :aria-label="`Monto de la cuota ${i + 1}`" :class="{ 'is-invalid': order.errors[`schedule.${i}.amount`] }" /></td>
+                                            <td><button v-if="order.schedule.length > 1" type="button" class="btn btn-sm btn-link text-danger" :aria-label="`Quitar la cuota ${i + 1}`" @click="order.schedule.splice(i, 1)"><i class="bi bi-x-lg"></i></button></td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="2"><button v-if="order.schedule.length < 36" type="button" class="btn btn-sm btn-link px-0" @click="order.schedule.push({ due_date: order.schedule.at(-1)?.due_date || today, amount: 0 })"><i class="bi bi-plus-lg me-1"></i>Agregar cuota</button></td>
+                                            <td class="text-end small fw-semibold" :class="Math.abs(scheduleSum - payable) < 0.005 ? 'text-success' : 'text-danger'">Suma {{ money(scheduleSum, chosen?.currency) }}</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
                         </div>
                         <div v-if="Object.keys(order.errors).length" class="col-12"><div class="alert alert-danger py-2 small mb-0">{{ Object.values(order.errors)[0] }}</div></div>
                     </div>

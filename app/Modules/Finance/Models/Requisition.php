@@ -57,7 +57,7 @@ class Requisition extends Model
         'agency', 'site', 'delivery_place', 'classification', 'stage', 'payment_terms', 'notes', 'supplier_id',
         'purchase_order_number', 'service_order_number', 'ordered_at', 'received_at', 'invoice_number', 'invoice_path', 'invoice_date', 'vehicle_id', 'employee_id', 'payroll_period', 'payroll_concept', 'payment_origin', 'sale_type', 'priority',
         'payment_method', 'reviewed_by', 'reviewed_by_id', 'reviewed_at', 'currency', 'amount', 'amount_payable', 'has_detraction',
-        'detraction_number', 'detraction_amount', 'detraction_percent',
+        'detraction_number', 'detraction_amount', 'detraction_percent', 'detraction_reason',
         'installments', 'attachments',
         'prices_include_igv', 'igv_rate', 'taxable_amount', 'igv_amount',
     ];

@@ -316,14 +316,17 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                         <div class="col-5">
                             <label class="form-label small fw-semibold" for="detr-pct">Porcentaje *</label>
                             <div class="input-group">
-                                <input id="detr-pct" v-model="detr.detraction_percent" type="number" min="1" max="100" class="form-control" :class="{ 'is-invalid': detr.errors.detraction_percent }" @input="recalcDetraction" />
+                                <input id="detr-pct" v-model="detr.detraction_percent" type="number" min="1" max="100" class="form-control" :class="{ 'is-invalid': detr.errors.detraction_percent }" :readonly="!!detrTarget.requisition.detraction.detraction_reason" @input="recalcDetraction" />
                                 <span class="input-group-text">%</span>
                             </div>
                         </div>
                         <div class="col-7">
                             <label class="form-label small fw-semibold" for="detr-amount">Monto *</label>
-                            <input id="detr-amount" v-model="detr.detraction_amount" type="number" min="0" step="0.01" class="form-control" :class="{ 'is-invalid': detr.errors.detraction_amount }" />
+                            <input id="detr-amount" v-model="detr.detraction_amount" type="number" min="0" step="0.01" class="form-control" :class="{ 'is-invalid': detr.errors.detraction_amount }" :readonly="!!detrTarget.requisition.detraction.detraction_reason" />
                             <div class="invalid-feedback">{{ detr.errors.detraction_amount }}</div>
+                        </div>
+                        <div v-if="detrTarget.requisition.detraction.detraction_reason" class="col-12 small text-body-secondary">
+                            El % y el monto se fijaron al emitir la orden (motivo {{ detrTarget.requisition.detraction.detraction_reason }}); las cuotas del proveedor ya descuentan la detracción.
                         </div>
                     </div>
                     <div class="modal-footer">

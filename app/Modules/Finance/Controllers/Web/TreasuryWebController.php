@@ -52,7 +52,7 @@ class TreasuryWebController extends Controller
         $today = now(tenant_timezone())->toDateString();
 
         $installments = $this->tab(PaymentInstallment::query(), $tab, $today)
-            ->with(['requisition:id,series,number,code,invoice_number,invoice_path,detail,supplier_id,employee_id,payroll_concept,payroll_period,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_number,detraction_amount,detraction_percent,amount',
+            ->with(['requisition:id,series,number,code,invoice_number,invoice_path,detail,supplier_id,employee_id,payroll_concept,payroll_period,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_reason,detraction_number,detraction_amount,detraction_percent,amount',
                 'requisition.supplier:id,name,ruc', 'requisition.supplier.bankAccounts:id,supplier_id,bank,account_number,account_type',
                 'requisition.employee:id,first_name,last_name,document_number', 'requisition.employee.profile',
                 'cancellations.companyAccount:id,bank,account_number,currency,alias'])
@@ -234,10 +234,12 @@ class TreasuryWebController extends Controller
     {
         $r = Requisition::findOrFail($id);
         abort_unless($r->has_detraction, 422, 'La orden no está afecta a detracción.');
+        // Con motivo, el % y el monto se fijaron al emitir la orden (las cuotas van sobre el neto): solo la constancia
+        $fixed = $r->detraction_reason !== null;
         $data = $request->validate([
             'detraction_number'  => ['required', 'string', 'max:100'],
-            'detraction_percent' => ['required', 'integer', 'min:1', 'max:100'],
-            'detraction_amount'  => ['required', 'numeric', 'min:0.01', 'max:' . (float) $r->amount],
+            'detraction_percent' => [Rule::excludeIf($fixed), 'required', 'integer', 'min:1', 'max:100'],
+            'detraction_amount'  => [Rule::excludeIf($fixed), 'required', 'numeric', 'min:0.01', 'max:' . (float) $r->amount],
         ], [],
             ['detraction_number' => 'la constancia', 'detraction_percent' => 'el porcentaje', 'detraction_amount' => 'el monto']);
 
@@ -310,7 +312,7 @@ class TreasuryWebController extends Controller
                 'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction,
                 // Pago de RRHH: no lleva factura (la boleta es el sustento)
                 'has_invoice' => $r->isPayroll() || $r->invoice_path, 'is_payroll' => $r->isPayroll(),
-                'detraction' => $r->only(['detraction_number', 'detraction_amount', 'detraction_percent']),
+                'detraction' => $r->only(['detraction_number', 'detraction_amount', 'detraction_percent', 'detraction_reason']),
             ] : null,
             'supplier'      => $r?->isPayroll() ? $this->payrollPayee($r) : ($r?->supplier ? [
                 'name' => $r->supplier->name, 'ruc' => $r->supplier->ruc,

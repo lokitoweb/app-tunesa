@@ -178,6 +178,11 @@ class RequisitionWebController extends Controller
                     'taxable' => (float) $r->taxable_amount, 'igv' => (float) $r->igv_amount, 'total' => (float) $r->amount,
                 ] : null,
                 'igv_rate' => (float) config('finance.igv_rate', 0.18),
+                'detraction' => $r->has_detraction ? [
+                    'reason' => $r->detraction_reason ? $r->detraction_reason . ' - ' . config("finance.detraction_reasons.{$r->detraction_reason}.0") : null,
+                    'percent' => $r->detraction_percent, 'amount' => $r->detraction_amount !== null ? (float) $r->detraction_amount : null,
+                    'payable' => (float) $r->amount_payable, 'number' => $r->detraction_number,
+                ] : null,
                 // Traza: factura, recepción en almacén y pagos (cancelado / amortizado) de esta orden
                 'invoice'      => ['number' => $r->invoice_number, 'date' => $r->invoice_date?->format('d/m/Y'), 'has_file' => (bool) $r->invoice_path],
                 'received_at'  => $r->received_at?->timezone(tenant_timezone())->format('d/m/Y H:i'),
@@ -388,20 +393,38 @@ class RequisitionWebController extends Controller
             'first_due_date' => ['required', 'date'],
             'interval_days'  => ['required', 'integer', 'min:1', 'max:365'],
             'has_detraction' => ['boolean'],
+            'detraction_reason' => ['nullable', 'required_if_accepted:has_detraction', Rule::in(array_keys(config('finance.detraction_reasons')))],
+            // Cuotas escritas a mano (sisgere: lista de cuotas editable); vacío = cuotas iguales
+            'schedule'          => ['nullable', 'array', 'max:36'],
+            'schedule.*.due_date' => ['required', 'date'],
+            'schedule.*.amount'   => ['required', 'numeric', 'min:0.01', 'max:999999999'],
             // Precios por ítem (opcionales, como en sisgere): si se llena uno, van todos
             'prices_include_igv'       => ['boolean'],
             'items'                    => ['nullable', 'array', 'max:100'],
             'items.*.id'               => ['required', 'integer', Rule::exists('requisition_items', 'id')->where('requisition_id', $r->id)],
             'items.*.unit_price'       => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
-        ], self::MESSAGES, ['quotation_id' => 'la cotización', 'first_due_date' => 'el primer vencimiento']);
+        ], self::MESSAGES + ['detraction_reason.required_if_accepted' => 'Elige el motivo de la detracción.'], [
+            'quotation_id' => 'la cotización', 'first_due_date' => 'el primer vencimiento', 'detraction_reason' => 'el motivo de detracción',
+            'schedule.*.due_date' => 'el vencimiento de la cuota :position', 'schedule.*.amount' => 'el monto de la cuota :position',
+        ]);
 
         $pricing = $this->pricing($r, $data);
+        // Con precios por ítem, el total de la orden sale de ellos (con su IGV); sin precios, de la cotización
+        $quotation = $r->quotations()->findOrFail($data['quotation_id']);
+        $total = $pricing ? $pricing['total'] : (float) $quotation->amount;
 
-        $number = DB::transaction(function () use ($r, $data, $request, $pricing) {
-            $quotation = $r->quotations()->findOrFail($data['quotation_id']);
-            // Con precios por ítem, el total de la orden sale de ellos (con su IGV); sin precios, de la cotización
-            $total = $pricing ? $pricing['total'] : (float) $quotation->amount;
+        // Detracción (FrmReq): % del motivo, en soles enteros; al proveedor se le paga el neto
+        $hasDetraction = (bool) ($data['has_detraction'] ?? false);
+        $reason = $hasDetraction ? $data['detraction_reason'] : null;
+        $percent = $reason ? (int) config("finance.detraction_reasons.{$reason}.1") : null;
+        $detraction = $reason ? OrderPricing::detraction($total, $percent) : null;
+        $payable = round($total - (float) $detraction, 2);
+
+        $schedule = OrderPricing::installments($payable, (int) $data['installments'], $data['first_due_date'], (int) $data['interval_days'], $data['schedule'] ?? null)
+            ?? throw ValidationException::withMessages(['schedule' => 'Las cuotas deben sumar el neto a pagar: ' . FinanceDocumentPdf::money($quotation->currency, $payable) . '.']);
+
+        $number = DB::transaction(function () use ($r, $data, $request, $pricing, $quotation, $total, $hasDetraction, $reason, $percent, $detraction, $payable, $schedule) {
             if ($pricing) {
                 foreach ($pricing['items'] as $id => [$price, $discount, $subtotal]) {
                     $r->items()->whereKey($id)->update(['unit_price' => $price, 'discount_percent' => $discount, 'subtotal' => $subtotal]);
@@ -417,24 +440,18 @@ class RequisitionWebController extends Controller
 
             $r->update([
                 'stage' => 'ordered', $column => $number, 'ordered_at' => now(),
-                'supplier_id' => $quotation->supplier_id, 'amount' => $total, 'amount_payable' => $total,
-                'currency' => $quotation->currency, 'installments' => $data['installments'],
-                'has_detraction' => (bool) ($data['has_detraction'] ?? false),
+                'supplier_id' => $quotation->supplier_id, 'amount' => $total, 'amount_payable' => $payable,
+                'currency' => $quotation->currency, 'installments' => count($schedule),
+                'has_detraction' => $hasDetraction, 'detraction_reason' => $reason, 'detraction_percent' => $percent, 'detraction_amount' => $detraction,
                 'prices_include_igv' => $pricing['includes_igv'] ?? null, 'igv_rate' => $pricing['rate'] ?? null,
                 'taxable_amount' => $pricing['taxable'] ?? null, 'igv_amount' => $pricing['igv'] ?? null,
             ] + collect($data)->only(['payment_terms', 'payment_method', 'payment_origin', 'priority'])->all());
 
-            // Cuotas iguales; la última absorbe el redondeo
-            $count = (int) $data['installments'];
-            $base = floor(($total / $count) * 100) / 100;
-            $due = \Illuminate\Support\Carbon::parse($data['first_due_date']);
-            for ($i = 1; $i <= $count; $i++) {
+            foreach ($schedule as $i => $row) {
                 $r->paymentInstallments()->create([
-                    'tenant_id' => $r->tenant_id, 'installment' => $i, 'due_date' => $due->copy(),
-                    'amount' => $i === $count ? round($total - $base * ($count - 1), 2) : $base,
+                    'tenant_id' => $r->tenant_id, 'installment' => $i + 1, 'due_date' => $row['due_date'], 'amount' => $row['amount'],
                     'status' => 'pending', 'payment_method' => $data['payment_method'], 'registered_by' => $request->user()->full_name,
                 ]);
-                $due->addDays((int) $data['interval_days']);
             }
 
             return $number;
@@ -621,6 +638,7 @@ class RequisitionWebController extends Controller
             'priorities'      => Requisition::PRIORITIES,
             'express_limit'   => Requisition::EXPRESS_LIMIT,
             'payment_origins' => Requisition::PAYMENT_ORIGINS,
+            'detraction_reasons' => collect(config('finance.detraction_reasons'))->map(fn ($r, $code) => ['code' => (string) $code, 'label' => "{$code} - {$r[0]}", 'percent' => $r[1]])->values(),
             'units'           => ['UNIDAD (BIENES)', 'UNIDAD (SERVICIOS)', 'CAJA', 'PAQUETE', 'JUEGO', 'KIT', 'PAR', 'DOCENA', 'KILOGRAMO', 'GRAMO',
                 'LITRO', 'GALON', 'METRO', 'METRO CUADRADO', 'METRO CUBICO', 'TONELADAS', 'BOLSA', 'BALDE', 'CILINDRO', 'RESMA', 'PIEZAS', 'TUBOS'],
         ];
