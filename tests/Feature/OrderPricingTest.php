@@ -133,6 +133,23 @@ class OrderPricingTest extends TestCase
         $this->assertSame(['528.00', '528.00'], PaymentInstallment::withoutGlobalScopes()->orderBy('installment')->pluck('amount')->all());
     }
 
+    public function test_cash_flow_concept_is_saved_and_groups_the_cash_flow(): void
+    {
+        [$r, $q, $logistics] = $this->quotedRequisition();
+        $this->actingAs($logistics)->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id, ['cash_flow_concept' => 'Inventado']))->assertSessionHasErrors('cash_flow_concept');
+        $this->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id, ['cash_flow_concept' => 'Pagos por compra de propiedades, planta y equipo']))->assertSessionHasNoErrors();
+        $this->assertSame('Pagos por compra de propiedades, planta y equipo', $r->fresh()->cash_flow_concept);
+
+        $accountant = $this->makeUser($r->tenant, 'accountant');
+        $from = now(tenant_timezone())->subMonth()->format('Y-m');
+        $this->actingAs($accountant)->get("/cash-flow?by=flow&from={$from}")->assertOk()->assertInertia(fn ($p) => $p
+            ->where('filters.by', 'flow')
+            ->where('projected.0.concept', 'Actividades de inversión · Pagos por compra de propiedades, planta y equipo')
+            ->where('projected.0.total', 1200));
+        // La vista de siempre (por clasificación) no cambia
+        $this->get("/cash-flow?from={$from}")->assertInertia(fn ($p) => $p->where('projected.0.concept', 'Proveedores · REPUESTOS'));
+    }
+
     public function test_manual_installments_must_add_up_to_the_net(): void
     {
         [$r, $q, $logistics] = $this->quotedRequisition();

@@ -28,15 +28,20 @@ class CashFlowWebController extends Controller
         $start = $from->toDateString();
         $end = $from->copy()->addMonths(5)->endOfMonth()->toDateTimeString(); // con hora: SQLite guarda las fechas con hora
         $today = now(tenant_timezone())->toDateString();
+        // Agrupar por clasificación de compra (como antes) o por concepto del Estado de Flujos de Efectivo (sisgere FLUJOEFECT)
+        $byFlow = $request->query('by') === 'flow';
+        $conceptColumn = $byFlow ? 'requisitions.cash_flow_concept' : 'requisitions.classification';
 
         // concepto => [mes => monto]. Se suma en la base (GROUP BY concepto, mes) y no fila por fila
         // en PHP: con miles de cuotas el flujo superaba 2 s por petición bajo carga (k6).
         // substr(fecha, 1, 7) = 'YYYY-MM' en SQLite y MySQL. Los modelos mantienen el filtro de empresa.
         $actual = [];
         $projected = [];
-        $collect = function (array &$bucket, $rows, string $prefix) {
+        $collect = function (array &$bucket, $rows, string $prefix) use ($byFlow) {
             foreach ($rows as $row) {
-                $concept = $prefix . ' · ' . ($row->concept ?: 'Otros');
+                $concept = $byFlow && $prefix === 'Proveedores'
+                    ? (Requisition::cashFlowActivity($row->concept) ?? 'Sin concepto de flujo') . ' · ' . ($row->concept ?: 'sin asignar')
+                    : $prefix . ' · ' . ($row->concept ?: 'Otros');
                 $bucket[$concept][$row->month] = round(($bucket[$concept][$row->month] ?? 0) + (float) $row->total, 2);
             }
         };
@@ -45,12 +50,12 @@ class CashFlowWebController extends Controller
 
         $collect($actual, $byRequisition(PaymentCancellation::query()->join('payment_installments', 'payment_installments.id', '=', 'payment_cancellations.payment_installment_id'))
             ->whereBetween('payment_cancellations.paid_at', [$start, $end])
-            ->selectRaw('requisitions.classification as concept, substr(payment_cancellations.paid_at, 1, 7) as month, sum(payment_cancellations.amount) as total')
+            ->selectRaw("{$conceptColumn} as concept, substr(payment_cancellations.paid_at, 1, 7) as month, sum(payment_cancellations.amount) as total")
             ->groupBy('concept', 'month')->toBase()->get(), 'Proveedores');
 
         $collect($projected, $byRequisition(PaymentInstallment::query())->where('payment_installments.status', 'pending')
             ->whereBetween('payment_installments.due_date', [$start, $end])
-            ->selectRaw('requisitions.classification as concept, substr(payment_installments.due_date, 1, 7) as month, sum(payment_installments.amount - payment_installments.paid_amount) as total')
+            ->selectRaw("{$conceptColumn} as concept, substr(payment_installments.due_date, 1, 7) as month, sum(payment_installments.amount - payment_installments.paid_amount) as total")
             ->groupBy('concept', 'month')->toBase()->get(), 'Proveedores');
 
         $fixed = fn () => FixedCost::where('is_active', true)->where('currency', $currency);
@@ -79,7 +84,7 @@ class CashFlowWebController extends Controller
             'actual'     => $table($actual),
             'projected'  => $table($projected),
             'overdue'    => round($overdue, 2),
-            'filters'    => ['currency' => $currency, 'from' => $from->format('Y-m')],
+            'filters'    => ['currency' => $currency, 'from' => $from->format('Y-m'), 'by' => $byFlow ? 'flow' : 'classification'],
             'currencies' => Requisition::CURRENCIES,
         ]);
     }

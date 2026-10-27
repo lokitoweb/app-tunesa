@@ -105,6 +105,7 @@ async function removeQuote(q) {
 const order = useForm({
     quotation_id: '', type: 'purchase', payment_terms: 'CONTADO', payment_method: 'TRANSFERENCIA', payment_origin: 'TRANSFERENCIA',
     priority: r.value.priority || 'NORMAL', installments: 1, first_due_date: today, interval_days: 30, has_detraction: false, detraction_reason: '',
+    cash_flow_concept: r.value.cash_flow_concept || 'Pago a proveedores de bienes y servicios',
     // Precios por ítem (opcionales, como en sisgere): vacíos = total de la cotización
     prices_include_igv: true,
     items: [],
@@ -172,7 +173,7 @@ function toggleManual() {
 const scheduleSum = computed(() => round2(order.schedule.reduce((s, c) => s + Number(c.amount || 0), 0)));
 
 function emitOrder() {
-    order.transform((d) => ({ ...d, items: priced.value ? d.items : [], schedule: manualSchedule.value ? d.schedule : [], detraction_reason: d.has_detraction ? d.detraction_reason : null, advance_ids: d.advance_ids.filter((id) => supplierAdvances.value.some((a) => a.id === id)) }))
+    order.transform((d) => ({ ...d, items: priced.value ? d.items : [], schedule: manualSchedule.value ? d.schedule : [], detraction_reason: d.has_detraction ? d.detraction_reason : null, cash_flow_concept: d.cash_flow_concept || null, advance_ids: d.advance_ids.filter((id) => supplierAdvances.value.some((a) => a.id === id)) }))
         .post(`/requisitions/${r.value.id}/order`, { preserveScroll: true, onSuccess: () => (showOrder.value = false) });
 }
 </script>
@@ -571,6 +572,16 @@ function emitOrder() {
                         <div class="col-sm-3">
                             <label class="form-label small fw-semibold" for="o-prio">Prioridad</label>
                             <select id="o-prio" v-model="order.priority" class="form-select"><option v-for="t in options.priorities" :key="t" :value="t">{{ t }}</option></select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="o-flow">Concepto del flujo de efectivo</label>
+                            <select id="o-flow" v-model="order.cash_flow_concept" class="form-select" :class="{ 'is-invalid': order.errors.cash_flow_concept }">
+                                <option value="">— Sin asignar —</option>
+                                <optgroup v-for="(concepts, activity) in options.cash_flow_concepts" :key="activity" :label="activity">
+                                    <option v-for="cf in concepts" :key="cf" :value="cf">{{ cf }}</option>
+                                </optgroup>
+                            </select>
+                            <div class="invalid-feedback">{{ order.errors.cash_flow_concept }}</div>
                         </div>
                         <div class="col-sm-4 d-flex align-items-end">
                             <div class="form-check mb-2">

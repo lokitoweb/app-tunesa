@@ -74,7 +74,7 @@ function submitPay() {
 // ---------------------------------------------------------------- pago directo (FrmReqProg › Registrar)
 const showDirect = ref(false);
 const blankDirect = () => ({ supplier_id: '', detail: '', document_type: 'FACT', document_number: '', document_date: props.today, file: null, currency: 'PEN',
-    amount: '', due_date: props.today, payment_method: 'TRANSFERENCIA', has_detraction: false, detraction_reason: '', is_advance: false });
+    amount: '', due_date: props.today, payment_method: 'TRANSFERENCIA', has_detraction: false, detraction_reason: '', is_advance: false, cash_flow_concept: '' });
 const directForm = useForm(blankDirect());
 function openDirect() {
     if (!ensureTenant({ message: 'El pago directo se registra en una empresa.' })) return;
@@ -85,7 +85,7 @@ function openDirect() {
 const directReason = computed(() => props.direct?.detraction_reasons.find((d) => d.code === directForm.detraction_reason));
 const directDetraction = computed(() => (directForm.has_detraction && directReason.value ? Math.round(Math.round(Number(directForm.amount || 0) * directReason.value.percent * 10 / 100) / 10) : 0));
 function submitDirect() {
-    directForm.transform((d) => ({ ...d, file: d.file || undefined, detraction_reason: d.has_detraction ? d.detraction_reason : null }))
+    directForm.transform((d) => ({ ...d, file: d.file || undefined, detraction_reason: d.has_detraction ? d.detraction_reason : null, cash_flow_concept: d.cash_flow_concept || null }))
         .post('/treasury/direct', { preserveScroll: true, forceFormData: true, onSuccess: () => (showDirect.value = false) });
 }
 
@@ -556,6 +556,15 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                         </div>
                         <div v-if="directForm.has_detraction && directReason" class="col-12">
                             <div class="alert alert-info py-2 small mb-0">Detracción {{ directReason.percent }} %: <strong>{{ money(directDetraction, directForm.currency) }}</strong> · neto a pagar: <strong>{{ money(Number(directForm.amount || 0) - directDetraction, directForm.currency) }}</strong></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="dp-flow">Concepto del flujo de efectivo</label>
+                            <select id="dp-flow" v-model="directForm.cash_flow_concept" class="form-select">
+                                <option value="">{{ directForm.is_advance ? 'Anticipos concedidos a terceros (por ser anticipo)' : '— Sin asignar —' }}</option>
+                                <optgroup v-for="(concepts, activity) in direct.cash_flow_concepts" :key="activity" :label="activity">
+                                    <option v-for="cf in concepts" :key="cf" :value="cf">{{ cf }}</option>
+                                </optgroup>
+                            </select>
                         </div>
                         <div class="col-12">
                             <div class="form-check">

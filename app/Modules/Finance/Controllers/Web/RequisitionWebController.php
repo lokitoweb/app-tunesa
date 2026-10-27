@@ -159,7 +159,7 @@ class RequisitionWebController extends Controller
             'requisition' => [
                 ...$r->only(['id', 'detail', 'area', 'requested_by', 'email', 'plate', 'km', 'agency', 'site', 'delivery_place',
                     'classification', 'stage', 'priority', 'notes', 'reviewed_by', 'payment_terms', 'payment_method', 'payment_origin',
-                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number', 'is_express', 'is_direct_payment', 'amount_payable', 'delivery_mode', 'quote_payment_terms', 'quote_notes']),
+                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number', 'is_express', 'is_direct_payment', 'amount_payable', 'delivery_mode', 'quote_payment_terms', 'quote_notes', 'cash_flow_concept']),
                 'quote_requests' => $r->quoteRequests()->with('supplier:id,name,ruc,email')->orderBy('id')->get()->map(fn ($q) => [
                     'id' => $q->id, 'code' => $q->code, 'supplier' => $q->supplier?->name, 'has_email' => (bool) $q->supplier?->email,
                     'emailed_at' => $q->emailed_at?->timezone(tenant_timezone())->format('d/m/Y H:i'), 'supplier_id' => $q->supplier_id,
@@ -405,6 +405,7 @@ class RequisitionWebController extends Controller
             'installments'   => ['required', 'integer', 'min:1', 'max:36'],
             'first_due_date' => ['required', 'date'],
             'interval_days'  => ['required', 'integer', 'min:1', 'max:365'],
+            'cash_flow_concept' => ['nullable', Rule::in(Requisition::cashFlowConcepts())],
             'has_detraction' => ['boolean'],
             'detraction_reason' => ['nullable', 'required_if_accepted:has_detraction', Rule::in(array_keys(config('finance.detraction_reasons')))],
             // Cuotas escritas a mano (sisgere: lista de cuotas editable); vacío = cuotas iguales
@@ -478,6 +479,7 @@ class RequisitionWebController extends Controller
                 'stage' => $schedule ? 'ordered' : 'paid', $column => $number, 'ordered_at' => now(),
                 'supplier_id' => $quotation->supplier_id, 'amount' => $total, 'amount_payable' => $payable, 'advance_amount' => $advance > 0 ? $advance : null,
                 'currency' => $quotation->currency, 'installments' => count($schedule),
+                'cash_flow_concept' => $data['cash_flow_concept'] ?? $r->cash_flow_concept,
                 'has_detraction' => $hasDetraction, 'detraction_reason' => $reason, 'detraction_percent' => $percent, 'detraction_amount' => $detraction,
                 'prices_include_igv' => $pricing['includes_igv'] ?? null, 'igv_rate' => $pricing['rate'] ?? null,
                 'taxable_amount' => $pricing['taxable'] ?? null, 'igv_amount' => $pricing['igv'] ?? null,
@@ -798,6 +800,7 @@ class RequisitionWebController extends Controller
             'priorities'      => Requisition::PRIORITIES,
             'express_limit'   => Requisition::EXPRESS_LIMIT,
             'payment_origins' => Requisition::PAYMENT_ORIGINS,
+            'cash_flow_concepts' => config('finance.cash_flow_concepts'),
             'detraction_reasons' => collect(config('finance.detraction_reasons'))->map(fn ($r, $code) => ['code' => (string) $code, 'label' => "{$code} - {$r[0]}", 'percent' => $r[1]])->values(),
             'units'           => ['UNIDAD (BIENES)', 'UNIDAD (SERVICIOS)', 'CAJA', 'PAQUETE', 'JUEGO', 'KIT', 'PAR', 'DOCENA', 'KILOGRAMO', 'GRAMO',
                 'LITRO', 'GALON', 'METRO', 'METRO CUADRADO', 'METRO CUBICO', 'TONELADAS', 'BOLSA', 'BALDE', 'CILINDRO', 'RESMA', 'PIEZAS', 'TUBOS'],

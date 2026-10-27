@@ -40,6 +40,10 @@ const grand = (key) => sumBy(props.actual, key) + sumBy(props.projected, key);
                 <p class="text-body-secondary small mb-0">Egresos por mes: pagos registrados y lo que vence (proveedores, costos fijos y caja chica).</p>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center">
+                <div class="btn-group" role="group" aria-label="Agrupar por">
+                    <button type="button" class="btn btn-sm" :class="filters.by !== 'flow' ? 'btn-primary' : 'btn-outline-secondary'" @click="go({ by: 'classification' })">Por clasificación</button>
+                    <button type="button" class="btn btn-sm" :class="filters.by === 'flow' ? 'btn-primary' : 'btn-outline-secondary'" @click="go({ by: 'flow' })">Por flujo de efectivo</button>
+                </div>
                 <div class="btn-group" role="group" aria-label="Moneda">
                     <button v-for="(label, code) in currencies" :key="code" type="button" class="btn btn-sm" :class="c === code ? 'btn-primary' : 'btn-outline-secondary'" @click="go({ currency: code })">{{ label }}</button>
                 </div>

@@ -79,6 +79,7 @@ class TreasuryWebController extends Controller
                 'document_types'  => self::DOCUMENT_TYPES,
                 'payment_methods' => Requisition::PAYMENT_METHODS,
                 'detraction_reasons' => RequisitionWebController::options()['detraction_reasons'],
+                'cash_flow_concepts' => config('finance.cash_flow_concepts'),
             ] : null,
             'can'          => [
                 'pay'       => $request->user()->hasPermission('treasury.pay'),
@@ -308,6 +309,7 @@ class TreasuryWebController extends Controller
             'has_detraction'    => ['boolean'],
             'detraction_reason' => ['nullable', 'required_if_accepted:has_detraction', Rule::in(array_keys(config('finance.detraction_reasons')))],
             'is_advance'        => ['boolean'],
+            'cash_flow_concept' => ['nullable', Rule::in(Requisition::cashFlowConcepts())],
         ], [
             'document_date.before_or_equal' => 'La fecha del documento no puede ser futura.', 'file.mimes' => 'El documento debe ser PDF.',
             'detraction_reason.required_if_accepted' => 'Elige el motivo de la detracción.', 'exists' => 'Elige un proveedor activo.',
@@ -335,6 +337,8 @@ class TreasuryWebController extends Controller
                     'series' => $series, 'number' => $number, 'code' => $code, 'year' => $year, 'is_direct_payment' => true,
                     'requested_at' => now(), 'detail' => $data['detail'], 'area' => 'TESORERIA', 'requested_by' => $user->full_name, 'user_id' => $user->id,
                     'classification' => 'GASTOS FIJOS', 'priority' => 'NORMAL', 'stage' => 'ordered', 'ordered_at' => now(),
+                    // Un anticipo va, por defecto, a 'anticipos concedidos a terceros' (como lo clasificaba sisgere)
+                    'cash_flow_concept' => $data['cash_flow_concept'] ?? (($data['is_advance'] ?? false) ? 'Pagos por anticipos y préstamos concedidos a terceros' : null),
                     'reviewed_by' => $user->full_name, 'reviewed_by_id' => $user->id, 'reviewed_at' => now(), 'supplier_id' => $data['supplier_id'],
                     'invoice_number' => "{$data['document_type']} {$document}", 'invoice_date' => $data['document_date'], 'invoice_path' => $path,
                     'amount' => $total, 'amount_payable' => $payable, 'currency' => $data['currency'], 'installments' => 1,

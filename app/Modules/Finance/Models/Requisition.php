@@ -60,7 +60,7 @@ class Requisition extends Model
         'detraction_number', 'detraction_amount', 'detraction_percent', 'detraction_reason',
         'installments', 'attachments',
         'prices_include_igv', 'igv_rate', 'taxable_amount', 'igv_amount', 'is_direct_payment', 'advance_amount',
-        'quote_payment_terms', 'delivery_mode', 'quote_notes',
+        'quote_payment_terms', 'delivery_mode', 'quote_notes', 'cash_flow_concept',
     ];
 
     protected $casts = [
@@ -97,6 +97,24 @@ class Requisition extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'employee_id');
+    }
+
+    /** Todos los conceptos del flujo de efectivo (config finance.cash_flow_concepts) */
+    public static function cashFlowConcepts(): array
+    {
+        return array_merge(...array_values(config('finance.cash_flow_concepts')));
+    }
+
+    /** Actividad (operación, inversión, financiación) a la que pertenece un concepto */
+    public static function cashFlowActivity(?string $concept): ?string
+    {
+        foreach (config('finance.cash_flow_concepts') as $activity => $concepts) {
+            if (in_array($concept, $concepts, true)) {
+                return $activity;
+            }
+        }
+
+        return null;
     }
 
     public function isPayroll(): bool
