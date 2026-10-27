@@ -200,13 +200,13 @@ void main() {
       expect(await store.lastSyncAt(), now);
     });
 
-    test('envía en lotes de 20', () async {
+    test('envía en lotes de 5 (una selfie por marcación)', () async {
       for (var i = 0; i < 25; i++) {
         await store.insert(punch('p$i', Duration(minutes: 30 - i)));
       }
       final transport = _FakeTransport();
       final result = await engine.sync(transport: transport, maxAge: const Duration(hours: 24));
-      expect(transport.batches.map((b) => b.length), [20, 5]);
+      expect(transport.batches.map((b) => b.length), [5, 5, 5, 5, 5]);
       expect(result.sent.length, 25);
     });
 

@@ -727,7 +727,7 @@
 
 {{-- Modal 7: Vista Previa PDF --}}
 <div class="modal fade" id="previewPdfModal" tabindex="-1" aria-labelledby="previewPdfLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 900px;">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-xl" style="max-width: 900px;">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
             <div class="modal-header border-bottom py-2.5 px-4" style="background: var(--bg-surface-elevated, #f8fafc);">
                 <div class="d-flex align-items-center">

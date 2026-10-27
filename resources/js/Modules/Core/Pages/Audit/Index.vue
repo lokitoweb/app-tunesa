@@ -418,7 +418,7 @@ const badgeClass = (tone) => `bg-${tone}-subtle text-${tone}-emphasis border bor
                 </div>
 
                 <div v-if="totalPages > 1" class="d-flex align-items-center gap-1">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="currentPage <= 1" @click="setPage(currentPage - 1)">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="currentPage <= 1" aria-label="Página anterior" title="Página anterior" @click="setPage(currentPage - 1)">
                         <i class="bi bi-chevron-left"></i>
                     </button>
                     <template v-for="p in totalPages" :key="p">

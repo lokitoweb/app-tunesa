@@ -311,6 +311,7 @@ function emitOrder() {
                             <dt class="col-sm-4 text-body-secondary fw-normal">Pago</dt><dd class="col-sm-8">{{ requisition.payment_terms }} · {{ requisition.payment_method }} · {{ requisition.payment_origin }}</dd>
                             <dt class="col-sm-4 text-body-secondary fw-normal">Emitida</dt><dd class="col-sm-8">{{ requisition.ordered_at }}</dd>
                         </dl>
+                        <div class="table-responsive">
                         <table class="table table-sm mb-0">
                             <thead class="table-light"><tr><th>Cuota</th><th>Vence</th><th class="text-end">Monto</th><th>Estado</th></tr></thead>
                             <tbody>
@@ -322,6 +323,7 @@ function emitOrder() {
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
                     </div>
 
                     <!-- Traza: factura → almacén → pagos -->
@@ -367,6 +369,7 @@ function emitOrder() {
                                     </div>
                                     <div class="col-sm-5"><input v-model="receipt.date" type="date" :max="today" class="form-control form-control-sm" aria-label="Fecha de recepción" /></div>
                                 </div>
+                                <div class="table-responsive">
                                 <table class="table table-sm mb-2">
                                     <thead><tr><th>Producto</th><th style="width: 110px">Recibido</th><th style="width: 130px">Costo unit.</th></tr></thead>
                                     <tbody>
@@ -377,6 +380,7 @@ function emitOrder() {
                                         </tr>
                                     </tbody>
                                 </table>
+                                </div>
                                 <div class="d-flex justify-content-end gap-2">
                                     <button type="button" class="btn btn-sm btn-light" @click="showReceive = false">Cancelar</button>
                                     <button class="btn btn-sm btn-primary" :disabled="receipt.processing">Registrar entrada</button>
@@ -438,7 +442,7 @@ function emitOrder() {
                         <li v-for="q in requisition.quote_requests" :key="q.id" class="list-group-item d-flex justify-content-between align-items-center gap-2">
                             <span><span class="font-monospace fw-semibold">{{ q.code }}</span> · {{ q.supplier }}
                                 <span class="d-block text-body-secondary">{{ q.emailed_at ? `Enviada por correo ${q.emailed_at}` : q.has_email ? 'Sin enviar' : 'Proveedor sin correo: envía el PDF' }}</span></span>
-                            <a :href="`/requisitions/${requisition.id}/quote-requests/${q.id}/pdf`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="bi bi-filetype-pdf"></i></a>
+                            <a :href="`/requisitions/${requisition.id}/quote-requests/${q.id}/pdf`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" aria-label="Ver PDF de la solicitud" title="Ver PDF"><i class="bi bi-filetype-pdf"></i></a>
                         </li>
                     </ul>
                 </div>
@@ -528,7 +532,7 @@ function emitOrder() {
 
         <!-- Emitir orden -->
         <div v-if="showOrder" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="order-title" style="background: rgba(0,0,0,.45)" @click.self="showOrder = false">
-            <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg">
                 <form class="modal-content" novalidate @submit.prevent="emitOrder">
                     <div class="modal-header">
                         <h2 id="order-title" class="modal-title h5">Emitir orden · {{ chosen?.supplier?.name }} · {{ money(chosen?.amount, chosen?.currency) }}</h2>

@@ -64,7 +64,8 @@ class OfflineSyncResult {
 /// - Si el backend no tiene el lote (otro 4xx al lote) se envían una por una.
 /// - Las que superan `offline_max_hours` se descartan con aviso.
 class OfflineSyncEngine {
-  OfflineSyncEngine(this.store, this.vault, {DateTime Function()? now, this.batchSize = 20})
+  // 5 por envío: cada una lleva una selfie; con 20, en 3G el envío no terminaba antes del timeout
+  OfflineSyncEngine(this.store, this.vault, {DateTime Function()? now, this.batchSize = 5})
       : _now = now ?? DateTime.now;
 
   final OfflinePunchStore store;

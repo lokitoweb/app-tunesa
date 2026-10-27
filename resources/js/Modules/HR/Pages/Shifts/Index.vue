@@ -400,7 +400,7 @@ async function destroy(shift) {
              MODAL 1: CREAR / EDITAR TURNO (CON CLASES ESTÁNDAR EMP-MODAL)
              ========================================================================= -->
         <div id="shiftModal" ref="shiftModalElement" class="modal fade" tabindex="-1" aria-labelledby="shiftModalTitle" aria-hidden="true" data-bs-backdrop="static">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-lg modal-dialog-centered">
                 <div class="modal-content emp-modal-content">
                     <!-- Modal Header -->
                     <div class="modal-header emp-modal-header">

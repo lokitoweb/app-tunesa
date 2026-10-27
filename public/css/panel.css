@@ -123,6 +123,27 @@
     color: var(--text-primary) !important;
 }
 
+/* btn-light y table-light (29 y 25 usos) quedaban claros en modo oscuro */
+[data-bs-theme="dark"] .btn-light {
+    --bs-btn-bg: var(--bg-surface-elevated);
+    --bs-btn-border-color: var(--border-color);
+    --bs-btn-color: var(--text-primary);
+    --bs-btn-hover-bg: var(--bg-surface);
+    --bs-btn-hover-border-color: var(--border-color);
+    --bs-btn-hover-color: var(--text-primary);
+    --bs-btn-active-bg: var(--bg-surface);
+    --bs-btn-active-color: var(--text-primary);
+}
+
+[data-bs-theme="dark"] .table-light,
+[data-bs-theme="dark"] .table-light > * > * {
+    --bs-table-bg: var(--bg-surface-elevated);
+    --bs-table-color: var(--text-primary);
+    --bs-table-border-color: var(--border-color);
+    background-color: var(--bg-surface-elevated) !important;
+    color: var(--text-primary) !important;
+}
+
 [data-bs-theme="dark"] .list-group-item {
     background-color: var(--bg-surface);
     border-color: var(--border-color);

@@ -411,6 +411,8 @@ const hourLabel = (h) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'a. m.' : 'p. m.'
                         <button
                             v-if="searchQuery"
                             type="button"
+                            aria-label="Limpiar búsqueda"
+                            title="Limpiar búsqueda"
                             class="btn btn-link text-body-secondary p-0 me-2"
                             style="text-decoration: none;"
                             @click="searchQuery = ''; handleSearchInput();"

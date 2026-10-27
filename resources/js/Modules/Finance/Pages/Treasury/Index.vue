@@ -482,7 +482,7 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
 
         <!-- Pago directo de Tesorería -->
         <div v-if="showDirect && direct" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="direct-title" style="background: rgba(0,0,0,.45)" @click.self="showDirect = false">
-            <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg">
                 <form class="modal-content" novalidate @submit.prevent="submitDirect">
                     <div class="modal-header">
                         <h2 id="direct-title" class="modal-title h5">Pago directo</h2>

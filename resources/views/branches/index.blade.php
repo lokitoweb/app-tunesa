@@ -414,7 +414,7 @@
      5. MODAL DIALOG PROFESIONAL: CREAR / EDITAR SUCURSAL Y GEOCERCA
      ========================================================================= --}}
 <div class="modal fade" id="branchFormModal" tabindex="-1" aria-labelledby="branchFormModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
             {{-- Cabecera del Modal --}}
             <div class="modal-header py-3 px-4 border-bottom">

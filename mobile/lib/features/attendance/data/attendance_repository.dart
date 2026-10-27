@@ -137,7 +137,8 @@ class AttendanceRepository implements PunchTransport {
 
   @override
   Future<Map<String, BatchItemResult>> sendBatch(List<OutgoingPunch> punches) async {
-    final map = <String, dynamic>{};
+    // Reloj del teléfono al enviar: el servidor mide el desfase (TIME_DRIFT) de las marcaciones offline
+    final map = <String, dynamic>{'device_sent_at': DateTime.now().toUtc().toIso8601String()};
     for (var i = 0; i < punches.length; i++) {
       final out = punches[i];
       (await _queuedFields(out.punch)).forEach((k, v) => map['punches[$i][$k]'] = v);
@@ -157,7 +158,11 @@ class AttendanceRepository implements PunchTransport {
     final photo = punch.photo;
     await _api.postMultipart(
       _pathFor(punch.punch.action),
-      FormData.fromMap({...await _queuedFields(punch.punch), 'photo': ?(photo == null ? null : _photoFile(photo))}),
+      FormData.fromMap({
+        ...await _queuedFields(punch.punch),
+        'device_sent_at': DateTime.now().toUtc().toIso8601String(),
+        'photo': ?(photo == null ? null : _photoFile(photo)),
+      }),
     );
   }
 

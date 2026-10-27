@@ -207,7 +207,7 @@
 {{-- MODAL EXPANDIDO: CREAR / EDITAR EMPRESA --}}
 {{-- ========================================================================= --}}
 <div class="modal fade" id="companyModal" tabindex="-1" aria-labelledby="companyModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-company-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-xl modal-company-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             
             {{-- Modal Form wraps header, body and footer --}}

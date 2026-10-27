@@ -318,7 +318,7 @@
 
 {{-- Modal global para ver una selfie ampliada --}}
 <div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h2 class="modal-title fs-6" id="photoModalTitle">Evidencia de marcación</h2>

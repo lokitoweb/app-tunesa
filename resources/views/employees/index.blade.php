@@ -920,7 +920,7 @@ Estilos del Modal Dialog de Nuevo Colaborador
 
     {{-- Importar planilla (sisgere FrmIplanilla): revisar y luego dar de alta solo a los nuevos --}}
     <div class="modal fade" id="importEmployeesModal" tabindex="-1" aria-labelledby="importEmployeesTitle" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h2 class="modal-title h5" id="importEmployeesTitle">Importar colaboradores desde Excel</h2>

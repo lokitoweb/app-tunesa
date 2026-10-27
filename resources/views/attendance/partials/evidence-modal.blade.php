@@ -4,7 +4,7 @@
     Los datos llegan de attendance.evidence (JSON) y la selfie con URL firmada.
 --}}
 <div class="modal fade" id="evidenceModal" tabindex="-1" aria-labelledby="evidenceTitle" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-lg-down">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-xl modal-dialog-centered modal-fullscreen-lg-down">
         <div class="modal-content">
             <div class="modal-header">
                 <div class="d-flex align-items-center gap-2 min-w-0">

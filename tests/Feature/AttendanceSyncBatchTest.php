@@ -113,6 +113,18 @@ class AttendanceSyncBatchTest extends TestCase
             ->assertOk()->assertJsonPath('meta.created', 0)->assertJsonPath('meta.rejected', 2); // jornada ya cerrada
     }
 
+    public function test_offline_punch_with_a_future_time_is_rejected(): void
+    {
+        // Ahora: 18:00 Lima. Teléfono adelantado 2 h: inflaría la jornada (lo frena la validación)
+        $future = $this->item('clock_out', '2026-10-09T20:00:00-05:00');
+
+        $res = $this->actingIn($this->emp, $this->acme)->post('/api/v1/attendances/sync-batch', ['punches' => [$future]])->assertOk();
+
+        $this->assertSame('rejected', $res->json('data.results.0.status'));
+        $this->assertStringContainsString('futuro', $res->json('data.results.0.message'));
+        $this->assertSame(0, AttendancePunch::withoutGlobalScopes()->count());
+    }
+
     public function test_a_server_failure_keeps_the_punch_and_the_rest_of_the_batch_for_retry(): void
     {
         $in  = $this->item('clock_in', '2026-10-09T08:00:00-05:00');

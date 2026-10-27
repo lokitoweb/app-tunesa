@@ -325,7 +325,7 @@
 
 {{-- Modal de Vista Rápida del Expediente --}}
 <div class="modal fade" id="ethicsQuickModal" tabindex="-1" aria-labelledby="ethicsModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 840px;">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg" style="max-width: 840px;">
         <div class="modal-content emp-modal-content" id="ethicsModalContainer">
             {{-- Contenido cargado dinámicamente vía AJAX --}}
             <div class="p-5 text-center">
@@ -339,7 +339,7 @@
 
 {{-- Lightbox Modal de Fotos Adjuntas --}}
 <div class="modal fade" id="ethicsPhotoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg">
         <div class="modal-content border-0" style="background: transparent;">
             <div class="modal-body text-center p-0 position-relative">
                 <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3 shadow" data-bs-dismiss="modal" aria-label="Cerrar" style="z-index: 10;"></button>

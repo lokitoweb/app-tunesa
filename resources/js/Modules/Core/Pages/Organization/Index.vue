@@ -1621,7 +1621,7 @@ const catalogDetail = (catalog, row) => {
             style="z-index: 1055;"
             @click.self="closeBranchModal"
         >
-            <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg">
                 <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
                     <!-- Cabecera -->
                     <div class="modal-header py-3 px-4 border-bottom">
@@ -1943,7 +1943,7 @@ const catalogDetail = (catalog, row) => {
             style="z-index: 1055;"
             @click.self="closeStaffingModal"
         >
-            <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg">
                 <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
                     <!-- Cabecera -->
                     <div class="modal-header py-3 px-4 border-bottom">
