@@ -127,7 +127,7 @@
                                 <span class="modern-input-icon"><i class="bi bi-building"></i></span>
                                 <input type="text" id="trade_name" name="trade_name" maxlength="200" value="{{ $val('trade_name') }}"
                                        class="modern-input-control @error('trade_name') is-invalid @enderror"
-                                       placeholder="{{ $isGlobal ? 'Grupo Negreiros' : $tenant->company_name }}">
+                                       placeholder="{{ $isGlobal ? config('app.name') : $tenant->company_name }}">
                             </div>
                             <small class="settings-helper-text d-block">Visible en la barra superior del panel, inicio de sesión y encabezado de la app móvil.</small>
                         </div>

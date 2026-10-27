@@ -135,7 +135,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head :title="`${title} — ${brand.trade_name || 'Grupo Negreiros'}`" />
+    <Head :title="brand.trade_name ? `${title} — ${brand.trade_name}` : title" />
 
     <div class="panel-shell">
         <!-- SIDEBAR: Dock colapsable con auto-expansión al pasar el mouse o al hacer clic -->

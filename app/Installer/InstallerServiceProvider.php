@@ -31,12 +31,17 @@ class InstallerServiceProvider extends ServiceProvider
         }
 
         // Sin instalar todavía no hay base: la sesión y la caché (límites del asistente) van a archivos
+        // y la cookie "secure" sigue a la conexión real (la plantilla la trae en true para HTTPS)
         config(['cache.default' => 'file', 'session.driver' => 'file']);
+        if (! $this->app->runningInConsole()) {
+            config(['session.secure' => $this->app['request']->isSecure()]);
+        }
     }
 
     public function boot(): void
     {
-        // Siempre registradas (también con route:cache); el middleware las cierra con 404 si ya está instalado
+        // Siempre registradas (también con route:cache): RedirectToInstaller responde 404 a todo /install
+        // con INSTALLER_ENABLED=false (lo escribe el asistente al terminar) o si ya está instalado.
         if ($this->app->routesAreCached()) {
             return;
         }

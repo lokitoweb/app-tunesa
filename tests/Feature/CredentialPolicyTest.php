@@ -23,6 +23,8 @@ class CredentialPolicyTest extends TestCase
     {
         parent::setUp();
         $this->seedRoles();
+        // Sin dominio configurado en el panel, los correos de acceso usan el dominio de la instalación
+        config(['app.domain' => 'midominio.com', 'app.login_email_domain' => null]);
     }
 
     private function login(string $email, string $password)
@@ -38,7 +40,7 @@ class CredentialPolicyTest extends TestCase
         $acme = $this->makeTenant('acme');
         $svc  = app(CredentialProvisioner::class);
 
-        $this->assertSame('70123456@turismonegreiros.com', $svc->emailFor($acme, ' 70.123.456 '));
+        $this->assertSame('70123456@midominio.com', $svc->emailFor($acme, ' 70.123.456 '));
 
         TenantSetting::editableRowFor($acme)->fill(['login_email_domain' => '@Acme.PE'])->save();
         $this->assertSame('70123456@acme.pe', $svc->emailFor($acme->fresh(), '70123456'));
@@ -73,7 +75,7 @@ class CredentialPolicyTest extends TestCase
         ])->assertSessionHasNoErrors()->assertSessionHas('credentials');
 
         $creds = session('credentials');
-        $this->assertSame('70123456@turismonegreiros.com', $creds['email']);
+        $this->assertSame('70123456@midominio.com', $creds['email']);
 
         $rosa = User::withoutGlobalScopes()->where('email', $creds['email'])->firstOrFail();
         $this->assertTrue($rosa->must_change_password);
@@ -155,7 +157,7 @@ class CredentialPolicyTest extends TestCase
             'first_name' => 'Luis', 'last_name' => 'Rojas', 'role' => 'employee',
             'document_type' => 'dni', 'document_number' => '44556677',
         ])->assertCreated()
-          ->assertJsonPath('credentials.email', '44556677@turismonegreiros.com')
+          ->assertJsonPath('credentials.email', '44556677@midominio.com')
           ->assertJsonStructure(['credentials' => ['temporary_password']]);
     }
 
@@ -167,6 +169,6 @@ class CredentialPolicyTest extends TestCase
         $page = $this->actingAs($admin)->get(route('settings.branding'))->assertOk()->assertSee('name="login_email_domain"', false);
         unset($page);
 
-        $this->assertSame('turismonegreiros.com', TenantSetting::forTenant($acme)->loginEmailDomain());
+        $this->assertSame('midominio.com', TenantSetting::forTenant($acme)->loginEmailDomain());
     }
 }

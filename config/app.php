@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Grupo Negreiros'),
+    'name' => env('APP_NAME', 'ERP'),
 
     // Dominio de respaldo para los correos de acceso ([DNI]@dominio) si la plataforma no lo configuró en el panel
     'login_email_domain' => env('LOGIN_EMAIL_DOMAIN'),
@@ -24,7 +24,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | ResolveTenant extrae el slug de la empresa del subdominio de este dominio
-    | (p. ej. empresa.tunesa.app).
+    | (p. ej. empresa.midominio.com).
     |
     */
 
@@ -85,7 +85,7 @@ return [
     // Hora de las tareas programadas (routes/console.php): siempre la de Perú,
     // aunque el servidor o APP_TIMEZONE estén en UTC. Cada comando decide además
     // con la zona de cada empresa (recordatorios, cumpleaños).
-    'schedule_timezone' => env('SCHEDULE_TIMEZONE', 'America/Lima'),
+    'schedule_timezone' => env('SCHEDULE_TIMEZONE', env('APP_TIMEZONE', 'America/Lima')),
 
     // Proxies de confianza (Cloudflare Tunnel, Nginx, balanceadores). Se lee aquí y no con env() en
     // bootstrap/app.php para que siga valiendo con `php artisan config:cache` (ahí .env ya no se carga).

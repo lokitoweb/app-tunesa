@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Nominatim (OpenStreetMap). Respeta la política de uso:
- *  - User-Agent identificable: "TuneSA/1.0 (+APP_URL)".
+ *  - User-Agent identificable: "<APP_NAME>/1.0 (+APP_URL)".
  *  - Máximo 1 petición por segundo para TODA la instalación: un candado de
  *    caché serializa las peticiones y espera lo que falte desde la anterior
  *    (services.nominatim.min_interval_ms, 1000 por defecto).
@@ -98,7 +98,7 @@ class NominatimGeocoder implements Geocoder
 
     public static function userAgent(): string
     {
-        return 'TuneSA/1.0 (+' . rtrim((string) config('app.url'), '/') . ')';
+        return preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) config('app.name')) . '/1.0 (+' . rtrim((string) config('app.url'), '/') . ')';
     }
 
     private function get(string $path, array $params): mixed

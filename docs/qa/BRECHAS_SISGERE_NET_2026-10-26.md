@@ -64,7 +64,7 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 | 15 | Hecho | Finanzas › Productos: corregir y eliminar solo los no usados |
 | 16 | Hecho | El .NET avisaba "Se registró un pago": aviso en la campana a quien pidió |
 | 17 | Hecho | Tesorería › Programadas: marcar y autorizar varias |
-| 18 | **Pendiente: decide la empresa** | Consulta RENIEC: necesita contratar un proveedor y su token |
+| 18 | Parcial | RUC: hecho con Migo (Proveedores, token en Integraciones). DNI: la configuración de Migo existe, falta usarla en Colaboradores y en el pago a personas |
 
 ## Reglas que el web hace distinto (a propósito o a decidir)
 - Aprobador: el .NET tenía fijo "MERCY NEGREIROS PIZAN" en el código; el web usa el permiso de aprobar.

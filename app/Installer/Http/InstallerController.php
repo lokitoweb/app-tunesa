@@ -171,9 +171,11 @@ class InstallerController
             ])->save();
         });
 
+        // INSTALLER_ENABLED=false: el asistente deja de existir (rutas y redirección), no solo de responder
         EnvWriter::forApp()->set([
-            'APP_NAME'     => $data['trade_name'],
-            'APP_TIMEZONE' => $data['timezone'],
+            'APP_NAME'          => $data['trade_name'],
+            'APP_TIMEZONE'      => $data['timezone'],
+            'INSTALLER_ENABLED' => false,
         ]);
 
         // Paso 5: bloquear el asistente y dejar el sistema listo
@@ -211,6 +213,7 @@ class InstallerController
             'APP_DOMAIN'               => $domain,
             'SANCTUM_STATEFUL_DOMAINS' => $domain === $host ? "$domain,www.$domain" : "$domain,$host",
             'SESSION_SECURE_COOKIE'    => $request->isSecure(),
+            'MAIL_FROM_ADDRESS'        => "no-reply@$domain",
         ];
     }
 

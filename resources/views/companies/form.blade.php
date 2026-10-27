@@ -39,7 +39,7 @@
                             <label for="slug" class="form-label">Subdominio <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <input type="text" id="slug" name="slug" value="{{ old('slug', $company->slug) }}" required maxlength="63" pattern="[a-z0-9]+(-[a-z0-9]+)*" class="form-control @error('slug') is-invalid @enderror" placeholder="empresa-demo">
-                                <span class="input-group-text small">.{{ config('app.domain', 'tunesa.app') }}</span>
+                                <span class="input-group-text small">.{{ config('app.domain') }}</span>
                             </div>
                             <div class="form-text">Minúsculas, números y guiones. La app lo usa para identificar a la empresa.</div>
                         </div>

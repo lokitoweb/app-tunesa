@@ -52,6 +52,7 @@ class InstallerTest extends TestCase
         $this->assertSame([
             'APP_URL' => 'https://cliente.com.pe', 'APP_DOMAIN' => 'cliente.com.pe',
             'SANCTUM_STATEFUL_DOMAINS' => 'cliente.com.pe,www.cliente.com.pe', 'SESSION_SECURE_COOKIE' => true,
+            'MAIL_FROM_ADDRESS' => 'no-reply@cliente.com.pe',
         ], $settings('https://cliente.com.pe/install/database'));
 
         $www = $settings('https://WWW.Cliente.com/install/database');
@@ -90,6 +91,8 @@ class InstallerTest extends TestCase
         $this->assertSame('midominio.com', TenantSetting::forTenant(null)->loginEmailDomain());
         $this->assertSame('Mi ERP', TenantSetting::forTenant(null)->tradeName());
         $this->assertStringContainsString("APP_NAME='Mi ERP'", file_get_contents($this->dir . '/.env'));
+        // El asistente queda apagado en el .env, no solo bloqueado por el archivo
+        $this->assertStringContainsString('INSTALLER_ENABLED=false', file_get_contents($this->dir . '/.env'));
         $this->assertFileExists($this->dir . '/installed.lock');
 
         // Bloqueado: no se puede volver a instalar ni crear otro Super Admin

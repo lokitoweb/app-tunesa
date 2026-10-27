@@ -18,14 +18,15 @@ final class EnvWriter
         return new self(app()->environmentFilePath());
     }
 
-    /** Crea el .env desde .env.example si aún no existe */
+    /** Crea el .env desde la plantilla de producción (o la de desarrollo, si falta) si aún no existe */
     public function ensureExists(): void
     {
         if (is_file($this->path)) {
             return;
         }
 
-        $example = dirname($this->path) . DIRECTORY_SEPARATOR . '.env.example';
+        $dir = dirname($this->path) . DIRECTORY_SEPARATOR;
+        $example = is_file($dir . '.env.production.example') ? $dir . '.env.production.example' : $dir . '.env.example';
         if (! @copy($example, $this->path) && ! @touch($this->path)) {
             throw new \RuntimeException('No se pudo crear el archivo .env. Revisa los permisos de la carpeta del proyecto.');
         }

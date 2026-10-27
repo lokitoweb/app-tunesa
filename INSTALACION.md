@@ -1,7 +1,9 @@
 # Instalación en un servidor nuevo
 
-El sistema se instala vacío (sin empresas ni datos de prueba) y toma solo el dominio con el que se
-abre el instalador. No hay que copiar ni editar archivos de otro servidor.
+El sistema se instala vacío y neutro: sin empresas, sin datos de prueba y sin marca de nadie (logo e
+íconos genéricos). Toma solo el dominio con el que se abre el instalador y arma el `.env` completo de
+producción. No hay que copiar ni editar archivos de otro servidor. El nombre, los logos, los colores
+y el ícono se cambian después en **Configuración › Marca y app**.
 
 ## Lo que necesitas
 
@@ -44,7 +46,10 @@ sudo -u erp -H bash -c 'git clone git@github.com:lokitoweb/app-tunesa.git /var/w
 
 **5. Instalador:** abre `https://midominio.com/install` (con el dominio real y `https`, no con la IP).
 Pide los datos de la base del paso 2, crea las tablas, roles y permisos, y el administrador.
-El dominio, la dirección del sitio y la cookie segura se configuran solos con la dirección que usaste.
+El dominio, la dirección del sitio, la cookie segura y el remitente del correo se configuran solos con
+la dirección que usaste. Al terminar, el instalador **se apaga**: escribe `INSTALLER_ENABLED=false` en
+el `.env` y deja `storage/app/installed.lock`; `/install` responde 404 y no se puede reinstalar encima
+de los datos.
 
 **6. Configuración del servidor** (como root, una vez):
 
@@ -63,10 +68,14 @@ sudo -u erp -H bash -c 'cd /var/www/midominio.com/app && php artisan app:check-p
 
 Sin errores, el sistema está listo. El único aviso esperado al inicio es el del correo.
 
-## Correo (recuperación de contraseña y cotizaciones a proveedores)
+## Después de instalar, desde el panel
 
-En `/var/www/midominio.com/app/.env` completa `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`,
-`MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS` con los datos de tu proveedor de correo y corre
+- **Marca y app:** nombre, logos, colores, ícono, dominio de los correos de acceso.
+- **Integraciones:** correo SMTP (avisos y documentos a proveedores), consulta de RUC (token de Migo),
+  facturación electrónica, webhooks.
+
+La **recuperación de contraseña** usa el correo del `.env`: en `/var/www/midominio.com/app/.env`
+completa `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` y corre
 `sudo -u erp -H bash -c 'cd /var/www/midominio.com/app && php artisan config:cache'`.
 
 ## Si algo falla

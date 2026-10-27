@@ -146,7 +146,7 @@
                         <td>
                             <div class="d-inline-flex flex-column gap-1">
                                 <span class="badge bg-light text-dark border font-monospace text-lowercase fw-normal px-2 py-1" style="font-size: 0.775rem;">
-                                    {{ $c->slug }}.{{ config('app.domain', 'tunesa.app') }}
+                                    {{ $c->slug }}.{{ config('app.domain') }}
                                 </span>
                                 @if($c->custom_domain)
                                     <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace text-lowercase fw-normal px-2 py-1" style="font-size: 0.75rem;">
@@ -281,7 +281,7 @@
                                         <label for="company_name" class="form-label small fw-semibold text-secondary mb-1">
                                             Nombre Comercial <span class="text-danger">*</span>
                                         </label>
-                                        <input type="text" id="company_name" name="company_name" required maxlength="200" class="form-control" placeholder="Ej. Negreiros Soluciones S.A.C.">
+                                        <input type="text" id="company_name" name="company_name" required maxlength="200" class="form-control" placeholder="Ej. Comercial Andina S.A.C.">
                                     </div>
                                     <div class="col-12 col-md-4">
                                         <label for="ruc" class="form-label small fw-semibold text-secondary mb-1">RUC</label>
@@ -293,7 +293,7 @@
                                         </label>
                                         <div class="input-domain-wrapper">
                                             <input type="text" id="slug" name="slug" required maxlength="63" pattern="[a-z0-9]+(-[a-z0-9]+)*" class="font-monospace text-lowercase" placeholder="empresa-demo">
-                                            <span class="domain-suffix">.{{ config('app.domain', 'tunesa.app') }}</span>
+                                            <span class="domain-suffix">.{{ config('app.domain') }}</span>
                                         </div>
                                         <div class="form-text small text-muted mt-1">Identificador para inicio de sesión en plataforma y móvil.</div>
                                     </div>
@@ -479,7 +479,7 @@
                                             <label for="admin_last_name" class="form-label small fw-semibold text-secondary mb-1">
                                                 Apellidos <span class="text-danger">*</span>
                                             </label>
-                                            <input type="text" id="admin_last_name" name="admin_last_name" maxlength="100" class="form-control" placeholder="Ej. Negreiros">
+                                            <input type="text" id="admin_last_name" name="admin_last_name" maxlength="100" class="form-control" placeholder="Ej. Pérez">
                                         </div>
                                         <div class="col-12 col-md-6">
                                             <label for="admin_email" class="form-label small fw-semibold text-secondary mb-1">

@@ -2,7 +2,7 @@
 @php
     $authBrand = $brandSettings ?? \App\Modules\Core\Models\TenantSetting::forTenant(isset($tenant) && $tenant ? $tenant : null);
     $authLogo = $authBrand->displayLogoUrl();
-    $authLogoDark = $authBrand->usesDefaultLogo() ? asset('img/grupo-negreiros-logo-white.png') : $authBrand->logoDarkUrl();
+    $authLogoDark = $authBrand->usesDefaultLogo() ? asset(\App\Modules\Core\Models\TenantSetting::DEFAULT_LOGO_DARK) : $authBrand->logoDarkUrl();
     $authHasDark = $authLogoDark && $authLogoDark !== $authLogo;
 @endphp
 <div class="gn-brand">

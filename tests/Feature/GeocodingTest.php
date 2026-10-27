@@ -34,7 +34,7 @@ class GeocodingTest extends TestCase
     {
         parent::setUp();
         $this->seedRoles();
-        config(['app.url' => 'https://panel.tunesa.test']);
+        config(['app.url' => 'https://panel.tunesa.test', 'app.name' => 'Mi ERP']);
     }
 
     private function service(?Tenant $tenant = null): GeocodingService
@@ -61,14 +61,14 @@ class GeocodingTest extends TestCase
         ], $this->service()->search('larcomar', 2));
 
         Http::assertSent(fn (Request $r) => str_contains($r->url(), '/reverse')
-            && $r->header('User-Agent')[0] === 'TuneSA/1.0 (+https://panel.tunesa.test)'
+            && $r->header('User-Agent')[0] === 'Mi-ERP/1.0 (+https://panel.tunesa.test)'
             && $r['accept-language'] === 'es'
             && $r['lat'] == -12.09418 && $r['lon'] == -77.0356);
 
         Http::assertSent(fn (Request $r) => str_contains($r->url(), '/search')
             && $r['q'] === 'larcomar' && $r['limit'] == 2 && $r['countrycodes'] === 'pe' && $r['accept-language'] === 'es');
 
-        $this->assertSame('TuneSA/1.0 (+https://panel.tunesa.test)', NominatimGeocoder::userAgent());
+        $this->assertSame('Mi-ERP/1.0 (+https://panel.tunesa.test)', NominatimGeocoder::userAgent());
     }
 
     public function test_results_are_cached_reverse_by_rounded_coordinates(): void

@@ -8,7 +8,7 @@
 
     // Logo claro y, si existe, uno distinto para el tema oscuro (igual que en el login)
     $errLogo     = $errBrandSettings->displayLogoUrl();
-    $errLogoDark = $errBrandSettings->usesDefaultLogo() ? asset('img/grupo-negreiros-logo-white.png') : $errBrandSettings->logoDarkUrl();
+    $errLogoDark = $errBrandSettings->usesDefaultLogo() ? asset(\App\Modules\Core\Models\TenantSetting::DEFAULT_LOGO_DARK) : $errBrandSettings->logoDarkUrl();
     $errHasDark  = $errLogoDark && $errLogoDark !== $errLogo;
 
     // Sesión iniciada (sin romper la página si la base de datos no responde)

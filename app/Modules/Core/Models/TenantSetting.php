@@ -26,7 +26,7 @@ class TenantSetting extends Model
 {
     /** Valores de fábrica si ni la empresa ni la plataforma definieron nada */
     public const DEFAULTS = [
-        'trade_name'              => 'Grupo Negreiros',
+        'trade_name'              => null,   // defaults(): APP_NAME de la instalación
         'primary_color'           => '#3C729E',
         'secondary_color'         => '#F59E0B',
         'accent_color'            => '#10B981',
@@ -58,7 +58,7 @@ class TenantSetting extends Model
         // El colaborador puede cambiar su contraseña desde la app (Mi perfil)
         'self_password_change'    => true,
         // Correo de acceso de los colaboradores: [DNI]@dominio
-        'login_email_domain'      => 'turismonegreiros.com',
+        'login_email_domain'      => null,   // defaults(): LOGIN_EMAIL_DOMAIN o el dominio de la instalación
     ];
 
     public const MOCK_LOCATION_POLICIES = ['reject', 'flag'];
@@ -277,9 +277,8 @@ class TenantSetting extends Model
     {
         $defaults = self::DEFAULTS;
         $defaults['punch_requires_schedule'] = (bool) config('attendance.punch_requires_schedule', true);
-        if ($domain = config('app.login_email_domain')) {
-            $defaults['login_email_domain'] = strtolower(ltrim((string) $domain, '@'));
-        }
+        $defaults['trade_name'] = (string) config('app.name');
+        $defaults['login_email_domain'] = strtolower(ltrim((string) (config('app.login_email_domain') ?: config('app.domain')), '@'));
 
         return $defaults;
     }
@@ -364,7 +363,7 @@ class TenantSetting extends Model
 
     public function tradeName(): string
     {
-        return $this->trade_name ?: ($this->resolvedTenant?->company_name ?: self::DEFAULTS['trade_name']);
+        return $this->trade_name ?: ($this->resolvedTenant?->company_name ?: self::defaults()['trade_name']);
     }
 
     // ------------------------------------------------------------------ servicios externos
@@ -470,7 +469,10 @@ class TenantSetting extends Model
     }
 
     /** Logo incluido con la plataforma: se usa mientras nadie suba el suyo en "Marca y app" */
-    public const DEFAULT_LOGO = 'img/grupo-negreiros-logo.png';
+    public const DEFAULT_LOGO = 'img/logo-default.png';
+
+    /** Versión para fondo oscuro del logo por defecto */
+    public const DEFAULT_LOGO_DARK = 'img/logo-default-white.png';
 
     /** Logo a pintar en el panel: el subido (empresa o plataforma) o el de la plataforma por defecto */
     public function displayLogoUrl(): string

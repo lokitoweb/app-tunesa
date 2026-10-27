@@ -7,7 +7,7 @@
     @php
         $brandTenant = isset($tenant) && $tenant instanceof \App\Modules\Core\Models\Tenant ? $tenant : \App\Modules\Core\Models\Tenant::fromHost(request()->getHost());
         $brandSettings = \App\Modules\Core\Models\TenantSetting::forTenant($brandTenant);
-        $heroLogo = $brandSettings->usesDefaultLogo() ? asset('img/grupo-negreiros-logo-white.png') : ($brandSettings->logoDarkUrl() ?: $brandSettings->displayLogoUrl());
+        $heroLogo = $brandSettings->usesDefaultLogo() ? asset(\App\Modules\Core\Models\TenantSetting::DEFAULT_LOGO_DARK) : ($brandSettings->logoDarkUrl() ?: $brandSettings->displayLogoUrl());
         $heroOnPlate = ! $brandSettings->usesDefaultLogo() && ! $brandSettings->logoDarkUrl();
     @endphp
     <title>@yield('title', 'Acceso') — {{ $brandSettings->tradeName() }}</title>
