@@ -15,6 +15,7 @@ const props = defineProps({
     currencies: { type: Object, default: () => ({}) },
     can: { type: Object, required: true },
     today: { type: String, required: true },
+    direct: { type: Object, default: null },
 });
 
 const { ask } = useConfirm();
@@ -55,8 +56,24 @@ function submitPay() {
     pay.post(`/treasury/installments/${payTarget.value.id}/pay`, { preserveScroll: true, forceFormData: true, onSuccess: () => (payTarget.value = null) });
 }
 
-// ---------------------------------------------------------------- detracción
-const detrTarget = ref(null);
+// ---------------------------------------------------------------- pago directo (FrmReqProg › Registrar)
+const showDirect = ref(false);
+const blankDirect = () => ({ supplier_id: '', detail: '', document_type: 'FACT', document_number: '', document_date: props.today, file: null, currency: 'PEN',
+    amount: '', due_date: props.today, payment_method: 'TRANSFERENCIA', has_detraction: false, detraction_reason: '', is_advance: false });
+const directForm = useForm(blankDirect());
+function openDirect() {
+    Object.assign(directForm, blankDirect());
+    directForm.clearErrors();
+    showDirect.value = true;
+}
+const directReason = computed(() => props.direct?.detraction_reasons.find((d) => d.code === directForm.detraction_reason));
+const directDetraction = computed(() => (directForm.has_detraction && directReason.value ? Math.round(Math.round(Number(directForm.amount || 0) * directReason.value.percent * 10 / 100) / 10) : 0));
+function submitDirect() {
+    directForm.transform((d) => ({ ...d, file: d.file || undefined, detraction_reason: d.has_detraction ? d.detraction_reason : null }))
+        .post('/treasury/direct', { preserveScroll: true, forceFormData: true, onSuccess: () => (showDirect.value = false) });
+}
+
+// ---------------------------------------------------------------- detracciónconst detrTarget = ref(null);
 const detr = useForm({ detraction_number: '', detraction_percent: 12, detraction_amount: '' });
 function openDetraction(p) {
     detrTarget.value = p;
@@ -96,9 +113,12 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                 <h1 class="h4 fw-bold mb-1">Tesorería y pagos</h1>
                 <p class="text-body-secondary small mb-0">Programa las cuotas de las órdenes, autoriza y registra los pagos con su voucher.</p>
             </div>
-            <button v-if="can.pay" type="button" class="btn btn-outline-primary" @click="showAccounts = !showAccounts">
-                <i class="bi bi-bank me-1"></i>Cuentas de origen <span class="badge bg-primary-subtle text-primary ms-1">{{ activeAccounts.length }}</span>
-            </button>
+            <div class="d-flex flex-wrap gap-2">
+                <button v-if="direct" type="button" class="btn btn-primary" @click="openDirect"><i class="bi bi-plus-lg me-1"></i>Pago directo</button>
+                <button v-if="can.pay" type="button" class="btn btn-outline-primary" @click="showAccounts = !showAccounts">
+                    <i class="bi bi-bank me-1"></i>Cuentas de origen <span class="badge bg-primary-subtle text-primary ms-1">{{ activeAccounts.length }}</span>
+                </button>
+            </div>
         </div>
 
         <!-- KPIs -->
@@ -180,6 +200,7 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                     <div class="small text-body-secondary text-truncate">
                                         <Link :href="`/requisitions/${p.requisition?.id}`" class="font-monospace">{{ p.requisition?.order || p.requisition?.code }}</Link> · {{ p.requisition?.detail }}
                                     </div>
+                                    <span v-if="p.is_advance" class="badge mt-1 me-1 bg-info-subtle text-info-emphasis">Anticipo</span>
                                     <span v-if="p.requisition?.has_detraction" class="badge mt-1" :class="p.requisition.detraction.detraction_number ? 'bg-info-subtle text-info-emphasis' : 'bg-warning-subtle text-warning-emphasis'">
                                         Detracción {{ p.requisition.detraction.detraction_number ? `${p.requisition.detraction.detraction_percent}% · ${money(p.requisition.detraction.detraction_amount, p.requisition.currency)}` : 'pendiente' }}
                                     </span>
@@ -332,6 +353,99 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                     <div class="modal-footer">
                         <button type="button" class="btn btn-light" @click="detrTarget = null">Cancelar</button>
                         <button type="submit" class="btn btn-primary" :disabled="detr.processing">Guardar detracción</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <!-- Pago directo de Tesorería -->
+        <div v-if="showDirect && direct" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="direct-title" style="background: rgba(0,0,0,.45)" @click.self="showDirect = false">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <form class="modal-content" novalidate @submit.prevent="submitDirect">
+                    <div class="modal-header">
+                        <h2 id="direct-title" class="modal-title h5">Pago directo</h2>
+                        <button type="button" class="btn-close" aria-label="Cerrar" @click="showDirect = false"></button>
+                    </div>
+                    <div class="modal-body row g-3">
+                        <div class="col-12 small text-body-secondary">Pagos que no pasan por logística (servicios, alquileres, devoluciones…). Quedan por programar y siguen la misma autorización.</div>
+                        <div class="col-md-7">
+                            <label class="form-label small fw-semibold" for="dp-supplier">Proveedor *</label>
+                            <select id="dp-supplier" v-model="directForm.supplier_id" class="form-select" :class="{ 'is-invalid': directForm.errors.supplier_id }">
+                                <option value="" disabled>Elige…</option>
+                                <option v-for="s in direct.suppliers" :key="s.id" :value="s.id">{{ s.name }} · {{ s.ruc }}</option>
+                            </select>
+                            <div class="invalid-feedback">{{ directForm.errors.supplier_id }}</div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-semibold" for="dp-method">Medio de pago</label>
+                            <select id="dp-method" v-model="directForm.payment_method" class="form-select"><option v-for="m in direct.payment_methods" :key="m" :value="m">{{ m }}</option></select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="dp-detail">Detalle *</label>
+                            <textarea id="dp-detail" v-model.trim="directForm.detail" rows="2" maxlength="1000" class="form-control" :class="{ 'is-invalid': directForm.errors.detail }"></textarea>
+                            <div class="invalid-feedback">{{ directForm.errors.detail }}</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label small fw-semibold" for="dp-doctype">Documento *</label>
+                            <select id="dp-doctype" v-model="directForm.document_type" class="form-select"><option v-for="(label, code) in direct.document_types" :key="code" :value="code">{{ label }}</option></select>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label small fw-semibold" for="dp-docnum">Serie y número *</label>
+                            <input id="dp-docnum" v-model.trim="directForm.document_number" class="form-control font-monospace" maxlength="40" placeholder="F001-000123" :class="{ 'is-invalid': directForm.errors.document_number }" />
+                            <div class="invalid-feedback">{{ directForm.errors.document_number }}</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label small fw-semibold" for="dp-docdate">Fecha del documento *</label>
+                            <input id="dp-docdate" v-model="directForm.document_date" type="date" :max="today" class="form-control" :class="{ 'is-invalid': directForm.errors.document_date }" />
+                            <div class="invalid-feedback">{{ directForm.errors.document_date }}</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="dp-file">PDF del documento <span class="fw-normal text-body-secondary">(sin él no se puede pagar)</span></label>
+                            <input id="dp-file" type="file" accept="application/pdf" class="form-control" :class="{ 'is-invalid': directForm.errors.file }" @change="directForm.file = $event.target.files[0] || null" />
+                            <div class="invalid-feedback">{{ directForm.errors.file }}</div>
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-label small fw-semibold" for="dp-currency">Moneda</label>
+                            <select id="dp-currency" v-model="directForm.currency" class="form-select"><option v-for="(label, code) in currencies" :key="code" :value="code">{{ label }}</option></select>
+                        </div>
+                        <div class="col-sm-5">
+                            <label class="form-label small fw-semibold" for="dp-amount">Monto total *</label>
+                            <input id="dp-amount" v-model="directForm.amount" type="number" min="0.01" step="0.01" class="form-control" :class="{ 'is-invalid': directForm.errors.amount }" />
+                            <div class="invalid-feedback">{{ directForm.errors.amount }}</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label small fw-semibold" for="dp-due">Vence *</label>
+                            <input id="dp-due" v-model="directForm.due_date" type="date" class="form-control" :class="{ 'is-invalid': directForm.errors.due_date }" />
+                            <div class="invalid-feedback">{{ directForm.errors.due_date }}</div>
+                        </div>
+                        <div class="col-sm-4 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input id="dp-detr" v-model="directForm.has_detraction" class="form-check-input" type="checkbox" />
+                                <label class="form-check-label small" for="dp-detr">Afecta a detracción</label>
+                            </div>
+                        </div>
+                        <div v-if="directForm.has_detraction" class="col-sm-8">
+                            <label class="form-label small fw-semibold" for="dp-reason">Motivo de detracción *</label>
+                            <select id="dp-reason" v-model="directForm.detraction_reason" class="form-select" :class="{ 'is-invalid': directForm.errors.detraction_reason }">
+                                <option value="" disabled>Elige el motivo…</option>
+                                <option v-for="d in direct.detraction_reasons" :key="d.code" :value="d.code">{{ d.label }} ({{ d.percent }} %)</option>
+                            </select>
+                            <div class="invalid-feedback">{{ directForm.errors.detraction_reason }}</div>
+                        </div>
+                        <div v-if="directForm.has_detraction && directReason" class="col-12">
+                            <div class="alert alert-info py-2 small mb-0">Detracción {{ directReason.percent }} %: <strong>{{ money(directDetraction, directForm.currency) }}</strong> · neto a pagar: <strong>{{ money(Number(directForm.amount || 0) - directDetraction, directForm.currency) }}</strong></div>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input id="dp-adv" v-model="directForm.is_advance" class="form-check-input" type="checkbox" />
+                                <label class="form-check-label small" for="dp-adv">Es un anticipo: una vez pagado, se descontará de la siguiente orden de este proveedor</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" @click="showDirect = false">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" :disabled="directForm.processing">
+                            <span v-if="directForm.processing" class="spinner-border spinner-border-sm me-1"></span>Registrar pago
+                        </button>
                     </div>
                 </form>
             </div>

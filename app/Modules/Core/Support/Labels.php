@@ -101,6 +101,8 @@ final class Labels
         'quotation.created'                  => ['Cotización agregada', 'primary', 'file-earmark-text'],
         'quotation.deleted'                  => ['Cotización eliminada', 'danger', 'file-earmark-text'],
         'requisition.detraction'             => ['Detracción registrada', 'primary', 'percent'],
+        'treasury.direct_payment'            => ['Pago directo registrado', 'primary', 'cash-stack'],
+        'requisition.advance_applied'        => ['Anticipo aplicado a la orden', 'info', 'arrow-left-right'],
         'installment.scheduled'              => ['Cuota programada', 'primary', 'calendar-check'],
         'installment.authorized'             => ['Pago autorizado', 'success', 'check2-circle'],
         'installment.paid'                   => ['Pago registrado', 'success', 'cash-coin'],

@@ -21,13 +21,13 @@ final class FinanceDocumentPdf
         $isPurchase = (bool) $r->purchase_order_number;
 
         return self::render([
-            'title'     => $isPurchase ? 'ORDEN DE COMPRA' : 'ORDEN DE SERVICIO',
+            'title'     => $isPurchase ? 'ORDEN DE COMPRA' : ($r->service_order_number ? 'ORDEN DE SERVICIO' : 'PAGO DIRECTO'),
             'number'    => $r->orderNumber(),
             'date'      => $r->ordered_at?->timezone(tenant_timezone())->format('d/m/Y'),
             'tenant'    => $r->tenant,
             'supplier'  => $r->supplier,
             'rows'      => [
-                ['Requerimiento', $r->code()], ['Detalle', $r->detail], ['Área', $r->area], ['Placa', $r->plate],
+                ['Requerimiento', $r->is_direct_payment ? null : $r->code()], ['Documento', $r->is_direct_payment ? $r->invoice_number : null], ['Detalle', $r->detail], ['Área', $r->area], ['Placa', $r->plate],
                 ['Condición', trim("{$r->payment_terms} · {$r->payment_method}", ' ·')], ['Cuotas', $r->installments],
                 ['Detracción', $r->detraction_reason ? "{$r->detraction_reason} - " . config("finance.detraction_reasons.{$r->detraction_reason}.0")
                     . " · {$r->detraction_percent} %: " . self::money($r->currency, $r->detraction_amount) : null],

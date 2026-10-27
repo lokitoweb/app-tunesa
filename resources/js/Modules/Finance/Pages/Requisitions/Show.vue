@@ -95,6 +95,7 @@ const order = useForm({
     items: [],
     // Cuotas escritas a mano (vacío = cuotas iguales)
     schedule: [],
+    advance_ids: [],
 });
 const manualSchedule = ref(false);
 const showOrder = ref(false);
@@ -104,6 +105,7 @@ function openOrder(q) {
     order.clearErrors();
     manualSchedule.value = false;
     order.schedule = [];
+    order.advance_ids = [];
     showOrder.value = true;
 }
 const chosen = computed(() => r.value.quotations.find((q) => q.id === order.quotation_id));
@@ -132,7 +134,10 @@ const itemFor = (id) => r.value.items.find((i) => i.id === id);
 const orderTotal = computed(() => (priced.value ? orderTotals.value.total : Number(chosen.value?.amount || 0)));
 const detrReason = computed(() => props.options.detraction_reasons.find((d) => d.code === order.detraction_reason));
 const detrAmount = computed(() => (order.has_detraction && detrReason.value ? Math.round(Math.round(orderTotal.value * detrReason.value.percent * 10 / 100) / 10) : 0));
-const payable = computed(() => round2(orderTotal.value - detrAmount.value));
+// Anticipos del proveedor elegido (misma moneda), pagados y sin aplicar
+const supplierAdvances = computed(() => (r.value.advances?.[chosen.value?.supplier?.id] || []).filter((a) => a.currency === chosen.value?.currency));
+const advanceAmount = computed(() => round2(supplierAdvances.value.filter((a) => order.advance_ids.includes(a.id)).reduce((s, a) => s + a.amount, 0)));
+const payable = computed(() => round2(orderTotal.value - detrAmount.value - advanceAmount.value));
 
 // Cuotas iguales (la última absorbe el redondeo), base para editarlas a mano
 function equalSchedule() {
@@ -152,7 +157,7 @@ function toggleManual() {
 const scheduleSum = computed(() => round2(order.schedule.reduce((s, c) => s + Number(c.amount || 0), 0)));
 
 function emitOrder() {
-    order.transform((d) => ({ ...d, items: priced.value ? d.items : [], schedule: manualSchedule.value ? d.schedule : [], detraction_reason: d.has_detraction ? d.detraction_reason : null }))
+    order.transform((d) => ({ ...d, items: priced.value ? d.items : [], schedule: manualSchedule.value ? d.schedule : [], detraction_reason: d.has_detraction ? d.detraction_reason : null, advance_ids: d.advance_ids.filter((id) => supplierAdvances.value.some((a) => a.id === id)) }))
         .post(`/requisitions/${r.value.id}/order`, { preserveScroll: true, onSuccess: () => (showOrder.value = false) });
 }
 </script>
@@ -264,8 +269,8 @@ function emitOrder() {
                 <div v-if="['ordered', 'paid'].includes(requisition.stage)" class="card border-success shadow-sm mb-3">
                     <div class="card-header bg-success-subtle fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <span>
-                            <i class="bi bi-receipt me-1"></i>{{ requisition.purchase_order_number ? 'Orden de compra' : 'Orden de servicio' }}
-                            <span class="font-monospace">{{ requisition.purchase_order_number || requisition.service_order_number }}</span>
+                            <i class="bi bi-receipt me-1"></i>{{ requisition.purchase_order_number ? 'Orden de compra' : requisition.service_order_number ? 'Orden de servicio' : 'Pago directo de Tesorería' }}
+                            <span class="font-monospace">{{ requisition.order_number }}</span>
                         </span>
                         <a :href="`/requisitions/${requisition.id}/order.pdf`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success"><i class="bi bi-filetype-pdf me-1"></i>PDF firmado</a>
                     </div>
@@ -280,7 +285,12 @@ function emitOrder() {
                                     <span v-else class="text-body-secondary">la registra Tesorería</span>
                                     <span v-if="requisition.detraction.number" class="text-body-secondary"> · constancia {{ requisition.detraction.number }}</span>
                                 </dd>
-                                <dt class="col-sm-4 text-body-secondary fw-normal">Neto a pagar</dt><dd class="col-sm-8 fw-semibold">{{ money(requisition.detraction.payable, requisition.currency) }}</dd>
+                            </template>
+                            <template v-if="requisition.advance_amount">
+                                <dt class="col-sm-4 text-body-secondary fw-normal">Anticipo aplicado</dt><dd class="col-sm-8">− {{ money(requisition.advance_amount, requisition.currency) }}</dd>
+                            </template>
+                            <template v-if="requisition.detraction || requisition.advance_amount">
+                                <dt class="col-sm-4 text-body-secondary fw-normal">Neto a pagar</dt><dd class="col-sm-8 fw-semibold">{{ money(requisition.amount_payable, requisition.currency) }}</dd>
                             </template>
                             <dt class="col-sm-4 text-body-secondary fw-normal">Pago</dt><dd class="col-sm-8">{{ requisition.payment_terms }} · {{ requisition.payment_method }} · {{ requisition.payment_origin }}</dd>
                             <dt class="col-sm-4 text-body-secondary fw-normal">Emitida</dt><dd class="col-sm-8">{{ requisition.ordered_at }}</dd>
@@ -564,6 +574,19 @@ function emitOrder() {
                                 <i class="bi bi-exclamation-triangle me-1"></i>El total con precios ({{ money(orderTotals.total, chosen?.currency) }}) es distinto de la cotización ({{ money(chosen?.amount, chosen?.currency) }}). La orden y sus cuotas usarán el total con precios.
                             </div>
                             <div v-else-if="!priced" class="small text-body-secondary mt-2">Sin precios por ítem, la orden usa el total de la cotización: {{ money(chosen?.amount, chosen?.currency) }}.</div>
+                        </div>
+
+                        <!-- Anticipos del proveedor (FrmReq › Aplicar anticipo) -->
+                        <div v-if="supplierAdvances.length" class="col-12">
+                            <div class="border rounded p-2">
+                                <div class="small fw-semibold mb-1"><i class="bi bi-arrow-left-right me-1"></i>Anticipos pagados a este proveedor</div>
+                                <div v-for="a in supplierAdvances" :key="a.id" class="form-check small">
+                                    <input :id="`adv-${a.id}`" v-model="order.advance_ids" class="form-check-input" type="checkbox" :value="a.id" />
+                                    <label class="form-check-label" :for="`adv-${a.id}`">{{ a.code }} · {{ a.detail }} · pagado {{ a.paid_at }} · <strong>{{ money(a.amount, a.currency) }}</strong></label>
+                                </div>
+                                <div v-if="advanceAmount" class="small text-body-secondary mt-1">Se descuenta {{ money(advanceAmount, chosen?.currency) }} de esta orden.</div>
+                                <div v-if="payable < 0" class="small text-danger mt-1">El anticipo es mayor que la deuda.</div>
+                            </div>
                         </div>
 
                         <!-- Cuotas: iguales o editadas a mano (sisgere FrmReq: lista de cuotas) -->

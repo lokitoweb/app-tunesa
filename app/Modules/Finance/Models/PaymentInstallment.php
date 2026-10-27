@@ -16,12 +16,12 @@ class PaymentInstallment extends Model
     protected $fillable = [
         'tenant_id', 'requisition_id', 'installment', 'due_date', 'amount', 'paid_amount', 'status', 'payment_method',
         'scheduled_for', 'scheduled_by', 'authorized_by_id', 'authorized_at', 'paid_at',
-        'operation_number', 'registered_by', 'vouchers',
+        'operation_number', 'registered_by', 'vouchers', 'is_advance', 'advance_applied_to_id',
     ];
 
     protected $casts = [
         'due_date' => 'date', 'scheduled_for' => 'date', 'authorized_at' => 'datetime', 'paid_at' => 'datetime',
-        'amount' => 'decimal:2', 'paid_amount' => 'decimal:2', 'vouchers' => 'array',
+        'amount' => 'decimal:2', 'paid_amount' => 'decimal:2', 'vouchers' => 'array', 'is_advance' => 'boolean',
     ];
 
     public function requisition(): BelongsTo

@@ -80,6 +80,13 @@ class TreasuryWebController extends Controller
             'accounts'     => CompanyBankAccount::orderByDesc('is_active')->orderBy('bank')->get()
                 ->map(fn (CompanyBankAccount $a) => $a->only(['id', 'bank', 'account_number', 'currency', 'alias', 'is_active']) + ['label' => $a->label()]),
             'currencies'   => Requisition::CURRENCIES,
+            // Pago directo (solo quien paga lo registra)
+            'direct'       => $request->user()->hasPermission('treasury.pay') ? [
+                'suppliers'       => \App\Modules\Finance\Models\Supplier::where('is_active', true)->orderBy('name')->limit(1000)->get(['id', 'name', 'ruc']),
+                'document_types'  => self::DOCUMENT_TYPES,
+                'payment_methods' => Requisition::PAYMENT_METHODS,
+                'detraction_reasons' => RequisitionWebController::options()['detraction_reasons'],
+            ] : null,
             'can'          => [
                 'pay'       => $request->user()->hasPermission('treasury.pay'),
                 'authorize' => Signatory::canAuthorize($request->user()),
@@ -229,6 +236,83 @@ class TreasuryWebController extends Controller
         return PrivateFile::response(self::VOUCHER_DISK, $c->voucher_path);
     }
 
+    /**
+     * Pago directo de Tesorería (FrmReqProg › Registrar): un PG-… sin pasar por logística, con su
+     * documento asociado. Entra a la cola como cualquier orden: se programa, se autoriza y se paga.
+     * Marcado como anticipo, una vez pagado se descuenta de la siguiente OC/OS del proveedor.
+     */
+    public function directPayment(Request $request): RedirectResponse
+    {
+        $tenant = \App\Modules\Core\Models\Tenant::find(current_tenant_id_or_null());
+        abort_unless($tenant, 422, 'Elige una empresa.');
+        $data = $request->validate([
+            'supplier_id'       => ['required', Rule::exists('suppliers', 'id')->where('tenant_id', $tenant->id)->where('is_active', true)->whereNull('deleted_at')],
+            'detail'            => ['required', 'string', 'max:1000'],
+            'document_type'     => ['required', Rule::in(array_keys(self::DOCUMENT_TYPES))],
+            'document_number'   => ['required', 'string', 'max:40'],
+            'document_date'     => ['required', 'date', 'before_or_equal:today'],
+            'file'              => ['nullable', 'file', 'mimes:pdf', 'max:5120', SafeUpload::pdf()],
+            'currency'          => ['required', Rule::in(array_keys(Requisition::CURRENCIES))],
+            'amount'            => ['required', 'numeric', 'min:0.01', 'max:999999999'],
+            'due_date'          => ['required', 'date'],
+            'payment_method'    => ['required', Rule::in(Requisition::PAYMENT_METHODS)],
+            'has_detraction'    => ['boolean'],
+            'detraction_reason' => ['nullable', 'required_if_accepted:has_detraction', Rule::in(array_keys(config('finance.detraction_reasons')))],
+            'is_advance'        => ['boolean'],
+        ], [
+            'document_date.before_or_equal' => 'La fecha del documento no puede ser futura.', 'file.mimes' => 'El documento debe ser PDF.',
+            'detraction_reason.required_if_accepted' => 'Elige el motivo de la detracción.', 'exists' => 'Elige un proveedor activo.',
+        ], ['supplier_id' => 'el proveedor', 'detail' => 'el detalle', 'document_type' => 'el tipo de documento', 'document_number' => 'el número de documento',
+            'document_date' => 'la fecha del documento', 'amount' => 'el monto', 'due_date' => 'el vencimiento', 'detraction_reason' => 'el motivo de detracción']);
+
+        $total = round((float) $data['amount'], 2);
+        $reason = ($data['has_detraction'] ?? false) ? $data['detraction_reason'] : null;
+        $percent = $reason ? (int) config("finance.detraction_reasons.{$reason}.1") : null;
+        $detraction = $reason ? \App\Modules\Finance\Services\OrderPricing::detraction($total, $percent) : null;
+        $payable = round($total - (float) $detraction, 2);
+        abort_if($payable <= 0, 422, 'La detracción no puede ser igual o mayor que el monto.');
+
+        $path = $request->file('file')?->store("finance/{$tenant->id}/invoices", self::VOUCHER_DISK);
+        $user = $request->user();
+        try {
+            $r = DB::transaction(function () use ($tenant, $data, $user, $total, $reason, $percent, $detraction, $payable, $path) {
+                $year = (int) now()->year;
+                $series = \App\Modules\Finance\Models\DocumentSequence::seriesFrom(null);
+                [$number, $code] = \App\Modules\Finance\Models\DocumentSequence::next($tenant, 'PG', $series, $year);
+                $r = Requisition::create([
+                    'series' => $series, 'number' => $number, 'code' => $code, 'year' => $year, 'is_direct_payment' => true,
+                    'requested_at' => now(), 'detail' => $data['detail'], 'area' => 'TESORERIA', 'requested_by' => $user->full_name, 'user_id' => $user->id,
+                    'classification' => 'GASTOS FIJOS', 'priority' => 'NORMAL', 'stage' => 'ordered', 'ordered_at' => now(),
+                    'reviewed_by' => $user->full_name, 'reviewed_by_id' => $user->id, 'reviewed_at' => now(), 'supplier_id' => $data['supplier_id'],
+                    'invoice_number' => "{$data['document_type']} " . strtoupper($data['document_number']), 'invoice_date' => $data['document_date'], 'invoice_path' => $path,
+                    'amount' => $total, 'amount_payable' => $payable, 'currency' => $data['currency'], 'installments' => 1,
+                    'has_detraction' => (bool) $reason, 'detraction_reason' => $reason, 'detraction_percent' => $percent, 'detraction_amount' => $detraction,
+                    'payment_terms' => 'CREDITO', 'payment_method' => $data['payment_method'], 'payment_origin' => 'TRANSFERENCIA',
+                ]);
+                $r->paymentInstallments()->create([
+                    'tenant_id' => $tenant->id, 'installment' => 1, 'due_date' => $data['due_date'], 'amount' => $payable, 'status' => 'pending',
+                    'payment_method' => $data['payment_method'], 'registered_by' => $user->full_name, 'is_advance' => (bool) ($data['is_advance'] ?? false),
+                ]);
+
+                return $r;
+            });
+        } catch (\Throwable $e) {
+            if ($path) {
+                Storage::disk(self::VOUCHER_DISK)->delete($path);
+            }
+            throw $e;
+        }
+        $this->audit->log('treasury.direct_payment', $r, ['code' => $r->code(), 'amount' => $total, 'advance' => (bool) ($data['is_advance'] ?? false)]);
+
+        return back()->with('success', "Pago directo {$r->code()} registrado: queda por programar." . ($path ? '' : ' Adjunta el PDF del documento antes de pagarlo.'));
+    }
+
+    /** Documento asociado del pago directo (sisgere FrmReqProg: ORDP, BBVV, FACT, NPED, RRHH, VALE, OTRO) */
+    public const DOCUMENT_TYPES = [
+        'FACT' => 'Factura', 'BBVV' => 'Boleta de venta', 'RRHH' => 'Recibo por honorarios', 'ORDP' => 'Orden de pago',
+        'NPED' => 'Nota de pedido', 'VALE' => 'Vale', 'OTRO' => 'Otro',
+    ];
+
     /** Detracción del requerimiento (corregir_detraccion) */
     public function detraction(Request $request, int $id): RedirectResponse
     {
@@ -307,6 +391,7 @@ class TreasuryWebController extends Controller
             'balance'       => round((float) $p->amount - (float) $p->paid_amount, 2),
             'status'        => $p->status,
             'payment_method' => $p->payment_method,
+            'is_advance'    => $p->is_advance,
             'requisition'   => $r ? [
                 'id' => $r->id, 'code' => $r->code(), 'detail' => $r->detail, 'order' => $r->orderNumber(), 'currency' => $r->currency,
                 'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction,

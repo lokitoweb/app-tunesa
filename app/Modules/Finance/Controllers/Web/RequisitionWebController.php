@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\TenantContext;
 use App\Modules\Finance\Models\DocumentSequence;
+use App\Modules\Finance\Models\PaymentInstallment;
 use App\Modules\Finance\Models\Product;
 use App\Modules\Finance\Models\Quotation;
 use App\Modules\Finance\Models\Requisition;
@@ -158,8 +159,10 @@ class RequisitionWebController extends Controller
             'requisition' => [
                 ...$r->only(['id', 'detail', 'area', 'requested_by', 'email', 'plate', 'km', 'agency', 'site', 'delivery_place',
                     'classification', 'stage', 'priority', 'notes', 'reviewed_by', 'payment_terms', 'payment_method', 'payment_origin',
-                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number', 'is_express']),
+                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number', 'is_express', 'is_direct_payment', 'amount_payable']),
                 'code'         => $r->code(),
+                'order_number' => $r->orderNumber(),
+                'advance_amount' => $r->advance_amount !== null ? (float) $r->advance_amount : null,
                 'requested_at' => $r->requested_at?->format('d/m/Y'),
                 'reviewed_at'  => $r->reviewed_at?->timezone(tenant_timezone())->format('d/m/Y H:i'),
                 'ordered_at'   => $r->ordered_at?->timezone(tenant_timezone())->format('d/m/Y H:i'),
@@ -198,6 +201,12 @@ class RequisitionWebController extends Controller
                     'quoted_at'  => $q->quoted_at?->format('d/m/Y'),
                     'expires_at' => $q->expires_at?->format('d/m/Y'),
                 ]),
+                // Anticipos disponibles por proveedor cotizado (para descontarlos al emitir la orden)
+                'advances'     => $r->stage === 'quoting' ? $r->quotations->pluck('supplier_id')->unique()->filter()->mapWithKeys(fn ($sid) => [$sid => $this->availableAdvances($sid, null)
+                    ->with('requisition:id,code,series,number,currency,detail')->get()->map(fn ($a) => [
+                        'id' => $a->id, 'code' => $a->requisition->code(), 'detail' => $a->requisition->detail, 'currency' => $a->requisition->currency,
+                        'amount' => (float) $a->amount, 'paid_at' => $a->paid_at?->timezone(tenant_timezone())->format('d/m/Y'),
+                    ])]) : (object) [],
                 'installments_list' => $r->paymentInstallments->map(fn ($p) => [
                     'installment' => $p->installment, 'due_date' => $p->due_date?->format('d/m/Y'), 'amount' => $p->amount, 'status' => $p->status,
                 ]),
@@ -398,6 +407,9 @@ class RequisitionWebController extends Controller
             'schedule'          => ['nullable', 'array', 'max:36'],
             'schedule.*.due_date' => ['required', 'date'],
             'schedule.*.amount'   => ['required', 'numeric', 'min:0.01', 'max:999999999'],
+            // Anticipos pagados del proveedor que se descuentan de esta orden (FrmReq › Aplicar anticipo)
+            'advance_ids'         => ['nullable', 'array', 'max:20'],
+            'advance_ids.*'       => ['integer', 'distinct'],
             // Precios por ítem (opcionales, como en sisgere): si se llena uno, van todos
             'prices_include_igv'       => ['boolean'],
             'items'                    => ['nullable', 'array', 'max:100'],
@@ -421,10 +433,29 @@ class RequisitionWebController extends Controller
         $detraction = $reason ? OrderPricing::detraction($total, $percent) : null;
         $payable = round($total - (float) $detraction, 2);
 
-        $schedule = OrderPricing::installments($payable, (int) $data['installments'], $data['first_due_date'], (int) $data['interval_days'], $data['schedule'] ?? null)
+        // Anticipos: del mismo proveedor y moneda, pagados y sin aplicar; no pueden superar la deuda
+        $advances = $this->availableAdvances($quotation->supplier_id, $quotation->currency)->whereIn('id', $data['advance_ids'] ?? [])->get();
+        if (count($data['advance_ids'] ?? []) !== $advances->count()) {
+            throw ValidationException::withMessages(['advance_ids' => 'Uno de los anticipos ya no está disponible. Actualiza la pantalla.']);
+        }
+        $advance = round((float) $advances->sum('amount'), 2);
+        if ($advance > $payable + 0.004) {
+            throw ValidationException::withMessages(['advance_ids' => 'El anticipo es mayor que la deuda (' . FinanceDocumentPdf::money($quotation->currency, $payable) . ').']);
+        }
+        $payable = round($payable - $advance, 2);
+
+        $schedule = $payable <= 0 ? [] : OrderPricing::installments($payable, (int) $data['installments'], $data['first_due_date'], (int) $data['interval_days'], $data['schedule'] ?? null)
             ?? throw ValidationException::withMessages(['schedule' => 'Las cuotas deben sumar el neto a pagar: ' . FinanceDocumentPdf::money($quotation->currency, $payable) . '.']);
 
-        $number = DB::transaction(function () use ($r, $data, $request, $pricing, $quotation, $total, $hasDetraction, $reason, $percent, $detraction, $payable, $schedule) {
+        $number = DB::transaction(function () use ($r, $data, $request, $pricing, $quotation, $total, $hasDetraction, $reason, $percent, $detraction, $payable, $schedule, $advances, $advance) {
+            // Con el anticipo bloqueado se revisa otra vez: dos órdenes a la vez no aplican el mismo anticipo
+            if ($advances->isNotEmpty()) {
+                $locked = PaymentInstallment::whereKey($advances->modelKeys())->whereNull('advance_applied_to_id')->lockForUpdate()->count();
+                if ($locked !== $advances->count()) {
+                    throw ValidationException::withMessages(['advance_ids' => 'Uno de los anticipos ya se aplicó a otra orden. Actualiza la pantalla.']);
+                }
+                PaymentInstallment::whereKey($advances->modelKeys())->update(['advance_applied_to_id' => $r->id]);
+            }
             if ($pricing) {
                 foreach ($pricing['items'] as $id => [$price, $discount, $subtotal]) {
                     $r->items()->whereKey($id)->update(['unit_price' => $price, 'discount_percent' => $discount, 'subtotal' => $subtotal]);
@@ -439,8 +470,9 @@ class RequisitionWebController extends Controller
             $quotation->update(['is_selected' => true]);
 
             $r->update([
-                'stage' => 'ordered', $column => $number, 'ordered_at' => now(),
-                'supplier_id' => $quotation->supplier_id, 'amount' => $total, 'amount_payable' => $payable,
+                // Cubierta del todo por anticipos: no quedan cuotas y la orden queda pagada
+                'stage' => $schedule ? 'ordered' : 'paid', $column => $number, 'ordered_at' => now(),
+                'supplier_id' => $quotation->supplier_id, 'amount' => $total, 'amount_payable' => $payable, 'advance_amount' => $advance > 0 ? $advance : null,
                 'currency' => $quotation->currency, 'installments' => count($schedule),
                 'has_detraction' => $hasDetraction, 'detraction_reason' => $reason, 'detraction_percent' => $percent, 'detraction_amount' => $detraction,
                 'prices_include_igv' => $pricing['includes_igv'] ?? null, 'igv_rate' => $pricing['rate'] ?? null,
@@ -457,6 +489,9 @@ class RequisitionWebController extends Controller
             return $number;
         });
         $this->audit->log('requisition.ordered', $r, ['code' => $r->code(), 'order' => $number]);
+        if ($advances->isNotEmpty()) {
+            $this->audit->log('requisition.advance_applied', $r, ['order' => $number, 'amount' => $advance, 'advances' => $advances->modelKeys()]);
+        }
 
         // La OC/OS en PDF (con la firma de quien aprobó) al correo del proveedor, por el SMTP de la empresa
         $r->refresh()->load('supplier');
@@ -472,6 +507,13 @@ class RequisitionWebController extends Controller
     }
 
     // ------------------------------------------------------------------ privado
+
+    /** Anticipos pagados y sin aplicar del proveedor (mostrar_anticipo de sisgere) */
+    private function availableAdvances(?int $supplierId, ?string $currency): Builder
+    {
+        return PaymentInstallment::where('is_advance', true)->where('status', 'paid')->whereNull('advance_applied_to_id')
+            ->whereHas('requisition', fn ($q) => $q->where('supplier_id', $supplierId)->when($currency, fn ($q) => $q->where('currency', $currency)));
+    }
 
     /**
      * Precios por ítem de la orden, o null si no se ingresó ninguno (la orden toma el total de la

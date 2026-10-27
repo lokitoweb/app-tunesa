@@ -67,6 +67,7 @@ Route::middleware(['auth', 'web.tenant', 'can:treasury.view'])->prefix('treasury
         Route::post('/installments/{id}/schedule', [TreasuryWebController::class, 'schedule'])->name('schedule')->whereNumber('id');
         Route::post('/installments/{id}/pay', [TreasuryWebController::class, 'pay'])->name('pay')->whereNumber('id');
         Route::post('/requisitions/{id}/detraction', [TreasuryWebController::class, 'detraction'])->name('detraction')->whereNumber('id');
+        Route::post('/direct', [TreasuryWebController::class, 'directPayment'])->name('direct');
         Route::post('/accounts', [TreasuryWebController::class, 'storeAccount'])->name('accounts.store');
         Route::put('/accounts/{id}', [TreasuryWebController::class, 'updateAccount'])->name('accounts.update')->whereNumber('id');
     });
