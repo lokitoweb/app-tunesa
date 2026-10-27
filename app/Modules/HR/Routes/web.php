@@ -16,6 +16,10 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [EmployeeController::class, 'index'])->name('index');
         Route::get('/create', [EmployeeController::class, 'create'])->name('create');
         Route::post('/', [EmployeeController::class, 'store'])->name('store');
+        // Planilla en Excel (FrmIplanilla): revisar y luego dar de alta solo a los nuevos
+        Route::post('/import/preview', [\App\Modules\HR\Controllers\Web\EmployeeImportController::class, 'preview'])->name('import.preview')->middleware('throttle:20,1');
+        Route::post('/import', [\App\Modules\HR\Controllers\Web\EmployeeImportController::class, 'store'])->name('import')->middleware('throttle:10,1');
+        Route::get('/import/template', [\App\Modules\HR\Controllers\Web\EmployeeImportController::class, 'template'])->name('import.template');
         Route::get('/{id}/edit', [EmployeeController::class, 'edit'])->name('edit')->whereNumber('id');
         Route::put('/{id}', [EmployeeController::class, 'update'])->name('update')->whereNumber('id');
         Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status')->whereNumber('id');

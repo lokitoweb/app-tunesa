@@ -904,10 +904,63 @@ Estilos del Modal Dialog de Nuevo Colaborador
             <h1 class="emp-title">Colaboradores</h1>
             <p class="emp-subtitle">Gestión de personal, asignación de sedes, turnos y control de acceso.</p>
         </div>
-        <button type="button" class="emp-btn-primary" id="btnNewEmployee" data-bs-toggle="modal" data-bs-target="#employeeModal">
-            <i class="bi bi-person-plus-fill"></i>
-            <span>Nuevo colaborador</span>
-        </button>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importEmployeesModal">
+                <i class="bi bi-file-earmark-excel me-1"></i>Importar planilla
+            </button>
+            <button type="button" class="emp-btn-primary" id="btnNewEmployee" data-bs-toggle="modal" data-bs-target="#employeeModal">
+                <i class="bi bi-person-plus-fill"></i>
+                <span>Nuevo colaborador</span>
+            </button>
+        </div>
+    </div>
+
+    {{-- Importar planilla (sisgere FrmIplanilla): revisar y luego dar de alta solo a los nuevos --}}
+    <div class="modal fade" id="importEmployeesModal" tabindex="-1" aria-labelledby="importEmployeesTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="importEmployeesTitle">Importar colaboradores desde Excel</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-body-secondary">Columnas: DNI, Apellidos y Nombres (o Colaborador), Cargo, Correo, Teléfono, Dirección, Sueldo, Banco, Tipo de cuenta y N.º de cuenta.
+                        Solo se dan de alta los DNI nuevos; nadie se da de baja. <a href="{{ route('employees.import.template') }}">Descargar plantilla</a></p>
+                    <div class="row g-2">
+                        <div class="col-md-7">
+                            <label class="form-label small fw-semibold" for="impFile">Archivo *</label>
+                            <input type="file" id="impFile" class="form-control" accept=".xlsx,.xls,.csv">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-semibold" for="impBranch">Sede de los nuevos *</label>
+                            <select id="impBranch" class="form-select">
+                                <option value="">Elige…</option>
+                                @foreach($branches as $b)
+                                    <option value="{{ $b->id }}">{{ $b->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div id="impError" class="alert alert-danger py-2 small mt-3 d-none" role="alert"></div>
+                    <div id="impResult" class="mt-3 d-none">
+                        <div class="d-flex flex-wrap gap-3 small mb-2">
+                            <span class="badge bg-success-subtle text-success-emphasis fs-6" id="impNewCount"></span>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis fs-6" id="impExistingCount"></span>
+                            <span class="badge bg-warning-subtle text-warning-emphasis fs-6" id="impMissingCount"></span>
+                        </div>
+                        <div class="table-responsive" style="max-height: 240px">
+                            <table class="table table-sm small mb-0"><thead class="table-light"><tr><th>DNI</th><th>Apellidos y nombres</th><th>Cargo</th><th>Cuenta</th></tr></thead><tbody id="impNewRows"></tbody></table>
+                        </div>
+                        <details class="small mt-2" id="impMissingBox"><summary>En el sistema y no en el archivo (solo para revisar)</summary><ul id="impMissingRows" class="mb-0"></ul></details>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-primary" id="impPreviewBtn">Revisar archivo</button>
+                    <button type="button" class="btn btn-success" id="impConfirmBtn" disabled>Dar de alta</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- 2. Alerta de Credenciales Flasheadas (si aplica por sesión previa) --}}
@@ -1068,6 +1121,48 @@ Estilos del Modal Dialog de Nuevo Colaborador
 
 @section('scripts')
 <script>
+// Importar planilla: revisar (no guarda) y confirmar (vuelve a leer el archivo y da de alta a los nuevos)
+document.addEventListener('DOMContentLoaded', function () {
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const send = async (url) => {
+        const data = new FormData();
+        if ($('impFile').files[0]) data.append('file', $('impFile').files[0]);
+        if ($('impBranch').value) data.append('branch_id', $('impBranch').value);
+        const res = await fetch(url, { method: 'POST', body: data, headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', Accept: 'application/json' } });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(Object.values(json.errors || {})[0]?.[0] || json.message || 'No se pudo procesar el archivo.');
+        return json;
+    };
+    const fail = (e) => { $('impError').className = 'alert alert-danger py-2 small mt-3'; $('impError').textContent = e.message; };
+    $('impFile')?.addEventListener('change', () => { $('impConfirmBtn').disabled = true; $('impResult').classList.add('d-none'); });
+    $('impPreviewBtn')?.addEventListener('click', async () => {
+        $('impError').classList.add('d-none');
+        try {
+            const r = await send('{{ route('employees.import.preview') }}');
+            $('impNewCount').textContent = `${r.new.length} nuevo(s)`;
+            $('impExistingCount').textContent = `${r.existing} ya registrado(s)`;
+            $('impMissingCount').textContent = `${r.missing.length} no están en el archivo`;
+            $('impNewRows').innerHTML = r.new.map((n) => `<tr><td class="font-monospace">${esc(n.dni)}</td><td>${esc(n.last_name)}, ${esc(n.first_name)}</td><td>${esc(n.position || '—')}</td><td>${esc(n.bank_account_number ? `${n.bank_name || ''} ${n.bank_account_number}` : '—')}</td></tr>`).join('');
+            $('impMissingRows').innerHTML = r.missing.map((m) => `<li>${esc(m.name)} · ${esc(m.dni)}</li>`).join('');
+            $('impMissingBox').classList.toggle('d-none', !r.missing.length);
+            $('impResult').classList.remove('d-none');
+            $('impConfirmBtn').disabled = !r.new.length;
+            $('impConfirmBtn').textContent = `Dar de alta ${r.new.length}`;
+        } catch (e) { fail(e); }
+    });
+    $('impConfirmBtn')?.addEventListener('click', async () => {
+        $('impError').classList.add('d-none');
+        $('impConfirmBtn').disabled = true;
+        try {
+            const r = await send('{{ route('employees.import') }}');
+            $('impError').className = 'alert alert-success py-2 small mt-3';
+            $('impError').textContent = r.message;
+            setTimeout(() => window.location.reload(), 1500);
+        } catch (e) { fail(e); $('impConfirmBtn').disabled = false; }
+    });
+});
+
 document.addEventListener('DOMContentLoaded', function () {
     const tableContainer = document.getElementById('empTableContainer');
     const tableLoader = document.getElementById('empTableLoader');

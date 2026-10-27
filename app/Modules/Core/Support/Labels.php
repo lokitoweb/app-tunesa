@@ -156,6 +156,7 @@ final class Labels
 
         // Colaboradores
         'employee.created'                   => ['Colaborador registrado', 'success', 'person-plus'],
+        'employee.imported'                  => ['Planilla de colaboradores importada', 'success', 'file-earmark-person'],
         'employee.updated'                   => ['Colaborador actualizado', 'primary', 'person-gear'],
         'employee.deleted'                   => ['Colaborador dado de baja', 'danger', 'person-x'],
         'profile.updated_by_hr'              => ['Ficha laboral editada por RRHH', 'primary', 'person-vcard'],

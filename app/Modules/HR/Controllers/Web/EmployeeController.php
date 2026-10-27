@@ -199,50 +199,32 @@ class EmployeeController extends Controller
 
         abort_unless(Auth::user()->canAssignRole($validated['role']), 403, 'No puedes crear usuarios con un rol igual o superior al tuyo.');
 
-        $credentials = app(CredentialProvisioner::class);
         $tenant = Tenant::findOrFail($tenantId);
-        $email = ($validated['email'] ?? null) ?: $credentials->emailFor($tenant, $validated['document_number']);
-        $temporaryPassword = $credentials->initialPassword($validated['document_number']);
 
-        $user = DB::transaction(function () use ($validated, $tenantId, $request, $email, $temporaryPassword, $credentials) {
+        [$user, $email, $temporaryPassword] = DB::transaction(function () use ($validated, $tenantId, $tenant, $request) {
             $avatarPath = null;
             if ($request->hasFile('avatar')) {
                 $avatarPath = $request->file('avatar')->store('avatars', 'public');
             }
 
-            // Crear usuario
-            $user = User::create(array_merge([
-                'tenant_id'       => $tenantId,
+            // Alta (credenciales temporales, sedes, auditoría e incorporación): misma regla que la importación
+            [$user, $email, $temporaryPassword] = app(\App\Modules\HR\Services\EmployeeProvisioner::class)->create($tenant, array_merge([
                 'first_name'      => $validated['first_name'],
                 'last_name'       => $validated['last_name'],
-                'email'           => $email,
-                'password'        => $temporaryPassword,
+                'email'           => $validated['email'] ?? null,
                 'role'            => $validated['role'],
-                'status'          => 'active',
                 'document_type'   => $validated['document_type'],
                 'document_number' => $validated['document_number'],
                 'phone'           => $validated['phone'] ?? null,
-                'employee_code'   => $validated['employee_code'] ?? 'EMP-' . strtoupper(substr(uniqid(), -6)),
+                'employee_code'   => $validated['employee_code'] ?? null,
                 'position'        => $validated['position'] ?? null,
                 'department'      => $validated['department'] ?? null,
-                'base_salary'     => $validated['base_salary'] ?? 0,
-                'bonus'           => $validated['bonus'] ?? 0,
-                'hire_date'       => $validated['hire_date'] ?? Carbon::today(),
+                'base_salary'     => $validated['base_salary'] ?? null,
+                'bonus'           => $validated['bonus'] ?? null,
+                'hire_date'       => $validated['hire_date'] ?? null,
                 'birth_date'      => $validated['birth_date'] ?? null,
                 'avatar_path'     => $avatarPath,
-            ], $this->orgData($validated, $request)));
-            // Contraseña temporal: vence en 72 h y se exige cambiarla en el primer ingreso
-            $user->forceFill($credentials->temporaryAttributes($temporaryPassword))->saveQuietly();
-
-            // Asignar sucursales (con bandera de sucursal principal)
-            $branchesToSync = [];
-            foreach ($validated['branch_ids'] as $bId) {
-                $branchesToSync[$bId] = ['is_primary' => ($bId == $validated['primary_branch_id'])];
-            }
-            $user->branches()->sync($branchesToSync);
-            app(\App\Modules\Core\Services\AuditLogger::class)->log('employee.created', $user, ['name' => $user->full_name, 'role' => $user->role]);
-            // Ingreso nuevo: no marca hasta que RRHH apruebe su incorporación
-            app(\App\Modules\Onboarding\Services\OnboardingService::class)->startFor($user);
+            ], $this->orgData($validated, $request)), $validated['branch_ids'], (int) $validated['primary_branch_id']);
 
             // Asignar turno inicial si fue provisto
             if (!empty($validated['shift_id'])) {
@@ -258,7 +240,7 @@ class EmployeeController extends Controller
                 ]);
             }
 
-            return $user;
+            return [$user, $email, $temporaryPassword];
         });
 
         if ($request->ajax() || $request->wantsJson()) {
