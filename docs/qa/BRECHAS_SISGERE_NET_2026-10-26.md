@@ -44,6 +44,28 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 | 17 | Autorizar varias cuotas marcadas a la vez | FrmRegpagos | Pequeño |
 | 18 | Consulta RENIEC por DNI | FrmReq / FrmReqProg | Pequeño (requiere proveedor del servicio) |
 
+## Estado al 27/10/2026 (verificado en tests y en el navegador)
+| # | Estado | Dónde |
+|---|---|---|
+| 1 | Hecho | Emitir OC/OS: precio, descuento, Igv / S/Igv; PDF con valor venta, IGV y total |
+| 2 | **Pendiente: decide la empresa** | Requiere SQL Server para restaurar el .bak y cargar datos reales a producción |
+| 3 | Hecho | Requerimiento › Solicitud de cotización: SC por proveedor, entrega, condición, PDF por correo. La etapa DIFUSION no se agregó: el web pasa de Aprobado a Cotización |
+| 4 | Hecho | Cuotas a mano al emitir; anticipos (pago directo marcado) que se descuentan de la siguiente orden del proveedor |
+| 5 | Hecho | Finanzas › Reportes de finanzas (9 en Excel) y Colaboradores › Exportar. Liquidación: el .NET no la calculaba |
+| 6 | Hecho | Exportar a Excel en Tesorería, Costos fijos y Compras por producto |
+| 7 | Hecho | Colaboradores › Importar planilla: revisión, alta de DNI nuevos, cuenta pendiente de verificar (el .NET tampoco daba de baja) |
+| 8 | Hecho | Nuevo requerimiento › Importar Excel |
+| 9 | Hecho | Pago directo tipo Orden de pago sin número: correlativo OP-…; el recibo correlativo ya estaba en Caja chica |
+| 10 | Hecho | Detracción por motivo con su % (catálogo del respaldo), en soles enteros; neto a pagar al proveedor. Bancos: ya había catálogo |
+| 11 | Hecho | Concepto del flujo de efectivo (EFE, método directo) en orden, pago directo y planilla; Flujo de caja › Por flujo de efectivo |
+| 12 | No es brecha | En el .NET la validación está comentada; generar requerimientos desde costos fijos = pagar la cuota en el web |
+| 13 | Hecho | Tesorería: corregir pago directo sin pagos; corregir cuenta, operación y voucher de un pago |
+| 14 | Hecho (con control) | Tesorería › Pago directo (PG-…). Se paga por la cola normal: quien autoriza no paga |
+| 15 | Hecho | Finanzas › Productos: corregir y eliminar solo los no usados |
+| 16 | Hecho | El .NET avisaba "Se registró un pago": aviso en la campana a quien pidió |
+| 17 | Hecho | Tesorería › Programadas: marcar y autorizar varias |
+| 18 | **Pendiente: decide la empresa** | Consulta RENIEC: necesita contratar un proveedor y su token |
+
 ## Reglas que el web hace distinto (a propósito o a decidir)
 - Aprobador: el .NET tenía fijo "MERCY NEGREIROS PIZAN" en el código; el web usa el permiso de aprobar.
 - Separación de funciones: en el web quien autoriza no paga y el pago exige OC/OS, factura y cuenta verificada; el .NET solo exigía la autorización.

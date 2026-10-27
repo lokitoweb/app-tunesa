@@ -905,7 +905,7 @@ Estilos del Modal Dialog de Nuevo Colaborador
             <p class="emp-subtitle">Gestión de personal, asignación de sedes, turnos y control de acceso.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('reports.download', ['report' => 'employees', 'from' => now()->toDateString(), 'to' => now()->toDateString()]) }}" class="btn btn-outline-secondary">
+            <a href="{{ route('finance-reports.download', ['report' => 'employees', 'from' => now()->toDateString(), 'to' => now()->toDateString()]) }}" class="btn btn-outline-secondary">
                 <i class="bi bi-download me-1"></i>Exportar a Excel
             </a>
             <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importEmployeesModal">

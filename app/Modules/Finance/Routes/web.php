@@ -149,7 +149,7 @@ Route::middleware(['auth', 'web.tenant', 'can:purchasing.manage'])->prefix('prod
 Route::middleware(['auth', 'web.tenant', 'can:suppliers.view'])->get('/purchases/by-product', [InventoryWebController::class, 'purchases'])->name('purchases.by-product');
 
 // Reportes en Excel (Crystal Reports de sisgere); cada reporte valida su permiso
-Route::middleware(['auth', 'web.tenant'])->prefix('reports')->name('reports.')->group(function () {
+Route::middleware(['auth', 'web.tenant'])->prefix('finance-reports')->name('finance-reports.')->group(function () {
     Route::get('/', [\App\Modules\Finance\Controllers\Web\ReportWebController::class, 'index'])->name('index');
     Route::get('/{report}', [\App\Modules\Finance\Controllers\Web\ReportWebController::class, 'download'])->name('download')
         ->where('report', '[a-z_]+')->middleware('throttle:30,1');

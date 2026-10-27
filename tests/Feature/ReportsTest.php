@@ -45,30 +45,30 @@ class ReportsTest extends TestCase
         PaymentCancellation::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'payment_installment_id' => $paid->id, 'company_bank_account_id' => $account->id,
             'paid_at' => now(), 'amount' => 300, 'bank' => 'BCP', 'account_number' => '191-1', 'operation_number' => 'OP-9', 'is_amortization' => false]);
 
-        $this->get('/reports')->assertOk()->assertInertia(fn ($p) => $p->component('Finance/Pages/Reports/Index')
+        $this->get('/finance-reports')->assertOk()->assertInertia(fn ($p) => $p->component('Finance/Pages/Reports/Index')
             ->where('reports', fn ($r) => collect($r)->pluck('key')->contains('scheduled') && ! collect($r)->pluck('key')->contains('employees')));
 
         $range = '?from=' . now()->startOfMonth()->toDateString() . '&to=' . now()->endOfMonth()->toDateString();
-        $this->get("/reports/scheduled?from=2026-12-01&to=2026-01-01")->assertSessionHasErrors('to');
+        $this->get("/finance-reports/scheduled?from=2026-12-01&to=2026-01-01")->assertSessionHasErrors('to');
         foreach (array_keys(ReportWebController::REPORTS) as $key) {
             if ($key === 'employees') {
-                $this->get("/reports/{$key}{$range}")->assertForbidden(); // contabilidad no ve el reporte de personal
+                $this->get("/finance-reports/{$key}{$range}")->assertForbidden(); // contabilidad no ve el reporte de personal
                 continue;
             }
-            $this->get("/reports/{$key}{$range}")->assertOk()->assertDownload();
+            $this->get("/finance-reports/{$key}{$range}")->assertOk()->assertDownload();
         }
 
-        $this->assertSame('500', (string) $this->sheet($this->get("/reports/scheduled{$range}"))[1][8]);
-        $byBank = $this->sheet($this->get("/reports/payments_by_bank{$range}"));
+        $this->assertSame('500', (string) $this->sheet($this->get("/finance-reports/scheduled{$range}"))[1][8]);
+        $byBank = $this->sheet($this->get("/finance-reports/payments_by_bank{$range}"));
         $this->assertSame(['BCP', '191-1'], [$byBank[1][0], $byBank[1][1]]);
         $this->assertSame('TOTAL BCP 191-1', $byBank[2][0]);
-        $this->assertSame('Por pagar', $this->sheet($this->get("/reports/advances{$range}"))[1][5]); // programado, aún sin pagar
-        $this->assertCount(3, $this->sheet($this->get("/reports/summary{$range}"))); // encabezado + 2
+        $this->assertSame('Por pagar', $this->sheet($this->get("/finance-reports/advances{$range}"))[1][5]); // programado, aún sin pagar
+        $this->assertCount(3, $this->sheet($this->get("/finance-reports/summary{$range}"))); // encabezado + 2
 
         // RRHH ve el de colaboradores; un supervisor no ve ninguno
         $hr = $this->makeUser($acme, 'hr_manager');
-        $rows = $this->sheet($this->actingAs($hr)->get("/reports/employees{$range}")->assertOk());
+        $rows = $this->sheet($this->actingAs($hr)->get("/finance-reports/employees{$range}")->assertOk());
         $this->assertSame('DNI', $rows[0][0]);
-        $this->actingAs($this->makeUser($acme, 'supervisor'))->get('/reports')->assertForbidden();
+        $this->actingAs($this->makeUser($acme, 'supervisor'))->get('/finance-reports')->assertForbidden();
     }
 }

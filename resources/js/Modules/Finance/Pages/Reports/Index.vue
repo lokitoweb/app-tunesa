@@ -11,14 +11,14 @@ const props = defineProps({
 const from = ref(props.from);
 const to = ref(props.to);
 const invalid = computed(() => !from.value || !to.value || to.value < from.value);
-const url = (key) => `/reports/${key}?${new URLSearchParams({ from: from.value, to: to.value })}`;
+const url = (key) => `/finance-reports/${key}?${new URLSearchParams({ from: from.value, to: to.value })}`;
 </script>
 
 <template>
-    <AppLayout title="Reportes">
+    <AppLayout title="Reportes de finanzas">
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
             <div>
-                <h1 class="h4 fw-bold mb-1">Reportes</h1>
+                <h1 class="h4 fw-bold mb-1">Reportes de finanzas</h1>
                 <p class="text-body-secondary small mb-0">Los reportes del sistema anterior, en Excel, para el periodo que elijas.</p>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-end">
