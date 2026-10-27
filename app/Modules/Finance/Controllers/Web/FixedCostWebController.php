@@ -30,7 +30,7 @@ class FixedCostWebController extends Controller
 
     public function __construct(private readonly AuditLogger $audit) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|\Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('month')) ? $request->query('month') : now(tenant_timezone())->format('Y-m');
         $class = in_array($request->query('classification'), FixedCost::CLASSIFICATIONS, true) ? $request->query('classification') : null;
@@ -39,6 +39,14 @@ class FixedCostWebController extends Controller
             ->when($class, fn ($q) => $q->where('classification', $class));
 
         $rows = $query()->with('companyAccount:id,bank,account_number,currency,alias')->orderBy('date')->orderBy('id')->get();
+        if ($request->boolean('export')) {
+            $path = tempnam(sys_get_temp_dir(), 'cf') . '.xlsx';
+            \App\Modules\Core\Support\SpreadsheetRows::export($path, "Costos fijos {$month}", ['Fecha', 'Clasificación', 'A quién se paga', 'Detalle', 'Cuota', 'Moneda', 'Monto', 'Estado', 'Pagado el', 'Cuenta de origen', 'N.º operación'],
+                $rows->map(fn (FixedCost $c) => [$c->date->format('d/m/Y'), $c->classification, $c->supplier_name, $c->detail, $c->installment, $c->currency, (float) $c->amount,
+                    ! $c->is_active ? 'Anulada' : ($c->paid_at ? 'Pagada' : 'Pendiente'), $c->paid_at?->format('d/m/Y'), $c->companyAccount?->label(), $c->operation_number]));
+
+            return response()->download($path, "costos-fijos-{$month}.xlsx")->deleteFileAfterSend();
+        }
         $sum = fn ($items) => $items->groupBy('currency')->map(fn ($g) => round((float) $g->sum('amount'), 2));
         $active = $rows->where('is_active', true);
         $ofBatch = FixedCost::whereIn('batch', $rows->pluck('batch')->unique())->toBase()

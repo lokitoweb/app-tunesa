@@ -23,6 +23,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Modules\Core\Rules\SafeUpload;
 
 /**
@@ -51,15 +52,7 @@ class TreasuryWebController extends Controller
         $search = trim((string) $request->query('search'));
         $today = now(tenant_timezone())->toDateString();
 
-        $installments = $this->tab(PaymentInstallment::query(), $tab, $today)
-            ->with(['requisition:id,series,number,code,invoice_number,invoice_path,detail,supplier_id,employee_id,payroll_concept,payroll_period,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_reason,detraction_number,detraction_amount,detraction_percent,amount',
-                'requisition.supplier:id,name,ruc', 'requisition.supplier.bankAccounts:id,supplier_id,bank,account_number,account_type',
-                'requisition.employee:id,first_name,last_name,document_number', 'requisition.employee.profile',
-                'cancellations.companyAccount:id,bank,account_number,currency,alias'])
-            ->when($search !== '', fn ($q) => $q->whereHas('requisition', fn ($r) => $r->where('detail', 'like', "%{$search}%")
-                ->orWhere('purchase_order_number', 'like', "%{$search}%")->orWhere('service_order_number', 'like', "%{$search}%")
-                ->orWhereHas('supplier', fn ($s) => $s->where('name', 'like', "%{$search}%")->orWhere('ruc', 'like', "{$search}%"))))
-            ->orderBy($tab === 'paid' ? 'paid_at' : 'due_date', $tab === 'paid' ? 'desc' : 'asc')
+        $installments = $this->listQuery($tab, $search, $today)
             ->paginate(30)->withQueryString()
             ->through(fn (PaymentInstallment $p) => $this->row($p));
 
@@ -93,6 +86,39 @@ class TreasuryWebController extends Controller
             ],
             'today'        => $today,
         ]);
+    }
+
+    /** La grilla de la pestaña en Excel, con la misma búsqueda (FrmReqProg › Exportar a Excel) */
+    public function export(Request $request): BinaryFileResponse
+    {
+        $tab = array_key_exists($request->query('tab'), self::TABS) ? $request->query('tab') : 'to_schedule';
+        $rows = $this->listQuery($tab, trim((string) $request->query('search')), now(tenant_timezone())->toDateString())
+            ->limit(5000)->get()->map(function (PaymentInstallment $p) {
+                $r = $p->requisition;
+                $row = $this->row($p);
+
+                return [$r?->orderNumber(), $row['supplier']['name'] ?? null, $row['supplier']['ruc'] ?? null, $r?->detail, "{$p->installment} de {$r?->installments}",
+                    $p->due_date?->format('d/m/Y'), $p->scheduled_for?->format('d/m/Y'), $r?->currency, (float) $p->amount, (float) $p->paid_amount,
+                    round((float) $p->amount - (float) $p->paid_amount, 2), $p->authorized_at ? 'Sí' : 'No', $p->status === 'paid' ? 'Pagada' : 'Pendiente'];
+            });
+        $path = tempnam(sys_get_temp_dir(), 'tes') . '.xlsx';
+        \App\Modules\Core\Support\SpreadsheetRows::export($path, self::TABS[$tab], ['Orden', 'Proveedor / beneficiario', 'RUC / DNI', 'Detalle', 'Cuota',
+            'Vence', 'Programada', 'Moneda', 'Monto', 'Pagado', 'Saldo', 'Autorizada', 'Estado'], $rows);
+
+        return response()->download($path, 'tesoreria-' . str_replace('_', '-', $tab) . '-' . now()->format('Ymd') . '.xlsx')->deleteFileAfterSend();
+    }
+
+    private function listQuery(string $tab, string $search, string $today): Builder
+    {
+        return $this->tab(PaymentInstallment::query(), $tab, $today)
+            ->with(['requisition:id,series,number,code,invoice_number,invoice_path,detail,supplier_id,employee_id,payroll_concept,payroll_period,is_direct_payment,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_reason,detraction_number,detraction_amount,detraction_percent,amount',
+                'requisition.supplier:id,name,ruc', 'requisition.supplier.bankAccounts:id,supplier_id,bank,account_number,account_type',
+                'requisition.employee:id,first_name,last_name,document_number', 'requisition.employee.profile',
+                'cancellations.companyAccount:id,bank,account_number,currency,alias'])
+            ->when($search !== '', fn ($q) => $q->whereHas('requisition', fn ($r) => $r->where('detail', 'like', "%{$search}%")
+                ->orWhere('purchase_order_number', 'like', "%{$search}%")->orWhere('service_order_number', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%")
+                ->orWhereHas('supplier', fn ($s) => $s->where('name', 'like', "%{$search}%")->orWhere('ruc', 'like', "{$search}%"))))
+            ->orderBy($tab === 'paid' ? 'paid_at' : 'due_date', $tab === 'paid' ? 'desc' : 'asc');
     }
 
     /** Fecha en que se pagará (Modificar_PROGRAMACION) */

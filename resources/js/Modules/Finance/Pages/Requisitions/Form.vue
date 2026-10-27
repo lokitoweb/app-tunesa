@@ -1,4 +1,6 @@
 <script setup>
+import { ref } from 'vue';
+import axios from 'axios';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 
@@ -33,6 +35,27 @@ const unitByProduct = Object.fromEntries(props.products.map((p) => [p.name, p.un
 
 function addItem() {
     form.items.push({ product: '', unit: 'UNIDAD (BIENES)', quantity: 1, justification: '' });
+}
+
+// Ítems desde Excel (sisgere FrmEXCEL): reemplaza las líneas vacías y agrega el resto
+const importing = ref(false);
+const importError = ref('');
+async function importItems(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    importing.value = true;
+    importError.value = '';
+    try {
+        const data = new FormData();
+        data.append('file', file);
+        const res = await axios.post('/requisitions/items/parse', data);
+        form.items = [...form.items.filter((i) => i.product.trim() !== ''), ...res.data.items].slice(0, 100);
+    } catch (e) {
+        importError.value = e.response?.data?.errors?.file?.[0] || e.response?.data?.message || 'No se pudo leer el archivo.';
+    } finally {
+        importing.value = false;
+    }
 }
 
 // Un producto conocido trae su unidad
@@ -145,9 +168,17 @@ const err = (k) => form.errors[k];
             <div class="card shadow-sm mb-3">
                 <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
                     <span class="fw-semibold">Productos o servicios</span>
-                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addItem"><i class="bi bi-plus-lg me-1"></i>Agregar línea</button>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <a href="/requisitions/items/template" class="small">Plantilla</a>
+                        <label class="btn btn-sm btn-outline-success mb-0" :class="{ disabled: importing }">
+                            <span v-if="importing" class="spinner-border spinner-border-sm me-1"></span><i v-else class="bi bi-file-earmark-excel me-1"></i>Importar Excel
+                            <input type="file" accept=".xlsx,.xls,.csv" class="d-none" aria-label="Importar ítems desde Excel" @change="importItems" />
+                        </label>
+                        <button type="button" class="btn btn-sm btn-outline-primary" @click="addItem"><i class="bi bi-plus-lg me-1"></i>Agregar línea</button>
+                    </div>
                 </div>
                 <div class="card-body">
+                    <div v-if="importError" class="alert alert-danger py-2 small">{{ importError }}</div>
                     <div v-if="err('items')" class="alert alert-danger py-2 small">{{ err('items') }}</div>
                     <datalist id="rq-products"><option v-for="p in products" :key="p.name" :value="p.name" /></datalist>
                     <div v-for="(item, i) in form.items" :key="i" class="row g-2 align-items-start mb-2 pb-2 border-bottom">

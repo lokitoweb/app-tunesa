@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
@@ -19,6 +19,9 @@ const { ask } = useConfirm();
 const { ensureTenant } = useTenantPicker();
 const money = (v, c = 'PEN') => `${c === 'USD' ? 'US$' : c === 'EUR' ? '€' : 'S/'} ${Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmt = (iso) => iso.split('-').reverse().join('/');
+
+// Excel del mes y clasificación que se ven
+const exportUrl = computed(() => `/fixed-costs?${new URLSearchParams({ month: props.filters.month, ...(props.filters.classification ? { classification: props.filters.classification } : {}), export: 1 })}`);
 
 function go(params) {
     router.get('/fixed-costs', { month: props.filters.month, classification: props.filters.classification || undefined, ...params }, { preserveState: true, replace: true });
@@ -84,7 +87,10 @@ const isOverdue = (c) => c.is_active && !c.paid_at && c.date < props.today;
                 <h1 class="h4 fw-bold mb-1">Costos fijos</h1>
                 <p class="text-body-secondary small mb-0">Arrendamientos, leasing, seguros y préstamos con sus cuotas mensuales.</p>
             </div>
-            <button type="button" class="btn btn-primary" @click="openCreate"><i class="bi bi-plus-lg me-1"></i>Nuevo costo fijo</button>
+            <div class="d-flex flex-wrap gap-2">
+                <a :href="exportUrl" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel</a>
+                <button type="button" class="btn btn-primary" @click="openCreate"><i class="bi bi-plus-lg me-1"></i>Nuevo costo fijo</button>
+            </div>
         </div>
 
         <div class="card shadow-sm mb-3">

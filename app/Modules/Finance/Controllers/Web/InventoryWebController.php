@@ -71,7 +71,7 @@ class InventoryWebController extends Controller
      * proveedor, placa, cantidad y costo unitario. El costo sale del kardex si ya se recibió;
      * si no, se estima prorrateando el monto de la orden por cantidad.
      */
-    public function purchases(Request $request): Response
+    public function purchases(Request $request): Response|\Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $search = trim((string) $request->query('search'));
         $productId = $request->integer('product') ?: null;
@@ -92,17 +92,28 @@ class InventoryWebController extends Controller
                 $r = $item->requisition;
                 $kardex = $received[$r->id] ?? null;
                 $orderQty = (float) $r->items->sum('quantity');
+                // Costo: el del kardex; si no, el precio de la línea de la OC (con su descuento); si la OC no lo trae, prorrateo del total
                 $unit = $kardex && (float) $kardex->qty > 0
                     ? round((float) $kardex->total / (float) $kardex->qty, 4)
-                    : ($orderQty > 0 ? round((float) $r->amount / $orderQty, 4) : 0); // ponytail: prorrateo simple; precio por línea cuando la OC lo traiga
+                    : ($item->subtotal !== null && (float) $item->quantity > 0 ? round((float) $item->subtotal / (float) $item->quantity, 4)
+                        : ($orderQty > 0 ? round((float) $r->amount / $orderQty, 4) : 0));
 
                 return [
                     'requisition_id' => $r->id, 'date' => $r->ordered_at?->timezone(tenant_timezone())->format('d/m/Y'), 'sort' => $r->ordered_at?->timestamp,
                     'order' => $r->orderNumber(), 'supplier' => $r->supplier?->name, 'ruc' => $r->supplier?->ruc, 'plate' => $r->plate,
                     'quantity' => (float) $item->quantity, 'unit_cost' => $unit, 'total' => round($unit * (float) $item->quantity, 2),
-                    'currency' => $r->currency, 'source' => $kardex ? 'kardex' : 'orden',
+                    'currency' => $r->currency, 'source' => $kardex ? 'kardex' : ($item->subtotal !== null ? 'precio' : 'orden'),
                 ];
             })->sortByDesc('sort')->values();
+        }
+
+        if ($request->boolean('export') && $productId) {
+            $path = tempnam(sys_get_temp_dir(), 'cmp') . '.xlsx';
+            \App\Modules\Core\Support\SpreadsheetRows::export($path, 'Compras', ['Fecha', 'Orden', 'Proveedor', 'RUC', 'Placa', 'Cantidad', 'Costo unitario', 'Total', 'Moneda', 'Fuente del costo'],
+                $rows->map(fn ($x) => [$x['date'], $x['order'], $x['supplier'], $x['ruc'], $x['plate'], $x['quantity'], $x['unit_cost'], $x['total'], $x['currency'],
+                    ['kardex' => 'Kardex', 'precio' => 'Precio de la OC', 'orden' => 'Prorrateo de la orden'][$x['source']]]));
+
+            return response()->download($path, 'compras-producto-' . $productId . '.xlsx')->deleteFileAfterSend();
         }
 
         return Inertia::render('Finance/Pages/Purchases/ByProduct', [

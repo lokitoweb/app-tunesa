@@ -31,6 +31,9 @@ Route::middleware(['auth', 'web.tenant', 'can:requisitions.create'])->prefix('re
     Route::get('/', [RequisitionWebController::class, 'index'])->name('index');
     Route::get('/create', [RequisitionWebController::class, 'create'])->name('create');
     Route::post('/', [RequisitionWebController::class, 'store'])->name('store');
+    // Ítems desde Excel (FrmEXCEL): solo lee y devuelve las líneas al formulario
+    Route::post('/items/parse', [RequisitionWebController::class, 'parseItems'])->name('items.parse')->middleware('throttle:20,1');
+    Route::get('/items/template', [RequisitionWebController::class, 'itemsTemplate'])->name('items.template');
     Route::put('/company-code', [RequisitionWebController::class, 'updateCompanyCode'])->name('company-code')
         ->middleware('can:company.document_code');
     Route::get('/{id}', [RequisitionWebController::class, 'show'])->name('show')->whereNumber('id');
@@ -57,6 +60,7 @@ Route::middleware(['auth', 'web.tenant', 'can:requisitions.create'])->prefix('re
 // Tesorería: programar y pagar (treasury.pay), autorizar (jefatura: requisitions.approve)
 Route::middleware(['auth', 'web.tenant', 'can:treasury.view'])->prefix('treasury')->name('treasury.')->group(function () {
     Route::get('/', [TreasuryWebController::class, 'index'])->name('index');
+    Route::get('/export', [TreasuryWebController::class, 'export'])->name('export')->middleware('throttle:20,1');
     Route::get('/payments/{id}/voucher', [TreasuryWebController::class, 'voucher'])->name('voucher')->whereNumber('id');
 
     // Autoriza la persona designada (apoderado con "autoriza pagos"): regla en PaymentInstallment::authorizeBy

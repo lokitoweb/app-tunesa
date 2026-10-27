@@ -42,13 +42,35 @@ final class SpreadsheetRows
     /** Plantilla .xlsx con los encabezados en negrita y una fila de ejemplo */
     public static function template(string $path, string $title, array $columns, array $example): void
     {
+        self::export($path, $title, array_keys($columns), [$example]);
+    }
+
+    /**
+     * Exporta una grilla a .xlsx (sisgere FrmReqProg: "Exportar a Excel"). Los textos que empiezan
+     * con = + - @ se guardan como texto, no como fórmula (inyección de fórmulas en Excel).
+     *
+     * @param  list<string>  $headers
+     * @param  iterable<list<scalar|null>>  $rows
+     */
+    public static function export(string $path, string $title, array $headers, iterable $rows): void
+    {
         $book = new Spreadsheet();
-        $sheet = $book->getActiveSheet()->setTitle($title);
-        $sheet->fromArray([array_keys($columns), $example]);
-        $last = chr(ord('A') + count($columns) - 1);
+        $sheet = $book->getActiveSheet()->setTitle(Str::limit(preg_replace('/[\\\\\/?*\[\]:]/', ' ', $title), 31, ''));
+        $sheet->fromArray($headers);
+        $line = 2;
+        foreach ($rows as $row) {
+            foreach (array_values($row) as $i => $value) {
+                $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i + 1) . $line;
+                is_string($value)
+                    ? $sheet->setCellValueExplicit($cell, $value, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING)
+                    : $sheet->setCellValue($cell, $value);
+            }
+            $line++;
+        }
+        $last = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(max(1, count($headers)));
         $sheet->getStyle("A1:{$last}1")->getFont()->setBold(true);
-        foreach (range('A', $last) as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        for ($i = 1; $i <= count($headers); $i++) {
+            $sheet->getColumnDimension(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i))->setAutoSize(true);
         }
         (new Xlsx($book))->save($path);
     }

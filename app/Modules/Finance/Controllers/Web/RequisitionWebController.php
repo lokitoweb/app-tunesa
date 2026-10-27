@@ -506,6 +506,52 @@ class RequisitionWebController extends Controller
         return back()->with('success', "Orden {$number} emitida: las cuotas quedaron pendientes de pago.");
     }
 
+    /** Columnas del Excel de ítems (sisgere FrmEXCEL: nombre, cantidad, unidad, justificación) */
+    private const ITEM_COLUMNS = [
+        'Producto o servicio' => ['product', ['producto', 'servicio', 'nombre', 'descripcion']],
+        'Cantidad'            => ['quantity', ['cantidad', 'cant']],
+        'Unidad'              => ['unit', ['unidad', 'und', 'medida']],
+        'Justificación'       => ['justification', ['justific', 'motivo', 'observ']],
+    ];
+
+    /** Lee un Excel de ítems y devuelve las líneas para el formulario (no guarda nada) */
+    public function parseItems(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:2048']],
+            ['file.required' => 'Elige el archivo Excel.', 'file.mimes' => 'El archivo debe ser Excel (.xlsx, .xls) o CSV.', 'file.max' => 'El archivo pesa más de 2 MB.']);
+        $units = self::options()['units'];
+        $items = [];
+        $errors = [];
+        foreach (\App\Modules\Core\Support\SpreadsheetRows::read($request->file('file')->getRealPath(), self::ITEM_COLUMNS) as $line => $row) {
+            $product = mb_substr(trim((string) ($row['product'] ?? '')), 0, 100);
+            $qty = is_numeric($row['quantity'] ?? null) ? (float) $row['quantity'] : null;
+            if ($product === '' || ! $qty || $qty <= 0) {
+                $errors[] = "Fila {$line}: " . ($product === '' ? 'falta el producto' : 'la cantidad debe ser un número mayor a cero') . '.';
+                continue;
+            }
+            $unit = mb_strtoupper(trim((string) ($row['unit'] ?? '')));
+            $items[] = ['product' => $product, 'quantity' => $qty, 'unit' => in_array($unit, $units, true) ? $unit : 'UNIDAD (BIENES)',
+                'justification' => mb_substr(trim((string) ($row['justification'] ?? '')), 0, 250)];
+            if (count($items) > 100) {
+                $errors[] = 'Máximo 100 ítems por requerimiento.';
+                break;
+            }
+        }
+        if ($errors || ! $items) {
+            throw ValidationException::withMessages(['file' => $items || $errors ? implode(' ', array_slice($errors, 0, 10)) : 'El archivo no tiene ítems.']);
+        }
+
+        return response()->json(['items' => $items]);
+    }
+
+    public function itemsTemplate(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $path = tempnam(sys_get_temp_dir(), 'rqi') . '.xlsx';
+        \App\Modules\Core\Support\SpreadsheetRows::template($path, 'Ítems', self::ITEM_COLUMNS, ['Llanta 295/80 R22.5', 4, 'UNIDAD (BIENES)', 'Desgaste']);
+
+        return response()->download($path, 'plantilla-items-requerimiento.xlsx')->deleteFileAfterSend();
+    }
+
     // ------------------------------------------------------------------ privado
 
     /** Anticipos pagados y sin aplicar del proveedor (mostrar_anticipo de sisgere) */

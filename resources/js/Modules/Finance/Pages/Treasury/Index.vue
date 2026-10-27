@@ -4,6 +4,7 @@ import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
+import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
 
 const props = defineProps({
     installments: { type: Object, required: true },
@@ -19,10 +20,14 @@ const props = defineProps({
 });
 
 const { ask } = useConfirm();
+const { ensureTenant } = useTenantPicker();
 const search = ref(props.filters.search || '');
 const expanded = ref(null);
 const activeAccounts = computed(() => props.accounts.filter((a) => a.is_active));
 const money = (v, c = 'PEN') => `${c === 'USD' ? 'US$' : c === 'EUR' ? '€' : 'S/'} ${Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// Excel de la pestaña actual con la misma búsqueda
+const exportUrl = computed(() => `/treasury/export?${new URLSearchParams({ tab: props.filters.tab || 'to_schedule', ...(search.value ? { search: search.value } : {}) })}`);
 
 let timer = null;
 function go(params) {
@@ -72,6 +77,7 @@ const blankDirect = () => ({ supplier_id: '', detail: '', document_type: 'FACT',
     amount: '', due_date: props.today, payment_method: 'TRANSFERENCIA', has_detraction: false, detraction_reason: '', is_advance: false });
 const directForm = useForm(blankDirect());
 function openDirect() {
+    if (!ensureTenant({ message: 'El pago directo se registra en una empresa.' })) return;
     Object.assign(directForm, blankDirect());
     directForm.clearErrors();
     showDirect.value = true;
@@ -186,9 +192,12 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
 
         <div class="card shadow-sm">
             <div class="card-body border-bottom">
-                <div class="input-group" style="max-width: 460px">
-                    <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input v-model="search" type="search" class="form-control" placeholder="Proveedor, RUC, N.º de orden o detalle" aria-label="Buscar cuota" @input="onSearch" />
+                <div class="d-flex flex-wrap gap-2 justify-content-between">
+                    <div class="input-group" style="max-width: 460px">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input v-model="search" type="search" class="form-control" placeholder="Proveedor, RUC, N.º de orden o detalle" aria-label="Buscar cuota" @input="onSearch" />
+                    </div>
+                    <a :href="exportUrl" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel</a>
                 </div>
                 <div v-if="markable.length" class="d-flex flex-wrap align-items-center gap-2 mt-2 small">
                     <button type="button" class="btn btn-sm btn-link px-0" @click="marked = marked.length === markable.length ? [] : markable.map((p) => p.id)">{{ marked.length === markable.length ? 'Desmarcar todas' : 'Marcar todas' }}</button>

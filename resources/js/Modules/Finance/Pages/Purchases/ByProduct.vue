@@ -27,7 +27,7 @@ const pick = (p) => router.get('/purchases/by-product', { search: search.value |
     <AppLayout title="Compras por producto">
         <div class="mb-4">
             <h1 class="h4 fw-bold mb-1">Compras por producto</h1>
-            <p class="text-body-secondary small mb-0">Qué se compró de cada producto, a quién y a qué costo (real del kardex si ya se recibió; si no, prorrateado de la orden).</p>
+            <p class="text-body-secondary small mb-0">Qué se compró de cada producto, a quién y a qué costo (real del kardex si ya se recibió; si no, el precio de la OC o, sin precio, prorrateado de la orden).</p>
         </div>
 
         <div class="row g-3">
@@ -50,7 +50,10 @@ const pick = (p) => router.get('/purchases/by-product', { search: search.value |
                 <div v-if="!product" class="card shadow-sm"><div class="card-body text-center text-body-secondary py-5"><i class="bi bi-search fs-2 d-block mb-2"></i>Elige un producto para ver sus compras.</div></div>
                 <div v-else class="card shadow-sm">
                     <div class="card-header bg-transparent">
-                        <div class="fw-semibold">{{ product.name }} <span class="small text-body-secondary">{{ product.unit }}</span></div>
+                        <div class="d-flex flex-wrap justify-content-between gap-2">
+                            <div class="fw-semibold">{{ product.name }} <span class="small text-body-secondary">{{ product.unit }}</span></div>
+                            <a v-if="rows.length" :href="`/purchases/by-product?product=${product.id}&export=1`" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel</a>
+                        </div>
                         <div v-if="rows.length" class="small text-body-secondary">
                             {{ rows.length }} compra(s) · {{ qty(summary.quantity) }} {{ product.unit }} · {{ money(summary.total) }} ·
                             costo unitario {{ money(summary.min) }} – {{ money(summary.max) }}
@@ -65,7 +68,7 @@ const pick = (p) => router.get('/purchases/by-product', { search: search.value |
                                     <td><Link :href="`/requisitions/${r.requisition_id}`" class="font-monospace small">{{ r.order }}</Link><div v-if="r.plate" class="small text-body-secondary">Placa {{ r.plate }}</div></td>
                                     <td class="small">{{ r.supplier || '—' }}<div class="font-monospace text-body-secondary">{{ r.ruc }}</div></td>
                                     <td class="text-end">{{ qty(r.quantity) }}</td>
-                                    <td class="text-end">{{ money(r.unit_cost, r.currency) }}<div class="small text-body-secondary">{{ r.source === 'kardex' ? 'kardex' : 'estimado' }}</div></td>
+                                    <td class="text-end">{{ money(r.unit_cost, r.currency) }}<div class="small text-body-secondary">{{ r.source === 'kardex' ? 'kardex' : r.source === 'precio' ? 'precio de la OC' : 'estimado' }}</div></td>
                                     <td class="text-end fw-semibold">{{ money(r.total, r.currency) }}</td>
                                 </tr>
                                 <tr v-if="!rows.length"><td colspan="6" class="text-center text-body-secondary py-5">Aún no hay órdenes emitidas con este producto.</td></tr>
