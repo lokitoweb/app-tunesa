@@ -89,7 +89,31 @@ function submitDirect() {
         .post('/treasury/direct', { preserveScroll: true, forceFormData: true, onSuccess: () => (showDirect.value = false) });
 }
 
-// ---------------------------------------------------------------- detracciónconst detrTarget = ref(null);
+// ---------------------------------------------------------------- correcciones
+const correctTarget = ref(null);
+const correctForm = useForm({ company_bank_account_id: '', operation_number: '', voucher: null });
+function openCorrect(p, pay) {
+    correctTarget.value = { p, pay };
+    Object.assign(correctForm, { company_bank_account_id: pay.account_id || '', operation_number: pay.operation || '', voucher: null });
+    correctForm.clearErrors();
+}
+function submitCorrect() {
+    correctForm.transform((d) => ({ ...d, voucher: d.voucher || undefined }))
+        .post(`/treasury/payments/${correctTarget.value.pay.id}/correct`, { preserveScroll: true, forceFormData: true, onSuccess: () => (correctTarget.value = null) });
+}
+const editDirect = ref(null);
+const editDirectForm = useForm({ detail: '', currency: 'PEN', amount: '' });
+function openEditDirect(p) {
+    editDirect.value = p;
+    Object.assign(editDirectForm, { detail: p.requisition.detail, currency: p.requisition.currency, amount: p.requisition.amount });
+    editDirectForm.clearErrors();
+}
+function submitEditDirect() {
+    editDirectForm.put(`/treasury/direct/${editDirect.value.requisition.id}`, { preserveScroll: true, onSuccess: () => (editDirect.value = null) });
+}
+
+// ---------------------------------------------------------------- detracción
+const detrTarget = ref(null);
 const detr = useForm({ detraction_number: '', detraction_percent: 12, detraction_amount: '' });
 function openDetraction(p) {
     detrTarget.value = p;
@@ -251,6 +275,7 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                         <button v-if="p.status === 'pending' && p.scheduled_for && !p.authorized && can.authorize" type="button" class="btn btn-sm btn-success" @click="authorize(p)">Autorizar</button>
                                         <a v-if="p.scheduled_for" :href="`/treasury/installments/${p.id}/op.pdf`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Orden de pago (PDF firmado)"><i class="bi bi-filetype-pdf"></i> OP</a>
                                         <button v-if="p.status === 'pending' && p.authorized && can.pay" type="button" class="btn btn-sm btn-success" :disabled="!p.requisition?.has_invoice" :title="p.requisition?.has_invoice ? '' : 'Registra la factura en el requerimiento'" @click="openPay(p)"><i class="bi bi-cash-coin me-1"></i>Pagar</button>
+                                        <button v-if="p.requisition?.is_direct && p.status === 'pending' && p.paid_amount == 0 && can.pay" type="button" class="btn btn-sm btn-outline-secondary" title="Corregir pago directo" @click="openEditDirect(p)"><i class="bi bi-pencil-square"></i></button>
                                         <button v-if="p.requisition?.has_detraction && can.pay" type="button" class="btn btn-sm btn-outline-secondary" title="Detracción" @click="openDetraction(p)"><i class="bi bi-percent"></i></button>
                                         <button v-if="p.payments.length" type="button" class="btn btn-sm btn-light" :title="expanded === p.id ? 'Ocultar pagos' : 'Ver pagos'" @click="expanded = expanded === p.id ? null : p.id">
                                             <i class="bi" :class="expanded === p.id ? 'bi-chevron-up' : 'bi-receipt'"></i> {{ p.payments.length }}
@@ -269,7 +294,10 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                                 <td class="font-monospace">{{ pay.operation }}</td>
                                                 <td class="text-end">{{ money(pay.amount, p.requisition?.currency) }}</td>
                                                 <td>{{ pay.registered_by }}</td>
-                                                <td class="text-end"><a v-if="pay.has_voucher" :href="`/treasury/payments/${pay.id}/voucher`" target="_blank" rel="noopener" class="btn btn-sm btn-link p-0"><i class="bi bi-file-earmark-arrow-down me-1"></i>Voucher</a></td>
+                                                <td class="text-end text-nowrap">
+                                                    <a v-if="pay.has_voucher" :href="`/treasury/payments/${pay.id}/voucher`" target="_blank" rel="noopener" class="btn btn-sm btn-link p-0"><i class="bi bi-file-earmark-arrow-down me-1"></i>Voucher</a>
+                                                    <button v-if="can.pay" type="button" class="btn btn-sm btn-link p-0 ms-2" @click="openCorrect(p, pay)"><i class="bi bi-pencil-square me-1"></i>Corregir</button>
+                                                </td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -382,6 +410,76 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                 </form>
             </div>
         </div>
+        <!-- Corregir un pago registrado -->
+        <div v-if="correctTarget" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="corr-title" style="background: rgba(0,0,0,.45)" @click.self="correctTarget = null">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" novalidate @submit.prevent="submitCorrect">
+                    <div class="modal-header">
+                        <h2 id="corr-title" class="modal-title h5">Corregir pago · {{ correctTarget.p.requisition?.order }}</h2>
+                        <button type="button" class="btn-close" aria-label="Cerrar" @click="correctTarget = null"></button>
+                    </div>
+                    <div class="modal-body row g-3">
+                        <div class="col-12 small text-body-secondary">{{ correctTarget.pay.paid_at }} · {{ money(correctTarget.pay.amount, correctTarget.p.requisition?.currency) }}. El monto no se corrige aquí.</div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="corr-acc">Cuenta de origen *</label>
+                            <select id="corr-acc" v-model="correctForm.company_bank_account_id" class="form-select" :class="{ 'is-invalid': correctForm.errors.company_bank_account_id }">
+                                <option value="" disabled>Elige…</option>
+                                <option v-for="a in activeAccounts" :key="a.id" :value="a.id">{{ a.label }}</option>
+                            </select>
+                            <div class="invalid-feedback">{{ correctForm.errors.company_bank_account_id }}</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="corr-op">N.º de operación *</label>
+                            <input id="corr-op" v-model.trim="correctForm.operation_number" maxlength="50" class="form-control font-monospace" :class="{ 'is-invalid': correctForm.errors.operation_number }" />
+                            <div class="invalid-feedback">{{ correctForm.errors.operation_number }}</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="corr-v">Reemplazar voucher <span class="fw-normal text-body-secondary">(opcional)</span></label>
+                            <input id="corr-v" type="file" accept="application/pdf,image/*" class="form-control" :class="{ 'is-invalid': correctForm.errors.voucher }" @change="correctForm.voucher = $event.target.files[0] || null" />
+                            <div class="invalid-feedback">{{ correctForm.errors.voucher }}</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" @click="correctTarget = null">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" :disabled="correctForm.processing">Guardar corrección</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Corregir un pago directo sin pagos -->
+        <div v-if="editDirect" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="ed-title" style="background: rgba(0,0,0,.45)" @click.self="editDirect = null">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" novalidate @submit.prevent="submitEditDirect">
+                    <div class="modal-header">
+                        <h2 id="ed-title" class="modal-title h5">Corregir pago directo · {{ editDirect.requisition.order }}</h2>
+                        <button type="button" class="btn-close" aria-label="Cerrar" @click="editDirect = null"></button>
+                    </div>
+                    <div class="modal-body row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="ed-detail">Detalle *</label>
+                            <textarea id="ed-detail" v-model.trim="editDirectForm.detail" rows="2" maxlength="1000" class="form-control" :class="{ 'is-invalid': editDirectForm.errors.detail }"></textarea>
+                            <div class="invalid-feedback">{{ editDirectForm.errors.detail }}</div>
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small fw-semibold" for="ed-cur">Moneda</label>
+                            <select id="ed-cur" v-model="editDirectForm.currency" class="form-select"><option v-for="(label, code) in currencies" :key="code" :value="code">{{ label }}</option></select>
+                        </div>
+                        <div class="col-7">
+                            <label class="form-label small fw-semibold" for="ed-amount">Monto total *</label>
+                            <input id="ed-amount" v-model="editDirectForm.amount" type="number" min="0.01" step="0.01" class="form-control" :class="{ 'is-invalid': editDirectForm.errors.amount }" />
+                            <div class="invalid-feedback">{{ editDirectForm.errors.amount }}</div>
+                        </div>
+                        <div class="col-12 small text-body-secondary">Si cambia el monto o la moneda, el pago vuelve a necesitar autorización.</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" @click="editDirect = null">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" :disabled="editDirectForm.processing">Guardar corrección</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Pago directo de Tesorería -->
         <div v-if="showDirect && direct" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="direct-title" style="background: rgba(0,0,0,.45)" @click.self="showDirect = false">
             <div class="modal-dialog modal-dialog-centered modal-lg">

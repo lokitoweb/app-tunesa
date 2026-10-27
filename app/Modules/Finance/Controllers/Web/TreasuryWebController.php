@@ -359,6 +359,67 @@ class TreasuryWebController extends Controller
         return back()->with('success', "Pago directo {$r->code()} registrado: queda por programar." . ($path ? '' : ' Adjunta el PDF del documento antes de pagarlo.'));
     }
 
+    /**
+     * Corrige un pago directo aún sin pagos (sisgere corregir_requerimiento01/02): detalle, moneda y
+     * monto. Cambiar el monto rehace la cuota y quita la autorización (hay que autorizar de nuevo).
+     */
+    public function updateDirectPayment(Request $request, int $id): RedirectResponse
+    {
+        $r = Requisition::where('is_direct_payment', true)->findOrFail($id);
+        $p = $r->paymentInstallments()->sole();
+        abort_if($r->stage !== 'ordered' || (float) $p->paid_amount > 0 || $p->advance_applied_to_id, 422, 'El pago directo ya tiene pagos registrados: no se puede corregir.');
+        $data = $request->validate([
+            'detail'   => ['required', 'string', 'max:1000'],
+            'currency' => ['required', Rule::in(array_keys(Requisition::CURRENCIES))],
+            'amount'   => ['required', 'numeric', 'min:0.01', 'max:999999999'],
+        ], [], ['detail' => 'el detalle', 'amount' => 'el monto']);
+
+        $total = round((float) $data['amount'], 2);
+        $detraction = $r->detraction_reason ? \App\Modules\Finance\Services\OrderPricing::detraction($total, (int) $r->detraction_percent) : null;
+        $payable = round($total - (float) $detraction, 2);
+        abort_if($payable <= 0, 422, 'La detracción no puede ser igual o mayor que el monto.');
+        $before = $r->only(['detail', 'currency', 'amount']);
+        $changedAmount = abs($payable - (float) $p->amount) > 0.004 || $data['currency'] !== $r->currency;
+
+        DB::transaction(function () use ($r, $p, $data, $total, $detraction, $payable, $changedAmount) {
+            $r->update(['detail' => $data['detail'], 'currency' => $data['currency'], 'amount' => $total, 'amount_payable' => $payable, 'detraction_amount' => $detraction]);
+            $p->update(['amount' => $payable] + ($changedAmount ? ['authorized_by_id' => null, 'authorized_at' => null] : []));
+        });
+        $this->audit->log('treasury.direct_payment_corrected', $r, ['code' => $r->code(), 'before' => $before, 'after' => $data]);
+
+        return back()->with('success', $changedAmount && $p->wasChanged('authorized_at') ? 'Pago directo corregido: vuelve a necesitar autorización.' : 'Pago directo corregido.');
+    }
+
+    /**
+     * Corrige un pago registrado (sisgere Modificar_cuenta_origen y eliminar_foto): cuenta de origen,
+     * n.º de operación y voucher. El monto no se corrige: para eso se anula y registra de nuevo.
+     */
+    public function correctPayment(Request $request, int $id): RedirectResponse
+    {
+        $c = PaymentCancellation::findOrFail($id);
+        $data = $request->validate([
+            'company_bank_account_id' => ['required', Rule::exists('company_bank_accounts', 'id')->where('tenant_id', $c->tenant_id)->where('is_active', true)],
+            'operation_number'        => ['required', 'string', 'max:50'],
+            'voucher'                 => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120', new SafeUpload],
+        ], ['exists' => 'Elige una cuenta de origen activa.', 'voucher.mimes' => 'El voucher debe ser PDF o imagen.', 'voucher.max' => 'El voucher pesa más de 5 MB.'],
+            ['company_bank_account_id' => 'la cuenta de origen', 'operation_number' => 'el número de operación']);
+
+        $account = CompanyBankAccount::findOrFail($data['company_bank_account_id']);
+        $before = $c->only(['bank', 'account_number', 'operation_number']);
+        $old = $c->voucher_path;
+        $update = ['company_bank_account_id' => $account->id, 'bank' => $account->bank, 'account_number' => $account->account_number, 'operation_number' => $data['operation_number']];
+        if ($request->hasFile('voucher')) {
+            $update['voucher_path'] = $request->file('voucher')->store("finance/{$c->tenant_id}/vouchers", self::VOUCHER_DISK);
+        }
+        $c->update($update);
+        if (isset($update['voucher_path']) && $old) {
+            Storage::disk(self::VOUCHER_DISK)->delete($old); // el voucher reemplazado no queda huérfano
+        }
+        $this->audit->log('payment.corrected', $c->installment?->requisition, ['payment' => $c->id, 'before' => $before, 'after' => collect($update)->except('voucher_path')->all(), 'voucher_replaced' => isset($update['voucher_path'])]);
+
+        return back()->with('success', 'Pago corregido.');
+    }
+
     /** Documento asociado del pago directo (sisgere FrmReqProg: ORDP, BBVV, FACT, NPED, RRHH, VALE, OTRO) */
     public const DOCUMENT_TYPES = [
         'FACT' => 'Factura', 'BBVV' => 'Boleta de venta', 'RRHH' => 'Recibo por honorarios', 'ORDP' => 'Orden de pago',
@@ -446,7 +507,7 @@ class TreasuryWebController extends Controller
             'is_advance'    => $p->is_advance,
             'requisition'   => $r ? [
                 'id' => $r->id, 'code' => $r->code(), 'detail' => $r->detail, 'order' => $r->orderNumber(), 'currency' => $r->currency,
-                'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction,
+                'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction, 'is_direct' => (bool) $r->is_direct_payment,
                 // Pago de RRHH: no lleva factura (la boleta es el sustento)
                 'has_invoice' => $r->isPayroll() || $r->invoice_path, 'is_payroll' => $r->isPayroll(),
                 'detraction' => $r->only(['detraction_number', 'detraction_amount', 'detraction_percent', 'detraction_reason']),
@@ -458,7 +519,7 @@ class TreasuryWebController extends Controller
             'payments'      => $p->cancellations->map(fn (PaymentCancellation $c) => [
                 'id' => $c->id, 'paid_at' => $c->paid_at?->format('d/m/Y'), 'amount' => (float) $c->amount, 'operation' => $c->operation_number,
                 'account' => $c->companyAccount?->label() ?? trim("{$c->bank} {$c->account_number}"), 'has_voucher' => (bool) $c->voucher_path,
-                'registered_by' => $c->registered_by,
+                'registered_by' => $c->registered_by, 'account_id' => $c->company_bank_account_id,
             ]),
         ];
     }

@@ -100,6 +100,18 @@ class DirectPaymentAdvanceTest extends TestCase
         $this->actingAs($boss)->post('/treasury/installments/authorize', ['ids' => [$second->id]])->assertSessionHasNoErrors();
         $this->assertNotNull($second->fresh()->authorized_at);
 
+        // Corregir un pago registrado: cuenta, operación y voucher (el monto no)
+        $cancel = \App\Modules\Finance\Models\PaymentCancellation::withoutGlobalScopes()->where('payment_installment_id', $first->id)->sole();
+        $oldVoucher = $cancel->voucher_path;
+        $other2 = CompanyBankAccount::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'bank' => 'BBVA', 'account_number' => '0011-2', 'currency' => 'PEN', 'is_active' => true]);
+        $this->actingAs($logistics)->post("/treasury/payments/{$cancel->id}/correct", ['company_bank_account_id' => $other2->id, 'operation_number' => 'X'])->assertForbidden();
+        $this->actingAs($treasurer)->post("/treasury/payments/{$cancel->id}/correct", ['company_bank_account_id' => $other2->id, 'operation_number' => 'OP-2B',
+            'voucher' => $this->fakePdf('nuevo.pdf'), 'amount' => 1])->assertSessionHasNoErrors();
+        $cancel->refresh();
+        $this->assertSame(['BBVA', 'OP-2B', '350.00'], [$cancel->bank, $cancel->operation_number, $cancel->amount]);
+        Storage::disk('private')->assertMissing($oldVoucher);
+        Storage::disk('private')->assertExists($cancel->voucher_path);
+
         // Orden de pago sin número: correlativo OP-… propio (requerimiento_mostrar_nroODP); una factura sí exige número
         $this->actingAs($treasurer)->post('/treasury/direct', ['document_type' => 'FACT', 'document_number' => ''] + $payload)->assertSessionHasErrors('document_number');
         foreach ([1, 2] as $n) {
@@ -107,5 +119,14 @@ class DirectPaymentAdvanceTest extends TestCase
         }
         $this->assertSame(["ORDP OP-{$acme->code}-001-000001-" . now()->year, "ORDP OP-{$acme->code}-001-000002-" . now()->year],
             Requisition::withoutGlobalScopes()->where('is_direct_payment', true)->where('invoice_number', 'like', 'ORDP OP-%')->orderBy('id')->pluck('invoice_number')->all());
+
+        // Corregir un pago directo sin pagos: cambia el monto, rehace la cuota y pide autorizar otra vez
+        $pg2 = Requisition::withoutGlobalScopes()->where('invoice_number', 'like', 'ORDP OP-%')->orderBy('id')->first();
+        $inst = $pg2->paymentInstallments()->sole();
+        $inst->update(['scheduled_for' => now()->toDateString(), 'authorized_by_id' => $boss->id, 'authorized_at' => now()]);
+        $this->put("/treasury/direct/{$pg2->id}", ['detail' => 'Corregido', 'currency' => 'PEN', 'amount' => 650])->assertSessionHasNoErrors();
+        $this->assertSame(['Corregido', '650.00', '650.00', null], [$pg2->fresh()->detail, $pg2->fresh()->amount, $inst->fresh()->amount, $inst->fresh()->authorized_at]);
+        // Ya pagado (el anticipo del inicio), no se corrige
+        $this->put("/treasury/direct/{$pg->id}", ['detail' => 'x', 'currency' => 'PEN', 'amount' => 1])->assertStatus(422);
     }
 }
