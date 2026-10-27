@@ -11,6 +11,7 @@ use App\Modules\Finance\Models\Vehicle;
 use App\Modules\Finance\Notifications\RequisitionReviewed;
 use App\Modules\Finance\Notifications\SupplierDocument;
 use App\Modules\Finance\Services\FinanceDocumentPdf;
+use App\Modules\Finance\Services\OrderPricing;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -168,7 +169,15 @@ class RequisitionWebController extends Controller
                 'items'        => $r->items->map(fn ($i) => [
                     'id' => $i->id, 'product' => $i->product?->name, 'unit' => $i->product?->unit, 'quantity' => (float) $i->quantity, 'justification' => $i->justification,
                     'received_quantity' => (float) $i->received_quantity,
+                    'unit_price' => $i->unit_price !== null ? (float) $i->unit_price : null,
+                    'discount_percent' => (float) $i->discount_percent, 'subtotal' => $i->subtotal !== null ? (float) $i->subtotal : null,
                 ]),
+                // Desglose de la orden (null si se emitió con el total de la cotización)
+                'pricing' => $r->igv_rate !== null ? [
+                    'includes_igv' => (bool) $r->prices_include_igv, 'rate' => (float) $r->igv_rate,
+                    'taxable' => (float) $r->taxable_amount, 'igv' => (float) $r->igv_amount, 'total' => (float) $r->amount,
+                ] : null,
+                'igv_rate' => (float) config('finance.igv_rate', 0.18),
                 // Traza: factura, recepción en almacén y pagos (cancelado / amortizado) de esta orden
                 'invoice'      => ['number' => $r->invoice_number, 'date' => $r->invoice_date?->format('d/m/Y'), 'has_file' => (bool) $r->invoice_path],
                 'received_at'  => $r->received_at?->timezone(tenant_timezone())->format('d/m/Y H:i'),
@@ -379,10 +388,25 @@ class RequisitionWebController extends Controller
             'first_due_date' => ['required', 'date'],
             'interval_days'  => ['required', 'integer', 'min:1', 'max:365'],
             'has_detraction' => ['boolean'],
+            // Precios por ítem (opcionales, como en sisgere): si se llena uno, van todos
+            'prices_include_igv'       => ['boolean'],
+            'items'                    => ['nullable', 'array', 'max:100'],
+            'items.*.id'               => ['required', 'integer', Rule::exists('requisition_items', 'id')->where('requisition_id', $r->id)],
+            'items.*.unit_price'       => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'items.*.discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ], self::MESSAGES, ['quotation_id' => 'la cotización', 'first_due_date' => 'el primer vencimiento']);
 
-        $number = DB::transaction(function () use ($r, $data, $request) {
+        $pricing = $this->pricing($r, $data);
+
+        $number = DB::transaction(function () use ($r, $data, $request, $pricing) {
             $quotation = $r->quotations()->findOrFail($data['quotation_id']);
+            // Con precios por ítem, el total de la orden sale de ellos (con su IGV); sin precios, de la cotización
+            $total = $pricing ? $pricing['total'] : (float) $quotation->amount;
+            if ($pricing) {
+                foreach ($pricing['items'] as $id => [$price, $discount, $subtotal]) {
+                    $r->items()->whereKey($id)->update(['unit_price' => $price, 'discount_percent' => $discount, 'subtotal' => $subtotal]);
+                }
+            }
             $column = $data['type'] === 'purchase' ? 'purchase_order_number' : 'service_order_number';
             $prefix = $data['type'] === 'purchase' ? 'OC' : 'OS';
             // OC/OS-[EMPRESA]-[SERIE]-[N]-[AÑO], misma serie (sede) que el requerimiento
@@ -393,19 +417,21 @@ class RequisitionWebController extends Controller
 
             $r->update([
                 'stage' => 'ordered', $column => $number, 'ordered_at' => now(),
-                'supplier_id' => $quotation->supplier_id, 'amount' => $quotation->amount, 'amount_payable' => $quotation->amount,
+                'supplier_id' => $quotation->supplier_id, 'amount' => $total, 'amount_payable' => $total,
                 'currency' => $quotation->currency, 'installments' => $data['installments'],
                 'has_detraction' => (bool) ($data['has_detraction'] ?? false),
+                'prices_include_igv' => $pricing['includes_igv'] ?? null, 'igv_rate' => $pricing['rate'] ?? null,
+                'taxable_amount' => $pricing['taxable'] ?? null, 'igv_amount' => $pricing['igv'] ?? null,
             ] + collect($data)->only(['payment_terms', 'payment_method', 'payment_origin', 'priority'])->all());
 
             // Cuotas iguales; la última absorbe el redondeo
             $count = (int) $data['installments'];
-            $base = floor(((float) $quotation->amount / $count) * 100) / 100;
+            $base = floor(($total / $count) * 100) / 100;
             $due = \Illuminate\Support\Carbon::parse($data['first_due_date']);
             for ($i = 1; $i <= $count; $i++) {
                 $r->paymentInstallments()->create([
                     'tenant_id' => $r->tenant_id, 'installment' => $i, 'due_date' => $due->copy(),
-                    'amount' => $i === $count ? round((float) $quotation->amount - $base * ($count - 1), 2) : $base,
+                    'amount' => $i === $count ? round($total - $base * ($count - 1), 2) : $base,
                     'status' => 'pending', 'payment_method' => $data['payment_method'], 'registered_by' => $request->user()->full_name,
                 ]);
                 $due->addDays((int) $data['interval_days']);
@@ -429,6 +455,41 @@ class RequisitionWebController extends Controller
     }
 
     // ------------------------------------------------------------------ privado
+
+    /**
+     * Precios por ítem de la orden, o null si no se ingresó ninguno (la orden toma el total de la
+     * cotización, como antes). Si se ingresó alguno, todos los ítems deben tener precio.
+     *
+     * @return null|array{items: array<int, array{0: float, 1: float, 2: float}>, taxable: float, igv: float, total: float, rate: float, includes_igv: bool}
+     */
+    private function pricing(Requisition $r, array $data): ?array
+    {
+        $sent = collect($data['items'] ?? [])->keyBy('id');
+        if ($sent->every(fn ($l) => ($l['unit_price'] ?? null) === null || $l['unit_price'] === '')) {
+            return null;
+        }
+
+        $lines = [];
+        foreach ($r->items as $i => $item) {
+            $price = $sent[$item->id]['unit_price'] ?? null;
+            if ($price === null || $price === '') {
+                throw ValidationException::withMessages(['items' => 'Ingresa el precio de todos los ítems (o de ninguno, para usar el total de la cotización).']);
+            }
+            $lines[$item->id] = ['quantity' => (float) $item->quantity, 'unit_price' => (float) $price, 'discount_percent' => (float) ($sent[$item->id]['discount_percent'] ?? 0)];
+        }
+
+        $calc = OrderPricing::compute(array_values($lines), (bool) ($data['prices_include_igv'] ?? true));
+        if ($calc['total'] <= 0) {
+            throw ValidationException::withMessages(['items' => 'El total de la orden debe ser mayor a cero.']);
+        }
+
+        $items = [];
+        foreach (array_keys($lines) as $n => $id) {
+            $items[$id] = [$lines[$id]['unit_price'], $lines[$id]['discount_percent'], $calc['lines'][$n]];
+        }
+
+        return ['items' => $items] + $calc;
+    }
 
     private const DISK = TreasuryWebController::VOUCHER_DISK;
 

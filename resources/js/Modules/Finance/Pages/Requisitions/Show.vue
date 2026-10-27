@@ -90,16 +90,42 @@ async function removeQuote(q) {
 const order = useForm({
     quotation_id: '', type: 'purchase', payment_terms: 'CONTADO', payment_method: 'TRANSFERENCIA', payment_origin: 'TRANSFERENCIA',
     priority: r.value.priority || 'NORMAL', installments: 1, first_due_date: today, interval_days: 30, has_detraction: false,
+    // Precios por ítem (opcionales, como en sisgere): vacíos = total de la cotización
+    prices_include_igv: true,
+    items: [],
 });
 const showOrder = ref(false);
 function openOrder(q) {
     order.quotation_id = q.id;
+    order.items = r.value.items.map((i) => ({ id: i.id, unit_price: i.unit_price ?? '', discount_percent: i.discount_percent || 0 }));
     order.clearErrors();
     showOrder.value = true;
 }
 const chosen = computed(() => r.value.quotations.find((q) => q.id === order.quotation_id));
+
+// Mismo cálculo que OrderPricing (servidor): subtotal = cant × precio × (1 − dscto%)
+const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+const lineSubtotal = (qty, price, disc) => round2(Number(qty) * Number(price || 0) * (1 - Math.min(100, Math.max(0, Number(disc) || 0)) / 100));
+const priced = computed(() => order.items.some((l) => l.unit_price !== '' && l.unit_price !== null));
+const orderTotals = computed(() => {
+    const rate = Number(r.value.igv_rate) || 0.18;
+    const sum = round2(order.items.reduce((s, l) => {
+        const item = r.value.items.find((i) => i.id === l.id);
+        return s + lineSubtotal(item?.quantity, l.unit_price, l.discount_percent);
+    }, 0));
+    if (order.prices_include_igv) {
+        const taxable = round2(sum / (1 + rate));
+        return { taxable, igv: round2(sum - taxable), total: sum, rate };
+    }
+    const igv = round2(sum * rate);
+    return { taxable: sum, igv, total: round2(sum + igv), rate };
+});
+const differsFromQuote = computed(() => priced.value && chosen.value && Math.abs(orderTotals.value.total - Number(chosen.value.amount)) > 0.009);
+const itemFor = (id) => r.value.items.find((i) => i.id === id);
+
 function emitOrder() {
-    order.post(`/requisitions/${r.value.id}/order`, { preserveScroll: true, onSuccess: () => (showOrder.value = false) });
+    order.transform((d) => ({ ...d, items: priced.value ? d.items : [] }))
+        .post(`/requisitions/${r.value.id}/order`, { preserveScroll: true, onSuccess: () => (showOrder.value = false) });
 }
 </script>
 
@@ -179,15 +205,29 @@ function emitOrder() {
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
-                            <thead class="table-light"><tr><th>Producto / servicio</th><th class="text-end">Cantidad</th><th>Unidad</th><th class="d-none d-md-table-cell">Justificación</th></tr></thead>
+                            <thead class="table-light"><tr>
+                                <th>Producto / servicio</th><th class="text-end">Cantidad</th><th>Unidad</th>
+                                <template v-if="requisition.pricing"><th class="text-end">P. unitario</th><th class="text-end">Dscto.</th><th class="text-end">Importe</th></template>
+                                <th v-else class="d-none d-md-table-cell">Justificación</th>
+                            </tr></thead>
                             <tbody>
                                 <tr v-for="item in requisition.items" :key="item.id">
                                     <td>{{ item.product }}</td>
                                     <td class="text-end">{{ item.quantity }}</td>
                                     <td class="small">{{ item.unit }}</td>
-                                    <td class="small text-body-secondary d-none d-md-table-cell">{{ item.justification }}</td>
+                                    <template v-if="requisition.pricing">
+                                        <td class="text-end small font-monospace">{{ money(item.unit_price, requisition.currency) }}</td>
+                                        <td class="text-end small">{{ item.discount_percent ? `${item.discount_percent} %` : '—' }}</td>
+                                        <td class="text-end small font-monospace">{{ money(item.subtotal, requisition.currency) }}</td>
+                                    </template>
+                                    <td v-else class="small text-body-secondary d-none d-md-table-cell">{{ item.justification }}</td>
                                 </tr>
                             </tbody>
+                            <tfoot v-if="requisition.pricing" class="small">
+                                <tr><td colspan="5" class="text-end text-body-secondary border-0">Valor venta</td><td class="text-end font-monospace border-0">{{ money(requisition.pricing.taxable, requisition.currency) }}</td></tr>
+                                <tr><td colspan="5" class="text-end text-body-secondary border-0">IGV ({{ Math.round(requisition.pricing.rate * 10000) / 100 }} %)</td><td class="text-end font-monospace border-0">{{ money(requisition.pricing.igv, requisition.currency) }}</td></tr>
+                                <tr><td colspan="5" class="text-end fw-semibold border-0">Total</td><td class="text-end fw-bold font-monospace border-0">{{ money(requisition.pricing.total, requisition.currency) }}</td></tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
@@ -432,6 +472,46 @@ function emitOrder() {
                                 <input id="o-detr" v-model="order.has_detraction" class="form-check-input" type="checkbox" />
                                 <label class="form-check-label small" for="o-detr">Afecta a detracción</label>
                             </div>
+                        </div>
+
+                        <!-- Precios por ítem e IGV (sisgere FrmReq: Igv / S/Igv). Opcional: vacío = total de la cotización -->
+                        <div class="col-12">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                <span class="small fw-semibold">Precios por ítem <span class="text-body-secondary fw-normal">(opcional)</span></span>
+                                <div class="btn-group btn-group-sm" role="group" aria-label="IGV de los precios">
+                                    <input id="o-igv-in" v-model="order.prices_include_igv" type="radio" class="btn-check" :value="true" />
+                                    <label class="btn btn-outline-primary" for="o-igv-in">Precios con IGV</label>
+                                    <input id="o-igv-out" v-model="order.prices_include_igv" type="radio" class="btn-check" :value="false" />
+                                    <label class="btn btn-outline-primary" for="o-igv-out">Precios sin IGV</label>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Producto / servicio</th><th class="text-end">Cant.</th><th style="width: 130px;">P. unitario</th><th style="width: 100px;">Dscto. %</th><th class="text-end">Importe</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(line, i) in order.items" :key="line.id">
+                                            <td class="small">{{ itemFor(line.id)?.product }} <span class="text-body-secondary">{{ itemFor(line.id)?.unit }}</span></td>
+                                            <td class="text-end small">{{ itemFor(line.id)?.quantity }}</td>
+                                            <td><input v-model="line.unit_price" type="number" min="0" step="0.01" class="form-control form-control-sm text-end" :aria-label="`Precio unitario de ${itemFor(line.id)?.product}`" :class="{ 'is-invalid': order.errors[`items.${i}.unit_price`] }" /></td>
+                                            <td><input v-model="line.discount_percent" type="number" min="0" max="100" step="0.01" class="form-control form-control-sm text-end" :aria-label="`Descuento de ${itemFor(line.id)?.product}`" :class="{ 'is-invalid': order.errors[`items.${i}.discount_percent`] }" /></td>
+                                            <td class="text-end small font-monospace">{{ line.unit_price === '' ? '—' : money(lineSubtotal(itemFor(line.id)?.quantity, line.unit_price, line.discount_percent), chosen?.currency) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-if="priced" class="d-flex justify-content-end mt-2">
+                                <dl class="row small mb-0 text-end" style="min-width: 260px;">
+                                    <dt class="col-6 fw-normal text-body-secondary">Valor venta</dt><dd class="col-6 mb-1 font-monospace">{{ money(orderTotals.taxable, chosen?.currency) }}</dd>
+                                    <dt class="col-6 fw-normal text-body-secondary">IGV ({{ Math.round(orderTotals.rate * 10000) / 100 }} %)</dt><dd class="col-6 mb-1 font-monospace">{{ money(orderTotals.igv, chosen?.currency) }}</dd>
+                                    <dt class="col-6">Total de la orden</dt><dd class="col-6 mb-0 fw-bold font-monospace">{{ money(orderTotals.total, chosen?.currency) }}</dd>
+                                </dl>
+                            </div>
+                            <div v-if="differsFromQuote" class="alert alert-warning py-2 small mt-2 mb-0">
+                                <i class="bi bi-exclamation-triangle me-1"></i>El total con precios ({{ money(orderTotals.total, chosen?.currency) }}) es distinto de la cotización ({{ money(chosen?.amount, chosen?.currency) }}). La orden y sus cuotas usarán el total con precios.
+                            </div>
+                            <div v-else-if="!priced" class="small text-body-secondary mt-2">Sin precios por ítem, la orden usa el total de la cotización: {{ money(chosen?.amount, chosen?.currency) }}.</div>
                         </div>
                         <div v-if="Object.keys(order.errors).length" class="col-12"><div class="alert alert-danger py-2 small mb-0">{{ Object.values(order.errors)[0] }}</div></div>
                     </div>

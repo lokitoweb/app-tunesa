@@ -44,18 +44,42 @@
         @endforeach
     </table>
 
+    @php($priced = ($breakdown ?? null) !== null)
     @if ($items)
         <table class="items">
-            <thead><tr><th>Producto / servicio</th><th>Unidad</th><th style="text-align: right;">Cantidad</th></tr></thead>
+            <thead><tr>
+                <th>Producto / servicio</th><th>Unidad</th><th style="text-align: right;">Cantidad</th>
+                @if ($priced)
+                    <th style="text-align: right;">P. unitario</th><th style="text-align: right;">Dscto.</th><th style="text-align: right;">Importe</th>
+                @endif
+            </tr></thead>
             <tbody>
-                @foreach ($items as [$product, $unit, $qty])
-                    <tr><td>{{ $product }}</td><td>{{ $unit }}</td><td style="text-align: right;">{{ rtrim(rtrim(number_format($qty, 3, '.', ','), '0'), '.') }}</td></tr>
+                @foreach ($items as $line)
+                    <tr>
+                        <td>{{ $line[0] }}</td><td>{{ $line[1] }}</td>
+                        <td style="text-align: right;">{{ rtrim(rtrim(number_format($line[2], 3, '.', ','), '0'), '.') }}</td>
+                        @if ($priced)
+                            <td style="text-align: right;">{{ number_format($line[3] ?? 0, 2, '.', ',') }}</td>
+                            <td style="text-align: right;">{{ ($line[4] ?? 0) > 0 ? rtrim(rtrim(number_format($line[4], 2, '.', ''), '0'), '.') . ' %' : '—' }}</td>
+                            <td style="text-align: right;">{{ number_format($line[5] ?? 0, 2, '.', ',') }}</td>
+                        @endif
+                    </tr>
                 @endforeach
             </tbody>
         </table>
     @endif
 
-    <div class="total">Total: {{ \App\Modules\Finance\Services\FinanceDocumentPdf::money($currency, $amount) }}</div>
+    @if ($priced)
+        @php($pct = rtrim(rtrim(number_format($breakdown['rate'] * 100, 2, '.', ''), '0'), '.'))
+        <table style="width: 260px; margin: 10px 0 0 auto;">
+            <tr><td class="muted">Valor venta</td><td style="text-align: right;">{{ \App\Modules\Finance\Services\FinanceDocumentPdf::money($currency, $breakdown['taxable']) }}</td></tr>
+            <tr><td class="muted">IGV ({{ $pct }} %)</td><td style="text-align: right;">{{ \App\Modules\Finance\Services\FinanceDocumentPdf::money($currency, $breakdown['igv']) }}</td></tr>
+            <tr><td style="font-size: 14px; font-weight: bold; padding-top: 4px;">Total</td><td style="text-align: right; font-size: 14px; font-weight: bold; padding-top: 4px;">{{ \App\Modules\Finance\Services\FinanceDocumentPdf::money($currency, $amount) }}</td></tr>
+        </table>
+        <div class="muted" style="text-align: right; font-size: 9px;">Precios {{ $breakdown['includes_igv'] ? 'con IGV incluido' : 'sin IGV (el IGV se suma)' }}</div>
+    @else
+        <div class="total">Total: {{ \App\Modules\Finance\Services\FinanceDocumentPdf::money($currency, $amount) }}</div>
+    @endif
 
     @if ($signature)
         <div class="sign">

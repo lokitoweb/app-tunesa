@@ -59,6 +59,7 @@ class Requisition extends Model
         'payment_method', 'reviewed_by', 'reviewed_by_id', 'reviewed_at', 'currency', 'amount', 'amount_payable', 'has_detraction',
         'detraction_number', 'detraction_amount', 'detraction_percent',
         'installments', 'attachments',
+        'prices_include_igv', 'igv_rate', 'taxable_amount', 'igv_amount',
     ];
 
     protected $casts = [
@@ -73,6 +74,10 @@ class Requisition extends Model
         'has_detraction' => 'boolean',
         'is_express'     => 'boolean',
         'attachments'    => 'array',
+        'prices_include_igv' => 'boolean',
+        'igv_rate'       => 'decimal:4',
+        'taxable_amount' => 'decimal:2',
+        'igv_amount'     => 'decimal:2',
     ];
 
     public function user(): BelongsTo

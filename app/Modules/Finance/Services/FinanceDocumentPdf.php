@@ -30,9 +30,16 @@ final class FinanceDocumentPdf
                 ['Requerimiento', $r->code()], ['Detalle', $r->detail], ['Área', $r->area], ['Placa', $r->plate],
                 ['Condición', trim("{$r->payment_terms} · {$r->payment_method}", ' ·')], ['Cuotas', $r->installments],
             ],
-            'items'     => $r->items->map(fn ($i) => [$i->product?->name, $i->product?->unit, (float) $i->quantity])->all(),
+            // [producto, unidad, cantidad, precio unitario, descuento %, importe]; sin precios, solo las 3 primeras
+            'items'     => $r->items->map(fn ($i) => [$i->product?->name, $i->product?->unit, (float) $i->quantity,
+                $i->unit_price !== null ? (float) $i->unit_price : null, (float) $i->discount_percent, $i->subtotal !== null ? (float) $i->subtotal : null])->all(),
             'amount'    => (float) $r->amount,
             'currency'  => $r->currency,
+            // Valor venta, IGV y total (como VORDEN_COMPRA de sisgere); null si la orden no lleva precios por ítem
+            'breakdown' => $r->igv_rate !== null ? [
+                'taxable' => (float) $r->taxable_amount, 'igv' => (float) $r->igv_amount, 'rate' => (float) $r->igv_rate,
+                'includes_igv' => (bool) $r->prices_include_igv,
+            ] : null,
             'signature' => self::signature($r->reviewed_by_id, 'Aprobado por'),
         ]);
     }
