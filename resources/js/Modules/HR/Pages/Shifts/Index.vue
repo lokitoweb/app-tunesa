@@ -333,7 +333,7 @@ async function destroy(shift) {
                                 </span>
                                 <div v-if="shift.profile" class="small text-secondary mt-1">{{ profiles[shift.profile] }}</div>
                             </td>
-                            <td class="py-3 text-nowrap" style="font-size: 0.85rem; font-weight: 500; color: #334155;">
+                            <td class="py-3 text-nowrap text-body" style="font-size: 0.85rem; font-weight: 500;">
                                 {{ hora(shift.start_time) }} – {{ hora(shift.end_time) }}
                                 <span v-if="shift.crosses_midnight" class="small text-secondary ms-1">(+1 día)</span>
                                 <div v-for="d in ownDays(shift)" :key="d" class="small text-info-emphasis fw-normal" title="Horario propio de ese día">{{ d }}</div>
@@ -631,8 +631,8 @@ async function destroy(shift) {
                                             <div class="form-text small text-secondary mt-1">Ejemplo: 2 días consecutivos de descanso.</div>
                                         </div>
                                     </div>
-                                    <div class="alert alert-info border-0 d-flex align-items-start p-3 mb-0" style="background: rgba(2, 132, 199, 0.08); border-radius: 8px; font-size: 0.825rem; color: #0369a1; gap: 10px !important;">
-                                        <i class="bi bi-info-circle-fill fs-5 flex-shrink-0" style="color: #0284c7;"></i>
+                                    <div class="alert alert-info border-0 d-flex align-items-start p-3 mb-0" style="border-radius: 8px; font-size: 0.825rem; gap: 10px !important;">
+                                        <i class="bi bi-info-circle-fill fs-5 flex-shrink-0"></i>
                                         <div>
                                             El ciclo rotativo calcula automáticamente los días laborables de cada colaborador tomando como referencia la <strong>fecha de inicio de ciclo</strong> establecida al momento de asignarle el turno.
                                         </div>

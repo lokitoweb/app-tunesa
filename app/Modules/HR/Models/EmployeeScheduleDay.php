@@ -52,6 +52,10 @@ class EmployeeScheduleDay extends Model
         ]);
         $assignment->scheduledDate = $date;
         $assignment->setRelation('shift', $this->shift?->forDate($date));
+        // Si la persona ya vino con la fila (preload), se reutiliza: sin una consulta por persona
+        if ($this->relationLoaded('user')) {
+            $assignment->setRelation('user', $this->user);
+        }
 
         return $assignment;
     }

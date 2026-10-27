@@ -6,7 +6,7 @@ const confirmState = ref({
     message: 'Esta acción no se puede deshacer.',
     confirmText: 'Sí, confirmar',
     cancelText: 'Cancelar',
-    variant: 'danger',
+    variant: 'primary',
     icon: '',
     resolve: null,
 });
@@ -17,7 +17,7 @@ export function useConfirm() {
         message = 'Esta acción no se puede deshacer.',
         confirmText = 'Sí, confirmar',
         cancelText = 'Cancelar',
-        variant = 'danger',
+        variant = 'primary', // rojo (con tacho) solo cuando se pide: eliminar, anular
         icon = '',
     } = {}) {
         return new Promise((resolve) => {

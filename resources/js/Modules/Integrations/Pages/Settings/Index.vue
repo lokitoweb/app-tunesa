@@ -120,7 +120,8 @@ async function regenerateSecret() {
         title: '¿Regenerar secreto del webhook?',
         message: 'Las firmas de webhook calculadas con el secreto actual dejarán de ser válidas de inmediato en tu sistema.',
         confirmText: 'Sí, regenerar',
-        tone: 'danger'
+        variant: 'danger',
+        icon: 'bi bi-arrow-repeat',
     });
     if (!ok) return;
 

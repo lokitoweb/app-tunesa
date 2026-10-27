@@ -260,4 +260,22 @@ class AttendanceCalendarTest extends TestCase
         $this->actingAs($this->supervisor)->get(route('attendance.calendar', ['month' => '2026-09']))
             ->assertSee(route('attendance.calendar.person', ['id' => $this->emp->id, 'month' => '2026-09']), false);
     }
+
+    public function test_person_calendar_by_name_slug_and_no_leak_outside_the_team(): void
+    {
+        $hr = $this->makeUser($this->acme, 'hr_manager', ['first_name' => 'Gerardo', 'last_name' => 'Admin']);
+
+        // Por nombre en la dirección (nombre-apellido o apellido-nombre)
+        $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', ['id' => 'rosa-quispe', 'month' => '2026-09']))->assertOk()->assertSee('Rosa Quispe');
+        $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', ['id' => 'quispe-rosa', 'month' => '2026-09']))->assertOk();
+        $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', 'nadie-existe'))->assertNotFound();
+
+        // Un supervisor no puede averiguar el nombre ni el rol de alguien fuera de su equipo
+        $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', $hr->id))->assertNotFound();
+        $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', 'gerardo-admin'))->assertNotFound();
+
+        // Quien ve a toda la empresa sí recibe el aviso de que es un rol administrativo
+        $this->actingAs($this->makeUser($this->acme, 'company_admin'))->get(route('attendance.calendar.person', $hr->id))
+            ->assertRedirect(route('employees.index'));
+    }
 }

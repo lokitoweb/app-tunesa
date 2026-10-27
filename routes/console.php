@@ -35,10 +35,16 @@ Schedule::command('attendance:remind-entry')->everyMinute()->withoutOverlapping(
 // se procesa cada minuto, sin un `queue:work` aparte. Si ya tienes un worker
 // permanente (Supervisor, systemd), pon QUEUE_WORK_FROM_SCHEDULER=false.
 if (config('queue.work_from_scheduler')) {
-    // Con GEOCODING_QUEUE la geocodificación va en su cola, detrás de la de siempre (push primero)
+    // La geocodificación va en su cola, detrás de la de siempre (push primero)
     Schedule::command('queue:work', array_merge(['--stop-when-empty', '--max-time=50', '--sleep=1'],
         config('services.nominatim.queue') ? ['--queue=default,' . config('services.nominatim.queue')] : []))
         ->everyMinute()->withoutOverlapping(5)->runInBackground();
+} elseif (config('services.nominatim.queue')) {
+    // Con un worker permanente que solo escucha "default", las direcciones se llenan igual: el
+    // scheduler vacía la cola de geocodificación cada minuto. Si el worker ya la escucha, no estorba
+    // (cada trabajo lo toma uno solo). Sin tocar el servicio de systemd.
+    Schedule::command('queue:work', ['--queue=' . config('services.nominatim.queue'), '--stop-when-empty', '--max-time=50', '--sleep=1'])
+        ->name('geocoding-queue')->everyMinute()->withoutOverlapping(5)->runInBackground();
 }
 
 // Capacitaciones: asigna cursos a quien le corresponden y avisa los que vencen pronto

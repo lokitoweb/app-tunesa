@@ -20,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use App\Modules\Core\Rules\SafeUpload;
@@ -157,7 +158,7 @@ class TreasuryWebController extends Controller
         $account = CompanyBankAccount::findOrFail($data['company_bank_account_id']);
 
         try {
-            $paidOff = $this->registerPayment($p, $data, $account, $path, $remaining, $request);
+            $paidOff = $this->registerPayment($p, $data, $account, $path, $request);
         } catch (\Throwable $e) {
             if ($path) {
                 Storage::disk(self::VOUCHER_DISK)->delete($path); // sin pago no queda voucher huérfano
@@ -186,11 +187,19 @@ class TreasuryWebController extends Controller
         return back()->with('success', $paidOff ? 'Pago cancelado: la cuota quedó pagada.' : 'Pago amortizado: el saldo volvió a "Por programar" para una nueva orden de pago.');
     }
 
-    private function registerPayment(PaymentInstallment $p, array $data, CompanyBankAccount $account, ?string $path, float $remaining, Request $request): bool
+    private function registerPayment(PaymentInstallment $p, array $data, CompanyBankAccount $account, ?string $path, Request $request): bool
     {
-        return DB::transaction(function () use ($p, $data, $account, $path, $remaining, $request) {
+        return DB::transaction(function () use ($p, $data, $account, $path, $request) {
             $p = PaymentInstallment::lockForUpdate()->findOrFail($p->id);
             $amount = round((float) $data['amount'], 2);
+            // Con la cuota bloqueada se revisa otra vez: dos envíos a la vez (doble clic o dos tesoreros)
+            // no la pagan dos veces ni la pasan del monto
+            $remaining = round((float) $p->amount - (float) $p->paid_amount, 2);
+            if ($p->status === 'paid' || ! $p->authorized_at || $amount > $remaining + 0.004) {
+                throw ValidationException::withMessages(['amount' => $p->status === 'paid' || $remaining <= 0
+                    ? 'Esta cuota ya se pagó. Actualiza la pantalla.'
+                    : ($p->authorized_at ? "El monto supera el saldo de la cuota ({$remaining})." : 'El pago necesita la autorización de la persona designada.')]);
+            }
             $p->cancellations()->create([
                 'tenant_id' => $p->tenant_id, 'company_bank_account_id' => $account->id, 'paid_at' => $data['paid_at'], 'amount' => $amount,
                 'bank' => $account->bank, 'account_number' => $account->account_number, 'operation_number' => $data['operation_number'],

@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { computed } from 'vue';
+
+const props = defineProps({
     show: {
         type: Boolean,
         default: false,
@@ -22,7 +24,8 @@ defineProps({
     },
     variant: {
         type: String,
-        default: 'danger', // 'danger' | 'warning' | 'primary'
+        // Rojo solo cuando se pide (eliminar, anular): sin variante es una confirmación normal
+        default: 'primary', // 'danger' | 'warning' | 'primary'
     },
     icon: {
         type: String,
@@ -35,6 +38,11 @@ defineProps({
 });
 
 const emit = defineEmits(['confirm', 'cancel', 'close']);
+
+// Ícono del botón: el del aviso en su versión de línea (bi-archive-fill → bi-archive); si no hay, uno por variante
+const buttonIcon = computed(() => (props.icon
+    ? props.icon.replace(/-fill\b/, '')
+    : ({ danger: 'bi bi-trash3', warning: 'bi bi-exclamation-triangle' }[props.variant] ?? 'bi bi-check2')));
 
 function handleConfirm() {
     emit('confirm');
@@ -73,8 +81,8 @@ function handleCancel() {
 
             <!-- Título y Mensaje -->
             <div class="text-center mb-4">
-                <h3 class="h5 fw-bold text-dark mb-2">{{ title }}</h3>
-                <p class="text-secondary small mb-0 px-2" style="line-height: 1.5;">
+                <h3 class="h5 fw-bold text-body-emphasis mb-2">{{ title }}</h3>
+                <p class="text-body-secondary small mb-0 px-2" style="line-height: 1.5;">
                     {{ message }}
                 </p>
             </div>
@@ -92,14 +100,15 @@ function handleCancel() {
                 </button>
                 <button 
                     type="button" 
-                    class="btn d-inline-flex align-items-center justify-content-center px-4 py-2 shadow-sm text-white" 
-                    :class="variant === 'danger' ? 'btn-danger' : (variant === 'warning' ? 'btn-warning text-dark' : 'btn-primary')"
-                    style="border-radius: 8px; font-weight: 600; font-size: 0.85rem; gap: 8px !important;" 
+                    class="btn d-inline-flex align-items-center justify-content-center px-4 py-2 shadow-sm"
+                    :class="variant === 'danger' ? 'btn-danger text-white' : (variant === 'warning' ? 'btn-warning text-dark' : 'btn-primary text-white')"
+                    style="border-radius: 8px; font-weight: 600; font-size: 0.85rem; gap: 8px !important;"
                     :disabled="processing"
                     @click="handleConfirm"
                 >
                     <span v-if="processing" class="spinner-border spinner-border-sm me-2" role="status"></span>
-                    <i v-else :class="variant === 'danger' ? 'bi bi-trash3' : 'bi bi-check2'" style="margin-right: 4px;"></i>
+                    <!-- El botón repite el ícono del aviso (anular, regenerar…); el tacho solo para eliminar -->
+                    <i v-else :class="buttonIcon" style="margin-right: 4px;"></i>
                     <span>{{ confirmText }}</span>
                 </button>
             </div>
@@ -138,22 +147,23 @@ function handleCancel() {
     font-size: 1.75rem;
 }
 
+/* Colores del tema: en modo oscuro Bootstrap aclara los *-text-emphasis */
 .confirm-icon-box.tone-danger {
-    background: rgba(220, 38, 38, 0.12);
-    color: #dc2626;
-    border: 1px solid rgba(220, 38, 38, 0.25);
+    background: var(--bs-danger-bg-subtle);
+    color: var(--bs-danger-text-emphasis);
+    border: 1px solid var(--bs-danger-border-subtle);
 }
 
 .confirm-icon-box.tone-warning {
-    background: rgba(217, 119, 6, 0.12);
-    color: #d97706;
-    border: 1px solid rgba(217, 119, 6, 0.25);
+    background: var(--bs-warning-bg-subtle);
+    color: var(--bs-warning-text-emphasis);
+    border: 1px solid var(--bs-warning-border-subtle);
 }
 
 .confirm-icon-box.tone-primary {
-    background: rgba(2, 132, 199, 0.12);
-    color: #0284c7;
-    border: 1px solid rgba(2, 132, 199, 0.25);
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
+    border: 1px solid var(--bs-primary-border-subtle);
 }
 
 .animate-scale-in {

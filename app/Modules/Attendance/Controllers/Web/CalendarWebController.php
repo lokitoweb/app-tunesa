@@ -144,18 +144,22 @@ class CalendarWebController extends Controller
             if (!$employee) {
                 $employee = User::forTenant($tenantId)->where('employee_code', $id)->first();
             }
-            // Revisar por slug del nombre completo
-            if (!$employee) {
-                $users = User::forTenant($tenantId)->get();
-                $employee = $users->first(function ($u) use ($id) {
-                    $s1 = \Illuminate\Support\Str::slug("{$u->first_name} {$u->last_name}");
-                    $s2 = \Illuminate\Support\Str::slug("{$u->last_name} {$u->first_name}");
-                    return $s1 === $id || $s2 === $id;
-                });
+            // Revisar por slug del nombre completo: solo los candidatos cuyo nombre o apellido empieza
+            // con la primera palabra (no toda la tabla de usuarios en cada enlace mal escrito)
+            if (!$employee && ($word = strtok($id, '-')) !== false && mb_strlen($word) >= 2) {
+                $employee = User::forTenant($tenantId)
+                    ->where(fn ($q) => $q->where('first_name', 'like', $word . '%')->orWhere('last_name', 'like', $word . '%'))
+                    ->limit(200)->get()
+                    ->first(function ($u) use ($id) {
+                        $s1 = \Illuminate\Support\Str::slug("{$u->first_name} {$u->last_name}");
+                        $s2 = \Illuminate\Support\Str::slug("{$u->last_name} {$u->first_name}");
+                        return $s1 === $id || $s2 === $id;
+                    });
             }
         }
 
-        abort_unless($employee, 404, 'No se encontró el colaborador solicitado.');
+        // Fuera del alcance de quien mira (otro equipo): no existe, ni siquiera su nombre o rol
+        abort_unless($employee && User::visibleTo($request->user())->whereKey($employee->id)->exists(), 404, 'No se encontró el colaborador solicitado.');
 
         // Si el usuario es de rol administrativo y no marca asistencia
         if (!in_array($employee->role, User::CLOCKING_ROLES, true)) {

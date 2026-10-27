@@ -287,21 +287,23 @@ WantedBy=multi-user.target
 sudo systemctl enable --now tunesa-queue
 ```
 
-**Hora pico de marcaciones (recomendado):** cada marcación encola una geocodificación de la
-dirección, y Nominatim admite 1 petición por segundo. Con 300 entradas a las 08:00 son ~5 min de
-cola, y los avisos push esperarían detrás. Para que los push vayan primero, separa la geocodificación
-en su propia cola de baja prioridad:
-
-1. En el `.env`: `GEOCODING_QUEUE=geocoding`, y luego `php artisan config:cache`.
-2. En el servicio: `ExecStart=/usr/bin/php artisan queue:work --queue=default,geocoding --sleep=3 --tries=3 --max-time=3600`,
-   y luego `sudo systemctl daemon-reload && sudo systemctl restart tunesa-queue`.
-
-Haz los dos pasos juntos: con `GEOCODING_QUEUE` y un worker que solo escucha `default`, las direcciones
-no se llenarían (la marcación igual queda registrada). El worker que corre desde el scheduler ya
-incluye la cola nueva por sí solo. Sin `GEOCODING_QUEUE`, todo sigue en una sola cola, como hasta hoy.
-
 y pon `QUEUE_WORK_FROM_SCHEDULER=false` en el `.env` (luego `php artisan config:cache`). El deploy
 reinicia los workers solo (`queue:restart`).
+
+**Hora pico de marcaciones (ya viene configurado, sin pasos):** cada marcación encola una
+geocodificación de la dirección, y Nominatim admite 1 petición por segundo (300 entradas a las 08:00
+son ~5 min de cola). Por eso la geocodificación va en su propia cola de baja prioridad, `geocoding`,
+y los avisos push nunca esperan detrás:
+
+- Con el worker del scheduler (lo de arriba): escucha `default,geocoding`, los push primero.
+- Con el worker permanente de systemd: el scheduler vacía `geocoding` cada minuto por su cuenta, así
+  que las direcciones se llenan aunque el servicio solo escuche `default`. Si prefieres que lo haga el
+  servicio, usa `--queue=default,geocoding` en su `ExecStart` (no estorba que lo hagan los dos).
+- Para volver a una sola cola: `GEOCODING_QUEUE=` (vacío) en el `.env` y `php artisan config:cache`.
+
+**Roles y permisos:** el deploy corre `RolesAndPermissionsSeeder` después de las migraciones (también
+lo corre el instalador). Ya no hace falta `db:seed --class=RolesAndPermissionsSeeder` ni
+`optimize:clear` a mano tras cada actualización.
 
 **Recargar PHP-FPM tras cada deploy** (limpia OPcache). Permite que `deploy` lo haga sin contraseña:
 

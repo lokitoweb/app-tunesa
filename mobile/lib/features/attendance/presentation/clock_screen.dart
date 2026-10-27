@@ -378,7 +378,12 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       }
       // Error de negocio: el próximo intento es una captura nueva. Con 5xx /
       // 429 el servidor pudo guardarla: se conserva el mismo client_uuid.
-      if (!OfflineSyncEngine.isRetryable(e)) _capture = null;
+      if (!OfflineSyncEngine.isRetryable(e)) {
+        _capture = null;
+        // El día cambió en el servidor (le quitaron la programación, ya marcó en otro equipo…):
+        // Inicio vuelve a pedir el estado para no seguir mostrando botones que ya no aplican
+        ref.invalidate(todayStatusProvider);
+      }
       // Incorporación sin aprobar: Inicio cambia los botones por el asistente
       if (e.code == 'ONBOARDING_PENDING') ref.invalidate(onboardingProvider);
       if (mounted) setState(() => _sendError = e);

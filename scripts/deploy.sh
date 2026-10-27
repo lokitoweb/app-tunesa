@@ -15,7 +15,8 @@
 #   DEPLOY_BACKUP_KEEP=15       cuántos respaldos se conservan
 #
 # Pasos: git → composer (sin dev) → npm ci + npm run build (solo si cambió el frontend) → respaldo de la base
-# (solo con migraciones pendientes; si falla, no despliega) → modo mantenimiento → migrate --force → storage:link →
+# (solo con migraciones pendientes; si falla, no despliega) → modo mantenimiento → migrate --force →
+# roles y permisos (RolesAndPermissionsSeeder) → storage:link →
 # config/route/view/event:cache → queue:restart → fuera de mantenimiento.
 # Si algo falla vuelve al commit anterior (el código; una migración ya aplicada no se deshace sola).
 set -Eeuo pipefail
@@ -210,6 +211,11 @@ IN_MAINTENANCE=1
 
 clear_compiled
 "$PHP" artisan migrate --force
+# Roles y permisos del sistema desde el código (idempotente: updateOrCreate + sync de los roles del
+# sistema; no toca usuarios ni roles de empresa). Antes había que correrlo a mano tras cada deploy.
+# Los permisos no tienen caché persistente: no hace falta optimize:clear (borraría bloqueos y límites).
+log "Roles y permisos (RolesAndPermissionsSeeder)"
+"$PHP" artisan db:seed --class=RolesAndPermissionsSeeder --force
 [[ -e public/storage ]] || "$PHP" artisan storage:link || true
 
 log "Cachés de producción"

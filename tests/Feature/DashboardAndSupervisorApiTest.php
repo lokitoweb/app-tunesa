@@ -86,6 +86,22 @@ class DashboardAndSupervisorApiTest extends TestCase
         $ids = collect($this->actingIn($hr, $acme)->getJson('/api/supervisor/team')->assertOk()->json('data'))->pluck('id')->sort()->values()->all();
         // Mismo equipo que attendance/live: también el supervisor, que marca
         $this->assertSame(collect([$mine->id, $notMine->id, $supervisor->id])->sort()->values()->all(), $ids);
+        $this->assertSame($mine->full_name, collect($this->actingIn($hr, $acme)->getJson('/api/supervisor/team')->json('data'))->firstWhere('id', $mine->id)['full_name']);
+
+        // Las consultas no crecen con el tamaño del equipo (antes ~3 por integrante)
+        $queries = function () use ($hr, $acme) {
+            \Illuminate\Support\Facades\DB::flushQueryLog();
+            \Illuminate\Support\Facades\DB::enableQueryLog();
+            $this->actingIn($hr, $acme)->getJson('/api/supervisor/team')->assertOk();
+            \Illuminate\Support\Facades\DB::disableQueryLog();
+
+            return count(\Illuminate\Support\Facades\DB::getQueryLog());
+        };
+        $few = $queries();
+        foreach (range(1, 10) as $i) {
+            $this->makeUser($acme, 'employee', ['first_name' => "Extra{$i}"]);
+        }
+        $this->assertSame($few, $queries());
     }
 
     public function test_supervisor_team_includes_supervisors_of_its_branches_like_attendance_live(): void

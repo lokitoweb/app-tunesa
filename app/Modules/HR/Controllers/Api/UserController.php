@@ -242,12 +242,26 @@ class UserController extends Controller
         // (attendance.view_all): todo el personal que marca. Mismo equipo que attendance/live.
         $employees = User::where('tenant_id', current_tenant_id())
             ->teamOf($supervisor)
-            ->with(['branches'])
             ->get();
 
+        // Datos de perfil de cada integrante (los que usa la app: id, nombre, código, cargo). Sin la
+        // empresa ni los permisos de cada uno, que costaban ~3 consultas por persona (N+1)
         return response()->json([
             'success' => true,
-            'data'    => UserResource::collection($employees),
+            'data'    => $employees->map(fn (User $u) => [
+                'id'            => $u->id,
+                'full_name'     => $u->full_name,
+                'first_name'    => $u->first_name,
+                'last_name'     => $u->last_name,
+                'email'         => $u->email,
+                'role'          => $u->role,
+                'status'        => $u->status,
+                'employee_code' => $u->employee_code,
+                'position'      => $u->position,
+                'department'    => $u->department,
+                'phone'         => $u->phone,
+                'avatar_url'    => $u->avatar_path ? asset('storage/' . $u->avatar_path) : null,
+            ])->values(),
         ]);
     }
 }

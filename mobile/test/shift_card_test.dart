@@ -30,6 +30,15 @@ void main() {
     });
   });
 
+  test('el día de hoy es el de la empresa (server_time), no el del teléfono', () {
+    // 23:50 en Lima es ya el día siguiente en UTC: vale la fecha de la empresa
+    expect(TodayStatus.companyDate('2026-10-26T23:50:00-05:00'), '2026-10-26');
+    expect(TodayStatus.companyDate('2026-10-27T00:05:00+09:00'), '2026-10-27');
+    expect(TodayStatus.companyDate(null), isNull);
+    expect(TodayStatus.companyDate('no es fecha'), isNull);
+    expect(TodayStatus.companyDate('2026-10-26'), isNull, reason: 'sin hora no se sabe la zona');
+  });
+
   group('Tarjeta "Tu horario de hoy"', () {
     testWidgets('con horario: etiqueta, la hora una sola vez, y nombre con agencia', (tester) async {
       await _pump(tester, _day(name: 'TR-ADM-SB(08:00-13:00)', branch: 'AG. CAJABAMBA'));

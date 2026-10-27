@@ -77,11 +77,6 @@ class EthicsWebController extends Controller
                 ->values();
         }
 
-        // Si es petición AJAX para el listado dinámico
-        if ($request->ajax() && $request->has('partial')) {
-            return view('ethics.partials.table-rows', compact('cases', 'currentTenant'));
-        }
-
         return view('ethics.index', compact('cases', 'counts', 'status', 'investigators', 'currentTenant', 'perPage'));
     }
 

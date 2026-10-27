@@ -229,9 +229,9 @@ class AttendanceController extends Controller
 
         $attendances = $query->get();
 
-        // Contar empleados activos del tenant (para saber cuántos están ausentes)
+        // Personal activo que marca (mismos roles que el panel: User::CLOCKING_ROLES), para saber cuántos faltan
         $totalEmployees = \App\Modules\Core\Models\User::where('tenant_id', $tenantId)
-            ->where('role', 'employee')
+            ->whereIn('role', \App\Modules\Core\Models\User::CLOCKING_ROLES)
             ->where('status', 'active')
             ->when($branchId, fn($q) => $q->whereHas('branches', fn($bq) => $bq->where('branch_id', $branchId)))
             ->count();
@@ -361,7 +361,8 @@ class AttendanceController extends Controller
                 'late_minutes' => (int) $r->late_minutes,
             ]);
 
-        $activeEmployees = User::where('role', 'employee')->where('status', 'active')
+        // Mismos roles que el panel (User::CLOCKING_ROLES): la app y el panel dan el mismo total
+        $activeEmployees = User::whereIn('role', User::CLOCKING_ROLES)->where('status', 'active')
             ->when($request->branch_id, fn ($q) => $q->whereHas('branches', fn ($bq) => $bq->where('branches.id', $request->branch_id)))
             ->count();
 

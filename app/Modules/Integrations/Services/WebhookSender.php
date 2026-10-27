@@ -84,7 +84,7 @@ class WebhookSender
             } else {
                 $response = Http::timeout($timeout)
                     ->connectTimeout(min($timeout, 5))
-                    ->withOptions(self::requestOptions())
+                    ->withOptions(self::requestOptions() + self::pinnedResolve($url))
                     ->withHeaders($headers)
                     ->withBody($body, 'application/json')
                     ->post($url);
@@ -151,14 +151,75 @@ class WebhookSender
             return null;
         }
 
-        $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (strtolower($host) === 'localhost' ? ['127.0.0.1'] : (@gethostbynamel($host) ?: []));
+        // IPv4 e IPv6: un dominio con solo AAAA (p. ej. ::1 o fd00::/8) ya no pasa sin revisar
+        $ips = self::resolve($host);
+        if (! $ips && app()->isProduction()) {
+            // Sin IP no hay qué revisar ni qué fijar (rebinding): igual no se podría entregar
+            return 'No se pudo resolver el dominio de la URL. Revisa que esté bien escrito.';
+        }
         foreach ($ips as $ip) {
-            if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            if (! self::isPublicIp($ip)) {
                 return 'La URL apunta a una red privada o local; usa una dirección pública.';
             }
         }
 
         return null;
+    }
+
+    /**
+     * IP pública (ni privada, ni local, ni reservada). Una IPv6 que envuelve una IPv4
+     * (::ffff:127.0.0.1, ::127.0.0.1) se revisa como esa IPv4: PHP la deja pasar y curl
+     * se conectaría a la IPv4 de adentro.
+     */
+    private static function isPublicIp(string $ip): bool
+    {
+        $binary = @inet_pton($ip);
+        if ($binary !== false && strlen($binary) === 16) {
+            $prefix = substr($binary, 0, 12);
+            if ($prefix === str_repeat("\0", 10) . "\xff\xff" || $prefix === str_repeat("\0", 12)) {
+                $ip = (string) inet_ntop(substr($binary, 12));
+            }
+        }
+
+        return (bool) filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    }
+
+    /** Direcciones IPv4 e IPv6 del host (o el propio host si ya es una IP) */
+    private static function resolve(string $host): array
+    {
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            return [$host];
+        }
+        if (strtolower($host) === 'localhost') {
+            return ['127.0.0.1', '::1'];
+        }
+        $ips = [];
+        foreach (@dns_get_record($host, DNS_A | DNS_AAAA) ?: [] as $record) {
+            $ips[] = $record['ip'] ?? $record['ipv6'] ?? null;
+        }
+        $ips = array_values(array_unique(array_filter($ips)));
+
+        return $ips ?: (@gethostbynamel($host) ?: []);
+    }
+
+    /**
+     * Fija la conexión a una IP ya revisada en blockedReason(): un DNS que cambia entre la revisión
+     * y el envío (rebinding) no lleva la petición a una red interna. Sin IP (o si el host ya es una
+     * IP, o se permiten redes privadas) no hay nada que fijar.
+     */
+    private static function pinnedResolve(string $url): array
+    {
+        $host = trim((string) parse_url($url, PHP_URL_HOST), '[]');
+        if ($host === '' || filter_var($host, FILTER_VALIDATE_IP) || config('integrations.allow_private_urls') || ! defined('CURLOPT_RESOLVE')) {
+            return [];
+        }
+        $ip = self::resolve($host)[0] ?? null;
+        if (! $ip) {
+            return [];
+        }
+        $port = (int) (parse_url($url, PHP_URL_PORT) ?: (strtolower((string) parse_url($url, PHP_URL_SCHEME)) === 'https' ? 443 : 80));
+
+        return ['curl' => [CURLOPT_RESOLVE => ["{$host}:{$port}:" . (str_contains($ip, ':') ? "[{$ip}]" : $ip)]]];
     }
 
     /**

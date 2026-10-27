@@ -260,6 +260,24 @@ class User extends Authenticatable
     }
 
     /**
+     * Cierra sus sesiones del panel (sesiones en base de datos), salvo $exceptId: al cambiar la
+     * contraseña o restablecer el acceso, una cookie robada deja de servir. Con otro driver de
+     * sesión no hay tabla que limpiar y no hace nada.
+     */
+    public function endWebSessions(?string $exceptId = null): int
+    {
+        if (config('session.driver') !== 'database') {
+            return 0;
+        }
+
+        return \Illuminate\Support\Facades\DB::connection(config('session.connection'))
+            ->table(config('session.table', 'sessions'))
+            ->where('user_id', $this->getKey())
+            ->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId))
+            ->delete();
+    }
+
+    /**
      * Slugs de permisos del rol del usuario (memoizados por request).
      *
      * @return array<int, string>

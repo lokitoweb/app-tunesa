@@ -85,6 +85,7 @@ class CredentialProvisioner
 
         $user->forceFill($this->temporaryAttributes($password) + ['remember_token' => Str::random(60)])->save();
         $user->tokens()->delete();
+        $user->endWebSessions(); // también sus sesiones abiertas del panel
 
         return $password;
     }

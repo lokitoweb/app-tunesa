@@ -119,7 +119,8 @@ class ScheduleResolver
             return;
         }
         $rows = EmployeeScheduleDay::withoutGlobalScopes()->where('tenant_id', $tenantId)
-            ->whereIn('user_id', $userIds)->whereBetween('work_date', [$from, $to])->with('shift')->get();
+            // La persona viene con la fila: recordatorios y faltas la usan sin una consulta por persona
+            ->whereIn('user_id', $userIds)->whereBetween('work_date', [$from, $to])->with(['shift', 'user'])->get();
         foreach ($userIds as $userId) {
             $this->loaded[$userId][] = [$from, $to];
         }

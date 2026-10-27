@@ -254,6 +254,20 @@ class ReportWebController extends Controller
         $endDate   = $request->input('end_date', Carbon::today()->toDateString());
         $branchId  = $request->input('branch_id');
 
+        // El PDF se arma entero en memoria: mismo tope que la API (92 días); para más, el Excel
+        validator(['start_date' => $startDate, 'end_date' => $endDate], [
+            'start_date' => ['required', 'date_format:Y-m-d'],
+            'end_date'   => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date',
+                function ($attr, $value, $fail) use ($startDate) {
+                    // Si la fecha inicial no es válida, ya la rechaza su propia regla
+                    $start = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $startDate);
+                    $end = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $value);
+                    if ($start && $end && $start->diff($end)->days > 92) {
+                        $fail('El PDF admite hasta 92 días. Para un periodo mayor descarga el Excel.');
+                    }
+                }],
+        ], ['end_date.after_or_equal' => 'La fecha final debe ser igual o posterior a la inicial.'])->validate();
+
         $query = Attendance::forTenant($tenantId)
             ->visibleTo($request->user())
             ->whereBetween('work_date', [$startDate, $endDate])

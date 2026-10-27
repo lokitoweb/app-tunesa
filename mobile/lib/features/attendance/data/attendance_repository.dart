@@ -27,7 +27,14 @@ class AttendanceRepository implements PunchTransport {
       _api.get(ApiEndpoints.schedule, query: {'from': Fmt.apiDate(now), 'to': Fmt.apiDate(now)}),
     ]);
     final today = results[0];
-    final days = (results[1]['data'] as List?) ?? const [];
+    var days = (results[1]['data'] as List?) ?? const [];
+    // "Hoy" es el día de la empresa (server_time va en su zona horaria), no el del teléfono: cerca de
+    // la medianoche o con el teléfono en otra zona, se vuelve a pedir el horario de ese día
+    final companyDay = TodayStatus.companyDate(today['server_time']);
+    if (companyDay != null && companyDay != Fmt.apiDate(now)) {
+      final again = await _api.get(ApiEndpoints.schedule, query: {'from': companyDay, 'to': companyDay});
+      days = (again['data'] as List?) ?? const [];
+    }
 
     return TodayStatus(
       attendance: today['data'] is Map ? Attendance.fromJson(Map<String, dynamic>.from(today['data'] as Map)) : null,

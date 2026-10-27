@@ -38,7 +38,7 @@ function schedule(p) {
     router.post(`/treasury/installments/${p.id}/schedule`, { scheduled_for: scheduleDates.value[p.id] || p.scheduled_for || p.due_iso }, { preserveScroll: true });
 }
 async function authorize(p) {
-    const ok = await ask({ title: '¿Autorizar el pago?', message: `${p.supplier?.name} · cuota ${p.installment} · ${money(p.balance, p.requisition?.currency)}`, confirmText: 'Sí, autorizar', icon: 'bi bi-check2-circle' });
+    const ok = await ask({ title: '¿Autorizar el pago?', message: `${p.supplier?.name} · cuota ${p.installment} · ${money(p.balance, p.requisition?.currency)}`, confirmText: 'Sí, autorizar', variant: 'primary', icon: 'bi bi-check2-circle' });
     if (ok) router.post(`/treasury/installments/${p.id}/authorize`, {}, { preserveScroll: true });
 }
 

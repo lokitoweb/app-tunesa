@@ -109,6 +109,38 @@ class TreasuryFlowTest extends TestCase
         $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay())->assertStatus(422);
     }
 
+    public function test_two_simultaneous_payments_do_not_pay_the_installment_twice(): void
+    {
+        Storage::fake('private');
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $accountant = $this->makeUser($acme, 'accountant');
+        $this->orderedRequisition($acme->id, 1000);
+        $p = PaymentInstallment::withoutGlobalScopes()->sole();
+        $p->update(['scheduled_for' => now()->toDateString(), 'authorized_by_id' => $this->makeUser($acme, 'manager')->id, 'authorized_at' => now()]);
+        $account = CompanyBankAccount::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'bank' => 'BCP', 'account_number' => '191-000', 'currency' => 'PEN']);
+        $this->actingAs($accountant);
+        app(TenantContext::class)->set($acme);
+
+        // Doble clic o dos tesoreros: las dos solicitudes ya validaron con el saldo de 1000 antes de que
+        // cualquiera guarde. El registro (con la cuota bloqueada) debe aceptar solo la primera
+        $stale = PaymentInstallment::withoutGlobalScopes()->findOrFail($p->id);
+        $register = new \ReflectionMethod(\App\Modules\Finance\Controllers\Web\TreasuryWebController::class, 'registerPayment');
+        $controller = app(\App\Modules\Finance\Controllers\Web\TreasuryWebController::class);
+        $data = ['paid_at' => now()->toDateString(), 'amount' => 1000, 'operation_number' => 'OP-1'];
+        $request = request()->setUserResolver(fn () => $accountant);
+
+        $this->assertTrue($register->invoke($controller, $stale, $data, $account, 'v1.pdf', $request));
+        try {
+            $register->invoke($controller, $stale, ['operation_number' => 'OP-2'] + $data, $account, 'v2.pdf', $request);
+            $this->fail('El segundo pago no debía registrarse');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertSame('Esta cuota ya se pagó. Actualiza la pantalla.', $e->errors()['amount'][0]);
+        }
+        $this->assertSame(1, PaymentCancellation::withoutGlobalScopes()->count());
+        $this->assertSame(['paid', '1000.00'], [$p->fresh()->status, $p->fresh()->paid_amount]);
+    }
+
     public function test_detraction_and_tenant_isolation(): void
     {
         $this->seedRoles();

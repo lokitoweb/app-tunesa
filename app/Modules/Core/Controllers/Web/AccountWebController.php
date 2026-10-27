@@ -82,6 +82,8 @@ class AccountWebController extends Controller
         $user->tokens()->delete();
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
+        // Y las del panel en otros navegadores (una cookie robada deja de servir); esta sigue abierta
+        $user->endWebSessions($request->session()->getId());
 
         if (! $wasTemporary) {
             try {

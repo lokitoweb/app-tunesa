@@ -229,6 +229,13 @@ class TodayStatus {
     return server == null ? null : deviceNow.toUtc().difference(server.toUtc());
   }
 
+  /// Fecha de la empresa ("2026-10-26") a partir de `server_time`, que el servidor manda en la zona
+  /// horaria de la empresa ("2026-10-26T23:50:00-05:00"). Null si no llegó o no tiene ese formato.
+  static String? companyDate(Object? serverTime) {
+    final text = serverTime?.toString() ?? '';
+    return RegExp(r'^\d{4}-\d{2}-\d{2}T').hasMatch(text) ? text.substring(0, 10) : null;
+  }
+
   bool get isDayComplete => attendance?.clockOut != null;
 
   /// Interpreta `next_action` de /attendance/today.
