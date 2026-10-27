@@ -240,6 +240,11 @@ fi
 
 "$PHP" artisan app:check-production || log "AVISO: app:check-production encontró problemas (ver arriba)."
 
+# Lo del servidor (cron, permisos) lo deja scripts/server-setup.sh; si cambió, hay que correrlo una vez como root
+if [[ "$(cat storage/framework/server-setup.sha 2>/dev/null)" != "$(sha256sum scripts/server-setup.sh | cut -d' ' -f1)" ]]; then
+  log "AVISO: falta correr (o volver a correr) como root: sudo bash $APP_DIR/scripts/server-setup.sh"
+fi
+
 log "Listo: ${TARGET:0:7} en producción."
 }
 

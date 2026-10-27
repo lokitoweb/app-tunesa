@@ -223,6 +223,12 @@
                     <p class="text-body-secondary mb-1">Ingresa con <strong>{{ $email }}</strong>.</p>
                     <p class="text-body-secondary small">El asistente quedó bloqueado: <span class="font-monospace">/install</span> ya no está disponible.
                         Para reinstalar habría que borrar <span class="font-monospace">storage/app/installed.lock</span> en el servidor.</p>
+                    <div class="alert alert-warning text-start small mt-3">
+                        <div class="fw-semibold mb-1"><i class="bi bi-terminal me-1"></i>Último paso, en el servidor (una sola vez, como root)</div>
+                        La web no puede instalar las tareas programadas ni el despliegue automático. En la carpeta del proyecto corre:
+                        <pre class="bg-body-tertiary border rounded p-2 mt-2 mb-1 user-select-all">sudo bash scripts/server-setup.sh</pre>
+                        Sin esto no se registran faltas, no salen los recordatorios ni los avisos push, y los cambios no se publican solos.
+                    </div>
                     <a href="{{ url('/login') }}" class="btn btn-wz btn-lg mt-2"><i class="bi bi-box-arrow-in-right me-1"></i>Ir al panel</a>
                 </div>
                 @break

@@ -8,6 +8,10 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Señal de vida del scheduler: app:check-production avisa si el cron no está corriendo
+// (lo instala scripts/server-setup.sh). Las tareas nuevas van aquí, nunca como otra línea de cron.
+Schedule::call(fn () => cache()->forever('scheduler:last_run', now()->timestamp))->everyMinute()->name('scheduler-heartbeat');
+
 // Control de faltas: cada madrugada registra las faltas del día anterior
 // (requiere el scheduler: `* * * * * php artisan schedule:run`)
 Schedule::command('attendance:mark-absences')->dailyAt('01:30')->withoutOverlapping();

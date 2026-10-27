@@ -29,6 +29,15 @@ class ProductionReadinessTest extends TestCase
         $this->artisan('app:check-production')->assertExitCode(0);
     }
 
+    public function test_warns_when_the_scheduler_cron_is_not_running(): void
+    {
+        $this->artisan('app:check-production')->expectsOutputToContain('server-setup.sh');
+
+        $this->artisan('schedule:run');   // el heartbeat del scheduler deja la señal
+
+        $this->artisan('app:check-production')->doesntExpectOutputToContain('server-setup.sh');
+    }
+
     public function test_api_responses_carry_security_headers(): void
     {
         $this->getJson('/api/auth/me')

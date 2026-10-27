@@ -67,6 +67,16 @@ class CheckProductionReadiness extends Command
             $errors[] = 'No hay conexión con la base de datos.';
         }
 
+        // El cron del scheduler deja una señal cada minuto; sin ella no corren faltas, recordatorios ni la cola
+        try {
+            $lastRun = (int) cache()->get('scheduler:last_run', 0);
+        } catch (\Throwable) {
+            $lastRun = 0;
+        }
+        if (now()->timestamp - $lastRun > 300) {
+            $warnings[] = 'Las tareas programadas no corren (faltas, recordatorios, cola de push): como root, sudo bash scripts/server-setup.sh.';
+        }
+
         foreach ($errors as $message) {
             $this->components->error($message);
         }

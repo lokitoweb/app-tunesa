@@ -265,7 +265,41 @@ Si usarás subdominios por empresa, el certificado comodín (`*.group-cyp.com`) 
 
 Comprueba: `https://group-cyp.com/up` debe responder 200 y `https://group-cyp.com` mostrar el login.
 
-## 9. Tareas programadas, cola y recarga de PHP
+## 9. Configuración del servidor: un solo comando
+
+La web (`/install`) no puede tocar el sistema operativo (crear tareas cron ni dar permisos de `sudo`):
+eso es así en cualquier sistema web, por seguridad. Todo eso lo hace **un script**, una vez por servidor:
+
+```bash
+cd /var/www/group-cyp.com/app && sudo bash scripts/server-setup.sh --dry-run   # muestra lo que haría
+cd /var/www/group-cyp.com/app && sudo bash scripts/server-setup.sh             # lo aplica
+```
+
+Qué hace (y nada más):
+
+1. Revisa que estén `php`, `composer`, `git`, `npm`, `mysqldump` y el `.env`.
+2. Devuelve al dueño de la carpeta los archivos de `storage/` y `bootstrap/cache` que haya dejado root.
+3. Detecta el PHP-FPM del sitio y permite que el dueño lo recargue sin contraseña (solo ese comando).
+4. Instala en el crontab del dueño el scheduler (cada minuto) y el despliegue automático (cada 2 minutos),
+   dentro de un bloque marcado `# >>> app-tunesa`. Lo que esté fuera del bloque (otros sistemas del
+   servidor) no se toca. Correrlo otra vez reemplaza el bloque: nunca duplica.
+
+**Para cambiarse de servidor:** clonar el proyecto, abrir `/install` y correr este script. El último paso
+del instalador lo recuerda; `php artisan app:check-production` avisa si las tareas programadas no corren,
+y cada despliegue avisa si `server-setup.sh` cambió y falta volver a correrlo.
+
+**Regla para quien agregue funciones:**
+
+- Una tarea periódica nueva (un aviso diario, un cierre mensual…) va en `routes/console.php` con
+  `Schedule::…`. **No** se agrega otra línea de cron: la del scheduler ya las corre todas, y el deploy la
+  publica sola.
+- Solo si el servidor necesita algo que Laravel no puede hacer (otro cron, un servicio, un permiso), se
+  agrega en `scripts/server-setup.sh` (en `CRON_LINES` o como un paso nuevo) **y** se anota en esta lista.
+  El siguiente despliegue avisará que hay que volver a correrlo.
+
+Los comandos de los apartados de abajo son lo que hace el script, por si hay que hacerlo a mano.
+
+## 9.1 Tareas programadas, cola y recarga de PHP (a mano)
 
 **Cron del scheduler** (faltas a la 01:30, recordatorios de entrada, limpieza de tokens y la cola de push/webhooks):
 
@@ -333,7 +367,8 @@ si `opcache.validate_timestamps=0`.
 El servidor se actualiza solo: GitHub no se conecta al servidor (no hay SSH desde Actions, ni IP ni secrets de
 conexión en GitHub, y no gasta minutos de Actions). El servidor lee el repositorio con la deploy key del paso 4.
 
-**Automático (cron).** Agrega al crontab de `cyp` (`sudo crontab -u cyp -e`), debajo del scheduler:
+**Automático (cron).** Lo instala `scripts/server-setup.sh` (paso 9). A mano, en el crontab de `cyp`
+(`sudo crontab -u cyp -e`), debajo del scheduler:
 
 ```cron
 */2 * * * * cd /var/www/group-cyp.com/app && PHP_FPM_SERVICE=php8.2-fpm bash scripts/deploy.sh --if-changed >> storage/logs/deploy.log 2>&1
