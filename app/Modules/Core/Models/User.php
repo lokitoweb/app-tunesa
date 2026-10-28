@@ -307,13 +307,34 @@ class User extends Authenticatable
     public function permissionSlugs(): array
     {
         if (! array_key_exists('permission_slugs', $this->permissionCache)) {
-            $this->permissionCache['permission_slugs'] = Permission::query()
+            $slugs = Permission::query()
                 ->whereHas('roles', fn ($q) => $q->whereNull('tenant_id')->where('slug', $this->role))
                 ->pluck('slug')
                 ->all();
+
+            // Lo que la empresa cambió en Configuración › Roles y permisos: estándar + concedidos − quitados
+            if ($this->tenant_id && self::overridesTableReady()) {
+                $overrides = RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $this->tenant_id)->where('role', $this->role)
+                    ->join('permissions', 'permissions.id', '=', 'role_permission_overrides.permission_id')
+                    ->pluck('role_permission_overrides.granted', 'permissions.slug');
+                $slugs = array_values(array_unique(array_merge(
+                    array_diff($slugs, $overrides->filter(fn ($granted) => ! $granted)->keys()->all()),
+                    $overrides->filter()->keys()->all(),
+                )));
+            }
+
+            $this->permissionCache['permission_slugs'] = $slugs;
         }
 
         return $this->permissionCache['permission_slugs'];
+    }
+
+    /** En un despliegue el código nuevo responde antes de migrar: sin la tabla, rige el estándar */
+    private static ?bool $overridesReady = null;
+
+    private static function overridesTableReady(): bool
+    {
+        return self::$overridesReady ??= \Illuminate\Support\Facades\Schema::hasTable('role_permission_overrides');
     }
 
     /**

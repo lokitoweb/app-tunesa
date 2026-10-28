@@ -22,6 +22,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'tenants.manage'         => ['Administrar empresas (plataforma)', 'tenants'],
         'tenants.branding'       => ['Editar marca blanca de la empresa', 'tenants'],
         'roles.view'             => ['Ver roles y permisos', 'roles'],
+        'roles.manage'           => ['Personalizar los permisos de cada rol en la empresa', 'roles'],
 
         // Personas y estructura
         'users.view'             => ['Ver colaboradores', 'users'],
@@ -131,7 +132,7 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::HR_MANAGER => [
             'Recursos Humanos',
             'Gestiona colaboradores, turnos, solicitudes y nómina.',
-            ['*', '-tenants.manage', '-tenants.branding', '-company.configure', '-audit.view',
+            ['*', '-tenants.manage', '-tenants.branding', '-company.configure', '-audit.view', '-roles.manage',
                 '-suppliers.manage', '-requisitions.view_all', '-requisitions.approve', '-purchasing.manage',
                 '-treasury.view', '-treasury.pay', '-fixed_costs.manage',
                 '-fleet.manage', '-inventory.manage', '-fuel.manage', '-signatories.manage'],

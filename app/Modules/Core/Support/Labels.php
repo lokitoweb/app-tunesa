@@ -106,6 +106,8 @@ final class Labels
         'treasury.direct_payment'            => ['Pago directo registrado', 'primary', 'cash-stack'],
         'treasury.direct_payment_corrected'  => ['Pago directo corregido', 'warning', 'pencil-square'],
         'treasury.cash_flow_changed'         => ['Concepto de flujo de efectivo cambiado', 'info', 'diagram-3'],
+        'roles.updated'                      => ['Permisos de un rol personalizados', 'warning', 'shield-lock'],
+        'roles.reset'                        => ['Rol devuelto a los permisos estándar', 'info', 'arrow-counterclockwise'],
         'treasury.order_amount_corrected'    => ['Monto de la orden corregido', 'warning', 'calculator'],
         'product.updated'                    => ['Producto corregido', 'warning', 'box'],
         'product.deleted'                    => ['Producto eliminado', 'danger', 'box'],

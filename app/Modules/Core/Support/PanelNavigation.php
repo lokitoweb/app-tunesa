@@ -86,6 +86,7 @@ class PanelNavigation
                 ['Attendance', 'reports.view', 'reports.index', [], 'bar-chart-line', 'Reportes', $request->routeIs('reports*')],
                 ['Core', 'company.configure', 'settings.mobile', [], 'phone', 'Configuración de la app', $request->routeIs('settings.mobile*')],
                 ['Core', 'company.configure', 'settings.branding', [], 'palette', 'Marca y app', $request->routeIs('settings.branding', 'settings.branding.update')],
+                ['Core', 'roles.manage', 'settings.roles', [], 'shield-lock', 'Roles y permisos', $request->routeIs('settings.roles*'), null, true],
                 ['Integrations', 'company.configure', 'settings.integrations', [], 'plug', 'Integraciones', $request->routeIs('settings.integrations*'), null, true],
                 ['Core', 'audit.view', 'audit.index', [], 'journal-text', 'Bitácora de auditoría', $request->routeIs('audit*'), null, true],
             ],
