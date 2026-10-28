@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import { money } from '@/Modules/Core/format';
 
 const props = defineProps({
     products: { type: Array, default: () => [] },
@@ -12,7 +13,7 @@ const props = defineProps({
 });
 
 const search = ref(props.filters.search || '');
-const money = (v, c = 'PEN') => (v == null ? '—' : `${c === 'USD' ? 'US$' : c === 'EUR' ? '€' : 'S/'} ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+
 const qty = (v) => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigits: 3 });
 
 let timer = null;

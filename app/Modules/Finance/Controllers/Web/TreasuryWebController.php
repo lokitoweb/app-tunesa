@@ -112,7 +112,7 @@ class TreasuryWebController extends Controller
     private function listQuery(string $tab, string $search, string $today): Builder
     {
         return $this->tab(PaymentInstallment::query(), $tab, $today)
-            ->with(['requisition:id,series,number,code,invoice_number,invoice_path,detail,supplier_id,employee_id,payroll_concept,payroll_period,is_direct_payment,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_reason,detraction_number,detraction_amount,detraction_percent,amount',
+            ->with(['requisition:id,series,number,code,stage,cash_flow_concept,invoice_number,invoice_path,detail,supplier_id,employee_id,payroll_concept,payroll_period,is_direct_payment,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_reason,detraction_number,detraction_amount,detraction_percent,amount',
                 'requisition.supplier:id,name,ruc', 'requisition.supplier.bankAccounts:id,supplier_id,bank,account_number,account_type',
                 'requisition.employee:id,first_name,last_name,document_number', 'requisition.employee.profile',
                 'cancellations.companyAccount:id,bank,account_number,currency,alias'])
@@ -272,6 +272,12 @@ class TreasuryWebController extends Controller
             // Todas las cuotas pagadas: el requerimiento queda Pagado
             if ($paidOff && ! $p->requisition->paymentInstallments()->where('status', '!=', 'paid')->exists()) {
                 $p->requisition->update(['stage' => 'paid']);
+                // Vino de un costo fijo: su cuota queda pagada con la misma cuenta y operación
+                if ($p->requisition->fixed_cost_id) {
+                    \App\Modules\Finance\Models\FixedCost::whereKey($p->requisition->fixed_cost_id)->update([
+                        'paid_at' => $data['paid_at'], 'company_bank_account_id' => $account->id, 'operation_number' => $data['operation_number'],
+                    ]);
+                }
             }
 
             return $paidOff;
@@ -316,42 +322,12 @@ class TreasuryWebController extends Controller
         ], ['supplier_id' => 'el proveedor', 'detail' => 'el detalle', 'document_type' => 'el tipo de documento', 'document_number' => 'el número de documento',
             'document_date' => 'la fecha del documento', 'amount' => 'el monto', 'due_date' => 'el vencimiento', 'detraction_reason' => 'el motivo de detracción']);
 
+        $data['detraction_reason'] = ($data['has_detraction'] ?? false) ? $data['detraction_reason'] : null;
         $total = round((float) $data['amount'], 2);
-        $reason = ($data['has_detraction'] ?? false) ? $data['detraction_reason'] : null;
-        $percent = $reason ? (int) config("finance.detraction_reasons.{$reason}.1") : null;
-        $detraction = $reason ? \App\Modules\Finance\Services\OrderPricing::detraction($total, $percent) : null;
-        $payable = round($total - (float) $detraction, 2);
-        abort_if($payable <= 0, 422, 'La detracción no puede ser igual o mayor que el monto.');
 
         $path = $request->file('file')?->store("finance/{$tenant->id}/invoices", self::VOUCHER_DISK);
-        $user = $request->user();
         try {
-            $r = DB::transaction(function () use ($tenant, $data, $user, $total, $reason, $percent, $detraction, $payable, $path) {
-                $year = (int) now()->year;
-                $series = \App\Modules\Finance\Models\DocumentSequence::seriesFrom(null);
-                [$number, $code] = \App\Modules\Finance\Models\DocumentSequence::next($tenant, 'PG', $series, $year);
-                $document = $data['document_number'] ?? null
-                    ? strtoupper($data['document_number'])
-                    : \App\Modules\Finance\Models\DocumentSequence::next($tenant, 'OP', $series, $year)[1];
-                $r = Requisition::create([
-                    'series' => $series, 'number' => $number, 'code' => $code, 'year' => $year, 'is_direct_payment' => true,
-                    'requested_at' => now(), 'detail' => $data['detail'], 'area' => 'TESORERIA', 'requested_by' => $user->full_name, 'user_id' => $user->id,
-                    'classification' => 'GASTOS FIJOS', 'priority' => 'NORMAL', 'stage' => 'ordered', 'ordered_at' => now(),
-                    // Un anticipo va, por defecto, a 'anticipos concedidos a terceros' (como lo clasificaba sisgere)
-                    'cash_flow_concept' => $data['cash_flow_concept'] ?? (($data['is_advance'] ?? false) ? 'Pagos por anticipos y préstamos concedidos a terceros' : null),
-                    'reviewed_by' => $user->full_name, 'reviewed_by_id' => $user->id, 'reviewed_at' => now(), 'supplier_id' => $data['supplier_id'],
-                    'invoice_number' => "{$data['document_type']} {$document}", 'invoice_date' => $data['document_date'], 'invoice_path' => $path,
-                    'amount' => $total, 'amount_payable' => $payable, 'currency' => $data['currency'], 'installments' => 1,
-                    'has_detraction' => (bool) $reason, 'detraction_reason' => $reason, 'detraction_percent' => $percent, 'detraction_amount' => $detraction,
-                    'payment_terms' => 'CREDITO', 'payment_method' => $data['payment_method'], 'payment_origin' => 'TRANSFERENCIA',
-                ]);
-                $r->paymentInstallments()->create([
-                    'tenant_id' => $tenant->id, 'installment' => 1, 'due_date' => $data['due_date'], 'amount' => $payable, 'status' => 'pending',
-                    'payment_method' => $data['payment_method'], 'registered_by' => $user->full_name, 'is_advance' => (bool) ($data['is_advance'] ?? false),
-                ]);
-
-                return $r;
-            });
+            $r = \App\Modules\Finance\Services\DirectPayments::create($tenant, $request->user(), $data, $path);
         } catch (\Throwable $e) {
             if ($path) {
                 Storage::disk(self::VOUCHER_DISK)->delete($path);
@@ -396,6 +372,71 @@ class TreasuryWebController extends Controller
         $this->audit->log('treasury.direct_payment_corrected', $r, ['code' => $r->code(), 'before' => $before, 'after' => $data]);
 
         return back()->with('success', $changedAmount && $p->wasChanged('authorized_at') ? 'Pago directo corregido: vuelve a necesitar autorización.' : 'Pago directo corregido.');
+    }
+
+    /**
+     * Concepto del flujo de efectivo de una orden (sisgere FrmRegpagos › flujo_requerimiento): se
+     * elige o corrige desde Tesorería, también ya pagada (es clasificación, no cambia montos).
+     */
+    public function updateCashFlow(Request $request, int $id): RedirectResponse
+    {
+        $r = Requisition::findOrFail($id);
+        abort_unless($r->orderNumber(), 422, 'El requerimiento aún no tiene orden de compra, servicio o pago.');
+        $data = $request->validate([
+            'cash_flow_concept' => ['required', Rule::in(Requisition::cashFlowConcepts())],
+        ], ['cash_flow_concept.required' => 'Elige el concepto del flujo de efectivo.', 'cash_flow_concept.in' => 'Elige un concepto de la lista.']);
+
+        $before = $r->cash_flow_concept;
+        $r->update($data);
+        $this->audit->log('treasury.cash_flow_changed', $r, ['code' => $r->code(), 'before' => $before, 'after' => $data['cash_flow_concept']]);
+
+        return back()->with('success', 'Concepto del flujo de efectivo actualizado.');
+    }
+
+    /**
+     * Corrige el monto de una OC/OS sin pagos (sisgere actualizar_monto_requerim: borra las cuotas y
+     * las vuelve a crear). Se recalculan detracción y neto con el mismo motivo y anticipo, se rehacen
+     * las cuotas (mismo número, desde el primer vencimiento) y vuelven a necesitar autorización.
+     */
+    public function correctOrderAmount(Request $request, int $id): RedirectResponse
+    {
+        $r = Requisition::where('stage', 'ordered')->where('is_direct_payment', false)->whereNull('payroll_concept')->findOrFail($id);
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:999999999'],
+            'reason' => ['required', 'string', 'max:500'],
+        ], [], ['amount' => 'el monto', 'reason' => 'el motivo']);
+
+        $total = round((float) $data['amount'], 2);
+        $detraction = $r->detraction_reason ? \App\Modules\Finance\Services\OrderPricing::detraction($total, (int) $r->detraction_percent) : null;
+        $payable = round($total - (float) $detraction - (float) $r->advance_amount, 2);
+        if ($payable <= 0) {
+            throw ValidationException::withMessages(['amount' => 'Con la detracción y el anticipo aplicado, el monto no deja nada por pagar.']);
+        }
+        $before = (float) $r->amount;
+
+        DB::transaction(function () use ($r, $total, $detraction, $payable) {
+            // Con las cuotas bloqueadas: un pago registrado en paralelo impide corregir
+            $installments = $r->paymentInstallments()->lockForUpdate()->orderBy('installment')->get();
+            if ($installments->sum(fn ($p) => (float) $p->paid_amount) > 0 || $installments->contains(fn ($p) => $p->status === 'paid')) {
+                throw ValidationException::withMessages(['amount' => 'La orden ya tiene pagos registrados: no se puede corregir el monto.']);
+            }
+            $first = $installments->first();
+            $count = max(1, $installments->count());
+            $interval = $count > 1 ? max(1, (int) $first->due_date->diffInDays($installments[1]->due_date)) : 30;
+            $schedule = \App\Modules\Finance\Services\OrderPricing::installments($payable, $count, $first?->due_date?->toDateString() ?? now()->toDateString(), $interval);
+
+            $r->update(['amount' => $total, 'amount_payable' => $payable, 'detraction_amount' => $detraction]);
+            $r->paymentInstallments()->delete();
+            foreach ($schedule as $i => $c) {
+                $r->paymentInstallments()->create([
+                    'tenant_id' => $r->tenant_id, 'installment' => $i + 1, 'due_date' => $c['due_date'], 'amount' => $c['amount'], 'status' => 'pending',
+                    'payment_method' => $first?->payment_method ?? $r->payment_method, 'registered_by' => $first?->registered_by,
+                ]);
+            }
+        });
+        $this->audit->log('treasury.order_amount_corrected', $r, ['code' => $r->code(), 'order' => $r->orderNumber(), 'before' => $before, 'after' => $total, 'reason' => $data['reason']]);
+
+        return back()->with('success', 'Monto corregido: las cuotas se rehicieron y vuelven a necesitar programación y autorización.');
     }
 
     /**
@@ -516,6 +557,7 @@ class TreasuryWebController extends Controller
             'requisition'   => $r ? [
                 'id' => $r->id, 'code' => $r->code(), 'detail' => $r->detail, 'order' => $r->orderNumber(), 'currency' => $r->currency,
                 'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction, 'is_direct' => (bool) $r->is_direct_payment,
+                'cash_flow_concept' => $r->cash_flow_concept, 'is_order' => ! $r->is_direct_payment && ! $r->isPayroll() && $r->stage === 'ordered',
                 // Pago de RRHH: no lleva factura (la boleta es el sustento)
                 'has_invoice' => $r->isPayroll() || $r->invoice_path, 'is_payroll' => $r->isPayroll(),
                 'detraction' => $r->only(['detraction_number', 'detraction_amount', 'detraction_percent', 'detraction_reason']),

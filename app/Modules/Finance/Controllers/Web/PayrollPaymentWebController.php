@@ -164,7 +164,7 @@ class PayrollPaymentWebController extends Controller
                 $r = Requisition::create([
                     'series' => $series, 'number' => $number, 'code' => $code, 'year' => (int) now()->year,
                     'requested_at' => now(), 'detail' => "{$label} correspondiente al periodo {$month}-{$year}", 'area' => 'RRHH',
-                    'requested_by' => $hr->full_name, 'user_id' => $hr->id, 'classification' => 'GASTOS FIJOS', 'priority' => 'NORMAL', 'cash_flow_concept' => 'Pagos a y por cuenta de los empleados',
+                    'requested_by' => $hr->full_name, 'user_id' => $hr->id, 'classification' => 'GASTOS FIJOS', 'priority' => 'NORMAL', 'cash_flow_concept' => config('finance.cash_flow_defaults.payroll'),
                     'stage' => 'ordered', 'ordered_at' => now(), 'reviewed_by' => $hr->full_name, 'reviewed_by_id' => $hr->id, 'reviewed_at' => now(),
                     'employee_id' => $employee->id, 'payroll_period' => $data['period'], 'payroll_concept' => $data['concept'],
                     'amount' => $amount, 'amount_payable' => $amount, 'currency' => 'PEN', 'installments' => 1,

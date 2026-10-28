@@ -228,16 +228,10 @@ class EmployeeController extends Controller
 
             // Asignar turno inicial si fue provisto
             if (!empty($validated['shift_id'])) {
-                EmployeeShift::create([
-                    'tenant_id'            => $tenantId,
-                    'user_id'              => $user->id,
-                    'shift_id'             => $validated['shift_id'],
-                    'branch_id'            => $validated['primary_branch_id'],
-                    'effective_from'       => Carbon::today()->toDateString(),
-                    'rotation_anchor_date' => Carbon::today()->toDateString(),
-                    'assigned_by'          => Auth::id(),
-                    'is_active'            => true,
-                ]);
+                EmployeeShift::assign($user->id, [
+                    'tenant_id' => $tenantId, 'shift_id' => (int) $validated['shift_id'], 'branch_id' => (int) $validated['primary_branch_id'],
+                    'effective_from' => Carbon::today()->toDateString(),
+                ], Auth::id(), replaceCurrent: false);
             }
 
             return [$user, $email, $temporaryPassword];
@@ -404,19 +398,10 @@ class EmployeeController extends Controller
             // Cambiar de turno solo si es distinto al vigente
             $current = EmployeeShift::where('user_id', $employee->id)->current()->first();
             if (! empty($validated['shift_id']) && $current?->shift_id !== (int) $validated['shift_id']) {
-                EmployeeShift::where('user_id', $employee->id)->current()
-                    ->update(['is_active' => false, 'effective_until' => Carbon::yesterday()->toDateString()]);
-
-                EmployeeShift::create([
-                    'tenant_id'            => $employee->tenant_id,
-                    'user_id'              => $employee->id,
-                    'shift_id'             => $validated['shift_id'],
-                    'branch_id'            => $validated['primary_branch_id'],
-                    'effective_from'       => Carbon::today()->toDateString(),
-                    'rotation_anchor_date' => Carbon::today()->toDateString(),
-                    'assigned_by'          => Auth::id(),
-                    'is_active'            => true,
-                ]);
+                EmployeeShift::assign($employee->id, [
+                    'tenant_id' => $employee->tenant_id, 'shift_id' => (int) $validated['shift_id'], 'branch_id' => (int) $validated['primary_branch_id'],
+                    'effective_from' => Carbon::today()->toDateString(),
+                ], Auth::id());
             }
         });
 

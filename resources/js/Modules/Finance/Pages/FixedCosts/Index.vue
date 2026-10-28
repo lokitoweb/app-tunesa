@@ -4,6 +4,7 @@ import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
+import { money } from '@/Modules/Core/format';
 
 const props = defineProps({
     costs: { type: Array, default: () => [] },
@@ -17,7 +18,7 @@ const props = defineProps({
 
 const { ask } = useConfirm();
 const { ensureTenant } = useTenantPicker();
-const money = (v, c = 'PEN') => `${c === 'USD' ? 'US$' : c === 'EUR' ? '€' : 'S/'} ${Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 const fmt = (iso) => iso.split('-').reverse().join('/');
 
 // Excel del mes y clasificación que se ven
@@ -66,15 +67,16 @@ async function cancel(c) {
     if (ok) router.post(`/fixed-costs/${c.id}/cancel`, { rest }, { preserveScroll: true });
 }
 
-const payTarget = ref(null);
-const pay = useForm({ paid_at: props.today, company_bank_account_id: '', operation_number: '' });
-function openPay(c) {
-    payTarget.value = c;
-    Object.assign(pay, { paid_at: props.today, company_bank_account_id: props.accounts[0]?.id || '', operation_number: '' });
-    pay.clearErrors();
+// Enviar a Tesorería: se paga por la cola normal (programar → autorizar → pagar con voucher)
+const sendTarget = ref(null);
+const send = useForm({ supplier_id: '', due_date: '', payment_method: '', cash_flow_concept: '', file: null });
+function openSend(c) {
+    sendTarget.value = c;
+    Object.assign(send, { supplier_id: c.supplier_id || '', due_date: c.date, payment_method: props.options.payment_methods?.[0] || '', cash_flow_concept: '', file: null });
+    send.clearErrors();
 }
-function submitPay() {
-    pay.post(`/fixed-costs/${payTarget.value.id}/pay`, { preserveScroll: true, onSuccess: () => (payTarget.value = null) });
+function submitSend() {
+    send.post(`/fixed-costs/${sendTarget.value.id}/send`, { preserveScroll: true, forceFormData: true, onSuccess: () => (sendTarget.value = null) });
 }
 
 const isOverdue = (c) => c.is_active && !c.paid_at && c.date < props.today;
@@ -203,17 +205,19 @@ const isOverdue = (c) => c.is_active && !c.paid_at && c.date < props.today;
                             <td class="small">
                                 <span v-if="!c.is_active" class="badge bg-secondary-subtle text-secondary">Anulada</span>
                                 <template v-else-if="c.paid_at"><span class="badge bg-success-subtle text-success">Pagada {{ c.paid_at }}</span><div class="text-body-secondary font-monospace">{{ c.operation_number }}</div></template>
+                                <template v-else-if="c.payment"><span class="badge bg-info-subtle text-info-emphasis">En Tesorería</span><div class="text-body-secondary font-monospace">{{ c.payment.code }}</div></template>
                                 <span v-else-if="isOverdue(c)" class="badge bg-danger-subtle text-danger">Vencida</span>
                                 <span v-else class="badge bg-warning-subtle text-warning-emphasis">Pendiente</span>
                             </td>
                             <td class="text-end text-nowrap">
-                                <template v-if="c.is_active && !c.paid_at">
+                                <a v-if="c.payment && !c.paid_at" :href="`/treasury?search=${encodeURIComponent(c.payment.code)}`" class="btn btn-sm btn-outline-secondary"><i class="bi bi-bank me-1"></i>Ver en Tesorería</a>
+                                <template v-else-if="c.is_active && !c.paid_at">
                                     <template v-if="editing === c.id">
                                         <button type="button" class="btn btn-sm btn-primary" :disabled="edit.processing" @click="saveEdit(c)">Guardar</button>
                                         <button type="button" class="btn btn-sm btn-light" @click="editing = null">Cancelar</button>
                                     </template>
                                     <template v-else>
-                                        <button type="button" class="btn btn-sm btn-success" @click="openPay(c)"><i class="bi bi-cash-coin me-1"></i>Pagar</button>
+                                        <button type="button" class="btn btn-sm btn-success" @click="openSend(c)"><i class="bi bi-send me-1"></i>Enviar a Tesorería</button>
                                         <button type="button" class="btn-table-action btn-action-edit" title="Ajustar cuota" @click="openEdit(c)"><i class="bi bi-pencil-fill"></i></button>
                                         <button type="button" class="btn-table-action btn-table-delete" title="Anular cuota" @click="cancel(c)"><i class="bi bi-calendar2-x"></i></button>
                                     </template>
@@ -226,39 +230,61 @@ const isOverdue = (c) => c.is_active && !c.paid_at && c.date < props.today;
             </div>
         </div>
 
-        <!-- Modal pagar -->
-        <div v-if="payTarget" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="fcpay-title" style="background: rgba(0,0,0,.45)" @click.self="payTarget = null">
-            <div class="modal-dialog modal-dialog-centered">
-                <form class="modal-content" novalidate @submit.prevent="submitPay">
+        <!-- Modal enviar a Tesorería -->
+        <div v-if="sendTarget" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="fcsend-title" style="background: rgba(0,0,0,.45)" @click.self="sendTarget = null">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+                <form class="modal-content" novalidate @submit.prevent="submitSend">
                     <div class="modal-header">
-                        <h2 id="fcpay-title" class="modal-title h5">Pagar · {{ payTarget.supplier_name }} · {{ money(payTarget.amount, payTarget.currency) }}</h2>
-                        <button type="button" class="btn-close" aria-label="Cerrar" @click="payTarget = null"></button>
+                        <h2 id="fcsend-title" class="modal-title h5">Enviar a Tesorería · {{ money(sendTarget.amount, sendTarget.currency) }}</h2>
+                        <button type="button" class="btn-close" aria-label="Cerrar" @click="sendTarget = null"></button>
                     </div>
                     <div class="modal-body row g-3">
-                        <div class="col-12 small text-body-secondary">Cuota {{ payTarget.installment }} de {{ payTarget.of }} · {{ payTarget.detail }}<span v-if="payTarget.account_number"> · destino {{ payTarget.bank }} {{ payTarget.account_number }}</span></div>
-                        <div class="col-sm-5">
-                            <label class="form-label small fw-semibold" for="fcpay-date">Fecha *</label>
-                            <input id="fcpay-date" v-model="pay.paid_at" type="date" :max="today" class="form-control" :class="{ 'is-invalid': pay.errors.paid_at }" />
-                            <div class="invalid-feedback">{{ pay.errors.paid_at }}</div>
-                        </div>
-                        <div class="col-sm-7">
-                            <label class="form-label small fw-semibold" for="fcpay-op">N.º de operación *</label>
-                            <input id="fcpay-op" v-model.trim="pay.operation_number" class="form-control font-monospace" :class="{ 'is-invalid': pay.errors.operation_number }" maxlength="50" />
-                            <div class="invalid-feedback">{{ pay.errors.operation_number }}</div>
+                        <div class="col-12 small text-body-secondary">
+                            Cuota {{ sendTarget.installment }} de {{ sendTarget.of }} · {{ sendTarget.detail }}<span v-if="sendTarget.account_number"> · destino {{ sendTarget.bank }} {{ sendTarget.account_number }}</span>.
+                            Se crea un pago directo con su orden de pago; en Tesorería se programa, lo autoriza la persona designada y otra lo paga con el voucher.
                         </div>
                         <div class="col-12">
-                            <label class="form-label small fw-semibold" for="fcpay-acc">Cuenta de origen *</label>
-                            <select id="fcpay-acc" v-model="pay.company_bank_account_id" class="form-select" :class="{ 'is-invalid': pay.errors.company_bank_account_id }">
+                            <label class="form-label small fw-semibold" for="fcsend-sup">Proveedor *</label>
+                            <select id="fcsend-sup" v-model="send.supplier_id" class="form-select" :class="{ 'is-invalid': send.errors.supplier_id }">
                                 <option value="" disabled>Elige…</option>
-                                <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.label }}</option>
+                                <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
                             </select>
-                            <div class="invalid-feedback">{{ pay.errors.company_bank_account_id }}</div>
-                            <div v-if="!accounts.length" class="form-text text-danger">Registra las cuentas de origen en Tesorería.</div>
+                            <div class="invalid-feedback">{{ send.errors.supplier_id }}</div>
+                            <div v-if="!sendTarget.supplier_id" class="form-text">Se registró como «{{ sendTarget.supplier_name }}»: elige el proveedor (o créalo en Proveedores).</div>
                         </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-semibold" for="fcsend-due">Vencimiento *</label>
+                            <input id="fcsend-due" v-model="send.due_date" type="date" class="form-control" :class="{ 'is-invalid': send.errors.due_date }" />
+                            <div class="invalid-feedback">{{ send.errors.due_date }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-semibold" for="fcsend-method">Forma de pago *</label>
+                            <select id="fcsend-method" v-model="send.payment_method" class="form-select" :class="{ 'is-invalid': send.errors.payment_method }">
+                                <option v-for="m in options.payment_methods" :key="m" :value="m">{{ m }}</option>
+                            </select>
+                            <div class="invalid-feedback">{{ send.errors.payment_method }}</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="fcsend-flow">Flujo de efectivo</label>
+                            <select id="fcsend-flow" v-model="send.cash_flow_concept" class="form-select" :class="{ 'is-invalid': send.errors.cash_flow_concept }">
+                                <option value="">Según la clasificación (automático)</option>
+                                <optgroup v-for="(concepts, activity) in options.cash_flow_concepts" :key="activity" :label="activity">
+                                    <option v-for="cc in concepts" :key="cc" :value="cc">{{ cc }}</option>
+                                </optgroup>
+                            </select>
+                            <div class="invalid-feedback">{{ send.errors.cash_flow_concept }}</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold" for="fcsend-file">Recibo o factura (PDF)</label>
+                            <input id="fcsend-file" type="file" accept="application/pdf" class="form-control" :class="{ 'is-invalid': send.errors.file }" @change="send.file = $event.target.files[0] || null" />
+                            <div class="invalid-feedback">{{ send.errors.file }}</div>
+                            <div class="form-text">Puede adjuntarse después en Tesorería; sin él no se puede pagar.</div>
+                        </div>
+                        <div v-if="send.errors.fixed_cost" class="col-12"><div class="alert alert-warning py-2 small mb-0">{{ send.errors.fixed_cost }}</div></div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-light" @click="payTarget = null">Cancelar</button>
-                        <button type="submit" class="btn btn-success" :disabled="pay.processing">Registrar pago</button>
+                        <button type="button" class="btn btn-outline-secondary" @click="sendTarget = null">Cancelar</button>
+                        <button type="submit" class="btn btn-success" :disabled="send.processing"><i class="bi bi-send me-1"></i>Enviar a Tesorería</button>
                     </div>
                 </form>
             </div>

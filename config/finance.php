@@ -32,6 +32,18 @@ return [
         ],
     ],
 
+    // Concepto que se pone solo, si nadie elige otro. Deben existir en cash_flow_concepts (lo revisa un test).
+    'cash_flow_defaults' => [
+        'advance' => 'Pagos por anticipos y préstamos concedidos a terceros',
+        'payroll' => 'Pagos a y por cuenta de los empleados',
+        // Arrendamientos, seguros, servicios… se pagan como proveedores; el préstamo y el leasing tienen el suyo
+        'fixed_cost' => [
+            'PRESTAMOS' => 'Pagos o amortización de préstamos a corto plazo',
+            'LEASING'   => 'Pagos de pasivos por arrendamiento financiero',
+            '*'         => 'Pago a proveedores de bienes y servicios',
+        ],
+    ],
+
     'detraction_reasons' => [
         '019' => ['Arrendamiento de bienes', 10],
         '020' => ['Mantenimiento y reparación de bienes muebles', 12],

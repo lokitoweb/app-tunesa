@@ -4,6 +4,7 @@ import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
+import { money } from '@/Modules/Core/format';
 
 const props = defineProps({
     loads: { type: Array, default: () => [] },
@@ -17,7 +18,7 @@ const props = defineProps({
 const { ask } = useConfirm();
 const { ensureTenant } = useTenantPicker();
 const today = new Date().toLocaleDateString('en-CA') // fecha local (toISOString es UTC: después de las 19:00 en Lima daría mañana);
-const money = (v) => `S/ ${Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 const num = (v, d = 3) => Number(v || 0).toLocaleString('es-PE', { maximumFractionDigits: d });
 
 function go(params) {

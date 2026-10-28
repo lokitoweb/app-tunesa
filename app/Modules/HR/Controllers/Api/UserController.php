@@ -208,23 +208,12 @@ class UserController extends Controller
             'notes'          => ['sometimes', 'nullable', 'string'],
         ]);
 
-        // Desactivar el turno activo anterior
-        EmployeeShift::where('user_id', $user->id)
-            ->where('is_active', true)
-            ->update(['is_active' => false, 'effective_until' => now()->toDateString()]);
-
-        // Crear nueva asignación
-        $employeeShift = EmployeeShift::create([
-            'tenant_id'      => current_tenant_id(),
-            'user_id'        => $user->id,
-            'shift_id'       => $request->shift_id,
-            'branch_id'      => $request->branch_id,
-            'effective_from' => $request->effective_from,
-            'effective_until'=> $request->effective_until,
-            'assigned_by'    => $request->user()->id,
-            'notes'          => $request->notes,
-            'is_active'      => true,
-        ]);
+        // Misma regla que el panel: la vigente se cierra el día anterior (antes quedaba hasta hoy y
+        // se superponía con un turno que empezaba hoy) y la rotación arranca con el nuevo turno
+        $employeeShift = EmployeeShift::assign($user->id, [
+            'tenant_id' => current_tenant_id(), 'shift_id' => (int) $request->shift_id, 'branch_id' => (int) $request->branch_id,
+            'effective_from' => $request->effective_from, 'effective_until' => $request->effective_until, 'notes' => $request->notes,
+        ], $request->user()->id);
 
         return response()->json([
             'success' => true,

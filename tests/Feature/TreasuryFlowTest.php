@@ -109,6 +109,38 @@ class TreasuryFlowTest extends TestCase
         $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", $pay())->assertStatus(422);
     }
 
+    public function test_treasury_sets_cash_flow_and_corrects_the_amount_of_an_unpaid_order(): void
+    {
+        Storage::fake('private');
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $accountant = $this->makeUser($acme, 'accountant');
+        $r = $this->orderedRequisition($acme->id, 1000, 2);
+
+        // Concepto del flujo: solo de la lista, y también se puede corregir después
+        $this->actingAs($accountant)->put("/treasury/orders/{$r->id}/cash-flow", ['cash_flow_concept' => 'Inventado'])->assertSessionHasErrors('cash_flow_concept');
+        $this->put("/treasury/orders/{$r->id}/cash-flow", ['cash_flow_concept' => 'Pago de regalías'])->assertSessionHasNoErrors();
+        $this->assertSame('Pago de regalías', $r->fresh()->cash_flow_concept);
+
+        // Corregir monto (sisgere actualizar_monto_requerim): rehace las cuotas, mismo número, sin autorización
+        $first = PaymentInstallment::withoutGlobalScopes()->orderBy('installment')->first();
+        $first->update(['scheduled_for' => now()->toDateString(), 'authorized_at' => now()]);
+        $this->put("/treasury/orders/{$r->id}/amount", ['amount' => 1300])->assertSessionHasErrors('reason');
+        $this->put("/treasury/orders/{$r->id}/amount", ['amount' => 1300, 'reason' => 'Factura con flete'])->assertSessionHasNoErrors();
+
+        $rows = PaymentInstallment::withoutGlobalScopes()->where('requisition_id', $r->id)->orderBy('installment')->get();
+        $this->assertSame(['650.00', '650.00'], $rows->pluck('amount')->all());
+        $this->assertTrue($rows->every(fn ($p) => $p->authorized_at === null && $p->scheduled_for === null));
+        $this->assertSame(['1300.00', '1300.00'], [$r->fresh()->amount, $r->fresh()->amount_payable]);
+
+        // Con un pago registrado ya no se corrige
+        $rows[0]->update(['paid_amount' => 100]);
+        $this->put("/treasury/orders/{$r->id}/amount", ['amount' => 900, 'reason' => 'x'])->assertSessionHasErrors('amount');
+        $this->assertSame('1300.00', $r->fresh()->amount);
+
+        $this->actingAs($this->makeUser($acme, 'logistics'))->put("/treasury/orders/{$r->id}/amount", ['amount' => 1, 'reason' => 'x'])->assertForbidden();
+    }
+
     public function test_two_simultaneous_payments_do_not_pay_the_installment_twice(): void
     {
         Storage::fake('private');

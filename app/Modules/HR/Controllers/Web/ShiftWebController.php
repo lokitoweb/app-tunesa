@@ -166,27 +166,16 @@ class ShiftWebController extends Controller
                 . implode(', ', $clash) . '. Reemplaza la asignación vigente o programa esos días en el calendario.']);
         }
 
-        foreach ($validated['user_ids'] as $userId) {
-            if ($request->boolean('replace_current', true)) {
-                // Cierra la asignación vigente el día anterior al nuevo turno
-                EmployeeShift::where('user_id', $userId)->current()
-                    ->update([
-                        'effective_until' => now()->parse($validated['effective_from'])->subDay()->toDateString(),
-                        'is_active'       => false,
-                    ]);
+        // Todo o nada: si falla uno, no quedan asignaciones a medias
+        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request) {
+            foreach ($validated['user_ids'] as $userId) {
+                EmployeeShift::assign((int) $userId, [
+                    'shift_id' => (int) $validated['shift_id'], 'branch_id' => (int) $validated['branch_id'],
+                    'effective_from' => $validated['effective_from'], 'effective_until' => $validated['effective_until'] ?? null,
+                    'rotation_anchor_date' => $validated['rotation_anchor_date'] ?? null,
+                ], Auth::id(), $request->boolean('replace_current', true));
             }
-
-            EmployeeShift::create([
-                'user_id'              => $userId,
-                'shift_id'             => $validated['shift_id'],
-                'branch_id'            => $validated['branch_id'],
-                'effective_from'       => $validated['effective_from'],
-                'effective_until'      => $validated['effective_until'] ?? null,
-                'rotation_anchor_date' => $validated['rotation_anchor_date'] ?? $validated['effective_from'],
-                'assigned_by'          => Auth::id(),
-                'is_active'            => true,
-            ]);
-        }
+        });
 
         return back()->with('success', 'Turno asignado a ' . count($validated['user_ids']) . ' colaborador(es).');
     }

@@ -29,6 +29,7 @@ final class FinanceDocumentPdf
             'rows'      => [
                 ['Requerimiento', $r->is_direct_payment ? null : $r->code()], ['Documento', $r->is_direct_payment ? $r->invoice_number : null], ['Detalle', $r->detail], ['Área', $r->area], ['Placa', $r->plate],
                 ['Condición', trim("{$r->payment_terms} · {$r->payment_method}", ' ·')], ['Cuotas', $r->installments],
+                ['Descuento', (float) $r->discount_amount > 0 ? '− ' . self::money($r->currency, $r->discount_amount) : null],
                 ['Detracción', $r->detraction_reason ? "{$r->detraction_reason} - " . config("finance.detraction_reasons.{$r->detraction_reason}.0")
                     . " · {$r->detraction_percent} %: " . self::money($r->currency, $r->detraction_amount) : null],
                 ['Neto a pagar', $r->detraction_reason ? self::money($r->currency, $r->amount_payable) : null],

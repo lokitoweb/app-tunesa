@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import { money as formatMoney } from '@/Modules/Core/format';
 
 const props = defineProps({
     months: { type: Array, required: true },
@@ -13,7 +14,7 @@ const props = defineProps({
 });
 
 const c = computed(() => props.filters.currency);
-const money = (v) => (v ? `${c.value === 'USD' ? 'US$' : c.value === 'EUR' ? '€' : 'S/'} ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—');
+const money = (v) => (v ? formatMoney(v, c.value) : '—'); // en el flujo, 0 también se ve como —
 
 function go(params) {
     router.get('/cash-flow', { ...props.filters, ...params }, { preserveState: true, replace: true });

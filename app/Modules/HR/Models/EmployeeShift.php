@@ -93,6 +93,38 @@ class EmployeeShift extends Model
     }
 
     /** Solo asignaciones vigentes (hoy o en la fecha dada) */
+    /**
+     * Asigna un turno (una sola regla para el formulario de colaborador, Horarios y la API). Con
+     * $replaceCurrent la asignación vigente se cierra el día anterior al nuevo turno: nunca hay dos
+     * el mismo día. La rotación arranca el día del nuevo turno salvo que se indique otra fecha.
+     *
+     * @param  array{shift_id: int, branch_id: int, effective_from: string, effective_until?: ?string,
+     *               rotation_anchor_date?: ?string, notes?: ?string, tenant_id?: int}  $attrs
+     */
+    public static function assign(int $userId, array $attrs, ?int $assignedBy, bool $replaceCurrent = true): self
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($userId, $attrs, $assignedBy, $replaceCurrent) {
+            $from = \Illuminate\Support\Carbon::parse($attrs['effective_from'])->toDateString();
+            if ($replaceCurrent) {
+                static::where('user_id', $userId)->current($from)->lockForUpdate()->get()
+                    ->each->update(['is_active' => false, 'effective_until' => \Illuminate\Support\Carbon::parse($from)->subDay()->toDateString()]);
+            }
+
+            return static::create(array_filter([
+                'tenant_id'            => $attrs['tenant_id'] ?? null,
+                'user_id'              => $userId,
+                'shift_id'             => $attrs['shift_id'],
+                'branch_id'            => $attrs['branch_id'],
+                'effective_from'       => $from,
+                'effective_until'      => $attrs['effective_until'] ?? null,
+                'rotation_anchor_date' => $attrs['rotation_anchor_date'] ?? $from,
+                'notes'                => $attrs['notes'] ?? null,
+                'assigned_by'          => $assignedBy,
+                'is_active'            => true,
+            ], fn ($v) => $v !== null));
+        });
+    }
+
     public function scopeCurrent($query, ?string $date = null)
     {
         $today = $date ?? now()->toDateString();

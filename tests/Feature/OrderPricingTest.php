@@ -114,6 +114,18 @@ class OrderPricingTest extends TestCase
         $this->get("/requisitions/{$r->id}")->assertInertia(fn ($p) => $p->where('requisition.pricing', null));
     }
 
+    public function test_order_discount_in_soles_comes_off_the_total_before_installments(): void
+    {
+        [$r, $q, $logistics] = $this->quotedRequisition();   // cotización: 1200
+
+        $this->actingAs($logistics)->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id, ['discount_amount' => 1200]))->assertSessionHasErrors('discount_amount');
+        $this->post("/requisitions/{$r->id}/order", $this->orderPayload($q->id, ['discount_amount' => 200]))->assertSessionHasNoErrors();
+
+        $r->refresh();
+        $this->assertSame(['1000.00', '200.00'], [$r->amount, $r->discount_amount]);
+        $this->assertSame(['500.00', '500.00'], PaymentInstallment::withoutGlobalScopes()->orderBy('installment')->pluck('amount')->all());
+    }
+
     public function test_issuing_the_same_order_twice_creates_a_single_debt(): void
     {
         [$r, $q, $logistics] = $this->quotedRequisition();

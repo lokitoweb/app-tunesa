@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
+import { money } from '@/Modules/Core/format';
 
 const props = defineProps({
     requisition: { type: Object, required: true },
@@ -17,7 +18,7 @@ const { ask } = useConfirm();
 const r = computed(() => props.requisition);
 const stage = computed(() => props.stages[r.value.stage] || ['—', 'secondary']);
 const today = new Date().toLocaleDateString('en-CA') // fecha local (toISOString es UTC: después de las 19:00 en Lima daría mañana);
-const money = (v, c) => (v == null ? '—' : `${c === 'USD' ? 'US$' : c === 'EUR' ? '€' : 'S/'} ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`);
+
 
 // Pasos del flujo para la línea de tiempo
 const steps = [
@@ -104,7 +105,7 @@ async function removeQuote(q) {
 // ---------------------------------------------------------------- orden
 const order = useForm({
     quotation_id: '', type: 'purchase', payment_terms: 'CONTADO', payment_method: 'TRANSFERENCIA', payment_origin: 'TRANSFERENCIA',
-    priority: r.value.priority || 'NORMAL', installments: 1, first_due_date: today, interval_days: 30, has_detraction: false, detraction_reason: '',
+    priority: r.value.priority || 'NORMAL', installments: 1, first_due_date: today, interval_days: 30, has_detraction: false, detraction_reason: '', discount_amount: '',
     cash_flow_concept: r.value.cash_flow_concept || 'Pago a proveedores de bienes y servicios',
     // Precios por ítem (opcionales, como en sisgere): vacíos = total de la cotización
     prices_include_igv: true,
@@ -147,7 +148,9 @@ const differsFromQuote = computed(() => priced.value && chosen.value && Math.abs
 const itemFor = (id) => r.value.items.find((i) => i.id === id);
 
 // Detracción y neto a pagar (mismo cálculo que OrderPricing::detraction: soles enteros)
-const orderTotal = computed(() => (priced.value ? orderTotals.value.total : Number(chosen.value?.amount || 0)));
+// Total de la orden menos el descuento en monto (sisgere Txtdescuento); la detracción va sobre este total
+const grossTotal = computed(() => (priced.value ? orderTotals.value.total : Number(chosen.value?.amount || 0)));
+const orderTotal = computed(() => round2(grossTotal.value - Number(order.discount_amount || 0)));
 const detrReason = computed(() => props.options.detraction_reasons.find((d) => d.code === order.detraction_reason));
 const detrAmount = computed(() => (order.has_detraction && detrReason.value ? Math.round(Math.round(orderTotal.value * detrReason.value.percent * 10 / 100) / 10) : 0));
 // Anticipos del proveedor elegido (misma moneda), pagados y sin aplicar
@@ -301,6 +304,9 @@ function emitOrder() {
                                     <span v-else class="text-body-secondary">la registra Tesorería</span>
                                     <span v-if="requisition.detraction.number" class="text-body-secondary"> · constancia {{ requisition.detraction.number }}</span>
                                 </dd>
+                            </template>
+                            <template v-if="Number(requisition.discount_amount) > 0">
+                                <dt class="col-sm-4 text-body-secondary fw-normal">Descuento</dt><dd class="col-sm-8">− {{ money(requisition.discount_amount, requisition.currency) }} <span class="text-body-secondary small">(ya restado del total)</span></dd>
                             </template>
                             <template v-if="requisition.advance_amount">
                                 <dt class="col-sm-4 text-body-secondary fw-normal">Anticipo aplicado</dt><dd class="col-sm-8">− {{ money(requisition.advance_amount, requisition.currency) }}</dd>
@@ -586,6 +592,12 @@ function emitOrder() {
                                 </optgroup>
                             </select>
                             <div class="invalid-feedback">{{ order.errors.cash_flow_concept }}</div>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label small fw-semibold" for="o-discount">Descuento (monto)</label>
+                            <input id="o-discount" v-model="order.discount_amount" type="number" min="0" step="0.01" class="form-control" :class="{ 'is-invalid': order.errors.discount_amount }" placeholder="0.00" />
+                            <div class="invalid-feedback">{{ order.errors.discount_amount }}</div>
+                            <div v-if="Number(order.discount_amount) > 0" class="form-text">Total con descuento: {{ money(orderTotal, chosen?.currency) }}</div>
                         </div>
                         <div class="col-sm-4 d-flex align-items-end">
                             <div class="form-check mb-2">

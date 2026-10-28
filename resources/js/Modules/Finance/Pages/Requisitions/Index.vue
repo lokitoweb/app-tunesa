@@ -4,6 +4,7 @@ import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
+import { money } from '@/Modules/Core/format';
 
 const props = defineProps({
     requisitions: { type: Object, required: true },
@@ -43,7 +44,7 @@ function create() {
     if (ensureTenant({ message: 'El requerimiento se registra en una empresa.' })) router.get('/requisitions/create');
 }
 
-const money = (v, c) => (v == null ? '—' : `${c === 'USD' ? 'US$' : c === 'EUR' ? '€' : 'S/'} ${Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`);
+
 </script>
 
 <template>

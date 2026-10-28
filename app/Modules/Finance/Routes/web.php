@@ -79,6 +79,9 @@ Route::middleware(['auth', 'web.tenant', 'can:treasury.view'])->prefix('treasury
         Route::post('/direct', [TreasuryWebController::class, 'directPayment'])->name('direct');
         Route::put('/direct/{id}', [TreasuryWebController::class, 'updateDirectPayment'])->name('direct.update')->whereNumber('id');
         Route::post('/payments/{id}/correct', [TreasuryWebController::class, 'correctPayment'])->name('payments.correct')->whereNumber('id'); // POST: lleva archivo
+        // sisgere FrmRegpagos › flujo_requerimiento y FrmReqProg › actualizar_monto_requerim
+        Route::put('/orders/{id}/cash-flow', [TreasuryWebController::class, 'updateCashFlow'])->name('orders.cash-flow')->whereNumber('id');
+        Route::put('/orders/{id}/amount', [TreasuryWebController::class, 'correctOrderAmount'])->name('orders.amount')->whereNumber('id');
         Route::post('/accounts', [TreasuryWebController::class, 'storeAccount'])->name('accounts.store');
         Route::put('/accounts/{id}', [TreasuryWebController::class, 'updateAccount'])->name('accounts.update')->whereNumber('id');
     });
@@ -101,7 +104,7 @@ Route::middleware(['auth', 'web.tenant', 'can:fixed_costs.manage'])->prefix('fix
     Route::post('/', [FixedCostWebController::class, 'store'])->name('store');
     Route::put('/{id}', [FixedCostWebController::class, 'update'])->name('update')->whereNumber('id');
     Route::post('/{id}/cancel', [FixedCostWebController::class, 'cancel'])->name('cancel')->whereNumber('id');
-    Route::post('/{id}/pay', [FixedCostWebController::class, 'pay'])->name('pay')->whereNumber('id');
+    Route::post('/{id}/send', [FixedCostWebController::class, 'send'])->name('send')->whereNumber('id');
 });
 
 // Maestros: vehículos de la empresa

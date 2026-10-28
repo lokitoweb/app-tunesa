@@ -33,6 +33,12 @@ class FixedCost extends Model
         return $this->belongsTo(Supplier::class);
     }
 
+    /** Pago directo PG-… con el que se envió a Tesorería (una cuota, un pago) */
+    public function payment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Requisition::class, 'fixed_cost_id');
+    }
+
     public function companyAccount(): BelongsTo
     {
         return $this->belongsTo(CompanyBankAccount::class, 'company_bank_account_id');

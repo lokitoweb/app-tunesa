@@ -5,6 +5,7 @@ import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
+import { money } from '@/Modules/Core/format';
 
 const props = defineProps({
     installments: { type: Object, required: true },
@@ -24,7 +25,7 @@ const { ensureTenant } = useTenantPicker();
 const search = ref(props.filters.search || '');
 const expanded = ref(null);
 const activeAccounts = computed(() => props.accounts.filter((a) => a.is_active));
-const money = (v, c = 'PEN') => `${c === 'USD' ? 'US$' : c === 'EUR' ? '€' : 'S/'} ${Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 
 // Excel de la pestaña actual con la misma búsqueda
 const exportUrl = computed(() => `/treasury/export?${new URLSearchParams({ tab: props.filters.tab || 'to_schedule', ...(search.value ? { search: search.value } : {}) })}`);
@@ -108,6 +109,28 @@ function openEditDirect(p) {
     Object.assign(editDirectForm, { detail: p.requisition.detail, currency: p.requisition.currency, amount: p.requisition.amount });
     editDirectForm.clearErrors();
 }
+// Concepto del flujo de efectivo (sisgere flujo_requerimiento) y corrección de monto de una OC/OS sin pagos
+const flowTarget = ref(null);
+const flowForm = useForm({ cash_flow_concept: '' });
+function openFlow(p) {
+    flowTarget.value = p;
+    flowForm.cash_flow_concept = p.requisition.cash_flow_concept || '';
+    flowForm.clearErrors();
+}
+function submitFlow() {
+    flowForm.put(`/treasury/orders/${flowTarget.value.requisition.id}/cash-flow`, { preserveScroll: true, onSuccess: () => (flowTarget.value = null) });
+}
+const amountTarget = ref(null);
+const amountForm = useForm({ amount: '', reason: '' });
+function openAmount(p) {
+    amountTarget.value = p;
+    Object.assign(amountForm, { amount: p.requisition.amount, reason: '' });
+    amountForm.clearErrors();
+}
+function submitAmount() {
+    amountForm.put(`/treasury/orders/${amountTarget.value.requisition.id}/amount`, { preserveScroll: true, onSuccess: () => (amountTarget.value = null) });
+}
+
 function submitEditDirect() {
     editDirectForm.put(`/treasury/direct/${editDirect.value.requisition.id}`, { preserveScroll: true, onSuccess: () => (editDirect.value = null) });
 }
@@ -277,6 +300,8 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                         <button v-if="p.status === 'pending' && p.authorized && can.pay" type="button" class="btn btn-sm btn-success" :disabled="!p.requisition?.has_invoice" :title="p.requisition?.has_invoice ? '' : 'Registra la factura en el requerimiento'" @click="openPay(p)"><i class="bi bi-cash-coin me-1"></i>Pagar</button>
                                         <button v-if="p.requisition?.is_direct && p.status === 'pending' && p.paid_amount == 0 && can.pay" type="button" class="btn btn-sm btn-outline-secondary" title="Corregir pago directo" @click="openEditDirect(p)"><i class="bi bi-pencil-square"></i></button>
                                         <button v-if="p.requisition?.has_detraction && can.pay" type="button" class="btn btn-sm btn-outline-secondary" title="Detracción" @click="openDetraction(p)"><i class="bi bi-percent"></i></button>
+                                        <button v-if="p.requisition?.order && can.pay" type="button" class="btn btn-sm btn-outline-secondary" :title="p.requisition.cash_flow_concept || 'Sin concepto de flujo de efectivo'" aria-label="Concepto del flujo de efectivo" @click="openFlow(p)"><i class="bi" :class="p.requisition.cash_flow_concept ? 'bi-diagram-3' : 'bi-diagram-3 text-warning'"></i></button>
+                                        <button v-if="p.requisition?.is_order && p.status === 'pending' && p.paid_amount == 0 && can.pay" type="button" class="btn btn-sm btn-outline-secondary" title="Corregir monto de la orden" aria-label="Corregir monto de la orden" @click="openAmount(p)"><i class="bi bi-calculator"></i></button>
                                         <button v-if="p.payments.length" type="button" class="btn btn-sm btn-light" :title="expanded === p.id ? 'Ocultar pagos' : 'Ver pagos'" @click="expanded = expanded === p.id ? null : p.id">
                                             <i class="bi" :class="expanded === p.id ? 'bi-chevron-up' : 'bi-receipt'"></i> {{ p.payments.length }}
                                         </button>
@@ -442,6 +467,62 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                     <div class="modal-footer">
                         <button type="button" class="btn btn-light" @click="correctTarget = null">Cancelar</button>
                         <button type="submit" class="btn btn-primary" :disabled="correctForm.processing">Guardar corrección</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Concepto del flujo de efectivo -->
+        <div v-if="flowTarget" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="flow-title" style="background: rgba(0,0,0,.45)" @click.self="flowTarget = null">
+            <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+                <form class="modal-content" novalidate @submit.prevent="submitFlow">
+                    <div class="modal-header">
+                        <h2 id="flow-title" class="modal-title h5">Flujo de efectivo · {{ flowTarget.requisition.order }}</h2>
+                        <button type="button" class="btn-close" aria-label="Cerrar" @click="flowTarget = null"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label small fw-semibold" for="flow-concept">Concepto *</label>
+                        <select id="flow-concept" v-model="flowForm.cash_flow_concept" class="form-select" :class="{ 'is-invalid': flowForm.errors.cash_flow_concept }">
+                            <option value="" disabled>Elige…</option>
+                            <optgroup v-for="(concepts, activity) in (direct?.cash_flow_concepts || {})" :key="activity" :label="activity">
+                                <option v-for="cc in concepts" :key="cc" :value="cc">{{ cc }}</option>
+                            </optgroup>
+                        </select>
+                        <div class="invalid-feedback">{{ flowForm.errors.cash_flow_concept }}</div>
+                        <div class="form-text">Solo clasifica el pago en el flujo de efectivo; no cambia montos.</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @click="flowTarget = null">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" :disabled="flowForm.processing">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Corregir el monto de una OC/OS sin pagos -->
+        <div v-if="amountTarget" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="amt-title" style="background: rgba(0,0,0,.45)" @click.self="amountTarget = null">
+            <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+                <form class="modal-content" novalidate @submit.prevent="submitAmount">
+                    <div class="modal-header">
+                        <h2 id="amt-title" class="modal-title h5">Corregir monto · {{ amountTarget.requisition.order }}</h2>
+                        <button type="button" class="btn-close" aria-label="Cerrar" @click="amountTarget = null"></button>
+                    </div>
+                    <div class="modal-body row g-3">
+                        <div class="col-12 small text-body-secondary">Se recalculan la detracción y el neto, se rehacen las cuotas (mismo número) y vuelven a necesitar programación y autorización. Solo si la orden no tiene pagos.</div>
+                        <div class="col-sm-5">
+                            <label class="form-label small fw-semibold" for="amt-amount">Nuevo total ({{ amountTarget.requisition.currency }}) *</label>
+                            <input id="amt-amount" v-model="amountForm.amount" type="number" min="0.01" step="0.01" class="form-control" :class="{ 'is-invalid': amountForm.errors.amount }" />
+                            <div class="invalid-feedback">{{ amountForm.errors.amount }}</div>
+                        </div>
+                        <div class="col-sm-7">
+                            <label class="form-label small fw-semibold" for="amt-reason">Motivo *</label>
+                            <input id="amt-reason" v-model.trim="amountForm.reason" maxlength="500" class="form-control" :class="{ 'is-invalid': amountForm.errors.reason }" placeholder="Ej. la factura incluye flete" />
+                            <div class="invalid-feedback">{{ amountForm.errors.reason }}</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @click="amountTarget = null">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" :disabled="amountForm.processing">Corregir monto</button>
                     </div>
                 </form>
             </div>

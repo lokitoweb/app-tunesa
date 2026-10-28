@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
+import { money } from '@/Modules/Core/format';
 
 const props = defineProps({
     period: { type: String, required: true },
@@ -15,7 +16,7 @@ const props = defineProps({
 });
 
 const { ensureTenant } = useTenantPicker();
-const money = (v) => `S/ ${Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 const badge = { 'Por programar': 'text-bg-secondary', Programado: 'text-bg-primary', Autorizado: 'text-bg-info', Amortizado: 'text-bg-warning', Pagado: 'text-bg-success' };
 
 const showImport = ref(false);

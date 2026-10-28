@@ -41,8 +41,41 @@ class FixedCostCashFlowTest extends TestCase
 
         [$first, $second] = [$costs[0], $costs[1]];
         $this->actingAs($accountant)->put("/fixed-costs/{$first->id}", ['amount' => 1550, 'date' => '2026-01-31', 'detail' => 'Alquiler + mora'])->assertSessionHasNoErrors();
-        $this->actingAs($accountant)->post("/fixed-costs/{$first->id}/pay", ['paid_at' => '2026-02-01', 'company_bank_account_id' => $account->id, 'operation_number' => 'OP-9'])->assertSessionHasNoErrors();
-        $this->actingAs($accountant)->post("/fixed-costs/{$first->id}/pay", ['paid_at' => '2026-02-01', 'company_bank_account_id' => $account->id, 'operation_number' => 'X'])->assertStatus(422);
+
+        // Como en sisgere, la cuota se paga por la cola de Tesorería (antes se marcaba pagada aquí, sin
+        // autorización ni voucher): se envía como PG con su orden de pago, se programa, la autoriza la
+        // persona designada y otra la paga; al pagarse, la cuota queda pagada sola.
+        \Illuminate\Support\Facades\Storage::fake('private');
+        \Illuminate\Support\Facades\Notification::fake();
+        $boss = $this->makeUser($acme, 'manager');
+        \App\Modules\Finance\Models\Signatory::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'user_id' => $boss->id, 'position' => 'Gerente', 'can_authorize' => true]);
+        $landlord = \App\Modules\Finance\Models\Supplier::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Inmobiliaria Norte SAC', 'ruc' => '20444444444']);
+
+        $send = ['supplier_id' => $landlord->id, 'due_date' => '2026-02-05', 'payment_method' => 'TRANSFERENCIA', 'file' => $this->fakePdf('recibo.pdf')];
+        $this->actingAs($accountant)->post("/fixed-costs/{$first->id}/send", ['supplier_id' => ''] + $send)->assertSessionHasErrors('supplier_id');
+        $this->post("/fixed-costs/{$first->id}/send", $send)->assertSessionHasNoErrors();
+
+        $pg = Requisition::withoutGlobalScopes()->where('fixed_cost_id', $first->id)->sole();
+        $this->assertTrue($pg->is_direct_payment);
+        $this->assertSame(['1550.00', 'Pago a proveedores de bienes y servicios', $landlord->id], [$pg->amount, $pg->cash_flow_concept, $pg->supplier_id]);
+        $this->assertStringStartsWith('ORDP OP-', $pg->invoice_number);
+
+        // Una cuota, un pago: ni se reenvía ni se edita o anula mientras está en Tesorería
+        $this->post("/fixed-costs/{$first->id}/send", $send)->assertStatus(422);
+        $this->put("/fixed-costs/{$first->id}", ['amount' => 1, 'date' => '2026-01-31', 'detail' => 'x'])->assertStatus(422);
+        $this->post("/fixed-costs/{$first->id}/cancel")->assertStatus(422);
+        $this->assertNull($first->fresh()->paid_at, 'enviar no es pagar');
+
+        $p = $pg->paymentInstallments()->sole();
+        $this->post("/treasury/installments/{$p->id}/schedule", ['scheduled_for' => '2026-02-05'])->assertSessionHasNoErrors();
+        $this->actingAs($boss)->post("/treasury/installments/{$p->id}/authorize")->assertSessionHasNoErrors();
+        $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", ['paid_at' => '2026-02-01', 'amount' => 1550,
+            'company_bank_account_id' => $account->id, 'operation_number' => 'OP-9', 'voucher' => $this->fakePdf('v.pdf')])->assertSessionHasNoErrors();
+
+        $first->refresh();
+        $this->assertSame(['2026-02-01', 'OP-9', $account->id], [$first->paid_at->toDateString(), $first->operation_number, $first->company_bank_account_id]);
+        // Ahora sí aparece en "Cancelaciones por banco" (lo pagado por cuenta)
+        $this->assertSame(1, PaymentCancellation::withoutGlobalScopes()->where('payment_installment_id', $p->id)->count());
 
         // Anular desde la cuota 2 anula 2 y 3; la pagada queda intacta
         $this->actingAs($accountant)->post("/fixed-costs/{$second->id}/cancel", ['rest' => true])->assertSessionHasNoErrors();
@@ -50,6 +83,15 @@ class FixedCostCashFlowTest extends TestCase
         $this->assertSame('1550.00', $first->fresh()->amount);
 
         $this->actingAs($this->makeUser($acme, 'logistics'))->get('/fixed-costs')->assertForbidden();
+    }
+
+    public function test_default_cash_flow_concepts_exist_in_the_catalog(): void
+    {
+        $catalog = Requisition::cashFlowConcepts();
+        $defaults = config('finance.cash_flow_defaults');
+        foreach ([$defaults['advance'], $defaults['payroll'], ...array_values($defaults['fixed_cost'])] as $concept) {
+            $this->assertContains($concept, $catalog, "«{$concept}» no está en finance.cash_flow_concepts");
+        }
     }
 
     public function test_cash_flow_splits_actual_and_projected_by_month_and_currency(): void

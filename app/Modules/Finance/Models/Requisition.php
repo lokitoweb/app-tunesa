@@ -58,7 +58,7 @@ class Requisition extends Model
         'purchase_order_number', 'service_order_number', 'ordered_at', 'received_at', 'invoice_number', 'invoice_path', 'invoice_date', 'vehicle_id', 'employee_id', 'payroll_period', 'payroll_concept', 'payment_origin', 'sale_type', 'priority',
         'payment_method', 'reviewed_by', 'reviewed_by_id', 'reviewed_at', 'currency', 'amount', 'amount_payable', 'has_detraction',
         'detraction_number', 'detraction_amount', 'detraction_percent', 'detraction_reason',
-        'installments', 'attachments',
+        'installments', 'attachments', 'fixed_cost_id', 'discount_amount',
         'prices_include_igv', 'igv_rate', 'taxable_amount', 'igv_amount', 'is_direct_payment', 'advance_amount',
         'quote_payment_terms', 'delivery_mode', 'quote_notes', 'cash_flow_concept',
     ];
@@ -71,6 +71,7 @@ class Requisition extends Model
         'invoice_date'   => 'date',
         'amount'         => 'decimal:2',
         'amount_payable' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
         'detraction_amount' => 'decimal:2',
         'has_detraction' => 'boolean',
         'is_express'     => 'boolean',

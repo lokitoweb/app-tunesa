@@ -38,7 +38,7 @@ class FixedCostWebController extends Controller
         $query = fn () => FixedCost::whereBetween('date', [$start->toDateString(), $start->copy()->endOfMonth()->toDateTimeString()]) // fin del día: SQLite guarda la fecha con hora
             ->when($class, fn ($q) => $q->where('classification', $class));
 
-        $rows = $query()->with('companyAccount:id,bank,account_number,currency,alias')->orderBy('date')->orderBy('id')->get();
+        $rows = $query()->with(['companyAccount:id,bank,account_number,currency,alias', 'payment:id,fixed_cost_id,code,series,number,stage'])->orderBy('date')->orderBy('id')->get();
         if ($request->boolean('export')) {
             $path = tempnam(sys_get_temp_dir(), 'cf') . '.xlsx';
             \App\Modules\Core\Support\SpreadsheetRows::export($path, "Costos fijos {$month}", ['Fecha', 'Clasificación', 'A quién se paga', 'Detalle', 'Cuota', 'Moneda', 'Monto', 'Estado', 'Pagado el', 'Cuenta de origen', 'N.º operación'],
@@ -54,7 +54,8 @@ class FixedCostWebController extends Controller
 
         return Inertia::render('Finance/Pages/FixedCosts/Index', [
             'costs'      => $rows->map(fn (FixedCost $c) => [
-                ...$c->only(['id', 'classification', 'supplier_name', 'bank', 'account_number', 'detail', 'currency', 'installment', 'batch', 'is_active', 'operation_number']),
+                ...$c->only(['id', 'supplier_id', 'classification', 'supplier_name', 'bank', 'account_number', 'detail', 'currency', 'installment', 'batch', 'is_active', 'operation_number']),
+                'payment'  => $c->payment ? ['id' => $c->payment->id, 'code' => $c->payment->code()] : null,
                 'amount'   => (float) $c->amount,
                 'date'     => $c->date->toDateString(),
                 'of'       => (int) ($ofBatch[$c->batch] ?? 1),
@@ -67,7 +68,8 @@ class FixedCostWebController extends Controller
                 'pending' => $sum($active->whereNull('paid_at')),
             ],
             'filters'    => ['month' => $month, 'classification' => $class],
-            'options'    => ['classifications' => FixedCost::CLASSIFICATIONS, 'currencies' => Requisition::CURRENCIES],
+            'options'    => ['classifications' => FixedCost::CLASSIFICATIONS, 'currencies' => Requisition::CURRENCIES,
+                'payment_methods' => Requisition::PAYMENT_METHODS, 'cash_flow_concepts' => config('finance.cash_flow_concepts')],
             'suppliers'  => Supplier::where('is_active', true)->orderBy('name')->limit(1000)->get(['id', 'name']),
             'accounts'   => CompanyBankAccount::where('is_active', true)->orderBy('bank')->get()->map(fn ($a) => ['id' => $a->id, 'label' => $a->label()]),
             'today'      => now(tenant_timezone())->toDateString(),
@@ -146,29 +148,53 @@ class FixedCostWebController extends Controller
         return back()->with('success', $count > 1 ? "{$count} cuotas anuladas." : 'Cuota anulada.');
     }
 
-    public function pay(Request $request, int $id): RedirectResponse
+    /**
+     * Envía la cuota a Tesorería como pago directo PG-… (sisgere FrmReqProg: cada cuota era una ODP).
+     * Allí se programa, la autoriza la persona designada y otra la paga con voucher; al pagarse,
+     * la cuota queda pagada sola. Antes se marcaba pagada aquí mismo, sin autorización ni voucher.
+     */
+    public function send(Request $request, int $id): RedirectResponse
     {
         $cost = $this->unpaid($id);
         abort_unless($cost->is_active, 422, 'La cuota está anulada.');
+        $tenant = \App\Modules\Core\Models\Tenant::findOrFail($cost->tenant_id);
         $data = $request->validate([
-            'paid_at'                 => ['required', 'date', 'before_or_equal:today'],
-            'company_bank_account_id' => ['required', Rule::exists('company_bank_accounts', 'id')->where('tenant_id', $cost->tenant_id)->where('is_active', true)],
-            'operation_number'        => ['required', 'string', 'max:50'],
-        ], self::MESSAGES, ['paid_at' => 'la fecha de pago', 'company_bank_account_id' => 'la cuenta de origen', 'operation_number' => 'el número de operación']);
+            // Por defecto el proveedor del costo; si se registró solo con nombre, hay que elegirlo
+            'supplier_id'       => ['required', Rule::exists('suppliers', 'id')->where('tenant_id', $cost->tenant_id)->where('is_active', true)->whereNull('deleted_at')],
+            'due_date'          => ['required', 'date'],
+            'payment_method'    => ['required', Rule::in(Requisition::PAYMENT_METHODS)],
+            'cash_flow_concept' => ['nullable', Rule::in(Requisition::cashFlowConcepts())],
+            'file'              => ['nullable', 'file', 'mimes:pdf', 'max:5120', \App\Modules\Core\Rules\SafeUpload::pdf()],
+        ], ['exists' => 'Elige un proveedor activo.', 'file.mimes' => 'El documento debe ser PDF.'],
+            ['supplier_id' => 'el proveedor', 'due_date' => 'el vencimiento', 'payment_method' => 'la forma de pago']);
 
-        // Solo si sigue impaga y activa en este instante: dos clics no pagan dos veces
-        $updated = FixedCost::whereKey($cost->id)->whereNull('paid_at')->where('is_active', true)->update($data);
-        abort_if($updated === 0, 422, 'La cuota ya está pagada o anulada.');
-        $cost->refresh();
-        $this->audit->log('fixed_cost.paid', $cost, ['batch' => $cost->batch, 'installment' => $cost->installment, 'operation' => $data['operation_number']]);
+        $defaults = config('finance.cash_flow_defaults.fixed_cost');
+        $path = $request->file('file')?->store("finance/{$tenant->id}/invoices", TreasuryWebController::VOUCHER_DISK);
+        try {
+            $r = \App\Modules\Finance\Services\DirectPayments::create($tenant, $request->user(), [
+                'supplier_id'       => $data['supplier_id'],
+                'detail'            => "Costo fijo · {$cost->classification} · {$cost->detail} (cuota {$cost->installment})",
+                'document_type'     => 'ORDP', 'document_number' => null, 'document_date' => now(tenant_timezone())->toDateString(),
+                'currency'          => $cost->currency, 'amount' => (float) $cost->amount, 'due_date' => $data['due_date'],
+                'payment_method'    => $data['payment_method'],
+                'cash_flow_concept' => $data['cash_flow_concept'] ?? ($defaults[$cost->classification] ?? $defaults['*']),
+            ], $path, $cost);
+        } catch (\Throwable $e) {
+            if ($path) {
+                \Illuminate\Support\Facades\Storage::disk(TreasuryWebController::VOUCHER_DISK)->delete($path);
+            }
+            throw $e;
+        }
+        $this->audit->log('fixed_cost.sent', $cost, ['batch' => $cost->batch, 'installment' => $cost->installment, 'payment' => $r->code()]);
 
-        return back()->with('success', 'Cuota de costo fijo pagada.');
+        return back()->with('success', "Cuota enviada a Tesorería como {$r->code()}: queda por programar y autorizar.");
     }
 
     private function unpaid(int $id): FixedCost
     {
         $cost = FixedCost::findOrFail($id);
         abort_if($cost->paid_at, 422, 'La cuota ya está pagada.');
+        abort_if($cost->payment()->exists(), 422, 'La cuota ya está en Tesorería: se gestiona desde allí.');
 
         return $cost;
     }

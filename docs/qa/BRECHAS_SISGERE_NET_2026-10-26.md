@@ -74,3 +74,13 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 - Liquidación: el .NET **no la calculaba**, se escribía a mano; el web importa el monto: equivalente.
 - Login: el .NET era empresa + clave sin usuario; el web, usuario con roles.
 - Seguridad: el .NET tiene la contraseña del correo Gmail escrita en el código (FrmReq.vb:2575 y 3774), el token de Migo también (FrmReq.vb:1559, FrmReqProg.vb) y Crystal conecta como "sa". **Conviene cambiar esas contraseñas y pedir a Migo un token nuevo si siguen vigentes.**
+
+## Segunda auditoría (27/10/2026, código VB línea por línea)
+| Brecha | Estado | Dónde |
+|---|---|---|
+| Costos fijos sin pasar por Tesorería (sin autorización ni voucher) | Hecho | Costos fijos › Enviar a Tesorería: PG con su OP, se programa, autoriza y paga; la cuota queda pagada sola |
+| Descuento en monto sobre el total de la OC/OS (Txtdescuento) | Hecho | Emitir orden › Descuento; antes de la detracción; en el detalle y el PDF |
+| Concepto del flujo de efectivo desde Tesorería (flujo_requerimiento) | Hecho | Tesorería › botón de flujo en cada orden, también ya pagada |
+| Corregir el monto de una OC/OS (actualizar_monto_requerim) | Hecho | Tesorería › Corregir monto: rehace las cuotas, sin pagos, con motivo |
+| Importar estado de cuenta del banco con ingresos (FRMBANCOS) | Pendiente | Falta un estado de cuenta real en Excel para el formato |
+| Cuotas mensuales por calendario, proveedor en caja chica, ciudad al importar planilla | Pendiente (menor) | |

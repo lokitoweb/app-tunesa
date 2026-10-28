@@ -159,7 +159,7 @@ class RequisitionWebController extends Controller
             'requisition' => [
                 ...$r->only(['id', 'detail', 'area', 'requested_by', 'email', 'plate', 'km', 'agency', 'site', 'delivery_place',
                     'classification', 'stage', 'priority', 'notes', 'reviewed_by', 'payment_terms', 'payment_method', 'payment_origin',
-                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number', 'is_express', 'is_direct_payment', 'amount_payable', 'delivery_mode', 'quote_payment_terms', 'quote_notes', 'cash_flow_concept']),
+                    'currency', 'amount', 'installments', 'purchase_order_number', 'service_order_number', 'is_express', 'is_direct_payment', 'amount_payable', 'discount_amount', 'delivery_mode', 'quote_payment_terms', 'quote_notes', 'cash_flow_concept']),
                 'quote_requests' => $r->quoteRequests()->with('supplier:id,name,ruc,email')->orderBy('id')->get()->map(fn ($q) => [
                     'id' => $q->id, 'code' => $q->code, 'supplier' => $q->supplier?->name, 'has_email' => (bool) $q->supplier?->email,
                     'emailed_at' => $q->emailed_at?->timezone(tenant_timezone())->format('d/m/Y H:i'), 'supplier_id' => $q->supplier_id,
@@ -406,6 +406,8 @@ class RequisitionWebController extends Controller
             'first_due_date' => ['required', 'date'],
             'interval_days'  => ['required', 'integer', 'min:1', 'max:365'],
             'cash_flow_concept' => ['nullable', Rule::in(Requisition::cashFlowConcepts())],
+            // Descuento en monto sobre el total de la orden (sisgere Txtdescuento)
+            'discount_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'has_detraction' => ['boolean'],
             'detraction_reason' => ['nullable', 'required_if_accepted:has_detraction', Rule::in(array_keys(config('finance.detraction_reasons')))],
             // Cuotas escritas a mano (sisgere: lista de cuotas editable); vacío = cuotas iguales
@@ -430,6 +432,12 @@ class RequisitionWebController extends Controller
         // Con precios por ítem, el total de la orden sale de ellos (con su IGV); sin precios, de la cotización
         $quotation = $r->quotations()->findOrFail($data['quotation_id']);
         $total = $pricing ? $pricing['total'] : (float) $quotation->amount;
+        // Descuento de la orden: antes de la detracción, como en el ERP de escritorio
+        $orderDiscount = round((float) ($data['discount_amount'] ?? 0), 2);
+        if ($orderDiscount >= $total) {
+            throw ValidationException::withMessages(['discount_amount' => 'El descuento debe ser menor que el total de la orden (' . FinanceDocumentPdf::money($quotation->currency, $total) . ').']);
+        }
+        $total = round($total - $orderDiscount, 2);
 
         // Detracción (FrmReq): % del motivo, en soles enteros; al proveedor se le paga el neto
         $hasDetraction = (bool) ($data['has_detraction'] ?? false);
@@ -452,7 +460,7 @@ class RequisitionWebController extends Controller
         $schedule = $payable <= 0 ? [] : OrderPricing::installments($payable, (int) $data['installments'], $data['first_due_date'], (int) $data['interval_days'], $data['schedule'] ?? null)
             ?? throw ValidationException::withMessages(['schedule' => 'Las cuotas deben sumar el neto a pagar: ' . FinanceDocumentPdf::money($quotation->currency, $payable) . '.']);
 
-        $number = DB::transaction(function () use ($r, $data, $request, $pricing, $quotation, $total, $hasDetraction, $reason, $percent, $detraction, $payable, $schedule, $advances, $advance) {
+        $number = DB::transaction(function () use ($r, $data, $request, $pricing, $quotation, $total, $orderDiscount, $hasDetraction, $reason, $percent, $detraction, $payable, $schedule, $advances, $advance) {
             // Doble clic o dos pestañas: el segundo envío espera al primero y ya no encuentra "quoting"
             // (si no, se emitían dos órdenes con dos juegos de cuotas: la misma deuda pagable dos veces)
             $fresh = Requisition::whereKey($r->id)->lockForUpdate()->first();
@@ -484,7 +492,7 @@ class RequisitionWebController extends Controller
             $r->update([
                 // Cubierta del todo por anticipos: no quedan cuotas y la orden queda pagada
                 'stage' => $schedule ? 'ordered' : 'paid', $column => $number, 'ordered_at' => now(),
-                'supplier_id' => $quotation->supplier_id, 'amount' => $total, 'amount_payable' => $payable, 'advance_amount' => $advance > 0 ? $advance : null,
+                'supplier_id' => $quotation->supplier_id, 'amount' => $total, 'discount_amount' => $orderDiscount > 0 ? $orderDiscount : null, 'amount_payable' => $payable, 'advance_amount' => $advance > 0 ? $advance : null,
                 'currency' => $quotation->currency, 'installments' => count($schedule),
                 'cash_flow_concept' => $data['cash_flow_concept'] ?? $r->cash_flow_concept,
                 'has_detraction' => $hasDetraction, 'detraction_reason' => $reason, 'detraction_percent' => $percent, 'detraction_amount' => $detraction,
