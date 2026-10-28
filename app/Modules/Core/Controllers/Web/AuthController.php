@@ -88,7 +88,7 @@ class AuthController extends Controller
             return redirect()->route('login')
                 ->withInput($request->only('email'))
                 ->withErrors(['email' => 'Los colaboradores de campo deben ingresar mediante la aplicación móvil '
-                    . \App\Modules\Core\Models\TenantSetting::forTenant($user->tenant)->tradeName() . '.']);
+                    . rtrim(\App\Modules\Core\Models\TenantSetting::forTenant($user->tenant)->tradeName(), '.') . '.']);
         }
 
         app(LoginGuard::class)->registerSuccess($user, $request);
