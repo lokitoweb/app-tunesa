@@ -83,8 +83,9 @@ class AuthController extends Controller
                     : collect($e->errors())->flatten()->first()]);
         }
 
-        // 6. Validar que el rol tenga acceso al panel web
-        if (! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view')) {
+        // 6. Panel web, o Mi espacio (portal del colaborador) para quien no tiene panel
+        $portal = ! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view') && $user->hasPermission('portal.access');
+        if (! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view') && ! $portal) {
             return redirect()->route('login')
                 ->withInput($request->only('email'))
                 ->withErrors(['email' => 'Los colaboradores de campo deben ingresar mediante la aplicación móvil '
@@ -103,9 +104,11 @@ class AuthController extends Controller
         }
 
         // Evitar que un url.intended residual redirija a logout, login o acciones POST
-        $intended = $request->session()->pull('url.intended', route('dashboard'));
-        if (! $intended || str_contains($intended, '/logout') || str_contains($intended, '/login') || str_contains($intended, '/reveal') || str_contains($intended, '/_test')) {
-            $intended = route('dashboard');
+        $home = $portal ? route('portal.home') : route('dashboard');
+        $intended = $request->session()->pull('url.intended', $home);
+        if (! $intended || str_contains($intended, '/logout') || str_contains($intended, '/login') || str_contains($intended, '/reveal') || str_contains($intended, '/_test')
+            || ($portal && ! str_starts_with((string) parse_url($intended, PHP_URL_PATH), '/mi-espacio'))) {
+            $intended = $home;
         }
 
         return redirect()->to($intended)

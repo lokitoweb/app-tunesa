@@ -63,6 +63,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Legajo, ficha laboral y dotación (Fase 3)
         'profile.manage_own'      => ['Gestionar mi legajo, datos de pago y tallas', 'profiles'],
+        'portal.access'           => ['Entrar a Mi espacio por la web (mi asistencia, perfil y boletas)', 'profiles'],
         'profiles.manage'         => ['Editar fichas laborales (régimen, CTS, cuentas)', 'profiles'],
         'profiles.view_sensitive' => ['Ver números de cuenta completos', 'profiles'],
         'documents.review'        => ['Revisar y aprobar documentos del legajo', 'profiles'],
@@ -199,6 +200,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'shifts.view_own', 'attendance.mark', 'attendance.view_own',
                 'leave.request', 'payslips.view_own', 'profile.manage_own', 'training.view_own',
                 'benefits.view_own', 'birthdays.view', 'company_docs.view_own', 'announcements.view_own',
+                'portal.access',
             ],
         ],
     ];

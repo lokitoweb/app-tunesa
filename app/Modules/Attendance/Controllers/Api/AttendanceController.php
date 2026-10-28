@@ -169,30 +169,7 @@ class AttendanceController extends Controller
 
         $month = $request->input('month', now()->month);
         $year  = $request->input('year',  now()->year);
-
-        // Mismo cálculo que el calendario del panel (registra faltas pendientes del mes)
-        $calendar = app(\App\Modules\Attendance\Services\AbsenceService::class)->monthFor($employee, (int) $year, (int) $month);
-        $states = collect($calendar['cells'])->filter()->countBy('state');
-
-        $attendances = Attendance::where('user_id', $employee->id)
-            ->forPeriod($year, $month)
-            ->with(['branch', 'shift'])
-            ->orderBy('work_date', 'desc')
-            ->paginate(31); // Max días del mes
-
-        // Resumen del período
-        $summary = [
-            'total_days'     => $attendances->total(),
-            // Conteos del calendario: lo que ve RRHH en el panel es lo que ve la persona
-            'present'        => (int) ($states['present'] ?? 0),
-            'late'           => (int) ($states['late'] ?? 0),
-            'absent'         => (int) ($states['absent'] ?? 0),
-            'excused'        => (int) ($states['excused'] ?? 0),
-            // Jornada (tope del turno) + horas extra aprobadas: lo mismo que paga la planilla
-            'total_hours'    => round($attendances->sum(fn ($a) => $a->payableHours()), 1),
-            'overtime_hours' => round($attendances->sum('overtime_hours'), 1),
-            'late_minutes'   => $attendances->sum('late_minutes'),
-        ];
+        ['attendances' => $attendances, 'summary' => $summary] = self::monthFor($employee, (int) $year, (int) $month);
 
         return response()->json([
             'success'  => true,
@@ -204,6 +181,37 @@ class AttendanceController extends Controller
                 'total'        => $attendances->total(),
             ],
         ]);
+    }
+
+    /**
+     * Jornadas del mes de una persona y su resumen (la app y el portal web muestran lo mismo).
+     *
+     * @return array{attendances: \Illuminate\Pagination\LengthAwarePaginator, summary: array<string, int|float>}
+     */
+    public static function monthFor(User $employee, int $year, int $month): array
+    {
+        // Mismo cálculo que el calendario del panel (registra faltas pendientes del mes)
+        $calendar = app(\App\Modules\Attendance\Services\AbsenceService::class)->monthFor($employee, $year, $month);
+        $states = collect($calendar['cells'])->filter()->countBy('state');
+
+        $attendances = Attendance::where('user_id', $employee->id)
+            ->forPeriod($year, $month)
+            ->with(['branch', 'shift'])
+            ->orderBy('work_date', 'desc')
+            ->paginate(31); // Max días del mes
+
+        return ['attendances' => $attendances, 'summary' => [
+            'total_days'     => $attendances->total(),
+            // Conteos del calendario: lo que ve RRHH en el panel es lo que ve la persona
+            'present'        => (int) ($states['present'] ?? 0),
+            'late'           => (int) ($states['late'] ?? 0),
+            'absent'         => (int) ($states['absent'] ?? 0),
+            'excused'        => (int) ($states['excused'] ?? 0),
+            // Jornada (tope del turno) + horas extra aprobadas: lo mismo que paga la planilla
+            'total_hours'    => round($attendances->sum(fn ($a) => $a->payableHours()), 1),
+            'overtime_hours' => round($attendances->sum('overtime_hours'), 1),
+            'late_minutes'   => $attendances->sum('late_minutes'),
+        ]];
     }
 
     // =========================================================================
@@ -551,19 +559,7 @@ class AttendanceController extends Controller
             ], 409);
         }
 
-        $data = [
-            'notes'                => $validated['notes'],
-            'justification_status' => 'pending',
-            'reviewed_by'          => null,
-            'reviewed_at'          => null,
-        ];
-
-        if ($request->hasFile('file')) {
-            $data['justification_file'] = $request->file('file')
-                ->store("justifications/{$attendance->tenant_id}/{$attendance->user_id}", 'private');
-        }
-
-        $attendance->update($data);
+        $attendance->submitJustification($validated['notes'], $request->file('file'));
 
         return response()->json([
             'success' => true,
@@ -622,7 +618,7 @@ class AttendanceController extends Controller
      * Determina qué acción debe mostrar la app móvil según el estado actual.
      * La UI de Flutter usa esto para saber qué botón renderizar.
      */
-    private function determineNextAction(?Attendance $attendance): array
+    public static function determineNextAction(?Attendance $attendance): array
     {
         if (! $attendance || is_null($attendance->clock_in_at)) {
             return ['action' => 'clock_in', 'label' => 'Marcar Entrada', 'icon' => 'login'];

@@ -330,7 +330,8 @@ class PayslipController extends Controller
     // HELPERS
     // =========================================================================
 
-    private function formatPayslip(Payslip $payslip, bool $detailed = false): array
+    /** Boleta como la ven la app y el portal web (Mi espacio) */
+    public static function formatPayslip(Payslip $payslip, bool $detailed = false): array
     {
         $data = [
             'id'             => $payslip->id,
@@ -364,10 +365,16 @@ class PayslipController extends Controller
      * "Boletas de pago" apagado en la configuración de la app: el colaborador
      * no puede listarlas ni descargarlas (RRHH y admins sí).
      */
+    /** Puede ver sus boletas: quien las gestiona, o todos si la empresa las muestra al colaborador */
+    public static function visibleTo(\App\Modules\Core\Models\User $user): bool
+    {
+        return $user->hasPermission('payslips.manage') || \App\Modules\Core\Models\CompanyConfiguration::current()->allows('mobile_payslips_enabled');
+    }
+
     private function moduleDisabledFor(\App\Modules\Core\Models\User $user): ?JsonResponse
     {
         // Quien gestiona boletas (RR. HH., admin) sigue entrando; el resto (supervisores incluidos) no
-        if ($user->hasPermission('payslips.manage') || \App\Modules\Core\Models\CompanyConfiguration::current()->allows('mobile_payslips_enabled')) {
+        if (self::visibleTo($user)) {
             return null;
         }
 

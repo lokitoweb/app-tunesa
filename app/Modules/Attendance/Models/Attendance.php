@@ -268,6 +268,24 @@ class Attendance extends Model
     }
 
     /**
+     * El colaborador justifica el día (tardanza, falta, marca olvidada): queda pendiente de
+     * revisión. La app y el portal web usan esta misma regla. Una ya aprobada no se reemplaza.
+     */
+    public function submitJustification(string $notes, ?\Illuminate\Http\UploadedFile $file = null): void
+    {
+        if ($this->justification_status === 'approved') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['notes' => 'Esta justificación ya fue aprobada.']);
+        }
+
+        $data = ['notes' => $notes, 'justification_status' => 'pending', 'reviewed_by' => null, 'reviewed_at' => null];
+        if ($file) {
+            $data['justification_file'] = $file->store("justifications/{$this->tenant_id}/{$this->user_id}", 'private');
+        }
+
+        $this->update($data);
+    }
+
+    /**
      * Aprueba o rechaza la justificación (panel y API usan esta misma regla).
      * Solo si está pendiente; la nota del revisor se agrega sin borrar lo que escribió el colaborador.
      */

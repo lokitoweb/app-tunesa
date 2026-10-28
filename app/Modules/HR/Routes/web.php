@@ -126,3 +126,15 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::post('/overtime/{id}', [ApprovalWebController::class, 'reviewOvertime'])->name('overtime.review')->whereNumber('id');
     });
 });
+
+// Mi espacio: portal web del colaborador (sin panel). Solo lo propio; respeta lo que la empresa
+// muestra al colaborador en la app. SetPortalTenant exige portal.access y activa su empresa.
+Route::prefix('mi-espacio')->name('portal.')->middleware(['auth', \App\Modules\Core\Middleware\SetPortalTenant::class])->group(function () {
+    Route::get('/', [\App\Modules\HR\Controllers\Web\PortalController::class, 'home'])->name('home');
+    Route::get('/asistencia', [\App\Modules\HR\Controllers\Web\PortalController::class, 'attendance'])->name('attendance');
+    Route::post('/asistencia/{id}/justificacion', [\App\Modules\HR\Controllers\Web\PortalController::class, 'justify'])->name('justify')->whereNumber('id')->middleware('throttle:10,1');
+    Route::get('/perfil', [\App\Modules\HR\Controllers\Web\PortalController::class, 'profile'])->name('profile');
+    Route::put('/perfil/password', [\App\Modules\HR\Controllers\Web\PortalController::class, 'password'])->name('password')->middleware('throttle:6,1');
+    Route::get('/boletas', [\App\Modules\HR\Controllers\Web\PortalController::class, 'payslips'])->name('payslips');
+    Route::get('/boletas/{id}/descargar', [\App\Modules\HR\Controllers\Web\PortalController::class, 'downloadPayslip'])->name('payslips.download')->whereNumber('id');
+});

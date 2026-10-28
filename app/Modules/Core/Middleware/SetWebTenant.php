@@ -51,6 +51,11 @@ class SetWebTenant
 
         $tenant = $user->tenant;
 
+        // Sin panel pero con portal: su lugar es Mi espacio (p. ej. "/" o un enlace viejo del panel)
+        if ($tenant?->isActive() && $user->status === 'active' && ! $user->hasPermission('dashboard.view') && $user->hasPermission('portal.access')) {
+            return $request->header('X-Inertia') ? Inertia::location(route('portal.home')) : redirect()->route('portal.home');
+        }
+
         if (! $tenant || ! $tenant->isActive() || $user->status !== 'active' || ! $user->hasPermission('dashboard.view')) {
             Auth::logout();
             $request->session()->invalidate();
@@ -247,7 +252,8 @@ class SetWebTenant
         return Str::is(self::GLOBAL_FORM_ROUTES, $route);
     }
 
-    private function activate(Tenant $tenant): void
+    /** Activa la empresa para la petición (scopes, zona horaria, módulos); lo usa también el portal */
+    public function activate(Tenant $tenant): void
     {
         abort_if(ModuleRegistry::blocks(request(), $tenant), 403, 'Este módulo no está activo para tu empresa.');
 

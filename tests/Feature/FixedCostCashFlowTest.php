@@ -127,6 +127,6 @@ class FixedCostCashFlowTest extends TestCase
             ->where('actual', [])->where('projected.0.months.2026-03', 99));
 
         app(TenantContext::class)->clear();
-        $this->actingAs($this->makeUser($acme, 'employee'))->get('/cash-flow')->assertRedirect('/login');
+        $this->actingAs($this->makeUser($acme, 'employee'))->get('/cash-flow')->assertRedirect(route('portal.home')); // sin panel: a su portal
     }
 }

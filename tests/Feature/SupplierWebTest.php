@@ -81,7 +81,7 @@ class SupplierWebTest extends TestCase
         $other = $this->makeTenant('other');
         $foreign = Supplier::withoutGlobalScopes()->create(['tenant_id' => $other->id, 'name' => 'Ajeno', 'ruc' => '20999999999']);
 
-        $this->actingAs($this->makeUser($acme, 'employee'))->get('/suppliers')->assertRedirect('/login'); // sin acceso al panel
+        $this->actingAs($this->makeUser($acme, 'employee'))->get('/suppliers')->assertRedirect(route('portal.home')); // sin acceso al panel
 
         $supervisor = $this->makeUser($acme, 'supervisor');
         $this->actingAs($supervisor)->get('/suppliers')->assertOk()

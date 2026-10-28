@@ -46,8 +46,10 @@ class WebPanelTest extends TestCase
         $this->makeUser($acme, 'employee', ['email' => 'emp@acme.pe', 'password' => 'Secret123']);
         $supervisor = $this->makeUser($acme, 'supervisor');
 
-        $this->post('/login', ['email' => 'emp@acme.pe', 'password' => 'Secret123'])->assertSessionHasErrors('email');
-        $this->assertGuest();
+        // El colaborador entra a su portal (Mi espacio), nunca al panel
+        $this->post('/login', ['email' => 'emp@acme.pe', 'password' => 'Secret123'])->assertRedirect('/mi-espacio');
+        $this->get('/dashboard')->assertRedirect(route('portal.home'));
+        $this->post('/logout');
 
         $this->actingAs($supervisor)->get('/approvals')->assertOk();
         $this->actingAs($supervisor)->get('/payslips')->assertForbidden();

@@ -93,6 +93,8 @@ class AccountWebController extends Controller
             }
         }
 
-        return redirect()->route('account.edit')->with('success', 'Contraseña actualizada. Se cerró la sesión de la app en tus celulares.');
+        // Desde Mi espacio (portal del colaborador) vuelve a su perfil; desde el panel, a Mi cuenta
+        return redirect()->route($request->routeIs('portal.*') ? 'portal.profile' : 'account.edit')
+            ->with('success', 'Contraseña actualizada. Se cerró la sesión de la app en tus celulares.');
     }
 }
