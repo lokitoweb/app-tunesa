@@ -484,7 +484,11 @@
                             <div class="fw-bold text-truncate" style="font-size: 0.85rem; color: var(--text-primary);">{{ $att->user->first_name }} {{ $att->user->last_name }}</div>
                             <div class="small text-secondary text-truncate" style="font-size: 0.75rem;">
                                 {{ $att->branch->name ?? 'Sede Principal' }} ·
-                                <span class="{{ $att->clock_in_within_geofence ? 'text-success' : 'text-danger' }}">{{ $att->clock_in_distance_meters }} m</span>
+                                @if($att->clock_in_within_geofence === null)
+                                    <span class="text-warning-emphasis">Sin GPS · contingencia</span>
+                                @else
+                                    <span class="{{ $att->clock_in_within_geofence ? 'text-success' : 'text-danger' }}">{{ $att->clock_in_distance_meters }} m</span>
+                                @endif
                             </div>
                         </div>
                         <div class="text-end">
@@ -890,7 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="fw-bold text-truncate" style="font-size: 0.85rem; color: var(--text-primary);">${safeUserName}</div>
                 <div class="small text-secondary text-truncate" style="font-size: 0.75rem;">
                     ${Panel.esc(att.branch_name || 'Sin asignar')} ·
-                    <span class="${att.within_geofence ? 'text-success' : 'text-danger'}">${safeDist} m</span>
+                    ${att.within_geofence === null ? '<span class="text-warning-emphasis">Sin GPS · contingencia</span>' : `<span class="${att.within_geofence ? 'text-success' : 'text-danger'}">${safeDist} m</span>`}
                 </div>
             </div>
             <div class="text-end">

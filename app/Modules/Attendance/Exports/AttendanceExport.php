@@ -106,12 +106,12 @@ class AttendanceExport
                         $row->shift->name ?? 'Estándar',
                         $row->clock_in_at ? $row->clock_in_at->format('h:i:s a') : 'Sin marcar',
                         $row->clock_in_distance_meters ?? '0',
-                        $row->clock_in_within_geofence ? 'Dentro' : 'Fuera',
+                        self::geofenceLabel($row->clock_in_at, $row->clock_in_within_geofence),
                         $row->break_start_at ? $row->break_start_at->format('h:i:s a') : '',
                         $row->break_end_at ? $row->break_end_at->format('h:i:s a') : '',
                         $row->clock_out_at ? $row->clock_out_at->format('h:i:s a') : 'Sin marcar',
                         $row->clock_out_distance_meters ?? '0',
-                        $row->clock_out_within_geofence ? 'Dentro' : 'Fuera',
+                        self::geofenceLabel($row->clock_out_at, $row->clock_out_within_geofence),
                         $row->late_minutes ?? 0,
                         number_format((float) ($row->worked_hours ?? 0), 2),
                         number_format((float) ($row->overtime_hours ?? 0), 2),
@@ -130,5 +130,15 @@ class AttendanceExport
     {
         // Etiquetas únicas de estado (QA Ronda 2, RP-03)
         return DayStatus::label(DayStatus::fromRecord($status));
+    }
+
+    /** Dentro / Fuera de la geocerca; sin ubicación = marca de contingencia (Mi espacio) */
+    public static function geofenceLabel(mixed $at, ?bool $within): string
+    {
+        return match (true) {
+            ! $at           => '',
+            $within === null => 'Sin GPS (contingencia)',
+            default         => $within ? 'Dentro' : 'Fuera',
+        };
     }
 }

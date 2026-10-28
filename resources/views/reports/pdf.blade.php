@@ -131,7 +131,7 @@
                     <td>{{ $att->late_minutes ? minutes_label($att->late_minutes) : '-' }}</td>
                     <td style="text-align: right;">{{ number_format((float) ($att->worked_hours ?? 0), 2) }}</td>
                     <td style="text-align: right;">{{ number_format((float) ($att->overtime_hours ?? 0), 2) }}</td>
-                    <td>{{ $att->clock_in_within_geofence ? 'Válida' : 'Fuera' }}</td>
+                    <td>{{ $att->clock_in_within_geofence === null ? 'Sin GPS (contingencia)' : ($att->clock_in_within_geofence ? 'Válida' : 'Fuera') }}</td>
                     <td>{{ ucfirst($att->status) }}</td>
                 </tr>
             @empty

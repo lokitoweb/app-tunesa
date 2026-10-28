@@ -38,6 +38,10 @@ class PortalController extends Controller
             'attendance' => $attendance ? (new AttendanceResource($attendance))->resolve($request) : null,
             'schedule'   => $this->attendanceEnabled($request) ? app(ScheduleGate::class)->statusFor($user, $today) : null,
             'next'       => AttendanceController::determineNextAction($attendance),
+            // Plan de contingencia vigente que la cubre: puede marcar aquí
+            'contingency' => $this->attendanceEnabled($request) && $user->hasPermission('attendance.mark')
+                ? \App\Modules\Attendance\Models\AttendanceContingency::activeFor($user)?->only(['reason', 'ends_at'])
+                : null,
         ]);
     }
 
@@ -55,6 +59,37 @@ class PortalController extends Controller
             'days'    => AttendanceResource::collection($attendances->getCollection())->resolve($request),
         ]);
     }
+
+    /**
+     * Marca de contingencia: solo con un plan vigente que cubra a la persona. Pasa por el mismo
+     * servicio que la app (orden de las marcas, turno, incorporación) con la hora del servidor y
+     * sin GPS; queda etiquetada con el plan.
+     */
+    public function punch(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($this->attendanceEnabled($request) && $user->hasPermission('attendance.mark'), 404);
+        $data = $request->validate(['type' => ['required', \Illuminate\Validation\Rule::in(\App\Modules\Attendance\Models\AttendancePunch::TYPES)]]);
+
+        $plan = \App\Modules\Attendance\Models\AttendanceContingency::activeFor($user);
+        if (! $plan) {
+            return back()->with('error', 'No hay un plan de contingencia activo para ti: marca desde la app.');
+        }
+        if (app(\App\Modules\Onboarding\Middleware\EnsureOnboardingApproved::class)->blocks($user)) {
+            return back()->with('error', \App\Modules\Onboarding\Middleware\EnsureOnboardingApproved::MESSAGE);
+        }
+
+        try {
+            $result = app(\App\Modules\Attendance\Services\AttendanceService::class)->punch($user,
+                \App\Modules\Attendance\Services\Attendance\PunchData::contingency($data['type'], $plan->id, $request->ip(), mb_substr((string) $request->userAgent(), 0, 255)));
+        } catch (\App\Modules\Attendance\Exceptions\AttendanceException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', self::PUNCH_LABELS[$data['type']] . ' registrada a las ' . $result->punch->server_time->setTimezone(tenant_timezone())->format('H:i') . ' (plan de contingencia).');
+    }
+
+    public const PUNCH_LABELS = ['clock_in' => 'Entrada', 'break_start' => 'Inicio de refrigerio', 'break_end' => 'Fin de refrigerio', 'clock_out' => 'Salida'];
 
     /** Justificar un día propio (tardanza, falta, marca olvidada): lo revisa RR. HH. o su jefe */
     public function justify(Request $request, int $id): RedirectResponse

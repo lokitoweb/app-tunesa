@@ -99,6 +99,53 @@ class EmployeePortalTest extends TestCase
         $this->get('/mi-espacio')->assertInertia(fn ($p) => $p->where('portal.payslips', false));
     }
 
+    public function test_contingency_plan_lets_covered_people_punch_from_mi_espacio_without_gps(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $hr = $this->makeUser($acme, 'hr_manager');
+        $lima = $this->makeBranch($acme, ['name' => 'Lima']);
+        $trujillo = $this->makeBranch($acme, ['name' => 'Trujillo']);
+        $ana = $this->makeUser($acme);
+        $beto = $this->makeUser($acme);
+        $ana->branches()->attach($lima->id, ['is_primary' => true]);
+        $beto->branches()->attach($trujillo->id, ['is_primary' => true]);
+        // Sin programación obligatoria: el turno no es lo que se prueba aquí
+        \App\Modules\Core\Models\TenantSetting::updateOrCreate(['tenant_id' => $acme->id], ['punch_requires_schedule' => false]);
+
+        // Sin plan: no se marca desde la web
+        $this->actingAs($ana)->post('/mi-espacio/marcar', ['type' => 'clock_in'])->assertSessionHas('error');
+        $this->assertSame(0, \App\Modules\Attendance\Models\AttendancePunch::count());
+
+        // Un colaborador no puede activarlo; RR. HH. sí, para la sede de Lima
+        $this->actingAs($ana)->get('/attendance-contingency')->assertRedirect(route('portal.home'));
+        $this->actingAs($hr)->post('/attendance-contingency', ['scope' => 'branch', 'scope_ids' => [$lima->id], 'reason' => 'Caída de la app', 'hours' => 4])
+            ->assertSessionHasNoErrors();
+        $plan = \App\Modules\Attendance\Models\AttendanceContingency::sole();
+
+        // Ana (Lima) ve el plan y marca en orden; Beto (Trujillo) no está cubierto
+        $this->actingAs($ana)->get('/mi-espacio')->assertInertia(fn ($p) => $p->where('contingency.reason', 'Caída de la app'));
+        $this->post('/mi-espacio/marcar', ['type' => 'break_end'])->assertSessionHas('error');
+        // Misma regla que la app: con la incorporación pendiente no se marca
+        $this->post('/mi-espacio/marcar', ['type' => 'clock_in'])->assertSessionHas('error', \App\Modules\Onboarding\Middleware\EnsureOnboardingApproved::MESSAGE);
+        $ana->forceFill(['onboarding_status' => \App\Modules\Onboarding\Models\OnboardingProcess::APPROVED])->save();
+        $this->post('/mi-espacio/marcar', ['type' => 'clock_in'])->assertSessionHas('success');
+        $punch = \App\Modules\Attendance\Models\AttendancePunch::sole();
+        $this->assertSame([$plan->id, null, null], [$punch->contingency_id, $punch->latitude, $punch->within_geofence]);
+        $this->assertNull(Attendance::where('user_id', $ana->id)->value('clock_in_within_geofence'), 'sin GPS: ni dentro ni fuera');
+        $this->actingAs($beto)->post('/mi-espacio/marcar', ['type' => 'clock_in'])->assertSessionHas('error');
+
+        // El cierre muestra quién marcó; al desactivarlo ya no se marca por la web
+        $this->actingAs($hr)->get("/attendance-contingency?plan={$plan->id}")
+            ->assertInertia(fn ($p) => $p->where('report.covered', 1)->where('report.marked', 1));
+        $this->post("/attendance-contingency/{$plan->id}/end")->assertSessionHasNoErrors();
+        $this->actingAs($ana)->post('/mi-espacio/marcar', ['type' => 'clock_out'])->assertSessionHas('error');
+
+        // La marca sigue siendo inmutable
+        $this->expectException(\LogicException::class);
+        $punch->update(['contingency_id' => null]);
+    }
+
     public function test_profile_masks_accounts_and_password_change_returns_to_the_portal(): void
     {
         $this->seedRoles();

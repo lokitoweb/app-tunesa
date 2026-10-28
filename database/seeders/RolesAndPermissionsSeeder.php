@@ -45,6 +45,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'attendance.review'      => ['Aprobar o rechazar justificaciones', 'attendance'],
         'attendance.authorize_offshift' => ['Autorizar marcación fuera de turno (días sin programación)', 'attendance'],
         'attendance.edit'        => ['Corregir marcaciones a mano (con motivo)', 'attendance'],
+        'attendance.contingency' => ['Activar el plan de contingencia (marcar desde Mi espacio sin la app)', 'attendance'],
 
         // Dashboard y reportes
         'dashboard.view'         => ['Ver dashboard y mapa en tiempo real', 'dashboard'],

@@ -155,7 +155,8 @@ class LiveBoardService
                 'clock_out'       => hora($current?->clock_out_at),
                 'break_start'     => hora($current?->break_start_at),
                 'late_minutes'    => (int) ($current?->late_minutes ?? 0),
-                'within_geofence' => $current ? (bool) $current->clock_in_within_geofence : null,
+                // null = sin ubicación (plan de contingencia o sin marca): el tablero no lo pinta como fuera
+                'within_geofence' => $current?->clock_in_within_geofence,
                 'distance_meters' => $current?->clock_in_distance_meters,
                 'latitude'        => $current?->clock_in_latitude !== null && $current ? (float) $current->clock_in_latitude : null,
                 'longitude'       => $current?->clock_in_longitude !== null && $current ? (float) $current->clock_in_longitude : null,

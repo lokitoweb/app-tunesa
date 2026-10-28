@@ -447,7 +447,7 @@ class AttendanceController extends Controller
                         $a->break_minutes,
                         $a->worked_hours,
                         $a->overtime_hours,
-                        $a->clock_in_within_geofence ? 'Sí' : 'No',
+                        \App\Modules\Attendance\Exports\AttendanceExport::geofenceLabel($a->clock_in_at, $a->clock_in_within_geofence),
                         $a->clock_in_distance_meters,
                     ]);
                 }

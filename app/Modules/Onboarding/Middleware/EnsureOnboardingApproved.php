@@ -27,12 +27,18 @@ class EnsureOnboardingApproved
         private readonly TenantContext $tenants,
     ) {}
 
+    /** ¿La incorporación pendiente le impide marcar? (la app y Mi espacio usan esta misma regla) */
+    public function blocks(?\App\Modules\Core\Models\User $user): bool
+    {
+        return $user && $user->onboarding_status !== OnboardingProcess::APPROVED
+            && $this->onboarding->enabledFor($this->tenants->getOrNull() ?? $user->tenant);
+    }
+
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
 
-        if (! $user || $user->onboarding_status === OnboardingProcess::APPROVED
-            || ! $this->onboarding->enabledFor($this->tenants->getOrNull() ?? $user->tenant)) {
+        if (! $this->blocks($user)) {
             return $next($request);
         }
 

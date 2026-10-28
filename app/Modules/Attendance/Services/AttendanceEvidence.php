@@ -141,7 +141,9 @@ class AttendanceEvidence
                 'latitude'        => $attendance->{"clock_{$moment}_latitude"} !== null ? (float) $attendance->{"clock_{$moment}_latitude"} : null,
                 'longitude'       => $attendance->{"clock_{$moment}_longitude"} !== null ? (float) $attendance->{"clock_{$moment}_longitude"} : null,
                 'distance_meters' => $distance,
-                'within_geofence' => (bool) $attendance->{"clock_{$moment}_within_geofence"},
+                // null = sin ubicación (marca de contingencia desde Mi espacio)
+                'within_geofence' => $attendance->{"clock_{$moment}_within_geofence"},
+                'contingency'     => isset($meta['contingency_id']),
                 // % del radio consumido (100 = justo en el borde)
                 'radius_usage'    => $radius > 0 && $distance !== null ? (int) round(100 * $distance / $radius) : null,
                 'excess_meters'   => $radius > 0 && $distance !== null ? max(0, $distance - $radius) : null,

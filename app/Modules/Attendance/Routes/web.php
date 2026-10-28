@@ -67,4 +67,11 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::post('/', [OffShiftAuthorizationWebController::class, 'store'])->name('store')->middleware('throttle:30,1');
         Route::delete('/{id}', [OffShiftAuthorizationWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     });
+
+    // Plan de contingencia: se marca desde Mi espacio mientras la app no funciona (RR. HH.)
+    Route::middleware('can:attendance.contingency')->prefix('attendance-contingency')->name('attendance.contingency.')->group(function () {
+        Route::get('/', [\App\Modules\Attendance\Controllers\Web\ContingencyWebController::class, 'index'])->name('index');
+        Route::post('/', [\App\Modules\Attendance\Controllers\Web\ContingencyWebController::class, 'store'])->name('store')->middleware('throttle:20,1');
+        Route::post('/{id}/end', [\App\Modules\Attendance\Controllers\Web\ContingencyWebController::class, 'end'])->name('end')->whereNumber('id');
+    });
 });

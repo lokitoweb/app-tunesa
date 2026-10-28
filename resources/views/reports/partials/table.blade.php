@@ -63,7 +63,11 @@
                         {{ number_format((float) ($att->overtime_hours ?? 0), 2) }}
                     </td>
                     <td class="text-center">
-                        @if($att->clock_in_within_geofence)
+                        @if($att->clock_in_at && $att->clock_in_within_geofence === null)
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1" title="Marcada desde Mi espacio con el plan de contingencia">
+                                <i class="bi bi-life-preserver me-1"></i>Sin GPS
+                            </span>
+                        @elseif($att->clock_in_within_geofence)
                             <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" title="Marcación dentro del rango permitido">
                                 <i class="bi bi-geo-alt-fill me-1"></i>Válida
                             </span>

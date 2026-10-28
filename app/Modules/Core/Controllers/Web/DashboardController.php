@@ -248,7 +248,8 @@ class DashboardController extends Controller
                 'latitude'         => (float) ($att->clock_in_latitude ?? 0),
                 'longitude'        => (float) ($att->clock_in_longitude ?? 0),
                 'distance_meters'  => $att->clock_in_distance_meters,
-                'within_geofence'  => (bool) $att->clock_in_within_geofence,
+                // null = sin ubicación (plan de contingencia)
+                'within_geofence'  => $att->clock_in_within_geofence,
                 'photo_url'        => attendance_photo_url($att, 'in'),
                 'thumb_url'        => attendance_photo_thumb_url($att, 'in'),
                 'is_on_break'      => !is_null($att->break_start_at) && is_null($att->break_end_at),

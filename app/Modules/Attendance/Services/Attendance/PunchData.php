@@ -24,8 +24,9 @@ final class PunchData
 
     public function __construct(
         public readonly string $type,
-        public readonly float $latitude,
-        public readonly float $longitude,
+        /** Sin ubicación solo en una marca de contingencia (contingencyId) */
+        public readonly ?float $latitude,
+        public readonly ?float $longitude,
         public readonly ?float $accuracyMeters = null,
         public readonly bool $isMocked = false,
         public readonly ?bool $faceDetected = null,
@@ -41,10 +42,26 @@ final class PunchData
         public readonly ?string $clientUuid = null,
         /** Señales de un teléfono manipulado (cabecera X-Device-Integrity): rooted, emulator, ... */
         public readonly array $deviceFlags = [],
+        /** Marca desde Mi espacio bajo un plan de contingencia vigente: hora del servidor, sin GPS */
+        public readonly ?int $contingencyId = null,
     ) {
         if (! in_array($type, AttendancePunch::TYPES, true)) {
             throw new InvalidArgumentException("Tipo de marcación desconocido: {$type}");
         }
+        if (! $contingencyId && ($latitude === null || $longitude === null)) {
+            throw new InvalidArgumentException('Una marcación sin ubicación solo es posible en contingencia.');
+        }
+    }
+
+    /** Marca de contingencia desde la web: la hora la pone el servidor; IP y navegador como evidencia */
+    public static function contingency(string $type, int $contingencyId, ?string $ip, ?string $userAgent): self
+    {
+        return new self(type: $type, latitude: null, longitude: null, ip: $ip, userAgent: $userAgent, contingencyId: $contingencyId);
+    }
+
+    public function isContingency(): bool
+    {
+        return $this->contingencyId !== null;
     }
 
     /**
@@ -117,6 +134,7 @@ final class PunchData
             'device_time'     => $this->deviceTime?->toIso8601String(),
             'client_uuid'     => $this->clientUuid,
             'device_flags'    => $this->deviceFlags ?: null,
+            'contingency_id'  => $this->contingencyId,
         ], fn ($v) => $v !== null && $v !== '');
 
         if ($this->faceDetected !== null) {

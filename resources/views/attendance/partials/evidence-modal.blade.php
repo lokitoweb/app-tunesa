@@ -146,7 +146,7 @@
         const facts = p ? [
             ['Hora exacta', p.time],
             ['Sucursal', d.branch?.name || '—'],
-            ['Ubicación', p.within_geofence ? 'Dentro del radio permitido' : 'Fuera del radio permitido'],
+            ['Ubicación', p.within_geofence === null ? 'Sin GPS · plan de contingencia' : (p.within_geofence ? 'Dentro del radio permitido' : 'Fuera del radio permitido')],
             ['Distancia', (p.distance_meters ?? '—') + ' m de ' + radius + ' m permitidos'],
             ['Precisión GPS', p.gps_accuracy ? '± ' + p.gps_accuracy + ' m' : '—'],
             ['Ubicación simulada', p.is_mocked ? 'Sí (sospechoso)' : 'No'],
@@ -161,7 +161,7 @@
 
         const usage = p?.radius_usage ?? 0;
         const bar = el('evidenceBar');
-        bar.className = 'progress-bar ' + (p && !p.within_geofence ? 'bg-danger' : 'bg-success');
+        bar.className = 'progress-bar ' + (p && p.within_geofence === false ? 'bg-danger' : 'bg-success');
         bar.style.width = Math.min(100, usage) + '%';
         el('evidenceUsage').textContent = p && p.radius_usage != null
             ? usage + '% del radio' + (p.excess_meters > 0 ? ' · ' + p.excess_meters + ' m de exceso' : '')

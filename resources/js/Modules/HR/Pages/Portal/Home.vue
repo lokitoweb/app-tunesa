@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
 import PortalLayout from '@/Modules/HR/Layouts/PortalLayout.vue';
 
 const props = defineProps({
@@ -8,7 +8,21 @@ const props = defineProps({
     attendance: { type: Object, default: null },
     schedule: { type: Object, default: null },
     next: { type: Object, default: null },
+    contingency: { type: Object, default: null },
 });
+
+// Con un plan de contingencia vigente se marca aquí; solo la marca que toca (mismo orden que la app)
+const allowed = computed(() => {
+    if (!props.contingency || !props.next) return [];
+    const actions = props.next.actions ? props.next.actions.map((a) => a.action) : [props.next.action];
+    return actions.filter((a) => a !== 'clock_in' || props.schedule?.can_clock_in !== false);
+});
+const marking = useForm({ type: '' });
+function mark(type) {
+    marking.type = type;
+    marking.post('/mi-espacio/marcar', { preserveScroll: true });
+}
+const until = computed(() => (props.contingency ? new Date(props.contingency.ends_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : null));
 
 const page = usePage();
 const first = computed(() => (page.props.auth?.name || '').split(' ')[0]);
@@ -40,15 +54,22 @@ const slots = computed(() => [
                         <template v-else>{{ schedule?.message || 'Sin turno programado hoy' }}</template>
                     </span>
                 </div>
+                <div v-if="contingency" class="alert alert-warning py-2 small">
+                    <i class="bi bi-life-preserver me-1"></i>Plan de contingencia activo hasta las {{ until }} ({{ contingency.reason }}):
+                    marca aquí mientras la app no funcione. La hora la pone el sistema.
+                </div>
                 <div class="row g-2">
                     <div v-for="s in slots" :key="s.key" class="col-6 col-md-3">
-                        <div class="border rounded p-3 text-center h-100" :class="s.time ? 'border-success-subtle' : ''">
+                        <div class="border rounded p-3 text-center h-100" :class="s.time ? 'border-success-subtle' : allowed.includes(s.key) ? 'border-primary border-2' : ''">
                             <div class="small text-body-secondary">{{ s.label }}</div>
-                            <div class="fs-4 fw-semibold" :class="s.time ? 'text-success' : 'text-body-tertiary'">{{ s.time || '--:--' }}</div>
+                            <div v-if="s.time || !allowed.includes(s.key)" class="fs-4 fw-semibold" :class="s.time ? 'text-success' : 'text-body-tertiary'">{{ s.time || '--:--' }}</div>
+                            <button v-else type="button" class="btn btn-primary btn-sm w-100 mt-1" :disabled="marking.processing" @click="mark(s.key)">
+                                <i class="bi bi-clock me-1"></i>Marcar
+                            </button>
                         </div>
                     </div>
                 </div>
-                <p class="small text-body-secondary mt-3 mb-0">
+                <p v-if="!contingency" class="small text-body-secondary mt-3 mb-0">
                     <i class="bi bi-phone me-1"></i>Marcas desde la app. Si olvidaste una marca o llegaste tarde, justifícalo en
                     <Link href="/mi-espacio/asistencia">Mi asistencia</Link>.
                     <span v-if="attendance?.status_label"> Hoy: <strong>{{ attendance.status_label }}</strong>.</span>

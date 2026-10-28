@@ -259,7 +259,9 @@
                         @endif
                     </h2>
                     @if($m['at'])
-                        @if($m['within'])
+                        @if($m['within'] === null)
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-life-preserver me-1"></i>Sin GPS · contingencia</span>
+                        @elseif($m['within'])
                             <span class="live-location-badge in-range">
                                 <span class="badge-dot" style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
                                 En ubicación ({{ $m['distance'] ?? 0 }} m)

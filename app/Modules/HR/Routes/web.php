@@ -132,6 +132,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
 Route::prefix('mi-espacio')->name('portal.')->middleware(['auth', \App\Modules\Core\Middleware\SetPortalTenant::class])->group(function () {
     Route::get('/', [\App\Modules\HR\Controllers\Web\PortalController::class, 'home'])->name('home');
     Route::get('/asistencia', [\App\Modules\HR\Controllers\Web\PortalController::class, 'attendance'])->name('attendance');
+    Route::post('/marcar', [\App\Modules\HR\Controllers\Web\PortalController::class, 'punch'])->name('punch')->middleware('throttle:10,1');
     Route::post('/asistencia/{id}/justificacion', [\App\Modules\HR\Controllers\Web\PortalController::class, 'justify'])->name('justify')->whereNumber('id')->middleware('throttle:10,1');
     Route::get('/perfil', [\App\Modules\HR\Controllers\Web\PortalController::class, 'profile'])->name('profile');
     Route::put('/perfil/password', [\App\Modules\HR\Controllers\Web\PortalController::class, 'password'])->name('password')->middleware('throttle:6,1');

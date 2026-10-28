@@ -74,6 +74,7 @@ class AttendancePunch extends Model
         'suspicion_reasons'      => 'array',
         'created_at'             => 'datetime',
         'photo_purged_at'        => 'datetime',
+        'contingency_id'         => 'integer',
     ];
 
     protected static function booted(): void
@@ -143,6 +144,8 @@ class AttendancePunch extends Model
             'accuracy_meters'        => $this->accuracy_meters,
             'distance_meters'        => $this->distance_meters,
             'within_geofence'        => $this->within_geofence,
+            // Marcada desde Mi espacio bajo un plan de contingencia (sin GPS ni selfie)
+            'contingency'            => $this->contingency_id !== null,
             'address'                => $this->address,
             'face_detected'          => $this->face_detected,
             'mock_location_detected' => $this->mock_location_detected,

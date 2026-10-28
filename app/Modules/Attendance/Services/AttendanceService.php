@@ -105,9 +105,14 @@ class AttendanceService
         $serverTime = CarbonImmutable::now('UTC');
         $reasons    = [];
 
-        $this->enforceDeviceTrust($employee, $data, $settings, $reasons);
+        // Contingencia (Mi espacio): sin teléfono ni GPS; el resto de reglas (orden, turno) se aplica igual
+        if (! $data->isContingency()) {
+            $this->enforceDeviceTrust($employee, $data, $settings, $reasons);
+        }
         $at    = $this->resolveTime($data, $settings, $tenant);
-        $reasons = array_merge($reasons, $this->locationReasons($employee, $data, $serverTime));
+        if (! $data->isContingency()) {
+            $reasons = array_merge($reasons, $this->locationReasons($employee, $data, $serverTime));
+        }
         $drift = $this->timeDrift($data, $serverTime);
 
         if ($drift !== null && abs($drift) > $settings->maxTimeDriftSeconds()) {
@@ -219,6 +224,7 @@ class AttendanceService
             'device_os'              => $data->deviceOs,
             'app_version'            => $data->appVersion,
             'ip'                     => $data->ip,
+            'contingency_id'         => $data->contingencyId,
         ]);
 
         if ($reasons !== [] && ! $attendance->is_suspicious) {
@@ -276,14 +282,10 @@ class AttendanceService
         }
 
         // Itinerantes (choferes, relevos, técnicos): marcan en la sede donde estén o en ruta
-        $branch = $employee->roaming_attendance_enabled
+        $branch = $employee->roaming_attendance_enabled && ! $data->isContingency()
             ? $this->roamingBranch($employee, $today, $data)
             : $this->getEmployeeBranchForToday($employee, $today);
-        $this->enforceAccuracy($data, $c['settings'], $branch);
-        $geo    = $this->geofence->check($data->latitude, $data->longitude, $branch, $data->accuracyMeters);
-        if (! $employee->roaming_attendance_enabled) {
-            $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
-        }
+        [$geo, $reasons] = $this->clockGeofence($c, $employee, $branch, $reasons);
 
         [$assignment, $hasAssignments] = $this->getCurrentShift($employee, $today);
         $shift = $assignment?->shift?->forDate($today);
@@ -308,12 +310,12 @@ class AttendanceService
             'clock_in_at'              => $at,
             'clock_in_latitude'        => $data->latitude,
             'clock_in_longitude'       => $data->longitude,
-            'clock_in_distance_meters' => $geo->distanceMeters,
+            'clock_in_distance_meters' => $geo?->distanceMeters,
             'clock_in_photo'           => $c['photoPath'],
             'clock_in_device_id'       => $data->deviceId ?? '',
-            'clock_in_within_geofence' => $geo->isWithinGeofence,
+            'clock_in_within_geofence' => $geo?->isWithinGeofence,
             'clock_in_meta'            => array_merge($data->meta(), [
-                'geofence'    => $geo->toArray(),
+                'geofence'    => $geo?->toArray(),
                 'recorded_at' => $at->toIso8601String(),
             ], $this->offlineMeta($data->isOffline()), $reasons ? ['suspicion_reasons' => array_values(array_unique($reasons))] : []),
             'clock_in_accuracy_meters'    => $data->accuracyMeters,
@@ -360,8 +362,7 @@ class AttendanceService
             throw new AttendanceException('El descanso sin conexión no puede ser anterior a tu entrada.', 'OFFLINE_BEFORE_CLOCK_IN', 422);
         }
 
-        $this->enforceAccuracy($data, $c['settings'], $attendance->branch);
-        $geo = $this->breakGeofence($attendance, $data);
+        $geo = $this->breakGeofenceChecked($c, $attendance);
 
         $attendance->update([
             'break_start_at'        => $at,
@@ -406,8 +407,7 @@ class AttendanceService
             ]);
         }
 
-        $this->enforceAccuracy($data, $c['settings'], $attendance->branch);
-        $geo = $this->breakGeofence($attendance, $data);
+        $geo = $this->breakGeofenceChecked($c, $attendance);
 
         $attendance->update([
             'break_end_at'        => $at,
@@ -436,11 +436,7 @@ class AttendanceService
         }
 
         $branch  = $attendance->branch;
-        $this->enforceAccuracy($data, $c['settings'], $branch);
-        $geo     = $this->geofence->check($data->latitude, $data->longitude, $branch, $data->accuracyMeters);
-        if (! $employee->roaming_attendance_enabled) {
-            $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
-        }
+        [$geo, $reasons] = $this->clockGeofence($c, $employee, $branch, $reasons);
 
         $shift = $attendance->shift?->forDate($attendance->work_date);
         if ($shift && $this->isOutsideShiftWindow($shift, $attendance->work_date->toDateString(), $clockOutTime, $c['tenant']->timezone)) {
@@ -464,12 +460,12 @@ class AttendanceService
             'clock_out_at'              => $clockOutTime,
             'clock_out_latitude'        => $data->latitude,
             'clock_out_longitude'       => $data->longitude,
-            'clock_out_distance_meters' => $geo->distanceMeters,
+            'clock_out_distance_meters' => $geo?->distanceMeters,
             'clock_out_photo'           => $c['photoPath'],
             'clock_out_device_id'       => $data->deviceId ?? '',
-            'clock_out_within_geofence' => $geo->isWithinGeofence,
+            'clock_out_within_geofence' => $geo?->isWithinGeofence,
             'clock_out_meta'            => array_merge($data->meta(), [
-                'geofence'    => $geo->toArray(),
+                'geofence'    => $geo?->toArray(),
                 'recorded_at' => $clockOutTime->toIso8601String(),
             ], $this->offlineMeta($data->isOffline()), $reasons ? ['suspicion_reasons' => array_values(array_unique($reasons))] : []),
             'clock_out_accuracy_meters'    => $data->accuracyMeters,
@@ -764,7 +760,10 @@ class AttendanceService
     private function afterCommit(PunchResult $result): void
     {
         try {
-            ReverseGeocodePunch::dispatch($result->punch->id)->afterCommit();
+            // Sin ubicación (contingencia) no hay dirección que buscar
+            if ($result->punch->latitude !== null) {
+                ReverseGeocodePunch::dispatch($result->punch->id)->afterCommit();
+            }
         } catch (\Throwable $e) {
             // Con la cola "sync" corre aquí: la dirección es informativa, nunca tumba la marcación
             Log::warning('No se pudo geocodificar la marcación: ' . $e->getMessage(), ['punch_id' => $result->punch->id]);
@@ -820,6 +819,40 @@ class AttendanceService
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Entrada / salida: precisión GPS y política de geocerca de la sede. En contingencia no hay
+     * ubicación: no se mide (null = sin ubicación) y nunca se inventa una.
+     *
+     * @return array{0: ?GeofenceResult, 1: array}
+     */
+    private function clockGeofence(array $c, User $employee, Branch $branch, array $reasons): array
+    {
+        /** @var PunchData $data */
+        $data = $c['data'];
+        if ($data->isContingency()) {
+            return [null, $reasons];
+        }
+
+        $this->enforceAccuracy($data, $c['settings'], $branch);
+        $geo = $this->geofence->check($data->latitude, $data->longitude, $branch, $data->accuracyMeters);
+        if (! $employee->roaming_attendance_enabled) {
+            $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);
+        }
+
+        return [$geo, $reasons];
+    }
+
+    /** Descanso: precisión y distancia a la sede, salvo en contingencia (sin ubicación) */
+    private function breakGeofenceChecked(array $c, Attendance $attendance): ?GeofenceResult
+    {
+        if ($c['data']->isContingency()) {
+            return null;
+        }
+        $this->enforceAccuracy($c['data'], $c['settings'], $attendance->branch);
+
+        return $this->breakGeofence($attendance, $c['data']);
     }
 
     /** Datos del descanso en clock_in_meta.breaks.{start|end} */
