@@ -341,24 +341,42 @@
                                     </div>
                                 </div>
 
-                                {{-- Turno Inicial --}}
+                                {{-- Horario real de los próximos días: el mismo que rige la marcación (programación del día,
+                                     turno fijo o autorización). Los horarios rotativos se cambian en Programación de horarios. --}}
                                 <div class="col-12">
                                     <div class="emp-section-card">
-                                        <div class="emp-section-title">
-                                            <i class="bi bi-clock-history"></i>
-                                            <span>Turno Actual Vigente</span>
+                                        <div class="emp-section-title d-flex justify-content-between align-items-center w-100">
+                                            <span><i class="bi bi-calendar-week"></i> <span>Su horario de los próximos días</span></span>
+                                            @can('shifts.program')
+                                                <a href="{{ route('shifts.schedule') }}" class="small fw-semibold text-decoration-none">Cambiar en Programación de horarios</a>
+                                            @endcan
                                         </div>
-                                        <select id="edit_shift_id" name="shift_id" class="emp-form-select">
-                                            <option value="">Sin turno asignado</option>
-                                            @foreach($shifts as $s)
-                                                <option value="{{ $s->id }}">
-                                                    {{ $s->name }} ({{ hora($s->start_time) }} – {{ hora($s->end_time) }})
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        <div class="invalid-feedback" id="edit_err_shift_id"></div>
+                                        <div id="edit_schedule_week" class="d-flex flex-wrap gap-2 small text-body-secondary">Cargando…</div>
                                     </div>
                                 </div>
+                                @once
+                                    <script>
+                                        // Días con su horario (los que abren el editor llaman a esto con employee.schedule)
+                                        window.renderEmployeeSchedule = function (days) {
+                                            const box = document.getElementById('edit_schedule_week');
+                                            if (!box) return;
+                                            box.replaceChildren(...(days || []).map((d) => {
+                                                const chip = document.createElement('span');
+                                                chip.className = 'border rounded-3 px-2 py-1 text-center ' + (d.shift ? 'bg-body' : 'bg-body-tertiary');
+                                                chip.title = d.name || 'Sin turno';
+                                                const label = document.createElement('span');
+                                                label.className = 'd-block text-capitalize fw-semibold text-body';
+                                                label.textContent = d.label;
+                                                const time = document.createElement('span');
+                                                time.className = 'd-block';
+                                                time.textContent = d.shift || 'Libre';
+                                                chip.append(label, time);
+                                                return chip;
+                                            }));
+                                            if (!box.children.length) box.textContent = 'Sin horario en los próximos días.';
+                                        };
+                                    </script>
+                                @endonce
                             </div>
                         </div>
 

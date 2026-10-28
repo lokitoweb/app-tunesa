@@ -1869,7 +1869,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (document.getElementById('edit_scope_branch_id')) document.getElementById('edit_scope_branch_id').value = emp.scope_branch_id || '';
 
             {{-- Tab 3: Sedes y Turno --}}
-            if (document.getElementById('edit_shift_id')) document.getElementById('edit_shift_id').value = emp.shift_id || '';
+            window.renderEmployeeSchedule?.(emp.schedule);
 
             {{-- Sincronizar checkboxes de sucursales --}}
             const branchChecks = document.querySelectorAll('.edit-branch-check');

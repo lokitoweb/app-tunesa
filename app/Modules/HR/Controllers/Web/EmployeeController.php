@@ -302,6 +302,15 @@ class EmployeeController extends Controller
                     'primary_branch_id'          => $employee->branches->firstWhere('pivot.is_primary', true)?->id,
                     'branch_ids'                 => $employee->branches->pluck('id')->all(),
                     'shift_id'                   => $currentShift?->shift_id,
+                    // Horario real de los próximos 7 días (misma regla que la marcación: programación, turno o autorización)
+                    'schedule'                   => collect(range(0, 6))->map(function ($i) use ($employee) {
+                        $day = Carbon::now(tenant_timezone())->addDays($i);
+                        $status = app(\App\Modules\Attendance\Services\ScheduleGate::class)->statusFor($employee, $day->toDateString());
+
+                        return ['date' => $day->toDateString(), 'label' => $day->locale('es')->isoFormat('ddd D'),
+                            'shift' => $status['shift'] ? "{$status['shift']['start_time']}–{$status['shift']['end_time']}" : null,
+                            'name' => $status['shift']['name'] ?? null];
+                    })->all(),
                     'avatar_url'                 => $employee->avatar_path ? asset('storage/' . $employee->avatar_path) : null,
                 ],
             ]);

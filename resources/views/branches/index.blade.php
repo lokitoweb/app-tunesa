@@ -517,6 +517,10 @@
                                     <option value="{{ $z->id }}">{{ $z->name }}</option>
                                 @endforeach
                             </select>
+                            {{-- Las zonas agrupan sedes (p. ej. "Norte", "Sur") para dar a un supervisor el alcance de toda su zona --}}
+                            @if($zones->isEmpty())
+                                <div class="form-text small">Aún no hay zonas. Créalas en <a href="{{ route('organization.index') }}">Organización › Zonas</a> para agrupar sedes.</div>
+                            @endif
                         </div>
 
                         {{-- Supervisor / Responsable --}}
@@ -537,14 +541,9 @@
                         {{-- Ciudad --}}
                         <div class="col-12 col-md-4">
                             <label for="m_city" class="form-label fw-semibold small text-body mb-1">
-                                Ciudad / Región
+                                Región
                             </label>
-                            <input type="text" 
-                                   id="m_city" 
-                                   name="city" 
-                                   class="form-control" 
-                                   placeholder="Ej.: Trujillo, Lima, Arequipa..."
-                                   style="height: 40px; border-radius: 8px; font-size: 0.85rem;">
+                            @include('branches.partials.region-select', ['id' => 'm_city', 'style' => 'height: 40px; border-radius: 8px; font-size: 0.85rem;'])
                         </div>
 
                         {{-- Dirección Completa --}}
@@ -882,7 +881,17 @@
         document.getElementById('m_branch_type').value = branch.branch_type || 'agency';
         document.getElementById('m_zone_id').value = branch.zone_id || '';
         document.getElementById('m_supervisor_id').value = branch.supervisor_id || '';
-        document.getElementById('m_city').value = branch.city || '';
+        {{-- Región de la lista (sin importar mayúsculas); un valor anterior fuera de la lista se conserva como opción --}}
+        const citySelect = document.getElementById('m_city');
+        citySelect.querySelectorAll('option[data-legacy]').forEach((o) => o.remove());
+        const city = (branch.city || '').trim();
+        const match = [...citySelect.options].find((o) => o.value && o.value.toLocaleLowerCase('es') === city.toLocaleLowerCase('es'));
+        if (city && !match) {
+            const legacy = new Option(`${city} (actual)`, city);
+            legacy.dataset.legacy = '1';
+            citySelect.add(legacy, 1);
+        }
+        citySelect.value = match ? match.value : city;
         document.getElementById('m_address').value = branch.address || '';
         document.getElementById('m_latitude').value = parseFloat(branch.latitude || -12.046374).toFixed(6);
         document.getElementById('m_longitude').value = parseFloat(branch.longitude || -77.042793).toFixed(6);

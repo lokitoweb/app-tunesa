@@ -1002,7 +1002,7 @@ window.openLegajoEditModal = async function(id) {
         if (document.getElementById('edit_custom_role_id')) document.getElementById('edit_custom_role_id').value = emp.custom_role_id || '';
 
         {{-- Tab 3: Sedes y Turno --}}
-        if (document.getElementById('edit_shift_id')) document.getElementById('edit_shift_id').value = emp.shift_id || '';
+        window.renderEmployeeSchedule?.(emp.schedule);
 
         const branchChecks = document.querySelectorAll('.edit-branch-check');
         const primaryRadios = document.querySelectorAll('.edit-primary-branch-radio');

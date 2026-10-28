@@ -105,8 +105,8 @@
                     </div>
                     <div class="row g-3 mb-3">
                         <div class="col-sm-6">
-                            <label for="city" class="form-label">Ciudad</label>
-                            <input type="text" id="city" name="city" value="{{ old('city', $branch->city ?? 'Lima') }}" class="form-control">
+                            <label for="city" class="form-label">Región</label>
+                            @include('branches.partials.region-select', ['id' => 'city', 'value' => old('city', $branch->city)])
                         </div>
                         <div class="col-sm-6">
                             <label for="country" class="form-label">País</label>
