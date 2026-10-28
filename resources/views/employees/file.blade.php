@@ -14,7 +14,7 @@
     $payTone = ['incomplete' => 'secondary', 'pending' => 'warning', 'verified' => 'success', 'rejected' => 'danger'];
     $payStatus = $profile->payment_info_status ?? 'incomplete';
     $approvedTypes = $documents->where('status', 'approved')->pluck('type')->all();
-    $required = $config->requiredDocuments();
+    $required = $config->requiredDocumentsFor($employee); // empresa + su cargo
     $missing = array_diff($required, $approvedTypes);
     $sizes = $employee->uniformSize;
     $initials = mb_strtoupper(mb_substr($employee->first_name, 0, 1) . mb_substr($employee->last_name, 0, 1));
@@ -987,6 +987,8 @@ window.openLegajoEditModal = async function(id) {
         if (document.getElementById('edit_bonus')) document.getElementById('edit_bonus').value = emp.bonus || '';
         if (document.getElementById('edit_roaming_attendance_enabled')) document.getElementById('edit_roaming_attendance_enabled').checked = !!emp.roaming_attendance_enabled;
         if (document.getElementById('edit_role')) document.getElementById('edit_role').value = emp.role || 'employee';
+        window.filterCustomRoles?.('edit');
+        if (document.getElementById('edit_custom_role_id')) document.getElementById('edit_custom_role_id').value = emp.custom_role_id || '';
 
         {{-- Tab 3: Sedes y Turno --}}
         if (document.getElementById('edit_shift_id')) document.getElementById('edit_shift_id').value = emp.shift_id || '';

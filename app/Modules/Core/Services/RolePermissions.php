@@ -42,12 +42,58 @@ class RolePermissions
         'announcements' => 'Comunicados', 'onboarding' => 'Incorporación', 'ethics' => 'Canal ético', 'finance' => 'Compras y tesorería',
     ];
 
-    /** @return array<string, list<string>> rol => permisos estándar */
-    public function standard(): array
+    /**
+     * Permisos de partida de cada rol: los del sistema y, con $tenant, también los roles propios de esa
+     * empresa (parten de los de su rol base).
+     *
+     * @return array<string, list<string>> rol => permisos estándar
+     */
+    public function standard(?Tenant $tenant = null): array
     {
-        return collect(self::EDITABLE)->mapWithKeys(fn ($role) => [
-            $role => RolesAndPermissionsSeeder::expand(RolesAndPermissionsSeeder::ROLES[$role][2]),
-        ])->all();
+        $system = fn (string $role) => RolesAndPermissionsSeeder::expand(RolesAndPermissionsSeeder::ROLES[$role][2]);
+        $roles = collect(self::EDITABLE)->mapWithKeys(fn ($role) => [$role => $system($role)]);
+        if ($tenant) {
+            $roles = $roles->merge($this->customRoles($tenant)->mapWithKeys(fn (Role $r) => [$r->slug => $system($r->base_role)]));
+        }
+
+        return $roles->all();
+    }
+
+    /** Roles propios de la empresa ("Jefe de flota"…), con cuántas personas lo tienen */
+    public function customRoles(Tenant $tenant): \Illuminate\Support\Collection
+    {
+        return Role::query()->where('tenant_id', $tenant->id)->whereIn('base_role', self::EDITABLE)->orderBy('name')
+            ->withCount(['customUsers as users_count' => fn ($q) => $q->withoutGlobalScopes()])
+            ->get(['id', 'slug', 'name', 'description', 'base_role']);
+    }
+
+    /** Crea un rol propio basado en un rol del sistema; empieza con los permisos de su base */
+    public function createCustom(Tenant $tenant, string $name, string $base, ?string $description): Role
+    {
+        abort_unless(in_array($base, self::EDITABLE, true), 422, 'Elige en qué rol se basa.');
+        $slug = 'c-' . (\Illuminate\Support\Str::slug($name) ?: 'rol');
+        $taken = Role::query()->where('tenant_id', $tenant->id)->where('slug', 'like', "{$slug}%")->pluck('slug')->all();
+        for ($n = 2, $candidate = $slug; in_array($candidate, $taken, true); $n++) {
+            $candidate = "{$slug}-{$n}";
+        }
+        if (Role::query()->where('tenant_id', $tenant->id)->whereRaw('lower(name) = ?', [mb_strtolower(trim($name))])->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'Ya existe un rol con ese nombre.']);
+        }
+
+        return Role::create(['tenant_id' => $tenant->id, 'slug' => $candidate, 'base_role' => $base, 'name' => trim($name),
+            'description' => $description, 'is_system' => false]);
+    }
+
+    /** Solo si nadie lo tiene: así nadie se queda sin saber qué permisos le tocan */
+    public function deleteCustom(Tenant $tenant, string $slug): void
+    {
+        $role = Role::query()->where('tenant_id', $tenant->id)->where('slug', $slug)->whereNotNull('base_role')->firstOrFail();
+        $users = \App\Modules\Core\Models\User::withoutGlobalScopes()->where('custom_role_id', $role->id)->count();
+        abort_if($users > 0, 422, "El rol lo tienen {$users} persona(s): cámbiales el rol antes de eliminarlo.");
+        DB::transaction(function () use ($tenant, $role) {
+            RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('role', $role->slug)->delete();
+            $role->delete();
+        });
     }
 
     /** @return array<string, list<string>> rol => permisos efectivos en la empresa */
@@ -55,7 +101,7 @@ class RolePermissions
     {
         $overrides = RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $tenant->id)->with('permission:id,slug')->get()->groupBy('role');
 
-        return collect($this->standard())->map(function (array $slugs, string $role) use ($overrides) {
+        return collect($this->standard($tenant))->map(function (array $slugs, string $role) use ($overrides) {
             $rows = $overrides->get($role, collect());
 
             return array_values(array_unique(array_merge(
@@ -88,9 +134,10 @@ class RolePermissions
      */
     public function save(Tenant $tenant, string $role, array $wanted, ?int $by): array
     {
-        abort_unless(in_array($role, self::EDITABLE, true), 422, 'Ese rol no se puede personalizar.');
+        $all = $this->standard($tenant);
+        abort_unless(array_key_exists($role, $all), 422, 'Ese rol no se puede personalizar.');
         $grantable = collect($this->grantable($tenant))->flatten(1)->pluck('slug')->all();
-        $standard = $this->standard()[$role];
+        $standard = $all[$role];
         $before = $this->effective($tenant)[$role];
         // Fuera de lo editable se respeta lo que ya había
         $wanted = array_values(array_unique(array_merge(array_intersect($wanted, $grantable), array_diff($before, $grantable))));
@@ -115,7 +162,7 @@ class RolePermissions
 
     public function reset(Tenant $tenant, string $role): void
     {
-        abort_unless(in_array($role, self::EDITABLE, true), 422, 'Ese rol no se puede personalizar.');
+        abort_unless(array_key_exists($role, $this->standard($tenant)), 422, 'Ese rol no se puede personalizar.');
         RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('role', $role)->delete();
     }
 }

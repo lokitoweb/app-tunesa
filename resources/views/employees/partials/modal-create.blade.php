@@ -204,6 +204,8 @@
                                         <div class="emp-form-hint">Solo se listan roles permitidos según tu rango administrativo.</div>
                                     </div>
 
+                                    @include('employees.partials.custom-role-select', ['prefix' => 'modal'])
+
                                     {{-- Código de Empleado --}}
                                     <div class="col-12 col-md-6">
                                         <label for="modal_employee_code" class="emp-form-label">Código de Empleado</label>

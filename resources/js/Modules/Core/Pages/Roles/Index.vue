@@ -6,6 +6,7 @@ import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 
 const props = defineProps({
     roles: { type: Array, required: true },
+    bases: { type: Array, default: () => [] },
     groups: { type: Array, required: true },
     effective: { type: Object, required: true },
     standard: { type: Object, required: true },
@@ -16,6 +17,30 @@ const { ask } = useConfirm();
 const current = ref(props.roles[0]?.slug);
 const search = ref('');
 const form = useForm({ permissions: [] });
+const creating = ref(false);
+const newRole = useForm({ name: '', base_role: props.bases[0]?.slug || '', description: '' });
+
+function createRole() {
+    const before = new Set(props.roles.map((r) => r.slug));
+    newRole.post('/settings/roles', {
+        preserveScroll: true,
+        onSuccess: () => {
+            creating.value = false;
+            newRole.reset();
+            current.value = props.roles.find((r) => !before.has(r.slug))?.slug || current.value;
+        },
+    });
+}
+async function removeRole() {
+    const ok = await ask({
+        title: `¿Eliminar «${role.value.name}»?`,
+        message: 'El rol y sus permisos se borran. Solo se puede si nadie lo tiene asignado.',
+        confirmText: 'Sí, eliminar',
+        variant: 'danger',
+        icon: 'bi bi-trash',
+    });
+    if (ok) router.delete(`/settings/roles/custom/${current.value}`, { preserveScroll: true, onSuccess: () => { current.value = props.roles[0]?.slug; } });
+}
 
 // Al cambiar de rol (o al volver del servidor) se cargan sus permisos actuales
 watch([current, () => props.effective], () => {
@@ -63,7 +88,7 @@ function save() {
 async function reset() {
     const ok = await ask({
         title: `¿Volver al estándar?`,
-        message: `${role.value.name} recupera los permisos de fábrica del sistema. Lo que personalizaste para este rol se pierde.`,
+        message: `${role.value.name} recupera los permisos de ${role.value.custom ? 'su rol base' : 'fábrica del sistema'}. Lo que personalizaste para este rol se pierde.`,
         confirmText: 'Sí, volver al estándar',
         variant: 'danger',
         icon: 'bi bi-arrow-counterclockwise',
@@ -90,10 +115,29 @@ async function reset() {
                     <button v-for="r in roles" :key="r.slug" type="button" role="tab" :aria-selected="current === r.slug"
                         class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
                         :class="{ active: current === r.slug }" @click="current = r.slug">
-                        <span>{{ r.name }}</span>
+                        <span>{{ r.name }}<small v-if="r.custom" class="d-block opacity-75">rol propio · {{ r.base }}</small></span>
                         <span v-if="customized(r.slug)" class="badge rounded-pill" :class="current === r.slug ? 'bg-light text-primary' : 'bg-warning-subtle text-warning-emphasis'">personalizado</span>
                     </button>
                 </div>
+                <button v-if="!creating && bases.length" type="button" class="btn btn-sm btn-outline-primary w-100 mt-2" @click="creating = true">
+                    <i class="bi bi-plus-lg me-1"></i>Nuevo rol
+                </button>
+                <form v-if="creating" class="card card-body shadow-sm mt-2 p-3" @submit.prevent="createRole">
+                    <label class="form-label small fw-semibold" for="new-role-name">Nombre</label>
+                    <input id="new-role-name" v-model="newRole.name" class="form-control form-control-sm" :class="{ 'is-invalid': newRole.errors.name }" maxlength="60" placeholder="Ej.: Jefe de flota" required />
+                    <div class="invalid-feedback">{{ newRole.errors.name }}</div>
+                    <label class="form-label small fw-semibold mt-2" for="new-role-base">Basado en</label>
+                    <select id="new-role-base" v-model="newRole.base_role" class="form-select form-select-sm" :class="{ 'is-invalid': newRole.errors.base_role }">
+                        <option v-for="b in bases" :key="b.slug" :value="b.slug">{{ b.name }}</option>
+                    </select>
+                    <div class="form-text small">Parte de sus permisos y su alcance (panel, app y jerarquía).</div>
+                    <label class="form-label small fw-semibold mt-2" for="new-role-desc">Descripción <span class="text-body-secondary fw-normal">(opcional)</span></label>
+                    <input id="new-role-desc" v-model="newRole.description" class="form-control form-control-sm" maxlength="200" />
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="button" class="btn btn-sm btn-light flex-fill" @click="creating = false; newRole.clearErrors()">Cancelar</button>
+                        <button type="submit" class="btn btn-sm btn-primary flex-fill" :disabled="newRole.processing">Crear</button>
+                    </div>
+                </form>
                 <p class="small text-body-secondary mt-2 mb-0">El Administrador de empresa tiene acceso total y no se edita.</p>
             </div>
 
@@ -106,6 +150,10 @@ async function reset() {
                                 <p class="small text-body-secondary mb-0">{{ role?.description }}</p>
                             </div>
                             <div class="d-flex flex-wrap gap-2">
+                                <button v-if="role?.custom" type="button" class="btn btn-sm btn-outline-danger" :disabled="role.users > 0"
+                                    :title="role.users > 0 ? `Lo tienen ${role.users} persona(s)` : 'Eliminar rol'" @click="removeRole">
+                                    <i class="bi bi-trash me-1"></i>Eliminar
+                                </button>
                                 <button v-if="customized(current)" type="button" class="btn btn-sm btn-outline-secondary" @click="reset">
                                     <i class="bi bi-arrow-counterclockwise me-1"></i>Volver al estándar
                                 </button>

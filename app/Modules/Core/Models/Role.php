@@ -40,6 +40,7 @@ class Role extends Model
     protected $fillable = [
         'tenant_id',
         'slug',
+        'base_role',
         'name',
         'description',
         'is_system',
@@ -57,6 +58,12 @@ class Role extends Model
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class);
+    }
+
+    /** Personas con este rol propio de empresa (users.custom_role_id) */
+    public function customUsers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(User::class, 'custom_role_id');
     }
 
     /** Roles del sistema (compartidos por todas las empresas) */

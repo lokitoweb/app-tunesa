@@ -93,6 +93,21 @@ class CompanyConfiguration extends Model
         return $this->required_documents ?: self::DEFAULT_REQUIRED_DOCUMENTS;
     }
 
+    /**
+     * Lo obligatorio para una persona: los de toda la empresa más los de su cargo (p. ej. la licencia
+     * para Conductor). Una sola regla para el legajo, la incorporación y la app.
+     *
+     * @return list<string>
+     */
+    public function requiredDocumentsFor(?User $user): array
+    {
+        $byPosition = $user?->position_id
+            ? (Position::withoutGlobalScopes()->find($user->position_id, ['id', 'required_documents'])?->required_documents ?? [])
+            : [];
+
+        return array_values(array_unique(array_merge($this->requiredDocuments(), $byPosition)));
+    }
+
     /** Un flag "editar" solo vale si su módulo está visible */
     public function allows(string $flag): bool
     {

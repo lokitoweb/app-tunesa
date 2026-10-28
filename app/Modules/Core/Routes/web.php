@@ -104,8 +104,10 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     // Roles y permisos por empresa (diferencia con el estándar; Administrador de empresa)
     Route::prefix('settings/roles')->name('settings.roles')->middleware('can:roles.manage')->group(function () {
         Route::get('/', [\App\Modules\Core\Controllers\Web\RoleWebController::class, 'index']);
-        Route::put('/{role}', [\App\Modules\Core\Controllers\Web\RoleWebController::class, 'update'])->name('.update')->where('role', '[a-z_]+');
-        Route::delete('/{role}', [\App\Modules\Core\Controllers\Web\RoleWebController::class, 'reset'])->name('.reset')->where('role', '[a-z_]+');
+        Route::post('/', [\App\Modules\Core\Controllers\Web\RoleWebController::class, 'store'])->name('.store');
+        Route::delete('/custom/{role}', [\App\Modules\Core\Controllers\Web\RoleWebController::class, 'destroy'])->name('.destroy')->where('role', 'c-[a-z0-9-]+');
+        Route::put('/{role}', [\App\Modules\Core\Controllers\Web\RoleWebController::class, 'update'])->name('.update')->where('role', '[a-z0-9_-]+');
+        Route::delete('/{role}', [\App\Modules\Core\Controllers\Web\RoleWebController::class, 'reset'])->name('.reset')->where('role', '[a-z0-9_-]+');
     });
 
     // Gestión de Sucursales y Geocercas (GPS Leaflet)

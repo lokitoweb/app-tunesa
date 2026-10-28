@@ -42,9 +42,9 @@ class Position extends Model
         ['Asistente administrativo', 'Administración', false],
     ];
 
-    protected $fillable = ['tenant_id', 'department_id', 'name', 'code', 'description', 'is_roaming', 'is_active'];
+    protected $fillable = ['tenant_id', 'department_id', 'name', 'code', 'description', 'is_roaming', 'is_active', 'required_documents'];
 
-    protected $casts = ['is_roaming' => 'boolean', 'is_active' => 'boolean'];
+    protected $casts = ['is_roaming' => 'boolean', 'is_active' => 'boolean', 'required_documents' => 'array'];
 
     protected static function booted(): void
     {

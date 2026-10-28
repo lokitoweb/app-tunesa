@@ -184,6 +184,8 @@
                                         <div class="invalid-feedback" id="edit_err_role"></div>
                                     </div>
 
+                                    @include('employees.partials.custom-role-select', ['prefix' => 'edit'])
+
                                     {{-- Código de Empleado --}}
                                     <div class="col-12 col-md-6">
                                         <label for="edit_employee_code" class="emp-form-label">Código de Empleado</label>

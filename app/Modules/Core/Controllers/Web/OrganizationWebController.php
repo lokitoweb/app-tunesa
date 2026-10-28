@@ -77,7 +77,10 @@ class OrganizationWebController extends Controller
                 ->orderBy('name')->get(['id', 'tenant_id', 'name', 'code', 'head_id', 'is_active'])
                 ->map(fn (Department $d) => $d->only(['id', 'tenant_id', 'name', 'code', 'head_id', 'is_active', 'users_count']) + ['head' => $d->head?->full_name]),
             'positions' => Position::withCount(['users' => fn ($q) => $q->where('status', 'active')])
-                ->orderBy('name')->get(['id', 'tenant_id', 'department_id', 'name', 'code', 'description', 'is_roaming', 'is_active']),
+                ->orderBy('name')->get(['id', 'tenant_id', 'department_id', 'name', 'code', 'description', 'is_roaming', 'is_active', 'required_documents']),
+            // Documentos que un cargo puede pedir además de los de toda la empresa (Configuración de la app)
+            'documentTypes'    => \App\Modules\HR\Models\EmployeeDocument::TYPES,
+            'companyDocuments' => \App\Modules\Core\Models\CompanyConfiguration::current()->requiredDocuments(),
             'branches' => $branches->map(fn (Branch $b) => [
                 'id'            => $b->id,
                 'tenant_id'     => $b->tenant_id,
@@ -248,6 +251,9 @@ class OrganizationWebController extends Controller
                 'department_id' => ['nullable', 'integer', Rule::exists('departments', 'id')->where('tenant_id', $tenantId)],
                 'description'   => ['nullable', 'string', 'max:255'],
                 'is_roaming'    => ['required', 'boolean'],
+                // Además de los de toda la empresa (p. ej. licencia para Conductor)
+                'required_documents'   => ['nullable', 'array'],
+                'required_documents.*' => ['string', Rule::in(array_keys(\App\Modules\HR\Models\EmployeeDocument::TYPES))],
             ];
         }
 

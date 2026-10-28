@@ -55,6 +55,7 @@ class User extends Authenticatable
         'birth_date',
         'gender',
         'role',
+        'custom_role_id',
         'status',
         'employee_code',
         'hire_date',
@@ -190,6 +191,12 @@ class User extends Authenticatable
     }
 
     /** Rol del sistema que corresponde a users.role */
+    /** Rol propio de la empresa ("Jefe de flota"…): define los permisos; users.role sigue siendo el rol base */
+    public function customRole(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'custom_role_id');
+    }
+
     public function roleModel(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'role', 'slug')->whereNull('roles.tenant_id');
@@ -307,14 +314,23 @@ class User extends Authenticatable
     public function permissionSlugs(): array
     {
         if (! array_key_exists('permission_slugs', $this->permissionCache)) {
+            // Rol propio de la empresa: parte de su rol base y aplica sus propias diferencias
+            [$base, $key] = [$this->role, $this->role];
+            if ($this->custom_role_id && $this->tenant_id && self::overridesTableReady()) {
+                $custom = Role::query()->whereKey($this->custom_role_id)->where('tenant_id', $this->tenant_id)->first(['id', 'slug', 'base_role']);
+                if ($custom?->base_role === $this->role) {
+                    $key = $custom->slug;
+                }
+            }
+
             $slugs = Permission::query()
-                ->whereHas('roles', fn ($q) => $q->whereNull('tenant_id')->where('slug', $this->role))
+                ->whereHas('roles', fn ($q) => $q->whereNull('tenant_id')->where('slug', $base))
                 ->pluck('slug')
                 ->all();
 
             // Lo que la empresa cambió en Configuración › Roles y permisos: estándar + concedidos − quitados
             if ($this->tenant_id && self::overridesTableReady()) {
-                $overrides = RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $this->tenant_id)->where('role', $this->role)
+                $overrides = RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $this->tenant_id)->where('role', $key)
                     ->join('permissions', 'permissions.id', '=', 'role_permission_overrides.permission_id')
                     ->pluck('role_permission_overrides.granted', 'permissions.slug');
                 $slugs = array_values(array_unique(array_merge(

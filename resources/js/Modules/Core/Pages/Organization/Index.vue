@@ -42,6 +42,15 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    // Documentos que un cargo pide además de los de toda la empresa
+    documentTypes: {
+        type: Object,
+        default: () => ({}),
+    },
+    companyDocuments: {
+        type: Array,
+        default: () => [],
+    },
     canManage: {
         type: Boolean,
         default: false,
@@ -511,6 +520,7 @@ const catalogForm = useForm({
     head_id: null,
     description: '',
     is_roaming: false,
+    required_documents: [],
 });
 
 function openCreateCatalogModal(catalog) {
@@ -525,6 +535,7 @@ function openCreateCatalogModal(catalog) {
     catalogForm.head_id = null;
     catalogForm.description = '';
     catalogForm.is_roaming = false;
+    catalogForm.required_documents = [];
     showCatalogModal.value = true;
 }
 
@@ -539,6 +550,7 @@ function openEditCatalogModal(catalog, row) {
     catalogForm.head_id = row.head_id ?? null;
     catalogForm.description = row.description ?? '';
     catalogForm.is_roaming = Boolean(row.is_roaming);
+    catalogForm.required_documents = [...(row.required_documents || [])];
     showCatalogModal.value = true;
 }
 
@@ -2197,6 +2209,21 @@ const catalogDetail = (catalog, row) => {
                                     </div>
                                 </div>
                             </template>
+
+                            <!-- Documentos que pide el cargo, además de los de toda la empresa -->
+                            <div v-if="editingCatalog === 'positions'" class="org-modal-section-card">
+                                <div class="fw-semibold text-dark small mb-1">Documentos que pide este cargo</div>
+                                <div class="text-muted mb-2" style="font-size: 0.75rem;">Se suman a los que pide toda la empresa (Configuración de la app). Ej.: licencia de conducir para Conductor.</div>
+                                <div class="row g-1">
+                                    <div v-for="(label, type) in documentTypes" :key="type" class="col-12 col-sm-6">
+                                        <div class="form-check">
+                                            <input :id="`pos-doc-${type}`" v-model="catalogForm.required_documents" class="form-check-input" type="checkbox" :value="type"
+                                                :disabled="companyDocuments.includes(type)" :checked="companyDocuments.includes(type) || catalogForm.required_documents.includes(type)" />
+                                            <label class="form-check-label small" :for="`pos-doc-${type}`">{{ label }}<span v-if="companyDocuments.includes(type)" class="text-body-secondary"> · toda la empresa</span></label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Switch Activo / Inactivo -->
                             <div class="org-modal-section-card d-flex align-items-center justify-content-between">

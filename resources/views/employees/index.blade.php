@@ -1855,6 +1855,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (document.getElementById('edit_role')) {
                 document.getElementById('edit_role').value = emp.role || 'employee';
                 evaluateEditRoleScope();
+                window.filterCustomRoles?.('edit');
+                if (document.getElementById('edit_custom_role_id')) document.getElementById('edit_custom_role_id').value = emp.custom_role_id || '';
             }
             if (document.getElementById('edit_scope_type')) {
                 document.getElementById('edit_scope_type').value = emp.scope_type || 'global';

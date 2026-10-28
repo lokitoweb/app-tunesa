@@ -6,7 +6,7 @@
     $show = fn (?string $v) => $canView ? $v : EmployeeProfile::mask($v);
     $payStatus = $profile->payment_info_status ?? 'incomplete';
     $approvedTypes = $documents->where('status', 'approved')->pluck('type')->all();
-    $required = $config->requiredDocuments();
+    $required = $config->requiredDocumentsFor($employee); // empresa + su cargo
     $missing = array_diff($required, $approvedTypes);
     $sizes = $employee->uniformSize;
     $initials = mb_strtoupper(mb_substr($employee->first_name, 0, 1) . mb_substr($employee->last_name, 0, 1));

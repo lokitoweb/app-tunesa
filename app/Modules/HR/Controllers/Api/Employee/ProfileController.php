@@ -131,7 +131,7 @@ class ProfileController extends Controller
         $profile->setRelation('user', $user);
         $sizes    = $user->uniformSize;
         $docs     = $user->documents()->current()->get();
-        $required = $config->requiredDocuments();
+        $required = $config->requiredDocumentsFor($user); // empresa + su cargo
 
         $missingDocs = array_values(array_diff($required, $docs->where('status', 'approved')->pluck('type')->all()));
 

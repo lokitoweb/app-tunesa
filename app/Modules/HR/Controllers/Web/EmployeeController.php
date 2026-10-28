@@ -6,6 +6,7 @@ use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Department;
 use App\Modules\Core\Models\Position;
+use App\Modules\Core\Models\Role;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Models\Zone;
@@ -282,6 +283,7 @@ class EmployeeController extends Controller
                     'last_name'                  => $employee->last_name,
                     'email'                      => $employee->email,
                     'role'                       => $employee->role,
+                    'custom_role_id'             => $employee->custom_role_id,
                     'status'                     => $employee->status,
                     'document_type'              => $employee->document_type,
                     'document_number'            => $employee->document_number,
@@ -525,7 +527,8 @@ class EmployeeController extends Controller
             'department_id'              => ['nullable', 'integer', Rule::exists('departments', 'id')->where('tenant_id', $tenantId)],
             'position_id'                => ['nullable', 'integer', Rule::exists('positions', 'id')->where('tenant_id', $tenantId)],
             'roaming_attendance_enabled' => ['nullable', 'boolean'],
-            'scope_type'                 => ['nullable', Rule::in(array_keys(User::SCOPES))],
+            'custom_role_id'             => ['nullable', 'integer', Rule::exists('roles', 'id')->where('tenant_id', $tenantId)],
+            'scope_type'                => ['nullable', Rule::in(array_keys(User::SCOPES))],
             'scope_zone_id'              => ['nullable', 'required_if:scope_type,zone', 'integer', Rule::exists('zones', 'id')->where('tenant_id', $tenantId)],
             'scope_branch_id'            => ['nullable', 'required_if:scope_type,branch', 'integer', Rule::exists('branches', 'id')->where('tenant_id', $tenantId)],
         ];
@@ -553,8 +556,13 @@ class EmployeeController extends Controller
             $data['position']    = $positionId ? Position::whereKey($positionId)->value('name') : ($validated['position'] ?? null);
         }
 
+        // Rol propio de la empresa: solo vale si se basa en el rol elegido (si no, rige el rol base)
+        if ($request->exists('custom_role_id')) {
+            $data['custom_role_id'] = Role::whereKey($validated['custom_role_id'] ?? 0)->where('base_role', $validated['role'])->value('id');
+        }
+
         if ($validated['role'] === 'employee') {
-            return $data + ['scope_type' => User::SCOPE_GLOBAL, 'scope_zone_id' => null, 'scope_branch_id' => null];
+            return $data +['scope_type' => User::SCOPE_GLOBAL, 'scope_zone_id' => null, 'scope_branch_id' => null];
         }
         if ($actor->isOrgScoped()) {
             return $data + $actor->only(['scope_type', 'scope_zone_id', 'scope_branch_id']);

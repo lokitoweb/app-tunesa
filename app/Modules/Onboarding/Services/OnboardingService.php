@@ -230,7 +230,7 @@ class OnboardingService
 
     private function documents(User $user, CompanyConfiguration $config): array
     {
-        $types = array_values($config->requiredDocuments());
+        $types = array_values($config->requiredDocumentsFor($user)); // empresa + su cargo
         if (! $types) {
             return ['not_applicable', []];
         }
