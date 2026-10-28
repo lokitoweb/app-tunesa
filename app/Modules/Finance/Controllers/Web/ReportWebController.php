@@ -184,10 +184,15 @@ class ReportWebController extends Controller
     {
         // Personal activo (el rango no aplica: es la foto actual, como Crcolaboradores)
         abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa.');
-        return [['DNI', 'Apellidos y nombres', 'Cargo', 'Sede principal', 'Ingreso', 'Correo', 'Teléfono', 'Banco', 'Cuenta (últimos 4)', 'Cuenta verificada'],
-            User::where('tenant_id', current_tenant_id_or_null())->where('status', 'active')->whereNotIn('role', ['super_admin'])
+        // Para inspección: por defecto solo planilla; ?regime=honorarios o ?regime=all para los demás
+        $regime = request('regime', 'planilla');
+        $regime = $regime === 'all' ? null : (array_key_exists($regime, User::PAYROLL_REGIMES) ? $regime : 'planilla');
+
+        return [['DNI', 'Apellidos y nombres', 'Régimen', 'Cargo', 'Sede principal', 'Ingreso', 'Correo', 'Teléfono', 'Banco', 'Cuenta (últimos 4)', 'Cuenta verificada'],
+            User::where('tenant_id', current_tenant_id_or_null())->where('status', 'active')->whereNotIn('role', ['super_admin'])->regime($regime)
                 ->with(['profile', 'branches'])->orderBy('last_name')->limit(10000)->get()->map(fn ($u) => [
-                    $u->document_number, "{$u->last_name}, {$u->first_name}", $u->position, $u->branches->firstWhere('pivot.is_primary', true)?->name,
+                    $u->document_number, "{$u->last_name}, {$u->first_name}", User::PAYROLL_REGIMES[$u->isFeeEarner() ? 'honorarios' : 'planilla'],
+                    $u->position, $u->branches->firstWhere('pivot.is_primary', true)?->name,
                     $u->hire_date?->format('d/m/Y'), $u->email, $u->phone, $u->profile?->bank_name,
                     $u->profile?->bank_account_number ? '••••' . substr($u->profile->bank_account_number, -4) : null,
                     $u->profile?->payment_info_status === 'verified' ? 'Sí' : 'No',

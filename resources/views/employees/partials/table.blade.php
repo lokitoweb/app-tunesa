@@ -55,6 +55,7 @@
                         {{-- Código y Documento --}}
                         <td>
                             <div class="emp-code-pill">{{ $emp->employee_code ?? 'EMP-' . $emp->id }}</div>
+                    @if ($emp->isFeeEarner())<span class="badge bg-warning-subtle text-warning-emphasis mt-1" title="Recibo por honorarios: no figura en la planilla ni en la relación de personal por defecto">Honorarios</span>@endif
                             <div class="emp-doc-row" title="{{ label('id_document_type', $emp->document_type) }}: {{ $emp->document_number ?: 'Sin registro' }}">
                                 <i class="bi bi-person-vcard opacity-75"></i>
                                 <span>{{ strtoupper($emp->document_type ?? 'DOC') }}: {{ $emp->document_number ?: 'Sin reg.' }}</span>

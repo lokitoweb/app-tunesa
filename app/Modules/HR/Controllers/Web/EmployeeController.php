@@ -67,6 +67,9 @@ class EmployeeController extends Controller
             $query->where('status', $status);
         }
 
+        // Régimen: planilla o recibo por honorarios (contrato de locación de servicios)
+        $query->regime(array_key_exists((string) $request->input('regime'), User::PAYROLL_REGIMES) ? $request->input('regime') : null);
+
         // Filtro por sucursal
         if ($branchId = $request->input('branch_id')) {
             $query->whereHas('branches', function ($q) use ($branchId) {

@@ -29,11 +29,20 @@ class EmployeeDocument extends Model
         'contract'         => 'Contrato',
         'proof_of_address' => 'Recibo de servicios / domicilio',
         'certificate'      => 'Certificado',
+        'medical_exam'     => 'Examen médico ocupacional',
+        'driver_license'   => 'Licencia de conducir',
+        'pension_exemption' => 'Exoneración de aporte a pensiones',
         'other'            => 'Otro',
     ];
 
     /** Tipos que el colaborador puede subir desde la app (el contrato lo carga RRHH) */
-    public const EMPLOYEE_TYPES = ['dni', 'cv', 'proof_of_address', 'certificate', 'other'];
+    public const EMPLOYEE_TYPES = ['dni', 'cv', 'proof_of_address', 'certificate', 'medical_exam', 'driver_license', 'pension_exemption', 'other'];
+
+    /**
+     * Siempre vencen: la fecha es obligatoria al subirlos desde el panel (sin ella no hay alerta). El
+     * contrato no: a plazo indeterminado no tiene fin; si se le pone fecha, también entra en las alertas.
+     */
+    public const EXPIRING_TYPES = ['medical_exam', 'driver_license'];
 
     public const STATUSES = [
         'pending'    => 'Por revisar',

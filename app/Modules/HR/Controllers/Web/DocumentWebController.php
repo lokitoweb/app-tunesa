@@ -237,8 +237,9 @@ class DocumentWebController extends Controller
             'type'       => ['required', Rule::in(array_keys(EmployeeDocument::TYPES))],
             'file'       => DocumentStorageService::fileRules(CompanyConfiguration::current()),
             'title'      => ['nullable', 'string', 'max:150'],
-            'expires_at' => ['nullable', 'date'],
-        ]);
+            // Examen médico y licencia siempre vencen: sin la fecha no hay alerta
+            'expires_at' => ['nullable', 'date', Rule::requiredIf(in_array($request->input('type'), EmployeeDocument::EXPIRING_TYPES, true))],
+        ], ['expires_at.required' => 'Indica la fecha de vencimiento: con ella se avisa antes de que venza.']);
 
         $this->documents->store($employee, $request->file('file'), $validated['type'], Auth::user(), $validated);
 

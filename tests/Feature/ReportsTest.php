@@ -71,4 +71,24 @@ class ReportsTest extends TestCase
         $this->assertSame('DNI', $rows[0][0]);
         $this->actingAs($this->makeUser($acme, 'supervisor'))->get('/finance-reports')->assertForbidden();
     }
+
+    public function test_staff_list_for_inspection_has_only_payroll_unless_fee_earners_are_asked_for(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $hr = $this->makeUser($acme, 'hr_manager', ['last_name' => 'AAA']);
+        $this->makeUser($acme, 'employee', ['last_name' => 'Planilla', 'document_number' => '11111111', 'contract_type' => 'full_time']);
+        $this->makeUser($acme, 'employee', ['last_name' => 'Honorarios', 'document_number' => '22222222', 'contract_type' => 'contractor']);
+        $dnis = fn (string $query) => collect(array_slice($this->sheet($this->actingAs($hr)->get("/finance-reports/employees?from=2026-10-01&to=2026-10-31{$query}")->assertOk()), 1))->pluck(0)->filter()->values()->all();
+
+        // Por defecto (inspección): sin quien cobra por recibo por honorarios
+        $this->assertContains('11111111', $dnis(''));
+        $this->assertNotContains('22222222', $dnis(''));
+        $this->assertSame(['22222222'], $dnis('&regime=honorarios'));
+        $this->assertContains('22222222', $dnis('&regime=all'));
+        $this->assertContains('11111111', $dnis('&regime=all'));
+
+        // La lista del panel filtra igual
+        $this->get('/employees?regime=honorarios', ['X-Requested-With' => 'XMLHttpRequest'])->assertOk()->assertSee('22222222')->assertDontSee('11111111');
+    }
 }

@@ -254,6 +254,28 @@ class User extends Authenticatable
         return $this->role === 'supervisor';
     }
 
+    /**
+     * Régimen de pago: en planilla o por recibo por honorarios (4.ª categoría). Honorarios = contrato
+     * "contractor" (locación de servicios). Las relaciones de personal para inspección salen solo
+     * con planilla, salvo que se pida otra cosa.
+     */
+    public const PAYROLL_REGIMES = ['planilla' => 'En planilla', 'honorarios' => 'Recibo por honorarios'];
+
+    public function isFeeEarner(): bool
+    {
+        return $this->contract_type === 'contractor';
+    }
+
+    /** planilla | honorarios | null (todos) */
+    public function scopeRegime($query, ?string $regime)
+    {
+        return match ($regime) {
+            'planilla'   => $query->where(fn ($q) => $q->where('contract_type', '!=', 'contractor')->orWhereNull('contract_type')),
+            'honorarios' => $query->where('contract_type', 'contractor'),
+            default      => $query,
+        };
+    }
+
     public function isEmployee(): bool
     {
         return $this->role === 'employee';

@@ -905,9 +905,17 @@ Estilos del Modal Dialog de Nuevo Colaborador
             <p class="emp-subtitle">Gestión de personal, asignación de sedes, turnos y control de acceso.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ route('finance-reports.download', ['report' => 'employees', 'from' => now()->toDateString(), 'to' => now()->toDateString()]) }}" class="btn btn-outline-secondary">
-                <i class="bi bi-download me-1"></i>Exportar a Excel
-            </a>
+            {{-- Relación de personal: por defecto solo planilla (inspección); honorarios o todos a pedido --}}
+            <div class="dropdown">
+                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download me-1"></i>Exportar a Excel
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    @foreach (['planilla' => 'Solo en planilla', 'honorarios' => 'Solo recibo por honorarios', 'all' => 'Todos'] as $regime => $label)
+                        <li><a class="dropdown-item" href="{{ route('finance-reports.download', ['report' => 'employees', 'from' => now()->toDateString(), 'to' => now()->toDateString(), 'regime' => $regime]) }}">{{ $label }}</a></li>
+                    @endforeach
+                </ul>
+            </div>
             <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importEmployeesModal">
                 <i class="bi bi-file-earmark-excel me-1"></i>Importar planilla
             </button>
@@ -1045,6 +1053,15 @@ Estilos del Modal Dialog de Nuevo Colaborador
                     <option value="">Todos los roles</option>
                     @foreach(['employee', 'supervisor', 'accountant', 'logistics', 'hr_manager', 'manager', 'company_admin'] as $r)
                         <option value="{{ $r }}" @selected(request('role') == $r)>{{ $roleLabels[$r] ?? ucfirst($r) }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-6 {{ isset($positions) && $positions->isNotEmpty() ? 'col-md-1' : 'col-md-2' }}">
+                <label for="regime" class="emp-filter-label">Régimen</label>
+                <select id="regime" name="regime" class="emp-filter-select">
+                    <option value="">Todos</option>
+                    @foreach (\App\Modules\Core\Models\User::PAYROLL_REGIMES as $value => $label)
+                        <option value="{{ $value }}" @selected(request('regime') == $value)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
@@ -1195,6 +1212,7 @@ document.addEventListener('DOMContentLoaded', function () {
             position_id: positionSelect ? positionSelect.value : '',
             role: roleSelect ? roleSelect.value : '',
             status: statusSelect ? statusSelect.value : '',
+            regime: document.getElementById('regime')?.value || '',
             per_page: '10'
         });
         // Sin parámetros vacíos (search=&branch_id=...)

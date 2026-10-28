@@ -683,6 +683,9 @@ final class Labels
             'contract'         => ['Contrato', 'secondary'],
             'proof_of_address' => ['Recibo de servicios / domicilio', 'secondary'],
             'certificate'      => ['Certificado', 'secondary'],
+            'medical_exam'     => ['Examen médico ocupacional', 'info'],
+            'driver_license'   => ['Licencia de conducir', 'info'],
+            'pension_exemption' => ['Exoneración de aporte a pensiones', 'secondary'],
             'other'            => ['Otro', 'secondary'],
         ],
         'payslip_status' => [
@@ -809,7 +812,7 @@ final class Labels
         'contract_type' => [
             'full_time'  => ['Tiempo completo', 'secondary'],
             'part_time'  => ['Tiempo parcial', 'secondary'],
-            'contractor' => ['Locación de servicios', 'secondary'],
+            'contractor' => ['Recibo por honorarios (locación de servicios)', 'warning'],
             'intern'     => ['Practicante', 'secondary'],
         ],
         'bank_account_type' => [

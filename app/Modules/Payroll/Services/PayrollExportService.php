@@ -68,6 +68,8 @@ class PayrollExportService
 
         $employees = User::query()
             ->whereIn('role', ['employee', 'supervisor'])
+            // Recibo por honorarios no va en planilla
+            ->regime('planilla')
             ->where(fn ($q) => $q->whereNull('termination_date')->orWhere('termination_date', '>=', $from->toDateString()))
             ->when($branchId, fn ($q) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $branchId)))
             ->with(['profile', 'tenant:id,company_name'])
