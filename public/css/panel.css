@@ -10376,3 +10376,31 @@ select.modern-input-control option {
 @media (max-width: 575.98px) {
     .topbar-tenant-selector { min-width: 0; max-width: 58vw; padding-left: .75rem; }
 }
+
+/* ==========================================================================
+   Barra de filtros compartida (Panel.filters): buscador, selectores y etiquetas
+   de los filtros activos. Persistente y con los colores de la marca.
+   ========================================================================== */
+.filter-bar { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color-translucent); border-radius: 14px;
+    padding: .9rem 1rem; box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 4px 14px rgba(15, 23, 42, .04); }
+.filter-bar-row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.filter-search { position: relative; flex: 1 1 260px; min-width: 200px; }
+.filter-search > i { position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); color: var(--bs-secondary-color); pointer-events: none; }
+.filter-search input { width: 100%; height: 40px; padding: .45rem .9rem .45rem 2.4rem; border-radius: 10px; border: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg); color: var(--bs-body-color); font-size: .875rem; transition: border-color .15s, box-shadow .15s, background .15s; }
+.filter-select { flex: 0 1 190px; min-width: 150px; height: 40px; padding: .45rem 2.2rem .45rem .85rem; border-radius: 10px; border: 1px solid var(--bs-border-color);
+    background-color: var(--bs-tertiary-bg); color: var(--bs-body-color); font-size: .85rem; cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat; background-position: right .8rem center; background-size: 11px 7px; transition: border-color .15s, box-shadow .15s; }
+.filter-search input:focus, .filter-select:focus { outline: none; border-color: var(--brand); background-color: var(--bs-body-bg); box-shadow: 0 0 0 3px rgba(var(--brand-rgb), .15); }
+.filter-select.is-set { border-color: rgba(var(--brand-rgb), .55); background-color: rgba(var(--brand-rgb), .06); color: var(--brand); font-weight: 600; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .7rem; }
+.filter-chips[hidden] { display: none; }
+.filter-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .4rem .25rem .7rem; border-radius: 999px; font-size: .78rem;
+    border: 1px solid rgba(var(--brand-rgb), .3); background: rgba(var(--brand-rgb), .08); color: var(--bs-body-color); cursor: pointer; transition: background .15s; }
+.filter-chip:hover { background: rgba(var(--brand-rgb), .16); }
+.filter-chip-label { color: var(--bs-secondary-color); }
+.filter-chip i { font-size: .65rem; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(var(--brand-rgb), .15); }
+.filter-chip-clear { border: 0; background: none; color: var(--brand); font-size: .78rem; font-weight: 600; padding: .25rem .4rem; cursor: pointer; }
+.filter-chip-clear:hover { text-decoration: underline; }
+@media (max-width: 575.98px) { .filter-select { flex: 1 1 calc(50% - .3rem); min-width: 0; } }

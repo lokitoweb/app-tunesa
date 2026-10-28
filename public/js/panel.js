@@ -665,7 +665,110 @@
         }
     };
 
-    window.Panel = { esc, minutes, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton };
+    // Filtros persistentes con etiquetas: Panel.filters.init(form, { apply }) en cualquier formulario de
+    // filtros. Recuerda lo elegido por pantalla (se restaura al volver si la dirección no trae filtros),
+    // deja la dirección con los filtros (recargar o compartir muestra lo mismo) y pinta en
+    // [data-filter-chips] una etiqueta por filtro activo, que se quita con un clic, más "Limpiar".
+    // Los formularios data-ajax-filter lo traen solo; apply por defecto = enviar el formulario.
+    const filters = {
+        key(form) { return `filters:${form.dataset.filterKey || window.location.pathname}`; },
+        fields(form) {
+            return Array.from(form.querySelectorAll('input[name], select[name]'))
+                .filter((f) => f.type !== 'hidden' && f.type !== 'submit' && f.name !== 'page' && f.name !== 'per_page');
+        },
+        query(form) {
+            const q = new URLSearchParams();
+            this.fields(form).forEach((f) => {
+                const v = (f.value || '').trim();
+                if (v !== '' && v !== (f.dataset.default ?? '')) q.set(f.name, v);
+            });
+            return q;
+        },
+        save(form) {
+            try { localStorage.setItem(this.key(form), this.query(form).toString()); } catch (_) { /* almacenamiento bloqueado */ }
+        },
+        /** Al abrir: si la dirección no trae filtros, vuelve a poner los últimos usados. true si cambió algo */
+        restore(form) {
+            const names = this.fields(form).map((f) => f.name);
+            const current = new URLSearchParams(window.location.search);
+            if (names.some((n) => current.has(n))) return false;
+            let saved;
+            try { saved = new URLSearchParams(localStorage.getItem(this.key(form)) || ''); } catch (_) { return false; }
+            let changed = false;
+            this.fields(form).forEach((f) => {
+                const v = saved.get(f.name);
+                if (v === null) return;
+                // Solo si la opción aún existe (una sede borrada no deja el filtro trabado)
+                if (f.tagName === 'SELECT' && ![...f.options].some((o) => o.value === v)) return;
+                f.value = v;
+                changed = true;
+            });
+            return changed;
+        },
+        /** Dirección y memoria al día, y etiquetas */
+        sync(form) {
+            this.save(form);
+            const q = this.query(form).toString();
+            const url = window.location.pathname + (q ? `?${q}` : '') + window.location.hash;
+            window.history.replaceState(window.history.state, '', url);
+            this.chips(form);
+        },
+        label(f) {
+            const text = f.dataset.label || (f.id && document.querySelector(`label[for="${f.id}"]`)?.textContent) || f.name;
+            return text.replace(/\s+/g, ' ').trim();
+        },
+        chips(form) {
+            const box = form.querySelector('[data-filter-chips]') || document.querySelector(`[data-filter-chips="${form.id}"]`);
+            if (!box) return;
+            const active = this.fields(form).filter((f) => (f.value || '').trim() !== '' && f.value !== (f.dataset.default ?? ''));
+            // El selector con un filtro elegido se resalta
+            this.fields(form).forEach((f) => f.tagName === 'SELECT' && f.classList.toggle('is-set', active.includes(f)));
+            box.replaceChildren();
+            box.hidden = active.length === 0;
+            active.forEach((f) => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'filter-chip';
+                const value = f.tagName === 'SELECT' ? f.selectedOptions[0]?.textContent : f.value;
+                chip.innerHTML = `<span class="filter-chip-label">${esc(this.label(f))}:</span> ${esc((value || '').trim())} <i class="bi bi-x-lg" aria-hidden="true"></i>`;
+                chip.setAttribute('aria-label', `Quitar filtro ${this.label(f)}`);
+                chip.addEventListener('click', () => { f.value = f.dataset.default ?? ''; form._filtersApply(); });
+                box.append(chip);
+            });
+            if (active.length) {
+                const clear = document.createElement('button');
+                clear.type = 'button';
+                clear.className = 'filter-chip-clear';
+                clear.textContent = 'Limpiar filtros';
+                clear.addEventListener('click', () => this.clear(form));
+                box.append(clear);
+            }
+        },
+        clear(form) {
+            this.fields(form).forEach((f) => { f.value = f.dataset.default ?? ''; });
+            try { localStorage.removeItem(this.key(form)); } catch (_) { /* almacenamiento bloqueado */ }
+            form._filtersApply();
+        },
+        init(form, { apply } = {}) {
+            if (!form || form._filtersApply) return;
+            form._filtersApply = apply || (() => form.requestSubmit());
+            if (this.restore(form)) form._filtersApply();
+            else this.chips(form);
+        },
+    };
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('form[data-ajax-filter]').forEach((form) => filters.init(form));
+    });
+    // Formularios data-ajax-filter: un select o fecha cambia y filtra al instante; al cargar, memoria y etiquetas
+    document.addEventListener('change', (e) => {
+        const field = e.target;
+        if (!(field instanceof HTMLSelectElement || (field instanceof HTMLInputElement && field.type === 'date'))) return;
+        if (field.form?.hasAttribute('data-ajax-filter')) field.form.requestSubmit();
+    });
+    // La dirección ya la dejó ajaxFilter (con la página): aquí solo memoria y etiquetas
+    document.addEventListener('panel:ajax-filtered', (e) => { filters.save(e.detail.form); filters.chips(e.detail.form); });
+
+    window.Panel = { esc, minutes, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton, filters };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;
     window.openCommandPalette = openCommandPalette;

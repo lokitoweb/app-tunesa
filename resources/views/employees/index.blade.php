@@ -139,121 +139,6 @@ Optimizado para pantallas estándar sin scroll horizontal y tema oscuro nativo
     margin-top: 2px;
 }
 
-{{-- Card de Filtros --}}
-.emp-filter-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1rem 1.25rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-.emp-filter-label {
-    display: block;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    margin-bottom: 0.35rem;
-}
-.emp-filter-input {
-    width: 100%;
-    height: 38px;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.825rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-surface-elevated);
-    color: var(--text-primary);
-    transition: all 0.15s ease;
-}
-.emp-filter-select {
-    width: 100%;
-    height: 38px;
-    padding: 0.4rem 2.5rem 0.4rem 0.75rem !important;
-    font-size: 0.825rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-surface-elevated);
-    color: var(--text-primary);
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 0.85rem center;
-    background-size: 11px 7px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-.emp-filter-input:focus,
-.emp-filter-select:focus {
-    outline: none;
-    border-color: #0284c7;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.18);
-}
-.emp-filter-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-.emp-btn-filter {
-    height: 38px;
-    padding: 0 1.25rem;
-    font-size: 0.825rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    border-radius: 8px;
-    background: #0284c7;
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    color: #ffffff !important;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
-    transition: all 0.15s ease;
-}
-.emp-btn-filter:hover {
-    background: #0369a1;
-    border-color: rgba(56, 189, 248, 0.45);
-    color: #ffffff !important;
-    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
-}
-[data-bs-theme="dark"] .emp-btn-filter {
-    background: #0284c7;
-    border-color: rgba(56, 189, 248, 0.3);
-    color: #ffffff !important;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-}
-[data-bs-theme="dark"] .emp-btn-filter:hover {
-    background: #0369a1;
-    border-color: rgba(56, 189, 248, 0.5);
-    color: #ffffff !important;
-    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
-}
-.emp-btn-reset {
-    height: 38px;
-    padding: 0 0.85rem;
-    font-size: 0.825rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    border-radius: 8px;
-    background: var(--bg-surface-elevated);
-    color: var(--text-muted);
-    border: 1px solid var(--border-color);
-    text-decoration: none;
-    transition: all 0.15s ease;
-    cursor: pointer;
-}
-.emp-btn-reset:hover {
-    color: var(--text-primary);
-    border-color: var(--border-color-light);
-}
-
 {{-- =============================================================================
 Tabla de Colaboradores — Ultra-Compact No-Overflow Design
 ============================================================================= --}}
@@ -1020,72 +905,48 @@ Estilos del Modal Dialog de Nuevo Colaborador
     @endif
 
     {{-- 4. Filtros Avanzados (Conectados a AJAX en tiempo real) --}}
-    <div class="emp-filter-card">
-        <form method="GET" action="{{ route('employees.index') }}" class="row g-2 align-items-end" id="empFilterForm">
-            <div class="col-12 col-md-3">
-                <label for="search" class="emp-filter-label">Buscar Colaborador</label>
-                <input type="search" id="search" name="search" value="{{ request('search') }}"
-                       placeholder="Nombre, email, código o DNI…" class="emp-filter-input" autocomplete="off">
-            </div>
-            <div class="col-6 col-md-2">
-                <label for="branch_id" class="emp-filter-label">Sucursal</label>
-                <select id="branch_id" name="branch_id" class="emp-filter-select">
-                    <option value="">Todas las sucursales</option>
-                    @foreach($branches as $b)
-                        <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
-                    @endforeach
-                </select>
-            </div>
+    {{-- Barra de filtros compartida (Panel.filters): se aplica al elegir, recuerda lo elegido y muestra etiquetas --}}
+    <form method="GET" action="{{ route('employees.index') }}" class="filter-bar" id="empFilterForm" data-filter-key="employees" role="search">
+        <div class="filter-bar-row">
+            <label class="filter-search mb-0">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input type="search" id="search" name="search" value="{{ request('search') }}" data-label="Búsqueda"
+                       placeholder="Buscar por nombre, correo, código o DNI…" autocomplete="off" aria-label="Buscar colaborador">
+            </label>
+            <select id="branch_id" name="branch_id" class="filter-select" data-label="Sede" aria-label="Sede">
+                <option value="">Todas las sedes</option>
+                @foreach($branches as $b)
+                    <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
+                @endforeach
+            </select>
             @if(isset($positions) && $positions->isNotEmpty())
-                <div class="col-6 col-md-2">
-                    <label for="position_id" class="emp-filter-label">Cargo</label>
-                    <select id="position_id" name="position_id" class="emp-filter-select">
-                        <option value="">Todos los cargos</option>
-                        @foreach($positions as $p)
-                            <option value="{{ $p->id }}" @selected(request('position_id') == $p->id)>{{ $p->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                <select id="position_id" name="position_id" class="filter-select" data-label="Cargo" aria-label="Cargo">
+                    <option value="">Todos los cargos</option>
+                    @foreach($positions as $p)
+                        <option value="{{ $p->id }}" @selected(request('position_id') == $p->id)>{{ $p->name }}</option>
+                    @endforeach
+                </select>
             @endif
-            <div class="col-6 {{ isset($positions) && $positions->isNotEmpty() ? 'col-md-2' : 'col-md-3' }}">
-                <label for="role" class="emp-filter-label">Rol en el Sistema</label>
-                <select id="role" name="role" class="emp-filter-select">
-                    <option value="">Todos los roles</option>
-                    @foreach(['employee', 'supervisor', 'accountant', 'logistics', 'hr_manager', 'manager', 'company_admin'] as $r)
-                        <option value="{{ $r }}" @selected(request('role') == $r)>{{ $roleLabels[$r] ?? ucfirst($r) }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-6 {{ isset($positions) && $positions->isNotEmpty() ? 'col-md-1' : 'col-md-2' }}">
-                <label for="regime" class="emp-filter-label">Régimen</label>
-                <select id="regime" name="regime" class="emp-filter-select">
-                    <option value="">Todos</option>
-                    @foreach (\App\Modules\Core\Models\User::PAYROLL_REGIMES as $value => $label)
-                        <option value="{{ $value }}" @selected(request('regime') == $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-6 {{ isset($positions) && $positions->isNotEmpty() ? 'col-md-1' : 'col-md-2' }}">
-                <label for="status" class="emp-filter-label">Estado</label>
-                <select id="status" name="status" class="emp-filter-select">
-                    <option value="">Todos</option>
-                    <option value="active" @selected(request('status') == 'active')>Activo</option>
-                    <option value="inactive" @selected(request('status') == 'inactive')>Inactivo</option>
-                </select>
-            </div>
-            <div class="col-12 col-md-2">
-                <div class="emp-filter-actions">
-                    <button type="submit" class="emp-btn-filter flex-grow-1" id="btnFilterEmployees">
-                        <i class="bi bi-funnel"></i>
-                        <span>Filtrar</span>
-                    </button>
-                    <button type="button" class="emp-btn-reset" id="btnResetFilters" title="Restablecer filtros">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                    </button>
-                </div>
-            </div>
-        </form>
-    </div>
+            <select id="role" name="role" class="filter-select" data-label="Rol" aria-label="Rol">
+                <option value="">Todos los roles</option>
+                @foreach(['employee', 'supervisor', 'accountant', 'logistics', 'hr_manager', 'manager', 'company_admin'] as $r)
+                    <option value="{{ $r }}" @selected(request('role') == $r)>{{ $roleLabels[$r] ?? ucfirst($r) }}</option>
+                @endforeach
+            </select>
+            <select id="regime" name="regime" class="filter-select" data-label="Régimen" aria-label="Régimen">
+                <option value="">Planilla y honorarios</option>
+                @foreach (\App\Modules\Core\Models\User::PAYROLL_REGIMES as $value => $label)
+                    <option value="{{ $value }}" @selected(request('regime') == $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            <select id="status" name="status" class="filter-select" data-label="Estado" aria-label="Estado">
+                <option value="">Todos los estados</option>
+                <option value="active" @selected(request('status') == 'active')>Activo</option>
+                <option value="inactive" @selected(request('status') == 'inactive')>Inactivo</option>
+            </select>
+        </div>
+        <div class="filter-chips" data-filter-chips hidden></div>
+    </form>
 
     {{-- 5. Contenedor de Tabla con Paginador AJAX --}}
     <div class="emp-table-card">
@@ -1192,7 +1053,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const positionSelect = document.getElementById('position_id');
     const roleSelect = document.getElementById('role');
     const statusSelect = document.getElementById('status');
-    const btnReset = document.getElementById('btnResetFilters');
 
     let currentInternalPage = 1;
     let searchDebounceTimer = null;
@@ -1230,6 +1090,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const html = await response.text();
             tableContainer.innerHTML = html;
+            if (filterForm) Panel.filters.sync(filterForm);
         } catch (error) {
             console.error('Error fetching employees:', error);
         } finally {
@@ -1342,20 +1203,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    {{-- Envío del formulario de filtros --}}
+    {{-- Filtros: se aplican al elegir (los selectores) o al dejar de escribir (búsqueda) --}}
     if (filterForm) {
         filterForm.addEventListener('submit', function (e) {
             e.preventDefault();
             fetchEmployees(1);
         });
+        filterForm.querySelectorAll('select').forEach((sel) => sel.addEventListener('change', () => fetchEmployees(1)));
+        {{-- Recuerda lo elegido, etiquetas y "Limpiar" (Panel.filters, compartido con las demás pantallas) --}}
+        Panel.filters.init(filterForm, { apply: () => fetchEmployees(1) });
     }
-
-    {{-- Filtros automáticos en selectores --}}
-    [branchSelect, positionSelect, roleSelect, statusSelect].forEach(sel => {
-        if (sel) {
-            sel.addEventListener('change', () => fetchEmployees(1));
-        }
-    });
 
     {{-- Búsqueda en tiempo real con debounce de 350ms --}}
     if (searchInput) {
@@ -1364,18 +1221,6 @@ document.addEventListener('DOMContentLoaded', function () {
             searchDebounceTimer = setTimeout(() => {
                 fetchEmployees(1);
             }, 350);
-        });
-    }
-
-    {{-- Restablecer filtros --}}
-    if (btnReset) {
-        btnReset.addEventListener('click', function () {
-            if (searchInput) searchInput.value = '';
-            if (branchSelect) branchSelect.value = '';
-            if (positionSelect) positionSelect.value = '';
-            if (roleSelect) roleSelect.value = '';
-            if (statusSelect) statusSelect.value = '';
-            fetchEmployees(1);
         });
     }
 
