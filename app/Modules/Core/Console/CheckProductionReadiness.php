@@ -63,6 +63,12 @@ class CheckProductionReadiness extends Command
 
         try {
             DB::connection()->getPdo();
+            // Segunda capa de la bitácora de marcaciones (la primera es la app): si MySQL no dejó crearla
+            if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)
+                && ! DB::selectOne("SELECT COUNT(*) AS n FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME = 'attendance_punches_immutable'")->n) {
+                $warnings[] = 'Falta la protección de base de datos de las marcaciones (MySQL no dejó crear el trigger). '
+                    . 'La app las sigue protegiendo; para la segunda capa corre una vez: sudo bash scripts/server-setup.sh y luego php artisan migrate.';
+            }
         } catch (\Throwable) {
             $errors[] = 'No hay conexión con la base de datos.';
         }

@@ -32,8 +32,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Antes de tocar nada: si MySQL no deja crear el trigger, se detiene sin dejar la bitácora sin protección
-        $this->ensureCanCreateTriggers();
+        // El trigger es una segunda capa (la primera es el modelo AttendancePunch, que ya impide editar
+        // y borrar). Si el servidor no deja crearlo, el despliegue sigue y app:check-production lo avisa.
+        $canTrigger = $this->canCreateTriggers();
 
         // Restos vacíos de un intento fallido (pudo quedar sin sus llaves o índices): se rehace completa
         if (Schema::hasTable('attendance_contingencies') && ! DB::table('attendance_contingencies')->exists()) {
@@ -63,7 +64,11 @@ return new class extends Migration
         if (! Schema::hasColumn('attendance_punches', 'contingency_id')) {
             Schema::table('attendance_punches', fn (Blueprint $table) => $table->unsignedBigInteger('contingency_id')->nullable()->index());
         }
-        $this->recreateTrigger([...self::IMMUTABLE, 'contingency_id']);
+        if ($canTrigger) {
+            $this->recreateTrigger([...self::IMMUTABLE, 'contingency_id']);
+        } else {
+            \Illuminate\Support\Facades\Log::warning('No se pudo crear el trigger de attendance_punches: MySQL con registro binario sin log_bin_trust_function_creators. La app sigue protegiendo las marcas; corre scripts/server-setup.sh para la segunda capa.');
+        }
 
         Schema::table('attendances', function (Blueprint $table) {
             $table->boolean('clock_in_within_geofence')->nullable()->default(false)->change();
@@ -80,25 +85,21 @@ return new class extends Migration
 
     /**
      * MySQL con registro binario solo deja crear triggers a quien tiene SUPER o con
-     * log_bin_trust_function_creators=1 (scripts/server-setup.sh lo activa).
+     * log_bin_trust_function_creators=1 (scripts/server-setup.sh lo activa). Se pregunta ANTES de
+     * borrar el trigger viejo: si no se puede crear el nuevo, el viejo se queda como está.
      */
-    private function ensureCanCreateTriggers(): void
+    private function canCreateTriggers(): bool
     {
         if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
-            return;
+            return true;
         }
         $vars = DB::selectOne('SELECT @@log_bin AS log_bin, @@log_bin_trust_function_creators AS trust');
         if (! (int) $vars->log_bin || (int) $vars->trust) {
-            return;
+            return true;
         }
         $grants = implode(' ', array_map(fn ($row) => implode(' ', (array) $row), DB::select('SHOW GRANTS')));
-        if (str_contains($grants, 'SUPER') || str_contains($grants, 'ALL PRIVILEGES ON *.*')) {
-            return;
-        }
 
-        throw new \RuntimeException('MySQL tiene el registro binario activo y no deja crear triggers a este usuario. '
-            . 'Como root en el servidor: sudo mysql -e "SET GLOBAL log_bin_trust_function_creators = 1;" '
-            . 'y luego sudo bash scripts/server-setup.sh (lo deja permanente). No se cambió nada en la base.');
+        return str_contains($grants, 'SUPER') || str_contains($grants, 'ALL PRIVILEGES ON *.*');
     }
 
     private function recreateTrigger(array $columns): void
