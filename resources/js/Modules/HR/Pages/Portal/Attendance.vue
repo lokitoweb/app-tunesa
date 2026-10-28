@@ -32,7 +32,7 @@ const statusText = { pending: 'Justificación en revisión', approved: 'Justific
 <template>
     <PortalLayout title="Mi asistencia">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2 mb-3">
-            <h1 class="h4 fw-bold mb-0">Mi asistencia</h1>
+            <h1 class="portal-title mb-0">Mi asistencia</h1>
             <div class="btn-group btn-group-sm" role="group" aria-label="Mes">
                 <button type="button" class="btn btn-outline-secondary" aria-label="Mes anterior" @click="shift(-1)"><i class="bi bi-chevron-left"></i></button>
                 <span class="btn btn-outline-secondary disabled text-capitalize">{{ months[period.month - 1] }} {{ period.year }}</span>

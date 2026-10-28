@@ -18,7 +18,7 @@ const savePassword = () => pwd.put('/mi-espacio/perfil/password', { preserveScro
 
 <template>
     <PortalLayout title="Mi perfil">
-        <h1 class="h4 fw-bold mt-2 mb-3">Mi perfil</h1>
+        <h1 class="portal-title">Mi perfil</h1>
         <div class="row g-3">
             <div class="col-12 col-lg-6">
                 <div class="card shadow-sm h-100">

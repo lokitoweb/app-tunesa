@@ -6,7 +6,7 @@ defineProps({ payslips: { type: Array, default: () => [] } });
 
 <template>
     <PortalLayout title="Mis boletas">
-        <h1 class="h4 fw-bold mt-2 mb-3">Mis boletas</h1>
+        <h1 class="portal-title">Mis boletas</h1>
         <div class="card shadow-sm">
             <ul class="list-group list-group-flush">
                 <li v-for="p in payslips" :key="p.id" class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
