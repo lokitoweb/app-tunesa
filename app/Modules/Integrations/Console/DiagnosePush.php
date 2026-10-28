@@ -90,6 +90,7 @@ class DiagnosePush extends Command
                 $off = collect($user->notification_preferences ?? [])->filter(fn ($v) => $v === false)->keys();
                 $check('Categorías de aviso encendidas', $off->isEmpty(), $off->isEmpty() ? '' : 'apagó: ' . $off->implode(', '),
                     'La persona apagó esas categorías en la app (Perfil › Notificaciones).');
+                $this->reminders($user, $check);
                 if (filled($user->fcm_token) && $account) {
                     $result = $sender->test($user);
                     $check('Push de prueba aceptado por Firebase', $result['ok'], $result['ok'] ? "en {$result['ms']} ms: revisa el celular" : ($result['error'] ?? ''),
@@ -102,5 +103,41 @@ class DiagnosePush extends Command
         $problems ? $this->warn("{$problems} punto(s) por corregir (arriba, con →).") : $this->info('Todo en orden en el servidor.');
 
         return $problems ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Recordatorios de marcación (attendance:remind-entry): 5 min antes de la entrada a quien no
+     * marcó y 5 min después de la salida esperada a quien no marcó salida. Solo con turno ese día.
+     */
+    private function reminders(User $user, \Closure $check): void
+    {
+        $this->line('  <comment>Recordatorios de marcación</comment>');
+        $beat = (int) cache()->get('scheduler:last_run', 0);
+        $check('Tareas automáticas corriendo (cron)', $beat > time() - 180, $beat ? 'último latido hace ' . (int) floor((time() - $beat) / 60) . ' min' : 'sin latido',
+            'El cron no corre: sudo bash scripts/server-setup.sh lo reinstala.');
+        $event = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())->first(fn ($e) => str_contains((string) $e->command, 'attendance:remind-entry'));
+        $check('Tarea de recordatorios programada y libre', $event && ! $event->mutex->exists($event), $event ? '' : 'no está en el scheduler',
+            'Quedó un bloqueo de una corrida anterior: php artisan schedule:clear-cache lo libera.');
+
+        $tenant = Tenant::find($user->tenant_id);
+        if (! $tenant) {
+            return;
+        }
+        app(\App\Modules\Core\Services\TenantContext::class)->set($tenant);
+        $today = now($tenant->timezone ?: config('app.timezone'));
+        $status = app(\App\Modules\Attendance\Services\ScheduleGate::class)->statusFor($user, $today->toDateString());
+        $shift = $status['shift'] ?? null;
+        $check('Turno hoy', (bool) $shift,
+            $shift ? "{$shift['name']} {$shift['start_time']} – {$shift['end_time']}: recordatorio de entrada desde las "
+                . $today->copy()->setTimeFromTimeString($shift['start_time'])->subMinutes(\App\Modules\Attendance\Console\SendEntryReminders::LEAD_MINUTES)->format('H:i')
+                . ', de salida desde las ' . $today->copy()->setTimeFromTimeString($shift['end_time'])->addMinutes(\App\Modules\Attendance\Console\SendEntryReminders::LEAD_MINUTES)->format('H:i')
+                : 'sin turno programado hoy',
+            'Sin turno no hay a qué hora recordar: asígnale turno (Horarios) o prográmale el día (Programación de horarios).');
+        $attendance = \App\Modules\Attendance\Models\Attendance::where('user_id', $user->id)->where('work_date', $today->toDateString())->first();
+        $this->line('        Hoy marcó: entrada ' . ($attendance?->clock_in_at?->format('H:i') ?? '—') . ', salida ' . ($attendance?->clock_out_at?->format('H:i') ?? '—')
+            . ' (si ya marcó, no se le recuerda)');
+        $last = fn (string $type) => $user->notifications()->where('type', $type)->latest()->value('created_at');
+        $this->line('        Último recordatorio de entrada: ' . ($last('attendance.entry_reminder') ?? 'nunca') . ' · de salida: ' . ($last('attendance.exit_reminder') ?? 'nunca'));
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
     }
 }
