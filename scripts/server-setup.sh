@@ -105,6 +105,36 @@ else
   ok "instaladas (${#CRON_LINES[@]} líneas); crontab -u $APP_USER -l para verlas"
 fi
 
+# 5. MySQL con registro binario: la app protege tablas con triggers (p. ej. la bitácora de
+#    marcaciones) y MySQL solo deja crearlos con log_bin_trust_function_creators=1 (o SUPER).
+#    Solo si la base es local; se lee el tipo y el host del .env, nunca la contraseña.
+echo "5. MySQL"
+env_get() { grep -E "^$1=" "$APP_DIR/.env" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'"; }
+DB_CONN="$(env_get DB_CONNECTION)"; DB_HOST_ENV="$(env_get DB_HOST)"
+MYCNF_DIR="/etc/mysql/conf.d"
+if [[ "$DB_CONN" != "mysql" && "$DB_CONN" != "mariadb" ]]; then
+  ok "la app no usa MySQL (${DB_CONN:-sin DB_CONNECTION}): nada que hacer"
+elif [[ -n "$DB_HOST_ENV" && "$DB_HOST_ENV" != "127.0.0.1" && "$DB_HOST_ENV" != "localhost" ]]; then
+  warn "MySQL está en otro servidor ($DB_HOST_ENV): activa allí log_bin_trust_function_creators=1 (o su equivalente del proveedor)."
+elif ! VARS="$(mysql -NBe 'SELECT @@log_bin, @@log_bin_trust_function_creators' 2>/dev/null)"; then
+  warn "No pude entrar a MySQL como root. Corre: mysql -u root -p -e \"SET GLOBAL log_bin_trust_function_creators = 1;\" y agrega log_bin_trust_function_creators = 1 en [mysqld]."
+else
+  read -r LOG_BIN TRUST <<<"$VARS"
+  if [[ "$LOG_BIN" != "1" || "$TRUST" == "1" ]]; then
+    ok "MySQL ya deja crear triggers (registro binario: $LOG_BIN, permiso: $TRUST)"
+  elif [[ $DRY -eq 1 ]]; then
+    warn "se activaría log_bin_trust_function_creators=1 (ahora y en $MYCNF_DIR/zz-app-tunesa.cnf)"
+  else
+    mysql -e "SET GLOBAL log_bin_trust_function_creators = 1;"
+    if [[ -d "$MYCNF_DIR" ]]; then
+      printf '[mysqld]\n# app-tunesa: permite a la app crear sus triggers con el registro binario activo\nlog_bin_trust_function_creators = 1\n' >"$MYCNF_DIR/zz-app-tunesa.cnf"
+      ok "log_bin_trust_function_creators=1 activo y permanente ($MYCNF_DIR/zz-app-tunesa.cnf)"
+    else
+      warn "Activado hasta el próximo reinicio de MySQL; agrega log_bin_trust_function_creators = 1 en [mysqld] de su configuración."
+    fi
+  fi
+fi
+
 # Huella de esta versión: deploy.sh avisa si el archivo cambió y hay que volver a correrlo
 if [[ $DRY -eq 0 ]]; then
   sha256sum "$0" | cut -d' ' -f1 >"$APP_DIR/storage/framework/server-setup.sha"

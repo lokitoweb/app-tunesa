@@ -26,28 +26,43 @@ return new class extends Migration
         'device_id', 'device_os', 'app_version', 'ip', 'created_at', 'photo_sha256',
     ];
 
+    /**
+     * Reanudable: en MySQL los cambios de estructura no se deshacen si algo falla a mitad, así que
+     * cada paso comprueba si ya se hizo (un despliegue fallido no deja la migración trabada).
+     */
     public function up(): void
     {
-        Schema::create('attendance_contingencies', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
-            $table->string('scope', 20);          // all | branch | department | users
-            $table->json('scope_ids')->nullable();
-            $table->string('reason', 200);
-            $table->dateTime('starts_at')->comment('UTC');
-            $table->dateTime('ends_at')->comment('UTC');
-            $table->dateTime('ended_at')->nullable()->comment('UTC, si se desactivó antes');
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('ended_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamps();
-            $table->index(['tenant_id', 'ends_at']);
-        });
+        // Antes de tocar nada: si MySQL no deja crear el trigger, se detiene sin dejar la bitácora sin protección
+        $this->ensureCanCreateTriggers();
+
+        // Restos vacíos de un intento fallido (pudo quedar sin sus llaves o índices): se rehace completa
+        if (Schema::hasTable('attendance_contingencies') && ! DB::table('attendance_contingencies')->exists()) {
+            Schema::drop('attendance_contingencies');
+        }
+        if (! Schema::hasTable('attendance_contingencies')) {
+            Schema::create('attendance_contingencies', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
+                $table->string('scope', 20);          // all | branch | department | users
+                $table->json('scope_ids')->nullable();
+                $table->string('reason', 200);
+                $table->dateTime('starts_at')->comment('UTC');
+                $table->dateTime('ends_at')->comment('UTC');
+                $table->dateTime('ended_at')->nullable()->comment('UTC, si se desactivó antes');
+                $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->foreignId('ended_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->timestamps();
+                $table->index(['tenant_id', 'ends_at']);
+            });
+        }
 
         Schema::table('attendance_punches', function (Blueprint $table) {
             $table->decimal('latitude', 10, 8)->nullable()->change();
             $table->decimal('longitude', 11, 8)->nullable()->change();
-            $table->unsignedBigInteger('contingency_id')->nullable()->index();
         });
+        if (! Schema::hasColumn('attendance_punches', 'contingency_id')) {
+            Schema::table('attendance_punches', fn (Blueprint $table) => $table->unsignedBigInteger('contingency_id')->nullable()->index());
+        }
         $this->recreateTrigger([...self::IMMUTABLE, 'contingency_id']);
 
         Schema::table('attendances', function (Blueprint $table) {
@@ -61,6 +76,29 @@ return new class extends Migration
         $this->recreateTrigger(self::IMMUTABLE);
         Schema::table('attendance_punches', fn (Blueprint $table) => $table->dropColumn('contingency_id'));
         Schema::dropIfExists('attendance_contingencies');
+    }
+
+    /**
+     * MySQL con registro binario solo deja crear triggers a quien tiene SUPER o con
+     * log_bin_trust_function_creators=1 (scripts/server-setup.sh lo activa).
+     */
+    private function ensureCanCreateTriggers(): void
+    {
+        if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            return;
+        }
+        $vars = DB::selectOne('SELECT @@log_bin AS log_bin, @@log_bin_trust_function_creators AS trust');
+        if (! (int) $vars->log_bin || (int) $vars->trust) {
+            return;
+        }
+        $grants = implode(' ', array_map(fn ($row) => implode(' ', (array) $row), DB::select('SHOW GRANTS')));
+        if (str_contains($grants, 'SUPER') || str_contains($grants, 'ALL PRIVILEGES ON *.*')) {
+            return;
+        }
+
+        throw new \RuntimeException('MySQL tiene el registro binario activo y no deja crear triggers a este usuario. '
+            . 'Como root en el servidor: sudo mysql -e "SET GLOBAL log_bin_trust_function_creators = 1;" '
+            . 'y luego sudo bash scripts/server-setup.sh (lo deja permanente). No se cambió nada en la base.');
     }
 
     private function recreateTrigger(array $columns): void

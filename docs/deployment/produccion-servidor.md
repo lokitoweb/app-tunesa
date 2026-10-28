@@ -283,6 +283,10 @@ Qué hace (y nada más):
 4. Instala en el crontab del dueño el scheduler (cada minuto) y el despliegue automático (cada 2 minutos),
    dentro de un bloque marcado `# >>> app-tunesa`. Lo que esté fuera del bloque (otros sistemas del
    servidor) no se toca. Correrlo otra vez reemplaza el bloque: nunca duplica.
+5. Si la base es MySQL local con registro binario, activa `log_bin_trust_function_creators = 1` (ahora y
+   en `/etc/mysql/conf.d/zz-app-tunesa.cnf`): sin eso MySQL no deja a la app crear los triggers que
+   protegen tablas como la bitácora de marcaciones, y la migración se detiene sin cambiar nada. Lee del
+   `.env` solo el tipo y el host de la base, nunca la contraseña.
 
 **Para cambiarse de servidor:** clonar el proyecto, abrir `/install` y correr este script. El último paso
 del instalador lo recuerda; `php artisan app:check-production` avisa si las tareas programadas no corren,
