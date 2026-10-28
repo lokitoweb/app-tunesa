@@ -157,6 +157,12 @@ class TenantSetting extends Model
         'max_time_drift_seconds'  => 'integer',
     ];
 
+    /** Monto de la asignación familiar: % de la remuneración mínima (Regímenes laborales) */
+    public function familyAllowance(): float
+    {
+        return round((float) $this->minimum_wage * (float) $this->family_allowance_pct / 100, 2);
+    }
+
     /** Instancia resuelta por forTenant(): solo lectura */
     public bool $isEffective = false;
 

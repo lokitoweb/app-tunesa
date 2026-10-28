@@ -69,5 +69,5 @@
 @if($s->notes)<p><strong>Observaciones:</strong> {{ $s->notes }}</p>@endif
 {{ $texts['settlement_closing']['html'] }}
 
-@include('settlements.partials.signatures', ['employeeSigns' => true])
+@include('print.signatures', ['sig' => $d['signatory'] ?? null, 'person' => $u])
 <p class="muted" style="margin-top: 24px">Registrado el {{ $s->created_at->timezone(tenant_timezone())->format('d/m/Y H:i') }} por {{ $s->creator?->full_name ?? '—' }}.</p>

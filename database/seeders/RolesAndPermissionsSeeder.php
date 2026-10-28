@@ -71,6 +71,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'expirations.manage'      => ['Configurar a quién se avisan los vencimientos (correo y Telegram)', 'profiles'],
         'labor_regimes.manage'    => ['Configurar los regímenes laborales (vacaciones, gratificación, CTS, indemnización)', 'profiles'],
         'settlements.manage'      => ['Registrar ceses y calcular la liquidación de beneficios sociales', 'profiles'],
+        'cts_deposits.manage'     => ['Calcular y registrar los depósitos de CTS de mayo y noviembre', 'profiles'],
         'company.configure'       => ['Configurar qué ve el colaborador en la app', 'tenants'],
         'audit.view'              => ['Ver la bitácora de auditoría', 'tenants'],
 

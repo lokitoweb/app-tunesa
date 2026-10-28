@@ -21,6 +21,7 @@ class DocumentTemplate extends Model
         'colaborador' => 'Nombre del colaborador', 'documento' => 'Su documento (tipo y número)', 'cargo' => 'Su cargo',
         'fecha_ingreso' => 'Fecha de ingreso', 'fecha_cese' => 'Fecha de cese', 'motivo' => 'Motivo de cese',
         'banco_cts' => 'Banco de la CTS', 'cuenta_cts' => 'Cuenta CTS', 'fecha_documento' => 'Fecha del documento',
+        'periodo_cts' => 'Semestre de la CTS (depósito)', 'fecha_deposito' => 'Fecha límite del depósito', 'monto_cts' => 'Monto depositado',
     ];
 
     /** key => [título, texto estándar] */
@@ -33,10 +34,12 @@ class DocumentTemplate extends Model
             "El que suscribe, en representación de {empresa}, con RUC N.° {ruc},\n\nCERTIFICA:\n\nQue {colaborador}, identificado(a) con {documento}, ha laborado en nuestra empresa desde el {fecha_ingreso} hasta el {fecha_cese}, ocupando el cargo de «{cargo}».\n\nSe expide el presente certificado a solicitud del interesado para los fines que estime conveniente.\n\n{fecha_documento}."],
         'cts_release_letter' => ['Carta de liberación de CTS',
             "{fecha_documento}\n\nSeñores\n{banco_cts}\nPresente.-\n\nDe nuestra consideración:\n\n{empresa}, con RUC N.° {ruc}, con domicilio en {direccion}, debidamente representada por {representante}, identificado(a) con DNI {representante_dni}, se dirige a ustedes para comunicarles que {colaborador}, identificado(a) con {documento}, laboró en nuestra empresa hasta el {fecha_cese}.\n\nPor lo tanto, extendemos la presente para que se sirvan hacer efectivo el total de los depósitos de la Compensación por Tiempo de Servicios más los intereses correspondientes, realizados en su cuenta N.° {cuenta_cts}, conforme al D. Leg. N.° 650.\n\nSin otro particular, quedamos de ustedes.\n\nAtentamente,"],
+        'cts_deposit_certificate' => ['LIQUIDACIÓN DE DEPÓSITO DE CTS',
+            '{empresa}, con RUC N.° {ruc}, con domicilio en {direccion}, representada por {representante} ({representante_cargo}), en aplicación del artículo 24 del TUO del D. Leg. N.° 650, Ley de Compensación por Tiempo de Servicios, otorga a {colaborador}, identificado(a) con {documento}, la constancia del depósito de su CTS del periodo {periodo_cts}, a más tardar el {fecha_deposito}, en su cuenta N.° {cuenta_cts} de {banco_cts}, por {monto_cts}, según el siguiente cálculo:'],
     ];
 
     /** Las que imprimen su título como encabezado (en las demás es solo el nombre de la plantilla) */
-    public const TITLED = ['work_certificate'];
+    public const TITLED = ['work_certificate', 'cts_deposit_certificate'];
 
     protected $fillable = ['tenant_id', 'key', 'title', 'body', 'updated_by'];
 

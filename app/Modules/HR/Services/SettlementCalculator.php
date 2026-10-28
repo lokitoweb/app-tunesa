@@ -54,8 +54,7 @@ class SettlementCalculator
             $in['other_computable'] > 0 ? $component('Otros conceptos fijos', $in['other_computable']) : null,
         ]));
         $bases = [
-            ['key' => 'cts', 'label' => 'CTS', 'total' => $money($ctsBase), 'components' => [...$common,
-                $component('Promedio de horas extras', $in['ot_cts']), $component('1/6 de la gratificación', $sixth)]],
+            ['key' => 'cts', 'label' => 'CTS', 'total' => $money($ctsBase), 'components' => $this->ctsComponents($in, $sixth)],
             ['key' => 'vacation', 'label' => 'Vacaciones', 'total' => $money($vacBase), 'components' => [...$common, $component('Promedio de horas extras', $in['ot_vacation'])]],
             ['key' => 'gratification', 'label' => 'Gratificación', 'total' => $money($gratBase), 'components' => [...$common, $component('Promedio de horas extras', $in['ot_gratification'])]],
         ];
@@ -157,6 +156,51 @@ class SettlementCalculator
             'pension'    => $pension?->only(['id', 'name', 'system']),
             'warnings'   => $warnings,
         ];
+    }
+
+    /**
+     * Depósito semestral de CTS (mayo / noviembre) con la misma base que la CTS de la liquidación.
+     * Null si el régimen no tiene CTS o la persona no completó un mes en el semestre (no corresponde).
+     *
+     * @param  array{salary: float, family_allowance: float, other_computable: float, ot_cts: float}  $in
+     * @return array{months: int, days: int, from: string, to: string, components: list<array>, base: float, amount: float, basis: string}|null
+     */
+    public function ctsDeposit(User $user, ?LaborRegime $regime, CarbonImmutable $start, CarbonImmutable $end, array $in): ?array
+    {
+        $cts = $regime?->cts_per_year;
+        if (! $cts || ! $user->hire_date) {
+            return null;
+        }
+        $from = CarbonImmutable::parse($user->hire_date->toDateString())->max($start);
+        $to = $user->termination_date ? CarbonImmutable::parse($user->termination_date->toDateString())->min($end) : $end;
+        [$m, $d] = $this->span($from, $to);
+        if ($m < 1) {
+            return null;
+        }
+        $fixed = $in['salary'] + $in['family_allowance'] + $in['other_computable'];
+        $sixth = ($regime->gratifications_per_year ?? 0) * ($fixed + ($in['ot_gratification'] ?? 0)) / 2 / 6;
+        $base = $fixed + $in['ot_cts'] + $sixth;
+
+        return [
+            'months' => $m, 'days' => $d, 'from' => $from->toDateString(), 'to' => $to->toDateString(),
+            'components' => $this->ctsComponents($in, $sixth), 'base' => round($base, 2), 'cts_per_year' => $cts,
+            'amount' => round($base * $cts * ($m / 12 + $d / 360), 2),
+            'basis' => $this->fmt($base) . " × {$cts} / 12 × {$m} mes(es) + / 360 × {$d} día(s)",
+        ];
+    }
+
+    /** Partes de la base de CTS (las mismas en la liquidación y en el depósito semestral) */
+    private function ctsComponents(array $in, float $sixth): array
+    {
+        $part = fn (string $label, float $v) => ['label' => $label, 'amount' => round($v, 2)];
+
+        return array_values(array_filter([
+            $part('Remuneración básica', $in['salary']),
+            $in['family_allowance'] > 0 ? $part('Asignación familiar', $in['family_allowance']) : null,
+            $in['other_computable'] > 0 ? $part('Otros conceptos fijos', $in['other_computable']) : null,
+            $part('Promedio de horas extras', $in['ot_cts']),
+            $part('1/6 de la gratificación', $sixth),
+        ]));
     }
 
     /** Meses y días de start a end, contando ambos días */

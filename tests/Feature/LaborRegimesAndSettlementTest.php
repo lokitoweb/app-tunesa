@@ -172,7 +172,58 @@ class LaborRegimesAndSettlementTest extends TestCase
         // Volver al estándar
         $this->delete('/document-templates/work_certificate')->assertSessionHasNoErrors();
         $this->get("/settlements/{$id}/print?doc=work_certificate")->assertSee('CERTIFICADO DE TRABAJO')->assertDontSee('CONSTANCIA');
-        $this->get('/document-templates')->assertOk()->assertInertia(fn ($p) => $p->component('HR/Pages/DocumentTemplates/Index')->has('templates', 4));
+        $this->get('/document-templates')->assertOk()->assertInertia(fn ($p) => $p->component('HR/Pages/DocumentTemplates/Index')->has('templates', 5));
+    }
+
+    public function test_semester_cts_deposits_are_calculated_registered_sent_and_certified(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2025-11-05 10:00', 'America/Lima'));
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme', ['company_name' => 'Acme SAC', 'ruc' => '20100000001']);
+        $hr = $this->makeUser($acme, 'hr_manager');
+        $person = function (string $name, string $hire, string $regime = 'general', array $user = [], array $profile = []) use ($acme) {
+            $u = $this->makeUser($acme, 'employee', ['first_name' => $name, 'last_name' => 'Test'] + $user);
+            $u->forceFill(['hire_date' => $hire, 'base_salary' => 3000] + $user)->save();
+            EmployeeProfile::create(['tenant_id' => $acme->id, 'user_id' => $u->id, 'labor_regime' => $regime] + $profile);
+
+            return $u;
+        };
+        $ana = $person('Ana', '2024-01-01', profile: ['cts_bank_name' => 'Banco CTS', 'cts_account_number' => '55500011122', 'payment_info_status' => 'verified']);
+        $beto = $person('Beto', '2025-08-10');
+        $person('Cleo', '2025-10-15');                                         // no completó un mes
+        $person('Dino', '2024-01-01', 'micro_company');                        // régimen sin CTS
+        $person('Eva', '2024-01-01', user: ['termination_date' => '2025-09-30']); // cesó: su CTS va en la liquidación
+        $person('Fito', '2024-01-01', user: ['contract_type' => 'contractor']);  // recibo por honorarios
+
+        // Depósito de noviembre 2025: semestre 1 may – 31 oct, base 3000 + 1/6 de gratificación (500)
+        $rows = null;
+        $this->actingAs($hr)->get('/cts-deposits?year=2025&month=11')->assertOk()
+            ->assertInertia(function ($p) use (&$rows) { $rows = collect($p->toArray()['props']['rows'])->keyBy('name'); });
+        $this->assertSame(['Ana Test', 'Beto Test', 'Cleo Test', 'Dino Test'], $rows->keys()->sort()->values()->all());
+        $this->assertEqualsWithDelta(1750.00, $rows['Ana Test']['amount'], 0.01, '3500 × 6/12');
+        $this->assertEqualsWithDelta(797.22, $rows['Beto Test']['amount'], 0.01, '3500 × (2/12 + 22/360)');
+        $this->assertNull($rows['Cleo Test']['amount']);
+        $this->assertSame('Su régimen no tiene CTS', $rows['Dino Test']['note']);
+
+        // Registrar congela el cálculo; registrar otra vez no duplica
+        $this->post('/cts-deposits', ['year' => 2025, 'month' => 11])->assertRedirect()->assertSessionHasNoErrors();
+        $this->post('/cts-deposits', ['year' => 2025, 'month' => 11])->assertRedirect();
+        $this->assertSame(2, \App\Modules\HR\Models\CtsDeposit::count());
+        $ana->forceFill(['base_salary' => 9000])->save();
+        $this->get('/cts-deposits?year=2025&month=11')->assertInertia(fn ($p) => $p->where('totals.amount', 2547.22)->where('totals.registered', 2));
+
+        // A Tesorería solo quien tiene cuenta CTS verificada; vence el 15 de noviembre
+        $this->post('/cts-deposits/treasury', ['year' => 2025, 'month' => 11])->assertSessionHas('error');
+        $payment = \App\Modules\Finance\Models\Requisition::where('payroll_concept', 'CTS')->sole();
+        $this->assertSame([$ana->id, '2025-11', 1750.0], [$payment->employee_id, $payment->payroll_period, (float) $payment->amount]);
+        $this->assertStringStartsWith('2025-11-15', (string) $payment->paymentInstallments()->first()->getRawOriginal('due_date'));
+        $anaDeposit = \App\Modules\HR\Models\CtsDeposit::where('user_id', $ana->id)->sole();
+        $this->delete("/cts-deposits/{$anaDeposit->id}")->assertStatus(422);
+
+        // Constancia con la plantilla y el cálculo
+        $this->get("/cts-deposits/print?id={$anaDeposit->id}")->assertOk()
+            ->assertSee('LIQUIDACIÓN DE DEPÓSITO DE CTS')->assertSee('1 de mayo de 2025 al 31 de octubre de 2025')->assertSee('S/ 1,750.00')->assertSee('55500011122');
+        $this->get('/cts-deposits/print?year=2025&month=11')->assertOk()->assertSee('Ana Test')->assertSee('Beto Test');
     }
 
     public function test_overtime_average_comes_from_approved_overtime_and_only_if_regular(): void

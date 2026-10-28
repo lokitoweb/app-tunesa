@@ -83,6 +83,7 @@ class PanelNavigation
                 ['HR', 'documents.review', 'documents.index', [], 'folder-check', 'Legajos digitales', $request->routeIs('documents*', 'employees.file*'), fn () => $hasTenant ? EmployeeDocument::where('status', 'pending')->count() : 0],
                 ['HR', 'expirations.view', 'expirations.index', [], 'hourglass-split', 'Vencimientos', $request->routeIs('expirations.*'), null, true],
                 ['HR', 'labor_regimes.manage', 'labor-regimes.index', [], 'sliders', 'Regímenes laborales', $request->routeIs('labor-regimes.*')],
+                ['HR', 'cts_deposits.manage', 'cts-deposits.index', [], 'piggy-bank', 'Depósitos de CTS', $request->routeIs('cts-deposits.*')],
                 ['HR', 'settlements.manage', 'document-templates.index', [], 'file-earmark-richtext', 'Plantillas de documentos', $request->routeIs('document-templates.*')],
                 ['HR', 'uniforms.manage', 'uniforms.index', [], 'bag', 'Dotación y tallas', $request->routeIs('uniforms*')],
                 ['Payroll', 'payroll.export', 'payroll.index', [], 'cash-stack', 'Cruce con planilla', $request->routeIs('payroll*')],

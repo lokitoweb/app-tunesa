@@ -53,6 +53,15 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::put('/pensions/{id}', [\App\Modules\HR\Controllers\Web\LaborRegimeWebController::class, 'updatePension'])->name('pensions.update')->whereNumber('id');
     });
 
+    // Depósitos semestrales de CTS (mayo y noviembre) y sus constancias
+    Route::prefix('cts-deposits')->name('cts-deposits.')->middleware('can:cts_deposits.manage')->group(function () {
+        Route::get('/', [\App\Modules\HR\Controllers\Web\CtsDepositWebController::class, 'index'])->name('index');
+        Route::post('/', [\App\Modules\HR\Controllers\Web\CtsDepositWebController::class, 'store'])->name('store');
+        Route::get('/print', [\App\Modules\HR\Controllers\Web\CtsDepositWebController::class, 'print'])->name('print');
+        Route::delete('/{id}', [\App\Modules\HR\Controllers\Web\CtsDepositWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
+        Route::post('/treasury', [\App\Modules\HR\Controllers\Web\CtsDepositWebController::class, 'treasury'])->name('treasury')->middleware('can:payroll.payments');
+    });
+
     // Cese y liquidación de beneficios sociales
     Route::middleware('can:settlements.manage')->group(function () {
         Route::get('/document-templates', [\App\Modules\HR\Controllers\Web\DocumentTemplateWebController::class, 'index'])->name('document-templates.index');

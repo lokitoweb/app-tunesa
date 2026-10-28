@@ -266,9 +266,7 @@ class SettlementWebController extends Controller
     /** Asignación familiar: % de la remuneración mínima de la empresa (Regímenes laborales) */
     private function familyAmount(User $employee): float
     {
-        $s = TenantSetting::forTenant($employee->tenant);
-
-        return round((float) $s->minimum_wage * (float) $s->family_allowance_pct / 100, 2);
+        return TenantSetting::forTenant($employee->tenant)->familyAllowance();
     }
 
     /** Apoderados activos de la empresa (Compras y tesorería › Apoderados): firman la liquidación */
