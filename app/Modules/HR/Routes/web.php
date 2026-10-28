@@ -45,6 +45,15 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     });
 
     // Dotación de uniformes
+    // Vencimientos: legajo, contratos, capacitaciones y vehículos; alertas por correo y Telegram
+    Route::prefix('expirations')->name('expirations.')->middleware('can:expirations.view')->group(function () {
+        Route::get('/', [\App\Modules\HR\Controllers\Web\ExpirationWebController::class, 'index'])->name('index');
+        Route::middleware('can:expirations.manage')->group(function () {
+            Route::put('/settings', [\App\Modules\HR\Controllers\Web\ExpirationWebController::class, 'updateSettings'])->name('settings');
+            Route::post('/test', [\App\Modules\HR\Controllers\Web\ExpirationWebController::class, 'test'])->name('test')->middleware('throttle:5,1');
+        });
+    });
+
     Route::prefix('uniforms')->name('uniforms.')->middleware('can:uniforms.manage')->group(function () {
         Route::get('/', [UniformWebController::class, 'index'])->name('index');
         Route::get('/export', [UniformWebController::class, 'export'])->name('export');

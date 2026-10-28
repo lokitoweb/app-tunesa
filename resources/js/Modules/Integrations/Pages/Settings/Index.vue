@@ -22,7 +22,7 @@ const props = defineProps({
     services: { type: Object, default: null },
 });
 
-const SERVICE_SECRETS = ['migo_api_token', 'nubefact_token', 'smtp_password'];
+const SERVICE_SECRETS = ['migo_api_token', 'nubefact_token', 'smtp_password', 'telegram_bot_token'];
 const serviceFields = () => (props.services
     ? { ...props.services.values, ...Object.fromEntries(SERVICE_SECRETS.flatMap((s) => [[s, ''], [`clear_${s}`, false]])) }
     : {});
@@ -535,6 +535,21 @@ const pushEmail = ref('');
                                 <label for="migo_dni_url" class="form-label small fw-semibold mb-1 mt-2">URL DNI</label>
                                 <input id="migo_dni_url" v-model="form.migo_dni_url" type="url" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors.migo_dni_url }" placeholder="https://api.migo.pe/api/v1/dni">
                                 <div class="invalid-feedback">{{ form.errors.migo_dni_url }}</div>
+                            </div>
+                            <!-- Telegram (alertas de vencimientos) -->
+                            <div class="col-lg-4">
+                                <h3 class="small fw-bold mb-2"><i class="bi bi-telegram me-1"></i>Telegram (alertas)
+                                    <span class="badge ms-1" :class="services.effective.telegram_configured ? 'text-bg-success' : 'text-bg-secondary'">{{ services.effective.telegram_configured ? 'activo' : 'sin bot' }}</span>
+                                </h3>
+                                <label for="telegram_bot_token" class="form-label small fw-semibold mb-1">Token del bot</label>
+                                <input id="telegram_bot_token" v-model="form.telegram_bot_token" type="password" maxlength="100" autocomplete="new-password" class="form-control form-control-sm font-monospace"
+                                       :class="{ 'is-invalid': form.errors.telegram_bot_token }" :placeholder="services.secrets.telegram_bot_token.mask ?? (isGlobal ? 'Sin bot' : 'Usa el de la plataforma')">
+                                <div class="invalid-feedback">{{ form.errors.telegram_bot_token }}</div>
+                                <div v-if="services.secrets.telegram_bot_token.own" class="form-check mt-1">
+                                    <input id="clear_telegram_bot_token" v-model="form.clear_telegram_bot_token" class="form-check-input" type="checkbox">
+                                    <label class="form-check-label small" for="clear_telegram_bot_token">Eliminar token guardado</label>
+                                </div>
+                                <div class="form-text">Créalo en Telegram con @BotFather (comando newbot). Un solo bot de la plataforma sirve para todas las empresas; a quién avisar se elige en Vencimientos.</div>
                             </div>
                             <!-- Nubefact -->
                             <div class="col-lg-4">

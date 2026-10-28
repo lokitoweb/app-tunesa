@@ -237,12 +237,14 @@ class DocumentWebController extends Controller
             'type'       => ['required', Rule::in(array_keys(EmployeeDocument::TYPES))],
             'file'       => DocumentStorageService::fileRules(CompanyConfiguration::current()),
             'title'      => ['nullable', 'string', 'max:150'],
-            // Examen médico y licencia siempre vencen: sin la fecha no hay alerta
-            'expires_at' => ['nullable', 'date', Rule::requiredIf(in_array($request->input('type'), EmployeeDocument::EXPIRING_TYPES, true))],
-        ], ['expires_at.required' => 'Indica la fecha de vencimiento: con ella se avisa antes de que venza.']);
+            // Opcional siempre (el examen médico puede no tener fecha aún): sin ella solo no hay alerta
+            'expires_at' => ['nullable', 'date'],
+        ]);
 
         $this->documents->store($employee, $request->file('file'), $validated['type'], Auth::user(), $validated);
 
-        return back()->with('success', 'Documento agregado al legajo.');
+        $noDate = in_array($validated['type'], EmployeeDocument::EXPIRING_TYPES, true) && empty($validated['expires_at']);
+
+        return back()->with('success', 'Documento agregado al legajo.' . ($noDate ? ' Sin fecha de vencimiento no se enviará alerta: agrégala cuando la tengas.' : ''));
     }
 }

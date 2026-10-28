@@ -67,6 +67,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'profiles.view_sensitive' => ['Ver números de cuenta completos', 'profiles'],
         'documents.review'        => ['Revisar y aprobar documentos del legajo', 'profiles'],
         'uniforms.manage'         => ['Gestionar tallas y entregas de dotación', 'profiles'],
+        'expirations.view'        => ['Ver vencimientos (legajo, contratos, capacitaciones, vehículos)', 'profiles'],
+        'expirations.manage'      => ['Configurar a quién se avisan los vencimientos (correo y Telegram)', 'profiles'],
         'company.configure'       => ['Configurar qué ve el colaborador en la app', 'tenants'],
         'audit.view'              => ['Ver la bitácora de auditoría', 'tenants'],
 
@@ -143,7 +145,7 @@ class RolesAndPermissionsSeeder extends Seeder
             [
                 'users.view', 'branches.view', 'shifts.view', 'shifts.view_own',
                 'attendance.mark', 'attendance.view_own', 'attendance.view_team', 'attendance.view_all', 'attendance.edit', 'attendance.authorize_offshift',
-                'dashboard.view', 'reports.view', 'reports.export',
+                'dashboard.view', 'reports.view', 'reports.export', 'expirations.view',
                 'leave.request', 'leave.approve_team', 'leave.approve_all',
                 'suppliers.view', 'requisitions.create', 'requisitions.view_all', 'requisitions.approve', 'treasury.view',
                 'payslips.view_own', 'profile.manage_own', 'training.view_own',

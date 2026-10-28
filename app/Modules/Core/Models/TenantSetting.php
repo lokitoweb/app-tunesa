@@ -77,12 +77,14 @@ class TenantSetting extends Model
         // Servicios externos (solo SuperAdmin, ver SERVICE_FIELDS); los secretos van en SECRET_FIELDS
         'migo_ruc_url', 'migo_dni_url', 'nubefact_url',
         'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'mail_from_address', 'mail_from_name',
+        // Alertas de vencimientos (propias de cada empresa)
+        'expiry_alert_emails', 'expiry_alert_telegram_chats', 'expiry_alert_days',
     ];
 
     /** Credenciales de servicios externos: las administra solo el SuperAdmin (plataforma o empresa) */
     public const SERVICE_FIELDS = [
         'migo_api_token', 'migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'nubefact_token',
-        'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'smtp_password', 'mail_from_address', 'mail_from_name',
+        'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'smtp_password', 'mail_from_address', 'mail_from_name', 'telegram_bot_token',
     ];
 
     /** Imágenes guardadas en esta tabla (el logo claro de una empresa vive en tenants.logo_path) */
@@ -93,13 +95,13 @@ class TenantSetting extends Model
      * y API se llama google_maps_api_key); fcm_service_account_json es la cuenta
      * de servicio de Firebase (solo fila global).
      */
-    public const SECRET_FIELDS = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json', 'migo_api_token', 'nubefact_token', 'smtp_password'];
+    public const SECRET_FIELDS = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json', 'migo_api_token', 'nubefact_token', 'smtp_password', 'telegram_bot_token'];
 
     /** Solo valen en la fila global: una empresa usa sus columnas de `tenants` */
     public const PLATFORM_ONLY = ['logo_path', 'primary_color', 'secondary_color', 'fcm_service_account_json'];
 
     /** Propios de cada empresa: no se heredan de la plataforma */
-    public const NOT_INHERITED = ['trade_name', 'webhook_url', 'webhook_secret', 'notification_endpoint'];
+    public const NOT_INHERITED = ['trade_name', 'webhook_url', 'webhook_secret', 'notification_endpoint', 'expiry_alert_emails', 'expiry_alert_telegram_chats'];
 
     private const META_COLUMNS = ['id', 'tenant_id', 'updated_by', 'created_at', 'updated_at'];
 
@@ -117,9 +119,10 @@ class TenantSetting extends Model
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_service_account_json', 'fcm_enabled', 'self_password_change',
         'migo_api_token', 'migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'nubefact_token',
         'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'smtp_password', 'mail_from_address', 'mail_from_name',
+        'telegram_bot_token', 'expiry_alert_emails', 'expiry_alert_telegram_chats', 'expiry_alert_days',
     ];
 
-    protected $hidden = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json', 'migo_api_token', 'nubefact_token', 'smtp_password'];
+    protected $hidden = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json', 'migo_api_token', 'nubefact_token', 'smtp_password', 'telegram_bot_token'];
 
     protected $casts = [
         'force_update'            => 'boolean',
@@ -140,6 +143,7 @@ class TenantSetting extends Model
         'migo_api_token'          => 'encrypted',
         'nubefact_token'          => 'encrypted',
         'smtp_password'           => 'encrypted',
+        'telegram_bot_token'      => 'encrypted',
         'smtp_port'               => 'integer',
         'fcm_enabled'             => 'boolean',
         'self_password_change'    => 'boolean',
@@ -402,6 +406,26 @@ class TenantSetting extends Model
             'username'   => $this->smtp_username,
             'password'   => $this->secretOr('smtp_password', null),
             'from'       => ['address' => $this->mail_from_address ?: config('mail.from.address'), 'name' => $this->mail_from_name ?: $this->tradeName()],
+        ];
+    }
+
+    /**
+     * Alertas de vencimientos: a quién (correos y chats de Telegram de la empresa) y cuántos días
+     * antes. Token de Telegram: el de la empresa, si no el de la plataforma, si no el .env.
+     *
+     * @return array{emails: list<string>, chats: list<string>, days: list<int>, telegram_token: ?string}
+     */
+    public function expiryAlerts(): array
+    {
+        $list = fn (?string $v) => array_values(array_filter(array_map('trim', preg_split('/[,;\s]+/', (string) $v)), fn ($x) => $x !== ''));
+        $days = array_values(array_unique(array_map('intval', array_filter($list($this->expiry_alert_days ?: '30,15,7,1,0'), 'is_numeric'))));
+        rsort($days);
+
+        return [
+            'emails'         => array_values(array_filter($list($this->expiry_alert_emails), fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL))),
+            'chats'          => array_values(array_filter($list($this->expiry_alert_telegram_chats), fn ($c) => preg_match('/^-?\d{3,20}$|^@\w{5,32}$/', $c))),
+            'days'           => $days,
+            'telegram_token' => $this->secretOr('telegram_bot_token', config('services.telegram.bot_token')),
         ];
     }
 

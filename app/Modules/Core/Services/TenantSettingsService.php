@@ -231,6 +231,9 @@ class TenantSettingsService
             'clear_migo_api_token' => ['sometimes', 'boolean'],
             'clear_nubefact_token' => ['sometimes', 'boolean'],
             'clear_smtp_password'  => ['sometimes', 'boolean'],
+            // Bot de Telegram para las alertas (de @BotFather): 123456:ABC-…
+            'telegram_bot_token'   => ['sometimes', 'nullable', 'string', 'max:100', 'regex:/^\d{5,15}:[A-Za-z0-9_-]{30,60}$/'],
+            'clear_telegram_bot_token' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -450,6 +453,8 @@ class TenantSettingsService
             'has_migo_api_token' => filled($row->migo_api_token),
             'has_nubefact_token' => filled($row->nubefact_token),
             'has_smtp_password'  => filled($row->smtp_password),
+            'telegram_bot_token'     => self::mask($row->telegram_bot_token),
+            'has_telegram_bot_token' => filled($row->telegram_bot_token),
             'has_fcm_service_account' => ! $tenant && filled($row->fcm_service_account_json),
             'fcm_project_id'          => $tenant ? null : TenantSetting::parseServiceAccount($row->fcm_service_account_json)['project_id'] ?? null,
             'fcm_client_email'        => $tenant ? null : TenantSetting::parseServiceAccount($row->fcm_service_account_json)['client_email'] ?? null,

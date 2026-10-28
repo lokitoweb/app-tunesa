@@ -16,9 +16,9 @@ class Vehicle extends Model
 
     public const TYPES = ['BUS', 'CAMIONETA', 'AUTO', 'OTRO'];
 
-    protected $fillable = ['tenant_id', 'plate', 'brand', 'model', 'type', 'branch_id', 'is_active'];
+    protected $fillable = ['tenant_id', 'plate', 'brand', 'model', 'type', 'branch_id', 'is_active', 'soat_expires_at', 'technical_review_expires_at'];
 
-    protected $casts = ['is_active' => 'boolean'];
+    protected $casts = ['is_active' => 'boolean', 'soat_expires_at' => 'date', 'technical_review_expires_at' => 'date'];
 
     /** Placa normalizada: mayúsculas, sin espacios (ABC-123) */
     public static function normalizePlate(?string $plate): ?string

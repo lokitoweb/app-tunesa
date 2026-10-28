@@ -51,6 +51,9 @@ if (config('queue.work_from_scheduler')) {
         ->name('geocoding-queue')->everyMinute()->withoutOverlapping(5)->runInBackground();
 }
 
+// Vencimientos (legajo, contratos, capacitaciones, SOAT y revisión técnica): aviso por correo y Telegram
+Schedule::command('hr:expiry-alerts')->dailyAt('07:30')->withoutOverlapping()->onOneServer();
+
 // Capacitaciones: asigna cursos a quien le corresponden y avisa los que vencen pronto
 Schedule::command('training:sync')->dailyAt('06:00')->withoutOverlapping()->onOneServer();
 

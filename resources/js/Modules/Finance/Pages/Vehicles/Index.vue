@@ -17,7 +17,7 @@ const { ask } = useConfirm();
 const { ensureTenant } = useTenantPicker();
 const search = ref(props.filters.search || '');
 const showForm = ref(false);
-const blank = () => ({ id: null, plate: '', brand: '', model: '', type: 'BUS', branch_id: '', is_active: true });
+const blank = () => ({ id: null, plate: '', brand: '', model: '', type: 'BUS', branch_id: '', is_active: true, soat_expires_at: '', technical_review_expires_at: '' });
 const form = useForm(blank());
 
 let timer = null;
@@ -32,13 +32,13 @@ function openCreate() {
     showForm.value = true;
 }
 function openEdit(v) {
-    Object.assign(form, { ...blank(), ...v, branch_id: v.branch_id ?? '' });
+    Object.assign(form, { ...blank(), ...v, branch_id: v.branch_id ?? '', soat_expires_at: v.soat_expires_at || '', technical_review_expires_at: v.technical_review_expires_at || '' });
     form.clearErrors();
     showForm.value = true;
 }
 function submit() {
     const options = { preserveScroll: true, onSuccess: () => (showForm.value = false) };
-    form.transform((d) => ({ ...d, branch_id: d.branch_id || null }));
+    form.transform((d) => ({ ...d, branch_id: d.branch_id || null, soat_expires_at: d.soat_expires_at || null, technical_review_expires_at: d.technical_review_expires_at || null }));
     if (form.id) form.put(`/vehicles/${form.id}`, options);
     else form.post('/vehicles', options);
 }
@@ -117,6 +117,17 @@ async function destroy(v) {
                             <label class="form-label small fw-semibold" for="v-branch">Sede base</label>
                             <select id="v-branch" v-model="form.branch_id" class="form-select"><option value="">Sin sede</option><option v-for="b in branches" :key="b.id" :value="b.id">{{ b.name }}</option></select>
                         </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-semibold" for="v-soat">Vence el SOAT</label>
+                            <input id="v-soat" v-model="form.soat_expires_at" type="date" class="form-control" :class="{ 'is-invalid': form.errors.soat_expires_at }" />
+                            <div class="invalid-feedback">{{ form.errors.soat_expires_at }}</div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small fw-semibold" for="v-review">Vence la revisión técnica</label>
+                            <input id="v-review" v-model="form.technical_review_expires_at" type="date" class="form-control" :class="{ 'is-invalid': form.errors.technical_review_expires_at }" />
+                            <div class="invalid-feedback">{{ form.errors.technical_review_expires_at }}</div>
+                        </div>
+                        <div class="col-12 small text-body-secondary">Opcionales: con fecha, se avisan en Vencimientos.</div>
                         <div class="col-12 form-check form-switch ms-2">
                             <input id="v-active" v-model="form.is_active" class="form-check-input" type="checkbox" role="switch" />
                             <label class="form-check-label" for="v-active">Activo</label>

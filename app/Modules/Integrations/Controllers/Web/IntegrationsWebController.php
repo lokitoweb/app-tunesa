@@ -112,7 +112,7 @@ class IntegrationsWebController extends Controller
     {
         $tenant = $this->tenantContext->getOrNull();
         $services = $request->user()->isSuperAdmin()
-            ? [...TenantSetting::SERVICE_FIELDS, 'clear_migo_api_token', 'clear_nubefact_token', 'clear_smtp_password']
+            ? [...TenantSetting::SERVICE_FIELDS, 'clear_migo_api_token', 'clear_nubefact_token', 'clear_smtp_password', 'clear_telegram_bot_token']
             : [];
         $request->replace($request->only([...self::FIELDS, ...$services]));
         $settings->updateFromPanel($tenant, $request, $request->user(), ['fcm_enabled']);
@@ -157,7 +157,7 @@ class IntegrationsWebController extends Controller
 
         return [
             'values'    => collect($plain)->mapWithKeys(fn ($f) => [$f => $values[$f] ?? null])->all(),
-            'secrets'   => collect(['migo_api_token', 'nubefact_token', 'smtp_password'])
+            'secrets'   => collect(['migo_api_token', 'nubefact_token', 'smtp_password', 'telegram_bot_token'])
                 ->mapWithKeys(fn ($f) => [$f => ['mask' => $values[$f] ?? null, 'own' => (bool) ($values["has_{$f}"] ?? false)]])->all(),
             // Qué se usa hoy si este nivel no define nada (para mostrarlo como "heredado")
             'effective' => [
@@ -165,6 +165,7 @@ class IntegrationsWebController extends Controller
                 'nubefact_configured' => filled($effective->nubefact()['url']),
                 'nubefact_demo'       => $effective->nubefact()['demo'],
                 'smtp'                => $effective->smtp() ? "{$effective->smtp_host}:" . ($effective->smtp_port ?: 587) : null,
+                'telegram_configured' => filled($effective->expiryAlerts()['telegram_token']),
             ],
         ];
     }

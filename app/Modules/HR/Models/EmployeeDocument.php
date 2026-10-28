@@ -39,8 +39,8 @@ class EmployeeDocument extends Model
     public const EMPLOYEE_TYPES = ['dni', 'cv', 'proof_of_address', 'certificate', 'medical_exam', 'driver_license', 'pension_exemption', 'other'];
 
     /**
-     * Siempre vencen: la fecha es obligatoria al subirlos desde el panel (sin ella no hay alerta). El
-     * contrato no: a plazo indeterminado no tiene fin; si se le pone fecha, también entra en las alertas.
+     * Suelen vencer: si se suben sin fecha se avisa que no habrá alerta, pero se guardan igual (el
+     * examen médico puede programarse después). Cualquier documento con fecha entra en las alertas.
      */
     public const EXPIRING_TYPES = ['medical_exam', 'driver_license'];
 

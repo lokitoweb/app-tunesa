@@ -81,6 +81,7 @@ class PanelNavigation
             ],
             'Legajo y planilla' => [
                 ['HR', 'documents.review', 'documents.index', [], 'folder-check', 'Legajos digitales', $request->routeIs('documents*', 'employees.file*'), fn () => $hasTenant ? EmployeeDocument::where('status', 'pending')->count() : 0],
+                ['HR', 'expirations.view', 'expirations.index', [], 'hourglass-split', 'Vencimientos', $request->routeIs('expirations.*'), null, true],
                 ['HR', 'uniforms.manage', 'uniforms.index', [], 'bag', 'Dotación y tallas', $request->routeIs('uniforms*')],
                 ['Payroll', 'payroll.export', 'payroll.index', [], 'cash-stack', 'Cruce con planilla', $request->routeIs('payroll*')],
                 ['Attendance', 'reports.view', 'reports.index', [], 'bar-chart-line', 'Reportes', $request->routeIs('reports*')],

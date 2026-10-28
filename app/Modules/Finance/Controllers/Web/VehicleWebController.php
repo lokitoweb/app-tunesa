@@ -27,7 +27,8 @@ class VehicleWebController extends Controller
                 ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('plate', 'like', "%{$search}%")
                     ->orWhere('brand', 'like', "%{$search}%")->orWhere('model', 'like', "%{$search}%")))
                 ->orderByDesc('is_active')->orderBy('plate')->paginate(50)->withQueryString()
-                ->through(fn (Vehicle $v) => $v->only(['id', 'plate', 'brand', 'model', 'type', 'branch_id', 'is_active']) + ['branch' => $v->branch?->name]),
+                ->through(fn (Vehicle $v) => $v->only(['id', 'plate', 'brand', 'model', 'type', 'branch_id', 'is_active']) + ['branch' => $v->branch?->name,
+                    'soat_expires_at' => $v->soat_expires_at?->toDateString(), 'technical_review_expires_at' => $v->technical_review_expires_at?->toDateString()]),
             'filters'  => ['search' => $search],
             'types'    => Vehicle::TYPES,
             'branches' => Branch::orderBy('name')->get(['id', 'name']),
@@ -90,6 +91,9 @@ class VehicleWebController extends Controller
             'type'      => ['required', Rule::in(Vehicle::TYPES)],
             'branch_id' => ['nullable', Rule::exists('branches', 'id')->where('tenant_id', current_tenant_id_or_null())->whereNull('deleted_at')],
             'is_active' => ['boolean'],
+            // Opcionales: con fecha, entran en Vencimientos y en las alertas
+            'soat_expires_at'             => ['nullable', 'date'],
+            'technical_review_expires_at' => ['nullable', 'date'],
         ], ['plate.unique' => 'Esa placa ya está registrada.', 'plate.regex' => 'La placa solo lleva letras, números y guion.'],
             ['plate' => 'la placa', 'type' => 'el tipo', 'branch_id' => 'la sede']);
     }
