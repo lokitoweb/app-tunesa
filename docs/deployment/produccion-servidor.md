@@ -423,6 +423,15 @@ curl -I https://group-cyp.com/up
 - En **Configuración → Marca y app** de la empresa, "URL base de la API" puede quedar vacía (se usa `APP_URL`).
 - Marca una asistencia desde la app (ver sección 13) y revisa que aparezca en el panel.
 
+Si no llegan las notificaciones push (Firebase), el diagnóstico revisa cada eslabón (credenciales,
+push activo por empresa, celulares registrados, cola) sin mostrar secretos; con `--user` revisa a una
+persona y le manda un push de prueba real:
+
+```bash
+sudo -u cyp php artisan push:diagnose
+sudo -u cyp php artisan push:diagnose --user=correo@empresa.com
+```
+
 Respaldo diario de la base (recomendado):
 
 ```cron
