@@ -1,5 +1,5 @@
 <script setup>
-import { router, useForm } from '@inertiajs/vue3';
+import { useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 
@@ -9,31 +9,51 @@ const props = defineProps({
     input: { type: Object, required: true },
     result: { type: Object, default: null },
     reasons: { type: Object, required: true },
+    pensions: { type: Array, default: () => [] },
+    signatories: { type: Array, default: () => [] },
+    familyAmount: { type: Number, default: 0 },
     history: { type: Array, default: () => [] },
 });
 
 const { ask } = useConfirm();
-const form = useForm({ ...props.input, notes: '' });
+const { ot_months: _months, family_allowance: _family, ...initial } = props.input;
+const form = useForm({ ...initial, pension_rate_id: initial.pension_rate_id ?? '', signatory_id: initial.signatory_id ?? '', notes: '' });
 const money = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const fmtDate = (iso) => (iso ? iso.split('-').reverse().join('/') : '—');
 
+function payload() {
+    const { notes, ...d } = form.data();
+    return { ...d, family: d.family ? 1 : 0, overtime: d.overtime ? 1 : 0, indemnity: d.indemnity ? 1 : 0 };
+}
 function recalc() {
-    const { notes, ...query } = form.data();
-    router.get(`/employees/${props.employee.id}/settlement`, { ...query, indemnity: query.indemnity ? 1 : 0 }, { preserveState: true, preserveScroll: true, replace: true });
+    router.get(`/employees/${props.employee.id}/settlement`, payload(), {
+        preserveState: true, preserveScroll: true, replace: true,
+        // Lo que el servidor completó (promedios al activar horas extras) vuelve al formulario
+        onSuccess: (page) => ['ot_cts', 'ot_vacation', 'ot_gratification', 'pending_days'].forEach((k) => { form[k] = page.props.input[k]; }),
+    });
+}
+function toggleOvertime() {
+    ['ot_cts', 'ot_vacation', 'ot_gratification'].forEach((k) => { form[k] = ''; });
+    recalc();
 }
 function onReason() {
     form.indemnity = form.reason === 'arbitrary_dismissal';
     recalc();
 }
+const addLine = (list) => form[list].push({ label: '', amount: '' });
+function removeLine(list, i) {
+    form[list].splice(i, 1);
+    recalc();
+}
 async function register() {
     const ok = await ask({
         title: '¿Registrar el cese?',
-        message: `${props.employee.name} cesa el ${fmtDate(form.termination_date)} con una liquidación de ${money(props.result?.total)}. Desde esa fecha deja de entrar al sistema y a la app.`,
+        message: `${props.employee.name} cesa el ${fmtDate(form.termination_date)} con un neto de ${money(props.result?.total)}. Desde esa fecha deja de entrar al sistema y a la app.`,
         confirmText: 'Sí, registrar cese',
         variant: 'danger',
         icon: 'bi bi-person-x',
     });
-    if (ok) form.transform((d) => ({ ...d, indemnity: !!d.indemnity })).post(`/employees/${props.employee.id}/settlement`);
+    if (ok) form.transform(() => ({ ...payload(), notes: form.notes })).post(`/employees/${props.employee.id}/settlement`);
 }
 </script>
 
@@ -63,12 +83,32 @@ async function register() {
                         <input id="s-date" v-model="form.termination_date" type="date" class="form-control form-control-sm mb-2" :class="{ 'is-invalid': form.errors.termination_date }" :min="employee.hire_date" required @change="recalc" />
                         <div class="invalid-feedback">{{ form.errors.termination_date }}</div>
                         <label class="form-label small fw-semibold" for="s-reason">Motivo</label>
-                        <select id="s-reason" v-model="form.reason" class="form-select form-select-sm mb-2" @change="onReason">
+                        <select id="s-reason" v-model="form.reason" class="form-select form-select-sm mb-3" @change="onReason">
                             <option v-for="(label, key) in reasons" :key="key" :value="key">{{ label }}</option>
                         </select>
-                        <label class="form-label small fw-semibold" for="s-salary">Remuneración computable</label>
-                        <input id="s-salary" v-model="form.salary" type="number" min="0" step="0.01" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors.salary }" required @change="recalc" />
-                        <div class="form-text small mb-2">Sueldo básico de su ficha; suma la asignación familiar u otros conceptos fijos si corresponde.</div>
+
+                        <h2 class="h6 fw-bold">Remuneración</h2>
+                        <label class="form-label small fw-semibold" for="s-salary">Remuneración básica</label>
+                        <input id="s-salary" v-model="form.salary" type="number" min="0" step="0.01" class="form-control form-control-sm mb-2" :class="{ 'is-invalid': form.errors.salary }" required @change="recalc" />
+                        <div class="form-check">
+                            <input id="s-family" v-model="form.family" class="form-check-input" type="checkbox" @change="recalc" />
+                            <label class="form-check-label small" for="s-family">Asignación familiar ({{ money(familyAmount) }})</label>
+                        </div>
+                        <div class="form-check">
+                            <input id="s-overtime" v-model="form.overtime" class="form-check-input" type="checkbox" @change="toggleOvertime" />
+                            <label class="form-check-label small" for="s-overtime">Promedio de horas extras (de la asistencia)</label>
+                        </div>
+                        <div v-if="form.overtime" class="row g-2 mt-1 mb-1">
+                            <div v-for="[k, label] in [['ot_cts', 'CTS'], ['ot_vacation', 'Vacaciones'], ['ot_gratification', 'Gratificación']]" :key="k" class="col-4">
+                                <label class="form-label small mb-0" :for="`s-${k}`">{{ label }}</label>
+                                <input :id="`s-${k}`" v-model="form[k]" type="number" min="0" step="0.01" class="form-control form-control-sm" @change="recalc" />
+                            </div>
+                            <div class="col-12 form-text small mt-0">Horas extra aprobadas de los últimos 6 meses (2 primeras al 25 %, el resto al 35 %); cuentan si hubo en 3 meses o más.</div>
+                        </div>
+                        <label class="form-label small fw-semibold mt-2" for="s-other">Otros conceptos fijos <span class="fw-normal text-body-secondary">(opcional)</span></label>
+                        <input id="s-other" v-model="form.other_computable" type="number" min="0" step="0.01" class="form-control form-control-sm" @change="recalc" />
+                        <div class="form-text small mb-2">Montos fijos que cuentan para los beneficios, p. ej. movilidad de libre disposición.</div>
+
                         <label class="form-label small fw-semibold" for="s-pending">Días de vacaciones pendientes</label>
                         <input id="s-pending" v-model="form.pending_days" type="number" min="0" step="1" class="form-control form-control-sm" required @change="recalc" />
                         <div class="form-text small mb-2">Ganados por años cumplidos y no gozados (del saldo de vacaciones).</div>
@@ -76,6 +116,31 @@ async function register() {
                             <input id="s-indemnity" v-model="form.indemnity" class="form-check-input" type="checkbox" @change="recalc" />
                             <label class="form-check-label small" for="s-indemnity">Incluir indemnización por despido</label>
                         </div>
+
+                        <label class="form-label small fw-semibold" for="s-pension">Aporte de pensión</label>
+                        <select id="s-pension" v-model="form.pension_rate_id" class="form-select form-select-sm mb-3" @change="recalc">
+                            <option value="">Sin aporte</option>
+                            <option v-for="p in pensions" :key="p.id" :value="p.id">{{ p.name }}</option>
+                        </select>
+
+                        <div v-for="[list, title] in [['other_incomes', 'Otros ingresos'], ['other_discounts', 'Otros descuentos']]" :key="list" class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="small fw-semibold">{{ title }}</span>
+                                <button type="button" class="btn btn-sm btn-link p-0" @click="addLine(list)"><i class="bi bi-plus-lg"></i> Agregar</button>
+                            </div>
+                            <div v-for="(o, i) in form[list]" :key="i" class="input-group input-group-sm mt-1">
+                                <input v-model="o.label" class="form-control" placeholder="Concepto" maxlength="80" :aria-label="`${title}: concepto`" @change="recalc" />
+                                <input v-model="o.amount" type="number" min="0" step="0.01" class="form-control" style="max-width: 110px" placeholder="Monto" :aria-label="`${title}: monto`" @change="recalc" />
+                                <button type="button" class="btn btn-outline-secondary" :aria-label="`Quitar ${title}`" @click="removeLine(list, i)"><i class="bi bi-x"></i></button>
+                            </div>
+                        </div>
+
+                        <label class="form-label small fw-semibold" for="s-signatory">Firma por la empresa</label>
+                        <select id="s-signatory" v-model="form.signatory_id" class="form-select form-select-sm mb-1">
+                            <option value="">— Sin firma registrada —</option>
+                            <option v-for="s in signatories" :key="s.id" :value="s.id">{{ s.name }}{{ s.position ? ` · ${s.position}` : '' }}</option>
+                        </select>
+                        <div class="form-text small mb-2">Apoderados de Compras y tesorería › Apoderados.</div>
                         <label class="form-label small fw-semibold" for="s-notes">Observaciones <span class="fw-normal text-body-secondary">(opcional)</span></label>
                         <textarea id="s-notes" v-model="form.notes" class="form-control form-control-sm" rows="2" maxlength="1000"></textarea>
                     </div>
@@ -87,6 +152,19 @@ async function register() {
                     <div class="card-body">
                         <div v-for="w in result.warnings" :key="w" class="alert alert-warning py-2 small">{{ w }}</div>
                         <p class="small text-body-secondary mb-2">Tiempo de servicio: {{ result.service }}</p>
+
+                        <div class="row g-2 mb-3">
+                            <div v-for="b in result.bases" :key="b.key" class="col-12 col-md-4">
+                                <div class="border rounded p-2 h-100 small">
+                                    <div class="fw-semibold">Base {{ b.label }}</div>
+                                    <div v-for="c in b.components" :key="c.label" class="d-flex justify-content-between text-body-secondary">
+                                        <span>{{ c.label }}</span><span>{{ money(c.amount) }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between fw-bold border-top mt-1 pt-1"><span>Total</span><span>{{ money(b.total) }}</span></div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="table-responsive">
                             <table class="table table-sm align-middle small mb-2">
                                 <thead class="table-light"><tr><th>Concepto</th><th>Cálculo</th><th class="text-end">Monto</th></tr></thead>
@@ -96,11 +174,15 @@ async function register() {
                                         <td :class="l.amount === null ? 'text-warning-emphasis' : 'text-body-secondary'">{{ l.basis }}</td>
                                         <td class="text-end">{{ money(l.amount) }}</td>
                                     </tr>
+                                    <tr class="fw-semibold"><td colspan="2">Total liquidación</td><td class="text-end">{{ money(result.gross) }}</td></tr>
+                                    <tr v-for="d in result.deductions" :key="d.key" class="text-danger-emphasis">
+                                        <td>{{ d.label }}</td><td class="text-body-secondary">{{ d.basis }}</td><td class="text-end">− {{ money(d.amount) }}</td>
+                                    </tr>
                                 </tbody>
-                                <tfoot><tr class="fw-bold"><td colspan="2">Total bruto</td><td class="text-end">{{ money(result.total) }}</td></tr></tfoot>
+                                <tfoot><tr class="fw-bold"><td colspan="2">Neto a pagar</td><td class="text-end">{{ money(result.total) }}</td></tr></tfoot>
                             </table>
                         </div>
-                        <p class="small text-body-secondary">Montos brutos: no descuentan pensión ni renta de quinta. El pago se programa en Tesorería con el concepto «Liquidación de beneficios sociales».</p>
+                        <p class="small text-body-secondary">No descuenta renta de quinta categoría: si corresponde, agrégala en «Otros descuentos».</p>
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-danger btn-sm" :disabled="form.processing" @click="register">
                                 <i class="bi bi-person-x me-1"></i>Registrar cese
@@ -113,9 +195,13 @@ async function register() {
                     <div class="card-body">
                         <h2 class="h6 fw-bold mb-2">Liquidaciones registradas</h2>
                         <ul class="list-unstyled small mb-0">
-                            <li v-for="h in history" :key="h.id" class="d-flex justify-content-between border-bottom py-1">
-                                <span>{{ h.date }} · {{ h.reason }} · {{ money(h.total) }}</span>
-                                <a :href="`/settlements/${h.id}/print`" target="_blank" rel="noopener">Imprimir</a>
+                            <li v-for="h in history" :key="h.id" class="d-flex flex-wrap justify-content-between gap-2 border-bottom py-1">
+                                <span>N.° {{ h.id }} · {{ h.date }} · {{ h.reason }} · neto {{ money(h.total) }}</span>
+                                <span class="d-flex gap-3">
+                                    <a :href="`/settlements/${h.id}/print`" target="_blank" rel="noopener">Imprimir</a>
+                                    <button v-if="h.can_pay" type="button" class="btn btn-link btn-sm p-0" @click="router.post(`/settlements/${h.id}/treasury`, {}, { preserveScroll: true })">Enviar a Tesorería</button>
+                                    <span v-else-if="h.payment" class="text-body-secondary">{{ h.payment }}</span>
+                                </span>
                             </li>
                         </ul>
                     </div>

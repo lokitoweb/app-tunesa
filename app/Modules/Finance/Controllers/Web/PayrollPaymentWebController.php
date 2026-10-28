@@ -7,8 +7,8 @@ use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Services\TenantContext;
 use App\Modules\Core\Support\SpreadsheetRows;
-use App\Modules\Finance\Models\DocumentSequence;
 use App\Modules\Finance\Models\Requisition;
+use App\Modules\Finance\Services\PayrollPaymentIssuer;
 use App\Modules\Finance\Services\PettyCashImport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,7 +35,7 @@ class PayrollPaymentWebController extends Controller
         'Monto neto a pagar'  => ['amount', ['monto', 'neto', 'importe']],
     ];
 
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(private readonly AuditLogger $audit, private readonly PayrollPaymentIssuer $issuer) {}
 
     public function index(Request $request): Response
     {
@@ -129,13 +129,7 @@ class PayrollPaymentWebController extends Controller
                 isset($already[$employee->id])                       => "{$employee->full_name} ya tiene este pago en el periodo",
                 default                                              => null,
             };
-            if (! $error) {
-                $probe = new Requisition(['payroll_concept' => $data['concept']]);
-                $probe->setRelation('employee', $employee);
-                $account = $probe->payrollAccount();
-                $error = ! $account['number'] ? "{$employee->full_name} no tiene cuenta " . ($data['concept'] === 'CTS' ? 'CTS ' : '') . 'en su legajo'
-                    : (! $account['verified'] ? "la cuenta del legajo de {$employee->full_name} no está verificada por RRHH" : null);
-            }
+            $error ??= $this->issuer->accountError($employee, $data['concept']);
             $seen[$dni] = true;
             if ($error) {
                 $errors[] = "Fila {$line}: {$error}.";
@@ -151,29 +145,11 @@ class PayrollPaymentWebController extends Controller
         }
 
         $hr = $request->user();
-        [$year, $month] = explode('-', $data['period']);
         $label = Requisition::PAYROLL_CONCEPTS[$data['concept']];
-        $total = DB::transaction(function () use ($valid, $tenant, $data, $hr, $label, $month, $year) {
+        $total = DB::transaction(function () use ($valid, $tenant, $data, $hr) {
             $sum = 0;
             foreach ($valid as [$employee, $amount]) {
-                $branch = $employee->primaryBranch->first() ?? $employee->assignedBranch; // precargadas: sin N+1
-                // ponytail: un DocumentSequence::next por fila (bloqueo corto); reservar el rango de golpe si planillas de miles tardan
-                $series = DocumentSequence::seriesFrom($branch?->document_series ?: $branch?->code);
-                [$number, $code] = DocumentSequence::next($tenant, 'PL', $series, (int) now()->year);
-
-                $r = Requisition::create([
-                    'series' => $series, 'number' => $number, 'code' => $code, 'year' => (int) now()->year,
-                    'requested_at' => now(), 'detail' => "{$label} correspondiente al periodo {$month}-{$year}", 'area' => 'RRHH',
-                    'requested_by' => $hr->full_name, 'user_id' => $hr->id, 'classification' => 'GASTOS FIJOS', 'priority' => 'NORMAL', 'cash_flow_concept' => config('finance.cash_flow_defaults.payroll'),
-                    'stage' => 'ordered', 'ordered_at' => now(), 'reviewed_by' => $hr->full_name, 'reviewed_by_id' => $hr->id, 'reviewed_at' => now(),
-                    'employee_id' => $employee->id, 'payroll_period' => $data['period'], 'payroll_concept' => $data['concept'],
-                    'amount' => $amount, 'amount_payable' => $amount, 'currency' => 'PEN', 'installments' => 1,
-                    'payment_terms' => 'CONTADO', 'payment_method' => 'TRANSFERENCIA', 'payment_origin' => 'TRANSFERENCIA',
-                ]);
-                $r->paymentInstallments()->create([
-                    'tenant_id' => $r->tenant_id, 'installment' => 1, 'due_date' => $data['due_date'], 'amount' => $amount,
-                    'status' => 'pending', 'payment_method' => 'TRANSFERENCIA', 'registered_by' => $hr->full_name,
-                ]);
+                $this->issuer->issue($tenant, $employee, $amount, $data['period'], $data['concept'], $data['due_date'], $hr);
                 $sum += $amount;
             }
 

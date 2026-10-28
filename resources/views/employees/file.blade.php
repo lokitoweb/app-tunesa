@@ -387,6 +387,11 @@
                                         <option value="{{ $k }}" @selected($profile->labor_regime === $k)>{{ $v }}</option>
                                     @endforeach
                                 </select>
+                                <input type="hidden" name="family_allowance" value="0">
+                                <div class="form-check mt-2">
+                                    <input id="family_allowance" name="family_allowance" value="1" type="checkbox" class="form-check-input" @checked($profile->family_allowance)>
+                                    <label for="family_allowance" class="form-check-label small">Recibe asignación familiar (hijos)</label>
+                                </div>
                             </div>
                             <div class="col-12 col-md-4">
                                 <label for="health_insurance" class="form-label small fw-bold text-secondary mb-1">Seguro de salud</label>

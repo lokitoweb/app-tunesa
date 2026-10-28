@@ -6,7 +6,18 @@ import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 const props = defineProps({
     regimes: { type: Array, required: true },
     companyVacationDays: { type: Number, default: 30 },
+    parameters: { type: Object, required: true },
+    pensions: { type: Array, default: () => [] },
 });
+
+const params = useForm({ ...props.parameters });
+const saveParams = () => params.put('/labor-regimes/parameters', { preserveScroll: true, onSuccess: () => params.defaults() });
+const familyAmount = () => ((Number(params.minimum_wage) || 0) * (Number(params.family_allowance_pct) || 0) / 100).toFixed(2);
+
+const pensionForms = Object.fromEntries(props.pensions.map((p) => [p.id, useForm({
+    contribution_pct: p.contribution_pct, insurance_pct: p.insurance_pct, commission_pct: p.commission_pct, is_active: p.is_active,
+})]));
+const savePension = (p) => pensionForms[p.id].put(`/labor-regimes/pensions/${p.id}`, { preserveScroll: true, onSuccess: () => pensionForms[p.id].defaults() });
 
 const fields = [
     { key: 'vacation_days', label: 'Vacaciones', unit: 'días por año', step: 1 },
@@ -105,6 +116,51 @@ const show = (r, f) => (r[f.key] === null || r[f.key] === undefined
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+            <div class="col-12 col-lg-4">
+                <form class="card shadow-sm h-100" @submit.prevent="saveParams">
+                    <div class="card-body">
+                        <h2 class="h6 fw-bold mb-1">Asignación familiar</h2>
+                        <p class="small text-body-secondary">Para quien la recibe (se marca en su ficha laboral).</p>
+                        <label class="form-label small fw-semibold" for="p-rmv">Remuneración mínima vital</label>
+                        <input id="p-rmv" v-model="params.minimum_wage" type="number" min="0" step="0.01" class="form-control form-control-sm mb-2" :class="{ 'is-invalid': params.errors.minimum_wage }" required />
+                        <div class="invalid-feedback">{{ params.errors.minimum_wage }}</div>
+                        <label class="form-label small fw-semibold" for="p-pct">Asignación familiar (% de la remuneración mínima)</label>
+                        <input id="p-pct" v-model="params.family_allowance_pct" type="number" min="0" max="100" step="0.01" class="form-control form-control-sm" :class="{ 'is-invalid': params.errors.family_allowance_pct }" required />
+                        <div class="invalid-feedback">{{ params.errors.family_allowance_pct }}</div>
+                        <p class="small mt-2 mb-3">Monto: <strong>{{ familyAmount() }}</strong></p>
+                        <button type="submit" class="btn btn-sm btn-primary" :disabled="params.processing">Guardar</button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-12 col-lg-8">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h2 class="h6 fw-bold mb-1">Aportes de pensión</h2>
+                        <p class="small text-body-secondary">Se descuentan de las vacaciones en la liquidación. Actualízalos cuando cambien; con comisión sobre el flujo, escribe la de cada AFP (con comisión mixta queda en 0).</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle small mb-0">
+                                <thead class="table-light"><tr><th>Sistema</th><th>Aporte %</th><th>Seguro %</th><th>Comisión %</th><th>Activo</th><th></th></tr></thead>
+                                <tbody>
+                                    <tr v-for="p in pensions" :key="p.id">
+                                        <td class="fw-semibold">{{ p.name }}</td>
+                                        <td v-for="f in ['contribution_pct', 'insurance_pct', 'commission_pct']" :key="f" style="min-width: 88px">
+                                            <input v-model="pensionForms[p.id][f]" type="number" min="0" max="50" step="0.01" class="form-control form-control-sm"
+                                                :class="{ 'is-invalid': pensionForms[p.id].errors[f] }" :aria-label="`${p.name} ${f}`" />
+                                        </td>
+                                        <td><input v-model="pensionForms[p.id].is_active" type="checkbox" class="form-check-input" :aria-label="`${p.name} activo`" /></td>
+                                        <td class="text-end">
+                                            <button type="button" class="btn btn-sm btn-light" :disabled="!pensionForms[p.id].isDirty || pensionForms[p.id].processing" @click="savePension(p)">Guardar</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </AppLayout>

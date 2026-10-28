@@ -139,6 +139,7 @@ class DocumentWebController extends Controller
 
         $validated = $request->validate([
             'labor_regime'            => ['nullable', Rule::in(array_keys(\App\Modules\HR\Models\LaborRegime::options($employee->tenant_id, $employee->profile?->labor_regime)))],
+            'family_allowance'        => ['sometimes', 'boolean'],
             'pension_system'          => ['nullable', Rule::in(array_keys(EmployeeProfile::PENSION_SYSTEMS))],
             'pension_fund'            => ['nullable', 'string', 'max:100'],
             'pension_code'            => ['nullable', 'string', 'max:50'],

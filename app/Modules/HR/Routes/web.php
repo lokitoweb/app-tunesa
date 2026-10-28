@@ -49,6 +49,8 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [\App\Modules\HR\Controllers\Web\LaborRegimeWebController::class, 'index'])->name('index');
         Route::post('/', [\App\Modules\HR\Controllers\Web\LaborRegimeWebController::class, 'store'])->name('store');
         Route::put('/{id}', [\App\Modules\HR\Controllers\Web\LaborRegimeWebController::class, 'update'])->name('update')->whereNumber('id');
+        Route::put('/parameters', [\App\Modules\HR\Controllers\Web\LaborRegimeWebController::class, 'updateParameters'])->name('parameters');
+        Route::put('/pensions/{id}', [\App\Modules\HR\Controllers\Web\LaborRegimeWebController::class, 'updatePension'])->name('pensions.update')->whereNumber('id');
     });
 
     // Cese y liquidación de beneficios sociales
@@ -56,6 +58,8 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/employees/{id}/settlement', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'create'])->name('settlements.create')->whereNumber('id');
         Route::post('/employees/{id}/settlement', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'store'])->name('settlements.store')->whereNumber('id');
         Route::get('/settlements/{id}/print', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'print'])->name('settlements.print')->whereNumber('id');
+        Route::post('/settlements/{id}/treasury', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'treasury'])->name('settlements.treasury')->whereNumber('id')
+            ->middleware('can:payroll.payments');
     });
 
     // Dotación de uniformes

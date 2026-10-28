@@ -49,7 +49,7 @@ class EmployeeProfile extends Model
         'address', 'district', 'emergency_contact_name', 'emergency_contact_phone',
         'bank_name', 'bank_account_type', 'bank_account_currency', 'bank_account_number', 'interbank_code',
         'pension_system', 'pension_fund', 'pension_code', 'health_insurance',
-        'labor_regime', 'cts_bank_name', 'cts_account_number', 'cts_currency',
+        'labor_regime', 'family_allowance', 'cts_bank_name', 'cts_account_number', 'cts_currency',
         'payment_info_status', 'payment_info_updated_at', 'payment_verified_by', 'payment_verified_at', 'payment_rejection_reason',
     ];
 
@@ -60,6 +60,7 @@ class EmployeeProfile extends Model
         'cts_account_number'      => 'encrypted',
         'payment_info_updated_at' => 'datetime',
         'payment_verified_at'     => 'datetime',
+        'family_allowance'        => 'boolean',
     ];
 
     protected $attributes = [

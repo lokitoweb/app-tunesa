@@ -899,6 +899,11 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
                                         <option value="{{ $k }}" @selected($profile->labor_regime === $k)>{{ $v }}</option>
                                     @endforeach
                                 </select>
+                                <input type="hidden" name="family_allowance" value="0">
+                                <div class="form-check mt-2">
+                                    <input id="edit_family_allowance" name="family_allowance" value="1" type="checkbox" class="form-check-input" @checked($profile->family_allowance)>
+                                    <label for="edit_family_allowance" class="form-check-label small">Recibe asignación familiar (hijos)</label>
+                                </div>
                             </div>
                             <div class="legajo-form-group">
                                 <label for="edit_pension_system" class="legajo-form-label">Sistema Previsional</label>

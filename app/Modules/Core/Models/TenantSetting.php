@@ -45,6 +45,9 @@ class TenantSetting extends Model
         'lunch_minutes'           => 45,
         // Regla vigente 9 (QA Ronda 2): días de vacaciones por año de servicio, régimen general
         'vacation_days_per_year'  => 30,
+        // Liquidación: remuneración mínima vital y asignación familiar (% de la RMV); valores de Perú, editables
+        'minimum_wage'            => 1130,
+        'family_allowance_pct'    => 10,
         'lunch_paid'              => false,
         // Solo se marca entrada un día con turno programado (o autorizado por RRHH)
         'punch_requires_schedule' => true,
@@ -79,6 +82,7 @@ class TenantSetting extends Model
         'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'mail_from_address', 'mail_from_name',
         // Alertas de vencimientos (propias de cada empresa)
         'expiry_alert_emails', 'expiry_alert_telegram_chats', 'expiry_alert_days',
+        'minimum_wage', 'family_allowance_pct',
     ];
 
     /** Credenciales de servicios externos: las administra solo el SuperAdmin (plataforma o empresa) */
@@ -120,6 +124,7 @@ class TenantSetting extends Model
         'migo_api_token', 'migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'nubefact_token',
         'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'smtp_password', 'mail_from_address', 'mail_from_name',
         'telegram_bot_token', 'expiry_alert_emails', 'expiry_alert_telegram_chats', 'expiry_alert_days',
+        'minimum_wage', 'family_allowance_pct',
     ];
 
     protected $hidden = ['webhook_secret', 'maps_api_key', 'fcm_service_account_json', 'migo_api_token', 'nubefact_token', 'smtp_password', 'telegram_bot_token'];
@@ -136,6 +141,8 @@ class TenantSetting extends Model
         'default_grace_minutes'   => 'integer',
         'lunch_minutes'           => 'integer',
         'vacation_days_per_year'  => 'integer',
+        'minimum_wage'            => 'float',
+        'family_allowance_pct'    => 'float',
         'default_geofence_radius' => 'integer',
         'webhook_secret'          => 'encrypted',
         'maps_api_key'            => 'encrypted',

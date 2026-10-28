@@ -5,65 +5,66 @@ namespace App\Modules\HR\Services;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Models\User;
 use App\Modules\HR\Models\LaborRegime;
+use App\Modules\HR\Models\PensionRate;
 use Carbon\CarbonImmutable;
 
 /**
  * Liquidación de beneficios sociales al cese, con los parámetros del régimen de la persona
- * (LaborRegime). Montos brutos: no descuenta pensión ni renta. Un parámetro vacío en el régimen
- * deja ese concepto "sin parámetro" en vez de inventarlo.
+ * (LaborRegime) y su aporte de pensión (PensionRate). Un parámetro vacío en el régimen deja ese
+ * concepto "sin parámetro" en vez de inventarlo.
  *
- *  - Vacaciones pendientes: días ganados y no gozados × remuneración diaria (R/30).
- *  - Vacaciones truncas: R × (días de vacaciones/30) por meses y días desde el último aniversario.
- *  - Gratificación trunca: R × (gratificaciones al año/2) / 6 por mes calendario completo del
+ * Cada beneficio tiene su base: fijo (básico + asignación familiar + otros conceptos fijos) más
+ * el promedio de horas extras de ese beneficio; la CTS suma además 1/6 de la gratificación.
+ *  - Vacaciones pendientes: días ganados y no gozados × base de vacaciones / 30.
+ *  - Vacaciones truncas: base × (días de vacaciones/30) por meses y días desde el último aniversario.
+ *  - Gratificación trunca: base × (gratificaciones al año/2) / 6 por mes calendario completo del
  *    semestre (ene-jun, jul-dic) + la bonificación extraordinaria (%).
- *  - CTS trunca: (R + 1/6 de la gratificación) × CTS al año por meses y días desde el último
- *    periodo (1 de mayo, 1 de noviembre).
- *  - Indemnización (solo si se marca): días por año de servicio × R/30, con tope.
+ *  - CTS trunca: base CTS × CTS al año por meses y días desde el último periodo (1 may, 1 nov).
+ *  - Indemnización (solo si se marca): días por año de servicio × base CTS / 30, con tope.
+ * Aporte de pensión: solo sobre las vacaciones (la CTS, la gratificación con su bonificación y la
+ * indemnización no aportan).
+ *
+ * @phpstan-type Input array{termination_date: string, salary: float, family_allowance: float, other_computable: float,
+ *   ot_cts: float, ot_vacation: float, ot_gratification: float, pending_days: int, indemnity: bool,
+ *   other_incomes: list<array{label: string, amount: float}>, other_discounts: list<array{label: string, amount: float}>}
  */
 class SettlementCalculator
 {
-    /**
-     * @return array{lines: list<array{key: string, label: string, basis: string, amount: ?float}>, total: float, service: string, warnings: list<string>}
-     */
-    public function calculate(User $user, ?LaborRegime $regime, CarbonImmutable $end, float $salary, int $pendingVacationDays, bool $indemnity): array
+    /** @param  Input  $in */
+    public function calculate(User $user, ?LaborRegime $regime, ?PensionRate $pension, array $in): array
     {
         $hire = CarbonImmutable::parse($user->hire_date->toDateString());
-        $daily = $salary / 30;
+        $end = CarbonImmutable::parse($in['termination_date']);
         $money = fn (float $v) => round($v, 2);
         $param = fn (string $p) => $regime?->{$p};
-        $lines = [];
-        $warnings = [];
-        if (! $regime) {
-            $warnings[] = 'La persona no tiene régimen laboral en su ficha: solo se calculan las vacaciones pendientes.';
-        }
+        $warnings = $regime ? [] : ['La persona no tiene régimen laboral en su ficha: solo se calculan las vacaciones pendientes y los otros conceptos.'];
 
-        // Vacaciones: los días del régimen; en el general sin días propios, los de la empresa (como el saldo)
-        $vacationDays = $param('vacation_days')
-            ?? (in_array($regime?->code, ['general'], true) ? (int) TenantSetting::forTenant($user->tenant)->vacation_days_per_year : null);
-
-        $lines[] = ['key' => 'vacation_pending', 'label' => 'Vacaciones pendientes (no gozadas)',
-            'basis' => "{$pendingVacationDays} día(s) × " . $this->fmt($daily), 'amount' => $money($pendingVacationDays * $daily)];
-
-        $years = (int) $hire->diffInYears($end->addDay());
-        [$m, $d] = $this->span($hire->addYears($years), $end);
-        $lines[] = $vacationDays === null
-            ? $this->missing('vacation_truncated', 'Vacaciones truncas', 'días de vacaciones')
-            : ['key' => 'vacation_truncated', 'label' => 'Vacaciones truncas', 'basis' => "{$m} mes(es) y {$d} día(s) · {$vacationDays} días por año",
-                'amount' => $money($salary * $vacationDays / 30 * ($m / 12 + $d / 360))];
-
+        // Bases por beneficio
+        $fixed = $in['salary'] + $in['family_allowance'] + $in['other_computable'];
         $gratifications = $param('gratifications_per_year');
-        $gratification = $gratifications === null ? null : $salary * $gratifications / 2;
-        if ($gratification === null) {
-            $lines[] = $this->missing('gratification', 'Gratificación trunca', 'gratificaciones al año');
-        } else {
-            $semester = $end->month <= 6 ? $end->startOfYear() : $end->setDate($end->year, 7, 1);
-            $months = $this->fullMonths($hire->max($semester), $end);
-            $amount = $gratification / 6 * $months;
-            $pct = (float) ($param('gratification_bonus_pct') ?? 0);
-            $lines[] = ['key' => 'gratification', 'label' => 'Gratificación trunca', 'basis' => "{$months} mes(es) completo(s) del semestre", 'amount' => $money($amount)];
-            $lines[] = ['key' => 'gratification_bonus', 'label' => 'Bonificación extraordinaria', 'basis' => "{$pct} % de la gratificación", 'amount' => $money($amount * $pct / 100)];
-        }
+        $gratBase = $fixed + $in['ot_gratification'];
+        $gratification = $gratifications === null ? null : $gratBase * $gratifications / 2;
+        $sixth = ($gratification ?? 0) / 6;
+        $vacBase = $fixed + $in['ot_vacation'];
+        $ctsBase = $fixed + $in['ot_cts'] + $sixth;
+        $component = fn (string $label, float $v) => ['label' => $label, 'amount' => $money($v)];
+        $common = array_values(array_filter([
+            $component('Remuneración básica', $in['salary']),
+            $in['family_allowance'] > 0 ? $component('Asignación familiar', $in['family_allowance']) : null,
+            $in['other_computable'] > 0 ? $component('Otros conceptos fijos', $in['other_computable']) : null,
+        ]));
+        $bases = [
+            ['key' => 'cts', 'label' => 'CTS', 'total' => $money($ctsBase), 'components' => [...$common,
+                $component('Promedio de horas extras', $in['ot_cts']), $component('1/6 de la gratificación', $sixth)]],
+            ['key' => 'vacation', 'label' => 'Vacaciones', 'total' => $money($vacBase), 'components' => [...$common, $component('Promedio de horas extras', $in['ot_vacation'])]],
+            ['key' => 'gratification', 'label' => 'Gratificación', 'total' => $money($gratBase), 'components' => [...$common, $component('Promedio de horas extras', $in['ot_gratification'])]],
+        ];
 
+        $lines = [];
+        $line = fn (string $key, string $label, string $basis, ?float $amount, bool $pension = false) => ['key' => $key, 'label' => $label, 'basis' => $basis,
+            'amount' => $amount === null ? null : $money($amount), 'pension' => $pension];
+
+        // I. CTS trunca
         $cts = $param('cts_per_year');
         if ($cts === null) {
             $lines[] = $this->missing('cts', 'CTS trunca', 'CTS al año');
@@ -73,32 +74,88 @@ class SettlementCalculator
                 $end->month >= 5  => $end->setDate($end->year, 5, 1),
                 default           => $end->setDate($end->year - 1, 11, 1),
             };
-            [$m, $d] = $this->span($hire->max($period), $end);
-            $computable = $salary + ($gratification ?? 0) / 6;
-            $lines[] = ['key' => 'cts', 'label' => 'CTS trunca', 'basis' => "{$m} mes(es) y {$d} día(s) desde el " . $hire->max($period)->format('d/m/Y') . ' · base ' . $this->fmt($computable),
-                'amount' => $money($computable * $cts * ($m / 12 + $d / 360))];
+            $start = $hire->max($period);
+            [$m, $d] = $this->span($start, $end);
+            $lines[] = $line('cts', 'CTS trunca', "Del {$start->format('d/m/Y')} al {$end->format('d/m/Y')}: " . $this->fmt($ctsBase) . " × {$cts} / 12 × {$m} mes(es) + / 360 × {$d} día(s)",
+                $ctsBase * $cts * ($m / 12 + $d / 360));
         }
 
-        [$y, $m, $d] = $this->service($hire, $end);
-        if ($indemnity) {
+        // II. Vacaciones: los días del régimen; en el general sin días propios, los de la empresa (como el saldo)
+        $vacationDays = $param('vacation_days')
+            ?? ($regime?->code === 'general' ? (int) TenantSetting::forTenant($user->tenant)->vacation_days_per_year : null);
+        if ($in['pending_days'] > 0) {
+            $lines[] = $line('vacation_pending', 'Vacaciones pendientes (no gozadas)', "{$in['pending_days']} día(s) × " . $this->fmt($vacBase) . ' / 30',
+                $in['pending_days'] * $vacBase / 30, true);
+        }
+        $years = (int) $hire->diffInYears($end->addDay());
+        $anniversary = $hire->addYears($years);
+        [$m, $d] = $this->span($anniversary, $end);
+        $lines[] = $vacationDays === null
+            ? $this->missing('vacation_truncated', 'Vacaciones truncas', 'días de vacaciones')
+            : $line('vacation_truncated', 'Vacaciones truncas', "Desde el {$anniversary->format('d/m/Y')}: " . $this->fmt($vacBase) . " × {$vacationDays}/30 / 12 × {$m} mes(es) + / 360 × {$d} día(s)",
+                $vacBase * $vacationDays / 30 * ($m / 12 + $d / 360), true);
+
+        // III. Gratificación trunca y bonificación extraordinaria
+        if ($gratification === null) {
+            $lines[] = $this->missing('gratification', 'Gratificación trunca', 'gratificaciones al año');
+        } else {
+            $semester = $end->month <= 6 ? $end->startOfYear() : $end->setDate($end->year, 7, 1);
+            $months = $this->fullMonths($hire->max($semester), $end);
+            $amount = $gratification / 6 * $months;
+            $pct = (float) ($param('gratification_bonus_pct') ?? 0);
+            $lines[] = $line('gratification', 'Gratificación trunca', "Semestre desde el {$semester->format('d/m/Y')}: " . $this->fmt($gratification) . " / 6 × {$months} mes(es) completo(s)", $amount);
+            $lines[] = $line('gratification_bonus', 'Bonificación extraordinaria', "{$pct} % de la gratificación", $amount * $pct / 100);
+        }
+
+        // Indemnización por despido
+        [$y, $sm, $sd] = $this->service($hire, $end);
+        if ($in['indemnity']) {
             $perYear = $param('indemnity_days_per_year');
             if ($perYear === null) {
                 $lines[] = $this->missing('indemnity', 'Indemnización por despido', 'días de indemnización por año');
             } else {
-                $days = $perYear * ($y + $m / 12 + $d / 360);
+                $days = $perYear * ($y + $sm / 12 + $sd / 360);
                 $cap = $param('indemnity_cap_days');
-                $capped = $cap !== null && $days > $cap;
-                $lines[] = ['key' => 'indemnity', 'label' => 'Indemnización por despido',
-                    'basis' => round(min($days, $cap ?? $days), 2) . ' día(s) de remuneración' . ($capped ? " (tope {$cap})" : ''),
-                    'amount' => $money(min($days, $cap ?? $days) * $daily)];
+                $paid = min($days, $cap ?? $days);
+                $lines[] = $line('indemnity', 'Indemnización por despido', round($paid, 2) . ' día(s) × ' . $this->fmt($ctsBase) . ' / 30' . ($cap !== null && $days > $cap ? " (tope {$cap})" : ''),
+                    $paid * $ctsBase / 30);
             }
         }
 
+        // IV. Otros ingresos
+        foreach ($in['other_incomes'] as $i => $o) {
+            $lines[] = $line("other_income_{$i}", $o['label'], 'Otro ingreso', $o['amount']);
+        }
+
+        $gross = array_sum(array_map(fn ($l) => $l['amount'] ?? 0, $lines));
+
+        // V. Descuentos de ley y VI. otros descuentos
+        $deductions = [];
+        $affected = array_sum(array_map(fn ($l) => $l['pension'] ? ($l['amount'] ?? 0) : 0, $lines));
+        if ($pension && $affected > 0) {
+            foreach (['contribution_pct' => $pension->system === 'onp' ? 'Aporte ONP' : 'Aporte al fondo', 'insurance_pct' => 'Prima de seguro', 'commission_pct' => 'Comisión'] as $field => $label) {
+                if ($pension->{$field} > 0) {
+                    $deductions[] = ['key' => $field, 'label' => "{$pension->name} · {$label}", 'basis' => "{$pension->{$field}} % de " . $this->fmt($affected), 'amount' => $money($affected * $pension->{$field} / 100)];
+                }
+            }
+        } elseif (! $pension && $affected > 0) {
+            $warnings[] = 'Sin sistema de pensión elegido: no se descuenta aporte de las vacaciones.';
+        }
+        foreach ($in['other_discounts'] as $i => $o) {
+            $deductions[] = ['key' => "other_discount_{$i}", 'label' => $o['label'], 'basis' => 'Otro descuento', 'amount' => $money($o['amount'])];
+        }
+        $totalDeductions = array_sum(array_column($deductions, 'amount'));
+
         return [
-            'lines'    => $lines,
-            'total'    => $money(array_sum(array_map(fn ($l) => $l['amount'] ?? 0, $lines))),
-            'service'  => "{$y} año(s), {$m} mes(es) y {$d} día(s)",
-            'warnings' => $warnings,
+            'bases'      => $bases,
+            'lines'      => $lines,
+            'deductions' => $deductions,
+            'gross'      => $money($gross),
+            'deducted'   => $money($totalDeductions),
+            'total'      => $money($gross - $totalDeductions),
+            'service'    => "{$y} año(s), {$sm} mes(es) y {$sd} día(s)",
+            'pension'    => $pension?->only(['id', 'name', 'system']),
+            'warnings'   => $warnings,
         ];
     }
 
@@ -132,7 +189,7 @@ class SettlementCalculator
 
     private function missing(string $key, string $label, string $param): array
     {
-        return ['key' => $key, 'label' => $label, 'basis' => "Sin parámetro: define «{$param}» en el régimen", 'amount' => null];
+        return ['key' => $key, 'label' => $label, 'basis' => "Sin parámetro: define «{$param}» en el régimen", 'amount' => null, 'pension' => false];
     }
 
     private function fmt(float $v): string

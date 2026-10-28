@@ -7,6 +7,7 @@ use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\HR\Models\EmployeeProfile;
 use App\Modules\HR\Models\LaborRegime;
+use App\Modules\HR\Models\PensionRate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -25,11 +26,39 @@ class LaborRegimeWebController extends Controller
         $used = EmployeeProfile::withoutGlobalScopes()->where('tenant_id', $tenantId)->whereNotNull('labor_regime')
             ->selectRaw('labor_regime, count(*) as n')->groupBy('labor_regime')->pluck('n', 'labor_regime');
 
+        $settings = TenantSetting::forTenant(\App\Modules\Core\Models\Tenant::find($tenantId));
+
         return Inertia::render('HR/Pages/LaborRegimes/Index', [
             'regimes' => LaborRegime::catalog($tenantId)->map(fn (LaborRegime $r) => $r->only(['id', 'code', 'name', ...LaborRegime::PARAMS, 'is_active'])
                 + ['people' => (int) ($used[$r->code] ?? 0)])->values(),
-            'companyVacationDays' => (int) TenantSetting::forTenant(\App\Modules\Core\Models\Tenant::find($tenantId))->vacation_days_per_year,
+            'companyVacationDays' => (int) $settings->vacation_days_per_year,
+            'parameters' => ['minimum_wage' => (float) $settings->minimum_wage, 'family_allowance_pct' => (float) $settings->family_allowance_pct],
+            'pensions' => PensionRate::catalog($tenantId)->map->only(['id', 'name', 'system', 'contribution_pct', 'insurance_pct', 'commission_pct', 'is_active'])->values(),
         ]);
+    }
+
+    /** Remuneración mínima y % de asignación familiar de la empresa */
+    public function updateParameters(Request $request): RedirectResponse
+    {
+        $tenant = \App\Modules\Core\Models\Tenant::findOrFail($this->tenantId());
+        $data = $request->validate([
+            'minimum_wage'         => ['required', 'numeric', 'min:0', 'max:999999'],
+            'family_allowance_pct' => ['required', 'numeric', 'min:0', 'max:100'],
+        ], [], ['minimum_wage' => 'la remuneración mínima', 'family_allowance_pct' => 'el % de asignación familiar']);
+        $this->audit->updateWithAudit('labor_regime.parameters_updated', TenantSetting::editableRowFor($tenant), $data + ['updated_by' => $request->user()->id]);
+
+        return back()->with('success', 'Parámetros guardados.');
+    }
+
+    public function updatePension(Request $request, int $id): RedirectResponse
+    {
+        $rate = PensionRate::withoutGlobalScopes()->where('tenant_id', $this->tenantId())->findOrFail($id);
+        $pct = ['required', 'numeric', 'min:0', 'max:50'];
+        $data = $request->validate(['contribution_pct' => $pct, 'insurance_pct' => $pct, 'commission_pct' => $pct, 'is_active' => ['boolean']],
+            [], ['contribution_pct' => 'el aporte', 'insurance_pct' => 'el seguro', 'commission_pct' => 'la comisión']);
+        $this->audit->updateWithAudit('pension_rate.updated', $rate, $data, ['name' => $rate->name]);
+
+        return back()->with('success', "Tasas de {$rate->name} guardadas.");
     }
 
     public function store(Request $request): RedirectResponse
