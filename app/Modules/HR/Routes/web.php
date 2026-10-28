@@ -44,6 +44,20 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::post('/documents', [DocumentWebController::class, 'upload'])->name('.upload')->middleware('can:documents.review');
     });
 
+    // Regímenes laborales de la empresa (parámetros de vacaciones, gratificación, CTS e indemnización)
+    Route::prefix('labor-regimes')->name('labor-regimes.')->middleware('can:labor_regimes.manage')->group(function () {
+        Route::get('/', [\App\Modules\HR\Controllers\Web\LaborRegimeWebController::class, 'index'])->name('index');
+        Route::post('/', [\App\Modules\HR\Controllers\Web\LaborRegimeWebController::class, 'store'])->name('store');
+        Route::put('/{id}', [\App\Modules\HR\Controllers\Web\LaborRegimeWebController::class, 'update'])->name('update')->whereNumber('id');
+    });
+
+    // Cese y liquidación de beneficios sociales
+    Route::middleware('can:settlements.manage')->group(function () {
+        Route::get('/employees/{id}/settlement', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'create'])->name('settlements.create')->whereNumber('id');
+        Route::post('/employees/{id}/settlement', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'store'])->name('settlements.store')->whereNumber('id');
+        Route::get('/settlements/{id}/print', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'print'])->name('settlements.print')->whereNumber('id');
+    });
+
     // Dotación de uniformes
     // Vencimientos: legajo, contratos, capacitaciones y vehículos; alertas por correo y Telegram
     Route::prefix('expirations')->name('expirations.')->middleware('can:expirations.view')->group(function () {

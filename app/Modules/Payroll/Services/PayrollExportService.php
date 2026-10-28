@@ -124,7 +124,7 @@ class PayrollExportService
                 'position'           => $user->position,
                 'department'         => $user->department,
                 'hire_date'          => $user->hire_date?->toDateString(),
-                'labor_regime'       => EmployeeProfile::LABOR_REGIMES[$p->labor_regime] ?? null,
+                'labor_regime'       => \App\Modules\HR\Models\LaborRegime::label((int) $user->tenant_id, $p->labor_regime),
                 'base_salary'        => $user->base_salary,
                 'bonus'              => $user->bonus,
                 'total_salary'       => round((float) $user->base_salary + (float) $user->bonus, 2),

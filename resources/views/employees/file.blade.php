@@ -84,6 +84,12 @@
                 <span>Editar datos básicos</span>
             </button>
         @endcan
+        @can('settlements.manage')
+            <a href="{{ route('settlements.create', $employee->id) }}" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center shadow-sm" style="border-radius: 8px; font-weight: 600; padding: 7px 15px; gap: 8px;">
+                <i class="bi bi-person-x"></i>
+                <span>Cese y liquidación</span>
+            </a>
+        @endcan
     </div>
 </div>
 
@@ -275,7 +281,7 @@
                 </div>
                 <div class="legajo-row">
                     <span class="legajo-label">Régimen laboral</span>
-                    <span class="legajo-value">{{ EmployeeProfile::LABOR_REGIMES[$profile->labor_regime] ?? '—' }}</span>
+                    <span class="legajo-value">{{ $laborRegimes[$profile->labor_regime] ?? ($profile->labor_regime ?: '—') }}</span>
                 </div>
                 <div class="legajo-row">
                     <span class="legajo-label">Sistema previsional</span>
@@ -377,7 +383,7 @@
                                 <label for="labor_regime" class="form-label small fw-bold text-secondary mb-1">Régimen laboral</label>
                                 <select id="labor_regime" name="labor_regime" class="form-select form-select-sm">
                                     <option value="">— Seleccionar régimen —</option>
-                                    @foreach(EmployeeProfile::LABOR_REGIMES as $k => $v)
+                                    @foreach($laborRegimes as $k => $v)
                                         <option value="{{ $k }}" @selected($profile->labor_regime === $k)>{{ $v }}</option>
                                     @endforeach
                                 </select>

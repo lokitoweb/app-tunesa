@@ -69,6 +69,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'uniforms.manage'         => ['Gestionar tallas y entregas de dotación', 'profiles'],
         'expirations.view'        => ['Ver vencimientos (legajo, contratos, capacitaciones, vehículos)', 'profiles'],
         'expirations.manage'      => ['Configurar a quién se avisan los vencimientos (correo y Telegram)', 'profiles'],
+        'labor_regimes.manage'    => ['Configurar los regímenes laborales (vacaciones, gratificación, CTS, indemnización)', 'profiles'],
+        'settlements.manage'      => ['Registrar ceses y calcular la liquidación de beneficios sociales', 'profiles'],
         'company.configure'       => ['Configurar qué ve el colaborador en la app', 'tenants'],
         'audit.view'              => ['Ver la bitácora de auditoría', 'tenants'],
 

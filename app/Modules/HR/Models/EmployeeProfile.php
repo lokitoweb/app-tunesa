@@ -24,6 +24,7 @@ class EmployeeProfile extends Model
     public const BANK_ACCOUNT_TYPES = ['savings' => 'Ahorros', 'checking' => 'Corriente', 'payroll' => 'Cuenta sueldo'];
     public const PENSION_SYSTEMS    = ['afp' => 'AFP (privado)', 'onp' => 'ONP (estatal)', 'social_security' => 'Seguridad Social', 'none' => 'Sin régimen'];
     public const HEALTH_INSURANCES  = ['essalud' => 'EsSalud', 'eps' => 'EPS', 'sis' => 'SIS', 'imss' => 'IMSS', 'private' => 'Seguro privado', 'none' => 'Ninguno'];
+    /** Nombres de partida; los de cada empresa están en LaborRegime */
     public const LABOR_REGIMES      = [
         'general'       => 'Régimen general',
         'micro_company' => 'Microempresa',
@@ -131,7 +132,7 @@ class EmployeeProfile extends Model
             ],
             'employment' => [
                 'labor_regime'       => $this->labor_regime,
-                'labor_regime_label' => self::LABOR_REGIMES[$this->labor_regime] ?? null,
+                'labor_regime_label' => LaborRegime::label((int) $this->tenant_id, $this->labor_regime),
                 'hire_date'          => $this->user?->hire_date?->toDateString(),
                 'cts_bank_name'      => $this->cts_bank_name,
                 'cts_account_number' => $secret($this->cts_account_number),

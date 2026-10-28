@@ -750,7 +750,7 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
                         </div>
                         <div class="legajo-row">
                             <span class="legajo-label">Régimen laboral</span>
-                            <span class="legajo-value">{{ EmployeeProfile::LABOR_REGIMES[$profile->labor_regime] ?? '—' }}</span>
+                            <span class="legajo-value">{{ $laborRegimes[$profile->labor_regime] ?? ($profile->labor_regime ?: '—') }}</span>
                         </div>
                         <div class="legajo-row">
                             <span class="legajo-label">Seguro de salud</span>
@@ -895,7 +895,7 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
                                 <label for="edit_labor_regime" class="legajo-form-label">Régimen Laboral</label>
                                 <select id="edit_labor_regime" name="labor_regime" class="legajo-form-select">
                                     <option value="">— Seleccionar —</option>
-                                    @foreach(EmployeeProfile::LABOR_REGIMES as $k => $v)
+                                    @foreach($laborRegimes as $k => $v)
                                         <option value="{{ $k }}" @selected($profile->labor_regime === $k)>{{ $v }}</option>
                                     @endforeach
                                 </select>

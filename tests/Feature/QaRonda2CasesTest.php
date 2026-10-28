@@ -184,7 +184,11 @@ class QaRonda2CasesTest extends TestCase
         // Días por año configurables por empresa; régimen distinto del general o sin ingreso: no se calcula
         \App\Modules\Core\Models\TenantSetting::updateOrCreate(['tenant_id' => $this->tunesa->id], ['vacation_days_per_year' => 15]);
         $this->assertSame(26, $balance()['balance']);
-        \App\Modules\HR\Models\EmployeeProfile::create(['tenant_id' => $this->tunesa->id, 'user_id' => $juana->id, 'labor_regime' => 'micro_company']);
+        // Cada régimen con sus días (Regímenes laborales): microempresa 15; sin días definidos no se calcula
+        $profile = \App\Modules\HR\Models\EmployeeProfile::create(['tenant_id' => $this->tunesa->id, 'user_id' => $juana->id, 'labor_regime' => 'micro_company']);
+        \App\Modules\HR\Models\LaborRegime::catalog($this->tunesa->id)->firstWhere('code', 'micro_company')->update(['vacation_days' => 10]);
+        $this->assertSame(['years' => 2, 'earned' => 20, 'used' => 4, 'balance' => 16], $balance());
+        $profile->update(['labor_regime' => 'agrarian']);
         $this->assertNull($balance());
         $this->assertNull(app(\App\Modules\HR\Services\VacationBalance::class)->for($this->p['Fidel'], CarbonImmutable::parse('2026-10-31')), 'Sin fecha de ingreso');
     }

@@ -55,7 +55,7 @@ class EmployeeProfileController extends Controller
             'pension_fund'            => ['sometimes', 'nullable', 'string', 'max:100'],
             'pension_code'            => ['sometimes', 'nullable', 'string', 'alpha_num', 'max:20'],
             'health_insurance'        => ['sometimes', 'nullable', Rule::in(array_keys(EmployeeProfile::HEALTH_INSURANCES))],
-            'labor_regime'            => ['sometimes', 'nullable', Rule::in(array_keys(EmployeeProfile::LABOR_REGIMES))],
+            'labor_regime'            => ['sometimes', 'nullable', Rule::in(array_keys(\App\Modules\HR\Models\LaborRegime::options($employee->tenant_id, $employee->profile?->labor_regime)))],
             'cts_bank_name'           => ['sometimes', 'nullable', 'string', 'max:100'],
             'cts_account_number'      => ['sometimes', 'nullable', 'string', 'regex:/^[0-9\- ]{6,30}$/'],
             'cts_currency'            => ['sometimes', 'nullable', 'string', 'size:3'],

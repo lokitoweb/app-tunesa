@@ -123,12 +123,13 @@ class DocumentWebController extends Controller
         $shifts = Shift::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get();
         $departments = Department::forTenant($tenantId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
         $positionsCatalog = Position::forTenant($tenantId)->with('department:id,name')->where('is_active', true)->orderBy('name')->get();
+        $laborRegimes = \App\Modules\HR\Models\LaborRegime::options($tenantId, $profile->labor_regime);
 
         if ($request->ajax()) {
-            return view('employees.partials.modal-file-content', compact('employee', 'documents', 'deliveries', 'profile', 'config', 'revealed', 'canViewSensitive'));
+            return view('employees.partials.modal-file-content', compact('employee', 'documents', 'deliveries', 'profile', 'config', 'revealed', 'canViewSensitive', 'laborRegimes'));
         }
 
-        return view('employees.file', compact('employee', 'documents', 'deliveries', 'profile', 'config', 'revealed', 'canViewSensitive', 'branches', 'shifts', 'departments', 'positionsCatalog'));
+        return view('employees.file', compact('employee', 'documents', 'deliveries', 'profile', 'config', 'revealed', 'canViewSensitive', 'branches', 'shifts', 'departments', 'positionsCatalog', 'laborRegimes'));
     }
 
     public function updateProfile(Request $request, int $id): \Illuminate\Http\JsonResponse|RedirectResponse
@@ -137,7 +138,7 @@ class DocumentWebController extends Controller
         abort_unless(Auth::user()->canManage($employee), 403);
 
         $validated = $request->validate([
-            'labor_regime'            => ['nullable', Rule::in(array_keys(EmployeeProfile::LABOR_REGIMES))],
+            'labor_regime'            => ['nullable', Rule::in(array_keys(\App\Modules\HR\Models\LaborRegime::options($employee->tenant_id, $employee->profile?->labor_regime)))],
             'pension_system'          => ['nullable', Rule::in(array_keys(EmployeeProfile::PENSION_SYSTEMS))],
             'pension_fund'            => ['nullable', 'string', 'max:100'],
             'pension_code'            => ['nullable', 'string', 'max:50'],
