@@ -10,6 +10,9 @@ use App\Modules\Finance\Models\Requisition;
 use App\Modules\Finance\Models\Signatory;
 use App\Modules\Finance\Services\PayrollPaymentIssuer;
 use App\Modules\ModuleRegistry;
+use App\Modules\Payroll\Models\Payslip;
+use App\Modules\HR\Models\DocumentTemplate;
+use App\Modules\HR\Models\EmployeeProfile;
 use App\Modules\HR\Models\EmployeeSettlement;
 use App\Modules\HR\Models\LaborRegime;
 use App\Modules\HR\Models\PensionRate;
@@ -138,16 +141,50 @@ class SettlementWebController extends Controller
         return back()->with('success', "Liquidación enviada a Tesorería ({$payment->code()}), vence el " . date('d/m/Y', strtotime($due)) . '.');
     }
 
-    public function print(int $id): View
+    /** Documentos del cese que se imprimen (?doc=): uno solo o el paquete completo */
+    public const DOCUMENTS = [
+        'liquidation'        => 'Liquidación de beneficios sociales',
+        'work_certificate'   => 'Certificado de trabajo',
+        'cts_release_letter' => 'Carta de liberación de CTS',
+    ];
+
+    public function print(Request $request, int $id): View
     {
-        $settlement = EmployeeSettlement::with(['user', 'creator:id,first_name,last_name', 'tenant'])->findOrFail($id);
-        abort_unless(request()->user()->canManage($settlement->user), 403);
+        $settlement = EmployeeSettlement::with(['user.profile', 'creator:id,first_name,last_name', 'tenant'])->findOrFail($id);
+        $employee = $settlement->user;
+        abort_unless($request->user()->canManage($employee), 403);
+        $doc = (string) $request->query('doc', 'liquidation');
+        abort_unless($doc === 'all' || isset(self::DOCUMENTS[$doc]), 404);
+        // La carta de CTS solo si tiene cuenta CTS en su legajo
+        $hasCts = (bool) $employee->profile?->cts_account_number;
+        $docs = $doc === 'all' ? array_keys(array_filter(self::DOCUMENTS, fn ($k) => $k !== 'cts_release_letter' || $hasCts, ARRAY_FILTER_USE_KEY)) : [$doc];
+        abort_if($docs === ['cts_release_letter'] && ! $hasCts, 422, "{$employee->full_name} no tiene cuenta CTS en su legajo.");
+
         $settings = TenantSetting::forTenant($settlement->tenant);
+        $company = ['name' => $settlement->tenant?->company_name, 'ruc' => $settlement->tenant?->ruc, 'address' => $settings->address ?: $settlement->tenant?->address,
+            'logo' => $settlement->tenant?->logo_path ? asset('storage/' . $settlement->tenant->logo_path) : null];
+        // El número de cuenta completo, como en la ficha: solo con permiso y queda en la bitácora
+        $fullAccount = in_array('cts_release_letter', $docs, true) && $request->user()->hasPermission('profiles.view_sensitive');
+        if ($fullAccount) {
+            $this->audit->log('payment_info.revealed', $employee, ['document' => 'cts_release_letter']);
+        }
+        $sig = $settlement->data['signatory'] ?? null;
+        $vars = [
+            'empresa' => $company['name'], 'ruc' => $company['ruc'], 'direccion' => $company['address'],
+            'representante' => $sig['name'] ?? null, 'representante_cargo' => $sig['position'] ?? null, 'representante_dni' => $sig['document'] ?? null,
+            'colaborador' => $employee->full_name, 'documento' => trim(strtoupper((string) $employee->document_type) . ' ' . $employee->document_number), 'cargo' => $employee->position,
+            'fecha_ingreso' => $employee->hire_date ? DocumentTemplate::longDate($employee->hire_date) : null,
+            'fecha_cese' => DocumentTemplate::longDate($settlement->termination_date), 'motivo' => EmployeeSettlement::REASONS[$settlement->reason] ?? $settlement->reason,
+            'banco_cts' => $employee->profile?->cts_bank_name,
+            'cuenta_cts' => $fullAccount ? $employee->profile?->cts_account_number : EmployeeProfile::mask($employee->profile?->cts_account_number),
+            'fecha_documento' => DocumentTemplate::longDate($settlement->termination_date),
+        ];
+        $keys = in_array('liquidation', $docs, true) ? ['settlement_intro', 'settlement_closing', ...array_diff($docs, ['liquidation'])] : $docs;
 
         return view('settlements.print', [
-            's' => $settlement, 'reasons' => EmployeeSettlement::REASONS,
-            'company' => ['name' => $settlement->tenant?->company_name, 'ruc' => $settlement->tenant?->ruc, 'address' => $settings->address ?: $settlement->tenant?->address,
-                'logo' => $settlement->tenant?->logo_path ? asset('storage/' . $settlement->tenant->logo_path) : null],
+            's' => $settlement, 'reasons' => EmployeeSettlement::REASONS, 'docs' => $docs, 'company' => $company,
+            'pageTitle' => $doc === 'all' ? 'Documentos del cese' : self::DOCUMENTS[$doc],
+            'texts' => collect($keys)->mapWithKeys(fn ($k) => [$k => DocumentTemplate::render((int) $settlement->tenant_id, $k, $vars)])->all(),
             'signature' => isset($settlement->data['input']['signatory_id']) ? Signatory::find($settlement->data['input']['signatory_id'])?->signatureDataUri() : null,
         ]);
     }
@@ -205,9 +242,16 @@ class SettlementWebController extends Controller
     {
         $treasury = ModuleRegistry::enabledFor($employee->tenant, 'Finance') && $actor->hasPermission('payroll.payments');
         $payments = $treasury ? Requisition::where('employee_id', $employee->id)->where('payroll_concept', 'LIQUIDACION')->get()->keyBy('payroll_period') : collect();
+        // Última boleta: la del mes de cese, si ya se subió en Boletas de pago
+        $payslips = ModuleRegistry::enabledFor($employee->tenant, 'Payroll') && $actor->hasPermission('payslips.manage')
+            ? Payslip::where('user_id', $employee->id)->get(['id', 'period_year', 'period_month'])->keyBy(fn ($p) => sprintf('%04d-%02d', $p->period_year, $p->period_month))
+            : collect();
+        $hasCts = (bool) $employee->profile?->cts_account_number;
 
         return EmployeeSettlement::where('user_id', $employee->id)->latest('id')->get(['id', 'termination_date', 'reason', 'total', 'created_at'])
             ->map(fn ($s) => ['id' => $s->id, 'date' => $s->termination_date->format('d/m/Y'), 'reason' => EmployeeSettlement::REASONS[$s->reason] ?? $s->reason, 'total' => $s->total,
+                'documents' => array_filter(self::DOCUMENTS, fn ($k) => $k !== 'cts_release_letter' || $hasCts, ARRAY_FILTER_USE_KEY),
+                'payslip' => ($slip = $payslips->get($s->termination_date->format('Y-m'))) ? "/payslips/{$slip->id}/view" : null,
                 'payment' => ($p = $payments->get($s->termination_date->format('Y-m'))) ? "En Tesorería: {$p->code()}" . ($p->stage === 'paid' ? ' · pagado' : '') : null,
                 'can_pay' => $treasury && ! $payments->has($s->termination_date->format('Y-m')) && $s->total > 0]);
     }

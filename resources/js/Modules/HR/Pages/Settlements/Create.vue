@@ -195,13 +195,19 @@ async function register() {
                     <div class="card-body">
                         <h2 class="h6 fw-bold mb-2">Liquidaciones registradas</h2>
                         <ul class="list-unstyled small mb-0">
-                            <li v-for="h in history" :key="h.id" class="d-flex flex-wrap justify-content-between gap-2 border-bottom py-1">
-                                <span>N.° {{ h.id }} · {{ h.date }} · {{ h.reason }} · neto {{ money(h.total) }}</span>
-                                <span class="d-flex gap-3">
-                                    <a :href="`/settlements/${h.id}/print`" target="_blank" rel="noopener">Imprimir</a>
+                            <li v-for="h in history" :key="h.id" class="border-bottom py-2">
+                                <div class="d-flex flex-wrap justify-content-between gap-2">
+                                    <span class="fw-semibold">N.° {{ h.id }} · {{ h.date }} · {{ h.reason }} · neto {{ money(h.total) }}</span>
                                     <button v-if="h.can_pay" type="button" class="btn btn-link btn-sm p-0" @click="router.post(`/settlements/${h.id}/treasury`, {}, { preserveScroll: true })">Enviar a Tesorería</button>
                                     <span v-else-if="h.payment" class="text-body-secondary">{{ h.payment }}</span>
-                                </span>
+                                </div>
+                                <div class="d-flex flex-wrap gap-3 mt-1">
+                                    <a v-for="(label, key) in h.documents" :key="key" :href="`/settlements/${h.id}/print?doc=${key}`" target="_blank" rel="noopener">
+                                        <i class="bi bi-printer me-1"></i>{{ label }}
+                                    </a>
+                                    <a :href="`/settlements/${h.id}/print?doc=all`" target="_blank" rel="noopener" class="fw-semibold"><i class="bi bi-files me-1"></i>Todo junto</a>
+                                    <a v-if="h.payslip" :href="h.payslip" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text me-1"></i>Última boleta</a>
+                                </div>
                             </li>
                         </ul>
                     </div>

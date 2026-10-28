@@ -172,6 +172,8 @@ final class Labels
         'labor_regime.parameters_updated'    => ['Remuneración mínima y asignación familiar modificadas', 'info', 'sliders'],
         'pension_rate.updated'               => ['Tasas de aporte de pensión modificadas', 'info', 'percent'],
         'settlement.sent_to_treasury'        => ['Liquidación enviada a Tesorería', 'primary', 'cash-coin'],
+        'document_template.updated'          => ['Plantilla de documento modificada', 'info', 'file-earmark-richtext'],
+        'document_template.reset'            => ['Plantilla de documento devuelta al texto estándar', 'info', 'arrow-counterclockwise'],
         'employee.deleted'                   => ['Colaborador dado de baja', 'danger', 'person-x'],
         'profile.updated_by_hr'              => ['Ficha laboral editada por RRHH', 'primary', 'person-vcard'],
         'payment_info.revealed'              => ['Cuenta bancaria revelada', 'warning', 'eye'],

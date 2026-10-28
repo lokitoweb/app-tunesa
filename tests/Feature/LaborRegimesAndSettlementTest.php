@@ -140,6 +140,41 @@ class LaborRegimesAndSettlementTest extends TestCase
         $this->get("/settlements/{$settlement->id}/print")->assertOk()->assertSee('V. Descuentos de ley')->assertSee('3,752.01');
     }
 
+    public function test_termination_documents_use_the_company_templates(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme', ['company_name' => 'Acme SAC', 'ruc' => '20100000001']);
+        $hr = $this->makeUser($acme, 'hr_manager');
+        $ana = $this->makeUser($acme, 'employee', ['first_name' => 'Ana', 'last_name' => 'Ruiz', 'position' => 'Vendedora']);
+        $ana->forceFill(['hire_date' => '2024-03-01', 'base_salary' => 3000])->save();
+        EmployeeProfile::create(['tenant_id' => $acme->id, 'user_id' => $ana->id, 'labor_regime' => 'general', 'cts_bank_name' => 'Banco CTS', 'cts_account_number' => '12345678901']);
+        $this->actingAs($hr)->post("/employees/{$ana->id}/settlement", ['termination_date' => '2025-09-30', 'reason' => 'contract_end', 'salary' => 3000, 'pending_days' => 0])
+            ->assertSessionHasNoErrors();
+        $id = EmployeeSettlement::where('user_id', $ana->id)->value('id');
+
+        // Texto estándar con los datos llenos
+        $this->get("/settlements/{$id}/print?doc=work_certificate")->assertOk()
+            ->assertSee('CERTIFICADO DE TRABAJO')->assertSee('Ana Ruiz')->assertSee('desde el 1 de marzo de 2024 hasta el 30 de setiembre de 2025')->assertSee('«Vendedora»', false);
+
+        // La empresa lo edita: los campos se llenan y lo escrito se escapa; un campo inventado se rechaza
+        $this->put('/document-templates/work_certificate', ['title' => 'CONSTANCIA', 'body' => 'Trabajó {colaborador} <script>x</script> {inventado}'])->assertSessionHasErrors('body');
+        $this->put('/document-templates/work_certificate', ['title' => 'CONSTANCIA', 'body' => "Trabajó {colaborador} en {empresa} <b>hasta</b> el {fecha_cese}."])->assertSessionHasNoErrors();
+        $this->get("/settlements/{$id}/print?doc=work_certificate")->assertSee('CONSTANCIA')
+            ->assertSee('Trabajó Ana Ruiz en Acme SAC &lt;b&gt;hasta&lt;/b&gt; el 30 de setiembre de 2025.', false);
+
+        // Carta de CTS: RR. HH. con permiso ve la cuenta completa y queda en la bitácora
+        $this->get("/settlements/{$id}/print?doc=cts_release_letter")->assertOk()->assertSee('Banco CTS')->assertSee('12345678901');
+        $this->assertTrue(\App\Modules\Core\Models\AuditLog::withoutGlobalScopes()->where('action', 'payment_info.revealed')->exists());
+
+        // Todo junto: liquidación, certificado y carta
+        $this->get("/settlements/{$id}/print?doc=all")->assertOk()->assertSee('LIQUIDACIÓN DE BENEFICIOS SOCIALES')->assertSee('CONSTANCIA')->assertSee('Banco CTS');
+
+        // Volver al estándar
+        $this->delete('/document-templates/work_certificate')->assertSessionHasNoErrors();
+        $this->get("/settlements/{$id}/print?doc=work_certificate")->assertSee('CERTIFICADO DE TRABAJO')->assertDontSee('CONSTANCIA');
+        $this->get('/document-templates')->assertOk()->assertInertia(fn ($p) => $p->component('HR/Pages/DocumentTemplates/Index')->has('templates', 4));
+    }
+
     public function test_overtime_average_comes_from_approved_overtime_and_only_if_regular(): void
     {
         $acme = $this->makeTenant('acme');

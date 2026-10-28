@@ -55,6 +55,9 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
 
     // Cese y liquidación de beneficios sociales
     Route::middleware('can:settlements.manage')->group(function () {
+        Route::get('/document-templates', [\App\Modules\HR\Controllers\Web\DocumentTemplateWebController::class, 'index'])->name('document-templates.index');
+        Route::put('/document-templates/{key}', [\App\Modules\HR\Controllers\Web\DocumentTemplateWebController::class, 'update'])->name('document-templates.update')->where('key', '[a-z_]+');
+        Route::delete('/document-templates/{key}', [\App\Modules\HR\Controllers\Web\DocumentTemplateWebController::class, 'reset'])->name('document-templates.reset')->where('key', '[a-z_]+');
         Route::get('/employees/{id}/settlement', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'create'])->name('settlements.create')->whereNumber('id');
         Route::post('/employees/{id}/settlement', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'store'])->name('settlements.store')->whereNumber('id');
         Route::get('/settlements/{id}/print', [\App\Modules\HR\Controllers\Web\SettlementWebController::class, 'print'])->name('settlements.print')->whereNumber('id');
