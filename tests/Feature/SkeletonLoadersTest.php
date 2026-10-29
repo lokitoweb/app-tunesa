@@ -30,7 +30,9 @@ class SkeletonLoadersTest extends TestCase
         $this->assertMatchesRegularExpression('/prefers-reduced-motion: reduce\)\s*\{\s*\.sk-bar/', $css);
 
         $js = file_get_contents(public_path('js/panel.js'));
-        $this->assertStringContainsString('skeleton };', $js);
+        // Panel expone skeleton (y filters) aunque se agreguen más utilidades al objeto
+        $this->assertMatchesRegularExpression('/window\.Panel = \{[^}]*\bskeleton\b[^}]*\};/', $js);
+        $this->assertMatchesRegularExpression('/window\.Panel = \{[^}]*\bfilters\b[^}]*\};/', $js);
         $this->assertStringContainsString('[data-autosubmit]', $js);
         $this->assertStringContainsString('data-fallback-initials', $js);
         // La silueta no arma HTML: solo agrega y quita la clase
