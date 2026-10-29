@@ -8,6 +8,8 @@ import { money } from '@/Modules/Core/format';
 const props = defineProps({
     period: { type: String, required: true },
     payments: { type: Array, default: () => [] },
+    summary: { type: Object, default: () => ({ employees: 0, accumulated: 0, to_pay: 0 }) },
+    can: { type: Object, default: () => ({}) },
     totals: { type: Object, default: () => ({}) },
     missing: { type: Array, default: () => [] },
     concepts: { type: Object, required: true },
@@ -35,6 +37,17 @@ function submit() {
     form.post('/payroll-payments/import', { preserveScroll: true, forceFormData: true, onSuccess: () => (showImport.value = false) });
 }
 const go = (period) => router.get('/payroll-payments', { period }, { preserveState: true, replace: true });
+
+// MES y AÑO como en sisgere FrmRegrrhh › Planilla
+const MONTHS = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SETIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+const year = computed(() => Number(props.period.slice(0, 4)));
+const month = computed(() => props.period.slice(5, 7));
+const years = computed(() => {
+    const now = Number(props.today.slice(0, 4));
+    const list = new Set([...props.periods.map((p) => Number(p.slice(0, 4))), now - 1, now, now + 1, year.value]);
+    return [...list].sort((a, b) => b - a);
+});
+const setPeriod = (y, m) => go(`${y}-${m}`);
 </script>
 
 <template>
@@ -44,16 +57,38 @@ const go = (period) => router.get('/payroll-payments', { period }, { preserveSta
                 <h1 class="h4 fw-bold mb-1">Pagos de RRHH</h1>
                 <p class="text-body-secondary small mb-0">Importa la planilla del periodo: cada colaborador (por DNI) pasa a Tesorería como una orden de pago, a la cuenta verificada de su legajo.</p>
             </div>
-            <button type="button" class="btn btn-primary" @click="open"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Importar planilla</button>
+            <div class="d-flex flex-wrap gap-2">
+                <Link v-if="can.employees" href="/employees" class="btn btn-light border"><i class="bi bi-people me-1"></i>Colaboradores</Link>
+                <button type="button" class="btn btn-primary" @click="open"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Planilla</button>
+                <a v-if="can.employees" :href="`/finance-reports/employees?from=${today}&to=${today}&regime=all`" class="btn btn-light border" title="Listado de colaboradores en Excel (Crcolaboradores)"><i class="bi bi-printer me-1"></i>Reportes</a>
+                <Link v-if="can.requisitions" href="/requisitions?search=RRHH" class="btn btn-light border"><i class="bi bi-journal-text me-1"></i>Requerimientos</Link>
+            </div>
         </div>
 
+
         <div class="card shadow-sm mb-3">
-            <div class="card-body d-flex flex-wrap align-items-center gap-3">
-                <input type="month" class="form-control w-auto" :value="period" aria-label="Periodo" @change="go($event.target.value)" />
+            <div class="card-body d-flex flex-wrap align-items-end gap-3">
+                <div>
+                    <label class="form-label small fw-semibold mb-1" for="pp-month">Mes</label>
+                    <select id="pp-month" class="form-select" :value="month" @change="setPeriod(year, $event.target.value)">
+                        <option v-for="(m, i) in MONTHS" :key="m" :value="String(i + 1).padStart(2, '0')">{{ m }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold mb-1" for="pp-year">Año</label>
+                    <select id="pp-year" class="form-select" :value="year" @change="setPeriod($event.target.value, month)">
+                        <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
+                    </select>
+                </div>
                 <div class="d-flex flex-wrap gap-1">
                     <button v-for="p in periods" :key="p" type="button" class="btn btn-sm" :class="p === period ? 'btn-primary' : 'btn-light'" @click="go(p)">{{ p }}</button>
                 </div>
-                <Link href="/treasury" class="ms-auto small">Ir a Tesorería <i class="bi bi-arrow-right"></i></Link>
+                <Link v-if="can.treasury" href="/treasury" class="ms-auto small">Ir a Tesorería <i class="bi bi-arrow-right"></i></Link>
+            </div>
+            <div class="card-body border-top row g-2 text-center">
+                <div class="col-sm-4"><div class="small text-body-secondary fw-semibold">NRO COLABORADORES</div><div class="fs-5 fw-bold">{{ summary.employees }}</div></div>
+                <div class="col-sm-4"><div class="small text-body-secondary fw-semibold">SUELDO ACUMULADO</div><div class="fs-5 fw-bold text-success">{{ money(summary.accumulated) }}</div></div>
+                <div class="col-sm-4"><div class="small text-body-secondary fw-semibold">SUELDOS A PAGAR</div><div class="fs-5 fw-bold text-danger">{{ money(summary.to_pay) }}</div></div>
             </div>
             <div v-if="Object.keys(totals).length" class="card-footer bg-transparent">
                 <div class="row g-2 small">
@@ -73,16 +108,25 @@ const go = (period) => router.get('/payroll-payments', { period }, { preserveSta
                 <div class="card shadow-sm">
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light"><tr><th>Colaborador</th><th>Concepto</th><th class="d-none d-md-table-cell">Cuenta del legajo</th><th class="text-end">Monto</th><th>Estado</th></tr></thead>
-                            <tbody>
+                            <thead class="table-light"><tr><th># Operación</th><th>Colaborador</th><th>Orden Pago</th><th>F. Prog</th><th>F. Pago</th><th>Ciudad</th><th>Cargo</th><th class="text-end">Monto a depositar</th><th>Banco</th><th>CCI</th><th>Estado</th></tr></thead>
+                            <tbody class="small">
                                 <tr v-for="p in payments" :key="p.id">
-                                    <td><div class="fw-semibold">{{ p.employee }}</div><div class="small text-body-secondary font-monospace">DNI {{ p.dni }} · {{ p.code }}</div></td>
-                                    <td class="small">{{ concepts[p.concept] }}</td>
-                                    <td class="d-none d-md-table-cell small font-monospace">{{ p.account || '—' }} <span v-if="!p.verified" class="badge text-bg-warning">sin verificar</span></td>
-                                    <td class="text-end fw-semibold">{{ money(p.amount) }}<div v-if="p.paid && p.status !== 'Pagado'" class="small text-body-secondary">pagado {{ money(p.paid) }}</div></td>
+                                    <td class="font-monospace text-nowrap">{{ p.code }}</td>
+                                    <td><div class="fw-semibold">{{ p.employee }}</div><div class="text-body-secondary">DNI {{ p.dni }} · {{ concepts[p.concept] }}</div></td>
+                                    <td class="font-monospace text-nowrap">
+                                        <a v-if="p.order && can.treasury" :href="`/treasury/installments/${p.installment_id}/op.pdf`" target="_blank" rel="noopener">{{ p.order }}</a>
+                                        <span v-else>{{ p.order || '—' }}</span>
+                                    </td>
+                                    <td class="text-nowrap">{{ p.scheduled_for || '—' }}</td>
+                                    <td class="text-nowrap">{{ p.paid_at || '—' }}</td>
+                                    <td>{{ p.city || '—' }}</td>
+                                    <td>{{ p.position || '—' }}</td>
+                                    <td class="text-end fw-semibold text-nowrap">{{ money(p.amount) }}<div v-if="p.paid && p.status !== 'Pagado'" class="fw-normal text-body-secondary">pagado {{ money(p.paid) }}</div></td>
+                                    <td>{{ p.bank || '—' }}</td>
+                                    <td class="font-monospace text-nowrap">{{ p.cci || '—' }} <span v-if="!p.verified" class="badge text-bg-warning">sin verificar</span></td>
                                     <td><span class="badge" :class="badge[p.status]">{{ p.status }}</span></td>
                                 </tr>
-                                <tr v-if="!payments.length"><td colspan="5" class="text-center text-body-secondary py-5"><i class="bi bi-people fs-2 d-block mb-2"></i>No hay pagos de RRHH en {{ period }}.</td></tr>
+                                <tr v-if="!payments.length"><td colspan="11" class="text-center text-body-secondary py-5"><i class="bi bi-people fs-2 d-block mb-2"></i>No hay pagos de RRHH en {{ period }}.</td></tr>
                             </tbody>
                         </table>
                     </div>

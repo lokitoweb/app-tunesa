@@ -139,6 +139,7 @@ class Requisition extends Model
         return [
             'bank'     => $cts ? $profile?->cts_bank_name : $profile?->bank_name,
             'number'   => $cts ? $profile?->cts_account_number : $profile?->bank_account_number,
+            'cci'      => $cts ? null : $profile?->interbank_code,
             'verified' => $profile?->payment_info_status === 'verified',
         ];
     }

@@ -215,7 +215,7 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                         <span class="rounded-3 d-inline-flex align-items-center justify-content-center flex-shrink-0" :class="`bg-${k[2]}-subtle text-${k[2]}`" style="width: 42px; height: 42px"><i class="bi fs-5" :class="`bi-${k[3]}`"></i></span>
                         <div class="min-w-0">
                             <div class="small text-body-secondary">{{ k[1] }}</div>
-                            <div class="fw-bold text-truncate">{{ money(kpis[k[0]]) }}</div>
+                            <div v-for="(v, cur) in (Object.keys(kpis[k[0]] || {}).length ? kpis[k[0]] : { PEN: 0 })" :key="cur" class="fw-bold text-truncate">{{ money(v, cur) }}</div>
                         </div>
                     </div>
                 </div>

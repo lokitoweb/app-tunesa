@@ -54,7 +54,7 @@ class TreasuryFlowTest extends TestCase
         $account = CompanyBankAccount::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'bank' => 'BCP', 'account_number' => '191-000', 'currency' => 'PEN']);
 
         $this->actingAs($accountant)->get('/treasury')->assertOk()
-            ->assertInertia(fn ($page) => $page->component('Finance/Pages/Treasury/Index')->where('counts.to_schedule', 1)->where('kpis.pending', 1000));
+            ->assertInertia(fn ($page) => $page->component('Finance/Pages/Treasury/Index')->where('counts.to_schedule', 1)->where('kpis.pending', ['PEN' => 1000]));
 
         // Sin programar no se autoriza; sin autorizar no se paga
         $this->actingAs($manager)->post("/treasury/installments/{$p->id}/authorize")->assertStatus(422);
@@ -218,5 +218,26 @@ class TreasuryFlowTest extends TestCase
         $this->actingAs($accountant)->delete("/petty-cash/{$first->id}")->assertSessionHasNoErrors();
         $this->actingAs($accountant)->post('/petty-cash', $data)->assertSessionHasNoErrors();
         $this->assertSame(3, PettyCashExpense::withoutGlobalScopes()->max('receipt_number'), 'el correlativo no reutiliza recibos eliminados');
+    }
+
+    public function test_treasury_totals_are_per_currency_and_per_company(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $other = $this->makeTenant('other');
+        $accountant = $this->makeUser($acme, 'accountant');
+        $owe = function ($tenant, string $currency, float $amount, float $paid = 0) {
+            $r = Requisition::withoutGlobalScopes()->create(['tenant_id' => $tenant->id, 'series' => '001', 'number' => random_int(1, 99999), 'year' => 2026,
+                'requested_at' => now(), 'detail' => "Orden {$currency}", 'stage' => 'ordered', 'currency' => $currency, 'amount' => $amount]);
+            PaymentInstallment::withoutGlobalScopes()->create(['tenant_id' => $tenant->id, 'requisition_id' => $r->id, 'installment' => 1,
+                'due_date' => now()->subDay()->toDateString(), 'amount' => $amount, 'paid_amount' => $paid, 'status' => 'pending']);
+        };
+        $owe($acme, 'PEN', 1000, 200);
+        $owe($acme, 'USD', 300);
+        $owe($other, 'PEN', 5000); // otra empresa: no entra
+
+        // Antes: S/ 1,100 (soles y dólares sumados); ahora cada moneda por separado
+        $this->actingAs($accountant)->get('/treasury')->assertInertia(fn ($p) => $p
+            ->where('kpis.pending', ['PEN' => 800, 'USD' => 300])->where('kpis.overdue', ['PEN' => 800, 'USD' => 300]));
     }
 }

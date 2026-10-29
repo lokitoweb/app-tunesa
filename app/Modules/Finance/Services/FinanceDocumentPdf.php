@@ -80,7 +80,7 @@ final class FinanceDocumentPdf
         $account = $r->isPayroll() ? $r->payrollAccount() : null;
         $payee = $r->isPayroll() ? (object) ['name' => $r->employee?->full_name, 'ruc' => 'DNI ' . $r->employee?->document_number] : $r->supplier;
         $accounts = $r->isPayroll()
-            ? trim(($account['bank'] ?? '') . ($account['number'] ? ' ••••' . substr($account['number'], -4) : ''))
+            ? trim(($account['bank'] ?? '') . ($account['number'] ? ' ' . \App\Modules\HR\Models\EmployeeProfile::mask($account['number']) : ''))
             : $r->supplierAccounts()->implode(' · ');
 
         return self::render([

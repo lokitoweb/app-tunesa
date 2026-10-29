@@ -140,3 +140,42 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 | Al emitir la OC, la cuota queda **programada sola** (Fecha Progr. = Fecha Venc.) | Ver la fila de programación automática |
 | Tesorería › Pagos filtra por la empresa del combo superior (vacío = nada) y por Desde/Hasta | Web: siempre la empresa activa |
 | Correos del .NET en FrmReq: solo al campo Correo (ingresado, aprobado, rechazado); el de la OC al proveedor está comentado. FrmRegpagos manda la confirmación de depósito al proveedor | La web avisa a quien pidió y envía la SC/OC y el voucher al proveedor solo cuando se pulsa el botón |
+
+## Quinta pasada (29/10/2026): RR. HH. › Planilla (FrmRegrrhh) en el .exe y en el código
+
+Probado en el .exe con GROUP C & P S.A.C. (1 colaborador), periodo ENERO 2035 para no ocupar un mes real: Generar → requerimiento **7238**; doble clic → Banco y CCI salen de las cuentas del colaborador, monto 1500 → Aceptar ("Sueldos a pagar" 1500); Orden P → **PS-CP-000001-2026**, F. Program = ahora, "Sueldo acumulado" 1500 y "Sueldos a pagar" 0. Reportes → Crystal "LISTADO DE COLABORADORES" (CODIGO, COLABORADOR, DNI, DIRECCION, TELEF., CORREO, BANCO, TIPO, CCI). El 7238 / PS-CP-000001-2026 quedan en la base de prueba: Programación y Requerimientos del .exe solo listan la empresa de la sesión (TURISMO NEGREIROS) y no se pudo eliminar sin volver a iniciar sesión.
+
+| .NET (FrmRegrrhh) | Cómo se alimenta en el .NET | Web (Pagos de RRHH) |
+|---|---|---|
+| MES / AÑO | combos; la grilla se recarga solo al cambiar el AÑO (`ComboBox10_SelectedIndexChanged`) | **Hecho**: selects Mes (ENERO…DICIEMBRE) y Año; cambiar cualquiera recarga |
+| Empresa | combo rosado arriba a la derecha (`ComboBox1`) | la empresa activa del panel (multiempresa); nunca se mezclan |
+| Colaboradores / Planilla / Reportes / Requerimientos | pestañas y botones del formulario | **Hecho**: Colaboradores → /employees, Planilla → importar, Reportes → listado de colaboradores, Requerimientos → /requisitions?search=RRHH (cada uno con su permiso) |
+| NRO COLABORADORES | `Panelb.Items.Count` | **Hecho**: colaboradores distintos del periodo |
+| SUELDO ACUMULADO | suma de "Monto a depositar" al cargar el periodo | **Hecho**: suma de los montos del periodo |
+| SUELDOS A PAGAR | suma de las filas aún sin orden de pago | **Hecho, adaptado**: en la web cada fila ya nace con su OP al importar, así que es lo que falta pagar (monto − pagado) |
+| # Operación | id del requerimiento | código PL-… del pago |
+| Colaborador | `proveedor` | nombre + DNI + concepto |
+| Orden Pago | `doc_asoc` (serie OP) | **Hecho**: OP-{PL}-01, con enlace al PDF si puede ver Tesorería |
+| F. Prog / F. Pago | `fechaodp` / `MOSTRAR_fpago` | **Hecho**: programada / pagada de la cuota |
+| Ciudad / Cargo | `ciudad` / `rubro` del colaborador | **Hecho**: ciudad de la sede / cargo del colaborador |
+| Monto a depositar | `monto_pagar` | monto (y lo pagado si es parcial) |
+| Banco / CCI | `banco` / `nro_cuenta` | **Hecho**: banco del legajo y CCI (si no hay, la cuenta). Completa para quien opera con ella (`profiles.view_sensitive` o `payroll.export`: RRHH y Contabilidad), ••••••1234 para el resto |
+| Generar + Aceptar + Orden P | 3 pasos: crea un RQ por colaborador, se escribe el monto fila por fila, luego emite las OP | un paso: importar la planilla (Excel por DNI) emite las OP ya programadas (decidido antes; misma regla `generar_programacion` con Now) |
+| Reportes | Crystal `Crcolaboradores` | **Hecho, sin duplicar**: el reporte que ya existía (`/finance-reports/employees`) ahora trae también Código, Dirección, Tipo de cuenta y CCI; el botón Reportes lo descarga. En el Excel las cuentas van enmascaradas (el archivo sale del sistema) |
+
+Corregido en la web en lugar de copiar el .NET:
+- **Periodo por empresa**: `validar_periodo` no filtra por empresa y un periodo generado en una empresa bloquea Generar en las demás. En la web la planilla es por empresa (índice único empresa + colaborador + periodo + concepto); probado: dos empresas con el mismo periodo, cada una con sus totales.
+- **Banco y CCI no se pierden**: en el .NET quedan en blanco tras la OP; en la web salen siempre del legajo.
+- **Montos**: el .NET deja "01500" si no se borra el 0; la web valida el monto (> 0, separador de miles) al importar.
+- **Vista global del Super Admin**: sin empresa elegida, la planilla pide elegir empresa (ver abajo).
+
+Seguridad: la contraseña `sa` del SQL Server está en texto plano en `sisgere_prog.exe.config` (servidor público 190.119.199.58): **cambiarla**. La base `bettson.bak` no se pudo consultar aquí (no hay SQL Server local y el texto de los procedimientos no está legible en el respaldo); no se usó la conexión del .exe.
+
+## Sexta pasada (29/10/2026): reglas de toda la web (empresa, moneda, cuentas)
+| Regla | Antes | Ahora |
+|---|---|---|
+| Una empresa a la vez en las pantallas de dinero | En la vista global del Super Admin, Tesorería, Caja chica, Costos fijos, Flujo de caja, Reportes de finanzas, Pagos de RRHH, Inventario, Combustible y Compras por producto sumaban todas las empresas | Piden la empresa con el selector "¿En qué empresa?" que ya usaban los formularios (`SetWebTenant::SINGLE_COMPANY_ROUTES`, un solo lugar). Los listados sin montos (p. ej. Proveedores) siguen en la vista global |
+| Soles y dólares no se suman | Los indicadores de Tesorería (Vencido, Vence en 7 días, Total por pagar, Pagado este mes) sumaban S/ y US$ y lo mostraban como S/ | Un total por moneda de la orden, sin órdenes eliminadas (igual que Flujo de caja, que ya filtraba por moneda) |
+| Cuentas de colaboradores | Cada pantalla con su propio criterio y formato | `EmployeeProfile::accountFor`: en pantalla, completa para quien opera con ella (`profiles.view_sensitive` o `payroll.export`) y enmascarada para el resto; Excel y PDF siempre con `EmployeeProfile::mask` (••••••1234). Las cartas de CTS y liquidación al banco mantienen su regla (cuenta completa con `profiles.view_sensitive`) |
+
+Pruebas: `SuperAdminTenantPickerTest::test_money_screens_never_add_up_companies_in_the_global_view`, `TreasuryFlowTest::test_treasury_totals_are_per_currency_and_per_company`, `PayrollPaymentsTest::test_planilla_screen_…` (mismo periodo en dos empresas).

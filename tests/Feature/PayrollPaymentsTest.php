@@ -95,7 +95,7 @@ class PayrollPaymentsTest extends TestCase
         // Sueldos fuera de Requerimientos; en la pantalla de RRHH con estado y posibles bajas
         $this->actingAs($accountant)->get('/requisitions')->assertInertia(fn ($p) => $p->has('requisitions.data', 1)->where('requisitions.data.0.detail', 'RQ previo')); // solo el RQ, ningún sueldo
         $this->actingAs($hr)->get('/payroll-payments?period=2026-10')->assertOk()->assertInertia(fn ($p) => $p
-            ->has('payments', 3)->where('totals.HABERES.total', 4150.75)->where('payments.1.concept', 'HABERES')->where('payments.1.status', 'Programado')->where('payments.1.account', 'BCP ••••1236'));
+            ->has('payments', 3)->where('totals.HABERES.total', 4150.75)->where('payments.1.concept', 'HABERES')->where('payments.1.status', 'Programado')->where('payments.1.account', 'BCP ••••••1236'));
 
         // Tesorería: programar, autoriza la persona designada, paga sin factura pero con voucher
         $p = PaymentInstallment::withoutGlobalScopes()->where('requisition_id', $payments[0]->id)->sole();
@@ -122,6 +122,53 @@ class PayrollPaymentsTest extends TestCase
         // Permisos: Logística no importa planillas
         $this->actingAs($this->makeUser($acme, 'logistics'))->get('/payroll-payments')->assertForbidden();
         $this->actingAs($accountant)->get('/payroll-payments/template')->assertOk()->assertDownload('plantilla-planilla.xlsx');
+    }
+
+    public function test_planilla_screen_has_the_desktop_columns_totals_and_collaborators_report_per_company(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme', ['company_name' => 'Turismo Negreiros']);
+        $other = $this->makeTenant('other');
+        $hr = $this->makeUser($acme, 'hr_manager');
+        $otherHr = $this->makeUser($other, 'hr_manager');
+        $trujillo = $this->makeBranch($acme, ['name' => 'Sede Centro', 'city' => 'TRUJILLO']);
+        $ana = $this->employee($acme, '45871236', 'verified', ['interbank_code' => '00219100458712365555']);
+        $ana->update(['position' => 'CONDUCTOR', 'scope_branch_id' => $trujillo->id]);
+        $luis = $this->employee($acme, '40000002');
+        $this->employee($other, '40000004'); // otra empresa: ni en la grilla ni en el reporte
+        $this->actingAs($hr)->post('/payroll-payments/import', ['period' => '2026-09', 'concept' => 'HABERES', 'due_date' => '2026-09-30',
+            'file' => $this->xlsx([['45871236', 'Ana', 1500], ['40000002', 'Luis', 1000]])])->assertSessionHasNoErrors();
+        $first = Requisition::withoutGlobalScopes()->where('employee_id', $ana->id)->sole();
+        PaymentInstallment::withoutGlobalScopes()->where('requisition_id', $first->id)->update(['status' => 'paid', 'paid_amount' => 1500, 'paid_at' => '2026-09-30 10:00:00']);
+        $first->update(['stage' => 'paid']);
+
+        // sisgere FrmRegrrhh › Planilla: # Operación, Colaborador, Orden Pago, F. Prog, F. Pago, Ciudad, Cargo, Monto a depositar, Banco, CCI
+        $this->actingAs($hr)->get('/payroll-payments?period=2026-09')->assertInertia(fn ($p) => $p
+            ->where('summary', ['employees' => 2, 'accumulated' => 2500, 'to_pay' => 1000])
+            ->where('payments.0.code', $first->code())->where('payments.0.order', 'OP-' . $first->code() . '-01')
+            ->where('payments.0.scheduled_for', now(tenant_timezone())->format('d/m/Y'))->where('payments.0.paid_at', '30/09/2026')
+            ->where('payments.0.city', 'TRUJILLO')->where('payments.0.position', 'CONDUCTOR')->where('payments.0.amount', 1500)
+            // RRHH verifica la cuenta en el legajo: la ve completa (CCI si hay, si no la cuenta)
+            ->where('payments.0.bank', 'BCP')->where('payments.0.cci', '00219100458712365555')
+            ->where('payments.1.city', null)->where('payments.1.cci', '19140000002')->where('payments.1.paid_at', null)
+            ->where('can.treasury', false));
+        $this->actingAs($hr)->get('/payroll-payments?period=2026-08')->assertInertia(fn ($p) => $p->has('payments', 0)->where('summary.employees', 0));
+
+        // Cada empresa tiene su planilla: el mismo periodo en otra empresa no choca ni se suma (el .NET bloqueaba el periodo para todas)
+        $this->actingAs($otherHr)->post('/payroll-payments/import', ['period' => '2026-09', 'concept' => 'HABERES', 'due_date' => '2026-09-30',
+            'file' => $this->xlsx([['40000004', 'Ajeno', 700]])])->assertSessionHasNoErrors();
+        $this->actingAs($otherHr)->get('/payroll-payments?period=2026-09')->assertInertia(fn ($p) => $p->has('payments', 1)
+            ->where('summary', ['employees' => 1, 'accumulated' => 700, 'to_pay' => 700]));
+        $this->actingAs($hr)->get('/payroll-payments?period=2026-09')->assertInertia(fn ($p) => $p->has('payments', 2)->where('summary.accumulated', 2500));
+
+        // Reportes: el listado de colaboradores existente (Crcolaboradores) con código, dirección, tipo y CCI, solo de la empresa
+        $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($this->actingAs($hr)->get('/finance-reports/employees?from=2026-09-01&to=2026-09-30&regime=all')
+            ->assertOk()->getFile()->getPathname())->getActiveSheet()->toArray();
+        $this->assertSame(['Código', 'Dirección', 'Tipo de cuenta', 'CCI (últimos 4)'], [$sheet[0][2], $sheet[0][7], $sheet[0][11], $sheet[0][13]]);
+        $dnis = array_column(array_slice($sheet, 1), 0);
+        $this->assertContains('45871236', $dnis);
+        $this->assertNotContains('40000004', $dnis);
+        $this->assertContains('••••••5555', array_column(array_slice($sheet, 1), 13));
     }
 
     public function test_purchases_by_product_uses_kardex_cost_or_prorated_order_amount(): void

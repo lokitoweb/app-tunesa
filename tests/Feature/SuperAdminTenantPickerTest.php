@@ -48,6 +48,27 @@ class SuperAdminTenantPickerTest extends TestCase
         $this->get('/employees/create')->assertOk();
     }
 
+    public function test_money_screens_never_add_up_companies_in_the_global_view(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $this->makeTenant('other');
+        $root = $this->makeUser(null, 'super_admin');
+        $range = '?from=2026-10-01&to=2026-10-31';
+
+        // Saldos, totales y reportes son de una sola empresa: sin elegirla se pregunta, nunca se suman
+        foreach (['/treasury', '/petty-cash', '/fixed-costs', '/cash-flow', '/finance-reports', "/finance-reports/scheduled{$range}",
+            '/payroll-payments', '/inventory', '/fuel', '/purchases/by-product'] as $url) {
+            $this->actingAs($root)->get($url)->assertRedirect(route('admin.tenant.choose', ['next' => $url]));
+        }
+        // Los listados sin montos siguen en la vista global
+        $this->get('/suppliers')->assertOk();
+
+        // Con la empresa elegida, la pantalla abre con sus datos
+        $this->post('/admin/switch-tenant', ['tenant_id' => $acme->id, 'next' => '/treasury'])->assertRedirect('/treasury');
+        $this->get('/treasury')->assertOk();
+        $this->get('/payroll-payments')->assertOk();
+    }
+
     public function test_next_never_leaves_the_panel(): void
     {
         $acme = $this->makeTenant('acme');

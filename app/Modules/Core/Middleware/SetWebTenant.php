@@ -102,6 +102,15 @@ class SetWebTenant
     /** Formularios GET que preparan una escritura y por eso necesitan empresa */
     public const GLOBAL_FORM_ROUTES = ['*.create', '*.edit', 'payslips.bulk'];
 
+    /**
+     * Pantallas de dinero (saldos, totales, correlativos, reportes): cada empresa es un universo aparte,
+     * así que en la vista global también se pregunta la empresa en vez de sumar todas.
+     */
+    public const SINGLE_COMPANY_ROUTES = [
+        'treasury.*', 'petty-cash.*', 'fixed-costs.*', 'cash-flow.*', 'finance-reports.*',
+        'payroll-payments.*', 'inventory.*', 'fuel.*', 'purchases.*',
+    ];
+
     private function handleSuperAdmin(Request $request, Closure $next): Response
     {
         $tenantId = $request->session()->get('admin_tenant_id');
@@ -164,7 +173,9 @@ class SetWebTenant
      */
     private function askForTenant(Request $request, Collection $tenants): Response
     {
-        $message = 'Elige la empresa en la que quieres crear o editar.';
+        $message = Str::is(self::SINGLE_COMPANY_ROUTES, $request->route()?->getName() ?? '')
+            ? 'Elige la empresa: los montos y totales son de una sola empresa.'
+            : 'Elige la empresa en la que quieres crear o editar.';
         $isWrite = ! $request->isMethodSafe();
         $back    = $isWrite ? $this->moduleIndex($request) : $request->fullUrl();
         $chooser = route('admin.tenant.choose', ['next' => self::relativeUrl($back)]);
@@ -249,7 +260,7 @@ class SetWebTenant
             return true;
         }
 
-        return Str::is(self::GLOBAL_FORM_ROUTES, $route);
+        return Str::is([...self::GLOBAL_FORM_ROUTES, ...self::SINGLE_COMPANY_ROUTES], $route);
     }
 
     /** Activa la empresa para la petición (scopes, zona horaria, módulos); lo usa también el portal */

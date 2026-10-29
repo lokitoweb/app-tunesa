@@ -77,6 +77,18 @@ class EmployeeProfile extends Model
         return $this->belongsTo(User::class, 'payment_verified_by');
     }
 
+    /**
+     * Cuenta de un colaborador para mostrar en pantalla: completa para quien opera con ella (RRHH que la
+     * verifica, contabilidad que arma el archivo del banco), enmascarada para el resto. Excel y PDF salen
+     * del sistema: ahí siempre va mask().
+     */
+    public static function accountFor(?string $value, ?User $viewer): ?string
+    {
+        $full = $viewer && ($viewer->hasPermission('profiles.view_sensitive') || $viewer->hasPermission('payroll.export'));
+
+        return $full ? ($value ?: null) : self::mask($value);
+    }
+
     /** "1234567890" → "••••••7890" */
     public static function mask(?string $value, int $visible = 4): ?string
     {

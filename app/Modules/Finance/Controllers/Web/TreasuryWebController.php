@@ -57,17 +57,23 @@ class TreasuryWebController extends Controller
             ->through(fn (PaymentInstallment $p) => $this->row($p));
 
         $base = fn () => PaymentInstallment::query();
-        $pending = fn () => $base()->where('status', 'pending');
+        $pending = fn () => $base()->where('payment_installments.status', 'pending');
+        // Saldos por moneda de la orden: soles y dólares nunca se suman entre sí
+        $byCurrency = fn ($query, string $expr) => $query->join('requisitions', 'requisitions.id', '=', 'payment_installments.requisition_id')->whereNull('requisitions.deleted_at')
+            ->toBase()->selectRaw("coalesce(requisitions.currency, 'PEN') as currency, sum({$expr}) as total")->groupBy('currency')
+            ->pluck('total', 'currency')->map(fn ($v) => round((float) $v, 2));
+        $owed = 'payment_installments.amount - payment_installments.paid_amount';
 
         return Inertia::render('Finance/Pages/Treasury/Index', [
             'installments' => $installments,
             'tabs'         => self::TABS,
             'counts'       => collect(self::TABS)->map(fn ($_, $key) => $this->tab($base(), $key, $today)->count()),
             'kpis'         => [
-                'overdue'   => (float) $pending()->whereDate('due_date', '<', $today)->sum(DB::raw('amount - paid_amount')),
-                'week'      => (float) $pending()->whereBetween('due_date', [$today, now(tenant_timezone())->addDays(7)->endOfDay()->toDateTimeString()])->sum(DB::raw('amount - paid_amount')),
-                'pending'   => (float) $pending()->sum(DB::raw('amount - paid_amount')),
-                'paid_month' => (float) PaymentCancellation::where('paid_at', '>=', now(tenant_timezone())->startOfMonth()->utc())->sum('amount'),
+                'overdue'   => $byCurrency($pending()->whereDate('payment_installments.due_date', '<', $today), $owed),
+                'week'      => $byCurrency($pending()->whereBetween('payment_installments.due_date', [$today, now(tenant_timezone())->addDays(7)->endOfDay()->toDateTimeString()]), $owed),
+                'pending'   => $byCurrency($pending(), $owed),
+                'paid_month' => $byCurrency(PaymentCancellation::where('payment_cancellations.paid_at', '>=', now(tenant_timezone())->startOfMonth()->utc())
+                    ->join('payment_installments', 'payment_installments.id', '=', 'payment_cancellations.payment_installment_id'), 'payment_cancellations.amount'),
             ],
             'filters'      => ['tab' => $tab, 'search' => $search],
             'accounts'     => CompanyBankAccount::orderByDesc('is_active')->orderBy('bank')->get()
@@ -650,9 +656,7 @@ class TreasuryWebController extends Controller
     private function payrollPayee(Requisition $r): array
     {
         $account = $r->payrollAccount();
-        $user = request()->user();
-        $full = $user->hasPermission('profiles.view_sensitive') || $user->hasPermission('payroll.export');
-        $number = $account['number'] ? ($full ? $account['number'] : '••••' . substr($account['number'], -4)) : null;
+        $number = \App\Modules\HR\Models\EmployeeProfile::accountFor($account['number'], request()->user());
 
         return [
             'name' => $r->employee?->full_name, 'ruc' => 'DNI ' . $r->employee?->document_number,

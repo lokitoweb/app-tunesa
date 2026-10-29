@@ -10,6 +10,7 @@ use App\Modules\Core\Support\SpreadsheetRows;
 use App\Modules\Finance\Models\Requisition;
 use App\Modules\Finance\Services\PayrollPaymentIssuer;
 use App\Modules\Finance\Services\PettyCashImport;
+use App\Modules\HR\Models\EmployeeProfile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,17 +42,28 @@ class PayrollPaymentWebController extends Controller
     {
         $period = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('period')) ? $request->query('period') : now(tenant_timezone())->format('Y-m');
 
-        $payments = Requisition::with(['employee:id,first_name,last_name,document_number', 'employee.profile', 'paymentInstallments:id,requisition_id,amount,paid_amount,status,scheduled_for,authorized_at'])
+        $user = $request->user();
+        // Cuenta completa para quien opera con ella, enmascarada para el resto (misma regla que Tesorería)
+        $mask = fn (?string $n) => EmployeeProfile::accountFor($n, $user);
+        $payments = Requisition::with(['employee:id,first_name,last_name,document_number,position,scope_branch_id', 'employee.profile',
+            'employee.primaryBranch:branches.id,name,city', 'employee.assignedBranch:id,name,city',
+            'paymentInstallments:id,requisition_id,installment,amount,paid_amount,status,scheduled_for,authorized_at,paid_at'])
             ->whereNotNull('payroll_concept')->where('payroll_period', $period)
             ->orderBy('payroll_concept')->orderBy('id')->get()
-            ->map(function (Requisition $r) {
+            ->map(function (Requisition $r) use ($mask) {
                 $p = $r->paymentInstallments->first();
                 $account = $r->payrollAccount();
+                $branch = $r->employee?->primaryBranch->first() ?? $r->employee?->assignedBranch;
 
+                // Columnas de sisgere FrmRegrrhh › Planilla: # Operación, Colaborador, Orden Pago, F. Prog, F. Pago, Ciudad, Cargo, Monto a depositar, Banco, CCI
                 return [
                     'id' => $r->id, 'code' => $r->code(), 'concept' => $r->payroll_concept, 'amount' => (float) $r->amount,
                     'employee' => $r->employee?->full_name, 'dni' => $r->employee?->document_number,
-                    'account' => $account['number'] ? trim($account['bank'] . ' ••••' . substr($account['number'], -4)) : null, 'verified' => $account['verified'],
+                    'order' => $p?->scheduled_for ? sprintf('OP-%s-%02d', $r->orderNumber(), $p->installment) : null, 'installment_id' => $p?->id,
+                    'scheduled_for' => $p?->scheduled_for?->format('d/m/Y'), 'paid_at' => $p?->paid_at?->format('d/m/Y'),
+                    'city' => $branch?->city ?: $branch?->name, 'position' => $r->employee?->position,
+                    'bank' => $account['bank'], 'cci' => $mask($account['cci'] ?: $account['number']),
+                    'account' => $account['number'] ? trim($account['bank'] . ' ' . EmployeeProfile::mask($account['number'])) : null, 'verified' => $account['verified'],
                     'paid' => (float) ($p?->paid_amount ?? 0),
                     'status' => match (true) {
                         $r->stage === 'paid' => 'Pagado',
@@ -73,11 +85,15 @@ class PayrollPaymentWebController extends Controller
         return Inertia::render('Finance/Pages/PayrollPayments/Index', [
             'period'   => $period,
             'payments' => $payments,
+            // Cabecera de FrmRegrrhh: NRO COLABORADORES, SUELDO ACUMULADO y SUELDOS A PAGAR (lo que aún falta pagar)
+            'summary'  => ['employees' => $payments->pluck('dni')->unique()->count(), 'accumulated' => round($payments->sum('amount'), 2),
+                'to_pay' => round($payments->where('status', '!=', 'Pagado')->sum(fn ($p) => $p['amount'] - $p['paid']), 2)],
             'totals'   => $payments->groupBy('concept')->map(fn ($g) => ['count' => $g->count(), 'total' => round($g->sum('amount'), 2), 'paid' => round($g->sum('paid'), 2)]),
             'missing'  => $missing,
             'concepts' => Requisition::PAYROLL_CONCEPTS,
             'periods'  => Requisition::whereNotNull('payroll_concept')->distinct()->orderByDesc('payroll_period')->limit(24)->pluck('payroll_period'),
             'today'    => now(tenant_timezone())->toDateString(),
+            'can'      => ['employees' => $user->hasPermission('users.manage'), 'requisitions' => $user->hasPermission('requisitions.create'), 'treasury' => $user->hasPermission('treasury.view')],
         ]);
     }
 
