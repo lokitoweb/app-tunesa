@@ -57,4 +57,21 @@ class EmployeeImportTest extends TestCase
         // Un colaborador común no importa
         $this->assertContains($this->actingAs($old)->postJson('/employees/import/preview', ['file' => $this->csv($good)])->status(), [302, 403]); // sin acceso al panel
     }
+
+    public function test_city_column_places_each_employee_in_that_city_branch_like_sisgere(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $hr = $this->makeUser($acme, 'hr_manager');
+        $lima = $this->makeBranch($acme, ['name' => 'Sede Lima', 'city' => 'Lima']);
+        $chiclayo = $this->makeBranch($acme, ['name' => 'Agencia Chiclayo', 'city' => 'Chiclayo']);
+        // La sede de otra empresa con la misma ciudad nunca se usa
+        $this->makeBranch($this->makeTenant('otra'), ['name' => 'Otra Trujillo', 'city' => 'Trujillo']);
+
+        $csv = "Colaborador,DNI,Ciudad\nRUIZ PEREZ ANA,41111111,CHICLAYO\nSOTO DIAZ LUIS,42222222,\nVEGA LUNA EVA,43333333,Trujillo\n";
+        $this->actingAs($hr)->postJson('/employees/import', ['file' => $this->csv($csv), 'branch_id' => $lima->id])->assertOk()->assertJsonPath('created', 3);
+
+        $primary = fn ($dni) => User::where('document_number', $dni)->sole()->primaryBranch()->value('branches.id');
+        $this->assertSame([$chiclayo->id, $lima->id, $lima->id], [$primary('41111111'), $primary('42222222'), $primary('43333333')]);
+    }
 }

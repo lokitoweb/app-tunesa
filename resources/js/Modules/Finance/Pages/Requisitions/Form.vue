@@ -9,6 +9,7 @@ const props = defineProps({
     products: { type: Array, default: () => [] },
     options: { type: Object, required: true },
     vehicles: { type: Array, default: () => [] },
+    branches: { type: Array, default: () => [] },
 });
 
 const editing = !!props.requisition.id;
@@ -61,6 +62,12 @@ async function importItems(event) {
 // Un producto conocido trae su unidad
 function onProduct(item) {
     if (unitByProduct[item.product]) item.unit = unitByProduct[item.product];
+}
+
+// Agencia del maestro de sedes (sisgere ComboBox11): su dirección llena la sede y el lugar de entrega
+function onAgency() {
+    const branch = props.branches.find((b) => b.name === form.agency);
+    if (branch?.address) form.site = form.delivery_place = branch.address;
 }
 
 function submit() {
@@ -134,8 +141,9 @@ const err = (k) => form.errors[k];
                         <div class="invalid-feedback">{{ err('requested_by') }}</div>
                     </div>
                     <div class="col-sm-6 col-lg-4">
-                        <label class="form-label small fw-semibold" for="rq-area">Área</label>
-                        <input id="rq-area" v-model="form.area" class="form-control" maxlength="50" />
+                        <label class="form-label small fw-semibold" for="rq-area">Área *</label>
+                        <input id="rq-area" v-model="form.area" class="form-control" :class="{ 'is-invalid': err('area') }" maxlength="50" />
+                        <div class="invalid-feedback">{{ err('area') }}</div>
                     </div>
                     <div class="col-sm-6 col-lg-4">
                         <label class="form-label small fw-semibold" for="rq-email">Correo</label>
@@ -154,13 +162,19 @@ const err = (k) => form.errors[k];
                         <label class="form-label small fw-semibold" for="rq-km">Kilometraje</label>
                         <input id="rq-km" v-model="form.km" class="form-control" maxlength="50" />
                     </div>
-                    <div class="col-sm-6 col-lg-3">
-                        <label class="form-label small fw-semibold" for="rq-site">Sede / agencia</label>
+                    <div class="col-sm-6 col-lg-4">
+                        <label class="form-label small fw-semibold" for="rq-agency">Agencia</label>
+                        <input id="rq-agency" v-model="form.agency" class="form-control" maxlength="100" list="rq-agencies" @change="onAgency" />
+                        <datalist id="rq-agencies"><option v-for="b in branches" :key="b.name" :value="b.name" /></datalist>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <label class="form-label small fw-semibold" for="rq-site">Sede (dirección)</label>
                         <input id="rq-site" v-model="form.site" class="form-control" maxlength="100" />
                     </div>
-                    <div class="col-sm-6 col-lg-3">
+                    <div class="col-sm-6 col-lg-4">
                         <label class="form-label small fw-semibold" for="rq-delivery">Lugar de entrega</label>
-                        <input id="rq-delivery" v-model="form.delivery_place" class="form-control" maxlength="100" />
+                        <input id="rq-delivery" v-model="form.delivery_place" class="form-control" maxlength="100" list="rq-addresses" />
+                        <datalist id="rq-addresses"><option v-for="b in branches.filter((x) => x.address)" :key="b.name" :value="b.address" /></datalist>
                     </div>
                 </div>
             </div>

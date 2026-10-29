@@ -21,13 +21,13 @@ class QuoteRequestTest extends TestCase
         Notification::fake();
         $this->seedRoles();
         $acme = $this->makeTenant('acme');
-        $a = Supplier::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Con correo', 'ruc' => '20444444444', 'email' => 'ventas@prov.test']);
+        $a = Supplier::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Con correo', 'ruc' => '20444444444', 'email' => 'ventas@prov.test', 'category' => 'FILTROS DE MANTENIMIENTO']);
         $b = Supplier::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Sin correo', 'ruc' => '20555555555']);
         $requester = $this->makeUser($acme, 'supervisor');
         $logistics = $this->makeUser($acme, 'logistics');
         $manager = $this->makeUser($acme, 'manager');
 
-        $this->actingAs($requester)->post('/requisitions', ['requested_at' => now()->toDateString(), 'requested_by' => 'Ana', 'detail' => 'Filtros',
+        $this->actingAs($requester)->post('/requisitions', ['requested_at' => now()->toDateString(), 'area' => 'Flota', 'requested_by' => 'Ana', 'detail' => 'Filtros',
             'classification' => 'REPUESTOS', 'priority' => 'ALTO', 'items' => [['product' => 'Filtro', 'unit' => 'UNIDAD (BIENES)', 'quantity' => 6]]]);
         $r = Requisition::withoutGlobalScopes()->sole();
         $payload = ['supplier_ids' => [$a->id, $b->id], 'delivery_mode' => 'delivery', 'delivery_place' => 'Taller Trujillo', 'quote_payment_terms' => 'Crédito 30 días'];
@@ -36,6 +36,9 @@ class QuoteRequestTest extends TestCase
         $this->actingAs($logistics)->post("/requisitions/{$r->id}/quote-requests", $payload)->assertStatus(422);
         $this->actingAs($manager)->post("/requisitions/{$r->id}/review", ['decision' => 'approved']);
         $this->actingAs($requester)->post("/requisitions/{$r->id}/quote-requests", $payload)->assertForbidden();
+        // El rubro llega a la pantalla para filtrar los proveedores (sisgere MOSTRAR_proveedor_rubro)
+        $this->actingAs($logistics)->get("/requisitions/{$r->id}")
+            ->assertInertia(fn ($page) => $page->where('suppliers.0.category', 'FILTROS DE MANTENIMIENTO'));
         $this->actingAs($logistics)->post("/requisitions/{$r->id}/quote-requests", ['delivery_place' => ''] + $payload)->assertSessionHasErrors('delivery_place');
 
         $this->post("/requisitions/{$r->id}/quote-requests", $payload)->assertRedirect()->assertSessionHasNoErrors();

@@ -13,6 +13,8 @@ const props = defineProps({
     has_tenant: { type: Boolean, default: false },
     ruc_lookup: { type: Boolean, default: false },
     categories: { type: Array, default: () => [] },
+    banks: { type: Array, default: () => [] },
+    account_types: { type: Array, default: () => [] },
 });
 
 const { ask } = useConfirm();
@@ -284,20 +286,26 @@ async function destroy(s) {
                             </div>
                             <div v-for="(a, i) in form.bank_accounts" :key="i" class="row g-2 mb-2 align-items-start">
                                 <div class="col-4">
-                                    <input v-model="a.bank" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors[`bank_accounts.${i}.bank`] }" placeholder="Banco" aria-label="Banco" maxlength="50" />
+                                    <input v-model="a.bank" class="form-control form-control-sm" :class="{ 'is-invalid': form.errors[`bank_accounts.${i}.bank`] }" placeholder="Banco" aria-label="Banco" maxlength="50" list="sup-banks" />
                                     <div class="invalid-feedback">{{ form.errors[`bank_accounts.${i}.bank`] }}</div>
                                 </div>
-                                <div class="col-5">
+                                <div class="col-4">
                                     <input v-model.trim="a.account_number" class="form-control form-control-sm font-monospace" :class="{ 'is-invalid': form.errors[`bank_accounts.${i}.account_number`] }" placeholder="N.º de cuenta / CCI" aria-label="Número de cuenta" maxlength="100" />
                                     <div class="invalid-feedback">{{ form.errors[`bank_accounts.${i}.account_number`] }}</div>
                                 </div>
-                                <div class="col-2">
-                                    <input v-model="a.account_type" class="form-control form-control-sm" placeholder="Tipo" aria-label="Tipo de cuenta" maxlength="50" />
+                                <div class="col-3">
+                                    <select v-model="a.account_type" class="form-select form-select-sm" aria-label="Tipo de cuenta">
+                                        <option value="">Tipo</option>
+                                        <option v-for="t in account_types" :key="t" :value="t">{{ t }}</option>
+                                        <!-- ponytail: conserva un tipo escrito a mano antes del catálogo -->
+                                        <option v-if="a.account_type && !account_types.includes(a.account_type)" :value="a.account_type">{{ a.account_type }}</option>
+                                    </select>
                                 </div>
                                 <div class="col-1 text-end">
                                     <button type="button" class="btn btn-sm btn-link text-danger p-1" title="Quitar cuenta" @click="form.bank_accounts.splice(i, 1)"><i class="bi bi-x-lg"></i></button>
                                 </div>
                             </div>
+                            <datalist id="sup-banks"><option v-for="b in banks" :key="b" :value="b" /></datalist>
                             <p v-if="!form.bank_accounts.length" class="small text-body-secondary mb-0">Sin cuentas registradas.</p>
                         </div>
                     </div>

@@ -21,7 +21,11 @@ class SupplierWebTest extends TestCase
         $user = $this->makeUser($acme, 'logistics');
 
         $this->actingAs($user)->get('/suppliers')->assertOk()
-            ->assertInertia(fn ($page) => $page->component('Finance/Pages/Suppliers/Index')->where('can_manage', true));
+            ->assertInertia(fn ($page) => $page->component('Finance/Pages/Suppliers/Index')->where('can_manage', true)
+                // Catálogos de FrmRegProveedor: tipo de cuenta fijo y rubros aunque la empresa no tenga proveedores
+                ->where('account_types', ['CTE. SOLES', 'CTE. DOLARES', 'CCI. SOLES', 'CCI. DOLARES'])
+                ->where('categories', fn ($c) => collect($c)->contains('COMBUSTIBLE'))
+                ->has('banks'));
 
         $this->actingAs($user)->post('/suppliers', [
             'name' => 'Ferretería <b>Sur</b>', 'ruc' => '20123456789', 'is_active' => true,

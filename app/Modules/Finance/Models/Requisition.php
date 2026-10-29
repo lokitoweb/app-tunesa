@@ -7,7 +7,9 @@ use App\Modules\Core\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 /** Requerimiento de compra/servicio con su OC u OS (tblrequerimiento) */
 class Requisition extends Model
@@ -164,6 +166,21 @@ class Requisition extends Model
     public function quotations(): HasMany
     {
         return $this->hasMany(Quotation::class);
+    }
+
+    public function selectedQuotation(): HasOne
+    {
+        return $this->hasOne(Quotation::class)->where('is_selected', true);
+    }
+
+    /** Cuentas donde pagar al proveedor: la fijada en la cotización elegida (sisgere) o, si no, todas las suyas */
+    public function supplierAccounts(): Collection
+    {
+        $q = $this->selectedQuotation;
+
+        return $q?->account_number
+            ? collect(["{$q->bank} {$q->account_number}"])
+            : ($this->supplier?->bankAccounts->map(fn ($a) => "{$a->bank} {$a->account_number}")->values() ?? collect());
     }
 
     /** Cuotas por pagar ('installments' es la columna con cuántas son) */

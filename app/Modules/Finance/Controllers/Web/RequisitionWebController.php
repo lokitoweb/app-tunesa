@@ -3,6 +3,7 @@
 namespace App\Modules\Finance\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
+use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Rules\SafeUpload;
@@ -23,6 +24,7 @@ use App\Modules\Finance\Models\Product;
 use App\Modules\Finance\Models\Quotation;
 use App\Modules\Finance\Models\Requisition;
 use App\Modules\Finance\Models\Supplier;
+use App\Modules\Finance\Models\SupplierBankAccount;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -131,8 +133,10 @@ class RequisitionWebController extends Controller
         $data = $this->validated($request);
 
         $requisition = DB::transaction(function () use ($data, $request) {
-            // RQ-[EMPRESA]-[SERIE]-[N]-[AÑO]: la serie es la de la sede de quien solicita (o su código)
-            $branch = $request->user()->primaryBranch()->first() ?? $request->user()->assignedBranch;
+            // RQ-[EMPRESA]-[SERIE]-[N]-[AÑO]: la serie es la de la agencia elegida (sisgere: seriereq de la
+            // agencia) o, si no se eligió una sede del maestro, la de la sede de quien solicita (o su código)
+            $branch = (filled($data['agency'] ?? null) ? Branch::where('name', $data['agency'])->first() : null)
+                ?? $request->user()->primaryBranch()->first() ?? $request->user()->assignedBranch;
             $series = DocumentSequence::seriesFrom($branch?->document_series ?: $branch?->code);
             $year = (int) now()->year;
             [$number, $code] = DocumentSequence::next(app(TenantContext::class)->get(), 'RQ', $series, $year);
@@ -145,6 +149,8 @@ class RequisitionWebController extends Controller
             return $requisition;
         });
         $this->audit->log('requisition.created', $requisition, ['code' => $requisition->code()]);
+        // sisgere: "SU REQUERIMIENTO HA SIDO INGRESADO - LOGISTICA" a quien lo registra
+        rescue(fn () => $request->user()->notify(new RequisitionReviewed($requisition)), report: true);
 
         return redirect()->route('requisitions.show', $requisition->id)->with('success', "Requerimiento {$requisition->code()} registrado.");
     }
@@ -199,7 +205,7 @@ class RequisitionWebController extends Controller
                     'status' => $c->is_amortization ? 'Pago amortizado' : 'Pago cancelado', 'has_voucher' => (bool) $c->voucher_path,
                 ]),
                 'quotations'   => $r->quotations->sortByDesc('is_selected')->values()->map(fn (Quotation $q) => [
-                    ...$q->only(['id', 'number', 'amount', 'currency', 'contact', 'phone', 'notes', 'is_selected']),
+                    ...$q->only(['id', 'number', 'amount', 'currency', 'contact', 'phone', 'notes', 'is_selected', 'bank', 'account_number']),
                     'has_file'   => (bool) $q->file_path,
                     'supplier'   => $q->supplier?->only(['id', 'name', 'ruc']),
                     'quoted_at'  => $q->quoted_at?->format('d/m/Y'),
@@ -216,7 +222,9 @@ class RequisitionWebController extends Controller
                 ]),
             ],
             'stages'      => Requisition::STAGES,
-            'suppliers'   => Supplier::where('is_active', true)->orderBy('name')->limit(1000)->get(['id', 'name', 'ruc']),
+            // Con rubro: la solicitud de cotización filtra por él (sisgere MOSTRAR_proveedor_rubro)
+            'suppliers'   => Supplier::where('is_active', true)->with('bankAccounts:id,supplier_id,bank,account_number,account_type')
+                ->orderBy('name')->limit(1000)->get(['id', 'name', 'ruc', 'category']),
             'options'     => self::options(),
             'can'         => [
                 'edit'     => $r->stage === 'requested' && ($r->user_id === $user->id || $user->hasPermission('requisitions.view_all')),
@@ -260,7 +268,8 @@ class RequisitionWebController extends Controller
 
         $r = $this->visible($request)->findOrFail($id);
         abort_unless($this->canReview($r, $request->user()), 403);
-        abort_unless($r->stage === 'requested', 422, 'El requerimiento ya fue revisado.');
+        // sisgere (Button41) deja aprobar un requerimiento rechazado: corrige un rechazo por error
+        abort_unless($r->stage === 'requested' || ($r->stage === 'rejected' && $data['decision'] === 'approved'), 422, 'El requerimiento ya fue revisado.');
 
         $r->update([
             'stage' => $data['decision'], 'notes' => $data['notes'] ?? $r->notes,
@@ -303,11 +312,16 @@ class RequisitionWebController extends Controller
             'contact'     => ['nullable', 'string', 'max:50'],
             'phone'       => ['nullable', 'string', 'max:50'],
             'notes'       => ['nullable', 'string', 'max:250'],
+            // Cuenta del proveedor a la que se pagará (sisgere: banco y nro_cuenta de la cotización)
+            'supplier_bank_account_id' => ['nullable', Rule::exists('supplier_bank_accounts', 'id')->where('supplier_id', $request->input('supplier_id'))],
             // PDF de la cotización: obligatorio salvo en el Express (sin cotización formal)
             'file'        => [$r->is_express ? 'nullable' : 'required', 'file', 'mimes:pdf', 'max:5120', SafeUpload::pdf()],
         ], self::MESSAGES + ['file.required' => 'Adjunta el PDF de la cotización.', 'file.mimes' => 'La cotización debe ser PDF.', 'file.max' => 'El PDF pesa más de 5 MB.'],
-            ['supplier_id' => 'el proveedor', 'amount' => 'el monto', 'file' => 'la cotización']);
+            ['supplier_id' => 'el proveedor', 'amount' => 'el monto', 'file' => 'la cotización', 'supplier_bank_account_id' => 'la cuenta']);
         unset($data['file']);
+        $account = isset($data['supplier_bank_account_id']) ? SupplierBankAccount::find($data['supplier_bank_account_id']) : null;
+        unset($data['supplier_bank_account_id']);
+        $data += ['bank' => $account?->bank, 'account_number' => $account?->account_number];
 
         // Express: un solo proveedor, en soles y por debajo del tope (sin cuadro comparativo)
         if ($r->is_express) {
@@ -733,7 +747,7 @@ class RequisitionWebController extends Controller
         return $request->validate([
             'requested_at'          => ['required', 'date'],
             'detail'                => ['required', 'string', 'max:1000'],
-            'area'                  => ['nullable', 'string', 'max:50'],
+            'area'                  => ['required', 'string', 'max:50'], // sisgere: "seleccione el area que solicita"
             'requested_by'          => ['required', 'string', 'max:50'],
             'email'                 => ['nullable', 'email', 'max:100'],
             'classification'        => ['required', Rule::in(Requisition::CLASSIFICATIONS)],
@@ -755,7 +769,7 @@ class RequisitionWebController extends Controller
             'amount.required_if' => 'Indica el monto estimado del gasto.',
             'amount.lt'          => 'El Express es para gastos menores a S/ ' . Requisition::EXPRESS_LIMIT . '; usa un requerimiento normal.',
         ] + ['items.required' => 'Agrega al menos un producto.', 'items.min' => 'Agrega al menos un producto.'], [
-            'requested_at' => 'la fecha', 'detail' => 'el detalle', 'requested_by' => 'quién solicita', 'classification' => 'la clasificación',
+            'requested_at' => 'la fecha', 'detail' => 'el detalle', 'requested_by' => 'quién solicita', 'area' => 'el área', 'classification' => 'la clasificación',
             'priority' => 'la prioridad', 'items.*.product' => 'el producto', 'items.*.quantity' => 'la cantidad',
         ]);
     }
@@ -802,6 +816,8 @@ class RequisitionWebController extends Controller
             'products' => Product::orderBy('name')->limit(1000)->get(['name', 'unit']),
             'options'  => self::options(),
             'vehicles' => Vehicle::where('is_active', true)->orderBy('plate')->get(['id', 'plate', 'brand', 'model', 'type']),
+            // Agencias (sisgere: MOSTRAR_AGENCIA); al elegir una se llenan sede y lugar de entrega con su dirección
+            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['name', 'address']),
         ]);
     }
 

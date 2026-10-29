@@ -59,7 +59,7 @@ class DirectPaymentAdvanceTest extends TestCase
         Notification::assertNotSentTo($treasurer, \App\Modules\Finance\Notifications\RequisitionPaid::class);
 
         // Siguiente orden del mismo proveedor: el anticipo aparece y se descuenta
-        $this->actingAs($requester)->post('/requisitions', ['requested_at' => now()->toDateString(), 'requested_by' => 'Ana', 'detail' => 'Reparación motor',
+        $this->actingAs($requester)->post('/requisitions', ['requested_at' => now()->toDateString(), 'area' => 'Flota', 'requested_by' => 'Ana', 'detail' => 'Reparación motor',
             'classification' => 'REPUESTOS', 'priority' => 'ALTO', 'items' => [['product' => 'Reparación', 'unit' => 'UNIDAD (SERVICIOS)', 'quantity' => 1]]]);
         $r = Requisition::withoutGlobalScopes()->where('is_direct_payment', false)->sole();
         $this->actingAs($boss)->post("/requisitions/{$r->id}/review", ['decision' => 'approved']);
@@ -128,5 +128,42 @@ class DirectPaymentAdvanceTest extends TestCase
         $this->assertSame(['Corregido', '650.00', '650.00', null], [$pg2->fresh()->detail, $pg2->fresh()->amount, $inst->fresh()->amount, $inst->fresh()->authorized_at]);
         // Ya pagado (el anticipo del inicio), no se corrige
         $this->put("/treasury/direct/{$pg->id}", ['detail' => 'x', 'currency' => 'PEN', 'amount' => 1])->assertStatus(422);
+    }
+
+    public function test_expenses_load_from_excel_as_direct_payments_like_sisgere_bancos(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $other = $this->makeTenant('otra');
+        $treasurer = $this->makeUser($acme, 'accountant');
+        $mine = Supplier::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Grifo Sur', 'ruc' => '20111111111']);
+        // Mismo RUC en otra empresa: nunca se usa en la carga de acme
+        Supplier::withoutGlobalScopes()->create(['tenant_id' => $other->id, 'name' => 'Ajeno', 'ruc' => '20999999999']);
+        $csv = function (string $rows) {
+            $file = tempnam(sys_get_temp_dir(), 'gas') . '.csv';
+            file_put_contents($file, "Fecha,Medio,Tipo,Serie,Numero,RUC,Glosa,Monto\n{$rows}");
+
+            return new \Illuminate\Http\UploadedFile($file, 'gastos.csv', 'text/csv', null, true);
+        };
+        $today = now()->format('d/m/Y');
+
+        // Una fila mala (RUC de otra empresa): no se carga ninguna
+        $this->actingAs($treasurer)->post('/treasury/direct/import', ['currency' => 'PEN', 'file' => $csv(
+            "{$today},EFECTIVO,Factura,F001,123,20111111111,Combustible,150.50\n{$today},,,F001,124,20999999999,Otro,10\n")])
+            ->assertSessionHasErrors('file');
+        $this->assertSame(0, Requisition::withoutGlobalScopes()->count());
+
+        $this->post('/treasury/direct/import', ['currency' => 'PEN', 'file' => $csv(
+            "{$today},EFECTIVO,Factura,F001,123,20111111111,Combustible,150.50\n{$today},,Boleta,B002,9,20111111111,Lavado,\"S/ 1,200.00\"\n")])
+            ->assertSessionHasNoErrors();
+        $rs = Requisition::withoutGlobalScopes()->orderBy('id')->get();
+        $this->assertSame([$acme->id, $acme->id], $rs->pluck('tenant_id')->all());
+        $this->assertSame([$mine->id, $mine->id], $rs->pluck('supplier_id')->all());
+        $this->assertSame(['FACT F001-123', 'BBVV B002-9'], $rs->pluck('invoice_number')->all());
+        $this->assertSame(['EFECTIVO', 'TRANSFERENCIA'], $rs->pluck('payment_method')->all());
+        $this->assertSame(['150.50', '1200.00'], PaymentInstallment::withoutGlobalScopes()->orderBy('id')->pluck('amount')->all());
+
+        // Sin permiso de pagar no se carga
+        $this->actingAs($this->makeUser($acme, 'logistics'))->post('/treasury/direct/import', ['currency' => 'PEN', 'file' => $csv('')])->assertForbidden();
     }
 }

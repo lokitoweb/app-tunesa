@@ -24,6 +24,8 @@ const { ask } = useConfirm();
 const { ensureTenant } = useTenantPicker();
 const search = ref(props.filters.search || '');
 const expanded = ref(null);
+// Días al vencimiento (sisgere FrmReqProg columna "Dias": negativo = vencida), con la fecha de la empresa
+const daysTo = (iso) => Math.round((new Date(`${iso}T00:00:00`) - new Date(`${props.today}T00:00:00`)) / 86400000);
 const activeAccounts = computed(() => props.accounts.filter((a) => a.is_active));
 
 
@@ -74,6 +76,11 @@ function submitPay() {
 
 // ---------------------------------------------------------------- pago directo (FrmReqProg › Registrar)
 const showDirect = ref(false);
+const showImport = ref(false);
+const importForm = useForm({ currency: 'PEN', file: null });
+function sendImport() {
+    importForm.post('/treasury/direct/import', { preserveScroll: true, forceFormData: true, onSuccess: () => { showImport.value = false; importForm.reset('file'); } });
+}
 const blankDirect = () => ({ supplier_id: '', detail: '', document_type: 'FACT', document_number: '', document_date: props.today, file: null, currency: 'PEN',
     amount: '', due_date: props.today, payment_method: 'TRANSFERENCIA', has_detraction: false, detraction_reason: '', is_advance: false, cash_flow_concept: '' });
 const directForm = useForm(blankDirect());
@@ -178,11 +185,27 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <button v-if="direct" type="button" class="btn btn-primary" @click="openDirect"><i class="bi bi-plus-lg me-1"></i>Pago directo</button>
+                <button v-if="direct" type="button" class="btn btn-outline-primary" @click="showImport = !showImport"><i class="bi bi-file-earmark-excel me-1"></i>Cargar gastos</button>
                 <button v-if="can.pay" type="button" class="btn btn-outline-primary" @click="showAccounts = !showAccounts">
                     <i class="bi bi-bank me-1"></i>Cuentas de origen <span class="badge bg-primary-subtle text-primary ms-1">{{ activeAccounts.length }}</span>
                 </button>
             </div>
         </div>
+
+        <!-- Carga de gastos desde Excel (sisgere Tesorería › Bancos): cada fila queda como pago directo por programar -->
+        <form v-if="showImport" class="card card-body shadow-sm mb-3 row g-2 flex-row align-items-end" novalidate @submit.prevent="sendImport">
+            <div class="col-12 small text-body-secondary">Columnas: Fecha, Medio, Tipo, Serie, Número, RUC, Glosa, Monto. El proveedor debe estar registrado con su RUC. Si una fila tiene error no se carga ninguna.</div>
+            <div class="col-sm-3">
+                <label class="form-label small fw-semibold" for="imp-cur">Moneda</label>
+                <select id="imp-cur" v-model="importForm.currency" class="form-select form-select-sm"><option v-for="(label, code) in currencies" :key="code" :value="code">{{ label }}</option></select>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label small fw-semibold" for="imp-file">Archivo Excel</label>
+                <input id="imp-file" type="file" accept=".xlsx,.xls,.csv" class="form-control form-control-sm" :class="{ 'is-invalid': importForm.errors.file }" @change="importForm.file = $event.target.files[0]" />
+                <div class="invalid-feedback">{{ importForm.errors.file }}</div>
+            </div>
+            <div class="col-sm-3 text-end"><button type="submit" class="btn btn-sm btn-primary" :disabled="importForm.processing || !importForm.file"><i class="bi bi-upload me-1"></i>Procesar carga</button></div>
+        </form>
 
         <!-- KPIs -->
         <div class="row g-3 mb-3">
@@ -280,6 +303,9 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                 <td class="small text-nowrap">{{ p.installment }} de {{ p.of }}<div class="text-body-secondary">{{ p.payment_method }}</div></td>
                                 <td class="small text-nowrap">
                                     {{ p.due_date }}
+                                    <div v-if="p.status === 'pending' && p.due_iso" :class="daysTo(p.due_iso) < 0 ? 'text-danger fw-semibold' : 'text-body-secondary'">
+                                        {{ daysTo(p.due_iso) < 0 ? `Vencida hace ${-daysTo(p.due_iso)} d` : daysTo(p.due_iso) === 0 ? 'Vence hoy' : `Faltan ${daysTo(p.due_iso)} d` }}
+                                    </div>
                                     <div v-if="p.scheduled_for" class="text-primary"><i class="bi bi-calendar-check me-1"></i>{{ p.scheduled_for.split('-').reverse().join('/') }}</div>
                                     <div v-if="p.authorized" class="text-success"><i class="bi bi-check2-circle me-1"></i>Autorizada</div>
                                     <div v-if="!p.requisition?.has_invoice && p.status === 'pending'" class="text-warning-emphasis"><i class="bi bi-receipt-cutoff me-1"></i>Sin factura</div>

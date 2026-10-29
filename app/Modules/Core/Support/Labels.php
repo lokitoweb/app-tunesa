@@ -104,6 +104,7 @@ final class Labels
         'quotation.deleted'                  => ['Cotización eliminada', 'danger', 'file-earmark-text'],
         'requisition.detraction'             => ['Detracción registrada', 'primary', 'percent'],
         'treasury.direct_payment'            => ['Pago directo registrado', 'primary', 'cash-stack'],
+        'treasury.direct_import'             => ['Gastos cargados desde Excel', 'primary', 'file-earmark-excel'],
         'treasury.direct_payment_corrected'  => ['Pago directo corregido', 'warning', 'pencil-square'],
         'treasury.cash_flow_changed'         => ['Concepto de flujo de efectivo cambiado', 'info', 'diagram-3'],
         'roles.updated'                      => ['Permisos de un rol personalizados', 'warning', 'shield-lock'],

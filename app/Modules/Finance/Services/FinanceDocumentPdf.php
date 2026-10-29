@@ -74,14 +74,14 @@ final class FinanceDocumentPdf
 
     public static function paymentOrder(PaymentInstallment $p): string
     {
-        $p->loadMissing(['requisition.supplier.bankAccounts', 'requisition.tenant', 'requisition.employee.profile']);
+        $p->loadMissing(['requisition.supplier.bankAccounts', 'requisition.selectedQuotation', 'requisition.tenant', 'requisition.employee.profile']);
         $r = $p->requisition;
         // Pago de RRHH: el beneficiario es el colaborador y su cuenta del legajo (enmascarada en el PDF)
         $account = $r->isPayroll() ? $r->payrollAccount() : null;
         $payee = $r->isPayroll() ? (object) ['name' => $r->employee?->full_name, 'ruc' => 'DNI ' . $r->employee?->document_number] : $r->supplier;
         $accounts = $r->isPayroll()
             ? trim(($account['bank'] ?? '') . ($account['number'] ? ' ••••' . substr($account['number'], -4) : ''))
-            : $r->supplier?->bankAccounts->map(fn ($a) => "{$a->bank} {$a->account_number}")->implode(' · ');
+            : $r->supplierAccounts()->implode(' · ');
 
         return self::render([
             'title'     => 'ORDEN DE PAGO',

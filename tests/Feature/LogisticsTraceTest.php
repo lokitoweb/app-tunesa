@@ -50,7 +50,7 @@ class LogisticsTraceTest extends TestCase
 
         // RX con vehículo del maestro y serie de la sede
         $this->actingAs($requester)->post('/requisitions', [
-            'requested_at' => '2026-10-23', 'requested_by' => 'Ana', 'detail' => 'Llantas bus', 'classification' => 'REPUESTOS', 'priority' => 'ALTO',
+            'requested_at' => '2026-10-23', 'area' => 'Flota', 'requested_by' => 'Ana', 'detail' => 'Llantas bus', 'classification' => 'REPUESTOS', 'priority' => 'ALTO',
             'vehicle_id' => $vehicle->id, 'items' => [['product' => 'Llanta 295', 'unit' => 'UNIDAD (BIENES)', 'quantity' => 4]],
         ])->assertSessionHasNoErrors();
         $r = Requisition::withoutGlobalScopes()->sole();

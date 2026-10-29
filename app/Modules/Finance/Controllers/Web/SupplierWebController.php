@@ -45,7 +45,11 @@ class SupplierWebController extends Controller
             'can_manage'  => $request->user()->hasPermission('suppliers.manage'),
             'has_tenant'  => (bool) current_tenant_id_or_null(),
             'ruc_lookup'  => (bool) TenantSetting::forTenant(app(TenantContext::class)->getOrNull())->migo()['token'],
-            'categories'  => Supplier::whereNotNull('category')->distinct()->orderBy('category')->limit(100)->pluck('category'),
+            'categories'  => Supplier::whereNotNull('category')->distinct()->limit(100)->pluck('category')
+                ->merge(config('finance.supplier_categories'))->unique()->sort()->values(),
+            // Catálogos del .NET: banco (MOSTRAR_BANCOS) y tipo de cuenta (combo fijo)
+            'banks'         => config('payroll.banks'),
+            'account_types' => config('finance.supplier_account_types'),
         ]);
     }
 

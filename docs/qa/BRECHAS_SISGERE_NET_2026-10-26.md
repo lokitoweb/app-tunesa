@@ -84,3 +84,27 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 | Corregir el monto de una OC/OS (actualizar_monto_requerim) | Hecho | Tesorería › Corregir monto: rehace las cuotas, sin pagos, con motivo |
 | Importar estado de cuenta del banco con ingresos (FRMBANCOS) | Pendiente | Falta un estado de cuenta real en Excel para el formato |
 | Cuotas mensuales por calendario, proveedor en caja chica, ciudad al importar planilla | Pendiente (menor) | |
+
+## Tercera auditoría (28/10/2026, en pantalla en el .exe + código)
+| Pantalla | Hallazgo | Estado |
+|---|---|---|
+| Mantenimiento de Proveedor | Tipo de cuenta: lista fija CTE./CCI. SOLES/DOLARES | Hecho: lista desplegable (`finance.supplier_account_types`) |
+| Mantenimiento de Proveedor | Rubro: 110 rubros fijos en el combo | Hecho: sugeridos (`finance.supplier_categories`) junto con los ya usados |
+| Mantenimiento de Proveedor | Banco: catálogo TBANCO (BCP, BCR, BN DETRACCION, CAJA TRUJILLO, INTERBANK…) | Hecho: sugeridos (`payroll.banks`), se puede escribir otro |
+| Mantenimiento de Proveedor | "T costo" se ve en pantalla pero el .NET no lo guarda (`Registrar_proveedor` no lo recibe) | No es brecha |
+| Registro de requerimiento | Agencia (MOSTRAR_AGENCIA) llena sede y lugar de entrega con su dirección y da la serie (seriereq) | Hecho: Agencia con las sedes de la empresa; serie de esa sede |
+| Registro de requerimiento | Área obligatoria ("seleccione el area que solicita") | Hecho |
+| Registro de requerimiento | Correo "SU REQUERIMIENTO HA SIDO INGRESADO" al registrar | Hecho: aviso "Requerimiento ingresado" (campana y correo) a quien registra |
+| Registro de requerimiento | El correo se llena con el de la agencia | Distinto a propósito: la web usa el del usuario |
+| Evaluación | Aprobar / Rechazar con aprobador, fecha y correo; Eliminar = ELIMINADO | Ya estaba (Eliminar = Anular) |
+| Evaluación | Un rechazado se puede aprobar después (Button41 no revisa la etapa) | Hecho: "Aprobar de todos modos" en un rechazado |
+| Evaluación | Fecha de aprobación elegida a mano y rechazar algo ya aprobado | Distinto a propósito: fecha real del sistema; aprobado ya pasa a cotización |
+| Solicitud | SC por proveedor con serie SC + serie de la agencia, condición de pago, observación, recojo/entrega, PDF y correo | Ya estaba (la serie ahora sale de la agencia) |
+| Solicitud | Rubro que filtra los proveedores (MOSTRAR_proveedor_rubro) | Hecho: filtro por rubro en la lista de proveedores de la SC |
+| Cotización | Banco y cuenta del proveedor elegidos al cotizar (CREAR_COTIZACION @banco @nro_cuenta) | Hecho: "Cuenta para el pago"; Tesorería y la OP muestran solo esa cuenta |
+| Programación (FrmReqProg) | Columna "Dias" (negativo = vencida) y filas vencidas resaltadas | Hecho: "Vencida hace N d / Faltan N d" en cada cuota |
+| Programación | Cuotas con DateAdd(Month) | Hecho: cada 28–31 días = mensual por calendario (31/01 → 28/02 → 31/03) |
+| Tesorería › Bancos (FRMBANCOS) | No es estado de cuenta: carga gastos desde Excel y crea una deuda pendiente por fila (banco elegido no se guarda) | Hecho: Tesorería › Cargar gastos = pago directo por fila, todo o nada, proveedor por RUC de la empresa |
+| RR. HH. › Importar Planilla | Ciudad por colaborador; "Dar de Baja" solo lista | Hecho: columna Ciudad ubica en la sede de esa ciudad de la empresa; bajas solo listadas (igual) |
+| Caja Chica, Pagos, RR. HH. Programación | Revisados en pantalla | Ya estaban |
+| Logística (6), Finanzas (4), Tesorería › Movimientos y Flujo, Administrativos | "MODULO EN CONSTRUCCION" (visto en pantalla) | No es brecha; la web ya tiene kardex, inventario, combustible y flujo de caja |

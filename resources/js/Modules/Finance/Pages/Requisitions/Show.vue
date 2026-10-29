@@ -48,8 +48,10 @@ async function cancel() {
 }
 
 // ---------------------------------------------------------------- cotizaciones
-const blankQuote = () => ({ supplier_id: '', number: '', amount: '', currency: 'PEN', quoted_at: today, expires_at: '', contact: '', phone: '', notes: '', file: null });
+const blankQuote = () => ({ supplier_id: '', supplier_bank_account_id: '', number: '', amount: '', currency: 'PEN', quoted_at: today, expires_at: '', contact: '', phone: '', notes: '', file: null });
 const quote = useForm(blankQuote());
+// Cuentas del proveedor elegido (sisgere Cbncuenta): Tesorería paga a la marcada aquí
+const quoteAccounts = computed(() => props.suppliers.find((s) => s.id === quote.supplier_id)?.bank_accounts ?? []);
 const showQuote = ref(false);
 function saveQuote() {
     // Sin form.reset(): Inertia toma como defaults lo último enviado con éxito
@@ -68,6 +70,10 @@ function openQr() {
     });
     qr.clearErrors();
 }
+// Rubro (sisgere ComboBox10): muestra solo sus proveedores; los ya marcados siguen a la vista
+const qrCategory = ref('');
+const qrCategories = computed(() => [...new Set(props.suppliers.map((s) => s.category).filter(Boolean))].sort());
+const qrSuppliers = computed(() => props.suppliers.filter((s) => !qrCategory.value || s.category === qrCategory.value || qr.supplier_ids.includes(s.id)));
 function sendQr() {
     qr.post(`/requisitions/${r.value.id}/quote-requests`, { preserveScroll: true, onSuccess: () => (showQr.value = false) });
 }
@@ -164,8 +170,16 @@ function equalSchedule() {
     const base = Math.floor((payable.value / n) * 100) / 100;
     const due = new Date(`${order.first_due_date}T12:00:00`);
     return Array.from({ length: n }, (_, i) => {
+        const days = Number(order.interval_days) || 30;
         const d = new Date(due);
-        d.setDate(d.getDate() + i * (Number(order.interval_days) || 30));
+        if (days >= 28 && days <= 31) {
+            // Mensual por calendario, como OrderPricing::installments (mismo día o el último del mes)
+            d.setDate(1);
+            d.setMonth(d.getMonth() + i);
+            d.setDate(Math.min(due.getDate(), new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+        } else {
+            d.setDate(d.getDate() + i * days);
+        }
         return { due_date: d.toLocaleDateString('en-CA'), amount: i === n - 1 ? round2(payable.value - base * (n - 1)) : base };
     });
 }
@@ -219,6 +233,7 @@ function emitOrder() {
             <i class="bi bi-info-circle me-1"></i>
             {{ requisition.stage === 'rejected' ? `Rechazado por ${requisition.reviewed_by} el ${requisition.reviewed_at}` : 'Requerimiento anulado.' }}
             <span v-if="requisition.notes">— {{ requisition.notes }}</span>
+            <button v-if="can.approve && requisition.stage === 'rejected'" type="button" class="btn btn-sm btn-success ms-2" :disabled="review.processing" @click="approve"><i class="bi bi-check-lg me-1"></i>Aprobar de todos modos</button>
         </div>
 
         <!-- Aprobación -->
@@ -419,9 +434,15 @@ function emitOrder() {
                     </div>
                     <form v-if="showQr" class="card-body row g-2 border-bottom" novalidate @submit.prevent="sendQr">
                         <div class="col-12">
-                            <label class="form-label small fw-semibold">Proveedores *</label>
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
+                                <label class="form-label small fw-semibold mb-0">Proveedores *</label>
+                                <select v-if="qrCategories.length" v-model="qrCategory" class="form-select form-select-sm w-auto" aria-label="Rubro">
+                                    <option value="">Todos los rubros</option>
+                                    <option v-for="c in qrCategories" :key="c" :value="c">{{ c }}</option>
+                                </select>
+                            </div>
                             <div class="border rounded p-2" style="max-height: 160px; overflow: auto">
-                                <div v-for="s in suppliers" :key="s.id" class="form-check small">
+                                <div v-for="s in qrSuppliers" :key="s.id" class="form-check small">
                                     <input :id="`qr-${s.id}`" v-model="qr.supplier_ids" class="form-check-input" type="checkbox" :value="s.id" />
                                     <label class="form-check-label" :for="`qr-${s.id}`">{{ s.name }} <span class="text-body-secondary">{{ s.ruc }}</span></label>
                                 </div>
@@ -463,12 +484,20 @@ function emitOrder() {
                     <form v-if="showQuote" class="card-body border-bottom row g-2" novalidate @submit.prevent="saveQuote">
                         <div class="col-12">
                             <label class="form-label small fw-semibold" for="q-supplier">Proveedor *</label>
-                            <select id="q-supplier" v-model="quote.supplier_id" class="form-select form-select-sm" :class="{ 'is-invalid': quote.errors.supplier_id }">
+                            <select id="q-supplier" v-model="quote.supplier_id" class="form-select form-select-sm" :class="{ 'is-invalid': quote.errors.supplier_id }" @change="quote.supplier_bank_account_id = quoteAccounts.length === 1 ? quoteAccounts[0].id : ''">
                                 <option value="" disabled>Elige…</option>
                                 <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}{{ s.ruc ? ` · ${s.ruc}` : '' }}</option>
                             </select>
                             <div class="invalid-feedback">{{ quote.errors.supplier_id }}</div>
                             <div v-if="!suppliers.length" class="small text-body-secondary mt-1">No hay proveedores activos. <Link href="/suppliers">Regístralos aquí</Link>.</div>
+                        </div>
+                        <div v-if="quoteAccounts.length" class="col-12">
+                            <label class="form-label small fw-semibold" for="q-account">Cuenta para el pago</label>
+                            <select id="q-account" v-model="quote.supplier_bank_account_id" class="form-select form-select-sm" :class="{ 'is-invalid': quote.errors.supplier_bank_account_id }">
+                                <option value="">— La elige Tesorería —</option>
+                                <option v-for="a in quoteAccounts" :key="a.id" :value="a.id">{{ a.bank }} · {{ a.account_number }}{{ a.account_type ? ` (${a.account_type})` : '' }}</option>
+                            </select>
+                            <div class="invalid-feedback">{{ quote.errors.supplier_bank_account_id }}</div>
                         </div>
                         <div class="col-7">
                             <label class="form-label small fw-semibold" for="q-amount">Monto *</label>
@@ -576,7 +605,7 @@ function emitOrder() {
                             <div class="invalid-feedback">{{ order.errors.first_due_date }}</div>
                         </div>
                         <div class="col-sm-3">
-                            <label class="form-label small fw-semibold" for="o-int">Cada (días)</label>
+                            <label class="form-label small fw-semibold" for="o-int">Cada (días) <span class="fw-normal text-body-secondary">· 30 = mensual</span></label>
                             <input id="o-int" v-model="order.interval_days" type="number" min="1" class="form-control" :disabled="manualSchedule || Number(order.installments) === 1" />
                         </div>
                         <div class="col-sm-3">

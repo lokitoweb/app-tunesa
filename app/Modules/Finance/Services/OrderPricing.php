@@ -64,7 +64,9 @@ final class OrderPricing
         $rows = [];
         for ($i = 1; $i <= $count; $i++) {
             $rows[] = ['due_date' => $due->toDateString(), 'amount' => $i === $count ? round($payable - $base * ($count - 1), 2) : $base];
-            $due->addDays($intervalDays);
+            // sisgere: DateAdd(Month): cada 28–31 días es mensual por calendario (mismo día, o el último del mes)
+            $monthly = $intervalDays >= 28 && $intervalDays <= 31;
+            $due = $monthly ? \Illuminate\Support\Carbon::parse($firstDue)->addMonthsNoOverflow($i) : $due->addDays($intervalDays);
         }
 
         return $rows;

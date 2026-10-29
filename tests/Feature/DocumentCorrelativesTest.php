@@ -45,7 +45,7 @@ class DocumentCorrelativesTest extends TestCase
         $requester = $this->makeUser($acme, 'supervisor', ['scope_branch_id' => $branch->id]);
 
         $this->actingAs($requester)->post('/requisitions', [
-            'requested_at' => '2026-10-23', 'requested_by' => 'Ana Ruiz', 'detail' => 'Llantas', 'classification' => 'REPUESTOS', 'priority' => 'NORMAL',
+            'requested_at' => '2026-10-23', 'area' => 'Flota', 'requested_by' => 'Ana Ruiz', 'detail' => 'Llantas', 'classification' => 'REPUESTOS', 'priority' => 'NORMAL',
             'items' => [['product' => 'Llanta 295', 'unit' => 'UNIDAD (BIENES)', 'quantity' => 2]],
         ])->assertSessionHasNoErrors();
         $issued = Requisition::withoutGlobalScopes()->sole();

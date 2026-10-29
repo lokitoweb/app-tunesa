@@ -28,6 +28,41 @@ class RequisitionFlowTest extends TestCase
         ], $overrides);
     }
 
+    public function test_agency_sets_the_series_and_the_requester_is_notified_like_sisgere(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $this->makeBranch($acme, ['name' => 'AGENCIA CAJABAMBA', 'document_series' => '007', 'address' => 'AV. LEONCIO MARTINEZ NRO 405']);
+        $requester = $this->makeUser($acme, 'supervisor');
+
+        // FrmReq: "Error seleccione el area que solicita.."
+        $this->actingAs($requester)->post('/requisitions', $this->payload(['area' => '']))->assertSessionHasErrors('area');
+
+        $this->actingAs($requester)->get('/requisitions/create')
+            ->assertInertia(fn ($page) => $page->where('branches.0.address', 'AV. LEONCIO MARTINEZ NRO 405'));
+
+        $this->actingAs($requester)->post('/requisitions', $this->payload(['agency' => 'AGENCIA CAJABAMBA']))->assertSessionHasNoErrors();
+        $r = Requisition::withoutGlobalScopes()->sole();
+        $this->assertSame('007', $r->series, 'la serie es la de la agencia elegida (seriereq)');
+        $this->assertSame('requisition.requested', $requester->notifications()->sole()->data['type']);
+    }
+
+    public function test_a_rejected_requisition_can_be_approved_afterwards_like_sisgere(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $requester = $this->makeUser($acme, 'supervisor');
+        $manager = $this->makeUser($acme, 'manager');
+        $this->actingAs($requester)->post('/requisitions', $this->payload())->assertSessionHasNoErrors();
+        $r = Requisition::withoutGlobalScopes()->sole();
+
+        $this->actingAs($manager)->post("/requisitions/{$r->id}/review", ['decision' => 'rejected', 'notes' => 'Sin stock'])->assertSessionHasNoErrors();
+        $this->actingAs($manager)->post("/requisitions/{$r->id}/review", ['decision' => 'rejected', 'notes' => 'Otra vez'])->assertStatus(422);
+        $this->actingAs($manager)->post("/requisitions/{$r->id}/review", ['decision' => 'approved'])->assertSessionHasNoErrors();
+        $this->assertSame('approved', $r->fresh()->stage);
+        $this->actingAs($manager)->post("/requisitions/{$r->id}/review", ['decision' => 'approved'])->assertStatus(422);
+    }
+
     public function test_full_flow_from_request_to_purchase_order_with_installments(): void
     {
         $this->seedRoles();
@@ -59,10 +94,18 @@ class RequisitionFlowTest extends TestCase
         // Ya revisado: no se edita
         $this->actingAs($requester)->put("/requisitions/{$r->id}", $this->payload())->assertStatus(422);
 
-        $this->actingAs($logistics)->post("/requisitions/{$r->id}/quotations", [
-            'supplier_id' => $supplier->id, 'amount' => 1000, 'currency' => 'PEN', 'quoted_at' => '2026-10-23', 'file' => $this->fakePdf('cot.pdf'),
-        ])->assertSessionHasNoErrors();
+        // Cuenta del proveedor para el pago (sisgere: banco y nro_cuenta de la cotización); la de otro proveedor no vale
+        $bcp = $supplier->bankAccounts()->create(['tenant_id' => $acme->id, 'bank' => 'BCP', 'account_number' => '570-111']);
+        $supplier->bankAccounts()->create(['tenant_id' => $acme->id, 'bank' => 'BBVA', 'account_number' => '0011-222']);
+        $other = Supplier::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Otro', 'ruc' => '20222222222']);
+        $foreign = $other->bankAccounts()->create(['tenant_id' => $acme->id, 'bank' => 'IBK', 'account_number' => '200-333']);
+        $quote = ['supplier_id' => $supplier->id, 'amount' => 1000, 'currency' => 'PEN', 'quoted_at' => '2026-10-23'];
+        $this->actingAs($logistics)->post("/requisitions/{$r->id}/quotations", $quote + ['supplier_bank_account_id' => $foreign->id, 'file' => $this->fakePdf('cot.pdf')])
+            ->assertSessionHasErrors('supplier_bank_account_id');
+        $this->actingAs($logistics)->post("/requisitions/{$r->id}/quotations", $quote + ['supplier_bank_account_id' => $bcp->id, 'file' => $this->fakePdf('cot.pdf')])
+            ->assertSessionHasNoErrors();
         $quotation = $r->quotations()->sole();
+        $this->assertSame(['BCP', '570-111'], [$quotation->bank, $quotation->account_number]);
         $this->assertSame('quoting', $r->fresh()->stage);
 
         $this->actingAs($logistics)->post("/requisitions/{$r->id}/order", [
@@ -73,9 +116,11 @@ class RequisitionFlowTest extends TestCase
         $r->refresh();
         $this->assertSame(['ordered', "OC-AC-001-000001-{$y}", $supplier->id, '1000.00'], [$r->stage, $r->purchase_order_number, $r->supplier_id, $r->amount]);
         $this->assertTrue($quotation->fresh()->is_selected);
+        $this->assertSame(['BCP 570-111'], $r->supplierAccounts()->all(), 'Tesorería paga a la cuenta de la cotización');
         $installments = PaymentInstallment::withoutGlobalScopes()->orderBy('installment')->get();
         $this->assertSame(['333.33', '333.33', '333.34'], $installments->pluck('amount')->all());
-        $this->assertSame(['2026-11-01', '2026-12-01', '2026-12-31'], $installments->map(fn ($i) => $i->due_date->toDateString())->all());
+        // Cada 30 días = mensual por calendario (sisgere DateAdd Month), no se corre al 31/12
+        $this->assertSame(['2026-11-01', '2026-12-01', '2027-01-01'], $installments->map(fn ($i) => $i->due_date->toDateString())->all());
 
         // Con orden emitida ya no se anula ni se vuelve a emitir
         $this->actingAs($logistics)->post("/requisitions/{$r->id}/cancel")->assertStatus(422);

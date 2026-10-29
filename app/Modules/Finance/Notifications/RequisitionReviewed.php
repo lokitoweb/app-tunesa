@@ -7,7 +7,7 @@ use App\Modules\Core\Support\TenantMailer;
 use App\Modules\Finance\Models\Requisition;
 use Illuminate\Notifications\Messages\MailMessage;
 
-/** A quien solicitó: su requerimiento fue ACEPTADO o RECHAZADO (correo por el SMTP de la empresa) */
+/** A quien solicitó: su requerimiento fue INGRESADO, ACEPTADO o RECHAZADO (correo por el SMTP de la empresa) */
 class RequisitionReviewed extends AppNotification
 {
     public function __construct(public readonly Requisition $requisition) {}
@@ -19,12 +19,16 @@ class RequisitionReviewed extends AppNotification
 
     public function type(): string
     {
-        return 'requisition.' . $this->requisition->stage; // requisition.approved | requisition.rejected
+        return 'requisition.' . $this->requisition->stage; // requisition.requested | .approved | .rejected
     }
 
     public function title(): string
     {
-        return $this->requisition->stage === 'approved' ? 'Requerimiento aceptado' : 'Requerimiento rechazado';
+        return match ($this->requisition->stage) {
+            'requested' => 'Requerimiento ingresado',
+            'approved'  => 'Requerimiento aceptado',
+            default     => 'Requerimiento rechazado',
+        };
     }
 
     public function body(): string

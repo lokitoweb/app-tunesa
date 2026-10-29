@@ -20,6 +20,13 @@ class OrderPricingTest extends TestCase
 {
     use CreatesTenants, RefreshDatabase;
 
+    public function test_monthly_installments_follow_the_calendar_like_sisgere(): void
+    {
+        $due = fn ($days) => array_column(OrderPricing::installments(300, 3, '2027-01-31', $days), 'due_date');
+        $this->assertSame(['2027-01-31', '2027-02-28', '2027-03-31'], $due(30), 'mensual: mismo día o el último del mes');
+        $this->assertSame(['2027-01-31', '2027-02-15', '2027-03-02'], $due(15), 'otros intervalos siguen en días');
+    }
+
     public function test_igv_math_matches_sisgere_buttons(): void
     {
         $lines = [['quantity' => 4, 'unit_price' => 295, 'discount_percent' => 0], ['quantity' => 2, 'unit_price' => 50, 'discount_percent' => 10]];
@@ -52,7 +59,7 @@ class OrderPricingTest extends TestCase
         $supplier = Supplier::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Llantas Sur', 'ruc' => '20111111111']);
 
         $this->actingAs($requester)->post('/requisitions', [
-            'requested_at' => '2026-10-23', 'requested_by' => 'Ana', 'detail' => 'Llantas y aceite', 'classification' => 'REPUESTOS', 'priority' => 'ALTO',
+            'requested_at' => '2026-10-23', 'area' => 'Flota', 'requested_by' => 'Ana', 'detail' => 'Llantas y aceite', 'classification' => 'REPUESTOS', 'priority' => 'ALTO',
             'items' => [['product' => 'Llanta 295', 'unit' => 'UNIDAD (BIENES)', 'quantity' => 4], ['product' => 'Aceite 15W40', 'unit' => 'GALON', 'quantity' => 2]],
         ])->assertSessionHasNoErrors();
         $r = Requisition::withoutGlobalScopes()->sole();

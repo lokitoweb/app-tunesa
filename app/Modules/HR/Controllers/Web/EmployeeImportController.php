@@ -39,6 +39,8 @@ class EmployeeImportController extends Controller
         'Banco'             => ['bank_name', ['banco']],
         'Tipo de cuenta'    => ['bank_account_type', ['tipo']],
         'N.º de cuenta'     => ['bank_account_number', ['cuenta']],
+        // sisgere guardaba la ciudad de cada colaborador; aquí lo ubica en la sede de esa ciudad
+        'Ciudad'            => ['city', ['ciudad', 'sede']],
     ];
 
     public function preview(Request $request): JsonResponse
@@ -71,12 +73,21 @@ class EmployeeImportController extends Controller
             throw ValidationException::withMessages(['file' => 'Estos correos ya los usa otra persona: ' . implode(', ', array_slice($taken, 0, 5)) . '.']);
         }
 
-        $created = DB::transaction(fn () => collect($new)->map(function ($row) use ($tenant, $provisioner, $data) {
+        // Ciudad de la fila => sede de la empresa con esa ciudad (o ese nombre); si no hay, la sede elegida
+        $branchByCity = [];
+        foreach (Branch::where('tenant_id', $tenant->id)->where('is_active', true)->get(['id', 'name', 'city']) as $b) {
+            foreach (array_filter([$b->city, $b->name]) as $key) {
+                $branchByCity[Str::lower(Str::ascii(trim($key)))] ??= $b->id;
+            }
+        }
+
+        $created = DB::transaction(fn () => collect($new)->map(function ($row) use ($tenant, $provisioner, $data, $branchByCity) {
+            $branchId = $branchByCity[Str::lower(Str::ascii((string) $row['city']))] ?? (int) $data['branch_id'];
             [$user] = $provisioner->create($tenant, [
                 'first_name' => $row['first_name'], 'last_name' => $row['last_name'], 'email' => $row['email'], 'role' => 'employee',
                 'document_type' => 'dni', 'document_number' => $row['dni'], 'phone' => $row['phone'], 'position' => $row['position'],
                 'base_salary' => $row['base_salary'],
-            ], [(int) $data['branch_id']], (int) $data['branch_id']);
+            ], [$branchId], $branchId);
             // Cuenta del legajo: queda pendiente de que RRHH la verifique (no se paga a una cuenta sin verificar)
             if ($row['address'] || $row['bank_account_number']) {
                 EmployeeProfile::updateOrCreate(['user_id' => $user->id], ['tenant_id' => $tenant->id, 'address' => $row['address'],
@@ -96,7 +107,7 @@ class EmployeeImportController extends Controller
     {
         $path = tempnam(sys_get_temp_dir(), 'emp') . '.xlsx';
         SpreadsheetRows::template($path, 'Colaboradores', array_diff_key(self::COLUMNS, ['Colaborador' => 1]),
-            ['45871236', 'Ruiz Pérez', 'Ana', 'Conductora', 'ana.ruiz@correo.com', '987654321', 'Av. Larco 123, Trujillo', 1800, 'BCP', 'Ahorros', '191-12345678-0-12']);
+            ['45871236', 'Ruiz Pérez', 'Ana', 'Conductora', 'ana.ruiz@correo.com', '987654321', 'Av. Larco 123, Trujillo', 1800, 'BCP', 'Ahorros', '191-12345678-0-12', 'Trujillo']);
 
         return response()->download($path, 'plantilla-colaboradores.xlsx')->deleteFileAfterSend();
     }
@@ -137,7 +148,7 @@ class EmployeeImportController extends Controller
             $clean = fn ($k, $max) => ($v = mb_substr(trim((string) ($r[$k] ?? '')), 0, $max)) === '' ? null : $v;
             $rows[] = ['dni' => $dni, 'first_name' => $first, 'last_name' => $last, 'email' => $email ?: null, 'phone' => $clean('phone', 30),
                 'position' => $clean('position', 100), 'address' => $clean('address', 250), 'base_salary' => $salary === null || $salary === '' ? null : round((float) $salary, 2),
-                'bank_name' => $clean('bank_name', 100), 'bank_account_type' => $this->accountType($r['bank_account_type'] ?? null), 'bank_account_number' => $clean('bank_account_number', 40)];
+                'bank_name' => $clean('bank_name', 100), 'bank_account_type' => $this->accountType($r['bank_account_type'] ?? null), 'bank_account_number' => $clean('bank_account_number', 40), 'city' => $clean('city', 100)];
         }
         if ($errors || ! $rows) {
             throw ValidationException::withMessages(['file' => $errors ? implode(' ', $errors) : 'El archivo no tiene colaboradores.']);

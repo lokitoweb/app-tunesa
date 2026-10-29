@@ -114,6 +114,7 @@ class TreasuryWebController extends Controller
         return $this->tab(PaymentInstallment::query(), $tab, $today)
             ->with(['requisition:id,series,number,code,stage,cash_flow_concept,invoice_number,invoice_path,detail,supplier_id,employee_id,payroll_concept,payroll_period,is_direct_payment,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_reason,detraction_number,detraction_amount,detraction_percent,amount',
                 'requisition.supplier:id,name,ruc', 'requisition.supplier.bankAccounts:id,supplier_id,bank,account_number,account_type',
+                'requisition.selectedQuotation:id,requisition_id,bank,account_number',
                 'requisition.employee:id,first_name,last_name,document_number', 'requisition.employee.profile',
                 'cancellations.companyAccount:id,bank,account_number,currency,alias'])
             ->when($search !== '', fn ($q) => $q->whereHas('requisition', fn ($r) => $r->where('detail', 'like', "%{$search}%")
@@ -300,8 +301,95 @@ class TreasuryWebController extends Controller
     {
         $tenant = \App\Modules\Core\Models\Tenant::find(current_tenant_id_or_null());
         abort_unless($tenant, 422, 'Elige una empresa.');
-        $data = $request->validate([
-            'supplier_id'       => ['required', Rule::exists('suppliers', 'id')->where('tenant_id', $tenant->id)->where('is_active', true)->whereNull('deleted_at')],
+        $data = $request->validate(...$this->directRules($tenant->id));
+
+        $data['detraction_reason'] = ($data['has_detraction'] ?? false) ? $data['detraction_reason'] : null;
+        $total = round((float) $data['amount'], 2);
+
+        $path = $request->file('file')?->store("finance/{$tenant->id}/invoices", self::VOUCHER_DISK);
+        try {
+            $r = \App\Modules\Finance\Services\DirectPayments::create($tenant, $request->user(), $data, $path);
+        } catch (\Throwable $e) {
+            if ($path) {
+                Storage::disk(self::VOUCHER_DISK)->delete($path);
+            }
+            throw $e;
+        }
+        $this->audit->log('treasury.direct_payment', $r, ['code' => $r->code(), 'amount' => $total, 'advance' => (bool) ($data['is_advance'] ?? false)]);
+
+        return back()->with('success', "Pago directo {$r->code()} registrado: queda por programar." . ($path ? '' : ' Adjunta el PDF del documento antes de pagarlo.'));
+    }
+
+    /** Columnas de la carga de gastos (sisgere FRMBANCOS: fecha, medio, serie, número, proveedor, glosa, monto) */
+    private const DIRECT_IMPORT_COLUMNS = [
+        'Fecha'      => ['date', ['fecha']],
+        'Medio'      => ['payment_method', ['medio']],
+        'Tipo'       => ['document_type', ['tipo']],
+        'Serie'      => ['series', ['serie']],
+        'Número'     => ['number', ['numero', 'nro']],
+        'RUC'        => ['ruc', ['ruc', 'proveedor']],
+        'Glosa'      => ['detail', ['glosa', 'detalle', 'descrip']],
+        'Monto'      => ['amount', ['monto', 'importe']],
+    ];
+
+    /**
+     * Carga de gastos por pagar desde Excel (sisgere Tesorería › Bancos › Procesar carga): cada fila es un
+     * pago directo con las mismas reglas del formulario. Todo o nada; el proveedor se busca por RUC en la empresa.
+     */
+    public function importDirect(Request $request): RedirectResponse
+    {
+        $tenant = \App\Modules\Core\Models\Tenant::find(current_tenant_id_or_null());
+        abort_unless($tenant, 422, 'Elige una empresa.');
+        $request->validate([
+            'file'     => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:2048'],
+            'currency' => ['required', Rule::in(array_keys(Requisition::CURRENCIES))],
+        ], ['file.required' => 'Elige el archivo Excel.', 'file.mimes' => 'El archivo debe ser Excel (.xlsx, .xls) o CSV.']);
+
+        $suppliers = \App\Modules\Finance\Models\Supplier::where('is_active', true)->whereNotNull('ruc')->pluck('id', 'ruc');
+        // "FACT", "Factura", "BOLETA"… al código del tipo; lo desconocido es factura
+        $types = collect(self::DOCUMENT_TYPES)->flatMap(fn ($label, $code) => [$code => $code, mb_strtoupper($label) => $code])->all()
+            + ['FACTURA' => 'FACT', 'BOLETA' => 'BBVV', 'RECIBO' => 'RRHH'];
+        [$rules, $messages, $attributes] = $this->directRules($tenant->id);
+        unset($rules['file']);
+        $rows = [];
+        $errors = [];
+        foreach (\App\Modules\Core\Support\SpreadsheetRows::read($request->file('file')->getRealPath(), self::DIRECT_IMPORT_COLUMNS) as $line => $r) {
+            $date = \App\Modules\Finance\Services\PettyCashImport::date($r['date'] ?? null);
+            $method = strtoupper(trim((string) ($r['payment_method'] ?? '')));
+            $data = [
+                'supplier_id'     => $suppliers[preg_replace('/\D/', '', (string) ($r['ruc'] ?? ''))] ?? null,
+                'detail'          => trim((string) ($r['detail'] ?? '')),
+                'document_type'   => $types[strtoupper(trim((string) ($r['document_type'] ?? '')))] ?? 'FACT',
+                'document_number' => trim(implode('-', array_filter([trim((string) ($r['series'] ?? '')), trim((string) ($r['number'] ?? ''))]))) ?: null,
+                'document_date'   => $date, 'due_date' => $date, 'currency' => $request->input('currency'),
+                'amount'          => \App\Modules\Finance\Services\PettyCashImport::amount($r['amount'] ?? null),
+                'payment_method'  => in_array($method, Requisition::PAYMENT_METHODS, true) ? $method : 'TRANSFERENCIA',
+            ];
+            $v = \Illuminate\Support\Facades\Validator::make($data, $rules, $messages, $attributes);
+            if ($v->fails()) {
+                $errors[] = "Fila {$line}: " . ($data['supplier_id'] ? $v->errors()->first() : 'no hay un proveedor activo con ese RUC');
+                if (count($errors) >= 15) {
+                    break;
+                }
+                continue;
+            }
+            $rows[] = $v->validated();
+        }
+        if ($errors || ! $rows || count($rows) > 500) {
+            throw ValidationException::withMessages(['file' => $errors ? implode(' ', $errors) : ($rows ? 'Máximo 500 gastos por carga.' : 'El archivo no tiene gastos.')]);
+        }
+
+        $codes = DB::transaction(fn () => collect($rows)->map(fn ($d) => \App\Modules\Finance\Services\DirectPayments::create($tenant, $request->user(), $d)->code()));
+        $this->audit->log('treasury.direct_import', null, ['rows' => $codes->count(), 'currency' => $request->input('currency')]);
+
+        return back()->with('success', "{$codes->count()} gasto(s) cargado(s) como pago directo: quedan por programar.");
+    }
+
+    /** Reglas del pago directo (formulario y carga desde Excel) */
+    private function directRules(int $tenantId): array
+    {
+        return [[
+            'supplier_id'       => ['required', Rule::exists('suppliers', 'id')->where('tenant_id', $tenantId)->where('is_active', true)->whereNull('deleted_at')],
             'detail'            => ['required', 'string', 'max:1000'],
             'document_type'     => ['required', Rule::in(array_keys(self::DOCUMENT_TYPES))],
             // Orden de pago sin número: el sistema le da su correlativo OP-… (sisgere: requerimiento_mostrar_nroODP)
@@ -320,23 +408,7 @@ class TreasuryWebController extends Controller
             'document_date.before_or_equal' => 'La fecha del documento no puede ser futura.', 'file.mimes' => 'El documento debe ser PDF.',
             'detraction_reason.required_if_accepted' => 'Elige el motivo de la detracción.', 'exists' => 'Elige un proveedor activo.',
         ], ['supplier_id' => 'el proveedor', 'detail' => 'el detalle', 'document_type' => 'el tipo de documento', 'document_number' => 'el número de documento',
-            'document_date' => 'la fecha del documento', 'amount' => 'el monto', 'due_date' => 'el vencimiento', 'detraction_reason' => 'el motivo de detracción']);
-
-        $data['detraction_reason'] = ($data['has_detraction'] ?? false) ? $data['detraction_reason'] : null;
-        $total = round((float) $data['amount'], 2);
-
-        $path = $request->file('file')?->store("finance/{$tenant->id}/invoices", self::VOUCHER_DISK);
-        try {
-            $r = \App\Modules\Finance\Services\DirectPayments::create($tenant, $request->user(), $data, $path);
-        } catch (\Throwable $e) {
-            if ($path) {
-                Storage::disk(self::VOUCHER_DISK)->delete($path);
-            }
-            throw $e;
-        }
-        $this->audit->log('treasury.direct_payment', $r, ['code' => $r->code(), 'amount' => $total, 'advance' => (bool) ($data['is_advance'] ?? false)]);
-
-        return back()->with('success', "Pago directo {$r->code()} registrado: queda por programar." . ($path ? '' : ' Adjunta el PDF del documento antes de pagarlo.'));
+            'document_date' => 'la fecha del documento', 'amount' => 'el monto', 'due_date' => 'el vencimiento', 'detraction_reason' => 'el motivo de detracción']];
     }
 
     /**
@@ -564,7 +636,7 @@ class TreasuryWebController extends Controller
             ] : null,
             'supplier'      => $r?->isPayroll() ? $this->payrollPayee($r) : ($r?->supplier ? [
                 'name' => $r->supplier->name, 'ruc' => $r->supplier->ruc,
-                'accounts' => $r->supplier->bankAccounts->map(fn ($a) => "{$a->bank} {$a->account_number}")->values(),
+                'accounts' => $r->supplierAccounts(),
             ] : null),
             'payments'      => $p->cancellations->map(fn (PaymentCancellation $c) => [
                 'id' => $c->id, 'paid_at' => $c->paid_at?->format('d/m/Y'), 'amount' => (float) $c->amount, 'operation' => $c->operation_number,

@@ -24,7 +24,7 @@ class ProductCatalogTest extends TestCase
         $unused = Product::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Sin uso', 'unit' => 'CAJA']);
         $legacy = Product::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'name' => 'Migrado', 'unit' => 'UND', 'classification' => 'GASTOS FIJOS']);
         $foreign = Product::withoutGlobalScopes()->create(['tenant_id' => $other->id, 'name' => 'Ajeno', 'unit' => 'CAJA']);
-        $this->actingAs($requester)->post('/requisitions', ['requested_at' => now()->toDateString(), 'requested_by' => 'Ana', 'detail' => 'Llantas',
+        $this->actingAs($requester)->post('/requisitions', ['requested_at' => now()->toDateString(), 'area' => 'Flota', 'requested_by' => 'Ana', 'detail' => 'Llantas',
             'classification' => 'REPUESTOS', 'priority' => 'ALTO', 'items' => [['product' => 'Llanta 295 mal escrita', 'unit' => 'UNIDAD (BIENES)', 'quantity' => 2]]]);
         $used = Product::withoutGlobalScopes()->where('name', 'Llanta 295 mal escrita')->sole();
 
