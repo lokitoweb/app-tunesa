@@ -179,3 +179,18 @@ Seguridad: la contraseña `sa` del SQL Server está en texto plano en `sisgere_p
 | Cuentas de colaboradores | Cada pantalla con su propio criterio y formato | `EmployeeProfile::accountFor`: en pantalla, completa para quien opera con ella (`profiles.view_sensitive` o `payroll.export`) y enmascarada para el resto; Excel y PDF siempre con `EmployeeProfile::mask` (••••••1234). Las cartas de CTS y liquidación al banco mantienen su regla (cuenta completa con `profiles.view_sensitive`) |
 
 Pruebas: `SuperAdminTenantPickerTest::test_money_screens_never_add_up_companies_in_the_global_view`, `TreasuryFlowTest::test_treasury_totals_are_per_currency_and_per_company`, `PayrollPaymentsTest::test_planilla_screen_…` (mismo periodo en dos empresas).
+
+## Séptima pasada (29/10/2026): reportes de Programación, pago de punta a punta y etiquetas
+| Programación (FrmReqProg) | Reporte .NET | Web |
+|---|---|---|
+| Reporte de Pago Programados (Desde/Hasta) | CRprogramados | Reportes › Pagos programados (ya estaba) |
+| Reporte de Pagos sin programar | CrystalReport1 | Reportes › Pagos sin programar (ya estaba) |
+| Reporte Pago General › Estado **Pendiente** | CRprogpagos | **Hecho**: Reportes › Pago general: pendientes (programadas y sin programar del periodo) |
+| Reporte Pago General › Estado **Cancelado** | CRcancelaciones | Reportes › Cancelaciones por requerimiento (ya estaba) |
+| Centro de Costos con placa / general | crcentro_c / Crcentroc_gen | **Hecho**: Centro de costos con "Placa (opcional)": con placa, solo ese vehículo |
+| Caja Chica (Desde/Hasta) | CRcaja_chica | **Hecho**: Reportes › Caja chica (detalle): recibo, fecha, caja, concepto, categoría, beneficiario, RUC, comprobante, monto |
+| Costos fijos / Resumen | CRgastofijo / CRresumen | ya estaban |
+
+Pago completo probado en el navegador (Empresa Demo, datos borrados después): Pago directo PG-ED-001-000004-2026 → Programar → "Sin factura · registrar" abre la orden con el formulario de factura (antes el aviso no llevaba a ningún lado) → factura con PDF → la persona designada autoriza (no puede pagar) → contabilidad paga con cuenta de origen, N.º de operación y voucher → orden **Pagada**, con quién autorizó y quién pagó. OP en PDF descargada (200).
+
+Etiquetas de Tesorería con los nombres del ERP: "Cliente / Proveedor · Documento relac.", "Fecha Venc · Fecha Progr." y "Monto (saldo)" (la web muestra el saldo, no el monto original, para que una cuota amortizada no confunda).

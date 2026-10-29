@@ -27,14 +27,16 @@ class ReportWebController extends Controller
 {
     /** clave => [título, descripción, reporte de sisgere, permiso] */
     public const REPORTS = [
-        'scheduled'        => ['Pagos programados', 'Cuotas pendientes con fecha de pago, autorizadas o no.', 'CRprogramados / CRprogpagos', 'treasury.view'],
+        'scheduled'        => ['Pagos programados', 'Cuotas pendientes con fecha de pago, autorizadas o no.', 'CRprogramados', 'treasury.view'],
+        'pending'          => ['Pago general: pendientes', 'Todas las cuotas pendientes que vencen en el periodo, programadas o no (Reporte Pago General › Pendiente).', 'CRprogpagos', 'treasury.view'],
         'unscheduled'      => ['Pagos sin programar', 'Cuotas pendientes que aún no tienen fecha de pago.', 'CRprogpagosreq', 'treasury.view'],
         'payments_by_bank' => ['Cancelaciones por banco', 'Pagos registrados agrupados por la cuenta de origen.', 'CRcancelaciones_banco', 'treasury.view'],
         'payments'         => ['Cancelaciones por requerimiento', 'Cada pago con su orden, cuota, operación y cuenta.', 'CRcancelaciones / CRcancelacionesreq', 'treasury.view'],
         'advances'         => ['Anticipos', 'Anticipos a proveedores y la orden a la que se aplicaron.', 'CRANTICIPOS / cradelantocf', 'treasury.view'],
         'fixed_costs'      => ['Costos fijos', 'Cuotas de costos fijos por clasificación y estado.', 'CRgastofijo', 'treasury.view'],
-        'cost_center'      => ['Centro de costos por placa', 'Órdenes y combustible por vehículo.', 'crcentro_c / Crcentroc_gen', 'treasury.view'],
+        'cost_center'      => ['Centro de costos por placa', 'Órdenes y combustible por vehículo; con placa, solo ese vehículo.', 'crcentro_c / Crcentroc_gen', 'treasury.view'],
         'petty_cash'       => ['Estadística de caja chica', 'Gastos de caja chica por caja y categoría.', 'CRestcajachica', 'treasury.view'],
+        'petty_cash_detail' => ['Caja chica (detalle)', 'Cada gasto de caja chica del periodo con su recibo y comprobante.', 'CRcaja_chica', 'treasury.view'],
         'summary'          => ['Resumen general de requerimientos', 'Requerimientos del periodo con su etapa, orden y montos.', 'CRresumen', 'treasury.view'],
         'employees'        => ['Colaboradores', 'Personal activo con cargo, sede y cuenta del legajo.', 'Crcolaboradores', 'users.manage'],
     ];
@@ -78,6 +80,12 @@ class ReportWebController extends Controller
     private function unscheduled(Carbon $from, Carbon $to): array
     {
         return $this->installments(PaymentInstallment::where('status', 'pending')->whereNull('scheduled_for')
+            ->whereBetween('due_date', [$from->toDateString(), $to->toDateTimeString()])->orderBy('due_date'));
+    }
+
+    private function pending(Carbon $from, Carbon $to): array
+    {
+        return $this->installments(PaymentInstallment::where('status', 'pending')
             ->whereBetween('due_date', [$from->toDateString(), $to->toDateTimeString()])->orderBy('due_date'));
     }
 
@@ -148,10 +156,13 @@ class ReportWebController extends Controller
 
     private function costCenter(Carbon $from, Carbon $to): array
     {
-        // Órdenes con placa (sin anuladas ni sin orden) y cargas de combustible, por vehículo y moneda
+        // Órdenes con placa (sin anuladas ni sin orden) y cargas de combustible, por vehículo y moneda; ?plate= = un vehículo (crcentro_c)
+        $plate = strtoupper(trim((string) request('plate')));
         $orders = Requisition::whereIn('stage', ['ordered', 'paid'])->whereBetween('ordered_at', [$from, $to])->whereNotNull('plate')->where('plate', '!=', '')
+            ->when($plate !== '', fn ($q) => $q->whereRaw('upper(plate) = ?', [$plate]))
             ->toBase()->selectRaw('upper(plate) as plate, currency, count(*) as n, sum(amount) as total')->groupBy('plate', 'currency')->get();
-        $fuel = FuelLoad::whereBetween('date', [$from->toDateString(), $to->toDateTimeString()])->with('vehicle:id,plate')->get()
+        $fuel = FuelLoad::whereBetween('date', [$from->toDateString(), $to->toDateTimeString()])->with('vehicle:id,plate')
+            ->when($plate !== '', fn ($q) => $q->whereHas('vehicle', fn ($v) => $v->whereRaw('upper(plate) = ?', [$plate])))->get()
             ->groupBy(fn ($f) => $f->vehicle?->plate ?? 'SIN PLACA');
 
         $rows = $orders->map(fn ($o) => [$o->plate, 'Órdenes (OC/OS)', (int) $o->n, null, $o->currency, round((float) $o->total, 2)])
@@ -159,6 +170,14 @@ class ReportWebController extends Controller
             ->sortBy(fn ($r) => "{$r[0]} {$r[1]}")->values();
 
         return [['Placa', 'Concepto', 'Cantidad', 'Galones', 'Moneda', 'Total'], $rows];
+    }
+
+    private function pettyCashDetail(Carbon $from, Carbon $to): array
+    {
+        return [['Recibo', 'Fecha', 'Caja', 'Concepto', 'Categoría', 'Beneficiario', 'RUC', 'Comprobante', 'N.º comprobante', 'Monto S/'],
+            PettyCashExpense::whereBetween('date', [$from->toDateString(), $to->toDateTimeString()])->orderBy('date')->orderBy('receipt_number')->limit(10000)->get()
+                ->map(fn ($e) => [$e->receipt_number, $e->date->format('d/m/Y'), $e->cash_box, $e->description, $e->category, $e->beneficiary, $e->ruc,
+                    $e->document_type, $e->document_number, (float) $e->amount])];
     }
 
     private function pettyCash(Carbon $from, Carbon $to): array

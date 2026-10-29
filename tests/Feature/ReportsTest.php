@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Modules\Finance\Controllers\Web\ReportWebController;
 use App\Modules\Finance\Models\CompanyBankAccount;
 use App\Modules\Finance\Models\PaymentCancellation;
+use App\Modules\Finance\Models\PettyCashExpense;
 use App\Modules\Finance\Models\Requisition;
 use App\Modules\Finance\Models\Supplier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -64,6 +65,24 @@ class ReportsTest extends TestCase
         $this->assertSame('TOTAL BCP 191-1', $byBank[2][0]);
         $this->assertSame('Por pagar', $this->sheet($this->get("/finance-reports/advances{$range}"))[1][5]); // programado, aún sin pagar
         $this->assertCount(3, $this->sheet($this->get("/finance-reports/summary{$range}"))); // encabezado + 2
+
+        // Reporte Pago General › Pendiente (CRprogpagos): programadas y sin programar juntas; la pagada no
+        $adv->replicate()->fill(['installment' => 2, 'scheduled_for' => null])->save();
+        $pending = $this->sheet($this->get("/finance-reports/pending{$range}"));
+        $this->assertCount(3, $pending);
+        $this->assertSame([now()->format('d/m/Y'), null], [$pending[1][5], $pending[2][5]]);
+
+        // Caja chica en detalle (CRcaja_chica): cada gasto con su recibo
+        PettyCashExpense::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'receipt_number' => 4, 'date' => now()->toDateString(), 'description' => 'Movilidad',
+            'document_type' => 'BOLETA', 'document_number' => 'B001-7', 'amount' => 12.5, 'cash_box' => 'CAJA EFECTIVO']);
+        $this->assertSame([4, 'CAJA EFECTIVO', 'Movilidad', 'B001-7', 12.5], array_values(array_intersect_key($this->sheet($this->get("/finance-reports/petty_cash_detail{$range}"))[1], array_flip([0, 2, 3, 8, 9]))));
+
+        // Centro de costos: con placa solo ese vehículo (crcentro_c)
+        Requisition::withoutGlobalScopes()->whereKey($adv->requisition_id)->update(['plate' => 't6c-831', 'stage' => 'ordered', 'ordered_at' => now()]);
+        Requisition::withoutGlobalScopes()->whereKey($paid->requisition_id)->update(['plate' => 'ABC-123', 'stage' => 'paid', 'ordered_at' => now()]);
+        $this->assertCount(3, $this->sheet($this->get("/finance-reports/cost_center{$range}")));
+        $one = $this->sheet($this->get("/finance-reports/cost_center{$range}&plate=T6C-831"));
+        $this->assertSame([2, 'T6C-831'], [count($one), $one[1][0]]);
 
         // RRHH ve el de colaboradores; un supervisor no ve ninguno
         $hr = $this->makeUser($acme, 'hr_manager');

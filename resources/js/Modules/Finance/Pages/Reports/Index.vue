@@ -11,7 +11,9 @@ const props = defineProps({
 const from = ref(props.from);
 const to = ref(props.to);
 const invalid = computed(() => !from.value || !to.value || to.value < from.value);
-const url = (key) => `/finance-reports/${key}?${new URLSearchParams({ from: from.value, to: to.value })}`;
+const plate = ref('');
+// Centro de costos: con placa, solo ese vehículo (crcentro_c); sin placa, el general (Crcentroc_gen)
+const url = (key) => `/finance-reports/${key}?${new URLSearchParams({ from: from.value, to: to.value, ...(key === 'cost_center' && plate.value.trim() ? { plate: plate.value.trim() } : {}) })}`;
 </script>
 
 <template>
@@ -40,6 +42,7 @@ const url = (key) => `/finance-reports/${key}?${new URLSearchParams({ from: from
                     <div class="card-body d-flex flex-column">
                         <div class="fw-semibold mb-1"><i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>{{ r.title }}</div>
                         <p class="small text-body-secondary mb-2 flex-grow-1">{{ r.description }}</p>
+                        <input v-if="r.key === 'cost_center'" v-model="plate" type="text" maxlength="10" class="form-control form-control-sm mb-2 text-uppercase" placeholder="Placa (opcional)" aria-label="Placa" />
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="small text-body-tertiary" :title="`Equivale a ${r.legacy} del sistema anterior`">{{ r.legacy }}</span>
                             <a :href="invalid ? undefined : url(r.key)" class="btn btn-sm btn-outline-success" :class="{ disabled: invalid }" :aria-disabled="invalid"><i class="bi bi-download me-1"></i>Excel</a>

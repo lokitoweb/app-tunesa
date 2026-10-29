@@ -278,10 +278,10 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                 <table class="table align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>Proveedor / orden</th>
+                            <th>Cliente / Proveedor · Documento relac.</th>
                             <th>Cuota</th>
-                            <th>Vence</th>
-                            <th class="text-end">Saldo</th>
+                            <th>Fecha Venc · Fecha Progr.</th>
+                            <th class="text-end">Monto (saldo)</th>
                             <th class="text-end">Acción</th>
                         </tr>
                     </thead>
@@ -308,7 +308,7 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                     </div>
                                     <div v-if="p.scheduled_for" class="text-primary"><i class="bi bi-calendar-check me-1"></i>{{ p.scheduled_for.split('-').reverse().join('/') }}</div>
                                     <div v-if="p.authorized" class="text-success"><i class="bi bi-check2-circle me-1"></i>Autorizada</div>
-                                    <div v-if="!p.requisition?.has_invoice && p.status === 'pending'" class="text-warning-emphasis"><i class="bi bi-receipt-cutoff me-1"></i>Sin factura</div>
+                                    <Link v-if="!p.requisition?.has_invoice && p.status === 'pending'" :href="`/requisitions/${p.requisition?.id}#factura`" class="d-block text-warning-emphasis" title="Registra la factura o el documento (PDF) en la orden: sin él no se paga"><i class="bi bi-receipt-cutoff me-1"></i>Sin factura · registrar</Link>
                                     <div v-if="p.paid_amount > 0 && p.status === 'pending'" class="text-info-emphasis"><i class="bi bi-arrow-repeat me-1"></i>Saldo por amortizar</div>
                                 </td>
                                 <td class="text-end text-nowrap">

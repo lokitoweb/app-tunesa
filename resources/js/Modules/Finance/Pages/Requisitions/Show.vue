@@ -88,7 +88,8 @@ function sendQr() {
 
 // ---------------------------------------------------------------- factura (sin factura no se paga)
 const invoice = useForm({ invoice_number: props.requisition.invoice?.number || '', invoice_date: today, file: null });
-const showInvoice = ref(false);
+// Desde Tesorería › "Sin factura · registrar" (#factura) el formulario ya viene abierto
+const showInvoice = ref(typeof window !== 'undefined' && window.location.hash === '#factura');
 function saveInvoice() {
     invoice.transform((d) => (d.file ? d : { ...d, file: undefined }))
         .post(`/requisitions/${r.value.id}/invoice`, { preserveScroll: true, forceFormData: true, onSuccess: () => (showInvoice.value = false) });
@@ -378,7 +379,7 @@ function emitOrder() {
 
                     <!-- Traza: factura → almacén → pagos -->
                     <ul class="list-group list-group-flush small">
-                        <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <li id="factura" class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
                             <span>
                                 <i class="bi bi-receipt-cutoff me-1"></i>Factura:
                                 <template v-if="requisition.invoice.number">
