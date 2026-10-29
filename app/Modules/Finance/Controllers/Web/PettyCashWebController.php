@@ -6,6 +6,7 @@ use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Services\AuditLogger;
 use App\Modules\Core\Support\PrivateFile;
 use App\Modules\Finance\Models\PettyCashExpense;
+use App\Modules\Finance\Models\Supplier;
 use App\Modules\Finance\Services\PettyCashImport;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -157,10 +158,19 @@ class PettyCashWebController extends Controller
             throw ValidationException::withMessages(['file' => implode("\n", $errors)]); // Inertia envía un mensaje por campo
         }
 
-        [$first, $last] = DB::transaction(function () use ($rows, $request) {
+        // sisgere Fcaja_chica: un RUC que no está se consulta en SUNAT (Migo) y se registra como proveedor
+        $found = $this->suppliersFromSunat(array_unique(array_filter(array_map(fn ($r) => $r['ruc'] && ! $r['beneficiary'] ? $r['ruc'] : null, $rows))));
+
+        [$first, $last] = DB::transaction(function () use ($rows, $request, $found) {
             $next = $this->nextReceipt();
             $first = $next;
+            foreach ($found as $ruc => $data) {
+                $found[$ruc] = Supplier::withTrashed()->where('ruc', $ruc)->value('name')
+                    ?? Supplier::create(['ruc' => $ruc, 'name' => $data['name'], 'address' => mb_substr($data['address'], 0, 100) ?: null,
+                        'city' => $data['city'] ? mb_substr($data['city'], 0, 50) : null, 'is_active' => true])->name;
+            }
             foreach ($rows as $row) {
+                $row['beneficiary'] ??= isset($found[$row['ruc']]) ? Str::limit($found[$row['ruc']], 150, '') : null;
                 PettyCashExpense::create($row + ['receipt_number' => $next++, 'created_by' => $request->user()->id]);
             }
 
@@ -177,6 +187,28 @@ class PettyCashWebController extends Controller
         PettyCashImport::template($path);
 
         return response()->download($path, 'plantilla-caja-chica.xlsx')->deleteFileAfterSend();
+    }
+
+    /**
+     * Razón social de RUC nuevos en SUNAT (Migo de la empresa), antes de la transacción para no esperar la red con
+     * la base bloqueada. Sin Migo configurado o si no responde, no hay alta: el gasto se importa igual.
+     *
+     * @return array<string, array{name: string, address: string, city: ?string}>
+     */
+    private function suppliersFromSunat(array $rucs): array
+    {
+        $migo = new \App\Modules\Integrations\Services\MigoLookup(\App\Modules\Core\Models\TenantSetting::forTenant(app(\App\Modules\Core\Services\TenantContext::class)->getOrNull()));
+        if (! $rucs || ! $migo->enabled()) {
+            return [];
+        }
+        $found = [];
+        foreach (array_slice(array_values($rucs), 0, 50) as $ruc) { // ponytail: tope de 50 consultas por archivo
+            if ($data = rescue(fn () => $migo->ruc($ruc), null, report: false)) {
+                $found[$ruc] = $data;
+            }
+        }
+
+        return $found;
     }
 
     /** Siguiente recibo correlativo de la empresa (llamar dentro de una transacción) */

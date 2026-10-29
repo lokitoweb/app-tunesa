@@ -56,6 +56,8 @@ class PayrollPaymentIssuer
         $r->paymentInstallments()->create([
             'tenant_id' => $r->tenant_id, 'installment' => 1, 'due_date' => $dueDate, 'amount' => $amount,
             'status' => 'pending', 'payment_method' => 'TRANSFERENCIA', 'registered_by' => $hr->full_name,
+            // sisgere FrmRegrrhh: la planilla queda programada al generarse (generar_programacion con Now)
+            'scheduled_for' => now(tenant_timezone())->toDateString(), 'scheduled_by' => $hr->full_name,
         ]);
 
         return $r;

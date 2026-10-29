@@ -45,6 +45,11 @@ class ExcelExportImportTest extends TestCase
                 ['product' => 'Aceite', 'quantity' => 2, 'unit' => 'GALON'],
             ]]);
 
+        // Plantilla del ERP de escritorio (DETALLE_DOC.xlsx): PRODUCTO, UNIDAD MED, CANTIDAD, CLASIFICACION, PLACA / REF, CODE
+        file_put_contents($file, "PRODUCTO,UNIDAD MED,CANTIDAD,CLASIFICACION,PLACA / REF,CODE\nFiltro de petroleo,UNIDAD (BIENES),1,REPUESTOS,T6C-831,0\n");
+        $this->postJson('/requisitions/items/parse', ['file' => new UploadedFile($file, 'DETALLE_DOC.csv', 'text/csv', null, true)])
+            ->assertOk()->assertJson(['items' => [['product' => 'Filtro de petroleo', 'quantity' => 1, 'unit' => 'UNIDAD (BIENES)', 'justification' => 'T6C-831']]]);
+
         file_put_contents($file, "Producto,Cantidad\nLlanta,0\n,3\n");
         $this->postJson('/requisitions/items/parse', ['file' => new UploadedFile($file, 'bad.csv', 'text/csv', null, true)])
             ->assertStatus(422)->assertJsonPath('errors.file.0', 'Fila 2: la cantidad debe ser un número mayor a cero. Fila 3: falta el producto.');

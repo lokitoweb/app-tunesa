@@ -66,4 +66,33 @@ class PettyCashImportTest extends TestCase
         $this->actingAs($accountant)->get('/petty-cash/template')->assertOk()->assertDownload('plantilla-caja-chica.xlsx');
         $this->actingAs($this->makeUser($acme, 'logistics'))->post('/petty-cash/import', ['cash_box' => 'CAJA PASAJES', 'file' => $this->xlsx($good)])->assertForbidden();
     }
+
+    public function test_imports_the_legacy_caja_chica_template_of_the_desktop_erp(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $accountant = $this->makeUser($acme, 'accountant');
+        // Mismos encabezados que C:\ERP negreiros\CAJA_CHICA.xlsx (datos inventados)
+        $book = new Spreadsheet();
+        $book->getActiveSheet()->fromArray([
+            ['FECHA', 'MEDIO PAGO', 'CLASIFICACION', 'SERIE', 'NRO', 'RUC', 'GLOSA', 'RESPONSABLE', 'NRO RECIBO', 'MONTO'],
+            ['13/02/2026', 'EFECTIVO', 'GAST. COMPROBANTE', 'E001', '1010', '10181502261', 'Repuestos placa T6C-831', 'Ana', '0', 450],
+            ['13/02/2026', 'EFECTIVO', 'MOVILIDAD', '', '', '', 'Taxi a Trujillo', 'Ana', '7', 25],
+        ]);
+        $path = tempnam(sys_get_temp_dir(), 'pc') . '.xlsx';
+        (new Xlsx($book))->save($path);
+
+        // RUC que no está: se consulta en SUNAT (Migo) y se registra el proveedor en esta empresa (sisgere Fcaja_chica)
+        config(['services.migo.token' => 'tok-test', 'services.migo.ruc_url' => 'https://migo.test/ruc']);
+        \Illuminate\Support\Facades\Http::fake(['migo.test/*' => \Illuminate\Support\Facades\Http::response(['nombre_o_razon_social' => 'REPUESTOS NORTE EIRL', 'direccion' => 'AV. PERU 12', 'distrito' => 'TRUJILLO'])]);
+
+        $this->actingAs($accountant)->post('/petty-cash/import', ['cash_box' => 'CAJA EFECTIVO', 'file' => new UploadedFile($path, 'CAJA_CHICA.xlsx', null, null, true)])
+            ->assertSessionHasNoErrors();
+        $rows = PettyCashExpense::withoutGlobalScopes()->orderBy('id')->get();
+        $this->assertSame([['RECIBO', 'E001-1010', 'Repuestos placa T6C-831', 'GAST. COMPROBANTE', '10181502261', 'REPUESTOS NORTE EIRL'], ['SIN COMPROBANTE', null, 'Taxi a Trujillo', 'MOVILIDAD', null, null]],
+            $rows->map(fn ($e) => [$e->document_type, $e->document_number, $e->description, $e->category, $e->ruc, $e->beneficiary])->all());
+        $supplier = Supplier::withoutGlobalScopes()->where('ruc', '10181502261')->sole();
+        $this->assertSame([$acme->id, 'REPUESTOS NORTE EIRL', 'TRUJILLO'], [$supplier->tenant_id, $supplier->name, $supplier->city]);
+        \Illuminate\Support\Facades\Http::assertSentCount(1);
+    }
 }

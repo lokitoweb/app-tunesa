@@ -95,12 +95,13 @@ class PayrollPaymentsTest extends TestCase
         // Sueldos fuera de Requerimientos; en la pantalla de RRHH con estado y posibles bajas
         $this->actingAs($accountant)->get('/requisitions')->assertInertia(fn ($p) => $p->has('requisitions.data', 1)->where('requisitions.data.0.detail', 'RQ previo')); // solo el RQ, ningún sueldo
         $this->actingAs($hr)->get('/payroll-payments?period=2026-10')->assertOk()->assertInertia(fn ($p) => $p
-            ->has('payments', 3)->where('totals.HABERES.total', 4150.75)->where('payments.1.concept', 'HABERES')->where('payments.1.status', 'Por programar')->where('payments.1.account', 'BCP ••••1236'));
+            ->has('payments', 3)->where('totals.HABERES.total', 4150.75)->where('payments.1.concept', 'HABERES')->where('payments.1.status', 'Programado')->where('payments.1.account', 'BCP ••••1236'));
 
         // Tesorería: programar, autoriza la persona designada, paga sin factura pero con voucher
         $p = PaymentInstallment::withoutGlobalScopes()->where('requisition_id', $payments[0]->id)->sole();
         $account = CompanyBankAccount::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'bank' => 'BCP', 'account_number' => '191-9', 'currency' => 'PEN']);
-        $this->actingAs($accountant)->get('/treasury')->assertInertia(fn ($pg) => $pg->where('installments.data.0.supplier.ruc', 'DNI 45871236')
+        $this->assertSame(now(tenant_timezone())->toDateString(), $p->scheduled_for->toDateString());
+        $this->actingAs($accountant)->get('/treasury?tab=scheduled')->assertInertia(fn ($pg) => $pg->where('installments.data.0.supplier.ruc', 'DNI 45871236')
             ->where('installments.data.0.supplier.accounts.0', 'BCP 19145871236')->where('installments.data.0.requisition.has_invoice', true));
         $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/schedule", ['scheduled_for' => now()->toDateString()])->assertSessionHasNoErrors();
         $this->actingAs($manager)->post("/treasury/installments/{$p->id}/authorize")->assertSessionHasNoErrors();

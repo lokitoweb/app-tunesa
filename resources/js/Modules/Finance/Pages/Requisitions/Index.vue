@@ -30,10 +30,13 @@ function cancelCode() {
 
 const { ensureTenant } = useTenantPicker();
 const search = ref(props.filters.search || '');
+// Desde / Hasta por fecha del requerimiento (sisgere FrmReq › Buscar)
+const from = ref(props.filters.from || '');
+const to = ref(props.filters.to || '');
 
 let timer = null;
 function go(params) {
-    router.get('/requisitions', { search: search.value || undefined, stage: props.filters.stage || undefined, ...params }, { preserveState: true, replace: true });
+    router.get('/requisitions', { search: search.value || undefined, stage: props.filters.stage || undefined, from: from.value || undefined, to: to.value || undefined, ...params }, { preserveState: true, replace: true });
 }
 function onSearch() {
     clearTimeout(timer);
@@ -93,10 +96,16 @@ function create() {
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-body border-bottom">
+            <div class="card-body border-bottom d-flex flex-wrap gap-2 align-items-center">
                 <div class="input-group" style="max-width: 460px">
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
                     <input v-model="search" type="search" class="form-control" placeholder="Buscar por N.º, detalle, área, solicitante u orden" aria-label="Buscar requerimiento" @input="onSearch" />
+                </div>
+                <div class="input-group" style="max-width: 360px">
+                    <span class="input-group-text small">Desde</span>
+                    <input v-model="from" type="date" class="form-control" aria-label="Desde" @change="go({})" />
+                    <span class="input-group-text small">Hasta</span>
+                    <input v-model="to" type="date" class="form-control" aria-label="Hasta" @change="go({})" />
                 </div>
             </div>
             <div class="table-responsive">

@@ -21,12 +21,18 @@ final class PettyCashImport
         'Fecha'                     => ['date', ['fecha']],
         'Tipo de Documento'         => ['document_type', ['tipo']],
         'RUC/Proveedor'             => ['supplier', ['ruc', 'proveedor']],
-        'Descripción del gasto'     => ['description', ['descrip', 'concepto']],
-        'Categoría/Centro de Costo' => ['category', ['categ', 'centro']],
+        'Descripción del gasto'     => ['description', ['descrip', 'concepto', 'glosa']],
+        'Categoría/Centro de Costo' => ['category', ['categ', 'centro', 'clasif']],
         'Moneda'                    => ['currency', ['moneda']],
         'Monto Total'               => ['amount', ['monto', 'importe']],
-        'Número de Comprobante'     => ['document_number', ['comprobante', 'numero']],
+        'Número de Comprobante'     => ['document_number', ['comprobante', 'numero', 'nro']],
     ];
+
+    /**
+     * Columnas que solo trae la plantilla del ERP de escritorio (C:\ERP negreiros\CAJA_CHICA.xlsx: FECHA, MEDIO PAGO,
+     * CLASIFICACION, SERIE, NRO, RUC, GLOSA, RESPONSABLE, NRO RECIBO, MONTO): la serie va delante del número.
+     */
+    private const LEGACY_COLUMNS = ['Serie' => ['series', ['serie']]];
 
     /** Plantilla vacía con los encabezados y una fila de ejemplo */
     public static function template(string $path): void
@@ -42,7 +48,7 @@ final class PettyCashImport
      */
     public static function rows(string $path): array
     {
-        $rows = SpreadsheetRows::read($path, self::COLUMNS);
+        $rows = SpreadsheetRows::read($path, self::COLUMNS + self::LEGACY_COLUMNS);
 
         // Razón social del proveedor ya registrado (una sola consulta)
         $rucs = array_filter(array_column($rows, 'supplier'), fn ($v) => preg_match('/^\d{11}$/', (string) $v));
@@ -56,17 +62,28 @@ final class PettyCashImport
         $supplier = (string) ($row['supplier'] ?? '');
         $isRuc = (bool) preg_match('/^\d{11}$/', $supplier);
         $amount = $row['amount'] ?? null;
+        $series = trim((string) ($row['series'] ?? ''));
+        $number = trim((string) ($row['document_number'] ?? ''));
+        $number = $series !== '' && $number !== '' ? "{$series}-{$number}" : $number;
+        // Sin tipo (plantilla del ERP): se deduce de la serie F001 / B001 / E001; sin comprobante, "SIN COMPROBANTE"
+        $type = Str::upper(Str::ascii((string) ($row['document_type'] ?? '')));
+        if ($type === '') {
+            $type = match (Str::upper(substr($series ?: $number, 0, 1))) {
+                'F' => 'FACTURA', 'B' => 'BOLETA', 'E' => 'RECIBO',
+                default => $number !== '' ? 'TICKET' : 'SIN COMPROBANTE',
+            };
+        }
 
         return [
             'date'            => self::date($row['date'] ?? null),
-            'document_type'   => Str::upper(Str::ascii((string) ($row['document_type'] ?? ''))),
+            'document_type'   => $type,
             'ruc'             => $isRuc ? $supplier : null,
             'beneficiary'     => $isRuc ? ($supplierNames[$supplier] ?? null) : ($supplier !== '' ? Str::limit($supplier, 150, '') : null),
             'description'     => $row['description'] ?? null,
             'category'        => ($row['category'] ?? '') !== '' ? Str::upper((string) $row['category']) : null,
             'currency'        => self::currency($row['currency'] ?? null),
             'amount'          => self::amount($amount),
-            'document_number' => ($row['document_number'] ?? '') !== '' ? (string) $row['document_number'] : null,
+            'document_number' => $number !== '' ? $number : null,
         ];
     }
 

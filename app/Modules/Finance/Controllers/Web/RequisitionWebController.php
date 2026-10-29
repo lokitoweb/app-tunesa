@@ -48,11 +48,16 @@ class RequisitionWebController extends Controller
     {
         $stage  = $request->query('stage');
         $search = trim((string) $request->query('search'));
+        // Desde / Hasta (sisgere FrmReq › Buscar): solo fechas válidas
+        $date = fn ($k) => ($v = $request->query($k)) && \DateTime::createFromFormat('!Y-m-d', (string) $v) ? (string) $v : null;
+        [$from, $to] = [$date('from'), $date('to')];
 
         $requisitions = $this->visible($request)
             ->with(['supplier:id,name', 'user:id,first_name,last_name'])
             ->withCount('items')
             ->when(array_key_exists($stage, Requisition::STAGES), fn ($q) => $q->where('stage', $stage))
+            ->when($from, fn ($q) => $q->whereDate('requested_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('requested_at', '<=', $to))
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->where('detail', 'like', "%{$search}%")
                 ->orWhere('requested_by', 'like', "%{$search}%")->orWhere('area', 'like', "%{$search}%")
                 ->orWhere('purchase_order_number', 'like', "%{$search}%")->orWhere('service_order_number', 'like', "%{$search}%")
@@ -83,7 +88,7 @@ class RequisitionWebController extends Controller
             'requisitions' => $requisitions,
             'stages'       => Requisition::STAGES,
             'totals'       => $totals,
-            'filters'      => ['stage' => $stage, 'search' => $search],
+            'filters'      => ['stage' => $stage, 'search' => $search, 'from' => $from, 'to' => $to],
             'can_create'   => $request->user()->hasPermission('requisitions.create'),
             'company_code' => app(TenantContext::class)->getOrNull()?->code,
             'can_edit_code' => $request->user()->hasPermission('company.document_code'),
@@ -177,6 +182,10 @@ class RequisitionWebController extends Controller
                 'reviewed_at'  => $r->reviewed_at?->timezone(tenant_timezone())->format('d/m/Y H:i'),
                 'ordered_at'   => $r->ordered_at?->timezone(tenant_timezone())->format('d/m/Y H:i'),
                 'is_open'      => $r->isOpen(),
+                'has_attachment' => filled($r->attachments['request'] ?? null),
+                // Req Aprobado por (sisgere ComboBox7: el aprobador de cada empresa): los apoderados activos de la empresa
+                'approvers'    => \App\Modules\Finance\Models\Signatory::where('is_active', true)->with('user:id,first_name,last_name')->get()
+                    ->map(fn ($s) => trim(($s->user?->full_name ?? '') . ($s->position ? " · {$s->position}" : '')))->filter()->values(),
                 'is_mine'      => $r->user_id === $user->id,
                 'supplier'     => $r->supplier?->only(['id', 'name', 'ruc']),
                 'items'        => $r->items->map(fn ($i) => [
@@ -381,6 +390,34 @@ class RequisitionWebController extends Controller
         return PrivateFile::response(self::DISK, $this->visible($request)->findOrFail($id)->invoice_path);
     }
 
+    /**
+     * Adjuntar comprobante (sisgere FrmReq › Registro: imagen o PDF del sustento, tblrequerimiento.PDF_SOLI).
+     * Lo sube quien pidió, quien aprueba o logística mientras el requerimiento siga abierto; reemplaza al anterior.
+     */
+    public function attachment(Request $request, int $id): RedirectResponse
+    {
+        $r = $this->visible($request)->findOrFail($id);
+        $user = $request->user();
+        abort_unless($r->user_id === $user->id || $this->canReview($r, $user) || $user->hasPermission('purchasing.manage'), 403);
+        abort_unless($r->isOpen(), 422, 'El requerimiento ya no admite cambios.');
+        $request->validate(['file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120', new SafeUpload()]],
+            ['file.required' => 'Elige la imagen o el PDF.', 'file.mimes' => 'El comprobante debe ser PDF o imagen (JPG, PNG).', 'file.max' => 'El archivo pesa más de 5 MB.']);
+
+        $old = $r->attachments['request'] ?? null;
+        $r->update(['attachments' => ['request' => $request->file('file')->store("finance/{$r->tenant_id}/requests", self::DISK)] + ($r->attachments ?? [])]);
+        if ($old) {
+            Storage::disk(self::DISK)->delete($old);
+        }
+        $this->audit->log('requisition.attached', $r, ['code' => $r->code()]);
+
+        return back()->with('success', 'Comprobante adjuntado.');
+    }
+
+    public function attachmentFile(Request $request, int $id)
+    {
+        return PrivateFile::response(self::DISK, $this->visible($request)->findOrFail($id)->attachments['request'] ?? null);
+    }
+
     /** OC/OS en PDF con la firma de quien aprobó */
     public function orderPdf(Request $request, int $id): HttpResponse
     {
@@ -514,11 +551,15 @@ class RequisitionWebController extends Controller
                 'taxable_amount' => $pricing['taxable'] ?? null, 'igv_amount' => $pricing['igv'] ?? null,
             ] + collect($data)->only(['payment_terms', 'payment_method', 'payment_origin', 'priority'])->all());
 
+            // sisgere FrmReq: al CONTADO la cuota queda programada al emitir (generar_programacion con Now);
+            // a CRÉDITO las cuotas quedan por programar y Tesorería las programa
+            $programmed = $data['payment_terms'] === 'CONTADO'
+                ? ['scheduled_for' => now(tenant_timezone())->toDateString(), 'scheduled_by' => $request->user()->full_name] : [];
             foreach ($schedule as $i => $row) {
                 $r->paymentInstallments()->create([
                     'tenant_id' => $r->tenant_id, 'installment' => $i + 1, 'due_date' => $row['due_date'], 'amount' => $row['amount'],
                     'status' => 'pending', 'payment_method' => $data['payment_method'], 'registered_by' => $request->user()->full_name,
-                ]);
+                ] + $programmed);
             }
 
             return $number;
@@ -614,7 +655,8 @@ class RequisitionWebController extends Controller
         'Producto o servicio' => ['product', ['producto', 'servicio', 'nombre', 'descripcion']],
         'Cantidad'            => ['quantity', ['cantidad', 'cant']],
         'Unidad'              => ['unit', ['unidad', 'und', 'medida']],
-        'Justificación'       => ['justification', ['justific', 'motivo', 'observ']],
+        // DETALLE_DOC.xlsx del ERP de escritorio trae "PLACA / REF"
+        'Justificación'       => ['justification', ['justific', 'motivo', 'observ', 'placa', 'ref']],
     ];
 
     /** Lee un Excel de ítems y devuelve las líneas para el formulario (no guarda nada) */
@@ -769,7 +811,7 @@ class RequisitionWebController extends Controller
             'amount.required_if' => 'Indica el monto estimado del gasto.',
             'amount.lt'          => 'El Express es para gastos menores a S/ ' . Requisition::EXPRESS_LIMIT . '; usa un requerimiento normal.',
         ] + ['items.required' => 'Agrega al menos un producto.', 'items.min' => 'Agrega al menos un producto.'], [
-            'requested_at' => 'la fecha', 'detail' => 'el detalle', 'requested_by' => 'quién solicita', 'area' => 'el área', 'classification' => 'la clasificación',
+            'requested_at' => 'la fecha', 'detail' => 'la glosa', 'requested_by' => 'el colaborador', 'area' => 'el área', 'classification' => 'la clasificación',
             'priority' => 'la prioridad', 'items.*.product' => 'el producto', 'items.*.quantity' => 'la cantidad',
         ]);
     }
@@ -817,8 +859,25 @@ class RequisitionWebController extends Controller
             'options'  => self::options(),
             'vehicles' => Vehicle::where('is_active', true)->orderBy('plate')->get(['id', 'plate', 'brand', 'model', 'type']),
             // Agencias (sisgere: MOSTRAR_AGENCIA); al elegir una se llenan sede y lugar de entrega con su dirección
-            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['name', 'address']),
+            // y se ve el N.º que tocará con su serie (sisgere: seriereq + mostrar_nroreq)
+            'branches' => Branch::where('is_active', true)->orderBy('name')->get(['name', 'address', 'code', 'document_series'])
+                ->map(fn (Branch $b) => ['name' => $b->name, 'address' => $b->address, 'next_code' => $this->nextCode($b)]),
+            'next_code' => $this->nextCode(request()->user()->primaryBranch()->first() ?? request()->user()->assignedBranch),
+            // Colaborador (sisgere MOSTRAR_colaborador): personal activo de la empresa; al elegir uno se llena su correo
+            'collaborators' => User::where('tenant_id', current_tenant_id_or_null())->where('status', 'active')
+                ->orderBy('last_name')->limit(2000)->get(['first_name', 'last_name', 'email'])
+                ->map(fn (User $u) => ['name' => $u->full_name, 'email' => $u->email]),
+            // Área (sisgere cbarea) más los departamentos de la empresa
+            'areas' => collect(config('finance.requisition_areas'))
+                ->merge(\App\Modules\Core\Models\Department::where('is_active', true)->orderBy('name')->pluck('name'))->unique()->values(),
         ]);
+    }
+
+    private function nextCode(?Branch $branch): ?string
+    {
+        $tenant = app(TenantContext::class)->getOrNull();
+
+        return $tenant ? DocumentSequence::peek($tenant, 'RQ', DocumentSequence::seriesFrom($branch?->document_series ?: $branch?->code), (int) now()->year) : null;
     }
 
     public static function options(): array

@@ -54,6 +54,10 @@ return [
         '037' => ['Demás servicios gravados con el IGV', 12],
     ],
 
+    // Área del requerimiento (sisgere: combo fijo cbarea de FrmReq); se suman los departamentos de la empresa
+    'requisition_areas' => ['ADM-ADMINISTRATIVOS', 'OPE-OPERACIONES', 'LOG-LOGISTICA', 'MAN-MANTENIMIENTO', 'VEN-VENTAS',
+        'SIS-SISTEMAS', 'CON-CONTABILIDAD', 'CHO-CHOFERES'],
+
     // Tipo de cuenta del proveedor (sisgere: combo fijo de FrmRegProveedor)
     'supplier_account_types' => ['CTE. SOLES', 'CTE. DOLARES', 'CCI. SOLES', 'CCI. DOLARES'],
 

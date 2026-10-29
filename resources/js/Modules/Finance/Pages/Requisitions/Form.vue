@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import axios from 'axios';
 import { Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
@@ -10,6 +10,9 @@ const props = defineProps({
     options: { type: Object, required: true },
     vehicles: { type: Array, default: () => [] },
     branches: { type: Array, default: () => [] },
+    next_code: { type: String, default: null },
+    collaborators: { type: Array, default: () => [] },
+    areas: { type: Array, default: () => [] },
 });
 
 const editing = !!props.requisition.id;
@@ -70,6 +73,15 @@ function onAgency() {
     if (branch?.address) form.site = form.delivery_place = branch.address;
 }
 
+// # Requerimiento: al editar, el suyo; al registrar, el que tocará con la serie de la agencia elegida
+const nextCode = computed(() => props.requisition.code || props.branches.find((b) => b.name === form.agency)?.next_code || props.next_code || 'Autogenerado');
+
+// Colaborador del personal de la empresa (sisgere Txtsolx): trae su correo
+function onCollaborator() {
+    const c = props.collaborators.find((x) => x.name === form.requested_by);
+    if (c?.email) form.email = c.email;
+}
+
 function submit() {
     form.transform((d) => ({ ...d, vehicle_id: d.vehicle_id || null }));
     if (editing) form.put(`/requisitions/${props.requisition.id}`);
@@ -108,15 +120,68 @@ const err = (k) => form.errors[k];
                 </div>
             </div>
 
+            <!-- Mismo orden y nombres que sisgere FrmReq › Registro de requerimiento (bloque REQUERIMIENTO) -->
             <div class="card shadow-sm mb-3">
-                <div class="card-header bg-transparent fw-semibold">Datos del requerimiento</div>
+                <div class="card-header bg-transparent fw-semibold">REQUERIMIENTO</div>
                 <div class="card-body row g-3">
-                    <div class="col-sm-4 col-lg-3">
-                        <label class="form-label small fw-semibold" for="rq-date">Fecha *</label>
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold" for="rq-code">Código</label>
+                        <input id="rq-code" :value="requisition.code || 'Autogenerado'" class="form-control fw-semibold" readonly />
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold" for="rq-date">Fecha Requerimiento *</label>
                         <input id="rq-date" v-model="form.requested_at" type="date" class="form-control" :class="{ 'is-invalid': err('requested_at') }" />
                         <div class="invalid-feedback">{{ err('requested_at') }}</div>
                     </div>
-                    <div class="col-sm-8 col-lg-5">
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold" for="rq-agency">Agencia</label>
+                        <input id="rq-agency" v-model="form.agency" class="form-control" maxlength="100" list="rq-agencies" @change="onAgency" />
+                        <datalist id="rq-agencies"><option v-for="b in branches" :key="b.name" :value="b.name" /></datalist>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold" for="rq-site">Sede requerimiento</label>
+                        <input id="rq-site" v-model="form.site" class="form-control" maxlength="100" />
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold" for="rq-number"># Requerimiento</label>
+                        <input id="rq-number" :value="nextCode" class="form-control font-monospace" readonly />
+                        <div v-if="!editing" class="form-text">Se confirma al registrar.</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold" for="rq-area">Área *</label>
+                        <input id="rq-area" v-model="form.area" class="form-control" :class="{ 'is-invalid': err('area') }" maxlength="50" list="rq-areas" />
+                        <datalist id="rq-areas"><option v-for="a in areas" :key="a" :value="a" /></datalist>
+                        <div class="invalid-feedback">{{ err('area') }}</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold" for="rq-by">Colaborador *</label>
+                        <input id="rq-by" v-model="form.requested_by" class="form-control" :class="{ 'is-invalid': err('requested_by') }" maxlength="50" list="rq-collaborators" @change="onCollaborator" />
+                        <datalist id="rq-collaborators"><option v-for="c in collaborators" :key="`${c.name}-${c.email}`" :value="c.name" /></datalist>
+                        <div class="invalid-feedback">{{ err('requested_by') }}</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-semibold" for="rq-email">Correo</label>
+                        <input id="rq-email" v-model.trim="form.email" type="email" class="form-control" :class="{ 'is-invalid': err('email') }" maxlength="100" />
+                        <div class="invalid-feedback">{{ err('email') }}</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold" for="rq-delivery">Lugar Entrega</label>
+                        <input id="rq-delivery" v-model="form.delivery_place" class="form-control" maxlength="100" list="rq-addresses" />
+                        <datalist id="rq-addresses"><option v-for="b in branches.filter((x) => x.address)" :key="b.name" :value="b.address" /></datalist>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-semibold" for="rq-detail">Glosa *</label>
+                        <textarea id="rq-detail" v-model="form.detail" rows="3" class="form-control" :class="{ 'is-invalid': err('detail') }" maxlength="1000"></textarea>
+                        <div class="invalid-feedback">{{ err('detail') }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Datos que la web suma al ERP: clasificación y prioridad (gerencia), vehículo del maestro y kilometraje -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-transparent fw-semibold">Datos adicionales</div>
+                <div class="card-body row g-3">
+                    <div class="col-sm-6 col-lg-3">
                         <label class="form-label small fw-semibold" for="rq-class">Clasificación *</label>
                         <select id="rq-class" v-model="form.classification" class="form-select" :class="{ 'is-invalid': err('classification') }">
                             <option value="" disabled>Elige…</option>
@@ -124,33 +189,13 @@ const err = (k) => form.errors[k];
                         </select>
                         <div class="invalid-feedback">{{ err('classification') }}</div>
                     </div>
-                    <div class="col-sm-4 col-lg-4">
+                    <div class="col-sm-6 col-lg-3">
                         <label class="form-label small fw-semibold" for="rq-priority">Prioridad *</label>
                         <select id="rq-priority" v-model="form.priority" class="form-select">
                             <option v-for="p in options.priorities" :key="p" :value="p">{{ p }}</option>
                         </select>
                     </div>
-                    <div class="col-12">
-                        <label class="form-label small fw-semibold" for="rq-detail">Detalle / motivo *</label>
-                        <textarea id="rq-detail" v-model="form.detail" rows="2" class="form-control" :class="{ 'is-invalid': err('detail') }" maxlength="1000"></textarea>
-                        <div class="invalid-feedback">{{ err('detail') }}</div>
-                    </div>
-                    <div class="col-sm-6 col-lg-4">
-                        <label class="form-label small fw-semibold" for="rq-by">Solicitado por *</label>
-                        <input id="rq-by" v-model="form.requested_by" class="form-control" :class="{ 'is-invalid': err('requested_by') }" maxlength="50" />
-                        <div class="invalid-feedback">{{ err('requested_by') }}</div>
-                    </div>
-                    <div class="col-sm-6 col-lg-4">
-                        <label class="form-label small fw-semibold" for="rq-area">Área *</label>
-                        <input id="rq-area" v-model="form.area" class="form-control" :class="{ 'is-invalid': err('area') }" maxlength="50" />
-                        <div class="invalid-feedback">{{ err('area') }}</div>
-                    </div>
-                    <div class="col-sm-6 col-lg-4">
-                        <label class="form-label small fw-semibold" for="rq-email">Correo</label>
-                        <input id="rq-email" v-model.trim="form.email" type="email" class="form-control" :class="{ 'is-invalid': err('email') }" maxlength="100" />
-                        <div class="invalid-feedback">{{ err('email') }}</div>
-                    </div>
-                    <div class="col-6 col-lg-3">
+                    <div class="col-sm-6 col-lg-3">
                         <label class="form-label small fw-semibold" for="rq-vehicle">Vehículo</label>
                         <select v-if="vehicles.length" id="rq-vehicle" v-model="form.vehicle_id" class="form-select" :class="{ 'is-invalid': err('vehicle_id') }">
                             <option value="">— Sin vehículo —</option>
@@ -158,23 +203,9 @@ const err = (k) => form.errors[k];
                         </select>
                         <input v-else id="rq-vehicle" v-model="form.plate" class="form-control text-uppercase" maxlength="50" placeholder="Registra la flota en Vehículos" />
                     </div>
-                    <div class="col-6 col-lg-3">
+                    <div class="col-sm-6 col-lg-3">
                         <label class="form-label small fw-semibold" for="rq-km">Kilometraje</label>
                         <input id="rq-km" v-model="form.km" class="form-control" maxlength="50" />
-                    </div>
-                    <div class="col-sm-6 col-lg-4">
-                        <label class="form-label small fw-semibold" for="rq-agency">Agencia</label>
-                        <input id="rq-agency" v-model="form.agency" class="form-control" maxlength="100" list="rq-agencies" @change="onAgency" />
-                        <datalist id="rq-agencies"><option v-for="b in branches" :key="b.name" :value="b.name" /></datalist>
-                    </div>
-                    <div class="col-sm-6 col-lg-4">
-                        <label class="form-label small fw-semibold" for="rq-site">Sede (dirección)</label>
-                        <input id="rq-site" v-model="form.site" class="form-control" maxlength="100" />
-                    </div>
-                    <div class="col-sm-6 col-lg-4">
-                        <label class="form-label small fw-semibold" for="rq-delivery">Lugar de entrega</label>
-                        <input id="rq-delivery" v-model="form.delivery_place" class="form-control" maxlength="100" list="rq-addresses" />
-                        <datalist id="rq-addresses"><option v-for="b in branches.filter((x) => x.address)" :key="b.name" :value="b.address" /></datalist>
                     </div>
                 </div>
             </div>
@@ -195,22 +226,26 @@ const err = (k) => form.errors[k];
                     <div v-if="importError" class="alert alert-danger py-2 small">{{ importError }}</div>
                     <div v-if="err('items')" class="alert alert-danger py-2 small">{{ err('items') }}</div>
                     <datalist id="rq-products"><option v-for="p in products" :key="p.name" :value="p.name" /></datalist>
+                    <!-- Columnas de la grilla de sisgere: DESCRIPCION, UNID MED, CANT., PLACA / REF. -->
+                    <div class="row g-2 small fw-semibold text-body-secondary d-none d-md-flex mb-1">
+                        <div class="col-md-5">DESCRIPCIÓN</div><div class="col-md-2">UNID MED</div><div class="col-md-2">CANT.</div><div class="col-md-2">PLACA / REF.</div>
+                    </div>
                     <div v-for="(item, i) in form.items" :key="i" class="row g-2 align-items-start mb-2 pb-2 border-bottom">
                         <div class="col-md-5">
-                            <input v-model="item.product" list="rq-products" class="form-control form-control-sm" :class="{ 'is-invalid': err(`items.${i}.product`) }" placeholder="Producto o servicio" aria-label="Producto" maxlength="100" @change="onProduct(item)" />
+                            <input v-model="item.product" list="rq-products" class="form-control form-control-sm" :class="{ 'is-invalid': err(`items.${i}.product`) }" placeholder="Descripción" aria-label="Descripción" maxlength="100" @change="onProduct(item)" />
                             <div class="invalid-feedback">{{ err(`items.${i}.product`) }}</div>
                         </div>
-                        <div class="col-4 col-md-2">
-                            <input v-model="item.quantity" type="number" min="0" step="any" class="form-control form-control-sm" :class="{ 'is-invalid': err(`items.${i}.quantity`) }" aria-label="Cantidad" />
-                            <div class="invalid-feedback">{{ err(`items.${i}.quantity`) }}</div>
-                        </div>
                         <div class="col-8 col-md-2">
-                            <select v-model="item.unit" class="form-select form-select-sm" aria-label="Unidad">
+                            <select v-model="item.unit" class="form-select form-select-sm" aria-label="Unid. med.">
                                 <option v-for="u in options.units" :key="u" :value="u">{{ u }}</option>
                             </select>
                         </div>
+                        <div class="col-4 col-md-2">
+                            <input v-model="item.quantity" type="number" min="0" step="any" class="form-control form-control-sm" :class="{ 'is-invalid': err(`items.${i}.quantity`) }" aria-label="Cant." />
+                            <div class="invalid-feedback">{{ err(`items.${i}.quantity`) }}</div>
+                        </div>
                         <div class="col-10 col-md-2">
-                            <input v-model="item.justification" class="form-control form-control-sm" placeholder="Justificación" aria-label="Justificación" maxlength="100" />
+                            <input v-model="item.justification" class="form-control form-control-sm" placeholder="Placa / Ref." aria-label="Placa / Ref." maxlength="100" />
                         </div>
                         <div class="col-2 col-md-1 text-end">
                             <button type="button" class="btn btn-sm btn-link text-danger" title="Quitar línea" :disabled="form.items.length === 1" @click="form.items.splice(i, 1)">

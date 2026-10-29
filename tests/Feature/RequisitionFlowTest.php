@@ -119,6 +119,7 @@ class RequisitionFlowTest extends TestCase
         $this->assertSame(['BCP 570-111'], $r->supplierAccounts()->all(), 'Tesorería paga a la cuenta de la cotización');
         $installments = PaymentInstallment::withoutGlobalScopes()->orderBy('installment')->get();
         $this->assertSame(['333.33', '333.33', '333.34'], $installments->pluck('amount')->all());
+        $this->assertSame([null, null, null], $installments->pluck('scheduled_for')->all(), 'a crédito quedan por programar (sisgere)');
         // Cada 30 días = mensual por calendario (sisgere DateAdd Month), no se corre al 31/12
         $this->assertSame(['2026-11-01', '2026-12-01', '2027-01-01'], $installments->map(fn ($i) => $i->due_date->toDateString())->all());
 
@@ -128,6 +129,46 @@ class RequisitionFlowTest extends TestCase
 
         $this->actingAs($manager)->get("/requisitions/{$r->id}")->assertOk()
             ->assertInertia(fn ($p) => $p->component('Finance/Pages/Requisitions/Show')->where('requisition.purchase_order_number', "OC-AC-001-000001-{$y}")->has('requisition.installments_list', 3));
+    }
+
+    public function test_form_lists_attachment_and_approvers_follow_sisgere_and_never_mix_companies(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('private');
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $other = $this->makeTenant('other');
+        $this->makeBranch($acme, ['name' => 'AGENCIA CAJABAMBA', 'document_series' => '007', 'address' => 'AV. LEONCIO MARTINEZ NRO 405']);
+        $requester = $this->makeUser($acme, 'supervisor', ['first_name' => 'Ana', 'last_name' => 'Ruiz', 'email' => 'ana@acme.test']);
+        $manager = $this->makeUser($acme, 'manager');
+        $outsider = $this->makeUser($other, 'supervisor', ['first_name' => 'Ajeno', 'email' => 'ajeno@other.test']);
+        \App\Modules\Finance\Models\Signatory::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'user_id' => $manager->id, 'position' => 'Gerente', 'is_active' => true]);
+        \App\Modules\Finance\Models\Signatory::withoutGlobalScopes()->create(['tenant_id' => $other->id, 'user_id' => $outsider->id, 'position' => 'Gerente', 'is_active' => true]);
+        $y = now()->year;
+
+        // Listas del formulario (sisgere: Colaborador con su correo, Área, N.º con la serie de la agencia), solo de acme
+        $this->actingAs($requester)->get('/requisitions/create')->assertInertia(fn ($p) => $p
+            ->where('branches.0.next_code', "RQ-AC-007-000001-{$y}")
+            ->where('collaborators', fn ($c) => collect($c)->pluck('email')->contains('ana@acme.test') && ! collect($c)->pluck('email')->contains('ajeno@other.test'))
+            ->where('areas', fn ($a) => collect($a)->contains('LOG-LOGISTICA')));
+        // La vista previa no reserva el número
+        $this->actingAs($requester)->get('/requisitions/create');
+        $this->post('/requisitions', $this->payload(['agency' => 'AGENCIA CAJABAMBA']))->assertSessionHasNoErrors();
+        $r = Requisition::withoutGlobalScopes()->sole();
+        $this->assertSame("RQ-AC-007-000001-{$y}", $r->code());
+        // Buscar: Desde / Hasta por fecha del requerimiento (2026-10-23 en el payload)
+        $this->get('/requisitions?from=2026-10-24')->assertInertia(fn ($p) => $p->where('requisitions.total', 0));
+        $this->get('/requisitions?from=2026-10-23&to=2026-10-23')->assertInertia(fn ($p) => $p->where('requisitions.total', 1));
+
+        // Req Aprobado por: los apoderados de la empresa, no los de otra
+        $this->get("/requisitions/{$r->id}")->assertInertia(fn ($p) => $p->where('requisition.approvers', [$manager->full_name . ' · Gerente'])->where('requisition.has_attachment', false));
+
+        // Adjuntar comprobante: imagen o PDF; texto no; otra empresa no lo ve
+        $this->post("/requisitions/{$r->id}/attachment", ['file' => \Illuminate\Http\UploadedFile::fake()->create('nota.txt', 1, 'text/plain')])->assertSessionHasErrors('file');
+        $this->post("/requisitions/{$r->id}/attachment", ['file' => $this->fakePdf('sustento.pdf')])->assertSessionHasNoErrors();
+        $this->assertTrue((bool) $r->fresh()->attachments['request']);
+        $this->get("/requisitions/{$r->id}/attachment")->assertOk();
+        $this->actingAs($outsider)->get("/requisitions/{$r->id}/attachment")->assertNotFound();
+        $this->actingAs($outsider)->post("/requisitions/{$r->id}/attachment", ['file' => $this->fakePdf()])->assertNotFound();
     }
 
     public function test_visibility_and_tenant_isolation(): void
@@ -199,6 +240,8 @@ class RequisitionFlowTest extends TestCase
             'payment_origin' => 'CAJA EFECTIVO', 'priority' => 'NORMAL', 'installments' => 1, 'first_due_date' => '2026-10-24', 'interval_days' => 30,
         ])->assertSessionHasNoErrors();
         $this->assertSame('ordered', $r->fresh()->stage);
+        // sisgere FrmReq: al CONTADO la cuota queda programada para hoy por quien emite la orden
+        $this->assertSame(now(tenant_timezone())->toDateString(), $r->paymentInstallments()->sole()->scheduled_for?->toDateString());
 
         // Un requerimiento normal sigue necesitando gerencia o contabilidad
         $this->actingAs($requester)->post('/requisitions', $this->payload())->assertSessionHasNoErrors();

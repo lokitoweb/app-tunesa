@@ -65,7 +65,9 @@ class DirectPayments
             $r->paymentInstallments()->create([
                 'tenant_id' => $tenant->id, 'installment' => 1, 'due_date' => $data['due_date'], 'amount' => $payable, 'status' => 'pending',
                 'payment_method' => $data['payment_method'], 'registered_by' => $user->full_name, 'is_advance' => $isAdvance,
-            ]);
+            // sisgere FrmReqProg: el costo fijo queda programado en su fecha (generar_programacion con la fecha de la cuota);
+            // el pago directo común queda por programar
+            ] + ($fixedCost ? ['scheduled_for' => $data['due_date'], 'scheduled_by' => $user->full_name] : []));
 
             return $r;
         });

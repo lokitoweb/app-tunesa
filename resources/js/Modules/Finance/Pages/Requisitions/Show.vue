@@ -42,8 +42,16 @@ function reject() {
     review.post(`/requisitions/${r.value.id}/review`, { preserveScroll: true, onSuccess: () => (showReject.value = false) });
 }
 
+// Adjuntar comprobante (imagen o PDF del sustento, sisgere PDF_SOLI)
+const attach = useForm({ file: null });
+function sendAttachment(event) {
+    attach.file = event.target.files[0];
+    event.target.value = '';
+    if (attach.file) attach.post(`/requisitions/${r.value.id}/attachment`, { preserveScroll: true, forceFormData: true });
+}
+
 async function cancel() {
-    const ok = await ask({ title: '¿Anular requerimiento?', message: `${r.value.code} quedará anulado y no se podrá cotizar.`, confirmText: 'Sí, anular', variant: 'danger', icon: 'bi bi-x-octagon' });
+    const ok = await ask({ title: '¿Eliminar requerimiento?', message: `${r.value.code} quedará anulado (no se borra: queda en el historial) y no se podrá cotizar.`, confirmText: 'Sí, eliminar', variant: 'danger', icon: 'bi bi-x-octagon' });
     if (ok) router.post(`/requisitions/${r.value.id}/cancel`, {}, { preserveScroll: true });
 }
 
@@ -211,9 +219,6 @@ function emitOrder() {
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <Link v-if="can.edit" :href="`/requisitions/${requisition.id}/edit`" class="btn btn-outline-primary"><i class="bi bi-pencil me-1"></i>Editar</Link>
-                <button v-if="requisition.is_open && (requisition.is_mine || can.approve || can.purchase)" type="button" class="btn btn-outline-danger" @click="cancel">
-                    <i class="bi bi-x-octagon me-1"></i>Anular
-                </button>
             </div>
         </div>
 
@@ -236,13 +241,37 @@ function emitOrder() {
             <button v-if="can.approve && requisition.stage === 'rejected'" type="button" class="btn btn-sm btn-success ms-2" :disabled="review.processing" @click="approve"><i class="bi bi-check-lg me-1"></i>Aprobar de todos modos</button>
         </div>
 
-        <!-- Aprobación -->
-        <div v-if="can.approve && requisition.stage === 'requested'" class="card border-warning shadow-sm mb-3">
-            <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <span><i class="bi bi-hourglass-split text-warning me-1"></i>Este requerimiento espera tu revisión.</span>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-danger" @click="showReject = !showReject">Rechazar</button>
-                    <button type="button" class="btn btn-success" :disabled="review.processing" @click="approve"><i class="bi bi-check-lg me-1"></i>Aprobar</button>
+        <!-- Panel derecho de sisgere FrmReq: Req Aprobado por, Fecha Aprobación / Rechazo, Aprobar / Rechazar / Eliminar y Adjuntar comprobante -->
+        <div class="card shadow-sm mb-3" :class="{ 'border-warning': can.approve && requisition.stage === 'requested' }">
+            <div class="card-body row g-3 align-items-end">
+                <div class="col-md-4">
+                    <div class="small fw-semibold mb-1">Req Aprobado por</div>
+                    <div v-if="requisition.reviewed_by" class="fw-semibold">{{ requisition.reviewed_by }}</div>
+                    <div v-else-if="requisition.approvers.length" class="small">{{ requisition.approvers.join(' / ') }}</div>
+                    <div v-else class="small text-body-secondary">Registra los apoderados de la empresa en Apoderados y firmas.</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="small fw-semibold mb-1">Fecha Aprobación / Rechazo</div>
+                    <div>{{ requisition.reviewed_at || '—' }}</div>
+                </div>
+                <div class="col-md-5 d-flex flex-wrap gap-2 justify-content-md-end">
+                    <template v-if="can.approve && requisition.stage === 'requested'">
+                        <button type="button" class="btn btn-success" :disabled="review.processing" @click="approve"><i class="bi bi-check-lg me-1"></i>Aprobar</button>
+                        <button type="button" class="btn btn-outline-danger" @click="showReject = !showReject"><i class="bi bi-x-lg me-1"></i>Rechazar</button>
+                    </template>
+                    <button v-if="requisition.is_open && (requisition.is_mine || can.approve || can.purchase)" type="button" class="btn btn-outline-danger" @click="cancel"><i class="bi bi-x-octagon me-1"></i>Eliminar</button>
+                </div>
+                <div class="col-12 border-top pt-3">
+                    <div class="small fw-semibold mb-1">Adjuntar comprobante</div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <a v-if="requisition.has_attachment" :href="`/requisitions/${requisition.id}/attachment`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-richtext me-1"></i>Ver comprobante</a>
+                        <span v-else class="small text-body-secondary">Sin comprobante.</span>
+                        <label v-if="requisition.is_open && (requisition.is_mine || can.approve || can.purchase)" class="btn btn-sm btn-outline-primary mb-0" :class="{ disabled: attach.processing }">
+                            <i class="bi bi-paperclip me-1"></i>{{ requisition.has_attachment ? 'Reemplazar' : 'Adjuntar' }} (imagen o PDF)
+                            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" class="d-none" aria-label="Adjuntar comprobante" @change="sendAttachment" />
+                        </label>
+                        <span v-if="attach.errors.file" class="small text-danger">{{ attach.errors.file }}</span>
+                    </div>
                 </div>
             </div>
             <div v-if="showReject" class="card-footer bg-transparent">
@@ -273,15 +302,15 @@ function emitOrder() {
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
                             <thead class="table-light"><tr>
-                                <th>Producto / servicio</th><th class="text-end">Cantidad</th><th>Unidad</th>
+                                <th>DESCRIPCIÓN</th><th>UNID MED</th><th class="text-end">CANT.</th>
                                 <template v-if="requisition.pricing"><th class="text-end">P. unitario</th><th class="text-end">Dscto.</th><th class="text-end">Importe</th></template>
-                                <th v-else class="d-none d-md-table-cell">Justificación</th>
+                                <th v-else class="d-none d-md-table-cell">PLACA / REF.</th>
                             </tr></thead>
                             <tbody>
                                 <tr v-for="item in requisition.items" :key="item.id">
                                     <td>{{ item.product }}</td>
-                                    <td class="text-end">{{ item.quantity }}</td>
                                     <td class="small">{{ item.unit }}</td>
+                                    <td class="text-end">{{ item.quantity }}</td>
                                     <template v-if="requisition.pricing">
                                         <td class="text-end small font-monospace">{{ money(item.unit_price, requisition.currency) }}</td>
                                         <td class="text-end small">{{ item.discount_percent ? `${item.discount_percent} %` : '—' }}</td>

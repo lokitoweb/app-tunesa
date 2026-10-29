@@ -67,6 +67,8 @@ class FixedCostCashFlowTest extends TestCase
         $this->assertNull($first->fresh()->paid_at, 'enviar no es pagar');
 
         $p = $pg->paymentInstallments()->sole();
+        // sisgere FrmReqProg: el costo fijo llega programado en la fecha de su cuota; Tesorería puede cambiarla
+        $this->assertSame($p->due_date->toDateString(), $p->scheduled_for?->toDateString());
         $this->post("/treasury/installments/{$p->id}/schedule", ['scheduled_for' => '2026-02-05'])->assertSessionHasNoErrors();
         $this->actingAs($boss)->post("/treasury/installments/{$p->id}/authorize")->assertSessionHasNoErrors();
         $this->actingAs($accountant)->post("/treasury/installments/{$p->id}/pay", ['paid_at' => '2026-02-01', 'amount' => 1550,

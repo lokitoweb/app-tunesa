@@ -33,6 +33,14 @@ class DocumentSequence extends Model
         });
     }
 
+    /** Número que tocará sin reservarlo (sisgere mostrar_nroreq: vista previa al elegir la agencia) */
+    public static function peek(Tenant $tenant, string $type, string $series, int $year): string
+    {
+        $last = (int) static::query()->where(['tenant_id' => $tenant->id, 'type' => $type, 'series' => $series, 'year' => $year])->value('last_number');
+
+        return sprintf('%s-%s-%s-%06d-%d', $type, $tenant->code, $series, $last + 1, $year);
+    }
+
     /** Serie = código de la sede (solo letras, dígitos y guion); sin sede, 001 */
     public static function seriesFrom(?string $branchCode): string
     {

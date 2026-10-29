@@ -46,6 +46,8 @@ Route::middleware(['auth', 'web.tenant', 'can:requisitions.create'])->prefix('re
     Route::get('/{id}/order.pdf', [RequisitionWebController::class, 'orderPdf'])->name('order.pdf')->whereNumber('id');
     Route::get('/{id}/quotations/{quotation}/file', [RequisitionWebController::class, 'quotationFile'])->name('quotations.file')->whereNumber(['id', 'quotation']);
     Route::get('/{id}/invoice/file', [RequisitionWebController::class, 'invoiceFile'])->name('invoice.file')->whereNumber('id');
+    Route::get('/{id}/attachment', [RequisitionWebController::class, 'attachmentFile'])->name('attachment.file')->whereNumber('id');
+    Route::post('/{id}/attachment', [RequisitionWebController::class, 'attachment'])->name('attachment')->whereNumber('id')->middleware('throttle:20,1');
     Route::post('/{id}/invoice', [RequisitionWebController::class, 'invoice'])->name('invoice')->whereNumber('id'); // logística o tesorería
 
     // Gerencia aprueba; el Express lo valida la jefatura inmediata o contabilidad (regla en el controlador)

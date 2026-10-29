@@ -108,3 +108,35 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 | RR. HH. › Importar Planilla | Ciudad por colaborador; "Dar de Baja" solo lista | Hecho: columna Ciudad ubica en la sede de esa ciudad de la empresa; bajas solo listadas (igual) |
 | Caja Chica, Pagos, RR. HH. Programación | Revisados en pantalla | Ya estaban |
 | Logística (6), Finanzas (4), Tesorería › Movimientos y Flujo, Administrativos | "MODULO EN CONSTRUCCION" (visto en pantalla) | No es brecha; la web ya tiene kardex, inventario, combustible y flujo de caja |
+
+## Cuarta pasada (29/10/2026): Registro de requerimiento probado en el .exe (RQ 7235, registrado, aprobado y eliminado)
+| En el .exe | Web |
+|---|---|
+| Orden: Código, Fecha Requerimiento, Agencia, Sede requerimiento, # Requerimiento, Área, Colaborador, Correo, Lugar Entrega, Glosa | Mismo orden y nombres; Clasificación, Prioridad, Vehículo y Km en "Datos adicionales" |
+| Agencia → sede, lugar de entrega y N.º con la serie de la agencia (RQ-TN01 000001, vista previa) | Igual: N.º previsto (no se reserva) con la serie de la sede |
+| Colaborador: lista del personal; trae su correo | Igual (solo personal activo de la empresa) |
+| Área: 8 fijas (ADM, OPE, LOG, MAN, VEN, SIS, CON, CHO) | Igual (`finance.requisition_areas`) + departamentos de la empresa |
+| Grilla DESCRIPCION, UNID MED, CANT., PLACA / REF. | Mismas columnas y orden (formulario y ficha) |
+| Migrar (FrmEXCEL) fuerza "UNIDAD (BIENES)" | La web respeta la unidad del Excel (mejor) |
+| + y Crear Prod/Serv: sus paneles quedan tapados en pantallas de 1456 px (defecto del .NET) | Línea nueva y producto por nombre (se crea si no existe) |
+| Req Aprobado por: un nombre fijo por empresa en el código | Apoderados activos de la empresa (Apoderados y firmas); aprueba quien tiene el permiso |
+| Aprobar / Rechazar / Eliminar con fecha | Igual; Eliminar = anular (queda en el historial) |
+| Adjuntar comprobante: imagen / PDF en tblrequerimiento.PDF_SOLI | Adjuntar comprobante (PDF o imagen, privado, columna `attachments`) |
+| Buscar: Desde / Hasta | Listado: Desde / Hasta por fecha del requerimiento |
+| Ver Solicitud, Ver Cotizaciones, Ver OC, Ver Doc Fiscal, Ver Pago, Explorar PDF | En la ficha: PDF de cada SC, cotización, OC/OS, factura, voucher y comprobante |
+| Aprobar se activa con teclado (el clic en el ícono no responde) | — |
+| Desde OC en adelante no se probó en el .exe: genera cuotas reales en la programación de pagos | Pendiente de una base de pruebas del .NET |
+| Solicitud cotización (RQ 7236, eliminado): Rubro, Prov, lista con casilla y RUC, → / ←, Datos de entrega (Recojo en tienda / Entrega Domicilio), Lugar Entrega, Condición de pago, botones Solicitud, Cotización (imprimir) y Coregir | Ya estaba en la web (SC por proveedor, rubro, entrega, condición, PDF). El registro de la SC en la base real lo bloqueó el control de permisos: no se probó |
+| Flujo completo en base de pruebas (RQ 7237 → SC-TN10-000001-2026 → cotización COT-PRUEBA-01 → OC-TN10-000001-2026 por S/ 118 → facturación F001-000123 → aparece en Programación; eliminado y su cuota sale de Programación) | Ver filas siguientes |
+| Cotización: proveedor, RUC, banco y cuenta del proveedor, contacto, teléfono, N.º, Aprobado por, fechas, observación, imagen/PDF; **sin monto** (el monto se pone en la OC) | Web: igual más el monto (para comparar cotizaciones) y la cuenta para el pago |
+| OC: ORDEN C. / ORDEN S. dan el número; precio por ítem (doble clic), Igv sube el P. unit. 18 %, S/Igv, Descuento, Detracción, Medio pago, Tipo venta, Moneda, cuotas con Generar, Correo proveedor, Recibido por | Web: emitir OC/OS con precio, Igv / S/Igv, descuento, detracción, cuotas, PDF |
+| Facturación (pestaña AUTORIZAR PAGO): comprobante, **Autorizado por** (lista por empresa), facturas asociadas, imagen/PDF, flujo efectivo, ver depósitos 1–4 | Web: factura con PDF en la orden; autoriza el apoderado designado en Tesorería; flujo de efectivo; vouchers |
+| Programación automática (código): OC/OS al CONTADO → `generar_programacion(Now)`; a CRÉDITO no; planilla (FrmRegrrhh) → Now; costos fijos (FrmReqProg Button37) → fecha de la cuota; pago directo / OP crédito → no | **Hecho** igual: OC/OS contado y planilla programadas hoy, costo fijo en su fecha, crédito y pago directo por programar; Tesorería puede reprogramar |
+| Caja Chica (Fcaja_chica): plantilla CAJA_CHICA.xlsx (FECHA, MEDIO PAGO, CLASIFICACION, SERIE, NRO, RUC, GLOSA, RESPONSABLE, NRO RECIBO, MONTO); RUC nuevo → SUNAT (Migo) y alta del proveedor | **Hecho**: la web lee esa plantilla (tipo por la serie F/B/E) y da de alta el proveedor por RUC con Migo de la empresa |
+| Migrar ítems: plantilla DETALLE_DOC.xlsx (PRODUCTO, UNIDAD MED, CANTIDAD, CLASIFICACION, PLACA / REF, CODE) | **Hecho**: PLACA / REF se lee |
+| Bancos (FRMBANCOS): misma plantilla; deja cada gasto **ya pagado** (CANCELADO, origen BANCOS) | Web: Cargar gastos deja cada uno por la cola de Tesorería (decisión del 27/10: quien autoriza no paga) |
+| Registro Proveedor (proveedor 751 creado y eliminado): RUC repetido avisa; **Agregar cuenta no hace nada** en FrmRegProveedor (Button22 sin código) | Web: cuentas con tipo de la lista; RUC único |
+| RR. HH. › Planilla: MES/AÑO, Generar (un requerimiento por colaborador), Orden P (OP programada hoy) | Web: Pagos de RR. HH. (importar planilla → Tesorería, programada hoy) |
+| Al emitir la OC, la cuota queda **programada sola** (Fecha Progr. = Fecha Venc.) | Ver la fila de programación automática |
+| Tesorería › Pagos filtra por la empresa del combo superior (vacío = nada) y por Desde/Hasta | Web: siempre la empresa activa |
+| Correos del .NET en FrmReq: solo al campo Correo (ingresado, aprobado, rechazado); el de la OC al proveedor está comentado. FrmRegpagos manda la confirmación de depósito al proveedor | La web avisa a quien pidió y envía la SC/OC y el voucher al proveedor solo cuando se pulsa el botón |
