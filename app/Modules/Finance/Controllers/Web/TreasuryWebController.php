@@ -49,10 +49,10 @@ class TreasuryWebController extends Controller
     public function index(Request $request): Response
     {
         $tab = array_key_exists($request->query('tab'), self::TABS) ? $request->query('tab') : 'to_schedule';
-        $search = trim((string) $request->query('search'));
         $today = now(tenant_timezone())->toDateString();
 
-        $installments = $this->listQuery($tab, $search, $today)
+        $filters = $this->filters($request);
+        $installments = $this->listQuery($tab, $filters, $today)
             ->paginate(30)->withQueryString()
             ->through(fn (PaymentInstallment $p) => $this->row($p));
 
@@ -75,7 +75,7 @@ class TreasuryWebController extends Controller
                 'paid_month' => $byCurrency(PaymentCancellation::where('payment_cancellations.paid_at', '>=', now(tenant_timezone())->startOfMonth()->utc())
                     ->join('payment_installments', 'payment_installments.id', '=', 'payment_cancellations.payment_installment_id'), 'payment_cancellations.amount'),
             ],
-            'filters'      => ['tab' => $tab, 'search' => $search],
+            'filters'      => ['tab' => $tab] + $filters,
             'accounts'     => CompanyBankAccount::orderByDesc('is_active')->orderBy('bank')->get()
                 ->map(fn (CompanyBankAccount $a) => $a->only(['id', 'bank', 'account_number', 'currency', 'alias', 'is_active']) + ['label' => $a->label()]),
             'currencies'   => Requisition::CURRENCIES,
@@ -99,7 +99,7 @@ class TreasuryWebController extends Controller
     public function export(Request $request): BinaryFileResponse
     {
         $tab = array_key_exists($request->query('tab'), self::TABS) ? $request->query('tab') : 'to_schedule';
-        $rows = $this->listQuery($tab, trim((string) $request->query('search')), now(tenant_timezone())->toDateString())
+        $rows = $this->listQuery($tab, $this->filters($request), now(tenant_timezone())->toDateString())
             ->limit(5000)->get()->map(function (PaymentInstallment $p) {
                 $r = $p->requisition;
                 $row = $this->row($p);
@@ -115,9 +115,24 @@ class TreasuryWebController extends Controller
         return response()->download($path, 'tesoreria-' . str_replace('_', '-', $tab) . '-' . now()->format('Ymd') . '.xlsx')->deleteFileAfterSend();
     }
 
-    private function listQuery(string $tab, string $search, string $today): Builder
+    /** Filtros de FrmRegpagos: Buscar Prov., Desde / Hasta y "Mostrar Planilla ?" */
+    private function filters(Request $request): array
     {
+        $date = fn ($k) => ($v = $request->query($k)) && \DateTime::createFromFormat('!Y-m-d', (string) $v) ? (string) $v : null;
+
+        return ['search' => trim((string) $request->query('search')), 'from' => $date('from'), 'to' => $date('to'), 'payroll' => $request->query('payroll') !== '0'];
+    }
+
+    private function listQuery(string $tab, array $filters, string $today): Builder
+    {
+        $search = $filters['search'];
+        // Desde / Hasta sobre la fecha que manda en cada pestaña: pagadas por pago, programadas por programación, el resto por vencimiento
+        $dateColumn = match ($tab) { 'paid' => 'paid_at', 'scheduled', 'authorized' => 'scheduled_for', default => 'due_date' };
+
         return $this->tab(PaymentInstallment::query(), $tab, $today)
+            ->when($filters['from'], fn ($q, $d) => $q->whereDate($dateColumn, '>=', $d))
+            ->when($filters['to'], fn ($q, $d) => $q->whereDate($dateColumn, '<=', $d))
+            ->when(! $filters['payroll'], fn ($q) => $q->whereHas('requisition', fn ($r) => $r->whereNull('payroll_concept')))
             ->with(['requisition:id,series,number,code,stage,cash_flow_concept,invoice_number,invoice_path,detail,supplier_id,employee_id,payroll_concept,payroll_period,is_direct_payment,currency,installments,purchase_order_number,service_order_number,has_detraction,detraction_reason,detraction_number,detraction_amount,detraction_percent,amount',
                 'requisition.supplier:id,name,ruc', 'requisition.supplier.bankAccounts:id,supplier_id,bank,account_number,account_type',
                 'requisition.selectedQuotation:id,requisition_id,bank,account_number',
@@ -125,7 +140,9 @@ class TreasuryWebController extends Controller
                 'cancellations.companyAccount:id,bank,account_number,currency,alias'])
             ->when($search !== '', fn ($q) => $q->whereHas('requisition', fn ($r) => $r->where('detail', 'like', "%{$search}%")
                 ->orWhere('purchase_order_number', 'like', "%{$search}%")->orWhere('service_order_number', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%")
-                ->orWhereHas('supplier', fn ($s) => $s->where('name', 'like', "%{$search}%")->orWhere('ruc', 'like', "{$search}%"))))
+                ->orWhereHas('supplier', fn ($s) => $s->where('name', 'like', "%{$search}%")->orWhere('ruc', 'like', "{$search}%"))
+                // Planilla: el "proveedor" es el colaborador (nombre o DNI)
+                ->orWhereHas('employee', fn ($e) => $e->where('first_name', 'like', "%{$search}%")->orWhere('last_name', 'like', "%{$search}%")->orWhere('document_number', 'like', "{$search}%"))))
             ->orderBy($tab === 'paid' ? 'paid_at' : 'due_date', $tab === 'paid' ? 'desc' : 'asc');
     }
 
@@ -637,7 +654,7 @@ class TreasuryWebController extends Controller
                 'amount' => (float) $r->amount, 'has_detraction' => $r->has_detraction, 'is_direct' => (bool) $r->is_direct_payment,
                 'cash_flow_concept' => $r->cash_flow_concept, 'is_order' => ! $r->is_direct_payment && ! $r->isPayroll() && $r->stage === 'ordered',
                 // Pago de RRHH: no lleva factura (la boleta es el sustento)
-                'has_invoice' => $r->isPayroll() || $r->invoice_path, 'is_payroll' => $r->isPayroll(),
+                'has_invoice' => $r->isPayroll() || $r->invoice_path, 'is_payroll' => $r->isPayroll(), 'invoice_number' => $r->invoice_number,
                 'detraction' => $r->only(['detraction_number', 'detraction_amount', 'detraction_percent', 'detraction_reason']),
             ] : null,
             'supplier'      => $r?->isPayroll() ? $this->payrollPayee($r) : ($r?->supplier ? [

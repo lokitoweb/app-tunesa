@@ -194,3 +194,16 @@ Pruebas: `SuperAdminTenantPickerTest::test_money_screens_never_add_up_companies_
 Pago completo probado en el navegador (Empresa Demo, datos borrados después): Pago directo PG-ED-001-000004-2026 → Programar → "Sin factura · registrar" abre la orden con el formulario de factura (antes el aviso no llevaba a ningún lado) → factura con PDF → la persona designada autoriza (no puede pagar) → contabilidad paga con cuenta de origen, N.º de operación y voucher → orden **Pagada**, con quién autorizó y quién pagó. OP en PDF descargada (200).
 
 Etiquetas de Tesorería con los nombres del ERP: "Cliente / Proveedor · Documento relac.", "Fecha Venc · Fecha Progr." y "Monto (saldo)" (la web muestra el saldo, no el monto original, para que una cuota amortizada no confunda).
+
+## Octava pasada (29/10/2026): Caja chica, Tesorería › Pagos y Costos fijos campo por campo
+| .NET | Hallazgo | Web |
+|---|---|---|
+| Fcaja_chica › Importar Archivo / Procesar Carga | Dos pasos: primero la lista con "# Registros" y "Total :", luego procesa y cuenta "Válidos" / "No válidos" (recién al final) | **Hecho y mejorado**: al elegir el archivo se ve la lista con # Registros, Total, Válidos y No válidos **antes** de guardar (`POST /petty-cash/import/preview`, no guarda nada); filas malas en rojo con su motivo; "Procesar carga" solo se habilita si todas están bien. Misma validación que la carga (un solo método `checked()`) |
+| FrmRegpagos › Desde / Hasta | Filtra las cuotas por fecha | **Hecho**: Desde / Hasta en Tesorería, sobre la fecha de cada pestaña (vencimiento, programación o pago); fecha inválida se ignora; el Excel usa los mismos filtros |
+| FrmRegpagos › "Mostrar Planilla ?" | Muestra u oculta los pagos de planilla | **Hecho**: casilla "Mostrar planilla" (marcada por defecto) |
+| FrmRegpagos › Buscar Prov. | Busca también al colaborador en la planilla | **Hecho**: la búsqueda incluye nombre y DNI del colaborador |
+| FrmRegpagos › Doc Asoc. | Comprobante de la cuota en la grilla | **Hecho**: "Doc Asoc.: F001-…" en la fila |
+| FrmRegpagos › Asunto del correo, hasta 4 depósitos | Correo escrito a mano; amortización con 4 botones fijos | Ya estaba, mejor: comprobante automático con el voucher; amortizaciones sin tope de 4 (tope = saldo) |
+| FrmReqProg › Programación Costos Fijos | "Monto Bruto" es el monto de cada cuota y las cuotas van mes a mes (DateAdd Month) | Ya estaba igual: "Monto por cuota" + "Cuotas" + "Primera cuota", totales por moneda |
+
+Probado en el navegador (Empresa Demo): Excel con una fila buena y una en dólares → # Registros 2, Total S/ 19.00, Válidos 1, No válidos 1, "Procesar carga" deshabilitado, nada guardado. Tesorería: Desde 16/10 a 31/10 = 5 cuotas (igual que la base), sin planilla = 4.

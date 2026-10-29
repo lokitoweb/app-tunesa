@@ -62,6 +62,14 @@ class PettyCashImportTest extends TestCase
         // El mismo archivo otra vez: duplicado
         $this->actingAs($accountant)->post('/petty-cash/import', ['cash_box' => 'CAJA PASAJES', 'file' => $this->xlsx($good)])->assertSessionHasErrors('file');
 
+        // Importar Archivo (Fcaja_chica): # Registros, Total, Válidos y No válidos antes de procesar; no guarda nada
+        $before = PettyCashExpense::withoutGlobalScopes()->count();
+        $this->actingAs($accountant)->postJson('/petty-cash/import/preview', ['cash_box' => 'CAJA EFECTIVO', 'file' => $this->xlsx([
+            ['20/10/2026', 'BOLETA', '', 'Agua', '', 'PEN', 8, 'B009-1'], ['21/10/2026', 'BOLETA', '', 'Pan', '', 'USD', 5, ''],
+        ])])->assertOk()->assertJson(['count' => 2, 'total' => 13, 'valid' => 1, 'invalid' => 1, 'errors' => ['Fila 3: caja chica es en soles (moneda «USD»).'],
+            'rows' => [['line' => 2, 'ok' => true, 'amount' => 8], ['line' => 3, 'ok' => false]]]);
+        $this->assertSame($before, PettyCashExpense::withoutGlobalScopes()->count());
+
         // Plantilla y permisos
         $this->actingAs($accountant)->get('/petty-cash/template')->assertOk()->assertDownload('plantilla-caja-chica.xlsx');
         $this->actingAs($this->makeUser($acme, 'logistics'))->post('/petty-cash/import', ['cash_box' => 'CAJA PASAJES', 'file' => $this->xlsx($good)])->assertForbidden();

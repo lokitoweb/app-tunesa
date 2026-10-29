@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -109,6 +110,64 @@ class PettyCashWebController extends Controller
      */
     public function import(Request $request): RedirectResponse
     {
+        [$rows, $invalid] = $this->checked($request);
+        if ($invalid) {
+            // Inertia envía un mensaje por campo; se listan las primeras 20 filas con error
+            throw ValidationException::withMessages(['file' => implode("\n", array_slice($invalid, 0, 20))]);
+        }
+
+        // sisgere Fcaja_chica: un RUC que no está se consulta en SUNAT (Migo) y se registra como proveedor
+        $found = $this->suppliersFromSunat(array_unique(array_filter(array_map(fn ($r) => $r['ruc'] && ! $r['beneficiary'] ? $r['ruc'] : null, $rows))));
+
+        [$first, $last] = DB::transaction(function () use ($rows, $request, $found) {
+            $next = $this->nextReceipt();
+            $first = $next;
+            foreach ($found as $ruc => $data) {
+                $found[$ruc] = Supplier::withTrashed()->where('ruc', $ruc)->value('name')
+                    ?? Supplier::create(['ruc' => $ruc, 'name' => $data['name'], 'address' => mb_substr($data['address'], 0, 100) ?: null,
+                        'city' => $data['city'] ? mb_substr($data['city'], 0, 50) : null, 'is_active' => true])->name;
+            }
+            foreach ($rows as $row) {
+                $row['beneficiary'] ??= isset($found[$row['ruc']]) ? Str::limit($found[$row['ruc']], 150, '') : null;
+                PettyCashExpense::create($row + ['receipt_number' => $next++, 'created_by' => $request->user()->id]);
+            }
+
+            return [$first, $next - 1];
+        });
+        $this->audit->log('petty_cash.imported', null, ['rows' => count($rows), 'receipts' => "{$first}-{$last}", 'cash_box' => $request->input('cash_box')]);
+
+        return back()->with('success', count($rows) . " gastos importados (recibos N.º {$first} al {$last}).");
+    }
+
+    /**
+     * Fcaja_chica › Importar Archivo: la lista antes de procesar, con # Registros, Total, Válidos y No válidos.
+     * El .NET contaba válidos y no válidos recién al procesar; aquí se ven antes y no se guarda nada.
+     */
+    public function preview(Request $request): JsonResponse
+    {
+        [$rows, $invalid] = $this->checked($request);
+
+        return response()->json([
+            'count'   => count($rows),
+            'total'   => round(array_sum(array_map(fn ($r) => is_numeric($r['amount']) ? (float) $r['amount'] : 0, $rows)), 2),
+            'valid'   => count($rows) - count($invalid),
+            'invalid' => count($invalid),
+            'errors'  => array_values(array_slice($invalid, 0, 50)),
+            'rows'    => array_map(fn ($line, $r) => [
+                'line' => $line, 'date' => $r['date'], 'document' => trim("{$r['document_type']} {$r['document_number']}"), 'ruc' => $r['ruc'],
+                'beneficiary' => $r['beneficiary'], 'description' => $r['description'], 'category' => $r['category'],
+                'amount' => is_numeric($r['amount']) ? round((float) $r['amount'], 2) : null, 'ok' => ! isset($invalid[$line]),
+            ], array_keys(array_slice($rows, 0, 200, true)), array_slice($rows, 0, 200, true)),
+        ]);
+    }
+
+    /**
+     * Lee el archivo y revisa cada fila con las mismas reglas del registro manual y sin comprobantes repetidos.
+     *
+     * @return array{0: array<int, array>, 1: array<int, string>} filas por N.º de fila del Excel y error por fila
+     */
+    private function checked(Request $request): array
+    {
         abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa.');
         $request->validate([
             'file'     => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120'],
@@ -138,47 +197,21 @@ class PettyCashWebController extends Controller
             $row['cash_box'] = $request->input('cash_box');
             $validator = Validator::make($row, $rules, $messages, $attributes);
             if ($row['currency'] !== 'PEN') {
-                $errors[] = "Fila {$line}: caja chica es en soles (moneda «{$row['currency']}»).";
+                $errors[$line] = "Fila {$line}: caja chica es en soles (moneda «{$row['currency']}»).";
             } elseif ($validator->fails()) {
-                $errors[] = "Fila {$line}: " . $validator->errors()->first();
+                $errors[$line] = "Fila {$line}: " . $validator->errors()->first();
             } elseif ($row['document_number']) {
                 // Sin duplicados: el mismo comprobante no se registra dos veces
                 if (isset($seen[$key($row)])) {
-                    $errors[] = "Fila {$line}: el comprobante {$row['document_type']} {$row['document_number']} ya está registrado.";
+                    $errors[$line] = "Fila {$line}: el comprobante {$row['document_type']} {$row['document_number']} ya está registrado.";
                 }
                 $seen[$key($row)] = true;
             }
             unset($row['currency']);
-            if (count($errors) >= 20) {
-                break;
-            }
         }
         unset($row);
-        if ($errors) {
-            throw ValidationException::withMessages(['file' => implode("\n", $errors)]); // Inertia envía un mensaje por campo
-        }
 
-        // sisgere Fcaja_chica: un RUC que no está se consulta en SUNAT (Migo) y se registra como proveedor
-        $found = $this->suppliersFromSunat(array_unique(array_filter(array_map(fn ($r) => $r['ruc'] && ! $r['beneficiary'] ? $r['ruc'] : null, $rows))));
-
-        [$first, $last] = DB::transaction(function () use ($rows, $request, $found) {
-            $next = $this->nextReceipt();
-            $first = $next;
-            foreach ($found as $ruc => $data) {
-                $found[$ruc] = Supplier::withTrashed()->where('ruc', $ruc)->value('name')
-                    ?? Supplier::create(['ruc' => $ruc, 'name' => $data['name'], 'address' => mb_substr($data['address'], 0, 100) ?: null,
-                        'city' => $data['city'] ? mb_substr($data['city'], 0, 50) : null, 'is_active' => true])->name;
-            }
-            foreach ($rows as $row) {
-                $row['beneficiary'] ??= isset($found[$row['ruc']]) ? Str::limit($found[$row['ruc']], 150, '') : null;
-                PettyCashExpense::create($row + ['receipt_number' => $next++, 'created_by' => $request->user()->id]);
-            }
-
-            return [$first, $next - 1];
-        });
-        $this->audit->log('petty_cash.imported', null, ['rows' => count($rows), 'receipts' => "{$first}-{$last}", 'cash_box' => $request->input('cash_box')]);
-
-        return back()->with('success', count($rows) . " gastos importados (recibos N.º {$first} al {$last}).");
+        return [$rows, $errors];
     }
 
     public function template(): BinaryFileResponse

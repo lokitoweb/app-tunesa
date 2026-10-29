@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
+import axios from 'axios';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
@@ -60,7 +61,27 @@ function openImport() {
     importForm.reset();
     importForm.clearErrors();
     if (importInput.value) importInput.value.value = '';
+    preview.value = null;
     showImport.value = true;
+}
+// Fcaja_chica › Importar Archivo: revisar (# Registros, Total, Válidos, No válidos) antes de Procesar Carga
+const preview = ref(null);
+const previewing = ref(false);
+async function loadPreview() {
+    preview.value = null;
+    importForm.clearErrors();
+    if (!importForm.file) return;
+    previewing.value = true;
+    const data = new FormData();
+    data.append('file', importForm.file);
+    data.append('cash_box', importForm.cash_box);
+    try {
+        preview.value = (await axios.post('/petty-cash/import/preview', data)).data;
+    } catch (e) {
+        importForm.setError('file', Object.values(e.response?.data?.errors || {}).flat().join('\n') || e.response?.data?.message || 'No se pudo revisar el archivo.');
+    } finally {
+        previewing.value = false;
+    }
 }
 function submitImport() {
     importForm.post('/petty-cash/import', { preserveScroll: true, forceFormData: true, onSuccess: () => (showImport.value = false) });
@@ -150,11 +171,35 @@ async function destroy(e) {
                         </p>
                         <div class="col-12">
                             <label class="form-label small fw-semibold" for="pi-box">Caja *</label>
-                            <select id="pi-box" v-model="importForm.cash_box" class="form-select"><option v-for="b in options.cash_boxes" :key="b" :value="b">{{ b }}</option></select>
+                            <select id="pi-box" v-model="importForm.cash_box" class="form-select" @change="loadPreview"><option v-for="b in options.cash_boxes" :key="b" :value="b">{{ b }}</option></select>
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold" for="pi-file">Archivo (.xlsx, .xls o .csv, máx. 5 MB) *</label>
-                            <input id="pi-file" ref="importInput" type="file" accept=".xlsx,.xls,.csv" class="form-control" :class="{ 'is-invalid': importForm.errors.file }" @input="importForm.file = $event.target.files[0]" />
+                            <input id="pi-file" ref="importInput" type="file" accept=".xlsx,.xls,.csv" class="form-control" :class="{ 'is-invalid': importForm.errors.file }" @input="importForm.file = $event.target.files[0]; loadPreview()" />
+                        </div>
+                        <div v-if="previewing" class="col-12 small text-body-secondary"><span class="spinner-border spinner-border-sm me-1"></span>Revisando el archivo…</div>
+                        <div v-if="preview" class="col-12">
+                            <div class="row g-2 text-center small mb-2">
+                                <div class="col-3"><div class="border rounded p-1"><div class="text-body-secondary"># Registros</div><div class="fw-bold">{{ preview.count }}</div></div></div>
+                                <div class="col-3"><div class="border rounded p-1"><div class="text-body-secondary">Total</div><div class="fw-bold">{{ money(preview.total) }}</div></div></div>
+                                <div class="col-3"><div class="border rounded p-1"><div class="text-body-secondary">Válidos</div><div class="fw-bold text-success">{{ preview.valid }}</div></div></div>
+                                <div class="col-3"><div class="border rounded p-1"><div class="text-body-secondary">No válidos</div><div class="fw-bold" :class="preview.invalid ? 'text-danger' : ''">{{ preview.invalid }}</div></div></div>
+                            </div>
+                            <div class="table-responsive border rounded" style="max-height: 260px">
+                                <table class="table table-sm small mb-0 align-middle">
+                                    <thead class="table-light"><tr><th>Fila</th><th>Fecha</th><th>Comprobante</th><th>RUC / Proveedor</th><th>Glosa</th><th class="text-end">Monto</th></tr></thead>
+                                    <tbody>
+                                        <tr v-for="r in preview.rows" :key="r.line" :class="{ 'table-danger': !r.ok }">
+                                            <td>{{ r.line }}</td><td class="text-nowrap">{{ String(r.date || '').includes('-') ? String(r.date).slice(0, 10).split('-').reverse().join('/') : r.date }}</td><td class="text-nowrap">{{ r.document }}</td>
+                                            <td>{{ r.beneficiary || r.ruc || '—' }}</td><td>{{ r.description }}</td><td class="text-end">{{ r.amount === null ? '—' : money(r.amount) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-if="preview.errors.length" class="alert alert-danger small mt-2 mb-0 py-2">
+                                <div class="fw-semibold mb-1">Corrige estas filas y vuelve a elegir el archivo (no se guardará nada hasta que todas estén bien):</div>
+                                <ul class="mb-0 ps-3"><li v-for="(e, i) in preview.errors" :key="i">{{ e }}</li></ul>
+                            </div>
                         </div>
                         <div v-if="importErrors.length" class="col-12">
                             <div class="alert alert-danger small mb-0 py-2">
@@ -165,8 +210,8 @@ async function destroy(e) {
                     </div>
                     <div class="card-footer bg-transparent d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-light" @click="showImport = false">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" :disabled="importForm.processing || !importForm.file">
-                            <span v-if="importForm.processing" class="spinner-border spinner-border-sm me-1"></span>Importar
+                        <button type="submit" class="btn btn-primary" :disabled="importForm.processing || previewing || !preview || preview.invalid > 0 || !preview.count">
+                            <span v-if="importForm.processing" class="spinner-border spinner-border-sm me-1"></span>Procesar carga
                         </button>
                     </div>
                 </form>

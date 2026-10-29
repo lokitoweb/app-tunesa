@@ -240,4 +240,31 @@ class TreasuryFlowTest extends TestCase
         $this->actingAs($accountant)->get('/treasury')->assertInertia(fn ($p) => $p
             ->where('kpis.pending', ['PEN' => 800, 'USD' => 300])->where('kpis.overdue', ['PEN' => 800, 'USD' => 300]));
     }
+
+    public function test_treasury_filters_like_frmregpagos_dates_payroll_and_employee_search(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $accountant = $this->makeUser($acme, 'accountant');
+        $ana = $this->makeUser($acme, 'employee', ['first_name' => 'Ana', 'last_name' => 'Quispe', 'document_number' => '45871236']);
+        $due = function (string $date, array $extra = []) use ($acme) {
+            $r = Requisition::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'series' => '001', 'number' => random_int(1, 99999), 'year' => 2026,
+                'requested_at' => now(), 'detail' => 'Cuota ' . $date, 'stage' => 'ordered', 'currency' => 'PEN', 'amount' => 100, 'invoice_number' => 'F001-77'] + $extra);
+            PaymentInstallment::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'requisition_id' => $r->id, 'installment' => 1,
+                'due_date' => $date, 'amount' => 100, 'paid_amount' => 0, 'status' => 'pending']);
+        };
+        $due('2026-11-05');
+        $due('2026-11-20');
+        $due('2026-11-10', ['employee_id' => $ana->id, 'payroll_concept' => 'HABERES', 'payroll_period' => '2026-11']);
+        $get = fn (string $query) => collect($this->actingAs($accountant)->get("/treasury?tab=to_schedule{$query}")->assertOk()->viewData('page')['props']['installments']['data'])->pluck('requisition.detail')->all();
+
+        $this->assertSame(['Cuota 2026-11-05', 'Cuota 2026-11-10', 'Cuota 2026-11-20'], $get(''));
+        $this->assertSame(['Cuota 2026-11-05', 'Cuota 2026-11-10'], $get('&from=2026-11-01&to=2026-11-15'));     // Desde / Hasta
+        $this->assertSame(['Cuota 2026-11-05', 'Cuota 2026-11-20'], $get('&payroll=0'));                         // sin planilla
+        $this->assertSame(['Cuota 2026-11-10'], $get('&search=Quispe'));                                          // Buscar Prov.: colaborador
+        $this->assertSame(['Cuota 2026-11-10'], $get('&search=4587'));
+        $this->assertSame(['Cuota 2026-11-05', 'Cuota 2026-11-10', 'Cuota 2026-11-20'], $get('&from=nope'));    // fecha inválida: se ignora
+        $this->actingAs($accountant)->get('/treasury?tab=to_schedule')->assertInertia(fn ($p) => $p->where('installments.data.0.requisition.invoice_number', 'F001-77'));
+        $this->get('/treasury/export?tab=to_schedule&payroll=0')->assertOk()->assertDownload();
+    }
 }

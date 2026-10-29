@@ -29,12 +29,18 @@ const daysTo = (iso) => Math.round((new Date(`${iso}T00:00:00`) - new Date(`${pr
 const activeAccounts = computed(() => props.accounts.filter((a) => a.is_active));
 
 
-// Excel de la pestaña actual con la misma búsqueda
-const exportUrl = computed(() => `/treasury/export?${new URLSearchParams({ tab: props.filters.tab || 'to_schedule', ...(search.value ? { search: search.value } : {}) })}`);
+// Filtros de FrmRegpagos: Desde / Hasta y "Mostrar Planilla ?"
+const from = ref(props.filters.from || '');
+const to = ref(props.filters.to || '');
+const payroll = ref(props.filters.payroll !== false);
+const query = () => ({ tab: props.filters.tab || 'to_schedule', ...(search.value ? { search: search.value } : {}), ...(from.value ? { from: from.value } : {}),
+    ...(to.value ? { to: to.value } : {}), ...(payroll.value ? {} : { payroll: '0' }) });
+// Excel de la pestaña actual con los mismos filtros
+const exportUrl = computed(() => `/treasury/export?${new URLSearchParams(query())}`);
 
 let timer = null;
 function go(params) {
-    router.get('/treasury', { tab: props.filters.tab, search: search.value || undefined, ...params }, { preserveState: true, replace: true });
+    router.get('/treasury', { ...query(), ...params }, { preserveState: true, replace: true });
 }
 function onSearch() {
     clearTimeout(timer);
@@ -265,7 +271,17 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                 <div class="d-flex flex-wrap gap-2 justify-content-between">
                     <div class="input-group" style="max-width: 460px">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input v-model="search" type="search" class="form-control" placeholder="Proveedor, RUC, N.º de orden o detalle" aria-label="Buscar cuota" @input="onSearch" />
+                        <input v-model="search" type="search" class="form-control" placeholder="Proveedor, RUC, colaborador, N.º de orden o detalle" aria-label="Buscar cuota" @input="onSearch" />
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 small">
+                        <label class="text-body-secondary" for="tr-from">Desde</label>
+                        <input id="tr-from" v-model="from" type="date" class="form-control form-control-sm w-auto" @change="go({})" />
+                        <label class="text-body-secondary" for="tr-to">Hasta</label>
+                        <input id="tr-to" v-model="to" type="date" class="form-control form-control-sm w-auto" :min="from || undefined" @change="go({})" />
+                        <div class="form-check mb-0 ms-1">
+                            <input id="tr-payroll" v-model="payroll" type="checkbox" class="form-check-input" @change="go({})" />
+                            <label class="form-check-label" for="tr-payroll">Mostrar planilla</label>
+                        </div>
                     </div>
                     <a :href="exportUrl" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel</a>
                 </div>
@@ -295,6 +311,7 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                     <div class="small text-body-secondary text-truncate">
                                         <Link :href="`/requisitions/${p.requisition?.id}`" class="font-monospace">{{ p.requisition?.order || p.requisition?.code }}</Link> · {{ p.requisition?.detail }}
                                     </div>
+                                    <div v-if="p.requisition?.invoice_number" class="small text-body-secondary"><i class="bi bi-receipt me-1"></i>Doc Asoc.: <span class="font-monospace">{{ p.requisition.invoice_number }}</span></div>
                                     <span v-if="p.is_advance" class="badge mt-1 me-1 bg-info-subtle text-info-emphasis">Anticipo</span>
                                     <span v-if="p.requisition?.has_detraction" class="badge mt-1" :class="p.requisition.detraction.detraction_number ? 'bg-info-subtle text-info-emphasis' : 'bg-warning-subtle text-warning-emphasis'">
                                         Detracción {{ p.requisition.detraction.detraction_number ? `${p.requisition.detraction.detraction_percent}% · ${money(p.requisition.detraction.detraction_amount, p.requisition.currency)}` : 'pendiente' }}

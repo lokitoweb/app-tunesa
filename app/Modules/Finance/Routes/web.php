@@ -95,6 +95,8 @@ Route::middleware(['auth', 'web.tenant', 'can:fixed_costs.manage'])->prefix('pet
     Route::get('/', [PettyCashWebController::class, 'index'])->name('index');
     Route::post('/', [PettyCashWebController::class, 'store'])->name('store');
     Route::post('/import', [PettyCashWebController::class, 'import'])->name('import')->middleware('throttle:10,1');
+    // Importar Archivo (Fcaja_chica): revisar antes de Procesar Carga; no guarda nada
+    Route::post('/import/preview', [PettyCashWebController::class, 'preview'])->name('import.preview')->middleware('throttle:20,1');
     Route::get('/template', [PettyCashWebController::class, 'template'])->name('template');
     Route::post('/{id}', [PettyCashWebController::class, 'update'])->name('update')->whereNumber('id'); // POST: lleva archivo
     Route::delete('/{id}', [PettyCashWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
