@@ -8,15 +8,15 @@ REA (`@morluto/rea`) no se usó: requiere macOS y Hopper Disassembler; con el c�
 ## Menú del .NET y estado en el web
 | Menú .NET | Formulario | Web | Estado |
 |---|---|---|---|
-| Maestros › Registro Proveedor | FrmRegProveedor | `/suppliers` | Parcial: falta catálogo de bancos y el campo "T costo" |
-| Requerimientos › Requerimientos | FrmReq (19 pestañas) | `/requisitions` | Parcial (ver abajo) |
-| Requerimientos › Compras x Producto | FrmConsultar | `/purchases/by-product` | Hecho (sin exportar) |
-| Programación Pagos › Programación | FrmReqProg (17 pestañas) | `/treasury`, `/fixed-costs` | Parcial |
+| Maestros › Registro Proveedor | FrmRegProveedor | `/suppliers` | Hecho (bancos sugeridos; "T costo" el .NET no lo guarda) |
+| Requerimientos › Requerimientos | FrmReq (19 pestañas) | `/requisitions` | Hecho (cuarta y quinta pasada) |
+| Requerimientos › Compras x Producto | FrmConsultar | `/purchases/by-product` | Hecho, con Excel (novena pasada) |
+| Programación Pagos › Programación | FrmReqProg (17 pestañas) | `/treasury`, `/fixed-costs` | Hecho (séptima y octava pasada) |
 | Programación Pagos › Caja Chica | Fcaja_chica | `/petty-cash` | Hecho |
-| Tesorería › Pagos | FrmRegpagos | `/treasury` | Parcial |
-| Tesorería › Bancos | FRMBANCOS | cuentas de la empresa | Parcial: falta egreso bancario directo |
-| RR. HH. › Programación | FrmRegrrhh (13 pestañas) | `/payroll-payments`, `/employees` | Parcial |
-| RR. HH. › Importar Planilla | FrmIplanilla | — | Falta |
+| Tesorería › Pagos | FrmRegpagos | `/treasury` | Hecho (octava pasada) |
+| Tesorería › Bancos | FRMBANCOS | Tesorería › Cargar gastos, Pago directo | Hecho (tercera auditoría) |
+| RR. HH. › Programación | FrmRegrrhh (13 pestañas) | `/payroll-payments`, `/employees`, liquidaciones | Hecho (quinta y novena pasada) |
+| RR. HH. › Importar Planilla | FrmIplanilla | Colaboradores › Importar planilla | Hecho |
 | Logística (6), Finanzas (4), Administrativos | "MODULO EN CONSTRUCCION" en el .NET | Kardex y combustible ya existen en el web | No es brecha |
 
 Perfiles del .NET (Administrador, Contabilidad, Logística, Supervisor, Rrhh, Finanzas) ocultaban menús
@@ -82,8 +82,8 @@ enteros; el web los cubre con roles y permisos por pantalla y acción.
 | Descuento en monto sobre el total de la OC/OS (Txtdescuento) | Hecho | Emitir orden › Descuento; antes de la detracción; en el detalle y el PDF |
 | Concepto del flujo de efectivo desde Tesorería (flujo_requerimiento) | Hecho | Tesorería › botón de flujo en cada orden, también ya pagada |
 | Corregir el monto de una OC/OS (actualizar_monto_requerim) | Hecho | Tesorería › Corregir monto: rehace las cuotas, sin pagos, con motivo |
-| Importar estado de cuenta del banco con ingresos (FRMBANCOS) | Pendiente | Falta un estado de cuenta real en Excel para el formato |
-| Cuotas mensuales por calendario, proveedor en caja chica, ciudad al importar planilla | Pendiente (menor) | |
+| Importar estado de cuenta del banco con ingresos (FRMBANCOS) | No es brecha | En pantalla (tercera auditoría) FRMBANCOS no lee estados de cuenta: carga gastos; ya está en Tesorería › Cargar gastos |
+| Cuotas mensuales por calendario, proveedor en caja chica, ciudad al importar planilla | Hecho | Tercera y cuarta pasada |
 
 ## Tercera auditoría (28/10/2026, en pantalla en el .exe + código)
 | Pantalla | Hallazgo | Estado |
@@ -207,3 +207,14 @@ Etiquetas de Tesorería con los nombres del ERP: "Cliente / Proveedor · Documen
 | FrmReqProg › Programación Costos Fijos | "Monto Bruto" es el monto de cada cuota y las cuotas van mes a mes (DateAdd Month) | Ya estaba igual: "Monto por cuota" + "Cuotas" + "Primera cuota", totales por moneda |
 
 Probado en el navegador (Empresa Demo): Excel con una fila buena y una en dólares → # Registros 2, Total S/ 19.00, Válidos 1, No válidos 1, "Procesar carga" deshabilitado, nada guardado. Tesorería: Desde 16/10 a 31/10 = 5 cuotas (igual que la base), sin planilla = 4.
+
+## Novena pasada (29/10/2026): Compras x Producto, reportes de FrmReq y Datos de liquidación en el .exe
+| .NET | Hallazgo en pantalla / código | Web |
+|---|---|---|
+| Consultar Compras x Producto (FrmConsultar) | Busca por nombre y el reporte CRprodcotiz recibe el **nombre** (dos "MANO DE OBRA" se mezclan); encabezados corridos ("UNID MED" muestra la clasificación, "CANTIDAD" la unidad); el botón Imprimir queda fuera de pantalla en 1456 px | Ya estaba, mejor: elige el producto por su id, columnas Fecha, Orden, Proveedor, RUC, Placa, Cantidad, Costo unitario, Total, Moneda y Fuente del costo; exportar a Excel |
+| FrmReq › Reportes cancelaciones (Desde, Hasta, Estado) | Cancelado → CRcancelacionesreq; si no → CRprogpagos | Ya estaba: Reportes › Cancelaciones por requerimiento y Pago general: pendientes |
+| FrmReq › Reportes › Reporte de Anticipos | Abre CRprogpagosreq (pagos sin programar) en un visor de otra pestaña: no muestra nada ni es de anticipos | Ya estaba, correcto: Reportes › Anticipos (proveedor, orden aplicada) y Pagos sin programar por separado |
+| FrmRegrrhh › MANT. COLABORADORES › Datos Liquidación (CTS, Vac. truncas, Gratificaciones, Vac. no gozadas, Monto liquidación) + CRliquidacion | Montos escritos a mano; `liquidar_colaborador` se llama siempre con código **0** (no queda ligado al colaborador) | Ya estaba, mejor: Liquidaciones calcula cada concepto con su base y fórmula, ligado al colaborador y a la empresa |
+| Finanzas › Provisiones, Cancelaciones, Cuentas por pagar, Plan de cuentas | "MODULO EN CONSTRUCCION" | No es brecha |
+
+Sin brechas nuevas: no hubo cambios de código en esta pasada.
