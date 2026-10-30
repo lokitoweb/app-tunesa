@@ -10467,6 +10467,7 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 /* Tabla → tarjetas en celular: cada fila es una tarjeta con sus etiquetas */
 @media (max-width: 767.98px) {
     .table-cards > thead { display: none; }
+    .data-table.table-cards > tbody > tr > td { background: transparent !important; }
     .table-cards, .table-cards > tbody, .table-cards > tbody > tr, .table-cards > tbody > tr > td { display: block; width: 100%; }
     .table-cards > tbody > tr:not(.row-detail):not(.row-empty) { position: relative; padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-color); }
     .table-cards > tbody > tr > td { padding: 0 !important; border: 0 !important; text-align: left !important; max-width: none; min-width: 0; }
@@ -10499,3 +10500,16 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 .data-table > tbody > tr.is-clickable { cursor: pointer; }
 .cell-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; font-weight: 600; color: var(--brand); text-decoration: none; }
 .cell-code:hover { text-decoration: underline; }
+
+/* Indicadores de tres, selector de periodo y tarjetas por concepto */
+.dash-kpis.dash-kpis-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.period-field { min-width: 140px; }
+.concept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
+.concept-card { padding: 0.85rem 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.concept-card-title { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); }
+.concept-card-value { margin-top: 0.2rem; font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+@media (max-width: 575.98px) {
+    .dash-kpis.dash-kpis-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dash-kpis.dash-kpis-3 > :first-child { grid-column: 1 / -1; }
+    .period-field { flex: 1 1 0; min-width: 0; }
+}
