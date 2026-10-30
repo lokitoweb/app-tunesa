@@ -21,6 +21,7 @@ class PasswordHelpTest extends TestCase
     {
         $this->seedRoles();
         Notification::fake();
+        config(['mail.default' => 'smtp']); // servidor con correo real
         $acme = $this->makeTenant('acme');
         $hr = $this->makeUser($acme, 'hr_manager');
         $ana = $this->makeUser($acme, 'employee', ['email' => 'ana@acme.test']);

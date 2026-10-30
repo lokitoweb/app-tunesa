@@ -105,6 +105,7 @@ class LoginByEmailTest extends TestCase
     public function test_app_forgot_password_mails_a_temporary_password_and_old_reset_routes_stay_closed(): void
     {
         \Illuminate\Support\Facades\Notification::fake();
+        config(['mail.default' => 'smtp']); // servidor con correo real
         $ana = $this->makeUser($this->makeTenant('acme'), 'employee', ['email' => 'ana@acme.test']);
 
         // La app (sin código de empresa): contraseña temporal por correo, respuesta neutra

@@ -28,6 +28,8 @@ class PasswordRecoveryTest extends TestCase
         $this->seedRoles();
         $this->acme = $this->makeTenant('acme');
         $this->ana  = $this->makeUser($this->acme, 'hr_manager', ['email' => 'ana@acme.pe', 'password' => 'ClaveVieja123']);
+        // Servidor con correo real (SMTP); los envíos igual quedan interceptados en cada prueba
+        config(['mail.default' => 'smtp']);
     }
 
     /** La contraseña que llegó por correo (para probar que sirve) */
@@ -109,6 +111,23 @@ class PasswordRecoveryTest extends TestCase
         $this->assertTrue(Hash::check('ClaveVieja123', $ana->password));
         $this->assertFalse((bool) $ana->must_change_password);
         $this->assertFalse(AuditLog::where('action', 'auth.password_recovered')->exists());
+    }
+
+    /** Producción sin correo (MAIL_MAILER=log): la clave no se toca (nunca le llegaría) y RR. HH. recibe el pedido */
+    public function test_without_a_real_mail_server_the_password_is_not_changed_and_hr_is_asked(): void
+    {
+        config(['mail.default' => 'log']);
+        $boss = $this->makeUser($this->acme, 'hr_manager');
+
+        $this->post(route('password.email'), ['email' => 'ana@acme.pe'])->assertSessionHas('status', PasswordRecovery::RESPONSE);
+
+        $this->assertTrue(Hash::check('ClaveVieja123', $this->ana->fresh()->password));
+        $this->assertFalse((bool) $this->ana->fresh()->must_change_password);
+        $this->assertTrue($boss->notifications()->where('type', (new PasswordHelpRequested($this->ana))->type())->exists());
+
+        // Con SMTP propio de la empresa (Ajustes) sí sale, aunque el servidor esté en "log"
+        \App\Modules\Core\Models\TenantSetting::editableRowFor($this->acme)->fill(['smtp_host' => 'smtp.acme.pe', 'smtp_username' => 'no-reply@acme.pe'])->save();
+        $this->assertTrue(PasswordRecovery::mailDelivers($this->ana->fresh()));
     }
 
     public function test_the_app_endpoint_sends_it_too_and_company_domains_only_serve_their_users(): void

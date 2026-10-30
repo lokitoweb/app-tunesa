@@ -46,6 +46,14 @@ class PasswordRecovery
         if (! Cache::add("password-recovery:{$user->id}", true, now()->addMinutes(self::THROTTLE_MINUTES))) {
             return;
         }
+        // Sin un correo que salga de verdad (MAIL_MAILER=log y sin SMTP propio de la empresa) la clave
+        // no se toca: nunca le llegaría y quedaría sin acceso. RR. HH. recibe el pedido, como antes.
+        if (! self::mailDelivers($user)) {
+            Log::warning("Recuperación de contraseña de {$user->email}: el servidor no envía correos (MAIL_MAILER=" . config('mail.default') . '); se avisó a RR. HH.');
+            $this->askHumanResources($user);
+
+            return;
+        }
 
         $password = $this->credentials->temporaryPassword();
         try {
@@ -64,6 +72,13 @@ class PasswordRecovery
         }
 
         $this->audit->log('auth.password_recovered', $user, ['name' => $user->full_name, 'channel' => 'email']);
+    }
+
+    /** ¿El correo de esta persona sale de verdad? SMTP propio de su empresa, o un mailer real en el servidor */
+    public static function mailDelivers(User $user): bool
+    {
+        return \App\Modules\Core\Models\TenantSetting::forTenant($user->tenant)->smtp() !== null
+            || ! in_array(config('mail.default'), ['log', 'array'], true);
     }
 
     /** Respaldo: si el correo no sale, RR. HH. recibe el pedido para restablecer el acceso desde el panel */
