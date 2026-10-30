@@ -165,38 +165,20 @@ const pushEmail = ref('');
 
 <template>
     <AppLayout title="Integraciones y Webhooks">
-        <!-- Header Ejecutivo Moderno con Hub de Navegación -->
-        <div class="settings-header-card">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="settings-header-icon" style="background: linear-gradient(135deg, var(--brand) 0%, #0369a1 100%);">
-                        <i class="bi bi-plug-fill"></i>
-                    </div>
-                    <div>
-                        <div class="d-flex align-items-center gap-2">
-                            <h1 class="settings-header-title mb-0">Integraciones y Webhooks</h1>
-                            <span v-if="isGlobal" class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 rounded-pill font-monospace fw-semibold" style="font-size: 0.7rem;">GLOBAL</span>
-                            <span v-else class="badge bg-info-subtle text-info border border-info-subtle px-2 py-0.5 rounded-pill fw-semibold" style="font-size: 0.7rem;">{{ ownerName }}</span>
-                        </div>
-                        <p class="settings-header-subtitle mb-0 mt-0.5">Endpoints de webhook, geocodificación inversa y notificaciones push de {{ isGlobal ? 'la plataforma' : ownerName }}.</p>
-                    </div>
-                </div>
-                <div class="settings-hub-nav">
-                    <a href="/settings/branding" class="settings-hub-btn" title="Configurar identidad y colores">
-                        <i class="bi bi-palette"></i>
-                        <span>Marca y apariencia</span>
-                    </a>
-                    <a href="/settings/mobile" class="settings-hub-btn" title="Configurar app móvil">
-                        <i class="bi bi-phone"></i>
-                        <span>App móvil</span>
-                    </a>
-                    <span class="settings-hub-btn is-active" aria-current="page">
-                        <i class="bi bi-plug-fill text-primary"></i>
-                        <span>Integraciones</span>
-                    </span>
-                </div>
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Integraciones y webhooks</h1>
+                <p class="page-subtitle">Endpoints de webhook, geocodificación inversa y notificaciones push de {{ isGlobal ? 'la plataforma' : ownerName }}.</p>
+                <span class="status-pill mt-2" :class="isGlobal ? 'tone-brand' : 'tone-blue'">{{ isGlobal ? 'Valores de toda la plataforma' : ownerName }}</span>
             </div>
-        </div>
+            <nav class="page-actions" aria-label="Secciones de ajustes">
+                <div class="seg-tabs">
+                    <a href="/settings/branding" class="seg-tab"><i class="bi bi-palette"></i>Marca y apariencia</a>
+                    <a href="/settings/mobile" class="seg-tab"><i class="bi bi-phone"></i>App móvil</a>
+                    <a href="/settings/integrations" class="seg-tab is-active" aria-current="page"><i class="bi bi-plug"></i>Integraciones</a>
+                </div>
+            </nav>
+        </header>
 
         <!-- Banner Ejecutivo de Modo Global -->
         <div v-if="isGlobal" class="settings-global-notice mb-4" role="status">

@@ -34,41 +34,12 @@
     ];
 @endphp
 
-{{-- Header Ejecutivo Moderno con Hub de Navegación --}}
-<div class="settings-header-card">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-        <div class="d-flex align-items-center gap-3">
-            <div class="settings-header-icon" style="background: linear-gradient(135deg, var(--brand) 0%, #0369a1 100%);">
-                <i class="bi bi-phone-fill"></i>
-            </div>
-            <div>
-                <div class="d-flex align-items-center gap-2">
-                    <h1 class="settings-header-title mb-0">Configuración de la app móvil</h1>
-                    @if($config)
-                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-0.5 rounded-pill font-monospace fw-semibold" style="font-size: 0.7rem;">EMPRESA ACTIVA</span>
-                    @else
-                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-0.5 rounded-pill font-monospace fw-semibold" style="font-size: 0.7rem;">SELECCIONA EMPRESA</span>
-                    @endif
-                </div>
-                <p class="settings-header-subtitle mb-0 mt-0.5">Controla las secciones visibles, permisos de edición y legajo obligatorio para los colaboradores desde su smartphone.</p>
-            </div>
-        </div>
-        <div class="settings-hub-nav">
-            <a href="{{ route('settings.branding') }}" class="settings-hub-btn" title="Configurar identidad y colores">
-                <i class="bi bi-palette"></i>
-                <span>Marca y apariencia</span>
-            </a>
-            <span class="settings-hub-btn is-active" aria-current="page">
-                <i class="bi bi-phone-fill text-primary"></i>
-                <span>App móvil</span>
-            </span>
-            <a href="{{ route('settings.integrations') }}" class="settings-hub-btn" title="Configurar integraciones y webhooks">
-                <i class="bi bi-plug"></i>
-                <span>Integraciones</span>
-            </a>
-        </div>
-    </div>
-</div>
+@include('settings.partials.header', [
+    'title' => 'Configuración de la app móvil',
+    'subtitle' => 'Secciones visibles, permisos de edición y legajo obligatorio para los colaboradores en su celular.',
+    'pill' => $config ? ['emerald', 'Empresa activa'] : ['amber', 'Selecciona una empresa'],
+    'active' => 'mobile',
+])
 
 @if(! $config)
     <div class="card border-0 shadow-sm mobile-settings-card mb-4">

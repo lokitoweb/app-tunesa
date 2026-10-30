@@ -39,41 +39,12 @@
     };
 @endphp
 
-{{-- Header Ejecutivo Moderno con Hub de Navegación --}}
-<div class="settings-header-card">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-        <div class="d-flex align-items-center gap-3">
-            <div class="settings-header-icon">
-                <i class="bi bi-palette-fill"></i>
-            </div>
-            <div>
-                <div class="d-flex align-items-center gap-2">
-                    <h1 class="settings-header-title mb-0">Marca y personalización</h1>
-                    @if($isGlobal)
-                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5 rounded-pill font-monospace fw-semibold" style="font-size: 0.7rem;">GLOBAL</span>
-                    @else
-                        <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-0.5 rounded-pill fw-semibold" style="font-size: 0.7rem;">{{ $tenant->company_name }}</span>
-                    @endif
-                </div>
-                <p class="settings-header-subtitle mb-0 mt-0.5">Identidad corporativa, logotipos, paleta de colores y reglas operativas de {{ rtrim($ownerName, '.') }}.</p>
-            </div>
-        </div>
-        <div class="settings-hub-nav">
-            <span class="settings-hub-btn is-active" aria-current="page">
-                <i class="bi bi-palette-fill text-primary"></i>
-                <span>Marca y apariencia</span>
-            </span>
-            <a href="{{ route('settings.mobile') }}" class="settings-hub-btn" title="Configurar aplicación móvil">
-                <i class="bi bi-phone"></i>
-                <span>App móvil</span>
-            </a>
-            <a href="{{ route('settings.integrations') }}" class="settings-hub-btn" title="Configurar integraciones y webhooks">
-                <i class="bi bi-plug"></i>
-                <span>Integraciones</span>
-            </a>
-        </div>
-    </div>
-</div>
+@include('settings.partials.header', [
+    'title' => 'Marca y personalización',
+    'subtitle' => 'Logotipos, colores y reglas operativas de ' . rtrim($ownerName, '.') . '.',
+    'pill' => $isGlobal ? ['brand', 'Valores de toda la plataforma'] : ['blue', $tenant->company_name],
+    'active' => 'branding',
+])
 
 @if($isGlobal)
     {{-- Banner Ejecutivo de Modo Global (Valores por Defecto) --}}
