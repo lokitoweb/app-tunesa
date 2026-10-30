@@ -136,8 +136,10 @@ class DiagnosePush extends Command
         $attendance = \App\Modules\Attendance\Models\Attendance::where('user_id', $user->id)->where('work_date', $today->toDateString())->first();
         $this->line('        Hoy marcó: entrada ' . ($attendance?->clock_in_at?->format('H:i') ?? '—') . ', salida ' . ($attendance?->clock_out_at?->format('H:i') ?? '—')
             . ' (si ya marcó, no se le recuerda)');
-        $last = fn (string $type) => $user->notifications()->where('type', $type)->latest()->value('created_at');
-        $this->line('        Último recordatorio de entrada: ' . ($last('attendance.entry_reminder') ?? 'nunca') . ' · de salida: ' . ($last('attendance.exit_reminder') ?? 'nunca'));
+        // El recordatorio es solo push (no queda en la bandeja): se lee la marca que deja el envío de hoy
+        $sentAt = cache()->get(\App\Modules\Attendance\Console\SendEntryReminders::entryKey($user->id, $today->toDateString()));
+        $this->line('        Recordatorio de entrada de hoy: ' . ($sentAt ? (is_string($sentAt) ? "enviado a las {$sentAt}" : 'enviado') : 'aún no enviado')
+            . ' (el detalle de cada envío o error queda en storage/logs/laravel.log: «Recordatorio de entrada»)');
         app(\App\Modules\Core\Services\TenantContext::class)->clear();
     }
 }

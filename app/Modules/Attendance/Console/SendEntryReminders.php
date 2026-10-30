@@ -46,6 +46,12 @@ class SendEntryReminders extends Command
 
     protected $description = 'Push 5 min antes del turno a quien no marcó entrada y 5 min después a quien no marcó salida';
 
+    /** Marca de "ya se le recordó la entrada ese día" (guarda la hora del envío; push:diagnose la lee) */
+    public static function entryKey(int $userId, string $day): string
+    {
+        return "entry-reminder:{$userId}:{$day}";
+    }
+
     public function handle(TenantContext $context): int
     {
         $tenants = Tenant::where('status', 'active')
@@ -133,12 +139,20 @@ class SendEntryReminders extends Command
                 continue;
             }
             // Un aviso por persona y día aunque el comando corra varias veces
-            if (! Cache::add("entry-reminder:{$user->id}:{$day}", true, now()->addDay())) {
+            $key = self::entryKey($user->id, $day);
+            if (! Cache::add($key, $now->format('H:i'), now()->addDay())) {
                 continue;
             }
             $start = Carbon::parse("{$day} {$assignment->shift->start_time}", $now->getTimezone());
-            $user->notify(new EntryReminder($assignment->shift, $day, $now->lt($start)));
-            $sent++;
+            // Si el envío falla, se libera para reintentar en el minuto siguiente y no frena a los demás
+            try {
+                $user->notify(new EntryReminder($assignment->shift, $day, $now->lt($start)));
+                Log::info("Recordatorio de entrada enviado a {$user->email} (turno {$assignment->shift->start_time}, {$day})");
+                $sent++;
+            } catch (\Throwable $e) {
+                Cache::forget($key);
+                Log::warning("Recordatorio de entrada a {$user->email} falló: " . $e->getMessage());
+            }
         }
 
         return $sent;
@@ -163,11 +177,18 @@ class SendEntryReminders extends Command
             if ($now->lt($from) || $now->gte($from->copy()->addMinutes(self::WINDOW_MINUTES))) {
                 continue;
             }
-            if (! Cache::add("exit-reminder:{$attendance->id}", true, now()->addDays(2))) {
+            $key = "exit-reminder:{$attendance->id}";
+            if (! Cache::add($key, $now->format('H:i'), now()->addDays(2))) {
                 continue;
             }
-            $attendance->user->notify(new ExitReminder($end, $attendance->work_date->toDateString()));
-            $sent++;
+            try {
+                $attendance->user->notify(new ExitReminder($end, $attendance->work_date->toDateString()));
+                Log::info("Recordatorio de salida enviado a {$attendance->user->email} ({$attendance->work_date->toDateString()})");
+                $sent++;
+            } catch (\Throwable $e) {
+                Cache::forget($key);
+                Log::warning("Recordatorio de salida a {$attendance->user->email} falló: " . $e->getMessage());
+            }
         }
 
         return $sent;
