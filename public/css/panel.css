@@ -10560,3 +10560,6 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 
 /* Fila anulada: se ve, pero atenuada */
 .data-table > tbody > tr.is-muted > td { opacity: 0.55; }
+
+/* Utilidad que Bootstrap no trae (se usaba en muchas pantallas sin efecto): deja que un hijo flex se encoja y recorte su texto */
+.min-w-0 { min-width: 0 !important; }
