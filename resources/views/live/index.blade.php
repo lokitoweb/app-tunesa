@@ -10,144 +10,117 @@
     #liveList::-webkit-scrollbar { width: 5px; }
     #liveList::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); border-radius: 4px; }
     .live-times { font-variant-numeric: tabular-nums; }
+    .live-legend { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+    .live-counter { cursor: pointer; transition: box-shadow var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out); }
+    .live-counter:focus-visible { outline: none; box-shadow: var(--ring); }
+    .live-counter.active { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+    .dash-kpis.dash-kpis-auto { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    @media (max-width: 575.98px) { .dash-kpis.dash-kpis-auto { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 @endsection
 
 @section('content')
-{{-- Header del Tablero en Vivo --}}
-<div class="live-board-header">
-    <div>
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <h1 class="h2 fw-bold mb-0" style="color: var(--text-primary); letter-spacing: -0.02em;">Tablero en vivo</h1>
-        </div>
-        <p class="mb-0" style="color: var(--text-muted); font-size: 0.875rem;">Quién está trabajando ahora, en descanso, por llegar o ausente{{ ($globalView ?? false) ? ' en todas las empresas' : '' }}.</p>
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-title">Tablero en vivo</h1>
+        <p class="page-subtitle">Quién está trabajando ahora, en descanso, por llegar o ausente{{ ($globalView ?? false) ? ' en todas las empresas' : '' }}.</p>
     </div>
-
-    {{-- Indicador de En Vivo & Botón de Actualizar --}}
-    <div class="d-flex align-items-center gap-2">
+    <div class="page-actions">
         <div class="live-pulse-badge" id="livePulseBadge" title="Transmisión activa">
             <span class="live-pulse-dot" id="liveDot"></span>
             <span id="liveUpdated">En vivo</span>
         </div>
-        <button type="button" id="btnManualPoll" class="live-refresh-btn" title="Actualizar ahora" aria-label="Actualizar">
+        <button type="button" id="btnManualPoll" class="icon-btn" title="Actualizar ahora" aria-label="Actualizar">
             <i class="bi bi-arrow-clockwise"></i>
         </button>
     </div>
-</div>
+</header>
 
-{{-- Contadores Interactivos (KPI Status Cards) --}}
+{{-- Contadores: un clic filtra la lista por ese estado --}}
 @php
     $counterCards = [
-        ['working', 'Trabajando', 'person-workspace', 'rgba(16, 185, 129, 0.1)', '#10b981'],
-        ['on_break', 'En descanso', 'cup-hot', 'rgba(245, 158, 11, 0.1)', '#f59e0b'],
-        ['not_arrived', 'No ha llegado', 'person-x', 'rgba(239, 68, 68, 0.1)', '#ef4444'],
-        ['upcoming', 'Por llegar', 'hourglass-split', 'rgba(100, 116, 139, 0.1)', '#64748b'],
-        ['left', 'Salió', 'box-arrow-right', 'rgba(71, 85, 105, 0.1)', '#475569'],
-        ['on_leave', 'Con permiso', 'calendar2-check', 'rgba(2, 132, 199, 0.1)', '#0284c7'],
+        ['working', 'Trabajando', 'person-workspace', 'emerald'],
+        ['on_break', 'En descanso', 'cup-hot', 'amber'],
+        ['not_arrived', 'No ha llegado', 'person-x', 'rose'],
+        ['upcoming', 'Por llegar', 'hourglass-split', 'neutral'],
+        ['left', 'Salió', 'box-arrow-right', 'neutral'],
+        ['on_leave', 'Con permiso', 'calendar2-check', 'brand'],
     ];
     if ($hasSuspicious) {
-        $counterCards[] = ['suspicious', 'Sospechosas', 'shield-exclamation', 'rgba(217, 119, 6, 0.1)', '#d97706'];
+        $counterCards[] = ['suspicious', 'Sospechosas', 'shield-exclamation', 'amber'];
     }
 @endphp
-<div class="row g-2 g-md-3 mb-4">
-    @foreach($counterCards as [$key, $label, $icon, $bgColor, $iconColor])
-        <div class="col-6 col-md-4 col-xl">
-            <div class="card border-0 h-100 live-status-card live-counter" role="button" tabindex="0" data-status="{{ $key }}" aria-label="Filtrar por: {{ $label }}">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <span class="live-status-label">{{ $label }}</span>
-                    <span class="live-status-icon" style="background: {{ $bgColor }}; color: {{ $iconColor }};">
-                        <i class="bi bi-{{ $icon }}"></i>
-                    </span>
-                </div>
-                <div class="live-status-val" data-counter="{{ $key }}">–</div>
+<section class="dash-kpis dash-kpis-auto" aria-label="Estado del personal">
+    @foreach($counterCards as [$key, $label, $icon, $tone])
+        <article class="dash-kpi-card live-counter" role="button" tabindex="0" data-status="{{ $key }}" aria-label="Filtrar por: {{ $label }}">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">{{ $label }}</span>
+                <span class="dash-kpi-icon tone-{{ $tone }}"><i class="bi bi-{{ $icon }}"></i></span>
             </div>
-        </div>
+            <div class="dash-kpi-value" data-counter="{{ $key }}">–</div>
+        </article>
     @endforeach
-</div>
+</section>
 
 <div class="row g-3">
-    {{-- Columna Izquierda: Lista Filtrable de Colaboradores --}}
+    {{-- Lista filtrable de colaboradores --}}
     <div class="col-12 col-xl-7">
-        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border: 1px solid var(--border-color) !important; background: var(--bg-surface); overflow: hidden;">
-            <div class="card-header border-bottom p-3" style="background: var(--bg-surface); border-color: var(--border-color) !important;">
-                <form class="row g-2 align-items-center" id="liveFilters" onsubmit="return false">
-                    <div class="col-12 col-sm-4">
-                        <select id="liveBranch" class="form-select form-select-sm" style="border-radius: 8px; border-color: var(--border-color); background-color: var(--bg-surface); color: var(--text-primary); height: 36px; font-size: 0.825rem;">
-                            <option value="">Todas las sucursales</option>
-                            @foreach($branches as $b)
-                                <option value="{{ $b->id }}">{{ $b->name }}@if($globalView ?? false) · {{ $tenantNames[$b->tenant_id] ?? '' }}@endif</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-6 col-sm-3">
-                        <select id="liveStatus" class="form-select form-select-sm" style="border-radius: 8px; border-color: var(--border-color); background-color: var(--bg-surface); color: var(--text-primary); height: 36px; font-size: 0.825rem;">
-                            <option value="">Todos los estados</option>
-                            @foreach($statuses as $key => $label)
-                                <option value="{{ $key }}">{{ $label }}</option>
-                            @endforeach
-                            @if($hasSuspicious)<option value="suspicious">Sospechosas</option>@endif
-                        </select>
-                    </div>
-                    <div class="col-6 col-sm-5">
-                        <div class="company-search-wrapper" style="width: 100%;">
-                            <i class="bi bi-search search-icon"></i>
-                            <input type="search" id="liveSearch" class="company-search-input" style="height: 36px;" placeholder="Buscar colaborador o código...">
-                        </div>
-                    </div>
-                </form>
-            </div>
+        <section class="surface h-100 d-flex flex-column overflow-hidden">
+            <form class="filter-row" id="liveFilters" role="search" onsubmit="return false">
+                <div class="search-field">
+                    <i class="bi bi-search"></i>
+                    <input type="search" id="liveSearch" class="form-control" placeholder="Buscar colaborador o código…" aria-label="Buscar colaborador o código">
+                </div>
+                <select id="liveBranch" class="form-select w-auto" aria-label="Sucursal">
+                    <option value="">Todas las sucursales</option>
+                    @foreach($branches as $b)
+                        <option value="{{ $b->id }}">{{ $b->name }}@if($globalView ?? false) · {{ $tenantNames[$b->tenant_id] ?? '' }}@endif</option>
+                    @endforeach
+                </select>
+                <select id="liveStatus" class="form-select w-auto" aria-label="Estado">
+                    <option value="">Todos los estados</option>
+                    @foreach($statuses as $key => $label)
+                        <option value="{{ $key }}">{{ $label }}</option>
+                    @endforeach
+                    @if($hasSuspicious)<option value="suspicious">Sospechosas</option>@endif
+                </select>
+            </form>
 
-            {{-- Listado en vivo con scroll suave --}}
-            <div class="list-group list-group-flush" id="liveList" aria-live="polite">
-                <div class="text-center py-5">
+            <div class="list-group list-group-flush flex-grow-1" id="liveList" aria-live="polite">
+                <div class="dash-empty py-5">
                     <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
-                    <div class="text-secondary small fw-medium">Sincronizando estado en vivo…</div>
+                    <p class="dash-empty-text">Sincronizando estado en vivo…</p>
                 </div>
             </div>
 
-            {{-- Contador de personas en footer --}}
-            <div class="card-footer border-top px-3 py-2 d-flex align-items-center justify-content-between small text-secondary" style="background: var(--bg-surface); border-color: var(--border-color) !important;">
+            <footer class="surface-foot small text-body-secondary">
                 <span id="liveCount"><i class="bi bi-people me-1"></i>0 colaboradores</span>
-                <span class="text-muted" style="font-size: 0.75rem;">Monitoreo en vivo cada 10s</span>
-            </div>
-        </div>
+                <span>Se actualiza cada 10 s</span>
+            </footer>
+        </section>
     </div>
 
-    {{-- Columna Derecha: Mapa de Marcaciones en Tiempo Real --}}
+    {{-- Mapa de entradas de hoy --}}
     <div class="col-12 col-xl-5">
-        <div class="card border-0 shadow-sm h-100" style="border-radius: 12px; border: 1px solid var(--border-color) !important; background: var(--bg-surface); overflow: hidden;">
-            <div class="card-header border-bottom p-3 d-flex align-items-center justify-content-between" style="background: var(--bg-surface); border-color: var(--border-color) !important;">
+        <section class="surface h-100">
+            <div class="surface-head">
                 <div>
-                    <h2 class="h6 fw-bold mb-0 d-flex align-items-center gap-2" style="color: var(--text-primary);">
-                        <i class="bi bi-geo-alt-fill text-primary"></i>
-                        <span>Entradas por Ubicación</span>
-                    </h2>
-                    <small class="text-muted" style="font-size: 0.75rem;">Puntos GPS y ubicaciones autorizadas de hoy</small>
+                    <h2 class="surface-title">Entradas por ubicación</h2>
+                    <p class="surface-sub">Puntos GPS y ubicaciones autorizadas de hoy</p>
                 </div>
-                <button type="button" id="btnCenterMap" class="btn btn-sm d-inline-flex align-items-center gap-1" style="border-radius: 8px; font-size: 0.775rem; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-muted);" title="Reencuadrar mapa en sucursales">
-                    <i class="bi bi-crosshair"></i>
-                    <span class="d-none d-sm-inline">Centrar</span>
+                <button type="button" id="btnCenterMap" class="btn btn-sm btn-light border" title="Reencuadrar mapa en sucursales">
+                    <i class="bi bi-crosshair me-1"></i>Centrar
                 </button>
             </div>
-            <div class="card-body p-3" style="background: var(--bg-surface);">
+            <div class="surface-pad">
                 <div id="liveBoardMap"></div>
-                {{-- Leyenda de colores --}}
-                <div class="d-flex flex-wrap align-items-center gap-3 small text-muted mt-2 px-1" style="font-size: 0.775rem;">
-                    <span class="d-inline-flex align-items-center gap-1">
-                        <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--brand);"></span>
-                        <span>Ubicación autorizada</span>
-                    </span>
-                    <span class="d-inline-flex align-items-center gap-1">
-                        <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:#10b981;"></span>
-                        <span>Dentro de ubicación</span>
-                    </span>
-                    <span class="d-inline-flex align-items-center gap-1">
-                        <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:#ef4444;"></span>
-                        <span>Fuera de ubicación</span>
-                    </span>
+                <div class="d-flex flex-wrap align-items-center gap-3 small text-body-secondary mt-2">
+                    <span class="d-inline-flex align-items-center gap-1"><span class="live-legend" style="background: var(--brand);"></span>Ubicación autorizada</span>
+                    <span class="d-inline-flex align-items-center gap-1"><span class="live-legend" style="background: #10b981;"></span>Dentro de ubicación</span>
+                    <span class="d-inline-flex align-items-center gap-1"><span class="live-legend" style="background: #ef4444;"></span>Fuera de ubicación</span>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
 </div>
 @endsection
@@ -160,13 +133,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const GLOBAL_VIEW = @json((bool) ($globalView ?? false));
     const BASE_DELAY = 10000;     {{-- sondeo normal: 10 s --}}
     const MAX_DELAY = 300000;     {{-- tope del reintento: 5 min --}}
-    const TONES = { 
-        working: 'success', 
-        on_break: 'warning', 
-        not_arrived: 'danger', 
-        upcoming: 'secondary', 
-        left: 'dark', 
-        on_leave: 'primary' 
+    const TONES = {
+        working: 'emerald',
+        on_break: 'amber',
+        not_arrived: 'rose',
+        upcoming: 'neutral',
+        left: 'neutral',
+        on_leave: 'brand'
     };
 
     const els = {
@@ -193,8 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const center = [parseFloat(b.latitude), parseFloat(b.longitude)];
         L.circle(center, { 
             radius: parseInt(b.allowed_radius_meters, 10) || 50, 
-            color: '#0284c7', 
-            fillColor: '#0284c7', 
+            color: brand,
+            fillColor: brand,
             fillOpacity: .12, 
             weight: 2 
         }).addTo(map).bindPopup(`<strong style="font-size:0.9rem;">${Panel.esc(b.name)}</strong><br><small class="text-muted">Radio permitido: ${b.allowed_radius_meters || 50}m</small>`);
@@ -309,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function rowHtml(r) {
-        const tone = TONES[r.status] || 'secondary';
+        const tone = TONES[r.status] || 'neutral';
         const photoSrc = r.photo_url || r.avatar_url;
         const init = initials(r.name);
         
@@ -325,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             : `<span class="live-collab-name fw-bold">${Panel.esc(r.name)}</span>`;
         
         const suspiciousBadge = r.suspicious 
-            ? '<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-2 ms-1" style="font-size:0.7rem;"><i class="bi bi-shield-exclamation"></i> Sospechosa</span>' 
+            ? '<span class="status-pill tone-amber ms-1"><i class="bi bi-shield-exclamation"></i>Sospechosa</span>'
             : '';
 
         {{-- Horarios: ABAJO DE LA SEDE PRINCIPAL (como en la Imagen 2) --}}
@@ -337,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const lateTag = r.late_minutes > 0 
-            ? `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-2 px-1.5 py-0 ms-1" style="font-size:0.675rem;">+${Panel.minutes(r.late_minutes)} tarde</span>` 
+            ? `<span class="status-pill tone-amber ms-1">+${Panel.minutes(r.late_minutes)} tarde</span>`
             : '';
 
         {{-- Empresa (DONDE EL USUARIO PIDIÓ MOVERLA, EN EL CENTRO) --}}
@@ -388,9 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             {{-- Columna 4: Estado --}}
             <div class="live-collab-status text-end flex-shrink-0">
-                <span class="badge bg-${tone}-subtle text-${tone}-emphasis border border-${tone}-subtle rounded-2 px-2.5 py-1.5 fw-semibold" style="font-size:0.75rem;">
-                    ${Panel.esc(r.status_label)}
-                </span>
+                <span class="status-pill tone-${tone}">${Panel.esc(r.status_label)}</span>
             </div>
         </div>`;
     }
@@ -406,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const rows = payload.rows.filter(matches);
         els.list.innerHTML = rows.length
             ? rows.map(rowHtml).join('')
-            : '<div class="text-center py-5 text-muted small"><i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>No hay colaboradores que coincidan con los filtros.</div>';
+            : '<div class="dash-empty py-5"><span class="dash-empty-icon"><i class="bi bi-inbox"></i></span><p class="dash-empty-title">Sin coincidencias</p><p class="dash-empty-text">No hay colaboradores que coincidan con los filtros.</p></div>';
         
         els.count.innerHTML = `<i class="bi bi-people me-1 text-primary"></i><strong>${rows.length}</strong> de ${payload.rows.length} colaboradores`;
 

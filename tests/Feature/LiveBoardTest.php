@@ -236,9 +236,9 @@ class LiveBoardTest extends TestCase
         $this->assertStringNotContainsString('card-footer bg-light', $content);
         $this->assertStringNotContainsString('text-dark', $content);
 
-        // Must use tokenized variables
+        // Must use the shared themed components (their colors come from tokens in panel.css)
         $this->assertStringContainsString('var(--border-color)', $content);
-        $this->assertStringContainsString('var(--bg-surface)', $content);
-        $this->assertStringContainsString('var(--text-primary)', $content);
+        $this->assertStringContainsString('class="surface', $content);
+        $this->assertStringContainsString('class="dash-kpi-card', $content);
     }
 }
