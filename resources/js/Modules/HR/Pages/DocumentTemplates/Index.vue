@@ -41,41 +41,46 @@ async function reset(t) {
 
 <template>
     <AppLayout title="Plantillas de documentos">
-        <div class="mb-3">
-            <h1 class="h4 fw-bold mb-1">Plantillas de documentos</h1>
-            <p class="text-body-secondary small mb-0">
-                Textos de la liquidación, el certificado de trabajo y la carta de CTS. Los campos entre llaves se llenan solos con los datos de la
-                empresa, del colaborador y de quien firma. Deja una línea en blanco para separar párrafos.
-            </p>
-        </div>
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Plantillas de documentos</h1>
+                <p class="page-subtitle">
+                    Textos de la liquidación, el certificado de trabajo y la carta de CTS. Los campos entre llaves se llenan solos con los datos de la
+                    empresa, del colaborador y de quien firma. Deja una línea en blanco para separar párrafos.
+                </p>
+            </div>
+        </header>
 
-        <div v-for="t in templates" :key="t.key" class="card shadow-sm mb-3">
-            <form class="card-body" @submit.prevent="save(t)">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                    <h2 class="h6 fw-bold mb-0">
-                        {{ t.standard_title }}
-                        <span v-if="t.custom" class="badge bg-warning-subtle text-warning-emphasis ms-1">personalizado</span>
-                    </h2>
+        <section v-for="t in templates" :key="t.key" class="surface mb-3">
+            <form @submit.prevent="save(t)">
+                <header class="surface-head">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="list-plain-icon"><i class="bi bi-file-earmark-text"></i></span>
+                        <h2 class="surface-title">{{ t.standard_title }}</h2>
+                        <span v-if="t.custom" class="status-pill tone-amber">Personalizado</span>
+                        <span v-if="forms[t.key].isDirty" class="status-pill tone-brand">Sin guardar</span>
+                    </div>
                     <div class="d-flex gap-2">
-                        <button v-if="t.custom" type="button" class="btn btn-sm btn-outline-secondary" @click="reset(t)">
-                            <i class="bi bi-arrow-counterclockwise me-1"></i>Texto estándar
-                        </button>
+                        <button v-if="t.custom" type="button" class="btn btn-sm btn-light border" @click="reset(t)"><i class="bi bi-arrow-counterclockwise me-1"></i>Texto estándar</button>
                         <button type="submit" class="btn btn-sm btn-primary" :disabled="!forms[t.key].isDirty || forms[t.key].processing">Guardar</button>
                     </div>
-                </div>
-                <template v-if="t.titled">
-                    <label class="form-label small fw-semibold" :for="`tpl-title-${t.key}`">Título del documento</label>
-                    <input :id="`tpl-title-${t.key}`" v-model="forms[t.key].title" class="form-control form-control-sm mb-2" :class="{ 'is-invalid': forms[t.key].errors.title }" maxlength="150" required />
-                    <div class="invalid-feedback">{{ forms[t.key].errors.title }}</div>
-                </template>
-                <label class="form-label small fw-semibold" :for="`tpl-body-${t.key}`">Texto</label>
-                <textarea :id="`tpl-body-${t.key}`" :ref="(el) => { areas[t.key] = el; }" v-model="forms[t.key].body" rows="10"
-                    class="form-control form-control-sm font-monospace" :class="{ 'is-invalid': forms[t.key].errors.body }" required></textarea>
-                <div class="invalid-feedback">{{ forms[t.key].errors.body }}</div>
-                <div class="d-flex flex-wrap gap-1 mt-2" role="group" aria-label="Insertar campo">
-                    <button v-for="(label, field) in fields" :key="field" type="button" class="btn btn-sm btn-light border" :title="label" @click="insert(t.key, field)" v-text="'{' + field + '}'"></button>
+                </header>
+                <div class="surface-pad">
+                    <template v-if="t.titled">
+                        <label class="form-label" :for="`tpl-title-${t.key}`">Título del documento</label>
+                        <input :id="`tpl-title-${t.key}`" v-model="forms[t.key].title" class="form-control mb-3" :class="{ 'is-invalid': forms[t.key].errors.title }" maxlength="150" required />
+                        <div class="invalid-feedback">{{ forms[t.key].errors.title }}</div>
+                    </template>
+                    <label class="form-label" :for="`tpl-body-${t.key}`">Texto</label>
+                    <textarea :id="`tpl-body-${t.key}`" :ref="(el) => { areas[t.key] = el; }" v-model="forms[t.key].body" rows="10"
+                        class="form-control font-monospace tpl-body" :class="{ 'is-invalid': forms[t.key].errors.body }" required></textarea>
+                    <div class="invalid-feedback">{{ forms[t.key].errors.body }}</div>
+                    <div class="tpl-fields" role="group" aria-label="Insertar campo">
+                        <span class="cell-sub me-1">Insertar:</span>
+                        <button v-for="(label, field) in fields" :key="field" type="button" class="tpl-field" :title="label" @click="insert(t.key, field)" v-text="'{' + field + '}'"></button>
+                    </div>
                 </div>
             </form>
-        </div>
+        </section>
     </AppLayout>
 </template>

@@ -10665,3 +10665,11 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 .filter-bar.filter-bar-flush { border: 0; border-bottom: 1px solid var(--border-color); border-radius: 0; box-shadow: none; background: transparent; }
 .emp-shell > .dash-kpis { margin-bottom: 0; }
 .emp-shell > .page-head { margin-bottom: 0.25rem; }
+
+/* Plantillas de documentos: texto cómodo de leer y campos para insertar */
+.tpl-body { font-size: 0.82rem; line-height: 1.6; }
+.tpl-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin-top: 0.6rem; }
+.tpl-field { height: 26px; padding: 0 0.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-surface-elevated); color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.72rem; transition: border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out); }
+.tpl-field:hover { border-color: var(--brand); color: var(--brand); }
+.tpl-field:active { transform: scale(0.96); }
+.tpl-field:focus-visible { outline: none; box-shadow: var(--ring); }

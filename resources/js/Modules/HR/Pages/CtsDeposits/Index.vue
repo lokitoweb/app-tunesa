@@ -48,84 +48,98 @@ async function sendToTreasury() {
 
 <template>
     <AppLayout title="Depósitos de CTS">
-        <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
-            <div>
-                <h1 class="h4 fw-bold mb-1">Depósitos de CTS</h1>
-                <p class="text-body-secondary small mb-0">
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Depósitos de CTS</h1>
+                <p class="page-subtitle">
                     Semestre del {{ fmtDate(period.start) }} al {{ fmtDate(period.end) }} · se deposita hasta el {{ fmtDate(period.due) }}.
                     Personal en planilla que sigue trabajando al cierre del semestre, con la base y los parámetros de su régimen (quien cesó antes cobra su CTS en la liquidación).
                 </p>
             </div>
-            <div class="d-flex flex-wrap gap-2">
-                <select class="form-select form-select-sm w-auto" :value="period.month" aria-label="Depósito" @change="go({ month: Number($event.target.value) })">
-                    <option :value="5">Mayo (nov – abr)</option>
-                    <option :value="11">Noviembre (may – oct)</option>
-                </select>
-                <select class="form-select form-select-sm w-auto" :value="period.year" aria-label="Año" @change="go({ year: Number($event.target.value) })">
+            <div class="page-actions">
+                <a v-if="totals.registered" :href="`/cts-deposits/print?year=${period.year}&month=${period.month}`" target="_blank" rel="noopener" class="btn btn-light border"><i class="bi bi-printer me-1"></i>Constancias</a>
+                <button v-if="treasury" type="button" class="btn btn-light border" :disabled="!unsent.length" @click="sendToTreasury"><i class="bi bi-cash-coin me-1"></i>Enviar {{ unsent.length }} a Tesorería</button>
+                <button type="button" class="btn btn-primary" :disabled="!pending.length || reg.processing" @click="register"><i class="bi bi-check2-all me-1"></i>Registrar {{ pending.length }} depósito(s)</button>
+            </div>
+        </header>
+
+        <section class="dash-kpis" aria-label="Resumen del semestre">
+            <article class="dash-kpi-card">
+                <div class="dash-kpi-top"><span class="dash-kpi-label">Personas</span><span class="dash-kpi-icon tone-brand"><i class="bi bi-people"></i></span></div>
+                <div class="dash-kpi-value">{{ totals.people }}</div>
+            </article>
+            <article class="dash-kpi-card">
+                <div class="dash-kpi-top"><span class="dash-kpi-label">Monto del semestre</span><span class="dash-kpi-icon tone-emerald"><i class="bi bi-piggy-bank"></i></span></div>
+                <div class="dash-kpi-value kpi-money">S/ {{ money(totals.amount) }}</div>
+            </article>
+            <article class="dash-kpi-card">
+                <div class="dash-kpi-top"><span class="dash-kpi-label">Registrados</span><span class="dash-kpi-icon tone-blue"><i class="bi bi-check2-all"></i></span></div>
+                <div class="dash-kpi-value">{{ totals.registered }}</div>
+            </article>
+            <article v-if="treasury" class="dash-kpi-card">
+                <div class="dash-kpi-top"><span class="dash-kpi-label">En Tesorería</span><span class="dash-kpi-icon tone-amber"><i class="bi bi-bank"></i></span></div>
+                <div class="dash-kpi-value">{{ totals.sent }}</div>
+            </article>
+        </section>
+
+        <section class="surface">
+            <div class="filter-row">
+                <div class="seg-tabs" role="tablist" aria-label="Depósito">
+                    <button type="button" role="tab" class="seg-tab" :class="{ 'is-active': period.month === 5 }" :aria-selected="period.month === 5" @click="go({ month: 5 })">Mayo (nov – abr)</button>
+                    <button type="button" role="tab" class="seg-tab" :class="{ 'is-active': period.month === 11 }" :aria-selected="period.month === 11" @click="go({ month: 11 })">Noviembre (may – oct)</button>
+                </div>
+                <select class="form-select w-auto" :value="period.year" aria-label="Año" @change="go({ year: Number($event.target.value) })">
                     <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
                 </select>
-            </div>
-        </div>
-
-        <div class="card shadow-sm mb-3">
-            <div class="card-body d-flex flex-wrap align-items-center gap-3">
-                <div class="small"><strong>{{ totals.people }}</strong> persona(s) · <strong>S/ {{ money(totals.amount) }}</strong> · {{ totals.registered }} registrado(s)<span v-if="treasury"> · {{ totals.sent }} en Tesorería</span></div>
-                <div class="form-check mb-0">
-                    <input id="cts-overtime" class="form-check-input" type="checkbox" :checked="period.overtime" @change="go({ overtime: $event.target.checked ? 1 : 0 })" />
+                <div class="form-check form-switch mb-0">
+                    <input id="cts-overtime" class="form-check-input" type="checkbox" role="switch" :checked="period.overtime" @change="go({ overtime: $event.target.checked ? 1 : 0 })" />
                     <label class="form-check-label small" for="cts-overtime">Incluir promedio de horas extras (aprobadas, si son regulares)</label>
                 </div>
-                <select v-model="signatory" class="form-select form-select-sm w-auto" aria-label="Firma por la empresa">
+                <select v-model="signatory" class="form-select w-auto ms-auto" aria-label="Firma por la empresa">
                     <option value="">Sin firma registrada</option>
                     <option v-for="s in signatories" :key="s.id" :value="s.id">{{ s.name }}{{ s.position ? ` · ${s.position}` : '' }}</option>
                 </select>
-                <div class="ms-auto d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-sm btn-primary" :disabled="!pending.length || reg.processing" @click="register">
-                        <i class="bi bi-check2-all me-1"></i>Registrar {{ pending.length }} depósito(s)
-                    </button>
-                    <a v-if="totals.registered" :href="`/cts-deposits/print?year=${period.year}&month=${period.month}`" target="_blank" rel="noopener" class="btn btn-sm btn-light">
-                        <i class="bi bi-printer me-1"></i>Constancias
-                    </a>
-                    <button v-if="treasury" type="button" class="btn btn-sm btn-outline-primary" :disabled="!unsent.length" @click="sendToTreasury">
-                        <i class="bi bi-cash-coin me-1"></i>Enviar {{ unsent.length }} a Tesorería
-                    </button>
-                </div>
             </div>
-        </div>
-
-        <div class="card shadow-sm">
             <div class="table-responsive">
-                <table class="table table-hover align-middle small mb-0">
-                    <thead class="table-light">
+                <table class="table data-table table-cards align-middle mb-0">
+                    <thead>
                         <tr><th>Colaborador</th><th>Régimen</th><th>Tiempo</th><th class="text-end">Base</th><th class="text-end">Monto</th><th>Cuenta CTS</th><th>Estado</th><th><span class="visually-hidden">Acciones</span></th></tr>
                     </thead>
                     <tbody>
-                        <tr v-for="r in rows" :key="r.user_id" :class="{ 'text-body-secondary': r.amount === null }">
-                            <td><div class="fw-semibold">{{ r.name }}</div><div class="text-body-secondary">DNI {{ r.dni }}</div></td>
-                            <td>{{ r.regime || '—' }}</td>
-                            <td>{{ r.calc ? `${r.calc.months} m ${r.calc.days} d` : '—' }}</td>
-                            <td class="text-end">{{ r.calc ? money(r.calc.base) : '—' }}</td>
-                            <td class="text-end fw-semibold">{{ money(r.amount) }}</td>
-                            <td>
-                                <span v-if="r.cts_account" class="text-success"><i class="bi bi-check-circle"></i> Sí</span>
-                                <span v-else class="text-warning-emphasis"><i class="bi bi-exclamation-circle"></i> Falta</span>
+                        <tr v-for="r in rows" :key="r.user_id" :class="{ 'is-muted': r.amount === null }">
+                            <td data-label="Colaborador" class="cell-main"><div class="min-w-0"><div class="cell-title text-truncate">{{ r.name }}</div><div class="cell-sub">DNI {{ r.dni }}</div></div></td>
+                            <td data-label="Régimen">{{ r.regime || '—' }}</td>
+                            <td data-label="Tiempo" class="text-nowrap">{{ r.calc ? `${r.calc.months} m ${r.calc.days} d` : '—' }}</td>
+                            <td data-label="Base" class="text-end tabular">{{ r.calc ? money(r.calc.base) : '—' }}</td>
+                            <td data-label="Monto" class="text-end"><span class="cell-amount">{{ money(r.amount) }}</span></td>
+                            <td data-label="Cuenta CTS">
+                                <span v-if="r.cts_account" class="status-pill tone-emerald"><i class="bi bi-check-circle"></i>Sí</span>
+                                <span v-else class="status-pill tone-amber"><i class="bi bi-exclamation-circle"></i>Falta</span>
                             </td>
-                            <td>
-                                <span v-if="r.note">{{ r.note }}</span>
-                                <span v-else-if="r.payment" class="badge bg-success-subtle text-success">Tesorería {{ r.payment }}</span>
-                                <span v-else-if="r.deposit_id" class="badge bg-primary-subtle text-primary">Registrado</span>
-                                <span v-else class="badge bg-secondary-subtle text-secondary">Por registrar</span>
+                            <td data-label="Estado">
+                                <span v-if="r.note" class="cell-sub">{{ r.note }}</span>
+                                <span v-else-if="r.payment" class="status-pill tone-emerald">Tesorería {{ r.payment }}</span>
+                                <span v-else-if="r.deposit_id" class="status-pill tone-brand">Registrado</span>
+                                <span v-else class="status-pill tone-neutral">Por registrar</span>
                             </td>
-                            <td class="text-end text-nowrap">
-                                <template v-if="r.deposit_id">
-                                    <a :href="`/cts-deposits/print?id=${r.deposit_id}`" target="_blank" rel="noopener" class="btn btn-sm btn-light" :aria-label="`Constancia de ${r.name}`"><i class="bi bi-printer"></i></a>
-                                    <button v-if="!r.payment" type="button" class="btn btn-sm btn-light" :aria-label="`Quitar depósito de ${r.name}`" @click="remove(r)"><i class="bi bi-arrow-counterclockwise"></i></button>
-                                </template>
+                            <td class="cell-actions">
+                                <div v-if="r.deposit_id" class="row-actions">
+                                    <a :href="`/cts-deposits/print?id=${r.deposit_id}`" target="_blank" rel="noopener" class="icon-btn" :aria-label="`Constancia de ${r.name}`" title="Constancia"><i class="bi bi-printer"></i></a>
+                                    <button v-if="!r.payment" type="button" class="icon-btn icon-btn-danger" :aria-label="`Quitar depósito de ${r.name}`" title="Quitar depósito" @click="remove(r)"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                </div>
                             </td>
                         </tr>
-                        <tr v-if="!rows.length"><td colspan="8" class="text-center text-body-secondary py-4">No hay personal en planilla en este semestre.</td></tr>
+                        <tr v-if="!rows.length" class="row-empty">
+                            <td colspan="8">
+                                <div class="dash-empty">
+                                    <span class="dash-empty-icon"><i class="bi bi-piggy-bank"></i></span>
+                                    <p class="dash-empty-title">No hay personal en planilla en este semestre</p>
+                                </div>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
     </AppLayout>
 </template>
