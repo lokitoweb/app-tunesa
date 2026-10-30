@@ -10660,3 +10660,8 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 /* Tarjetas KPI de cada módulo: sin saltar al pasar el mouse */
 [class*="-kpi-card"]:hover { transform: none !important; }
 [class*="-kpi-card"] { border-radius: var(--radius-lg) !important; }
+
+/* Barra de filtros compartida dentro de la tarjeta de la tabla (Colaboradores) */
+.filter-bar.filter-bar-flush { border: 0; border-bottom: 1px solid var(--border-color); border-radius: 0; box-shadow: none; background: transparent; }
+.emp-shell > .dash-kpis { margin-bottom: 0; }
+.emp-shell > .page-head { margin-bottom: 0.25rem; }

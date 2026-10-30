@@ -14,28 +14,6 @@ Optimizado para pantallas estándar sin scroll horizontal y tema oscuro nativo
     gap: 1.25rem;
     width: 100%;
 }
-
-{{-- Header & Primary Actions --}}
-.emp-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-.emp-title {
-    font-size: 1.55rem;
-    font-weight: 800;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-    margin: 0;
-    line-height: 1.2;
-}
-.emp-subtitle {
-    font-size: 0.825rem;
-    color: var(--text-muted);
-    margin: 0.25rem 0 0 0;
-}
 .emp-btn-primary {
     display: inline-flex;
     align-items: center;
@@ -72,72 +50,6 @@ Optimizado para pantallas estándar sin scroll horizontal y tema oscuro nativo
     box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
 }
 
-{{-- Deck de Indicadores (KPIs) --}}
-.emp-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 0.85rem;
-}
-.emp-kpi-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 0.95rem 1.15rem;
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.emp-kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-.emp-kpi-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.15rem;
-    flex-shrink: 0;
-}
-.emp-kpi-icon.tone-cyan {
-    background: rgba(2, 132, 199, 0.12);
-    color: var(--accent-cyan);
-    border: 1px solid rgba(2, 132, 199, 0.25);
-}
-.emp-kpi-icon.tone-emerald {
-    background: rgba(16, 185, 129, 0.12);
-    color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.25);
-}
-.emp-kpi-icon.tone-blue {
-    background: rgba(37, 99, 235, 0.12);
-    color: #3b82f6;
-    border: 1px solid rgba(37, 99, 235, 0.25);
-}
-.emp-kpi-icon.tone-amber {
-    background: rgba(245, 158, 11, 0.12);
-    color: #f59e0b;
-    border: 1px solid rgba(245, 158, 11, 0.25);
-}
-.emp-kpi-val {
-    font-size: 1.35rem;
-    font-weight: 800;
-    line-height: 1.1;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-}
-.emp-kpi-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 700;
-    color: var(--text-muted);
-    margin-top: 2px;
-}
 
 {{-- =============================================================================
 Tabla de Colaboradores — Ultra-Compact No-Overflow Design
@@ -472,48 +384,6 @@ Tabla de Colaboradores — Ultra-Compact No-Overflow Design
     to { opacity: 1; transform: scale(1.02); }
 }
 
-{{-- Toast flotante de confirmación rápida --}}
-.emp-toast {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    z-index: 1090;
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.75rem 1.15rem;
-    border-radius: 10px;
-    background: var(--bg-surface-elevated, #161d2d);
-    border: 1px solid var(--border-color, #243048);
-    color: var(--text-primary, #ffffff);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-    font-size: 0.825rem;
-    font-weight: 600;
-    transform: translateY(100px);
-    opacity: 0;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    pointer-events: none;
-}
-.emp-toast.show {
-    transform: translateY(0);
-    opacity: 1;
-    pointer-events: auto;
-}
-.emp-toast.tone-success {
-    border-color: rgba(16, 185, 129, 0.4);
-}
-.emp-toast.tone-success i {
-    color: #10b981;
-    font-size: 1.05rem;
-}
-.emp-toast.tone-danger {
-    border-color: rgba(239, 68, 68, 0.4);
-}
-.emp-toast.tone-danger i {
-    color: #ef4444;
-    font-size: 1.05rem;
-}
-
 {{-- Footer y Paginador AJAX --}}
 .emp-footer {
     display: flex;
@@ -784,16 +654,16 @@ Estilos del Modal Dialog de Nuevo Colaborador
 
 <div class="emp-shell">
     {{-- 1. Encabezado y Acción Principal --}}
-    <div class="emp-header">
-        <div>
-            <h1 class="emp-title">Colaboradores</h1>
-            <p class="emp-subtitle">Gestión de personal, asignación de sedes, turnos y control de acceso.</p>
+    <header class="page-head">
+        <div class="page-head-text">
+            <h1 class="page-title">Colaboradores</h1>
+            <p class="page-subtitle">Gestión de personal, asignación de sedes, turnos y control de acceso.</p>
         </div>
-        <div class="d-flex flex-wrap gap-2">
+        <div class="page-actions">
             {{-- Relación de personal: por defecto solo planilla (inspección); honorarios o todos a pedido --}}
             <div class="dropdown">
-                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-download me-1"></i>Exportar a Excel
+                <button type="button" class="btn btn-light border dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar a Excel
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     @foreach (['planilla' => 'Solo en planilla', 'honorarios' => 'Solo recibo por honorarios', 'all' => 'Todos'] as $regime => $label)
@@ -801,15 +671,14 @@ Estilos del Modal Dialog de Nuevo Colaborador
                     @endforeach
                 </ul>
             </div>
-            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importEmployeesModal">
-                <i class="bi bi-file-earmark-excel me-1"></i>Importar planilla
+            <button type="button" class="btn btn-light border" data-bs-toggle="modal" data-bs-target="#importEmployeesModal">
+                <i class="bi bi-file-earmark-arrow-up me-1"></i>Importar planilla
             </button>
-            <button type="button" class="emp-btn-primary" id="btnNewEmployee" data-bs-toggle="modal" data-bs-target="#employeeModal">
-                <i class="bi bi-person-plus-fill"></i>
-                <span>Nuevo colaborador</span>
+            <button type="button" class="btn btn-primary" id="btnNewEmployee" data-bs-toggle="modal" data-bs-target="#employeeModal">
+                <i class="bi bi-person-plus me-1"></i>Nuevo colaborador
             </button>
         </div>
-    </div>
+    </header>
 
     {{-- Importar planilla (sisgere FrmIplanilla): revisar y luego dar de alta solo a los nuevos --}}
     <div class="modal fade" id="importEmployeesModal" tabindex="-1" aria-labelledby="importEmployeesTitle" aria-hidden="true">
@@ -864,49 +733,23 @@ Estilos del Modal Dialog de Nuevo Colaborador
 
     {{-- 3. Deck de Indicadores (KPIs) --}}
     @if(isset($stats))
-        <div class="emp-kpi-grid">
-            <div class="emp-kpi-card">
-                <div class="emp-kpi-icon tone-cyan">
-                    <i class="bi bi-people-fill"></i>
-                </div>
-                <div>
-                    <div class="emp-kpi-val" id="kpiTotal">{{ number_format($stats['total'] ?? 0) }}</div>
-                    <div class="emp-kpi-label">Total Colaboradores</div>
-                </div>
-            </div>
-            <div class="emp-kpi-card">
-                <div class="emp-kpi-icon tone-emerald">
-                    <i class="bi bi-check-circle-fill"></i>
-                </div>
-                <div>
-                    <div class="emp-kpi-val" id="kpiActive">{{ number_format($stats['active'] ?? 0) }}</div>
-                    <div class="emp-kpi-label">Colaboradores Activos</div>
-                </div>
-            </div>
-            <div class="emp-kpi-card">
-                <div class="emp-kpi-icon tone-blue">
-                    <i class="bi bi-clock-history"></i>
-                </div>
-                <div>
-                    <div class="emp-kpi-val" id="kpiWithShift">{{ number_format($stats['with_shift'] ?? 0) }}</div>
-                    <div class="emp-kpi-label">Con Turno Asignado</div>
-                </div>
-            </div>
-            <div class="emp-kpi-card">
-                <div class="emp-kpi-icon tone-amber">
-                    <i class="bi bi-geo-alt-fill"></i>
-                </div>
-                <div>
-                    <div class="emp-kpi-val" id="kpiWithBranch">{{ number_format($stats['with_branch'] ?? 0) }}</div>
-                    <div class="emp-kpi-label">Con Sede Asignada</div>
-                </div>
-            </div>
-        </div>
+        <section class="dash-kpis" aria-label="Resumen del personal">
+            @foreach ([['kpiTotal', 'Total colaboradores', 'total', 'brand', 'people'], ['kpiActive', 'Activos', 'active', 'emerald', 'person-check'], ['kpiWithShift', 'Con turno asignado', 'with_shift', 'blue', 'clock-history'], ['kpiWithBranch', 'Con sede asignada', 'with_branch', 'amber', 'geo-alt']] as [$kid, $klabel, $kkey, $ktone, $kicon])
+                <article class="dash-kpi-card">
+                    <div class="dash-kpi-top">
+                        <span class="dash-kpi-label">{{ $klabel }}</span>
+                        <span class="dash-kpi-icon tone-{{ $ktone }}"><i class="bi bi-{{ $kicon }}"></i></span>
+                    </div>
+                    <div class="dash-kpi-value" id="{{ $kid }}">{{ number_format($stats[$kkey] ?? 0) }}</div>
+                </article>
+            @endforeach
+        </section>
     @endif
 
     {{-- 4. Filtros Avanzados (Conectados a AJAX en tiempo real) --}}
     {{-- Barra de filtros compartida (Panel.filters): se aplica al elegir, recuerda lo elegido y muestra etiquetas --}}
-    <form method="GET" action="{{ route('employees.index') }}" class="filter-bar" id="empFilterForm" data-filter-key="employees" role="search">
+    <div class="emp-table-card">
+    <form method="GET" action="{{ route('employees.index') }}" class="filter-bar filter-bar-flush" id="empFilterForm" data-filter-key="employees" role="search">
         <div class="filter-bar-row">
             <label class="filter-search mb-0">
                 <i class="bi bi-search" aria-hidden="true"></i>
@@ -948,8 +791,7 @@ Estilos del Modal Dialog de Nuevo Colaborador
         <div class="filter-chips" data-filter-chips hidden></div>
     </form>
 
-    {{-- 5. Contenedor de Tabla con Paginador AJAX --}}
-    <div class="emp-table-card">
+    {{-- 5. Contenedor de Tabla con Paginador AJAX (misma superficie que los filtros) --}}
         <div class="emp-table-loading-bar" id="empTableLoader"></div>
         <div id="empTableContainer">
             @include('employees.partials.table', ['employees' => $employees, 'stats' => $stats ?? null])
@@ -992,11 +834,6 @@ Estilos del Modal Dialog de Nuevo Colaborador
     </div>
 </div>
 
-{{-- Floating Micro-Toast for Instant Feedback --}}
-<div class="emp-toast" id="empToast">
-    <i class="bi bi-check-circle-fill" id="empToastIcon"></i>
-    <span id="empToastMsg">Acción completada con éxito</span>
-</div>
 
 @endsection
 
@@ -1542,24 +1379,10 @@ document.addEventListener('DOMContentLoaded', function () {
     {{-- ========================================================================= --}}
     {{-- 4. Toast Flotante de Notificación Rápida --}}
     {{-- ========================================================================= --}}
-    const empToast = document.getElementById('empToast');
-    const empToastMsg = document.getElementById('empToastMsg');
-    const empToastIcon = document.getElementById('empToastIcon');
-    let toastTimeout = null;
-
+    {{-- Avisos de la pantalla en la pila compartida (Panel.toast) --}}
     function showToast(message, tone = 'success') {
-        if (!empToast) return;
-        clearTimeout(toastTimeout);
-        empToast.className = `emp-toast tone-${tone} show`;
-        if (empToastMsg) empToastMsg.textContent = message;
-        if (empToastIcon) {
-            empToastIcon.className = tone === 'success' 
-                ? 'bi bi-check-circle-fill' 
-                : 'bi bi-exclamation-triangle-fill';
-        }
-        toastTimeout = setTimeout(() => {
-            empToast.classList.remove('show');
-        }, 3400);
+        const ok = tone === 'success';
+        Panel.toast(message, ok ? 'success' : 'error', ok ? 'Listo' : 'Atención');
     }
 
     {{-- ========================================================================= --}}
