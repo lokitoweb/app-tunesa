@@ -102,11 +102,18 @@ class LoginByEmailTest extends TestCase
         Storage::disk('public')->assertMissing($current);
     }
 
-    public function test_app_password_reset_is_handled_by_hr(): void
+    public function test_app_forgot_password_mails_a_temporary_password_and_old_reset_routes_stay_closed(): void
     {
-        $this->makeUser($this->makeTenant('acme'), 'employee', ['email' => 'ana@acme.test']);
+        \Illuminate\Support\Facades\Notification::fake();
+        $ana = $this->makeUser($this->makeTenant('acme'), 'employee', ['email' => 'ana@acme.test']);
 
-        foreach (['/api/v1/auth/forgot-password', '/api/auth/forgot-password', '/api/auth/reset-password'] as $url) {
+        // La app (sin código de empresa): contraseña temporal por correo, respuesta neutra
+        $this->postJson('/api/v1/auth/forgot-password', ['email' => 'ana@acme.test'])->assertOk()
+            ->assertJsonPath('message', \App\Modules\Core\Services\PasswordRecovery::RESPONSE);
+        \Illuminate\Support\Facades\Notification::assertSentTo($ana, \App\Modules\Core\Notifications\TemporaryPasswordMail::class);
+
+        // Las rutas antiguas por empresa (token de restablecimiento) siguen cerradas
+        foreach (['/api/auth/forgot-password', '/api/auth/reset-password'] as $url) {
             $this->withHeaders(['X-Tenant-Slug' => 'acme'])->postJson($url, ['email' => 'ana@acme.test'])->assertStatus(410)->assertJsonPath('code', 'PASSWORD_RESET_BY_ADMIN');
         }
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'ana@acme.test']);

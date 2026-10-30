@@ -9,30 +9,33 @@ use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
 
 /**
- * Política de la empresa: sin recuperación de contraseña por autoservicio.
- * El login muestra un aviso y solo RRHH/Administración restablece el acceso.
+ * "¿Olvidaste tu contraseña?": la persona pide una contraseña temporal por correo
+ * (PasswordRecoveryTest cubre el detalle). No hay enlaces ni tokens de restablecimiento,
+ * y RRHH/Administración sigue pudiendo restablecer el acceso desde el panel.
  */
 class PasswordResetWebTest extends TestCase
 {
     use CreatesTenants, RefreshDatabase;
 
-    public function test_forgot_password_is_an_institutional_notice_without_a_form(): void
+    public function test_forgot_password_page_asks_for_the_email(): void
     {
         $this->get('/login')->assertOk()->assertSee('¿Olvidaste tu contraseña?')->assertSee(route('password.request'));
 
         $this->get('/forgot-password')->assertOk()
-            ->assertSee(AuthController::RESET_BY_ADMIN_MESSAGE)
-            ->assertDontSee('<form', false)
+            ->assertSee('<form', false)->assertSee(route('password.email'), false)
+            ->assertSee('Enviar contraseña temporal')
+            ->assertSee('Recursos Humanos también puede restablecer tu acceso')
             ->assertSee(route('login'));
     }
 
-    public function test_self_service_endpoints_no_longer_exist(): void
+    public function test_only_the_temporary_password_flow_exists_no_reset_links(): void
     {
         $this->seedRoles();
         $acme = $this->makeTenant('acme');
         $this->makeUser($acme, 'hr_manager', ['email' => 'rrhh@acme.test']);
 
-        $this->post('/forgot-password', ['email' => 'rrhh@acme.test'])->assertStatus(405);
+        \Illuminate\Support\Facades\Notification::fake();
+        $this->post('/forgot-password', ['email' => 'rrhh@acme.test'])->assertRedirect(route('password.request'));
         $this->get('/reset-password/x')->assertNotFound();
         $this->post('/reset-password', ['token' => 'x', 'email' => 'rrhh@acme.test', 'password' => 'Nueva123!', 'password_confirmation' => 'Nueva123!'])
             ->assertNotFound();

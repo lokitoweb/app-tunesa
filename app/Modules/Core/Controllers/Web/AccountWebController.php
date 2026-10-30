@@ -76,7 +76,7 @@ class AccountWebController extends Controller
         $user = $request->user();
         $wasTemporary = (bool) $user->must_change_password;
 
-        $user->forceFill(['password' => $request->password, 'must_change_password' => false])->save();
+        $user->forceFill(['password' => $request->password, 'must_change_password' => false, 'temp_password_expires_at' => null])->save();
 
         // Igual que en la app: se cierran las sesiones de la app en los celulares
         $user->tokens()->delete();

@@ -37,9 +37,8 @@ Route::middleware('throttle:60,1')->group(function () {
 // Acceso de la app sin código de empresa: el servidor la reconoce por el correo
 Route::prefix('v1/auth')->group(function () {
     Route::post('login',           [AuthController::class, 'loginByEmail'])->middleware('throttle:10,1');
-    // La app no restablece contraseñas: lo hace RRHH desde el panel (410 con aviso)
-    Route::post('forgot-password', [AuthController::class, 'passwordResetByAdmin'])->middleware('throttle:5,1');
-    // "Olvidé mi contraseña": avisa a RRHH, que restablece el acceso desde Colaboradores
+    // "Olvidé mi contraseña": contraseña temporal por correo (PasswordRecovery); las dos rutas hacen lo mismo
+    Route::post('forgot-password', [AuthController::class, 'requestPasswordHelp'])->middleware('throttle:5,1');
     Route::post('password-help',   [AuthController::class, 'requestPasswordHelp'])->middleware('throttle:5,1');
 });
 

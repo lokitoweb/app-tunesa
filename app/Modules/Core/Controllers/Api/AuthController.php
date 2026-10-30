@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
-use App\Modules\Core\Notifications\PasswordHelpRequested;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -240,23 +239,12 @@ class AuthController extends Controller
             'email.email'    => 'Escribe un correo válido.',
         ])['email'];
 
-        $deletion = app(\App\Modules\Core\Services\AccountDeletion::class);
-        $user = $deletion->findUser($email);
-
-        if ($user?->tenant_id && $user->status === 'active' && Cache::add("password-help:{$user->id}", true, now()->addHour())) {
-            try {
-                $recipients = $deletion->handlers($user);
-                if ($recipients->isNotEmpty()) {
-                    Notification::send($recipients, new PasswordHelpRequested($user));
-                }
-            } catch (\Throwable $e) {
-                Log::warning('No se pudo avisar a RRHH del pedido de contraseña: ' . $e->getMessage(), ['exception' => $e]);
-            }
-        }
+        // Contraseña temporal por correo (si el correo no sale, RR. HH. recibe el pedido como antes)
+        app(\App\Modules\Core\Services\PasswordRecovery::class)->sendTemporaryPassword($email);
 
         return response()->json([
             'success' => true,
-            'message' => 'Listo. Si el correo está registrado, RR. HH. recibió tu pedido: te darán una contraseña temporal que cambiarás al ingresar.',
+            'message' => \App\Modules\Core\Services\PasswordRecovery::RESPONSE,
         ]);
     }
 

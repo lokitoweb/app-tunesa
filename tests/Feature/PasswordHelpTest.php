@@ -9,14 +9,15 @@ use Tests\Feature\Concerns\CreatesTenants;
 use Tests\TestCase;
 
 /**
- * DEF-05: "Olvidé mi contraseña" en la app avisa a RRHH, que restablece la
- * clave desde la lista de Colaboradores; la temporal obliga a cambiarla.
+ * DEF-05: "Olvidé mi contraseña" en la app envía una contraseña temporal al correo
+ * (PasswordRecovery; si el correo no sale, avisa a RRHH). RRHH sigue pudiendo
+ * restablecer la clave desde la lista de Colaboradores; la temporal obliga a cambiarla.
  */
 class PasswordHelpTest extends TestCase
 {
     use CreatesTenants, RefreshDatabase;
 
-    public function test_forgot_password_in_the_app_notifies_hr_without_revealing_accounts(): void
+    public function test_forgot_password_in_the_app_mails_a_temporary_password_without_revealing_accounts(): void
     {
         $this->seedRoles();
         Notification::fake();
@@ -29,12 +30,13 @@ class PasswordHelpTest extends TestCase
         $unknown = $this->postJson('/api/v1/auth/password-help', ['email' => 'nadie@acme.test'])->assertOk()->json('message');
         $this->assertSame($known, $unknown, 'la respuesta no revela si el correo existe');
 
-        Notification::assertSentTo($hr, PasswordHelpRequested::class, fn ($n) => $n->employee->is($ana));
+        Notification::assertSentTo($ana, \App\Modules\Core\Notifications\TemporaryPasswordMail::class);
+        Notification::assertNotSentTo($hr, PasswordHelpRequested::class); // el correo salió: RRHH no tiene que intervenir
         Notification::assertNotSentTo($otherHr, PasswordHelpRequested::class);
 
-        // Un aviso por hora aunque insista
+        // Un envío cada 15 minutos aunque insista
         $this->postJson('/api/v1/auth/password-help', ['email' => 'ana@acme.test'])->assertOk();
-        Notification::assertSentToTimes($hr, PasswordHelpRequested::class, 1);
+        Notification::assertSentToTimes($ana, \App\Modules\Core\Notifications\TemporaryPasswordMail::class, 1);
 
         $this->postJson('/api/v1/auth/password-help', ['email' => 'no-es-correo'])->assertUnprocessable()->assertJsonValidationErrors('email');
     }

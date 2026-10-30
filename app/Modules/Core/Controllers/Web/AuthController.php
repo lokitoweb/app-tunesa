@@ -141,6 +141,29 @@ class AuthController extends Controller
     /**
      * Empresa del subdominio (empresa.tunesa.app) o dominio propio, si aplica.
      */
+    /**
+     * "¿Olvidaste tu contraseña?": envía una contraseña temporal al correo (PasswordRecovery).
+     * La respuesta es siempre la misma, exista o no el correo.
+     */
+    public function sendTemporaryPassword(Request $request): RedirectResponse
+    {
+        // Misma trampa que el login contra bots
+        if ($request->filled('_auth_token_verify')) {
+            return redirect()->route('password.request')->with('status', \App\Modules\Core\Services\PasswordRecovery::RESPONSE);
+        }
+
+        $email = $request->validate(['email' => ['required', 'string', 'email', 'max:180']], [
+            'email.required' => 'Escribe tu correo corporativo.',
+            'email.email'    => 'Ingresa un formato de correo electrónico válido.',
+        ])['email'];
+
+        // En el dominio de una empresa solo se atiende a sus usuarios (igual que el login)
+        app(\App\Modules\Core\Services\PasswordRecovery::class)
+            ->sendTemporaryPassword($email, $this->tenantFromHost($request->getHost())?->id);
+
+        return redirect()->route('password.request')->with('status', \App\Modules\Core\Services\PasswordRecovery::RESPONSE);
+    }
+
     private function tenantFromHost(string $host): ?Tenant
     {
         return Tenant::fromHost($host);

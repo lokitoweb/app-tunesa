@@ -35,6 +35,7 @@ final class Labels
         'auth.account_locked'                => ['Cuenta bloqueada por intentos fallidos', 'danger', 'lock'],
         'auth.account_unlocked'              => ['Cuenta desbloqueada', 'success', 'unlock'],
         'auth.access_reset'                  => ['Acceso restablecido por RRHH', 'warning', 'key'],
+        'auth.password_recovered'            => ['Contraseña temporal enviada por correo (olvidó su contraseña)', 'warning', 'envelope-check'],
         'auth.password_reset'                => ['Contraseña restablecida', 'info', 'key'],
         'auth.password_changed'              => ['Contraseña cambiada', 'info', 'key'],
 

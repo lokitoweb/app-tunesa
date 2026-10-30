@@ -62,7 +62,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Aplicado automáticamente a todas las rutas en routes/api.php
         // =====================================================================
         // Panel web: datos compartidos y protocolo de las pantallas Vue (Inertia)
-        $middleware->web(append: [HandleInertiaRequests::class]);
+        // y quien entra con contraseña temporal la cambia antes de seguir (como en la app)
+        $middleware->web(append: [HandleInertiaRequests::class, \App\Modules\Core\Middleware\EnsureWebPasswordChanged::class]);
 
         // Sin instalar, todo va al asistente /install (y /install se cierra al terminar)
         $middleware->prepend(\App\Installer\Http\RedirectToInstaller::class);
