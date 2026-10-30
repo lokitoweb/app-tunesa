@@ -712,15 +712,15 @@ const hourLabel = (h) => `${((h + 11) % 12) + 1}:00 ${h < 12 ? 'a. m.' : 'p. m.'
 
 .birthdays-month-tab:hover:not(.is-active) {
     background: var(--bg-surface-elevated, #f1f5f9);
-    border-color: var(--accent-cyan, #0284c7);
+    border-color: var(--accent-cyan, var(--brand));
     color: var(--text-primary, #0f172a);
 }
 
 .birthdays-month-tab.is-active {
-    background: var(--accent-cyan, #0284c7) !important;
-    border-color: var(--accent-cyan, #0284c7) !important;
+    background: var(--accent-cyan, var(--brand)) !important;
+    border-color: var(--accent-cyan, var(--brand)) !important;
     color: #ffffff !important;
-    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35) !important;
+    box-shadow: 0 2px 6px rgba(var(--brand-rgb), 0.35) !important;
 }
 
 .birthdays-month-tab .month-badge {

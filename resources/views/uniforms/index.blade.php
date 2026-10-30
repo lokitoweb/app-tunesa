@@ -315,7 +315,7 @@
             {{-- Modal Header --}}
             <div class="modal-header border-bottom p-3 p-md-4" style="background: var(--bg-surface);">
                 <div class="d-flex align-items-center" style="gap: 14px !important;">
-                    <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #0284c7, #0369a1); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.35rem; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, var(--brand), #0369a1); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.35rem; box-shadow: 0 4px 12px rgba(var(--brand-rgb), 0.25);">
                         <i class="bi bi-box-seam-fill"></i>
                     </div>
                     <div>

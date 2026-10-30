@@ -594,7 +594,7 @@
                 <i class="bi bi-clock-history me-1 text-primary"></i> <strong>Último cambio:</strong> {{ $row->updated_at->setTimezone(tenant_timezone())->format('d/m/Y h:i a') }}
             @endif
         </span>
-        <button type="submit" class="btn btn-primary d-inline-flex align-items-center px-4 py-2.5 fw-bold shadow-sm" style="border-radius: 9px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.28);">
+        <button type="submit" class="btn btn-primary d-inline-flex align-items-center px-4 py-2.5 fw-bold shadow-sm" style="border-radius: 9px; box-shadow: 0 4px 14px rgba(var(--brand-rgb), 0.28);">
             <i class="bi bi-floppy2-fill me-2"></i> Guardar configuración
         </button>
     </div>

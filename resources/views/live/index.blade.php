@@ -134,7 +134,7 @@
                 {{-- Leyenda de colores --}}
                 <div class="d-flex flex-wrap align-items-center gap-3 small text-muted mt-2 px-1" style="font-size: 0.775rem;">
                     <span class="d-inline-flex align-items-center gap-1">
-                        <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:#0284c7;"></span>
+                        <span style="display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--brand);"></span>
                         <span>Ubicación autorizada</span>
                     </span>
                     <span class="d-inline-flex align-items-center gap-1">

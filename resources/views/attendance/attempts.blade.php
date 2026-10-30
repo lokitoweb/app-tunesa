@@ -40,7 +40,7 @@
         <a href="{{ request()->fullUrlWithQuery(['code' => null, 'page' => null]) }}" 
            class="attempts-kpi-card {{ !request('code') ? 'is-active' : '' }}"
            title="Ver todos los intentos rechazados">
-            <div class="attempts-kpi-icon" style="background: rgba(2, 132, 199, 0.12); color: #0284c7;">
+            <div class="attempts-kpi-icon" style="background: rgba(var(--brand-rgb), 0.12); color: var(--brand);">
                 <i class="bi bi-slash-circle"></i>
             </div>
             <div>
@@ -191,7 +191,7 @@
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="attempts-pill bg-light text-body border">
-                <span class="badge-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #0284c7; display: inline-block; margin-right: 6px;"></span>
+                <span class="badge-dot" style="width: 7px; height: 7px; border-radius: 50%; background: var(--brand); display: inline-block; margin-right: 6px;"></span>
                 <span>Sedes & Perímetro</span>
             </span>
             <span class="attempts-pill bg-danger-subtle text-danger border border-danger-subtle">

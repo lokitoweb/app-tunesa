@@ -22,11 +22,11 @@ Optimizado para pantallas estándar sin scroll horizontal y tema oscuro nativo
     font-size: 0.835rem;
     font-weight: 600;
     border-radius: 8px;
-    background: #0284c7;
+    background: var(--brand);
     border: 1px solid rgba(56, 189, 248, 0.3);
     color: #ffffff !important;
     text-decoration: none;
-    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
+    box-shadow: 0 2px 6px rgba(var(--brand-rgb), 0.2);
     transition: all 0.15s ease;
     cursor: pointer;
 }
@@ -35,10 +35,10 @@ Optimizado para pantallas estándar sin scroll horizontal y tema oscuro nativo
     border-color: rgba(56, 189, 248, 0.45);
     color: #ffffff !important;
     transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+    box-shadow: 0 4px 10px rgba(var(--brand-rgb), 0.3);
 }
 [data-bs-theme="dark"] .emp-btn-primary {
-    background: #0284c7;
+    background: var(--brand);
     border-color: rgba(56, 189, 248, 0.3);
     color: #ffffff !important;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
@@ -47,7 +47,7 @@ Optimizado para pantallas estándar sin scroll horizontal y tema oscuro nativo
     background: #0369a1;
     border-color: rgba(56, 189, 248, 0.5);
     color: #ffffff !important;
-    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+    box-shadow: 0 4px 12px rgba(var(--brand-rgb), 0.35);
 }
 
 
@@ -162,7 +162,7 @@ Tabla de Colaboradores — Ultra-Compact No-Overflow Design
     justify-content: center;
     font-weight: 800;
     font-size: 0.775rem;
-    background: rgba(2, 132, 199, 0.12);
+    background: rgba(var(--brand-rgb), 0.12);
     color: var(--accent-cyan);
 }
 .emp-user-name {
@@ -238,8 +238,8 @@ Tabla de Colaboradores — Ultra-Compact No-Overflow Design
     white-space: nowrap;
 }
 .emp-branch-badge.is-primary {
-    background: rgba(2, 132, 199, 0.1);
-    border-color: rgba(2, 132, 199, 0.28);
+    background: rgba(var(--brand-rgb), 0.1);
+    border-color: rgba(var(--brand-rgb), 0.28);
     color: var(--accent-cyan);
 }
 .emp-branch-badge .star-icon {
@@ -336,8 +336,8 @@ Tabla de Colaboradores — Ultra-Compact No-Overflow Design
     transform: translateY(-1px);
 }
 .btn-action-edit:hover {
-    color: #0284c7;
-    border-color: #0284c7;
+    color: var(--brand);
+    border-color: var(--brand);
 }
 .btn-action-view:hover {
     color: #3b82f6;
@@ -462,9 +462,9 @@ Estilos del Modal Dialog de Nuevo Colaborador
     align-items: center;
     justify-content: center;
     font-size: 1.15rem;
-    background: rgba(2, 132, 199, 0.12);
+    background: rgba(var(--brand-rgb), 0.12);
     color: var(--accent-cyan);
-    border: 1px solid rgba(2, 132, 199, 0.25);
+    border: 1px solid rgba(var(--brand-rgb), 0.25);
     flex-shrink: 0;
 }
 .emp-modal-icon.tone-emerald {
@@ -505,7 +505,7 @@ Estilos del Modal Dialog de Nuevo Colaborador
 .emp-modal-tabs .nav-link.active {
     background: var(--accent-cyan);
     color: #ffffff;
-    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+    box-shadow: 0 2px 6px rgba(var(--brand-rgb), 0.25);
 }
 
 .emp-modal-body {
@@ -560,7 +560,7 @@ Estilos del Modal Dialog de Nuevo Colaborador
 .emp-form-select:focus {
     outline: none;
     border-color: var(--accent-cyan);
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15);
 }
 .emp-form-hint {
     font-size: 0.7rem;
@@ -571,8 +571,8 @@ Estilos del Modal Dialog de Nuevo Colaborador
     display: flex;
     align-items: flex-start;
     gap: 0.65rem;
-    background: rgba(2, 132, 199, 0.08);
-    border: 1px solid rgba(2, 132, 199, 0.2);
+    background: rgba(var(--brand-rgb), 0.08);
+    border: 1px solid rgba(var(--brand-rgb), 0.2);
     border-radius: 8px;
     padding: 0.7rem 0.85rem;
     font-size: 0.775rem;

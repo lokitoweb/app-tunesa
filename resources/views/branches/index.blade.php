@@ -1146,7 +1146,7 @@
 .branches-header-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+    background: linear-gradient(135deg, var(--brand) 0%, #2563eb 100%);
     color: #ffffff;
     border-radius: 12px;
     display: flex;
@@ -1214,7 +1214,7 @@
 
 .btn-branch-reset i {
     font-size: 0.85rem;
-    color: var(--accent-cyan, #0284c7);
+    color: var(--accent-cyan, var(--brand));
     transition: transform 0.25s ease;
 }
 
@@ -1240,7 +1240,7 @@
 
 .branches-counter-card .counter-icon {
     font-size: 0.9rem;
-    color: var(--accent-cyan, #0284c7);
+    color: var(--accent-cyan, var(--brand));
     flex-shrink: 0;
 }
 
@@ -1264,7 +1264,7 @@
 .branch-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08) !important;
-    border-color: rgba(2, 132, 199, 0.4) !important;
+    border-color: rgba(var(--brand-rgb), 0.4) !important;
 }
 
 .branch-card-header {
@@ -1283,8 +1283,8 @@
     flex-shrink: 0;
 }
 
-.branch-type-agency    { background: rgba(2, 132, 199, 0.12); color: #0284c7; }
-.branch-type-terminal  { background: rgba(14, 165, 233, 0.12); color: #0284c7; }
+.branch-type-agency    { background: rgba(var(--brand-rgb), 0.12); color: var(--brand); }
+.branch-type-terminal  { background: rgba(14, 165, 233, 0.12); color: var(--brand); }
 .branch-type-warehouse { background: rgba(245, 158, 11, 0.14); color: #d97706; }
 .branch-type-workshop  { background: rgba(99, 102, 241, 0.14); color: #6366f1; }
 .branch-type-corporate { background: rgba(147, 51, 234, 0.14); color: #9333ea; }

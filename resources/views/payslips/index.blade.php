@@ -509,7 +509,7 @@
                 @csrf
                 <div class="modal-body p-4" style="max-height: calc(85vh - 130px); overflow-y: auto;">
                     {{-- Instrucciones de nombrado con icono con margen garantizado --}}
-                    <div class="alert alert-info border-0 d-flex align-items-start mb-3 p-3 rounded-2" style="background: rgba(2, 132, 199, 0.08); color: var(--accent-cyan, #0284c7);">
+                    <div class="alert alert-info border-0 d-flex align-items-start mb-3 p-3 rounded-2" style="background: rgba(var(--brand-rgb), 0.08); color: var(--accent-cyan, var(--brand));">
                         <i class="bi bi-info-circle-fill fs-5" style="margin-right: 12px !important; flex-shrink: 0; margin-top: 1px;"></i>
                         <div class="small">
                             <strong>Regla de Asignación Automática:</strong> El sistema identifica al colaborador si el nombre del archivo contiene su <strong>DNI</strong> (ej. <code>boleta_45871236.pdf</code>) o su <strong>Código</strong> (ej. <code>EMP-003.pdf</code>). Si ya existía un borrador para ese periodo, se reemplaza.
@@ -777,7 +777,7 @@ Estilos Profesionales del Módulo de Boletas de Pago
 .payslips-header-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+    background: linear-gradient(135deg, var(--brand) 0%, #2563eb 100%);
     color: #ffffff;
     border-radius: 10px;
     display: flex;
@@ -851,8 +851,8 @@ Estilos Profesionales del Módulo de Boletas de Pago
 }
 
 .payslip-input:focus {
-    border-color: #0284c7 !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+    border-color: var(--brand) !important;
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15) !important;
 }
 
 {{-- Botón Trigger del Calendario --}}
@@ -869,7 +869,7 @@ Estilos Profesionales del Módulo de Boletas de Pago
 
 .payslip-calendar-trigger-btn:hover,
 .payslip-calendar-trigger-btn:focus {
-    border-color: #0284c7 !important;
+    border-color: var(--brand) !important;
     background-color: var(--bg-surface, #ffffff) !important;
     color: var(--text-primary) !important;
 }
@@ -899,13 +899,13 @@ Estilos Profesionales del Módulo de Boletas de Pago
 
 .calendar-month-cell:hover {
     background: var(--bg-surface-elevated, #f1f5f9);
-    color: var(--accent-cyan, #0284c7);
+    color: var(--accent-cyan, var(--brand));
 }
 
 .calendar-month-cell.is-selected {
-    background: #0284c7 !important;
+    background: var(--brand) !important;
     color: #ffffff !important;
-    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+    box-shadow: 0 2px 6px rgba(var(--brand-rgb), 0.35);
 }
 
 {{-- Botones de Filtro --}}
@@ -972,7 +972,7 @@ Estilos Profesionales del Módulo de Boletas de Pago
     height: 36px;
     border-radius: 8px;
     background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
-    color: #0284c7;
+    color: var(--brand);
     font-size: 0.8rem;
     font-weight: 700;
     display: flex;
@@ -1011,9 +1011,9 @@ Estilos Profesionales del Módulo de Boletas de Pago
     border-color: var(--border-color, #cbd5e1);
 }
 .btn-action-view:hover {
-    background: #0284c7;
+    background: var(--brand);
     color: #ffffff;
-    border-color: #0284c7;
+    border-color: var(--brand);
 }
 
 .btn-action-download {
@@ -1089,8 +1089,8 @@ Estilos Profesionales del Módulo de Boletas de Pago
 }
 
 .payslip-executive-switch-card.is-active {
-    background: rgba(2, 132, 199, 0.05) !important;
-    border-color: #0284c7 !important;
+    background: rgba(var(--brand-rgb), 0.05) !important;
+    border-color: var(--brand) !important;
 }
 
 .switch-icon-circle {
@@ -1115,8 +1115,8 @@ Estilos Profesionales del Módulo de Boletas de Pago
 }
 
 .custom-executive-switch:checked {
-    background-color: #0284c7 !important;
-    box-shadow: 0 0 8px rgba(2, 132, 199, 0.4) !important;
+    background-color: var(--brand) !important;
+    box-shadow: 0 0 8px rgba(var(--brand-rgb), 0.4) !important;
 }
 
 {{-- Overlay de Carga AJAX --}}
@@ -1185,7 +1185,7 @@ Modo Oscuro [data-bs-theme="dark"]
 }
 
 [data-bs-theme="dark"] .calendar-month-cell.is-selected {
-    background: #0284c7 !important;
+    background: var(--brand) !important;
     color: #ffffff !important;
 }
 

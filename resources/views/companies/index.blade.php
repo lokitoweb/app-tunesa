@@ -57,7 +57,7 @@
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
         <div class="company-kpi-card">
-            <div class="company-kpi-icon" style="background: rgba(2, 132, 199, 0.1); color: #0284c7;">
+            <div class="company-kpi-icon" style="background: rgba(var(--brand-rgb), 0.1); color: var(--brand);">
                 <i class="bi bi-buildings"></i>
             </div>
             <div>
@@ -127,7 +127,7 @@
                                         <img src="{{ asset('storage/' . $c->logo_path) }}" alt="{{ $c->company_name }}">
                                     </span>
                                 @else
-                                    <span class="company-avatar-box" style="background: {{ preg_match('/^#[0-9a-fA-F]{6}$/', (string) $c->primary_color) ? $c->primary_color : '#0284c7' }};">
+                                    <span class="company-avatar-box" style="background: {{ preg_match('/^#[0-9a-fA-F]{6}$/', (string) $c->primary_color) ? $c->primary_color : 'var(--brand)' }};">
                                         <i class="bi bi-buildings"></i>
                                     </span>
                                 @endif
@@ -219,7 +219,7 @@
                 {{-- Modal Header --}}
                 <div class="modal-header border-bottom px-4 py-3 bg-white flex-shrink-0">
                     <div class="d-flex align-items-center gap-3">
-                        <div id="companyModalHeaderIcon" style="width: 42px; height: 42px; border-radius: 8px; background: rgba(2, 132, 199, 0.1); color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                        <div id="companyModalHeaderIcon" style="width: 42px; height: 42px; border-radius: 8px; background: rgba(var(--brand-rgb), 0.1); color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
                             <i class="bi bi-buildings" id="companyModalHeaderIconEl"></i>
                         </div>
                         <div>

@@ -280,7 +280,7 @@
                     <div class="ethics-identity-card">
                         <div class="d-flex align-items-center justify-content-between gap-3">
                             <div class="d-flex align-items-center gap-3 min-w-0">
-                                <div class="flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px; min-width: 38px; border-radius: 9px; background: rgba(2, 132, 199, 0.12); color: var(--accent-cyan); border: 1px solid rgba(2, 132, 199, 0.25); font-size: 1.1rem;">
+                                <div class="flex-shrink-0 d-flex align-items-center justify-content-center" style="width: 38px; height: 38px; min-width: 38px; border-radius: 9px; background: rgba(var(--brand-rgb), 0.12); color: var(--accent-cyan); border: 1px solid rgba(var(--brand-rgb), 0.25); font-size: 1.1rem;">
                                     <i class="bi bi-person-lock"></i>
                                 </div>
                                 <div class="min-w-0">

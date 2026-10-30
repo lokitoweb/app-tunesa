@@ -331,8 +331,8 @@ onBeforeUnmount(() => {
 }
 
 .modern-input-wrapper.is-focused .modern-input-control {
-    border-color: var(--accent-cyan, #0284c7) !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+    border-color: var(--accent-cyan, var(--brand)) !important;
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15) !important;
 }
 
 .modern-datepicker-input {
@@ -378,7 +378,7 @@ onBeforeUnmount(() => {
 
 .modern-input-wrapper:hover .modern-datepicker-trailing-icon,
 .modern-input-wrapper.is-focused .modern-datepicker-trailing-icon {
-    color: var(--accent-cyan, #0284c7);
+    color: var(--accent-cyan, var(--brand));
 }
 
 .btn-clear-icon {
@@ -534,14 +534,14 @@ onBeforeUnmount(() => {
 
 .cal-day-cell.is-today {
     font-weight: 700;
-    border: 1px solid var(--accent-cyan, #0284c7);
+    border: 1px solid var(--accent-cyan, var(--brand));
 }
 
 .cal-day-cell.is-selected {
-    background: var(--accent-cyan, #0284c7) !important;
+    background: var(--accent-cyan, var(--brand)) !important;
     color: #ffffff !important;
     font-weight: 700 !important;
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+    box-shadow: 0 2px 8px rgba(var(--brand-rgb), 0.4);
 }
 
 /* BARRA INFERIOR */
@@ -571,7 +571,7 @@ onBeforeUnmount(() => {
 }
 
 .btn-cal-action:hover {
-    background: rgba(2, 132, 199, 0.1);
+    background: rgba(var(--brand-rgb), 0.1);
 }
 
 .btn-cal-close {

@@ -38,7 +38,7 @@
 <div class="settings-header-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <div class="d-flex align-items-center gap-3">
-            <div class="settings-header-icon" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+            <div class="settings-header-icon" style="background: linear-gradient(135deg, var(--brand) 0%, #0369a1 100%);">
                 <i class="bi bi-phone-fill"></i>
             </div>
             <div>
@@ -93,7 +93,7 @@
     <div class="col-6 col-md-3">
         <div class="mobile-kpi-card shadow-sm h-100">
             <div class="d-flex align-items-center gap-3">
-                <div class="mobile-setting-icon" style="background: rgba(2, 132, 199, 0.1); color: #0284c7;">
+                <div class="mobile-setting-icon" style="background: rgba(var(--brand-rgb), 0.1); color: var(--brand);">
                     <i class="bi bi-grid-fill"></i>
                 </div>
                 <div class="min-w-0">
@@ -265,7 +265,7 @@
 
             {{-- Botón de Guardado Ejecutivo --}}
             <div class="settings-action-bar">
-                <button type="submit" class="btn btn-primary w-100 d-inline-flex align-items-center justify-content-center py-2.5 fw-bold shadow-sm" style="border-radius: 9px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.28);">
+                <button type="submit" class="btn btn-primary w-100 d-inline-flex align-items-center justify-content-center py-2.5 fw-bold shadow-sm" style="border-radius: 9px; box-shadow: 0 4px 14px rgba(var(--brand-rgb), 0.28);">
                     <i class="bi bi-floppy2-fill me-2"></i> Guardar configuración móvil
                 </button>
                 @if($config->updated_at)

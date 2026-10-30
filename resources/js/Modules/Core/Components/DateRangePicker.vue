@@ -569,7 +569,7 @@ onBeforeUnmount(() => {
 .calendar-trigger-card:hover,
 .calendar-trigger-card.is-focused {
     border-color: var(--accent-cyan) !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15) !important;
 }
 
 .calendar-trigger-icon {
@@ -580,9 +580,9 @@ onBeforeUnmount(() => {
     align-items: center;
     justify-content: center;
     font-size: 1.1rem;
-    background: rgba(2, 132, 199, 0.1);
+    background: rgba(var(--brand-rgb), 0.1);
     color: var(--accent-cyan);
-    border: 1px solid rgba(2, 132, 199, 0.2);
+    border: 1px solid rgba(var(--brand-rgb), 0.2);
 }
 
 .calendar-trigger-sub {
@@ -605,7 +605,7 @@ onBeforeUnmount(() => {
 }
 
 .calendar-btn-apply {
-    background: var(--accent-cyan, #0284c7) !important;
+    background: var(--accent-cyan, var(--brand)) !important;
     border: none !important;
     color: #ffffff !important;
     font-size: 0.775rem !important;
@@ -618,7 +618,7 @@ onBeforeUnmount(() => {
 
 .calendar-btn-apply:hover {
     filter: brightness(1.1);
-    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+    box-shadow: 0 2px 6px rgba(var(--brand-rgb), 0.35);
 }
 
 .calendar-pro-popover.popover-up {

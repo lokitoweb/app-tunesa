@@ -46,7 +46,7 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     font-weight: 800;
     background: var(--bg-surface-elevated);
     border: 1px solid var(--border-color);
-    color: #0284c7;
+    color: var(--brand);
     flex-shrink: 0;
     overflow: hidden;
 }
@@ -145,8 +145,8 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     color: var(--text-primary);
 }
 .legajo-tab-btn.active {
-    color: #0284c7;
-    border-bottom-color: #0284c7;
+    color: var(--brand);
+    border-bottom-color: var(--brand);
     font-weight: 700;
 }
 .legajo-tab-badge {
@@ -158,9 +158,9 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     color: var(--text-muted);
 }
 .legajo-tab-btn.active .legajo-tab-badge {
-    background: rgba(2, 132, 199, 0.12);
-    border-color: rgba(2, 132, 199, 0.25);
-    color: #0284c7;
+    background: rgba(var(--brand-rgb), 0.12);
+    border-color: rgba(var(--brand-rgb), 0.25);
+    color: var(--brand);
 }
 
 {{-- 4. Tab 1: Grid de 3 Columnas Exacto y Adaptable (Cero Espacio Muerto) --}}
@@ -181,7 +181,7 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     transition: border-color 0.15s ease;
 }
 .legajo-section:hover {
-    border-color: rgba(2, 132, 199, 0.3);
+    border-color: rgba(var(--brand-rgb), 0.3);
 }
 .legajo-section-header {
     display: flex;
@@ -204,7 +204,7 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     margin: 0;
 }
 .legajo-section-title i {
-    color: #0284c7;
+    color: var(--brand);
     font-size: 0.85rem;
 }
 .legajo-row {
@@ -259,8 +259,8 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     line-height: 1;
 }
 .legajo-copy-btn:hover {
-    color: #0284c7;
-    background: rgba(2, 132, 199, 0.12);
+    color: var(--brand);
+    background: rgba(var(--brand-rgb), 0.12);
 }
 .legajo-btn-ghost {
     background: var(--bg-surface);
@@ -281,7 +281,7 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
 .legajo-btn-ghost:hover {
     color: var(--text-primary);
     border-color: rgba(56, 189, 248, 0.4);
-    background: rgba(2, 132, 199, 0.08);
+    background: rgba(var(--brand-rgb), 0.08);
     transform: translateY(-0.5px);
 }
 .legajo-btn-ghost:active {
@@ -289,7 +289,7 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
 }
 
 .legajo-btn-primary {
-    background: linear-gradient(135deg, rgba(2, 132, 199, 0.24) 0%, rgba(14, 165, 233, 0.14) 100%);
+    background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.24) 0%, rgba(14, 165, 233, 0.14) 100%);
     border: 1px solid rgba(56, 189, 248, 0.4);
     color: #38bdf8;
     font-size: 0.75rem;
@@ -307,10 +307,10 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     user-select: none;
 }
 .legajo-btn-primary:hover {
-    background: linear-gradient(135deg, rgba(2, 132, 199, 0.4) 0%, rgba(14, 165, 233, 0.26) 100%);
+    background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.4) 0%, rgba(14, 165, 233, 0.26) 100%);
     border-color: rgba(56, 189, 248, 0.75);
     color: #ffffff;
-    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 14px rgba(var(--brand-rgb), 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.15);
     transform: translateY(-1px);
 }
 .legajo-btn-primary:active {
@@ -349,8 +349,8 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
 }
 .legajo-form-input:focus, .legajo-form-select:focus {
     outline: none;
-    border-color: #0284c7;
-    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+    border-color: var(--brand);
+    box-shadow: 0 0 0 2px rgba(var(--brand-rgb), 0.2);
 }
 .legajo-form-input.mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -384,7 +384,7 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-muted);
-    background: rgba(2, 132, 199, 0.03);
+    background: rgba(var(--brand-rgb), 0.03);
     border-bottom: 1px solid var(--border-color);
 }
 .legajo-table td {
@@ -397,7 +397,7 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     border-bottom: none;
 }
 .legajo-table tbody tr:hover {
-    background: rgba(2, 132, 199, 0.02);
+    background: rgba(var(--brand-rgb), 0.02);
 }
 .legajo-link-btn {
     display: inline-flex;
@@ -414,9 +414,9 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     transition: all 0.15s ease;
 }
 .legajo-link-btn:hover {
-    color: #0284c7;
-    border-color: #0284c7;
-    background: rgba(2, 132, 199, 0.08);
+    color: var(--brand);
+    border-color: var(--brand);
+    background: rgba(var(--brand-rgb), 0.08);
 }
 
 {{-- 6. Chips de Tallas de Uniforme --}}
@@ -445,8 +445,8 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background: rgba(2, 132, 199, 0.1);
-    color: #0284c7;
+    background: rgba(var(--brand-rgb), 0.1);
+    color: var(--brand);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -475,13 +475,13 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
     height: 46px;
     margin: 0 auto 0.75rem;
     border-radius: 50%;
-    background: rgba(2, 132, 199, 0.08);
-    color: #0284c7;
+    background: rgba(var(--brand-rgb), 0.08);
+    color: var(--brand);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.35rem;
-    border: 1px solid rgba(2, 132, 199, 0.18);
+    border: 1px solid rgba(var(--brand-rgb), 0.18);
 }
 .legajo-empty-title {
     font-size: 0.85rem;

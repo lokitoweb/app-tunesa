@@ -132,7 +132,7 @@
                 $targetUrl = \App\Modules\Core\Controllers\Web\NotificationWebController::targetUrl($n, Auth::user());
             @endphp
             <div class="list-group-item p-3.5 transition-all d-flex align-items-start gap-3" 
-                 style="{{ $isUnread ? 'background: rgba(2, 132, 199, 0.04); border-left: 3.5px solid var(--accent-cyan);' : 'border-left: 3.5px solid transparent;' }} border-bottom: 1px solid var(--border-color);">
+                 style="{{ $isUnread ? 'background: rgba(var(--brand-rgb), 0.04); border-left: 3.5px solid var(--accent-cyan);' : 'border-left: 3.5px solid transparent;' }} border-bottom: 1px solid var(--border-color);">
                 
                 {{-- Icono con color de categoría --}}
                 <div class="d-inline-flex align-items-center justify-content-center rounded-3 bg-{{ $meta['color'] }}-subtle text-{{ $meta['color'] }} border border-{{ $meta['color'] }}-subtle shadow-sm flex-shrink-0" 

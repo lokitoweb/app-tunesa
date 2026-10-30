@@ -23,7 +23,7 @@
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg-3">
         <div class="attendance-kpi-card">
-            <div class="attendance-kpi-icon" style="background: rgba(2, 132, 199, 0.1); color: #0284c7;">
+            <div class="attendance-kpi-icon" style="background: rgba(var(--brand-rgb), 0.1); color: var(--brand);">
                 <i class="bi bi-list-check"></i>
             </div>
             <div>

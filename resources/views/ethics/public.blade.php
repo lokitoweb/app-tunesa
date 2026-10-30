@@ -60,14 +60,14 @@
             width: 54px;
             height: 54px;
             border-radius: 14px;
-            background: rgba(2, 132, 199, 0.1);
+            background: rgba(var(--brand-rgb), 0.1);
             color: var(--brand-primary);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.65rem;
             flex-shrink: 0;
-            border: 1px solid rgba(2, 132, 199, 0.2);
+            border: 1px solid rgba(var(--brand-rgb), 0.2);
         }
         .guarantee-grid {
             display: grid;
@@ -191,7 +191,7 @@
         }
         .form-control:focus, .form-select:focus {
             border-color: var(--brand-primary);
-            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+            box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15);
         }
         .portal-btn-primary {
             background: var(--brand-primary);
@@ -202,13 +202,13 @@
             padding: 0.75rem 1.5rem;
             font-size: 0.925rem;
             transition: all 0.15s ease;
-            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+            box-shadow: 0 2px 8px rgba(var(--brand-rgb), 0.3);
         }
         .portal-btn-primary:hover {
             background: #0369a1;
             color: #ffffff;
             transform: translateY(-1px);
-            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+            box-shadow: 0 4px 14px rgba(var(--brand-rgb), 0.4);
         }
         .chat-bubble-reporter {
             background: #f1f5f9;
@@ -224,15 +224,15 @@
             color: #f1f5f9;
         }
         .chat-bubble-investigator {
-            background: rgba(2, 132, 199, 0.08);
-            border: 1px solid rgba(2, 132, 199, 0.25);
+            background: rgba(var(--brand-rgb), 0.08);
+            border: 1px solid rgba(var(--brand-rgb), 0.25);
             border-radius: 14px;
             border-top-right-radius: 2px;
             padding: 1rem 1.25rem;
             color: #0f172a;
         }
         [data-bs-theme="dark"] .chat-bubble-investigator {
-            background: rgba(2, 132, 199, 0.15);
+            background: rgba(var(--brand-rgb), 0.15);
             border-color: rgba(56, 189, 248, 0.3);
             color: #f1f5f9;
         }

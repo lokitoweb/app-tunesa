@@ -194,7 +194,7 @@
 .payslips-header-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+    background: linear-gradient(135deg, var(--brand) 0%, #2563eb 100%);
     color: #ffffff;
     border-radius: 10px;
     display: flex;
@@ -219,8 +219,8 @@
 }
 .btn-executive-back:hover {
     background: var(--bg-surface, #ffffff);
-    color: #0284c7;
-    border-color: #0284c7;
+    color: var(--brand);
+    border-color: var(--brand);
     transform: translateX(-2px);
 }
 .payslip-input {
@@ -231,13 +231,13 @@
     background-color: var(--bg-surface-elevated, #ffffff) !important;
 }
 .payslip-input:focus {
-    border-color: #0284c7 !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+    border-color: var(--brand) !important;
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15) !important;
 }
 .payslip-info-alert {
-    background: rgba(2, 132, 199, 0.08) !important;
+    background: rgba(var(--brand-rgb), 0.08) !important;
     color: #0369a1 !important;
-    border: 1px solid rgba(2, 132, 199, 0.15) !important;
+    border: 1px solid rgba(var(--brand-rgb), 0.15) !important;
 }
 .payslip-file-hint-bar {
     background: var(--bg-surface-elevated, #f8fafc);
@@ -270,7 +270,7 @@
     border-color: #38bdf8 !important;
 }
 [data-bs-theme="dark"] .payslip-info-alert {
-    background: rgba(2, 132, 199, 0.12) !important;
+    background: rgba(var(--brand-rgb), 0.12) !important;
     border-color: rgba(56, 189, 248, 0.25) !important;
     color: #e0f2fe !important;
 }

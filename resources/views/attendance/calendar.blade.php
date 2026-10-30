@@ -1180,7 +1180,7 @@
     transition: background-color 0.15s ease;
 }
 .cal-matrix-table tbody tr:hover td {
-    background-color: rgba(2, 132, 199, 0.04);
+    background-color: rgba(var(--brand-rgb), 0.04);
 }
 .cal-matrix-table tbody tr:hover .cal-fixed-col {
     background-color: var(--cal-bg-subtle);
@@ -1436,7 +1436,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     {{-- 2. KPIs Ejecutivos (Métricas de Alto Impacto y Definición) --}}
     <div class="cal-kpis-grid">
         <div class="cal-kpi-card">
-            <div class="cal-kpi-icon-box" style="background: rgba(2, 132, 199, 0.12); color: #0284c7;">
+            <div class="cal-kpi-icon-box" style="background: rgba(var(--brand-rgb), 0.12); color: var(--brand);">
                 <i class="bi bi-people-fill"></i>
             </div>
             <div>
@@ -2167,7 +2167,7 @@ function openDayDetailModal(date, dayNum, weekday) {
         <div class="row g-2 mb-3">
             <div class="col-6 col-md-3">
                 <div class="cal-modal-stat-card">
-                    <div class="cal-modal-stat-icon" style="background: rgba(2, 132, 199, 0.1); color: #0284c7;">
+                    <div class="cal-modal-stat-icon" style="background: rgba(var(--brand-rgb), 0.1); color: var(--brand);">
                         <i class="bi bi-people-fill"></i>
                     </div>
                     <div>

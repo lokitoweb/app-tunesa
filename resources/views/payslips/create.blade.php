@@ -142,7 +142,7 @@
 .payslips-header-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+    background: linear-gradient(135deg, var(--brand) 0%, #2563eb 100%);
     color: #ffffff;
     border-radius: 10px;
     display: flex;
@@ -159,8 +159,8 @@
     background-color: var(--bg-surface-elevated, #ffffff) !important;
 }
 .payslip-input:focus {
-    border-color: #0284c7 !important;
-    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+    border-color: var(--brand) !important;
+    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15) !important;
 }
 [data-bs-theme="dark"] .payslips-header-card,
 [data-bs-theme="dark"] .payslips-form-card {

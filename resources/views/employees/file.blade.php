@@ -433,7 +433,7 @@
                                 <div class="col-12">
                                     <div class="p-3 rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-3" style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(14, 165, 233, 0.28);">
                                         <div class="d-flex align-items-center gap-3 min-w-0">
-                                            <div class="d-flex align-items-center justify-content-center flex-shrink-0" style="width: 42px; height: 42px; border-radius: 10px; background: rgba(14, 165, 233, 0.15); color: #0284c7; font-size: 1.25rem;">
+                                            <div class="d-flex align-items-center justify-content-center flex-shrink-0" style="width: 42px; height: 42px; border-radius: 10px; background: rgba(14, 165, 233, 0.15); color: var(--brand); font-size: 1.25rem;">
                                                 <i class="bi bi-shield-lock-fill"></i>
                                             </div>
                                             <div class="min-w-0">
@@ -757,7 +757,7 @@
             </div>
             <div class="legajo-size-chip">
                 <div class="legajo-size-chip-info">
-                    <div class="legajo-size-chip-icon" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; border-color: rgba(2, 132, 199, 0.2);">
+                    <div class="legajo-size-chip-icon" style="background: rgba(var(--brand-rgb), 0.1); color: var(--brand); border-color: rgba(var(--brand-rgb), 0.2);">
                         <i class="bi bi-columns-gap"></i>
                     </div>
                     <div>

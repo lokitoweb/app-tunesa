@@ -169,7 +169,7 @@ const pushEmail = ref('');
         <div class="settings-header-card">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
                 <div class="d-flex align-items-center gap-3">
-                    <div class="settings-header-icon" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+                    <div class="settings-header-icon" style="background: linear-gradient(135deg, var(--brand) 0%, #0369a1 100%);">
                         <i class="bi bi-plug-fill"></i>
                     </div>
                     <div>
@@ -221,7 +221,7 @@ const pushEmail = ref('');
             <div class="col-6 col-md-3">
                 <div class="card border-0 shadow-sm p-3 integrations-card">
                     <div class="d-flex align-items-center gap-3">
-                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(2, 132, 199, 0.1); color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(var(--brand-rgb), 0.1); color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
                             <i class="bi bi-send-check-fill"></i>
                         </div>
                         <div>
@@ -628,7 +628,7 @@ const pushEmail = ref('');
                             <i class="bi bi-clock-history me-1 text-primary"></i> <strong>Último cambio:</strong> {{ updatedAt }}
                         </template>
                     </span>
-                    <button type="submit" class="btn btn-primary d-inline-flex align-items-center px-4 py-2.5 fw-bold shadow-sm" style="border-radius: 9px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.28);" :disabled="form.processing">
+                    <button type="submit" class="btn btn-primary d-inline-flex align-items-center px-4 py-2.5 fw-bold shadow-sm" style="border-radius: 9px; box-shadow: 0 4px 14px rgba(var(--brand-rgb), 0.28);" :disabled="form.processing">
                         <span v-if="form.processing" class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
                         <i v-else class="bi bi-floppy2-fill me-2"></i> Guardar cambios
                     </button>

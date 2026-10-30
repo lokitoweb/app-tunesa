@@ -521,7 +521,7 @@ async function destroy(shift) {
                                     </div>
                                     <div class="row g-3">
                                         <div class="col-12 col-md-6">
-                                            <div class="p-3 border rounded-3 cursor-pointer shadow-sm transition" :style="{ borderColor: shiftForm.type === 'fixed' ? 'var(--brand, #0284C7)' : 'var(--border-color)', background: shiftForm.type === 'fixed' ? 'rgba(2, 132, 199, 0.06)' : 'var(--bg-surface)' }" @click="shiftForm.type = 'fixed'">
+                                            <div class="p-3 border rounded-3 cursor-pointer shadow-sm transition" :style="{ borderColor: shiftForm.type === 'fixed' ? 'var(--brand, var(--brand))' : 'var(--border-color)', background: shiftForm.type === 'fixed' ? 'rgba(var(--brand-rgb), 0.06)' : 'var(--bg-surface)' }" @click="shiftForm.type = 'fixed'">
                                                 <div class="d-flex align-items-center" style="gap: 8px !important; margin-bottom: 4px;">
                                                     <i class="bi bi-calendar-check fs-5 text-primary"></i>
                                                     <div class="fw-bold text-dark">Turno Fijo Semanal</div>
@@ -530,7 +530,7 @@ async function destroy(shift) {
                                             </div>
                                         </div>
                                         <div class="col-12 col-md-6">
-                                            <div class="p-3 border rounded-3 cursor-pointer shadow-sm transition" :style="{ borderColor: shiftForm.type === 'rotating' ? 'var(--brand, #0284C7)' : 'var(--border-color)', background: shiftForm.type === 'rotating' ? 'rgba(2, 132, 199, 0.06)' : 'var(--bg-surface)' }" @click="shiftForm.type = 'rotating'">
+                                            <div class="p-3 border rounded-3 cursor-pointer shadow-sm transition" :style="{ borderColor: shiftForm.type === 'rotating' ? 'var(--brand, var(--brand))' : 'var(--border-color)', background: shiftForm.type === 'rotating' ? 'rgba(var(--brand-rgb), 0.06)' : 'var(--bg-surface)' }" @click="shiftForm.type = 'rotating'">
                                                 <div class="d-flex align-items-center" style="gap: 8px !important; margin-bottom: 4px;">
                                                     <i class="bi bi-arrow-repeat fs-5 text-primary"></i>
                                                     <div class="fw-bold text-dark">Turno Rotativo</div>
@@ -681,5 +681,5 @@ async function destroy(shift) {
     background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.28) 0 4px, transparent 4px 8px);
     background-color: var(--swatch);
 }
-.shift-swatch:focus-visible { outline: 2px solid var(--brand, #0284c7); outline-offset: 2px; }
+.shift-swatch:focus-visible { outline: 2px solid var(--brand, var(--brand)); outline-offset: 2px; }
 </style>

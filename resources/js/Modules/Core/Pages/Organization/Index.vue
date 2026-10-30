@@ -2256,7 +2256,7 @@ const catalogDetail = (catalog, row) => {
 .org-guide-num {
     width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
-    background: var(--brand, #0284c7); color: #fff; font-weight: 700; font-size: 0.75rem;
+    background: var(--brand, var(--brand)); color: #fff; font-weight: 700; font-size: 0.75rem;
 }
 .org-guide-step .badge { margin-left: auto; }
 /* Card de Cabecera y Estilo Corporativo */
@@ -2274,7 +2274,7 @@ const catalogDetail = (catalog, row) => {
 .org-header-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+    background: linear-gradient(135deg, var(--brand) 0%, #2563eb 100%);
     color: #ffffff;
     border-radius: 12px;
     display: flex;
@@ -2348,7 +2348,7 @@ const catalogDetail = (catalog, row) => {
 
 .nav-segment-btn.active {
     background: #ffffff;
-    color: #0284c7;
+    color: var(--brand);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
@@ -2462,7 +2462,7 @@ const catalogDetail = (catalog, row) => {
 }
 
 [data-bs-theme="dark"] .org-row-active {
-    background-color: rgba(2, 132, 199, 0.18) !important;
+    background-color: rgba(var(--brand-rgb), 0.18) !important;
 }
 
 [data-bs-theme="dark"] .org-row-active td {
@@ -2489,7 +2489,7 @@ const catalogDetail = (catalog, row) => {
 
 .org-chevron-pill.expanded {
     transform: rotate(90deg);
-    background: #0284c7;
+    background: var(--brand);
     color: #ffffff;
 }
 
@@ -2499,7 +2499,7 @@ const catalogDetail = (catalog, row) => {
 }
 
 [data-bs-theme="dark"] .org-chevron-pill.expanded {
-    background: #0284c7;
+    background: var(--brand);
     color: #ffffff;
 }
 
@@ -2727,11 +2727,11 @@ const catalogDetail = (catalog, row) => {
 }
 
 .org-suggestion-pill-btn:hover {
-    border-color: #0284c7;
+    border-color: var(--brand);
     background: #f0f9ff;
-    color: #0284c7;
+    color: var(--brand);
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(2, 132, 199, 0.12);
+    box-shadow: 0 2px 4px rgba(var(--brand-rgb), 0.12);
 }
 
 [data-bs-theme="dark"] .org-suggestion-pill-btn {

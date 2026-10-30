@@ -36,7 +36,7 @@
         {{-- Tarjeta de Identidad y Credencial --}}
         <div class="card border-0 shadow-sm mb-4" style="border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color) !important;">
             {{-- Banner decorativo superior --}}
-            <div style="height: 80px; background: linear-gradient(135deg, rgba(2, 132, 199, 0.25) 0%, rgba(99, 102, 241, 0.35) 100%); border-bottom: 1px solid var(--border-color);"></div>
+            <div style="height: 80px; background: linear-gradient(135deg, rgba(var(--brand-rgb), 0.25) 0%, rgba(99, 102, 241, 0.35) 100%); border-bottom: 1px solid var(--border-color);"></div>
 
             <div class="card-body p-4 pt-0 position-relative">
                 {{-- Avatar y Foto --}}
@@ -48,7 +48,7 @@
                                  style="width: 82px; height: 82px; object-fit: cover; border: 4px solid var(--bs-card-bg); background: var(--bs-card-bg);">
                         @else
                             <div class="rounded-circle shadow d-inline-flex align-items-center justify-content-center text-white fw-bold"
-                                 style="width: 82px; height: 82px; font-size: 1.85rem; background: linear-gradient(135deg, #0284c7 0%, #4f46e5 100%); border: 4px solid var(--bs-card-bg);">
+                                 style="width: 82px; height: 82px; font-size: 1.85rem; background: linear-gradient(135deg, var(--brand) 0%, #4f46e5 100%); border: 4px solid var(--bs-card-bg);">
                                 {{ strtoupper(mb_substr($user->first_name ?? 'U', 0, 1) . mb_substr($user->last_name ?? '', 0, 1)) }}
                             </div>
                         @endif
@@ -392,7 +392,7 @@
                                      style="width: 88px; height: 88px; object-fit: cover;">
                             @else
                                 <div id="avatarPreviewInitials" class="rounded-circle shadow-sm d-inline-flex align-items-center justify-content-center text-white fw-bold"
-                                     style="width: 88px; height: 88px; font-size: 2rem; background: linear-gradient(135deg, #0284c7 0%, #4f46e5 100%);">
+                                     style="width: 88px; height: 88px; font-size: 2rem; background: linear-gradient(135deg, var(--brand) 0%, #4f46e5 100%);">
                                     {{ strtoupper(mb_substr($user->first_name ?? 'U', 0, 1) . mb_substr($user->last_name ?? '', 0, 1)) }}
                                 </div>
                                 <img src="" id="avatarPreviewImg" alt="Vista previa" class="rounded-circle shadow-sm border d-none" style="width: 88px; height: 88px; object-fit: cover;">
