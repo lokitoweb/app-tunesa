@@ -184,184 +184,224 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
 
 <template>
     <AppLayout title="Tesorería y pagos">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-            <div>
-                <h1 class="h4 fw-bold mb-1">Tesorería y pagos</h1>
-                <p class="text-body-secondary small mb-0">Programa las cuotas de las órdenes, autoriza y registra los pagos con su voucher.</p>
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Tesorería y pagos</h1>
+                <p class="page-subtitle">Programa las cuotas de las órdenes, autoriza y registra los pagos con su voucher.</p>
             </div>
-            <div class="d-flex flex-wrap gap-2">
-                <button v-if="direct" type="button" class="btn btn-primary" @click="openDirect"><i class="bi bi-plus-lg me-1"></i>Pago directo</button>
-                <button v-if="direct" type="button" class="btn btn-outline-primary" @click="showImport = !showImport"><i class="bi bi-file-earmark-excel me-1"></i>Cargar gastos</button>
-                <button v-if="can.pay" type="button" class="btn btn-outline-primary" @click="showAccounts = !showAccounts">
-                    <i class="bi bi-bank me-1"></i>Cuentas de origen <span class="badge bg-primary-subtle text-primary ms-1">{{ activeAccounts.length }}</span>
+            <div class="page-actions">
+                <button v-if="can.pay" type="button" class="btn btn-light border" :aria-expanded="showAccounts" @click="showAccounts = !showAccounts">
+                    <i class="bi bi-bank me-1"></i>Cuentas de origen <span class="count-pill ms-1">{{ activeAccounts.length }}</span>
                 </button>
+                <button v-if="direct" type="button" class="btn btn-light border" :aria-expanded="showImport" @click="showImport = !showImport"><i class="bi bi-file-earmark-arrow-up me-1"></i>Cargar gastos</button>
+                <button v-if="direct" type="button" class="btn btn-primary" @click="openDirect"><i class="bi bi-plus-lg me-1"></i>Pago directo</button>
             </div>
-        </div>
+        </header>
 
         <!-- Carga de gastos desde Excel (sisgere Tesorería › Bancos): cada fila queda como pago directo por programar -->
-        <form v-if="showImport" class="card card-body shadow-sm mb-3 row g-2 flex-row align-items-end" novalidate @submit.prevent="sendImport">
-            <div class="col-12 small text-body-secondary">Columnas: Fecha, Medio, Tipo, Serie, Número, RUC, Glosa, Monto. El proveedor debe estar registrado con su RUC. Si una fila tiene error no se carga ninguna.</div>
-            <div class="col-sm-3">
-                <label class="form-label small fw-semibold" for="imp-cur">Moneda</label>
-                <select id="imp-cur" v-model="importForm.currency" class="form-select form-select-sm"><option v-for="(label, code) in currencies" :key="code" :value="code">{{ label }}</option></select>
-            </div>
-            <div class="col-sm-6">
-                <label class="form-label small fw-semibold" for="imp-file">Archivo Excel</label>
-                <input id="imp-file" type="file" accept=".xlsx,.xls,.csv" class="form-control form-control-sm" :class="{ 'is-invalid': importForm.errors.file }" @change="importForm.file = $event.target.files[0]" />
-                <div class="invalid-feedback">{{ importForm.errors.file }}</div>
-            </div>
-            <div class="col-sm-3 text-end"><button type="submit" class="btn btn-sm btn-primary" :disabled="importForm.processing || !importForm.file"><i class="bi bi-upload me-1"></i>Procesar carga</button></div>
-        </form>
-
-        <!-- KPIs -->
-        <div class="row g-3 mb-3">
-            <div v-for="k in [['overdue', 'Vencido', 'danger', 'exclamation-octagon'], ['week', 'Vence en 7 días', 'warning', 'calendar-week'], ['pending', 'Total por pagar', 'primary', 'hourglass-split'], ['paid_month', 'Pagado este mes', 'success', 'cash-coin']]" :key="k[0]" class="col-6 col-xl-3">
-                <div class="card shadow-sm h-100">
-                    <div class="card-body d-flex align-items-center gap-3">
-                        <span class="rounded-3 d-inline-flex align-items-center justify-content-center flex-shrink-0" :class="`bg-${k[2]}-subtle text-${k[2]}`" style="width: 42px; height: 42px"><i class="bi fs-5" :class="`bi-${k[3]}`"></i></span>
-                        <div class="min-w-0">
-                            <div class="small text-body-secondary">{{ k[1] }}</div>
-                            <div v-for="(v, cur) in (Object.keys(kpis[k[0]] || {}).length ? kpis[k[0]] : { PEN: 0 })" :key="cur" class="fw-bold text-truncate">{{ money(v, cur) }}</div>
-                        </div>
+        <Transition name="reveal">
+            <form v-if="showImport" class="surface surface-pad mb-3" novalidate @submit.prevent="sendImport">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                    <div>
+                        <h2 class="surface-title">Cargar gastos desde Excel</h2>
+                        <p class="surface-sub">Columnas: Fecha, Medio, Tipo, Serie, Número, RUC, Glosa, Monto. El proveedor debe estar registrado con su RUC. Si una fila tiene error no se carga ninguna.</p>
                     </div>
+                    <button type="button" class="btn-close" aria-label="Cerrar" @click="showImport = false"></button>
                 </div>
-            </div>
-        </div>
+                <div class="row g-2 align-items-end">
+                    <div class="col-sm-3">
+                        <label class="form-label" for="imp-cur">Moneda</label>
+                        <select id="imp-cur" v-model="importForm.currency" class="form-select"><option v-for="(label, code) in currencies" :key="code" :value="code">{{ label }}</option></select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label" for="imp-file">Archivo Excel</label>
+                        <input id="imp-file" type="file" accept=".xlsx,.xls,.csv" class="form-control" :class="{ 'is-invalid': importForm.errors.file }" @change="importForm.file = $event.target.files[0]" />
+                        <div class="invalid-feedback">{{ importForm.errors.file }}</div>
+                    </div>
+                    <div class="col-sm-3 d-grid"><button type="submit" class="btn btn-primary" :disabled="importForm.processing || !importForm.file"><i class="bi bi-upload me-1"></i>Procesar carga</button></div>
+                </div>
+            </form>
+        </Transition>
+
+        <!-- Indicadores: un total por moneda -->
+        <section class="dash-kpis" aria-label="Resumen de pagos">
+            <article v-for="k in [['overdue', 'Vencido', 'rose', 'exclamation-octagon'], ['week', 'Vence en 7 días', 'amber', 'calendar-week'], ['pending', 'Total por pagar', 'brand', 'hourglass-split'], ['paid_month', 'Pagado este mes', 'emerald', 'check2-circle']]" :key="k[0]" class="dash-kpi-card">
+                <div class="dash-kpi-top">
+                    <span class="dash-kpi-label">{{ k[1] }}</span>
+                    <span class="dash-kpi-icon" :class="`tone-${k[2]}`"><i class="bi" :class="`bi-${k[3]}`"></i></span>
+                </div>
+                <div v-for="(v, cur, i) in (Object.keys(kpis[k[0]] || {}).length ? kpis[k[0]] : { PEN: 0 })" :key="cur" :class="i === 0 ? 'dash-kpi-value kpi-money' : 'kpi-money-extra'">{{ money(v, cur) }}</div>
+            </article>
+        </section>
 
         <!-- Cuentas de origen -->
-        <div v-if="showAccounts" class="card shadow-sm mb-3">
-            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-                <span class="fw-semibold">Cuentas de la empresa (origen de los pagos)</span>
-                <button type="button" class="btn-close" aria-label="Cerrar" @click="showAccounts = false"></button>
-            </div>
-            <div class="card-body row g-3">
-                <div class="col-lg-7">
-                    <ul class="list-group">
-                        <li v-for="a in accounts" :key="a.id" class="list-group-item d-flex justify-content-between align-items-center" :class="{ 'text-body-secondary': !a.is_active }">
-                            <span><span class="fw-semibold">{{ a.alias || a.bank }}</span> · {{ a.bank }} <span class="font-monospace">{{ a.account_number }}</span> · {{ a.currency }}
-                                <span v-if="!a.is_active" class="badge bg-secondary-subtle text-secondary ms-1">Inactiva</span></span>
-                            <button type="button" class="btn-table-action btn-action-edit" title="Editar cuenta" @click="editAccount(a)"><i class="bi bi-pencil-fill"></i></button>
-                        </li>
-                        <li v-if="!accounts.length" class="list-group-item text-body-secondary small">Registra al menos una cuenta para poder pagar.</li>
-                    </ul>
-                </div>
-                <form class="col-lg-5 row g-2" novalidate @submit.prevent="saveAccount">
-                    <div class="col-6"><input v-model="account.bank" class="form-control form-control-sm" :class="{ 'is-invalid': account.errors.bank }" placeholder="Banco" aria-label="Banco" maxlength="50" /><div class="invalid-feedback">{{ account.errors.bank }}</div></div>
-                    <div class="col-6"><input v-model="account.alias" class="form-control form-control-sm" placeholder="Alias (opcional)" aria-label="Alias" maxlength="60" /></div>
-                    <div class="col-8"><input v-model.trim="account.account_number" class="form-control form-control-sm font-monospace" :class="{ 'is-invalid': account.errors.account_number }" placeholder="N.º de cuenta" aria-label="Número de cuenta" maxlength="100" /><div class="invalid-feedback">{{ account.errors.account_number }}</div></div>
-                    <div class="col-4"><select v-model="account.currency" class="form-select form-select-sm" aria-label="Moneda"><option v-for="(l, c) in currencies" :key="c" :value="c">{{ c }}</option></select></div>
-                    <div class="col-12 d-flex justify-content-between align-items-center">
-                        <div class="form-check form-switch"><input id="acc-active" v-model="account.is_active" class="form-check-input" type="checkbox" /><label class="form-check-label small" for="acc-active">Activa</label></div>
-                        <button type="submit" class="btn btn-sm btn-primary" :disabled="account.processing">{{ account.id ? 'Guardar' : 'Agregar cuenta' }}</button>
+        <Transition name="reveal">
+            <section v-if="showAccounts" class="surface mb-3">
+                <header class="surface-head">
+                    <div>
+                        <h2 class="surface-title">Cuentas de la empresa</h2>
+                        <p class="surface-sub">Origen de los pagos: se elige una al pagar cada cuota.</p>
                     </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Pestañas -->
-        <div class="d-flex flex-wrap gap-2 mb-3" aria-label="Estado de las cuotas">
-            <button v-for="(label, key) in tabs" :key="key" type="button" class="btn btn-sm"
-                :class="filters.tab === key ? (key === 'overdue' ? 'btn-danger' : 'btn-primary') : 'btn-outline-secondary'" @click="go({ tab: key })">
-                {{ label }} <span class="badge bg-light text-dark ms-1">{{ counts[key] || 0 }}</span>
-            </button>
-        </div>
-
-        <div class="card shadow-sm">
-            <div class="card-body border-bottom">
-                <div class="d-flex flex-wrap gap-2 justify-content-between">
-                    <div class="input-group" style="max-width: 460px">
-                        <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input v-model="search" type="search" class="form-control" placeholder="Proveedor, RUC, colaborador, N.º de orden o detalle" aria-label="Buscar cuota" @input="onSearch" />
+                    <button type="button" class="btn-close" aria-label="Cerrar" @click="showAccounts = false"></button>
+                </header>
+                <div class="row g-0">
+                    <div class="col-lg-7 border-end-lg">
+                        <ul class="list-plain">
+                            <li v-for="a in accounts" :key="a.id" class="list-plain-item" :class="{ 'is-muted': !a.is_active }">
+                                <span class="list-plain-icon"><i class="bi bi-bank"></i></span>
+                                <div class="min-w-0 flex-grow-1">
+                                    <div class="fw-semibold text-truncate">{{ a.alias || a.bank }} <span v-if="!a.is_active" class="status-pill tone-neutral ms-1">Inactiva</span></div>
+                                    <div class="small text-body-secondary text-truncate">{{ a.bank }} · <span class="font-monospace">{{ a.account_number }}</span> · {{ a.currency }}</div>
+                                </div>
+                                <button type="button" class="icon-btn" title="Editar cuenta" aria-label="Editar cuenta" @click="editAccount(a)"><i class="bi bi-pencil"></i></button>
+                            </li>
+                            <li v-if="!accounts.length" class="empty-inline">Registra al menos una cuenta para poder pagar.</li>
+                        </ul>
                     </div>
-                    <div class="d-flex flex-wrap align-items-center gap-2 small">
-                        <label class="text-body-secondary" for="tr-from">Desde</label>
-                        <input id="tr-from" v-model="from" type="date" class="form-control form-control-sm w-auto" @change="go({})" />
-                        <label class="text-body-secondary" for="tr-to">Hasta</label>
-                        <input id="tr-to" v-model="to" type="date" class="form-control form-control-sm w-auto" :min="from || undefined" @change="go({})" />
-                        <div class="form-check mb-0 ms-1">
-                            <input id="tr-payroll" v-model="payroll" type="checkbox" class="form-check-input" @change="go({})" />
-                            <label class="form-check-label" for="tr-payroll">Mostrar planilla</label>
+                    <form class="col-lg-5 surface-pad row g-2 m-0" novalidate @submit.prevent="saveAccount">
+                        <div class="col-12 fw-semibold small">{{ account.id ? 'Editar cuenta' : 'Nueva cuenta' }}</div>
+                        <div class="col-6"><input v-model="account.bank" class="form-control" :class="{ 'is-invalid': account.errors.bank }" placeholder="Banco" aria-label="Banco" maxlength="50" /><div class="invalid-feedback">{{ account.errors.bank }}</div></div>
+                        <div class="col-6"><input v-model="account.alias" class="form-control" placeholder="Alias (opcional)" aria-label="Alias" maxlength="60" /></div>
+                        <div class="col-8"><input v-model.trim="account.account_number" class="form-control font-monospace" :class="{ 'is-invalid': account.errors.account_number }" placeholder="N.º de cuenta" aria-label="Número de cuenta" maxlength="100" /><div class="invalid-feedback">{{ account.errors.account_number }}</div></div>
+                        <div class="col-4"><select v-model="account.currency" class="form-select" aria-label="Moneda"><option v-for="(l, c) in currencies" :key="c" :value="c">{{ c }}</option></select></div>
+                        <div class="col-12 d-flex justify-content-between align-items-center pt-1">
+                            <div class="form-check form-switch mb-0"><input id="acc-active" v-model="account.is_active" class="form-check-input" type="checkbox" /><label class="form-check-label small" for="acc-active">Activa</label></div>
+                            <button type="submit" class="btn btn-primary btn-sm" :disabled="account.processing">{{ account.id ? 'Guardar' : 'Agregar cuenta' }}</button>
                         </div>
-                    </div>
-                    <a :href="exportUrl" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel</a>
+                    </form>
                 </div>
-                <div v-if="markable.length" class="d-flex flex-wrap align-items-center gap-2 mt-2 small">
-                    <button type="button" class="btn btn-sm btn-link px-0" @click="marked = marked.length === markable.length ? [] : markable.map((p) => p.id)">{{ marked.length === markable.length ? 'Desmarcar todas' : 'Marcar todas' }}</button>
-                    <button type="button" class="btn btn-sm btn-success" :disabled="!marked.length" @click="authorizeMarked"><i class="bi bi-check2-all me-1"></i>Autorizar marcadas ({{ marked.length }})</button>
+            </section>
+        </Transition>
+
+        <!-- Cuotas: pestañas, filtros y tabla en una sola superficie -->
+        <section class="surface">
+            <div class="surface-toolbar">
+                <div class="seg-tabs" role="tablist" aria-label="Estado de las cuotas">
+                    <button v-for="(label, key) in tabs" :key="key" type="button" role="tab" class="seg-tab" :class="{ 'is-active': filters.tab === key }"
+                        :aria-selected="filters.tab === key" @click="go({ tab: key })">
+                        {{ label }}
+                        <span class="count-pill" :class="{ 'tone-rose': key === 'overdue' && counts[key] > 0 }">{{ counts[key] || 0 }}</span>
+                    </button>
+                </div>
+                <a :href="exportUrl" class="btn btn-light border btn-sm ms-auto"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar</a>
+            </div>
+
+            <div class="filter-row">
+                <div class="search-field">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input v-model="search" type="search" class="form-control" placeholder="Proveedor, RUC, colaborador, N.º de orden o detalle" aria-label="Buscar cuota" @input="onSearch" />
+                </div>
+                <div class="range-field" role="group" aria-label="Rango de fechas">
+                    <label class="visually-hidden" for="tr-from">Desde</label>
+                    <input id="tr-from" v-model="from" type="date" class="form-control" title="Desde" @change="go({})" />
+                    <span class="range-sep" aria-hidden="true">–</span>
+                    <label class="visually-hidden" for="tr-to">Hasta</label>
+                    <input id="tr-to" v-model="to" type="date" class="form-control" title="Hasta" :min="from || undefined" @change="go({})" />
+                </div>
+                <div class="form-check form-switch mb-0">
+                    <input id="tr-payroll" v-model="payroll" type="checkbox" class="form-check-input" role="switch" @change="go({})" />
+                    <label class="form-check-label small" for="tr-payroll">Mostrar planilla</label>
                 </div>
             </div>
+
+            <!-- Barra de selección: aparece solo con cuotas para autorizar -->
+            <Transition name="reveal">
+                <div v-if="markable.length" class="selection-bar">
+                    <button type="button" class="btn btn-sm btn-link px-0" @click="marked = marked.length === markable.length ? [] : markable.map((p) => p.id)">{{ marked.length === markable.length ? 'Desmarcar todas' : 'Marcar todas' }}</button>
+                    <span class="small text-body-secondary">{{ marked.length }} de {{ markable.length }} marcadas</span>
+                    <button type="button" class="btn btn-sm btn-success ms-auto" :disabled="!marked.length" @click="authorizeMarked"><i class="bi bi-check2-all me-1"></i>Autorizar marcadas</button>
+                </div>
+            </Transition>
+
             <div class="table-responsive">
-                <table class="table align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table data-table table-cards align-middle mb-0">
+                    <thead>
                         <tr>
                             <th>Cliente / Proveedor · Documento relac.</th>
                             <th>Cuota</th>
                             <th>Fecha Venc · Fecha Progr.</th>
                             <th class="text-end">Monto (saldo)</th>
-                            <th class="text-end">Acción</th>
+                            <th class="text-end"><span class="visually-hidden">Acción</span></th>
                         </tr>
                     </thead>
                     <tbody>
                         <template v-for="p in installments.data" :key="p.id">
-                            <tr :class="{ 'table-danger': isOverdue(p) }">
-                                <td style="max-width: 280px">
-                                    <div class="fw-semibold text-truncate">
-                                        <input v-if="canAuthorizeRow(p)" v-model="marked" type="checkbox" class="form-check-input me-2" :value="p.id" :aria-label="`Marcar para autorizar: ${p.supplier?.name}`" />{{ p.supplier?.name || '—' }}
+                            <tr :class="{ 'is-overdue': isOverdue(p), 'is-paid': p.status === 'paid' }">
+                                <td data-label="Proveedor" class="cell-main">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <input v-if="canAuthorizeRow(p)" v-model="marked" type="checkbox" class="form-check-input mt-1 flex-shrink-0" :value="p.id" :aria-label="`Marcar para autorizar: ${p.supplier?.name}`" />
+                                        <div class="min-w-0">
+                                            <div class="cell-title text-truncate">{{ p.supplier?.name || '—' }}</div>
+                                            <div class="cell-sub text-truncate">
+                                                <Link :href="`/requisitions/${p.requisition?.id}`" class="font-monospace">{{ p.requisition?.order || p.requisition?.code }}</Link> · {{ p.requisition?.detail }}
+                                            </div>
+                                            <div v-if="p.requisition?.invoice_number" class="cell-sub"><i class="bi bi-receipt me-1"></i>Doc Asoc.: <span class="font-monospace">{{ p.requisition.invoice_number }}</span></div>
+                                            <div v-if="p.is_advance || p.requisition?.has_detraction" class="d-flex flex-wrap gap-1 mt-1">
+                                                <span v-if="p.is_advance" class="status-pill tone-blue">Anticipo</span>
+                                                <span v-if="p.requisition?.has_detraction" class="status-pill" :class="p.requisition.detraction.detraction_number ? 'tone-blue' : 'tone-amber'">
+                                                    Detracción {{ p.requisition.detraction.detraction_number ? `${p.requisition.detraction.detraction_percent}% · ${money(p.requisition.detraction.detraction_amount, p.requisition.currency)}` : 'pendiente' }}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="small text-body-secondary text-truncate">
-                                        <Link :href="`/requisitions/${p.requisition?.id}`" class="font-monospace">{{ p.requisition?.order || p.requisition?.code }}</Link> · {{ p.requisition?.detail }}
+                                </td>
+                                <td data-label="Cuota" class="text-nowrap">
+                                    <div class="cell-title fw-medium">{{ p.installment }} de {{ p.of }}</div>
+                                    <div class="cell-sub">{{ p.payment_method }}</div>
+                                </td>
+                                <td data-label="Fechas" class="text-nowrap">
+                                    <div class="tabular">{{ p.due_date }}</div>
+                                    <div class="d-flex flex-wrap gap-1 mt-1">
+                                        <span v-if="p.status === 'pending' && p.due_iso" class="status-pill" :class="daysTo(p.due_iso) < 0 ? 'tone-rose' : daysTo(p.due_iso) <= 2 ? 'tone-amber' : 'tone-neutral'">
+                                            {{ daysTo(p.due_iso) < 0 ? `Vencida hace ${-daysTo(p.due_iso)} d` : daysTo(p.due_iso) === 0 ? 'Vence hoy' : `Faltan ${daysTo(p.due_iso)} d` }}
+                                        </span>
+                                        <span v-if="p.scheduled_for" class="status-pill tone-brand"><i class="bi bi-calendar-check"></i>{{ p.scheduled_for.split('-').reverse().join('/') }}</span>
+                                        <span v-if="p.authorized" class="status-pill tone-emerald"><i class="bi bi-check2-circle"></i>Autorizada</span>
+                                        <span v-if="p.paid_amount > 0 && p.status === 'pending'" class="status-pill tone-blue"><i class="bi bi-arrow-repeat"></i>Saldo por amortizar</span>
                                     </div>
-                                    <div v-if="p.requisition?.invoice_number" class="small text-body-secondary"><i class="bi bi-receipt me-1"></i>Doc Asoc.: <span class="font-monospace">{{ p.requisition.invoice_number }}</span></div>
-                                    <span v-if="p.is_advance" class="badge mt-1 me-1 bg-info-subtle text-info-emphasis">Anticipo</span>
-                                    <span v-if="p.requisition?.has_detraction" class="badge mt-1" :class="p.requisition.detraction.detraction_number ? 'bg-info-subtle text-info-emphasis' : 'bg-warning-subtle text-warning-emphasis'">
-                                        Detracción {{ p.requisition.detraction.detraction_number ? `${p.requisition.detraction.detraction_percent}% · ${money(p.requisition.detraction.detraction_amount, p.requisition.currency)}` : 'pendiente' }}
-                                    </span>
+                                    <Link v-if="!p.requisition?.has_invoice && p.status === 'pending'" :href="`/requisitions/${p.requisition?.id}#factura`" class="cell-link-warn" title="Registra la factura o el documento (PDF) en la orden: sin él no se paga"><i class="bi bi-receipt-cutoff me-1"></i>Sin factura · registrar</Link>
                                 </td>
-                                <td class="small text-nowrap">{{ p.installment }} de {{ p.of }}<div class="text-body-secondary">{{ p.payment_method }}</div></td>
-                                <td class="small text-nowrap">
-                                    {{ p.due_date }}
-                                    <div v-if="p.status === 'pending' && p.due_iso" :class="daysTo(p.due_iso) < 0 ? 'text-danger fw-semibold' : 'text-body-secondary'">
-                                        {{ daysTo(p.due_iso) < 0 ? `Vencida hace ${-daysTo(p.due_iso)} d` : daysTo(p.due_iso) === 0 ? 'Vence hoy' : `Faltan ${daysTo(p.due_iso)} d` }}
-                                    </div>
-                                    <div v-if="p.scheduled_for" class="text-primary"><i class="bi bi-calendar-check me-1"></i>{{ p.scheduled_for.split('-').reverse().join('/') }}</div>
-                                    <div v-if="p.authorized" class="text-success"><i class="bi bi-check2-circle me-1"></i>Autorizada</div>
-                                    <Link v-if="!p.requisition?.has_invoice && p.status === 'pending'" :href="`/requisitions/${p.requisition?.id}#factura`" class="d-block text-warning-emphasis" title="Registra la factura o el documento (PDF) en la orden: sin él no se paga"><i class="bi bi-receipt-cutoff me-1"></i>Sin factura · registrar</Link>
-                                    <div v-if="p.paid_amount > 0 && p.status === 'pending'" class="text-info-emphasis"><i class="bi bi-arrow-repeat me-1"></i>Saldo por amortizar</div>
+                                <td data-label="Monto" class="text-end text-nowrap">
+                                    <div class="cell-amount">{{ money(p.status === 'paid' ? p.amount : p.balance, p.requisition?.currency) }}</div>
+                                    <div v-if="p.paid_amount > 0 && p.status !== 'paid'" class="cell-sub">de {{ money(p.amount, p.requisition?.currency) }}</div>
                                 </td>
-                                <td class="text-end text-nowrap">
-                                    <div class="fw-semibold">{{ money(p.status === 'paid' ? p.amount : p.balance, p.requisition?.currency) }}</div>
-                                    <div v-if="p.paid_amount > 0 && p.status !== 'paid'" class="small text-body-secondary">de {{ money(p.amount, p.requisition?.currency) }}</div>
-                                </td>
-                                <td class="text-end">
-                                    <div class="d-flex flex-wrap gap-1 justify-content-end align-items-center">
+                                <td class="cell-actions">
+                                    <div class="row-actions">
                                         <template v-if="p.status === 'pending' && can.pay && !p.authorized">
-                                            <input v-model="scheduleDates[p.id]" type="date" class="form-control form-control-sm" style="width: 140px" :placeholder="p.due_iso" :aria-label="`Fecha de pago cuota ${p.installment}`" />
-                                            <button type="button" class="btn btn-sm btn-outline-primary" @click="schedule(p)">{{ p.scheduled_for ? 'Reprogramar' : 'Programar' }}</button>
+                                            <input v-model="scheduleDates[p.id]" type="date" class="form-control form-control-sm row-date" :placeholder="p.due_iso" :aria-label="`Fecha de pago cuota ${p.installment}`" />
+                                            <button type="button" class="btn btn-sm btn-light border" @click="schedule(p)">{{ p.scheduled_for ? 'Reprogramar' : 'Programar' }}</button>
                                         </template>
                                         <button v-if="p.status === 'pending' && p.scheduled_for && !p.authorized && can.authorize" type="button" class="btn btn-sm btn-success" @click="authorize(p)">Autorizar</button>
-                                        <a v-if="p.scheduled_for" :href="`/treasury/installments/${p.id}/op.pdf`" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Orden de pago (PDF firmado)"><i class="bi bi-filetype-pdf"></i> OP</a>
                                         <button v-if="p.status === 'pending' && p.authorized && can.pay" type="button" class="btn btn-sm btn-success" :disabled="!p.requisition?.has_invoice" :title="p.requisition?.has_invoice ? '' : 'Registra la factura en el requerimiento'" @click="openPay(p)"><i class="bi bi-cash-coin me-1"></i>Pagar</button>
-                                        <button v-if="p.requisition?.is_direct && p.status === 'pending' && p.paid_amount == 0 && can.pay" type="button" class="btn btn-sm btn-outline-secondary" title="Corregir pago directo" @click="openEditDirect(p)"><i class="bi bi-pencil-square"></i></button>
-                                        <button v-if="p.requisition?.has_detraction && can.pay" type="button" class="btn btn-sm btn-outline-secondary" title="Detracción" @click="openDetraction(p)"><i class="bi bi-percent"></i></button>
-                                        <button v-if="p.requisition?.order && can.pay" type="button" class="btn btn-sm btn-outline-secondary" :title="p.requisition.cash_flow_concept || 'Sin concepto de flujo de efectivo'" aria-label="Concepto del flujo de efectivo" @click="openFlow(p)"><i class="bi" :class="p.requisition.cash_flow_concept ? 'bi-diagram-3' : 'bi-diagram-3 text-warning'"></i></button>
-                                        <button v-if="p.requisition?.is_order && p.status === 'pending' && p.paid_amount == 0 && can.pay" type="button" class="btn btn-sm btn-outline-secondary" title="Corregir monto de la orden" aria-label="Corregir monto de la orden" @click="openAmount(p)"><i class="bi bi-calculator"></i></button>
-                                        <button v-if="p.payments.length" type="button" class="btn btn-sm btn-light" :title="expanded === p.id ? 'Ocultar pagos' : 'Ver pagos'" @click="expanded = expanded === p.id ? null : p.id">
+                                        <button v-if="p.payments.length" type="button" class="btn btn-sm btn-light border" :aria-expanded="expanded === p.id" :title="expanded === p.id ? 'Ocultar pagos' : 'Ver pagos'" @click="expanded = expanded === p.id ? null : p.id">
                                             <i class="bi" :class="expanded === p.id ? 'bi-chevron-up' : 'bi-receipt'"></i> {{ p.payments.length }}
                                         </button>
+
+                                        <!-- Acciones secundarias en un menú: la fila muestra solo la acción que toca -->
+                                        <div v-if="p.scheduled_for || (can.pay && (p.requisition?.is_direct || p.requisition?.has_detraction || p.requisition?.order || p.requisition?.is_order))" class="dropdown">
+                                            <button type="button" class="icon-btn" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" :aria-label="`Más acciones: ${p.supplier?.name}`"><i class="bi bi-three-dots"></i></button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li v-if="p.scheduled_for"><a :href="`/treasury/installments/${p.id}/op.pdf`" target="_blank" rel="noopener" class="dropdown-item"><i class="bi bi-filetype-pdf me-2"></i>Orden de pago (PDF)</a></li>
+                                                <li v-if="p.requisition?.is_direct && p.status === 'pending' && p.paid_amount == 0 && can.pay"><button type="button" class="dropdown-item" @click="openEditDirect(p)"><i class="bi bi-pencil-square me-2"></i>Corregir pago directo</button></li>
+                                                <li v-if="p.requisition?.has_detraction && can.pay"><button type="button" class="dropdown-item" @click="openDetraction(p)"><i class="bi bi-percent me-2"></i>Detracción</button></li>
+                                                <li v-if="p.requisition?.order && can.pay"><button type="button" class="dropdown-item" @click="openFlow(p)"><i class="bi bi-diagram-3 me-2" :class="{ 'text-warning': !p.requisition.cash_flow_concept }"></i>Flujo de efectivo<span v-if="!p.requisition.cash_flow_concept" class="small text-warning-emphasis ms-1">· sin concepto</span></button></li>
+                                                <li v-if="p.requisition?.is_order && p.status === 'pending' && p.paid_amount == 0 && can.pay"><button type="button" class="dropdown-item" @click="openAmount(p)"><i class="bi bi-calculator me-2"></i>Corregir monto de la orden</button></li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="expanded === p.id">
-                                <td colspan="5" class="bg-body-tertiary">
+                            <tr v-if="expanded === p.id" class="row-detail">
+                                <td colspan="5">
                                     <table class="table table-sm mb-0 small">
                                         <thead><tr><th>Fecha</th><th>Cuenta de origen</th><th>N.º operación</th><th class="text-end">Monto</th><th>Registró</th><th></th></tr></thead>
                                         <tbody>
                                             <tr v-for="pay in p.payments" :key="pay.id">
-                                                <td>{{ pay.paid_at }}</td>
-                                                <td>{{ pay.account }}</td>
-                                                <td class="font-monospace">{{ pay.operation }}</td>
-                                                <td class="text-end">{{ money(pay.amount, p.requisition?.currency) }}</td>
-                                                <td>{{ pay.registered_by }}</td>
+                                                <td data-label="Fecha">{{ pay.paid_at }}</td>
+                                                <td data-label="Cuenta">{{ pay.account }}</td>
+                                                <td data-label="Operación" class="font-monospace">{{ pay.operation }}</td>
+                                                <td data-label="Monto" class="text-end">{{ money(pay.amount, p.requisition?.currency) }}</td>
+                                                <td data-label="Registró">{{ pay.registered_by }}</td>
                                                 <td class="text-end text-nowrap">
                                                     <a v-if="pay.has_voucher" :href="`/treasury/payments/${pay.id}/voucher`" target="_blank" rel="noopener" class="btn btn-sm btn-link p-0"><i class="bi bi-file-earmark-arrow-down me-1"></i>Voucher</a>
                                                     <button v-if="can.pay" type="button" class="btn btn-sm btn-link p-0 ms-2" @click="openCorrect(p, pay)"><i class="bi bi-pencil-square me-1"></i>Corregir</button>
@@ -372,17 +412,23 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                                 </td>
                             </tr>
                         </template>
-                        <tr v-if="!installments.data.length">
-                            <td colspan="5" class="text-center text-body-secondary py-5"><i class="bi bi-bank fs-2 d-block mb-2"></i>No hay cuotas en esta pestaña.</td>
+                        <tr v-if="!installments.data.length" class="row-empty">
+                            <td colspan="5">
+                                <div class="dash-empty">
+                                    <span class="dash-empty-icon"><i class="bi bi-inbox"></i></span>
+                                    <p class="dash-empty-title">No hay cuotas en «{{ tabs[filters.tab] || 'esta pestaña' }}»</p>
+                                    <p class="dash-empty-text">{{ search || from || to ? 'Prueba quitando la búsqueda o las fechas.' : 'Cuando haya cuotas en este estado aparecerán aquí.' }}</p>
+                                </div>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
+            <footer class="surface-foot">
                 <span class="small text-body-secondary">{{ installments.total }} cuota(s)</span>
                 <Pagination :paginator="installments" />
-            </div>
-        </div>
+            </footer>
+        </section>
 
         <!-- Modal pagar -->
         <div v-if="payTarget" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="pay-title" style="background: rgba(0,0,0,.45)" @click.self="payTarget = null">
