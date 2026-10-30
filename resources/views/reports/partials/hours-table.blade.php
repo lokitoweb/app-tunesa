@@ -9,8 +9,8 @@
 @php($hm = fn (int $minutes) => \App\Modules\Attendance\Services\Reports\AttendanceReportService::hm($minutes))
 <div class="px-3 pb-2 small text-body-secondary"><i class="bi bi-stopwatch me-1"></i>{{ $rules['tolerance'] }}</div>
 <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-        <thead class="bg-surface-elevated text-body-secondary small text-uppercase">
+    <table class="table data-table align-middle mb-0">
+        <thead>
             <tr>
                 <th class="ps-3 py-3">Colaborador</th>
                 <th class="py-3">Sucursal</th>

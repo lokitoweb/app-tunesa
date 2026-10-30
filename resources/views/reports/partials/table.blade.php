@@ -1,6 +1,6 @@
 <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-        <thead class="bg-surface-elevated text-body-secondary small text-uppercase">
+    <table class="table data-table align-middle mb-0">
+        <thead>
             <tr>
                 <th class="ps-3 py-3">Fecha</th>
                 <th class="py-3">Colaborador</th>

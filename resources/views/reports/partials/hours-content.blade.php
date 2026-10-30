@@ -1,87 +1,52 @@
-{{-- =========================================================================
-     INDICADORES DEL PERIODO (TOTALES DE HORAS Y FALTAS)
-     ========================================================================= --}}
-<div class="row g-3 mb-4" id="hoursKpiContainer">
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-primary-subtle text-primary">
-                    <i class="bi bi-clock-history"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">Horas trabajadas</div>
-                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiHoursWorked">{{ number_format($totals['worked_hours'], 1) }} h</div>
-                    <div class="small text-body-secondary mt-1" id="kpiHoursDaysWorked">{{ $totals['days_worked'] }} jornadas</div>
-                </div>
-            </div>
+{{-- Indicadores del periodo --}}
+<section class="dash-kpis dash-kpis-5" id="hoursKpiContainer" aria-label="Indicadores del periodo">
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Horas trabajadas</span>
+            <span class="dash-kpi-icon tone-brand"><i class="bi bi-clock-history"></i></span>
         </div>
-    </div>
-
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-warning-subtle text-warning-emphasis">
-                    <i class="bi bi-alarm"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">Tardanza</div>
-                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiHoursLate">{{ minutes_label($totals['late_minutes']) }}</div>
-                    <div class="small text-body-secondary mt-1" id="kpiHoursLateDays">{{ $totals['late_days'] }} días con tardanza</div>
-                </div>
-            </div>
+        <div class="dash-kpi-value" id="kpiHoursWorked">{{ number_format($totals['worked_hours'], 1) }} h</div>
+        <div class="dash-kpi-meta"><span id="kpiHoursDaysWorked">{{ $totals['days_worked'] }} jornadas</span></div>
+    </article>
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Tardanza</span>
+            <span class="dash-kpi-icon tone-amber"><i class="bi bi-alarm"></i></span>
         </div>
-    </div>
-
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-info-subtle text-info">
-                    <i class="bi bi-sun"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">HE diurnas</div>
-                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiHoursOvertimeDay">{{ number_format($totals['overtime_day_hours'], 1) }} h</div>
-                    <div class="small text-body-secondary mt-1">Sobre la jornada</div>
-                </div>
-            </div>
+        <div class="dash-kpi-value" id="kpiHoursLate">{{ minutes_label($totals['late_minutes']) }}</div>
+        <div class="dash-kpi-meta"><span id="kpiHoursLateDays">{{ $totals['late_days'] }} días con tardanza</span></div>
+    </article>
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">HE diurnas</span>
+            <span class="dash-kpi-icon tone-blue"><i class="bi bi-sun"></i></span>
         </div>
-    </div>
-
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-secondary-subtle text-secondary-emphasis">
-                    <i class="bi bi-moon-stars"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">HE nocturnas</div>
-                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiHoursOvertimeNight">{{ number_format($totals['overtime_night_hours'], 1) }} h</div>
-                    <div class="small text-body-secondary mt-1" id="kpiHoursNightTotal">{{ number_format($totals['night_hours'], 1) }} h en total</div>
-                </div>
-            </div>
+        <div class="dash-kpi-value" id="kpiHoursOvertimeDay">{{ number_format($totals['overtime_day_hours'], 1) }} h</div>
+        <div class="dash-kpi-meta">Sobre la jornada</div>
+    </article>
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">HE nocturnas</span>
+            <span class="dash-kpi-icon tone-neutral"><i class="bi bi-moon-stars"></i></span>
         </div>
-    </div>
-
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-danger-subtle text-danger">
-                    <i class="bi bi-person-x"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">Faltas</div>
-                    <div class="fs-4 fw-bold text-danger lh-1 mt-1" id="kpiHoursAbsences">{{ $totals['absences_unjustified'] }}</div>
-                    <div class="small text-body-secondary mt-1" id="kpiHoursAbsencesJustified">{{ $totals['absences_justified'] }} justificadas</div>
-                </div>
-            </div>
+        <div class="dash-kpi-value" id="kpiHoursOvertimeNight">{{ number_format($totals['overtime_night_hours'], 1) }} h</div>
+        <div class="dash-kpi-meta"><span id="kpiHoursNightTotal">{{ number_format($totals['night_hours'], 1) }} h en total</span></div>
+    </article>
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Faltas</span>
+            <span class="dash-kpi-icon tone-rose"><i class="bi bi-person-x"></i></span>
         </div>
-    </div>
-</div>
+        <div class="dash-kpi-value" id="kpiHoursAbsences">{{ $totals['absences_unjustified'] }}</div>
+        <div class="dash-kpi-meta"><span id="kpiHoursAbsencesJustified">{{ $totals['absences_justified'] }} justificadas</span></div>
+    </article>
+</section>
 
 {{-- =========================================================================
      BARRA DE FILTROS ADAPTADA Y 100% EN UNA SOLA LÍNEA HORIZONTAL (HORAS Y FALTAS)
      ========================================================================= --}}
-<div class="reports-filter-card p-2 p-md-3 mb-4 shadow-sm">
+<section class="surface mb-4">
+<div class="reports-filter-bar">
     <div class="reports-filter-single-row">
         <div class="reports-filter-inline-controls w-100 justify-content-between">
             <div class="d-flex align-items-center gap-2 flex-nowrap">
@@ -229,9 +194,10 @@
 {{-- =========================================================================
      TABLA DE HORAS Y FALTAS (AJAX)
      ========================================================================= --}}
-<div class="reports-table-card shadow-sm mb-4 reports-tab-transition" id="hoursTableContainer">
+<div class="reports-tab-transition" id="hoursTableContainer">
     @include('reports.partials.hours-table', ['rows' => $rows, 'filters' => $filters])
 </div>
+</section>
 
 <p class="small text-body-secondary mt-2 mb-0">
     <i class="bi bi-info-circle me-1"></i>

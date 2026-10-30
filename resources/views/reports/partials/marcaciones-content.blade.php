@@ -1,113 +1,78 @@
-{{-- =========================================================================
-     INDICADORES DEL PERIODO (KPIS EJECUTIVOS DE MARCACIONES)
-     ========================================================================= --}}
-<div class="row g-3 mb-4" id="reportsKpiContainer">
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-primary-subtle text-primary">
-                    <i class="bi bi-list-check"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">Registros</div>
-                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiTotalRecords">{{ $totalRecords }}</div>
-                    <div class="small text-body-secondary mt-1">Jornadas</div>
-                </div>
-            </div>
+{{-- Indicadores del periodo --}}
+<section class="dash-kpis dash-kpis-5" id="reportsKpiContainer" aria-label="Indicadores del periodo">
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Registros</span>
+            <span class="dash-kpi-icon tone-brand"><i class="bi bi-list-check"></i></span>
         </div>
-    </div>
-
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-success-subtle text-success">
-                    <i class="bi bi-check-circle-fill"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">Puntualidad</div>
-                    <div class="fs-4 fw-bold text-success lh-1 mt-1" id="kpiPunctualityRate">{{ $punctualityRate }}%</div>
-                    <div class="small text-body-secondary mt-1"><span id="kpiOnTimeCount">{{ $onTimeCount }}</span> a tiempo</div>
-                </div>
-            </div>
+        <div class="dash-kpi-value" id="kpiTotalRecords">{{ $totalRecords }}</div>
+        <div class="dash-kpi-meta">Jornadas</div>
+    </article>
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Puntualidad</span>
+            <span class="dash-kpi-icon tone-emerald"><i class="bi bi-check-circle"></i></span>
         </div>
-    </div>
-
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-warning-subtle text-warning-emphasis">
-                    <i class="bi bi-alarm-fill"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">Tardanzas</div>
-                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiLateCount">{{ $lateCount }}</div>
-                    <div class="small text-body-secondary mt-1">Fuera de regla</div>
-                </div>
-            </div>
+        <div class="dash-kpi-value" id="kpiPunctualityRate">{{ $punctualityRate }}%</div>
+        <div class="dash-kpi-meta"><span><span id="kpiOnTimeCount">{{ $onTimeCount }}</span> a tiempo</span></div>
+    </article>
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Tardanzas</span>
+            <span class="dash-kpi-icon tone-amber"><i class="bi bi-alarm"></i></span>
         </div>
-    </div>
-
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-info-subtle text-info">
-                    <i class="bi bi-clock-history"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">Horas Trab.</div>
-                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiTotalHours">{{ number_format((float) $totalHours, 1) }}h</div>
-                    <div class="small text-body-secondary mt-1">Efectivas</div>
-                </div>
-            </div>
+        <div class="dash-kpi-value" id="kpiLateCount">{{ $lateCount }}</div>
+        <div class="dash-kpi-meta">Fuera de regla</div>
+    </article>
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Horas trabajadas</span>
+            <span class="dash-kpi-icon tone-blue"><i class="bi bi-clock-history"></i></span>
         </div>
-    </div>
-
-    <div class="col-6 col-md-4 col-xl">
-        <div class="reports-kpi-card p-3 shadow-sm h-100">
-            <div class="d-flex align-items-center gap-3">
-                <div class="reports-kpi-pill bg-secondary-subtle text-secondary-emphasis">
-                    <i class="bi bi-plus-circle-fill"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="text-body-secondary small fw-medium text-uppercase" style="letter-spacing: 0.05em; font-size: 0.72rem;">Horas Extra</div>
-                    <div class="fs-4 fw-bold text-body lh-1 mt-1" id="kpiOvertimeHours">{{ number_format((float) $overtimeHours, 1) }}h</div>
-                    <div class="small text-body-secondary mt-1">Aprobadas</div>
-                </div>
-            </div>
+        <div class="dash-kpi-value" id="kpiTotalHours">{{ number_format((float) $totalHours, 1) }} h</div>
+        <div class="dash-kpi-meta">Efectivas</div>
+    </article>
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Horas extra</span>
+            <span class="dash-kpi-icon tone-neutral"><i class="bi bi-plus-circle"></i></span>
         </div>
-    </div>
-</div>
+        <div class="dash-kpi-value" id="kpiOvertimeHours">{{ number_format((float) $overtimeHours, 1) }} h</div>
+        <div class="dash-kpi-meta">Aprobadas</div>
+    </article>
+</section>
 
 {{-- =========================================================================
      BARRA DE FILTROS ADAPTADA Y 100% EN UNA SOLA LÍNEA HORIZONTAL
      ========================================================================= --}}
-<div class="reports-filter-card p-2 p-md-3 mb-4 shadow-sm">
+<section class="surface mb-4">
+<div class="reports-filter-bar">
     <div class="reports-filter-single-row">
         {{-- Segmented Control de Estados --}}
-        <div class="training-segmented-bar reports-segmented-bar flex-shrink-0" role="tablist" id="reportStatusTabs" aria-label="Filtrar por estado">
-            <button type="button" class="training-segmented-item {{ empty($status) ? 'is-active' : '' }}" data-status="">
+        <div class="seg-tabs flex-shrink-0" role="tablist" id="reportStatusTabs" aria-label="Filtrar por estado">
+            <button type="button" class="seg-tab {{ empty($status) ? 'is-active' : '' }}" data-status="">
                 <span>Todos</span>
-                <span class="training-segmented-pill" id="badgeCountAll">{{ $totalRecords }}</span>
+                <span class="count-pill" id="badgeCountAll">{{ $totalRecords }}</span>
             </button>
-            <button type="button" class="training-segmented-item {{ $status === 'present' ? 'is-active' : '' }}" data-status="present">
+            <button type="button" class="seg-tab {{ $status === 'present' ? 'is-active' : '' }}" data-status="present">
                 <i class="bi bi-check-circle-fill text-success"></i>
                 <span>Puntual</span>
-                <span class="training-segmented-pill text-success" id="badgeCountPresent">{{ $onTimeCount }}</span>
+                <span class="count-pill" id="badgeCountPresent">{{ $onTimeCount }}</span>
             </button>
-            <button type="button" class="training-segmented-item {{ $status === 'late' ? 'is-active' : '' }}" data-status="late">
+            <button type="button" class="seg-tab {{ $status === 'late' ? 'is-active' : '' }}" data-status="late">
                 <i class="bi bi-alarm-fill text-warning"></i>
                 <span>Tardanza</span>
-                <span class="training-segmented-pill text-warning" id="badgeCountLate">{{ $lateCount }}</span>
+                <span class="count-pill" id="badgeCountLate">{{ $lateCount }}</span>
             </button>
-            <button type="button" class="training-segmented-item {{ $status === 'absent' ? 'is-active' : '' }}" data-status="absent">
+            <button type="button" class="seg-tab {{ $status === 'absent' ? 'is-active' : '' }}" data-status="absent">
                 <i class="bi bi-person-x-fill text-danger"></i>
                 <span>Inasistencia</span>
-                <span class="training-segmented-pill text-danger" id="badgeCountAbsent">{{ $absentCount }}</span>
+                <span class="count-pill" id="badgeCountAbsent">{{ $absentCount }}</span>
             </button>
-            <button type="button" class="training-segmented-item {{ $status === 'excused' ? 'is-active' : '' }}" data-status="excused">
+            <button type="button" class="seg-tab {{ $status === 'excused' ? 'is-active' : '' }}" data-status="excused">
                 <i class="bi bi-shield-check text-info"></i>
                 <span>Justificado</span>
-                <span class="training-segmented-pill text-info" id="badgeCountExcused">{{ $excusedCount }}</span>
+                <span class="count-pill" id="badgeCountExcused">{{ $excusedCount }}</span>
             </button>
         </div>
 
@@ -246,6 +211,7 @@
 {{-- =========================================================================
      TABLA DE REGISTROS (AJAX)
      ========================================================================= --}}
-<div class="reports-table-card shadow-sm mb-4 reports-tab-transition" id="reportsTableContainer">
+<div class="reports-tab-transition" id="reportsTableContainer">
     @include('reports.partials.table', ['attendances' => $attendances])
 </div>
+</section>

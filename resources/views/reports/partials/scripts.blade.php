@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabContainer = document.getElementById('reportsTabContent');
     const headerTitle = document.getElementById('reportsHeaderTitle');
     const headerSubtitle = document.getElementById('reportsHeaderSubtitle');
-    const headerBadge = document.getElementById('reportsHeaderBadge');
     const exportExcelBtn = document.getElementById('reportExportExcelBtn');
     const exportPdfBtn = document.getElementById('reportExportPdfBtn');
 
@@ -333,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     {{-- 1. MANEJO DE PESTAÑAS PRINCIPALES VÍA AJAX --}}
     {{-- ------------------------------------------------------------------------- --}}
     function initTabsNavigation() {
-        const tabLinks = document.querySelectorAll('#moduleMainTabs .reports-nav-tab');
+        const tabLinks = document.querySelectorAll('#moduleMainTabs .seg-tab');
         tabLinks.forEach(tab => {
             tab.addEventListener('click', (e) => {
                 if (e.ctrlKey || e.metaKey || e.which === 2) return;
@@ -354,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tabContainer.classList.add('is-loading');
 
-        document.querySelectorAll('#moduleMainTabs .reports-nav-tab').forEach(t => {
+        document.querySelectorAll('#moduleMainTabs .seg-tab').forEach(t => {
             if (t.dataset.tab === tabName) {
                 t.classList.add('is-active');
                 t.setAttribute('aria-selected', 'true');
@@ -403,18 +402,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateHeaderInfo(tabName) {
         if (tabName === 'marcaciones') {
-            if (headerTitle) headerTitle.textContent = 'Reportes de Asistencia y Jornadas';
+            if (headerTitle) headerTitle.textContent = 'Reportes de asistencia y jornadas';
             if (headerSubtitle) headerSubtitle.textContent = 'Cómputo de horas trabajadas, sobretiempos, tardanzas, tolerancias y cumplimiento de geocercas.';
-            if (headerBadge) {
-                headerBadge.innerHTML = '<i class="bi bi-graph-up-arrow me-1"></i>Analítica Operativa';
-            }
             updateMarcacionesExportLinks();
         } else {
-            if (headerTitle) headerTitle.textContent = 'Reporte de Horas y Faltas';
+            if (headerTitle) headerTitle.textContent = 'Reporte de horas y faltas';
             if (headerSubtitle) headerSubtitle.textContent = 'Horas efectivas, tardanzas, horas extra diurnas y nocturnas (22:00–06:00) y faltas por colaborador.';
-            if (headerBadge) {
-                headerBadge.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Liquidación de Tiempo';
-            }
             updateHoursExportLinks();
         }
     }
@@ -434,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const branchSelect = document.getElementById('repBranchSelect');
         const searchInput = document.getElementById('repSearchInput');
         const resetBtn = document.getElementById('repResetBtn');
-        const statusTabs = document.querySelectorAll('#reportStatusTabs .training-segmented-item');
+        const statusTabs = document.querySelectorAll('#reportStatusTabs .seg-tab');
         const tableCard = document.getElementById('reportsTableContainer');
 
         if (branchSelect) marcacionesState.branchId = branchSelect.value;
@@ -645,13 +638,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const qs = params.toString();
         if (exportExcelBtn) {
             exportExcelBtn.href = `{{ route('reports.export.excel') }}?${qs}`;
-            exportExcelBtn.innerHTML = '<i class="bi bi-file-earmark-spreadsheet-fill me-2"></i>Excel (.csv)';
-            exportExcelBtn.className = 'btn btn-outline-success px-3 py-2 fw-semibold d-inline-flex align-items-center';
+            exportExcelBtn.innerHTML = '<i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel (.csv)';
+            exportExcelBtn.className = 'btn btn-light border';
         }
         if (exportPdfBtn) {
             exportPdfBtn.href = `{{ route('reports.export.pdf') }}?${qs}`;
-            exportPdfBtn.innerHTML = '<i class="bi bi-printer-fill me-2"></i>Imprimir PDF';
-            exportPdfBtn.className = 'btn btn-outline-primary px-3 py-2 fw-semibold d-inline-flex align-items-center';
+            exportPdfBtn.innerHTML = '<i class="bi bi-printer me-1"></i>Imprimir PDF';
+            exportPdfBtn.className = 'btn btn-light border';
         }
     }
 
@@ -851,13 +844,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const qs = params.toString();
         if (exportExcelBtn) {
             exportExcelBtn.href = `{{ route('reports.hours.excel') }}?${qs}`;
-            exportExcelBtn.innerHTML = '<i class="bi bi-file-earmark-spreadsheet me-2"></i>Excel (.xlsx)';
-            exportExcelBtn.className = 'btn btn-outline-success px-3 py-2 fw-semibold d-inline-flex align-items-center';
+            exportExcelBtn.innerHTML = '<i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel (.xlsx)';
+            exportExcelBtn.className = 'btn btn-light border';
         }
         if (exportPdfBtn) {
             exportPdfBtn.href = `{{ route('reports.hours.pdf') }}?${qs}`;
-            exportPdfBtn.innerHTML = '<i class="bi bi-file-earmark-pdf me-2"></i>Exportar PDF';
-            exportPdfBtn.className = 'btn btn-outline-danger px-3 py-2 fw-semibold d-inline-flex align-items-center';
+            exportPdfBtn.innerHTML = '<i class="bi bi-file-earmark-pdf me-1"></i>Exportar PDF';
+            exportPdfBtn.className = 'btn btn-light border';
         }
     }
 

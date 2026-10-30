@@ -10762,3 +10762,15 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 [data-bs-theme="dark"] .btn-outline-primary { --bs-btn-color: var(--brand-ink); --bs-btn-border-color: color-mix(in srgb, var(--brand) 70%, #fff); }
 /* Etiquetas y contadores con tono: el texto se aclara, el fondo sigue tenue */
 [data-bs-theme="dark"] :is(.status-pill, .count-pill[class*="tone-"], .dash-kpi-icon[class*="tone-"]) { color: color-mix(in srgb, rgb(var(--tone, 148, 163, 184)) 60%, #fff); }
+
+/* Indicadores de cinco (Reportes) y barra de filtros sobre la tabla */
+.dash-kpis.dash-kpis-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1399.98px) { .dash-kpis.dash-kpis-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 767.98px) {
+    .dash-kpis.dash-kpis-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dash-kpis.dash-kpis-5 > :first-child { grid-column: 1 / -1; }
+}
+.reports-filter-bar { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); }
+.reports-filter-bar .reports-filter-single-row { flex-wrap: wrap !important; overflow: visible; gap: 0.6rem 0.75rem; padding-bottom: 0; }
+.reports-filter-bar .reports-filter-inline-controls { flex-wrap: wrap !important; flex-shrink: 1; min-width: 0; }
+a.seg-tab { text-decoration: none; }
