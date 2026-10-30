@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import axios from 'axios';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import AppModal from '@/Modules/Core/Components/AppModal.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
@@ -40,6 +41,7 @@ function openCreate() {
     showForm.value = true;
 }
 function openEdit(e) {
+    showImport.value = false;
     Object.assign(form, { ...blank(), ...Object.fromEntries(Object.entries(e).map(([k, v]) => [k, v ?? ''])), voucher: null });
     form.clearErrors();
     if (fileInput.value) fileInput.value.value = '';
@@ -95,190 +97,185 @@ async function destroy(e) {
 
 <template>
     <AppLayout title="Caja chica">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-            <div>
-                <h1 class="h4 fw-bold mb-1">Caja chica</h1>
-                <p class="text-body-secondary small mb-0">Gastos menores con recibo correlativo y su comprobante.</p>
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Caja chica</h1>
+                <p class="page-subtitle">Gastos menores con recibo correlativo y su comprobante.</p>
             </div>
-            <div class="d-flex flex-wrap gap-2">
-                <button type="button" class="btn btn-outline-primary" @click="openImport"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Importar Excel</button>
+            <div class="page-actions">
+                <button type="button" class="btn btn-light border" :aria-expanded="showImport" @click="openImport"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Importar Excel</button>
                 <button type="button" class="btn btn-primary" @click="openCreate"><i class="bi bi-plus-lg me-1"></i>Registrar gasto</button>
             </div>
-        </div>
+        </header>
 
-        <div class="card shadow-sm mb-3">
-            <div class="card-body d-flex flex-wrap align-items-center gap-3">
+        <!-- Mes, caja y total del mes -->
+        <section class="surface mb-3">
+            <div class="filter-row border-0">
                 <input type="month" class="form-control w-auto" :value="filters.month" aria-label="Mes" @change="go({ month: $event.target.value })" />
                 <select class="form-select w-auto" :value="filters.box || ''" aria-label="Caja" @change="go({ box: $event.target.value || undefined })">
                     <option value="">Todas las cajas</option>
                     <option v-for="b in options.cash_boxes" :key="b" :value="b">{{ b }}</option>
                 </select>
                 <div class="ms-auto text-end">
-                    <div class="small text-body-secondary">Total del mes</div>
-                    <div class="h5 fw-bold mb-0">{{ money(total) }}</div>
+                    <div class="dash-kpi-label">Total del mes</div>
+                    <div class="cell-amount fs-5">{{ money(total) }}</div>
                 </div>
             </div>
-            <div v-if="Object.keys(by_box).length > 1" class="card-footer bg-transparent small d-flex flex-wrap gap-3">
-                <span v-for="(t, b) in by_box" :key="b">{{ b }}: <span class="fw-semibold">{{ money(t) }}</span></span>
+            <div v-if="Object.keys(by_box).length > 1" class="surface-foot justify-content-start gap-2">
+                <span v-for="(t, b) in by_box" :key="b" class="status-pill tone-neutral">{{ b }} · {{ money(t) }}</span>
             </div>
-        </div>
+        </section>
 
-        <div class="row g-3">
-            <div :class="showForm ? 'col-xl-7' : 'col-12'">
-                <div class="card shadow-sm">
+        <section class="surface">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr><th>Recibo</th><th>Concepto</th><th class="d-none d-md-table-cell">Comprobante</th><th class="text-end">Monto</th><th class="text-end">Acciones</th></tr>
+                        <table class="table data-table table-cards align-middle mb-0">
+                            <thead>
+                                <tr><th>Recibo</th><th>Concepto</th><th>Comprobante</th><th class="text-end">Monto</th><th class="text-end"><span class="visually-hidden">Acciones</span></th></tr>
                             </thead>
                             <tbody>
-                                <tr v-for="e in expenses.data" :key="e.id" :class="{ 'table-primary': showForm && form.id === e.id }">
-                                    <td class="text-nowrap"><span class="font-monospace fw-semibold">N.º {{ String(e.receipt_number).padStart(5, '0') }}</span><div class="small text-body-secondary">{{ e.date_label }}</div></td>
-                                    <td style="max-width: 280px">
-                                        <div class="text-truncate">{{ e.description }}</div>
-                                        <div class="small text-body-secondary text-truncate">{{ e.category || '—' }}<span v-if="e.beneficiary"> · {{ e.beneficiary }}</span> · {{ e.cash_box }}</div>
+                                <tr v-for="e in expenses.data" :key="e.id">
+                                    <td data-label="Recibo" class="text-nowrap"><span class="cell-code">N.º {{ String(e.receipt_number).padStart(5, '0') }}</span><div class="cell-sub tabular">{{ e.date_label }}</div></td>
+                                    <td data-label="Concepto" class="cell-main">
+                                        <div class="min-w-0">
+                                            <div class="cell-title fw-medium text-truncate">{{ e.description }}</div>
+                                            <div class="cell-sub text-truncate">{{ e.category || '—' }}<span v-if="e.beneficiary"> · {{ e.beneficiary }}</span> · {{ e.cash_box }}</div>
+                                        </div>
                                     </td>
-                                    <td class="d-none d-md-table-cell small">{{ e.document_type }} {{ e.document_number }}<div v-if="e.ruc" class="font-monospace text-body-secondary">{{ e.ruc }}</div></td>
-                                    <td class="text-end fw-semibold text-nowrap">{{ money(e.amount) }}</td>
-                                    <td class="text-end text-nowrap">
-                                        <a v-if="e.has_voucher" :href="`/petty-cash/${e.id}/voucher`" target="_blank" rel="noopener" class="btn-table-action" title="Ver comprobante"><i class="bi bi-file-earmark-arrow-down"></i></a>
-                                        <button type="button" class="btn-table-action btn-action-edit" title="Editar gasto" @click="openEdit(e)"><i class="bi bi-pencil-fill"></i></button>
-                                        <button type="button" class="btn-table-action btn-table-delete" title="Eliminar gasto" @click="destroy(e)"><i class="bi bi-trash3-fill"></i></button>
+                                    <td data-label="Comprobante" class="small">{{ e.document_type }} {{ e.document_number }}<div v-if="e.ruc" class="cell-sub font-monospace">{{ e.ruc }}</div></td>
+                                    <td data-label="Monto" class="text-end text-nowrap"><span class="cell-amount">{{ money(e.amount) }}</span></td>
+                                    <td class="cell-actions">
+                                        <div class="row-actions">
+                                            <a v-if="e.has_voucher" :href="`/petty-cash/${e.id}/voucher`" target="_blank" rel="noopener" class="icon-btn" title="Ver comprobante" aria-label="Ver comprobante"><i class="bi bi-file-earmark-arrow-down"></i></a>
+                                            <button type="button" class="icon-btn" title="Editar gasto" aria-label="Editar gasto" @click="openEdit(e)"><i class="bi bi-pencil"></i></button>
+                                            <button type="button" class="icon-btn icon-btn-danger" title="Eliminar gasto" aria-label="Eliminar gasto" @click="destroy(e)"><i class="bi bi-trash3"></i></button>
+                                        </div>
                                     </td>
                                 </tr>
-                                <tr v-if="!expenses.data.length"><td colspan="5" class="text-center text-body-secondary py-5"><i class="bi bi-wallet2 fs-2 d-block mb-2"></i>No hay gastos en este mes.</td></tr>
+                                <tr v-if="!expenses.data.length" class="row-empty">
+                                    <td colspan="5">
+                                        <div class="dash-empty">
+                                            <span class="dash-empty-icon"><i class="bi bi-wallet2"></i></span>
+                                            <p class="dash-empty-title">No hay gastos en este mes</p>
+                                            <p class="dash-empty-text">Registra un gasto o impórtalos desde Excel.</p>
+                                        </div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
-                    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
+                    <footer class="surface-foot">
                         <span class="small text-body-secondary">{{ expenses.total }} gasto(s)</span>
                         <Pagination :paginator="expenses" />
-                    </div>
-                </div>
-            </div>
+                    </footer>
+        </section>
 
             <!-- Importación: mismas reglas del registro manual; todo o nada -->
-            <div v-if="showImport" class="col-xl-5">
-                <form class="card shadow-sm" novalidate @submit.prevent="submitImport">
-                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-                        <h2 class="h6 fw-bold mb-0">Importar gastos desde Excel</h2>
-                        <button type="button" class="btn-close" aria-label="Cerrar" @click="showImport = false"></button>
-                    </div>
-                    <div class="card-body row g-3">
-                        <p class="small text-body-secondary mb-0">
-                            Columnas: Fecha, Tipo de Documento, RUC/Proveedor, Descripción del gasto, Categoría/Centro de Costo, Moneda (soles), Monto Total y Número de Comprobante.
-                            <a href="/petty-cash/template" class="text-nowrap"><i class="bi bi-download me-1"></i>Descargar plantilla</a>
-                        </p>
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold" for="pi-box">Caja *</label>
-                            <select id="pi-box" v-model="importForm.cash_box" class="form-select" @change="loadPreview"><option v-for="b in options.cash_boxes" :key="b" :value="b">{{ b }}</option></select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold" for="pi-file">Archivo (.xlsx, .xls o .csv, máx. 5 MB) *</label>
-                            <input id="pi-file" ref="importInput" type="file" accept=".xlsx,.xls,.csv" class="form-control" :class="{ 'is-invalid': importForm.errors.file }" @input="importForm.file = $event.target.files[0]; loadPreview()" />
-                        </div>
-                        <div v-if="previewing" class="col-12 small text-body-secondary"><span class="spinner-border spinner-border-sm me-1"></span>Revisando el archivo…</div>
-                        <div v-if="preview" class="col-12">
-                            <div class="row g-2 text-center small mb-2">
-                                <div class="col-3"><div class="border rounded p-1"><div class="text-body-secondary"># Registros</div><div class="fw-bold">{{ preview.count }}</div></div></div>
-                                <div class="col-3"><div class="border rounded p-1"><div class="text-body-secondary">Total</div><div class="fw-bold">{{ money(preview.total) }}</div></div></div>
-                                <div class="col-3"><div class="border rounded p-1"><div class="text-body-secondary">Válidos</div><div class="fw-bold text-success">{{ preview.valid }}</div></div></div>
-                                <div class="col-3"><div class="border rounded p-1"><div class="text-body-secondary">No válidos</div><div class="fw-bold" :class="preview.invalid ? 'text-danger' : ''">{{ preview.invalid }}</div></div></div>
+            <AppModal :show="showImport" title="Importar gastos desde Excel" size="lg" :busy="importForm.processing" @close="showImport = false">
+                <template #subtitle>Columnas: Fecha, Tipo de Documento, RUC/Proveedor, Descripción del gasto, Categoría/Centro de Costo, Moneda (soles), Monto Total y Número de Comprobante.
+                                    <a href="/petty-cash/template" class="text-nowrap"><i class="bi bi-download me-1"></i>Descargar plantilla</a></template>
+                    <form id="pc-import-form" class="row g-3" novalidate @submit.prevent="submitImport">
+                            <div class="col-12">
+                                <label class="form-label" for="pi-box">Caja *</label>
+                                <select id="pi-box" v-model="importForm.cash_box" class="form-select" @change="loadPreview"><option v-for="b in options.cash_boxes" :key="b" :value="b">{{ b }}</option></select>
                             </div>
-                            <div class="table-responsive border rounded" style="max-height: 260px">
-                                <table class="table table-sm small mb-0 align-middle">
-                                    <thead class="table-light"><tr><th>Fila</th><th>Fecha</th><th>Comprobante</th><th>RUC / Proveedor</th><th>Glosa</th><th class="text-end">Monto</th></tr></thead>
-                                    <tbody>
-                                        <tr v-for="r in preview.rows" :key="r.line" :class="{ 'table-danger': !r.ok }">
-                                            <td>{{ r.line }}</td><td class="text-nowrap">{{ String(r.date || '').includes('-') ? String(r.date).slice(0, 10).split('-').reverse().join('/') : r.date }}</td><td class="text-nowrap">{{ r.document }}</td>
-                                            <td>{{ r.beneficiary || r.ruc || '—' }}</td><td>{{ r.description }}</td><td class="text-end">{{ r.amount === null ? '—' : money(r.amount) }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                            <div class="col-12">
+                                <label class="form-label" for="pi-file">Archivo (.xlsx, .xls o .csv, máx. 5 MB) *</label>
+                                <input id="pi-file" ref="importInput" type="file" accept=".xlsx,.xls,.csv" class="form-control" :class="{ 'is-invalid': importForm.errors.file }" @input="importForm.file = $event.target.files[0]; loadPreview()" />
                             </div>
-                            <div v-if="preview.errors.length" class="alert alert-danger small mt-2 mb-0 py-2">
-                                <div class="fw-semibold mb-1">Corrige estas filas y vuelve a elegir el archivo (no se guardará nada hasta que todas estén bien):</div>
-                                <ul class="mb-0 ps-3"><li v-for="(e, i) in preview.errors" :key="i">{{ e }}</li></ul>
+                            <div v-if="previewing" class="col-12 small text-body-secondary"><span class="spinner-border spinner-border-sm me-1"></span>Revisando el archivo…</div>
+                            <div v-if="preview" class="col-12">
+                                <div class="preview-stats mb-2">
+                                    <div class="concept-card"><div class="concept-card-title"># Registros</div><div class="concept-card-value">{{ preview.count }}</div></div>
+                                    <div class="concept-card"><div class="concept-card-title">Total</div><div class="concept-card-value">{{ money(preview.total) }}</div></div>
+                                    <div class="concept-card"><div class="concept-card-title">Válidos</div><div class="concept-card-value text-success">{{ preview.valid }}</div></div>
+                                    <div class="concept-card"><div class="concept-card-title">No válidos</div><div class="concept-card-value" :class="{ 'text-danger': preview.invalid }">{{ preview.invalid }}</div></div>
+                                </div>
+                                <div class="table-responsive surface" style="max-height: 260px">
+                                    <table class="table table-sm data-table small mb-0 align-middle">
+                                        <thead><tr><th>Fila</th><th>Fecha</th><th>Comprobante</th><th>RUC / Proveedor</th><th>Glosa</th><th class="text-end">Monto</th></tr></thead>
+                                        <tbody>
+                                            <tr v-for="r in preview.rows" :key="r.line" :class="{ 'is-overdue': !r.ok }">
+                                                <td>{{ r.line }}</td><td class="text-nowrap">{{ String(r.date || '').includes('-') ? String(r.date).slice(0, 10).split('-').reverse().join('/') : r.date }}</td><td class="text-nowrap">{{ r.document }}</td>
+                                                <td>{{ r.beneficiary || r.ruc || '—' }}</td><td>{{ r.description }}</td><td class="text-end">{{ r.amount === null ? '—' : money(r.amount) }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div v-if="preview.errors.length" class="alert alert-danger small mt-2 mb-0 py-2">
+                                    <div class="fw-semibold mb-1">Corrige estas filas y vuelve a elegir el archivo (no se guardará nada hasta que todas estén bien):</div>
+                                    <ul class="mb-0 ps-3"><li v-for="(e, i) in preview.errors" :key="i">{{ e }}</li></ul>
+                                </div>
                             </div>
-                        </div>
-                        <div v-if="importErrors.length" class="col-12">
-                            <div class="alert alert-danger small mb-0 py-2">
-                                <div class="fw-semibold mb-1">No se importó nada. Corrige y vuelve a subir:</div>
-                                <ul class="mb-0 ps-3"><li v-for="(e, i) in importErrors" :key="i">{{ e }}</li></ul>
+                            <div v-if="importErrors.length" class="col-12">
+                                <div class="alert alert-danger small mb-0 py-2">
+                                    <div class="fw-semibold mb-1">No se importó nada. Corrige y vuelve a subir:</div>
+                                    <ul class="mb-0 ps-3"><li v-for="(e, i) in importErrors" :key="i">{{ e }}</li></ul>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="card-footer bg-transparent d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-light" @click="showImport = false">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" :disabled="importForm.processing || previewing || !preview || preview.invalid > 0 || !preview.count">
-                            <span v-if="importForm.processing" class="spinner-border spinner-border-sm me-1"></span>Procesar carga
-                        </button>
-                    </div>
-                </form>
-            </div>
+                    </form>
+                <template #footer>
+                    <button type="button" class="btn btn-light border" @click="showImport = false">Cancelar</button>
+                    <button type="submit" form="pc-import-form" class="btn btn-primary" :disabled="importForm.processing || previewing || !preview || preview.invalid > 0 || !preview.count">
+                                <span v-if="importForm.processing" class="spinner-border spinner-border-sm me-1"></span>Procesar carga
+                    </button>
+                </template>
+            </AppModal>
 
-            <div v-if="showForm" class="col-xl-5">
-                <form class="card shadow-sm" novalidate @submit.prevent="submit">
-                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-                        <h2 class="h6 fw-bold mb-0">{{ form.id ? 'Editar gasto' : 'Registrar gasto' }}</h2>
-                        <button type="button" class="btn-close" aria-label="Cerrar" @click="showForm = false"></button>
-                    </div>
-                    <div class="card-body row g-3">
-                        <div class="col-sm-6">
-                            <label class="form-label small fw-semibold" for="pc-date">Fecha *</label>
-                            <input id="pc-date" v-model="form.date" type="date" :max="today" class="form-control" :class="{ 'is-invalid': form.errors.date }" />
-                            <div class="invalid-feedback">{{ form.errors.date }}</div>
-                        </div>
-                        <div class="col-sm-6">
-                            <label class="form-label small fw-semibold" for="pc-amount">Monto (S/) *</label>
-                            <input id="pc-amount" v-model="form.amount" type="number" min="0" step="0.01" class="form-control" :class="{ 'is-invalid': form.errors.amount }" />
-                            <div class="invalid-feedback">{{ form.errors.amount }}</div>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold" for="pc-desc">Concepto *</label>
-                            <input id="pc-desc" v-model="form.description" class="form-control" :class="{ 'is-invalid': form.errors.description }" maxlength="250" />
-                            <div class="invalid-feedback">{{ form.errors.description }}</div>
-                        </div>
-                        <div class="col-sm-6">
-                            <label class="form-label small fw-semibold" for="pc-cat">Categoría</label>
-                            <input id="pc-cat" v-model="form.category" class="form-control" list="pc-categories" maxlength="100" />
-                            <datalist id="pc-categories"><option v-for="c in categories" :key="c" :value="c" /></datalist>
-                        </div>
-                        <div class="col-sm-6">
-                            <label class="form-label small fw-semibold" for="pc-box">Caja *</label>
-                            <select id="pc-box" v-model="form.cash_box" class="form-select"><option v-for="b in options.cash_boxes" :key="b" :value="b">{{ b }}</option></select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold" for="pc-ben">Beneficiario</label>
-                            <input id="pc-ben" v-model="form.beneficiary" class="form-control" maxlength="150" />
-                        </div>
-                        <div class="col-sm-5">
-                            <label class="form-label small fw-semibold" for="pc-doc">Comprobante *</label>
-                            <select id="pc-doc" v-model="form.document_type" class="form-select"><option v-for="d in options.document_types" :key="d" :value="d">{{ d }}</option></select>
-                        </div>
-                        <div class="col-sm-7">
-                            <label class="form-label small fw-semibold" for="pc-docn">N.º comprobante</label>
-                            <input id="pc-docn" v-model="form.document_number" class="form-control font-monospace" maxlength="50" />
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold" for="pc-ruc">RUC del emisor</label>
-                            <input id="pc-ruc" v-model.trim="form.ruc" class="form-control font-monospace" :class="{ 'is-invalid': form.errors.ruc }" inputmode="numeric" maxlength="11" />
-                            <div class="invalid-feedback">{{ form.errors.ruc }}</div>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold" for="pc-file">Foto o PDF del comprobante (máx. 5 MB){{ form.id ? ' — reemplaza el actual' : '' }}</label>
-                            <input id="pc-file" ref="fileInput" type="file" accept=".pdf,image/*" class="form-control" :class="{ 'is-invalid': form.errors.voucher }" @input="form.voucher = $event.target.files[0]" />
-                            <div class="invalid-feedback">{{ form.errors.voucher }}</div>
-                        </div>
-                    </div>
-                    <div class="card-footer bg-transparent d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-light" @click="showForm = false">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" :disabled="form.processing">
-                            <span v-if="form.processing" class="spinner-border spinner-border-sm me-1"></span>{{ form.id ? 'Guardar cambios' : 'Registrar gasto' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            <AppModal :show="showForm" :title="form.id ? 'Editar gasto' : 'Registrar gasto'" :subtitle="form.id ? `Recibo N.º ${String(form.receipt_number || '').padStart(5, '0')}` : 'El recibo correlativo se asigna al guardar.'" :busy="form.processing" @close="showForm = false">
+                    <form id="pc-expense-form" class="row g-3" novalidate @submit.prevent="submit">
+                            <div class="col-sm-6">
+                                <label class="form-label" for="pc-date">Fecha *</label>
+                                <input id="pc-date" v-model="form.date" type="date" :max="today" class="form-control" :class="{ 'is-invalid': form.errors.date }" />
+                                <div class="invalid-feedback">{{ form.errors.date }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="pc-amount">Monto (S/) *</label>
+                                <input id="pc-amount" v-model="form.amount" type="number" min="0" step="0.01" class="form-control" :class="{ 'is-invalid': form.errors.amount }" />
+                                <div class="invalid-feedback">{{ form.errors.amount }}</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="pc-desc">Concepto *</label>
+                                <input id="pc-desc" v-model="form.description" class="form-control" :class="{ 'is-invalid': form.errors.description }" maxlength="250" />
+                                <div class="invalid-feedback">{{ form.errors.description }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="pc-cat">Categoría</label>
+                                <input id="pc-cat" v-model="form.category" class="form-control" list="pc-categories" maxlength="100" />
+                                <datalist id="pc-categories"><option v-for="c in categories" :key="c" :value="c" /></datalist>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label" for="pc-box">Caja *</label>
+                                <select id="pc-box" v-model="form.cash_box" class="form-select"><option v-for="b in options.cash_boxes" :key="b" :value="b">{{ b }}</option></select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="pc-ben">Beneficiario</label>
+                                <input id="pc-ben" v-model="form.beneficiary" class="form-control" maxlength="150" />
+                            </div>
+                            <div class="col-sm-5">
+                                <label class="form-label" for="pc-doc">Comprobante *</label>
+                                <select id="pc-doc" v-model="form.document_type" class="form-select"><option v-for="d in options.document_types" :key="d" :value="d">{{ d }}</option></select>
+                            </div>
+                            <div class="col-sm-7">
+                                <label class="form-label" for="pc-docn">N.º comprobante</label>
+                                <input id="pc-docn" v-model="form.document_number" class="form-control font-monospace" maxlength="50" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="pc-ruc">RUC del emisor</label>
+                                <input id="pc-ruc" v-model.trim="form.ruc" class="form-control font-monospace" :class="{ 'is-invalid': form.errors.ruc }" inputmode="numeric" maxlength="11" />
+                                <div class="invalid-feedback">{{ form.errors.ruc }}</div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label" for="pc-file">Foto o PDF del comprobante (máx. 5 MB){{ form.id ? ' — reemplaza el actual' : '' }}</label>
+                                <input id="pc-file" ref="fileInput" type="file" accept=".pdf,image/*" class="form-control" :class="{ 'is-invalid': form.errors.voucher }" @input="form.voucher = $event.target.files[0]" />
+                                <div class="invalid-feedback">{{ form.errors.voucher }}</div>
+                            </div>
+                    </form>
+                <template #footer>
+                    <button type="button" class="btn btn-light border" @click="showForm = false">Cancelar</button>
+                    <button type="submit" form="pc-expense-form" class="btn btn-primary" :disabled="form.processing">
+                                <span v-if="form.processing" class="spinner-border spinner-border-sm me-1"></span>{{ form.id ? 'Guardar cambios' : 'Registrar gasto' }}
+                    </button>
+                </template>
+            </AppModal>
     </AppLayout>
 </template>

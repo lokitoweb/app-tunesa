@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import AppModal from '@/Modules/Core/Components/AppModal.vue';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
 import { money } from '@/Modules/Core/format';
 
@@ -113,8 +114,6 @@ const setPeriod = (y, m) => go(`${y}-${m}`);
             </div>
         </div>
 
-        <div class="row g-3">
-            <div :class="showImport ? 'col-xl-7' : 'col-12'">
                 <section class="surface">
                     <div class="table-responsive">
                         <table class="table data-table table-cards align-middle mb-0">
@@ -172,20 +171,11 @@ const setPeriod = (y, m) => go(`${y}-${m}`);
                         <span v-for="m in missing" :key="m.dni" class="status-pill tone-neutral">{{ m.name }} · {{ m.dni }}</span>
                     </div>
                 </section>
-            </div>
 
-            <Transition name="reveal">
-                <div v-if="showImport" class="col-xl-5">
-                    <form class="surface" novalidate @submit.prevent="submit">
-                        <header class="surface-head">
-                            <div>
-                                <h2 class="surface-title">Importar planilla</h2>
-                                <p class="surface-sub">Columnas: DNI, Colaborador y Monto neto a pagar. Todo o nada: si una fila falla no se importa ninguna.
-                                    <a href="/payroll-payments/template" class="text-nowrap"><i class="bi bi-download me-1"></i>Descargar plantilla</a></p>
-                            </div>
-                            <button type="button" class="btn-close" aria-label="Cerrar" @click="showImport = false"></button>
-                        </header>
-                        <div class="surface-pad row g-3 m-0">
+            <AppModal :show="showImport" title="Importar planilla" :busy="form.processing" @close="showImport = false">
+                <template #subtitle>Columnas: DNI, Colaborador y Monto neto a pagar. Todo o nada: si una fila falla no se importa ninguna.
+                    <a href="/payroll-payments/template" class="text-nowrap"><i class="bi bi-download me-1"></i>Descargar plantilla</a></template>
+                    <form id="pp-import-form" class="row g-3" novalidate @submit.prevent="submit">
                             <div class="col-sm-6">
                                 <label class="form-label" for="pp-period">Periodo *</label>
                                 <input id="pp-period" v-model="form.period" type="month" class="form-control" />
@@ -208,16 +198,13 @@ const setPeriod = (y, m) => go(`${y}-${m}`);
                                     <ul class="mb-0 ps-3"><li v-for="(e, i) in errors" :key="i">{{ e }}</li></ul>
                                 </div>
                             </div>
-                        </div>
-                        <footer class="surface-foot justify-content-end">
-                            <button type="button" class="btn btn-light border" @click="showImport = false">Cancelar</button>
-                            <button type="submit" class="btn btn-primary" :disabled="form.processing || !form.file">
-                                <span v-if="form.processing" class="spinner-border spinner-border-sm me-1"></span>Enviar a Tesorería
-                            </button>
-                        </footer>
                     </form>
-                </div>
-            </Transition>
-        </div>
+                <template #footer>
+                    <button type="button" class="btn btn-light border" @click="showImport = false">Cancelar</button>
+                    <button type="submit" form="pp-import-form" class="btn btn-primary" :disabled="form.processing || !form.file">
+                        <span v-if="form.processing" class="spinner-border spinner-border-sm me-1"></span>Enviar a Tesorería
+                    </button>
+                </template>
+            </AppModal>
     </AppLayout>
 </template>

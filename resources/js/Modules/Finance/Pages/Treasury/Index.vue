@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import AppModal from '@/Modules/Core/Components/AppModal.vue';
 import Pagination from '@/Modules/Core/Components/Pagination.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 import { useTenantPicker } from '@/Modules/Core/Composables/useTenantPicker';
@@ -199,29 +200,24 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
         </header>
 
         <!-- Carga de gastos desde Excel (sisgere Tesorería › Bancos): cada fila queda como pago directo por programar -->
-        <Transition name="reveal">
-            <form v-if="showImport" class="surface surface-pad mb-3" novalidate @submit.prevent="sendImport">
-                <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
-                    <div>
-                        <h2 class="surface-title">Cargar gastos desde Excel</h2>
-                        <p class="surface-sub">Columnas: Fecha, Medio, Tipo, Serie, Número, RUC, Glosa, Monto. El proveedor debe estar registrado con su RUC. Si una fila tiene error no se carga ninguna.</p>
-                    </div>
-                    <button type="button" class="btn-close" aria-label="Cerrar" @click="showImport = false"></button>
-                </div>
-                <div class="row g-2 align-items-end">
-                    <div class="col-sm-3">
+        <AppModal :show="showImport" title="Cargar gastos desde Excel" :busy="importForm.processing" @close="showImport = false"
+            subtitle="Columnas: Fecha, Medio, Tipo, Serie, Número, RUC, Glosa, Monto. El proveedor debe estar registrado con su RUC. Si una fila tiene error no se carga ninguna.">
+            <form id="tr-import-form" class="row g-3" novalidate @submit.prevent="sendImport">
+                    <div class="col-sm-4">
                         <label class="form-label" for="imp-cur">Moneda</label>
                         <select id="imp-cur" v-model="importForm.currency" class="form-select"><option v-for="(label, code) in currencies" :key="code" :value="code">{{ label }}</option></select>
                     </div>
-                    <div class="col-sm-6">
+                    <div class="col-sm-8">
                         <label class="form-label" for="imp-file">Archivo Excel</label>
                         <input id="imp-file" type="file" accept=".xlsx,.xls,.csv" class="form-control" :class="{ 'is-invalid': importForm.errors.file }" @change="importForm.file = $event.target.files[0]" />
                         <div class="invalid-feedback">{{ importForm.errors.file }}</div>
                     </div>
-                    <div class="col-sm-3 d-grid"><button type="submit" class="btn btn-primary" :disabled="importForm.processing || !importForm.file"><i class="bi bi-upload me-1"></i>Procesar carga</button></div>
-                </div>
             </form>
-        </Transition>
+            <template #footer>
+                <button type="button" class="btn btn-light border" @click="showImport = false">Cancelar</button>
+                <button type="submit" form="tr-import-form" class="btn btn-primary" :disabled="importForm.processing || !importForm.file"><i class="bi bi-upload me-1"></i>Procesar carga</button>
+            </template>
+        </AppModal>
 
         <!-- Indicadores: un total por moneda -->
         <section class="dash-kpis" aria-label="Resumen de pagos">
@@ -235,16 +231,8 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
         </section>
 
         <!-- Cuentas de origen -->
-        <Transition name="reveal">
-            <section v-if="showAccounts" class="surface mb-3">
-                <header class="surface-head">
-                    <div>
-                        <h2 class="surface-title">Cuentas de la empresa</h2>
-                        <p class="surface-sub">Origen de los pagos: se elige una al pagar cada cuota.</p>
-                    </div>
-                    <button type="button" class="btn-close" aria-label="Cerrar" @click="showAccounts = false"></button>
-                </header>
-                <div class="row g-0">
+        <AppModal :show="showAccounts" title="Cuentas de la empresa" subtitle="Origen de los pagos: se elige una al pagar cada cuota." size="lg" :busy="account.processing" @close="showAccounts = false">
+                <div class="row g-0 app-modal-flush">
                     <div class="col-lg-7 border-end-lg">
                         <ul class="list-plain">
                             <li v-for="a in accounts" :key="a.id" class="list-plain-item" :class="{ 'is-muted': !a.is_active }">
@@ -270,8 +258,7 @@ const isOverdue = (p) => p.status === 'pending' && p.due_iso < props.today;
                         </div>
                     </form>
                 </div>
-            </section>
-        </Transition>
+        </AppModal>
 
         <!-- Cuotas: pestañas, filtros y tabla en una sola superficie -->
         <section class="surface">

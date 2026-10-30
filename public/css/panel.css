@@ -10513,3 +10513,47 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
     .dash-kpis.dash-kpis-3 > :first-child { grid-column: 1 / -1; }
     .period-field { flex: 1 1 0; min-width: 0; }
 }
+
+/* Fila en edición, botón de ícono para eliminar y contadores de una vista previa */
+.data-table > tbody > tr.is-selected > td { background: rgba(var(--brand-rgb), 0.06) !important; }
+.icon-btn-danger:hover { color: var(--accent-rose); background: rgba(var(--accent-rose-rgb), 0.08); border-color: rgba(var(--accent-rose-rgb), 0.2); }
+.preview-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+.preview-stats .concept-card { padding: 0.55rem 0.65rem; }
+@media (max-width: 575.98px) { .preview-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Diálogo modal compartido (AppModal.vue) */
+.app-modal-overlay {
+    position: fixed; inset: 0; z-index: 1080;
+    display: flex; align-items: center; justify-content: center; padding: 1.5rem 1rem;
+    background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(2px); overflow-y: auto;
+}
+.app-modal {
+    display: flex; flex-direction: column; width: 100%; max-width: 520px; max-height: calc(100dvh - 3rem);
+    background: var(--bg-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); outline: none;
+}
+.app-modal-lg { max-width: 760px; }
+.app-modal-xl { max-width: 1040px; }
+.app-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); }
+.app-modal-title { margin: 0; font-size: 1rem; font-weight: 700; letter-spacing: -0.015em; color: var(--text-primary); }
+.app-modal-sub { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--text-muted); }
+.app-modal-body { padding: 1.1rem 1.25rem; overflow-y: auto; }
+.app-modal-foot {
+    display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--border-color); background: var(--bg-surface-elevated); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.app-modal-enter-active { transition: opacity var(--dur-3) var(--ease-out); }
+.app-modal-leave-active { transition: opacity var(--dur-2) var(--ease-out); }
+.app-modal-enter-active .app-modal { transition: transform var(--dur-3) var(--ease-out); }
+.app-modal-leave-active .app-modal { transition: transform var(--dur-2) var(--ease-out); }
+.app-modal-enter-from, .app-modal-leave-to { opacity: 0; }
+.app-modal-enter-from .app-modal, .app-modal-leave-to .app-modal { transform: translateY(6px) scale(0.96); }
+@media (max-width: 575.98px) {
+    .app-modal-overlay { padding: 0; align-items: flex-end; }
+    .app-modal { max-width: none; max-height: 92dvh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+    .app-modal-foot { border-radius: 0; flex-direction: column-reverse; }
+    .app-modal-foot .btn { width: 100%; }
+    .app-modal-enter-from .app-modal, .app-modal-leave-to .app-modal { transform: translateY(100%); }
+}
+
+/* Contenido de borde a borde dentro del diálogo (listas con su propio relleno) */
+.app-modal-body > .app-modal-flush { margin: -1.1rem -1.25rem; }
