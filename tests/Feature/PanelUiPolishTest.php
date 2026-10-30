@@ -46,6 +46,7 @@ class PanelUiPolishTest extends TestCase
         // Botón azul con texto blanco puro
         $this->assertMatchesRegularExpression('/class="btn btn-primary text-white[^"]*"[^>]*>\s*<i class="bi bi-shield-lock"><\/i>\s*<span>Actualizar contraseña/', $html);
 
-        $this->actingAs($admin)->get('/branches')->assertOk()->assertSee('pretty-select pretty-select-sm', false);
+        // Sucursales usa la barra de filtros común (filter-row + search-field)
+        $this->actingAs($admin)->get('/branches')->assertOk()->assertSee('class="filter-row', false)->assertSee('class="search-field"', false);
     }
 }

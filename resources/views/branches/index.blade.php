@@ -4,48 +4,21 @@
 
 @section('content')
 <div class="branches-page-wrapper">
-    {{-- =========================================================================
-         1. CABECERA EJECUTIVA DEL MÓDULO
-         ========================================================================= --}}
-    <div class="branches-header-card shadow-sm p-3 p-md-4 mb-4">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div class="d-flex align-items-center" style="gap: 16px !important;">
-                <div class="branches-header-icon shadow-sm">
-                    <i class="bi bi-pin-map-fill"></i>
-                </div>
-                <div>
-                    <div class="d-flex align-items-center flex-wrap mb-1" style="gap: 10px !important;">
-                        <h1 class="h4 fw-bold mb-0 text-body">Sucursales y Geocercas GPS</h1>
-                        <span class="badge rounded-2 bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 small fw-semibold">
-                            <i class="bi bi-shield-check me-1"></i>Validación Oficial
-                        </span>
-                        @if(!empty($companies))
-                            <span class="badge rounded-2 bg-info-subtle text-info border border-info-subtle px-2.5 py-1 small fw-semibold">
-                                <i class="bi bi-globe2 me-1"></i>Vista Global
-                            </span>
-                        @endif
-                    </div>
-                    <p class="text-secondary small mb-0">
-                        Ubicación física de sedes operativas, cálculo de cobertura perimetral y validación de asistencia vía coordenadas GPS.
-                    </p>
-                </div>
-            </div>
-
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <button type="button" 
-                        class="btn btn-primary d-inline-flex align-items-center shadow-sm"
-                        style="height: 38px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; padding: 0 1.25rem; gap: 8px;"
-                        onclick="openCreateBranchModal()">
-                    <i class="bi bi-plus-lg"></i>
-                    <span>Nueva sucursal</span>
-                </button>
-            </div>
+    <header class="page-head">
+        <div class="page-head-text">
+            <h1 class="page-title">Sucursales y geocercas GPS</h1>
+            <p class="page-subtitle">Ubicación física de las sedes, radio permitido y validación de asistencia por coordenadas GPS.</p>
         </div>
-    </div>
+        <div class="page-actions">
+            @if(!empty($companies))
+                <span class="status-pill tone-blue"><i class="bi bi-globe2"></i>Vista global</span>
+            @endif
+            <button type="button" class="btn btn-primary" onclick="openCreateBranchModal()">
+                <i class="bi bi-plus-lg me-1"></i>Nueva sucursal
+            </button>
+        </div>
+    </header>
 
-    {{-- =========================================================================
-         2. TARJETAS DE MÉTRICAS KPI (RESUMEN EJECUTIVO)
-         ========================================================================= --}}
     @php
         $totalBranches = $branches->count();
         $activeBranches = $branches->where('is_active', true)->count();
@@ -54,163 +27,76 @@
         $activeRate = $totalBranches > 0 ? round(($activeBranches / $totalBranches) * 100) : 100;
     @endphp
 
-    <div class="row g-3 mb-4">
-        {{-- Total Sedes --}}
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="branches-kpi-card shadow-sm p-3 h-100">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Sedes Registradas</span>
-                    <div class="branches-kpi-pill bg-primary-subtle text-primary">
-                        <i class="bi bi-buildings-fill"></i>
-                    </div>
-                </div>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="h3 fw-bold mb-0 text-body">{{ $totalBranches }}</span>
-                    <span class="badge {{ $activeBranches === $totalBranches ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis' }}">
-                        {{ $activeBranches }} activas
-                    </span>
-                </div>
-                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                    Distribuidas en {{ $zones->count() }} zonas territoriales
-                </div>
+    <section class="dash-kpis" aria-label="Resumen de sedes">
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">Sedes registradas</span>
+                <span class="dash-kpi-icon tone-brand"><i class="bi bi-buildings"></i></span>
             </div>
-        </div>
-
-        {{-- Sedes Operativas --}}
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="branches-kpi-card shadow-sm p-3 h-100">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Sedes Operativas</span>
-                    <div class="branches-kpi-pill bg-emerald-subtle text-emerald">
-                        <i class="bi bi-check-circle-fill"></i>
-                    </div>
-                </div>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="h3 fw-bold mb-0 text-body">{{ $activeRate }}%</span>
-                    <span class="text-muted small">cobertura activa</span>
-                </div>
-                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                    Habilitadas para marcación móvil y app
-                </div>
+            <div class="dash-kpi-value">{{ $totalBranches }}</div>
+            <div class="dash-kpi-meta"><span><b>{{ $activeBranches }}</b> activas · {{ $zones->count() }} zonas</span></div>
+        </article>
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">Sedes operativas</span>
+                <span class="dash-kpi-icon tone-emerald"><i class="bi bi-check-circle"></i></span>
             </div>
-        </div>
-
-        {{-- Colaboradores Asignados --}}
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="branches-kpi-card shadow-sm p-3 h-100">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Dotación Asignada</span>
-                    <div class="branches-kpi-pill bg-info-subtle text-info">
-                        <i class="bi bi-people-fill"></i>
-                    </div>
-                </div>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="h3 fw-bold mb-0 text-body">{{ $totalEmployees }}</span>
-                    <span class="text-muted small">colaboradores</span>
-                </div>
-                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                    Personal con sucursal física de trabajo
-                </div>
+            <div class="dash-kpi-value">{{ $activeRate }}%</div>
+            <div class="dash-kpi-meta">Habilitadas para marcar</div>
+        </article>
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">Colaboradores asignados</span>
+                <span class="dash-kpi-icon tone-blue"><i class="bi bi-people"></i></span>
             </div>
-        </div>
-
-        {{-- Geocerca Promedio --}}
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="branches-kpi-card shadow-sm p-3 h-100">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Radio Promedio</span>
-                    <div class="branches-kpi-pill bg-amber-subtle text-amber">
-                        <i class="bi bi-broadcast-pin"></i>
-                    </div>
-                </div>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="h3 fw-bold mb-0 text-body">{{ $avgRadius }}</span>
-                    <span class="text-muted small">metros</span>
-                </div>
-                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                    Margen de tolerancia GPS configurado
-                </div>
+            <div class="dash-kpi-value">{{ $totalEmployees }}</div>
+            <div class="dash-kpi-meta">Con sede física de trabajo</div>
+        </article>
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">Radio promedio</span>
+                <span class="dash-kpi-icon tone-amber"><i class="bi bi-broadcast-pin"></i></span>
             </div>
-        </div>
-    </div>
+            <div class="dash-kpi-value">{{ $avgRadius }} m</div>
+            <div class="dash-kpi-meta">Tolerancia GPS configurada</div>
+        </article>
+    </section>
 
-    {{-- =========================================================================
-         3. BARRA DE FILTROS Y BÚSQUEDA REACTIVA EN TIEMPO REAL
-         ========================================================================= --}}
-    <div class="branches-filter-card shadow-sm p-3 mb-4">
-        <div class="row g-3 align-items-center">
-            {{-- Buscador reactivo por nombre, ciudad, código o supervisor --}}
-            <div class="col-12 col-md-5 col-xl-4">
-                <div class="position-relative">
-                    <i class="bi bi-search text-muted" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; z-index: 5; font-size: 0.85rem;"></i>
-                    <input type="text" 
-                           id="branchesSearchInput" 
-                           class="form-control form-control-sm" 
-                           placeholder="Buscar por sede, ciudad, dirección o supervisor..." 
-                           style="height: 38px; border-radius: 6px; font-size: 0.85rem; padding-left: 42px !important;"
-                           oninput="filterBranchesGrid()">
-                </div>
+    {{-- Filtros: se aplican al escribir o elegir, sin recargar --}}
+    <section class="surface mb-4">
+        <div class="filter-row border-0" role="search">
+            <div class="search-field">
+                <i class="bi bi-search"></i>
+                <input type="search" id="branchesSearchInput" class="form-control" placeholder="Buscar por sede, ciudad, dirección o supervisor…" aria-label="Buscar sede" oninput="filterBranchesGrid()">
             </div>
-
-            {{-- Filtro por Estado (Todas, Activas, Inactivas) --}}
-            <div class="col-12 col-sm-6 col-md-3 col-xl-2">
-                <div class="pretty-select pretty-select-sm">
-                    <i class="bi bi-toggle-on pretty-select-icon" aria-hidden="true"></i>
-                    <select id="branchesStatusFilter" class="form-select" aria-label="Estado de la sede" onchange="filterBranchesGrid()">
-                        <option value="">Todos los estados</option>
-                        <option value="active">Solo Activas</option>
-                        <option value="inactive">Inactivas</option>
-                    </select>
-                </div>
-            </div>
-
-            {{-- Filtro por Tipo de Sede --}}
-            <div class="col-12 col-sm-6 col-md-4 col-xl-3">
-                <div class="pretty-select pretty-select-sm">
-                    <i class="bi bi-building pretty-select-icon" aria-hidden="true"></i>
-                    <select id="branchesTypeFilter" class="form-select" aria-label="Tipo de sede" onchange="filterBranchesGrid()">
-                        <option value="">Todos los tipos de sede</option>
-                        @foreach($branchTypes as $typeKey => $typeLabel)
-                            <option value="{{ $typeKey }}">{{ $typeLabel }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-
-            {{-- Filtro por Zona Territorial (si existen) --}}
+            <select id="branchesStatusFilter" class="form-select w-auto" aria-label="Estado de la sede" onchange="filterBranchesGrid()">
+                <option value="">Todos los estados</option>
+                <option value="active">Solo activas</option>
+                <option value="inactive">Inactivas</option>
+            </select>
+            <select id="branchesTypeFilter" class="form-select w-auto" aria-label="Tipo de sede" onchange="filterBranchesGrid()">
+                <option value="">Todos los tipos de sede</option>
+                @foreach($branchTypes as $typeKey => $typeLabel)
+                    <option value="{{ $typeKey }}">{{ $typeLabel }}</option>
+                @endforeach
+            </select>
             @if($zones->isNotEmpty())
-                <div class="col-12 col-sm-6 col-md-4 col-xl-2">
-                    <div class="pretty-select pretty-select-sm">
-                    <i class="bi bi-diagram-3 pretty-select-icon" aria-hidden="true"></i>
-                    <select id="branchesZoneFilter" class="form-select" aria-label="Zona" onchange="filterBranchesGrid()">
-                            <option value="">Todas las zonas</option>
-                            @foreach($zones as $z)
-                                <option value="{{ $z->id }}">{{ $z->name }}</option>
-                            @endforeach
-                            <option value="none">Sin zona asignada</option>
-                        </select>
-                    </div>
-                </div>
+                <select id="branchesZoneFilter" class="form-select w-auto" aria-label="Zona" onchange="filterBranchesGrid()">
+                    <option value="">Todas las zonas</option>
+                    @foreach($zones as $z)
+                        <option value="{{ $z->id }}">{{ $z->name }}</option>
+                    @endforeach
+                    <option value="none">Sin zona asignada</option>
+                </select>
             @endif
-
-            {{-- Botón Reset & Contador Presentado en Tarjeta / Chip con Esquinas Menos Redondas --}}
-            <div class="col-12 col-xl text-xl-end d-flex align-items-center justify-content-between justify-content-xl-end ms-auto" style="gap: 10px !important;">
-                <button type="button" 
-                        class="btn-branch-reset"
-                        title="Restablecer todos los filtros de búsqueda"
-                        onclick="resetBranchesFilters()">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                    <span>Limpiar</span>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <span id="branchesCounter" class="small text-body-secondary text-nowrap">Mostrando {{ $totalBranches }} de {{ $totalBranches }}</span>
+                <button type="button" class="btn btn-light border" title="Restablecer filtros" onclick="resetBranchesFilters()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Limpiar
                 </button>
-                <div class="branches-counter-card" title="Total de sedes visibles según filtros">
-                    <i class="bi bi-buildings-fill counter-icon"></i>
-                    <span id="branchesCounter" class="counter-text">
-                        Mostrando {{ $totalBranches }} de {{ $totalBranches }}
-                    </span>
-                </div>
             </div>
         </div>
-    </div>
+    </section>
 
     {{-- =========================================================================
          4. GRID DE TARJETAS DE SUCURSALES (DISEÑO ESPACIOSO Y ELEGANTE)
@@ -1136,13 +1022,6 @@
     width: 100%;
 }
 
-{{-- Cabecera Ejecutiva --}}
-.branches-header-card {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
-    border-radius: 14px;
-}
-
 .branches-header-icon {
     width: 48px;
     height: 48px;
@@ -1156,99 +1035,6 @@
     flex-shrink: 0;
 }
 
-{{-- Tarjetas de Métricas KPI --}}
-.branches-kpi-card {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
-    border-radius: 12px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.branches-kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.06) !important;
-}
-
-.branches-kpi-pill {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-}
-
-{{-- Barra de Filtros --}}
-.branches-filter-card {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
-    border-radius: 10px;
-}
-
-{{-- Botón Limpiar Filtros Mejorado --}}
-.btn-branch-reset {
-    height: 38px;
-    padding: 0 14px;
-    border-radius: 6px !important;
-    border: 1px solid var(--border-color, #cbd5e1);
-    background: var(--bg-surface, #ffffff);
-    color: var(--text-secondary, #475569);
-    font-size: 0.825rem;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.15s ease;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-    text-decoration: none;
-}
-
-.btn-branch-reset:hover {
-    background: var(--bg-surface-elevated, #f1f5f9);
-    border-color: #94a3b8;
-    color: var(--text-primary, #0f172a);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
-}
-
-.btn-branch-reset i {
-    font-size: 0.85rem;
-    color: var(--accent-cyan, var(--brand));
-    transition: transform 0.25s ease;
-}
-
-.btn-branch-reset:hover i {
-    transform: rotate(-180deg);
-}
-
-{{-- Tarjeta / Chip Contador de Resultados --}}
-.branches-counter-card {
-    height: 38px;
-    padding: 0 14px;
-    border-radius: 6px !important;
-    border: 1px solid var(--border-color, #e2e8f0);
-    background: var(--bg-surface-elevated, #f8fafc);
-    color: var(--text-secondary, #475569);
-    font-size: 0.825rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-}
-
-.branches-counter-card .counter-icon {
-    font-size: 0.9rem;
-    color: var(--accent-cyan, var(--brand));
-    flex-shrink: 0;
-}
-
-.branches-counter-card .counter-text {
-    font-size: 0.825rem;
-    font-weight: 600;
-    color: var(--text-primary, #0f172a);
-}
 
 {{-- =============================================================================
    TARJETA INDIVIDUAL DE SUCURSAL (ESPACIOSA, SIN APILAMIENTO NI AMONTONAMIENTO)
@@ -1448,9 +1234,6 @@
 {{-- =============================================================================
    SOPORTE TOTAL PARA MODO OSCURO
    ============================================================================= --}}
-[data-bs-theme="dark"] .branches-header-card,
-[data-bs-theme="dark"] .branches-kpi-card,
-[data-bs-theme="dark"] .branches-filter-card,
 [data-bs-theme="dark"] .branch-card {
     background: var(--bg-surface, #111622) !important;
     border-color: var(--border-color, #1a2234) !important;
@@ -1483,23 +1266,6 @@
 
 [data-bs-theme="dark"] .branch-map-container {
     border-color: #243048 !important;
-}
-
-[data-bs-theme="dark"] .btn-branch-reset,
-[data-bs-theme="dark"] .branches-counter-card {
-    background: #161f30 !important;
-    border-color: #243048 !important;
-    color: #94a3b8 !important;
-}
-
-[data-bs-theme="dark"] .btn-branch-reset:hover {
-    background: #1c273e !important;
-    color: #f8fafc !important;
-    border-color: #38bdf8 !important;
-}
-
-[data-bs-theme="dark"] .branches-counter-card .counter-text {
-    color: #f8fafc !important;
 }
 
 [data-bs-theme="dark"] .branch-map-overlay-hint {
