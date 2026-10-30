@@ -10688,3 +10688,14 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 .portal-stat-label { font-size: .72rem; font-weight: 600; color: var(--text-muted); }
 .portal-stat-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-primary); line-height: 1.1; }
 @media (max-width: 575.98px) { .portal-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* Roles: lista lateral de roles y grupos de permisos */
+.role-nav { display: flex; flex-direction: column; padding: 0.35rem; gap: 2px; }
+.role-nav-item { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; padding: 0.6rem 0.7rem; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-align: left; transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out); }
+.role-nav-item:hover { background: var(--bg-surface-elevated); color: var(--text-primary); }
+.role-nav-item.is-active { background: rgba(var(--brand-rgb), 0.1); color: var(--brand); }
+.role-nav-item:focus-visible { outline: none; box-shadow: var(--ring); }
+.role-nav-sub { font-size: 0.72rem; font-weight: 500; color: var(--text-muted); }
+.role-head { position: sticky; top: 0; z-index: 3; background: var(--bg-surface); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.perm-group { padding: 0.85rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.perm-group-title { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }

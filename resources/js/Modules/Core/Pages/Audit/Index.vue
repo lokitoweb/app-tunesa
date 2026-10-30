@@ -163,81 +163,26 @@ const badgeClass = (tone) => `bg-${tone}-subtle text-${tone}-emphasis border bor
 <template>
     <AppLayout title="Bitácora de auditoría">
         <!-- Header Ejecutivo -->
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-            <div class="d-flex align-items-center gap-3">
-                <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #4f46e5, #4338ca); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1.4rem; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
-                    <i class="bi bi-shield-check"></i>
-                </div>
-                <div>
-                    <h1 class="h4 fw-bold mb-1 text-primary-emphasis">Bitácora de auditoría</h1>
-                    <p class="text-secondary small mb-0">Trazabilidad completa: accesos a información confidencial, cambios de configuración y exportaciones.</p>
-                </div>
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Bitácora de auditoría</h1>
+                <p class="page-subtitle">Trazabilidad completa: accesos a información confidencial, cambios de configuración y exportaciones.</p>
             </div>
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fw-medium">
-                    <i class="bi bi-shield-lock-fill me-1"></i> Registros inmutables
-                </span>
+            <div class="page-actions">
+                <span class="status-pill tone-brand"><i class="bi bi-shield-lock"></i>Registros inmutables</span>
             </div>
-        </div>
+        </header>
 
-        <!-- Tarjetas KPIs Ejecutivas -->
-        <div class="row g-3 mb-4">
-            <div class="col-6 col-md-3">
-                <div class="card border-0 shadow-sm audit-kpi-card">
-                    <div class="d-flex align-items-center gap-3">
-                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(79, 70, 229, 0.1); color: #4f46e5; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
-                            <i class="bi bi-journal-text"></i>
-                        </div>
-                        <div>
-                            <div class="fs-5 fw-bold text-primary-emphasis">{{ kpiTotal }}</div>
-                            <div class="small text-secondary">Eventos auditados</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="card border-0 shadow-sm audit-kpi-card">
-                    <div class="d-flex align-items-center gap-3">
-                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
-                            <i class="bi bi-people-fill"></i>
-                        </div>
-                        <div>
-                            <div class="fs-5 fw-bold text-primary-emphasis">{{ kpiUsersCount }}</div>
-                            <div class="small text-secondary">Usuarios activos</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="card border-0 shadow-sm audit-kpi-card">
-                    <div class="d-flex align-items-center gap-3">
-                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(245, 158, 11, 0.1); color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
-                            <i class="bi bi-pencil-square"></i>
-                        </div>
-                        <div>
-                            <div class="fs-5 fw-bold text-primary-emphasis">{{ kpiChangesCount }}</div>
-                            <div class="small text-secondary">Cambios de valores</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3">
-                <div class="card border-0 shadow-sm audit-kpi-card">
-                    <div class="d-flex align-items-center gap-3">
-                        <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(14, 165, 233, 0.1); color: #0ea5e9; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
-                            <i class="bi bi-file-earmark-spreadsheet-fill"></i>
-                        </div>
-                        <div>
-                            <div class="fs-5 fw-bold text-primary-emphasis">{{ kpiExportCount }}</div>
-                            <div class="small text-secondary">Exportaciones</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <section class="dash-kpis" aria-label="Resumen de la bitácora">
+            <article v-for="k in [[kpiTotal, 'Eventos auditados', 'brand', 'journal-text'], [kpiUsersCount, 'Usuarios activos', 'emerald', 'people'], [kpiChangesCount, 'Cambios de valores', 'amber', 'pencil-square'], [kpiExportCount, 'Exportaciones', 'blue', 'file-earmark-spreadsheet']]" :key="k[1]" class="dash-kpi-card">
+                <div class="dash-kpi-top"><span class="dash-kpi-label">{{ k[1] }}</span><span class="dash-kpi-icon" :class="`tone-${k[2]}`"><i class="bi" :class="`bi-${k[3]}`"></i></span></div>
+                <div class="dash-kpi-value">{{ k[0] }}</div>
+            </article>
+        </section>
 
         <!-- Barra de Filtros Interna y Reactiva (CERO mutación de URL) -->
-        <div class="card border-0 shadow-sm audit-filter-card mb-4 p-3">
+        <section class="surface">
+        <div class="audit-filters">
             <div class="row g-3 align-items-center">
                 <!-- Buscador de texto instantáneo -->
                 <div class="col-12 col-lg-4">
@@ -297,48 +242,21 @@ const badgeClass = (tone) => `bg-${tone}-subtle text-${tone}-emphasis border bor
             </div>
 
             <!-- Chips de filtro rápido y Limpiar (Esquinas sutiles 8px, sin píldoras) -->
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 pt-3 border-top">
-                <div class="audit-filter-chips">
-                    <button type="button" class="audit-filter-chip" :class="{ 'is-active-all': activeTone === 'all' }" @click="activeTone = 'all'">
-                        <span>Todos</span>
-                        <span class="audit-chip-badge">{{ countByTone.all }}</span>
-                    </button>
-                    <button type="button" class="audit-filter-chip" :class="{ 'is-active-success': activeTone === 'success' }" @click="activeTone = 'success'">
-                        <i class="bi bi-check-circle-fill chip-icon-success"></i>
-                        <span>Aprobados / Éxito</span>
-                        <span class="audit-chip-badge">{{ countByTone.success }}</span>
-                    </button>
-                    <button type="button" class="audit-filter-chip" :class="{ 'is-active-primary': activeTone === 'primary' }" @click="activeTone = 'primary'">
-                        <i class="bi bi-pencil-fill chip-icon-primary"></i>
-                        <span>Modificaciones</span>
-                        <span class="audit-chip-badge">{{ countByTone.primary }}</span>
-                    </button>
-                    <button type="button" class="audit-filter-chip" :class="{ 'is-active-warning': activeTone === 'warning' }" @click="activeTone = 'warning'">
-                        <i class="bi bi-eye-fill chip-icon-warning"></i>
-                        <span>Accesos / Sensibles</span>
-                        <span class="audit-chip-badge">{{ countByTone.warning }}</span>
-                    </button>
-                    <button type="button" class="audit-filter-chip" :class="{ 'is-active-danger': activeTone === 'danger' }" @click="activeTone = 'danger'">
-                        <i class="bi bi-exclamation-triangle-fill chip-icon-danger"></i>
-                        <span>Eliminaciones</span>
-                        <span class="audit-chip-badge">{{ countByTone.danger }}</span>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+                <div class="seg-tabs" role="tablist" aria-label="Tipo de evento">
+                    <button v-for="t in [['all', 'Todos', ''], ['success', 'Aprobados / Éxito', 'tone-emerald'], ['primary', 'Modificaciones', 'tone-brand'], ['warning', 'Accesos / Sensibles', 'tone-amber'], ['danger', 'Eliminaciones', 'tone-rose']]" :key="t[0]"
+                        type="button" role="tab" class="seg-tab" :class="{ 'is-active': activeTone === t[0] }" :aria-selected="activeTone === t[0]" @click="activeTone = t[0]">
+                        {{ t[1] }} <span class="count-pill" :class="activeTone === t[0] ? t[2] : ''">{{ countByTone[t[0]] }}</span>
                     </button>
                 </div>
-
-                <div v-if="hasActiveFilters">
-                    <button type="button" class="btn-audit-clear" @click="clearFilters">
-                        <i class="bi bi-x-circle-fill"></i>
-                        <span>Limpiar filtros</span>
-                    </button>
-                </div>
+                <button v-if="hasActiveFilters" type="button" class="btn btn-sm btn-link text-decoration-none" @click="clearFilters"><i class="bi bi-x-circle me-1"></i>Limpiar filtros</button>
             </div>
         </div>
 
         <!-- Tabla de Registros -->
-        <div class="card border-0 shadow-sm audit-table-card">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 audit-table">
-                    <thead class="table-light">
+                <table class="table data-table align-middle mb-0 audit-table">
+                    <thead>
                         <tr>
                             <th class="ps-3" style="width: 140px;">Fecha y hora</th>
                             <th style="width: 200px;">Usuario / Rol</th>
@@ -355,11 +273,11 @@ const badgeClass = (tone) => `bg-${tone}-subtle text-${tone}-emphasis border bor
                             </td>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
-                                    <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(79, 70, 229, 0.1); color: #4f46e5; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0;">
+                                    <div class="topbar-avatar" style="border-radius: 8px;">
                                         {{ (log.actor_name || 'S').charAt(0).toUpperCase() }}
                                     </div>
                                     <div>
-                                        <div class="fw-semibold small text-primary-emphasis">{{ log.actor_name }}</div>
+                                        <div class="cell-title">{{ log.actor_name }}</div>
                                         <div v-if="log.actor_role" class="small text-secondary" style="font-size: 0.75rem;">{{ log.actor_role }}</div>
                                         <TenantBadge v-if="log.tenant_id" :tenant-id="log.tenant_id" />
                                     </div>
@@ -412,9 +330,9 @@ const badgeClass = (tone) => `bg-${tone}-subtle text-${tone}-emphasis border bor
             </div>
 
             <!-- Paginador Interno Reactivo -->
-            <div class="card-footer bg-transparent border-top p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div class="small text-secondary">
-                    Mostrando <strong class="text-primary-emphasis">{{ pageStart }}</strong> a <strong class="text-primary-emphasis">{{ pageEnd }}</strong> de <strong class="text-primary-emphasis">{{ totalCount }}</strong> registros
+            <footer class="surface-foot">
+                <div class="small text-body-secondary">
+                    Mostrando <strong class="text-body">{{ pageStart }}</strong> a <strong class="text-body">{{ pageEnd }}</strong> de <strong class="text-body">{{ totalCount }}</strong> registros
                 </div>
 
                 <div v-if="totalPages > 1" class="d-flex align-items-center gap-1">
@@ -430,12 +348,12 @@ const badgeClass = (tone) => `bg-${tone}-subtle text-${tone}-emphasis border bor
                         </button>
                         <span v-else-if="p === currentPage - 3 || p === currentPage + 3" class="px-1 text-secondary">…</span>
                     </template>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="currentPage >= totalPages" @click="setPage(currentPage + 1)">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="currentPage >= totalPages" aria-label="Página siguiente" title="Página siguiente" @click="setPage(currentPage + 1)">
                         <i class="bi bi-chevron-right"></i>
                     </button>
                 </div>
-            </div>
-        </div>
+            </footer>
+        </section>
 
         <!-- Modal de Cuadro de Cambios -->
         <div id="auditChanges" class="modal fade" tabindex="-1" aria-labelledby="auditChangesTitle" aria-hidden="true">
@@ -482,6 +400,7 @@ const badgeClass = (tone) => `bg-${tone}-subtle text-${tone}-emphasis border bor
 
 <style scoped>
 .audit-detail { min-width: 240px; }
+.audit-filters { padding: 1rem; border-bottom: 1px solid var(--border-color); }
 .audit-diff td { vertical-align: top; word-break: break-word; }
 .audit-diff td.changed-old { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
 .audit-diff td.changed-new { background: rgba(16, 185, 129, 0.12); color: #059669; font-weight: 500; }

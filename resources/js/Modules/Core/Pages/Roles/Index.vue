@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import AppModal from '@/Modules/Core/Components/AppModal.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 
 const props = defineProps({
@@ -99,82 +100,69 @@ async function reset() {
 
 <template>
     <AppLayout title="Roles y permisos">
-        <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
-            <div>
-                <h1 class="h4 fw-bold mb-1">Roles y permisos</h1>
-                <p class="text-body-secondary small mb-0">
-                    Qué puede hacer cada rol en <strong>{{ company }}</strong>: parte de los permisos estándar, lo que cambies aplica solo
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Roles y permisos</h1>
+                <p class="page-subtitle">
+                    Qué puede hacer cada rol en <strong class="text-body">{{ company }}</strong>: parte de los permisos estándar, lo que cambies aplica solo
                     a esta empresa y las actualizaciones del sistema no lo pisan. Solo se muestran los módulos activos.
                 </p>
             </div>
-        </div>
+            <div class="page-actions">
+                <button v-if="bases.length" type="button" class="btn btn-primary" @click="creating = true"><i class="bi bi-plus-lg me-1"></i>Nuevo rol</button>
+            </div>
+        </header>
 
         <div class="row g-3">
             <div class="col-12 col-lg-3">
-                <div class="list-group shadow-sm" role="tablist" aria-label="Roles">
+                <nav class="surface role-nav" role="tablist" aria-label="Roles">
                     <button v-for="r in roles" :key="r.slug" type="button" role="tab" :aria-selected="current === r.slug"
-                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-                        :class="{ active: current === r.slug }" @click="current = r.slug">
-                        <span>{{ r.name }}<small v-if="r.custom" class="d-block opacity-75">rol propio · {{ r.base }}</small></span>
-                        <span v-if="customized(r.slug)" class="badge rounded-pill" :class="current === r.slug ? 'bg-light text-primary' : 'bg-warning-subtle text-warning-emphasis'">personalizado</span>
+                        class="role-nav-item" :class="{ 'is-active': current === r.slug }" @click="current = r.slug">
+                        <span class="min-w-0">
+                            <span class="d-block text-truncate">{{ r.name }}</span>
+                            <small v-if="r.custom" class="d-block role-nav-sub text-truncate">Rol propio · {{ r.base }}</small>
+                        </span>
+                        <span v-if="customized(r.slug)" class="status-pill tone-amber flex-shrink-0">Personalizado</span>
                     </button>
-                </div>
-                <button v-if="!creating && bases.length" type="button" class="btn btn-sm btn-outline-primary w-100 mt-2" @click="creating = true">
-                    <i class="bi bi-plus-lg me-1"></i>Nuevo rol
-                </button>
-                <form v-if="creating" class="card card-body shadow-sm mt-2 p-3" @submit.prevent="createRole">
-                    <label class="form-label small fw-semibold" for="new-role-name">Nombre</label>
-                    <input id="new-role-name" v-model="newRole.name" class="form-control form-control-sm" :class="{ 'is-invalid': newRole.errors.name }" maxlength="60" placeholder="Ej.: Jefe de flota" required />
-                    <div class="invalid-feedback">{{ newRole.errors.name }}</div>
-                    <label class="form-label small fw-semibold mt-2" for="new-role-base">Basado en</label>
-                    <select id="new-role-base" v-model="newRole.base_role" class="form-select form-select-sm" :class="{ 'is-invalid': newRole.errors.base_role }">
-                        <option v-for="b in bases" :key="b.slug" :value="b.slug">{{ b.name }}</option>
-                    </select>
-                    <div class="form-text small">Parte de sus permisos y su alcance (panel, app y jerarquía).</div>
-                    <label class="form-label small fw-semibold mt-2" for="new-role-desc">Descripción <span class="text-body-secondary fw-normal">(opcional)</span></label>
-                    <input id="new-role-desc" v-model="newRole.description" class="form-control form-control-sm" maxlength="200" />
-                    <div class="d-flex gap-2 mt-3">
-                        <button type="button" class="btn btn-sm btn-light flex-fill" @click="creating = false; newRole.clearErrors()">Cancelar</button>
-                        <button type="submit" class="btn btn-sm btn-primary flex-fill" :disabled="newRole.processing">Crear</button>
-                    </div>
-                </form>
-                <p class="small text-body-secondary mt-2 mb-0">El Administrador de empresa tiene acceso total y no se edita.</p>
+                </nav>
+                <p class="cell-sub mt-2 mb-0">El Administrador de empresa tiene acceso total y no se edita.</p>
             </div>
 
             <div class="col-12 col-lg-9">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-                            <div>
-                                <h2 class="h6 fw-bold mb-1">{{ role?.name }}</h2>
-                                <p class="small text-body-secondary mb-0">{{ role?.description }}</p>
-                            </div>
-                            <div class="d-flex flex-wrap gap-2">
-                                <button v-if="role?.custom" type="button" class="btn btn-sm btn-outline-danger" :disabled="role.users > 0"
-                                    :title="role.users > 0 ? `Lo tienen ${role.users} persona(s)` : 'Eliminar rol'" @click="removeRole">
-                                    <i class="bi bi-trash me-1"></i>Eliminar
-                                </button>
-                                <button v-if="customized(current)" type="button" class="btn btn-sm btn-outline-secondary" @click="reset">
-                                    <i class="bi bi-arrow-counterclockwise me-1"></i>Volver al estándar
-                                </button>
-                                <button type="button" class="btn btn-sm btn-primary" :disabled="!changed || form.processing" @click="save">
-                                    <span v-if="form.processing" class="spinner-border spinner-border-sm me-1"></span>Guardar cambios
-                                </button>
-                            </div>
+                <section class="surface">
+                    <header class="surface-head role-head">
+                        <div class="min-w-0">
+                            <h2 class="surface-title">{{ role?.name }}</h2>
+                            <p class="surface-sub">{{ role?.description }}</p>
                         </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button v-if="role?.custom" type="button" class="btn btn-sm btn-light border" :disabled="role.users > 0"
+                                :title="role.users > 0 ? `Lo tienen ${role.users} persona(s)` : 'Eliminar rol'" @click="removeRole">
+                                <i class="bi bi-trash3 me-1 text-danger"></i>Eliminar
+                            </button>
+                            <button v-if="customized(current)" type="button" class="btn btn-sm btn-light border" @click="reset">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Volver al estándar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" :disabled="!changed || form.processing" @click="save">
+                                <span v-if="form.processing" class="spinner-border spinner-border-sm me-1"></span>Guardar cambios
+                            </button>
+                        </div>
+                    </header>
 
-                        <div class="input-group input-group-sm mb-3" style="max-width: 360px">
-                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <div class="filter-row">
+                        <div class="search-field">
+                            <i class="bi bi-search" aria-hidden="true"></i>
                             <input v-model="search" type="search" class="form-control" placeholder="Buscar permiso…" aria-label="Buscar permiso" />
                         </div>
+                        <span v-if="changed" class="status-pill tone-brand ms-auto"><i class="bi bi-circle-fill" style="font-size: .45rem"></i>Cambios sin guardar</span>
+                    </div>
 
-                        <div v-if="changed" class="alert alert-info py-2 small">Tienes cambios sin guardar en {{ role?.name }}.</div>
-
-                        <div v-for="g in visibleGroups" :key="g.key" class="border rounded p-3 mb-2">
+                    <div class="surface-pad d-flex flex-column gap-2">
+                        <div v-for="g in visibleGroups" :key="g.key" class="perm-group">
                             <div class="form-check mb-2">
                                 <input :id="`grp-${g.key}`" class="form-check-input" type="checkbox" :checked="groupState(g) === 'all'"
                                     :indeterminate="groupState(g) === 'some'" @change="toggleGroup(g, $event.target.checked)" />
-                                <label class="form-check-label fw-semibold" :for="`grp-${g.key}`">{{ g.label }}</label>
+                                <label class="form-check-label perm-group-title" :for="`grp-${g.key}`">{{ g.label }}</label>
                             </div>
                             <div class="row g-1 ps-4">
                                 <div v-for="p in g.permissions" :key="p.slug" class="col-12 col-md-6">
@@ -182,17 +170,44 @@ async function reset() {
                                         <input :id="`perm-${p.slug}`" class="form-check-input" type="checkbox" :checked="selected.has(p.slug)" @change="toggle(p.slug)" />
                                         <label class="form-check-label small" :for="`perm-${p.slug}`">
                                             {{ p.name }}
-                                            <span v-if="differsFromStandard(p.slug) === 'added'" class="badge bg-success-subtle text-success ms-1">agregado</span>
-                                            <span v-else-if="differsFromStandard(p.slug) === 'removed'" class="badge bg-danger-subtle text-danger ms-1">quitado</span>
+                                            <span v-if="differsFromStandard(p.slug) === 'added'" class="status-pill tone-emerald ms-1">Agregado</span>
+                                            <span v-else-if="differsFromStandard(p.slug) === 'removed'" class="status-pill tone-rose ms-1">Quitado</span>
                                         </label>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <p v-if="!visibleGroups.length" class="text-body-secondary small text-center py-4 mb-0">No hay permisos que coincidan con la búsqueda.</p>
+                        <div v-if="!visibleGroups.length" class="dash-empty">
+                            <span class="dash-empty-icon"><i class="bi bi-search"></i></span>
+                            <p class="dash-empty-title">No hay permisos que coincidan con la búsqueda</p>
+                        </div>
                     </div>
-                </div>
+                </section>
             </div>
         </div>
+
+        <AppModal :show="creating" title="Nuevo rol" subtitle="Parte de los permisos y el alcance del rol en que se basa (panel, app y jerarquía)." :busy="newRole.processing" @close="creating = false; newRole.clearErrors()">
+            <form id="new-role-form" class="row g-3" @submit.prevent="createRole">
+                <div class="col-12">
+                    <label class="form-label" for="new-role-name">Nombre</label>
+                    <input id="new-role-name" v-model="newRole.name" class="form-control" :class="{ 'is-invalid': newRole.errors.name }" maxlength="60" placeholder="Ej.: Jefe de flota" required />
+                    <div class="invalid-feedback">{{ newRole.errors.name }}</div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="new-role-base">Basado en</label>
+                    <select id="new-role-base" v-model="newRole.base_role" class="form-select" :class="{ 'is-invalid': newRole.errors.base_role }">
+                        <option v-for="b in bases" :key="b.slug" :value="b.slug">{{ b.name }}</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="new-role-desc">Descripción <span class="text-body-secondary fw-normal">(opcional)</span></label>
+                    <input id="new-role-desc" v-model="newRole.description" class="form-control" maxlength="200" />
+                </div>
+            </form>
+            <template #footer>
+                <button type="button" class="btn btn-light border" @click="creating = false; newRole.clearErrors()">Cancelar</button>
+                <button type="submit" form="new-role-form" class="btn btn-primary" :disabled="newRole.processing">Crear rol</button>
+            </template>
+        </AppModal>
     </AppLayout>
 </template>
