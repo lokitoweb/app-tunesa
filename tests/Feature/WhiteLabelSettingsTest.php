@@ -93,7 +93,7 @@ class WhiteLabelSettingsTest extends TestCase
         $root  = $this->makeUser(null, 'super_admin');
 
         $this->actingAs($admin)->get('/settings/branding')->assertOk()
-            ->assertSee('Marca y apariencia')->assertSee('App móvil')->assertSee('Reglas operativas')->assertSee('Integraciones')
+            ->assertSee('Marca y apariencia')->assertSee('App móvil')->assertSee('Reglas de asistencia')->assertSee('Integraciones')
             ->assertSee('trycloudflare.com')->assertSee('Rechazar la marcación')->assertDontSee('Valores por defecto de la plataforma');
         $this->actingAs($admin)->get('/dashboard')->assertSee(route('settings.branding'));
         $this->actingAs($hr)->get('/settings/branding')->assertForbidden();

@@ -41,7 +41,7 @@
 
 @include('settings.partials.header', [
     'title' => 'Marca y personalización',
-    'subtitle' => 'Logotipos, colores y reglas operativas de ' . rtrim($ownerName, '.') . '.',
+    'subtitle' => 'Logotipos, colores, políticas de la app y reglas de asistencia de ' . rtrim($ownerName, '.') . '.',
     'pill' => $isGlobal ? ['brand', 'Valores de toda la plataforma'] : ['blue', $tenant->company_name],
     'active' => 'branding',
 ])
@@ -73,7 +73,7 @@
     {{-- Barra de Pestañas Ejecutiva Segmentada --}}
     <div class="d-flex align-items-center mb-4">
         <div class="nav branding-nav-tabs" role="tablist">
-            @foreach(['marca' => ['palette', 'Marca y apariencia'], 'app' => ['phone', 'App móvil'], 'reglas' => ['sliders', 'Reglas operativas']] as $key => [$icon, $label])
+            @foreach(['marca' => ['palette', 'Identidad visual'], 'app' => ['phone', 'Políticas de la app'], 'reglas' => ['sliders', 'Reglas de asistencia']] as $key => [$icon, $label])
                 <button class="nav-link {{ $tab === $key ? 'active' : '' }}" id="tab-{{ $key }}" data-bs-toggle="tab" data-bs-target="#pane-{{ $key }}" data-tab="{{ $key }}" type="button" role="tab" aria-controls="pane-{{ $key }}" aria-selected="{{ $tab === $key ? 'true' : 'false' }}">
                     <i class="bi bi-{{ $icon }}"></i>
                     <span>{{ $label }}</span>
