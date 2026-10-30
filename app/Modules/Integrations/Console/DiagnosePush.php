@@ -133,6 +133,15 @@ class DiagnosePush extends Command
                 . ', de salida desde las ' . $today->copy()->setTimeFromTimeString($shift['end_time'])->addMinutes(\App\Modules\Attendance\Console\SendEntryReminders::LEAD_MINUTES)->format('H:i')
                 : 'sin turno programado hoy',
             'Sin turno no hay a qué hora recordar: asígnale turno (Horarios) o prográmale el día (Programación de horarios).');
+        // Licencias y permisos de hoy: con una que cubre la hora de entrada no se le recuerda (a propósito)
+        $leaves = \App\Modules\HR\Models\LeaveRequest::where('user_id', $user->id)->where('status', 'approved')
+            ->overlapping($today->toDateString(), $today->toDateString())->get(['type', 'start_time', 'end_time']);
+        foreach ($leaves as $leave) {
+            $hours = $leave->start_time && $leave->end_time ? substr($leave->start_time, 0, 5) . ' a ' . substr($leave->end_time, 0, 5) : 'todo el día';
+            $covers = $shift && \App\Modules\Attendance\Console\SendEntryReminders::leaveCoversEntry(collect([$leave]), (string) $shift['start_time']);
+            $this->line("        Licencia o permiso aprobado hoy ({$leave->type}, {$hours}): "
+                . ($covers ? 'cubre la hora de entrada, por eso NO se le envía el recordatorio' : 'no cubre la hora de entrada, el recordatorio sí sale'));
+        }
         $attendance = \App\Modules\Attendance\Models\Attendance::where('user_id', $user->id)->where('work_date', $today->toDateString())->first();
         $this->line('        Hoy marcó: entrada ' . ($attendance?->clock_in_at?->format('H:i') ?? '—') . ', salida ' . ($attendance?->clock_out_at?->format('H:i') ?? '—')
             . ' (si ya marcó, no se le recuerda)');

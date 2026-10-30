@@ -52,6 +52,19 @@ class SendEntryReminders extends Command
         return "entry-reminder:{$userId}:{$day}";
     }
 
+    /**
+     * ¿Una licencia aprobada de ese día cubre la hora de entrada? Vacaciones, licencia médica o
+     * permiso de día completo (sin horas): sí. Permiso por horas: solo si incluye la hora de
+     * entrada (un permiso de 10:00 a 12:00 no exime de marcar a las 08:00).
+     */
+    public static function leaveCoversEntry(?\Illuminate\Support\Collection $leaves, string $entry): bool
+    {
+        $hm = fn ($t) => substr((string) $t, 0, 5);
+
+        return (bool) $leaves?->contains(fn ($leave) => ! $leave->start_time || ! $leave->end_time
+            || ($hm($leave->start_time) <= $hm($entry) && $hm($entry) < $hm($leave->end_time)));
+    }
+
     public function handle(TenantContext $context): int
     {
         $tenants = Tenant::where('status', 'active')
@@ -130,12 +143,13 @@ class SendEntryReminders extends Command
 
         $userIds = $due->pluck('user_id');
         $marked  = Attendance::where('work_date', $day)->whereIn('user_id', $userIds)->pluck('user_id')->flip();
-        $onLeave = LeaveRequest::where('status', 'approved')->overlapping($day, $day)->whereIn('user_id', $userIds)->pluck('user_id')->flip();
+        $leaves  = LeaveRequest::where('status', 'approved')->overlapping($day, $day)->whereIn('user_id', $userIds)
+            ->get(['user_id', 'start_time', 'end_time'])->groupBy('user_id');
 
         $sent = 0;
         foreach ($due as $assignment) {
             $user = $assignment->user;
-            if (isset($marked[$user->id]) || isset($onLeave[$user->id])) {
+            if (isset($marked[$user->id]) || self::leaveCoversEntry($leaves->get($user->id), (string) $assignment->shift->start_time)) {
                 continue;
             }
             // Un aviso por persona y día aunque el comando corra varias veces
