@@ -5192,157 +5192,9 @@ body {
    Canal Ético — Executive Whistleblowing & Case Management Design System
    ============================================================================= */
 
-.ethics-header-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.25rem;
-    margin-bottom: 1.5rem;
-}
-
-.ethics-header-bar h1 {
-    font-size: 1.5rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: var(--text-primary);
-    margin: 0;
-}
-
 /* =============================================================================
    Canal Ético — Executive Filter Tabs & Controls Toolbar
    ============================================================================= */
-
-.ethics-tab-group {
-    display: inline-flex;
-    align-items: center;
-    padding: 3px;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    gap: 3px;
-    overflow-x: auto;
-    max-width: 100%;
-}
-
-.ethics-tab-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 12px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-    text-decoration: none;
-    line-height: 1.3;
-}
-
-.ethics-tab-btn i {
-    line-height: 1;
-    font-size: 0.875rem;
-    flex-shrink: 0;
-}
-
-.ethics-tab-btn:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.ethics-tab-btn.active {
-    background: var(--bg-surface);
-    color: var(--accent-cyan);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-[data-bs-theme="dark"] .ethics-tab-btn.active {
-    background: var(--bg-surface);
-    color: #38bdf8;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-}
-
-.ethics-counter-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    border-radius: 4px;
-    line-height: 1;
-    font-family: inherit;
-}
-
-.ethics-counter-pill-subtle {
-    background: var(--border-color);
-    color: var(--text-secondary);
-}
-
-.ethics-tab-btn.active .ethics-counter-pill-subtle {
-    background: rgba(var(--brand-rgb), 0.15);
-    color: var(--accent-cyan);
-}
-
-.ethics-tab-unread.active {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444 !important;
-}
-
-.ethics-search-box {
-    position: relative;
-    min-width: 240px;
-    flex-grow: 1;
-    max-width: 320px;
-}
-
-.ethics-search-icon {
-    position: absolute;
-    left: 11px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    font-size: 0.875rem;
-    pointer-events: none;
-    line-height: 1;
-}
-
-.ethics-search-input {
-    width: 100%;
-    padding: 0.45rem 2rem 0.45rem 2.25rem;
-    font-size: 0.8125rem;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    transition: all 0.15s ease;
-}
-
-.ethics-search-input:focus {
-    outline: none;
-    border-color: var(--accent-cyan);
-    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15);
-}
-
-.ethics-search-clear {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.85rem;
-    padding: 2px;
-    line-height: 1;
-}
 
 /* =============================================================================
    Canal Ético — Badges, Pills & Icon Polish
@@ -5472,57 +5324,6 @@ body {
     background-color: rgba(var(--brand-rgb), 0.03);
 }
 
-.ethics-subject-cell {
-    max-width: 360px;
-}
-
-.ethics-subject-link {
-    font-size: 0.875rem;
-    font-weight: 600;
-    line-height: 1.4;
-    margin-bottom: 0.4rem !important;
-    display: block;
-    transition: color 0.15s ease;
-}
-
-.ethics-subject-link:hover {
-    color: var(--accent-cyan) !important;
-}
-
-.ethics-badges-container {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem !important;
-    flex-wrap: wrap;
-}
-
-.ethics-investigator-avatar {
-    width: 26px;
-    height: 26px;
-    border-radius: 6px;
-    background: rgba(var(--brand-rgb), 0.15);
-    color: var(--accent-cyan);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    font-weight: 700;
-    flex-shrink: 0;
-}
-
-.ethics-empty-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
-    background: var(--bg-surface-elevated);
-    color: var(--text-muted);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.75rem;
-    border: 1px solid var(--border-color);
-}
-
 #ethicsDynamicWrapper {
     transition: opacity 0.18s ease;
 }
@@ -5535,62 +5336,6 @@ body {
 /* =============================================================================
    Canal Ético — Executive Modal 2-Column Workspace
    ============================================================================= */
-
-.ethics-modal-header {
-    background: var(--bg-surface-elevated);
-    border-bottom: 1px solid var(--border-color);
-    padding: 1rem 1.5rem;
-}
-
-.ethics-modal-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.ethics-modal-card-header {
-    background: var(--bg-surface-elevated);
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.85rem 1.25rem !important;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.ethics-modal-card-header i {
-    line-height: 1;
-    font-size: 1rem;
-    flex-shrink: 0;
-}
-
-.ethics-modal-card-body {
-    padding: 1.25rem 1.5rem !important;
-}
-
-.ethics-modal-sidebar-card {
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1.25rem 1.5rem !important;
-}
-
-.ethics-modal-sidebar-card button i {
-    line-height: 1;
-    flex-shrink: 0;
-}
-
-.ethics-sidebar-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-    margin-bottom: 0.45rem;
-}
 
 /* Timeline & Chat Thread */
 .ethics-chat-thread {
@@ -5673,75 +5418,6 @@ body {
 }
 
 /* Modern Composer */
-.ethics-composer {
-    background: var(--bg-surface);
-    border-top: 1px solid var(--border-color);
-    transition: background-color 0.18s ease;
-}
-
-.ethics-composer-textarea {
-    width: 100%;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    background: var(--bg-surface);
-    padding: 0.85rem 1rem !important;
-    font-size: 0.875rem;
-    line-height: 1.6;
-    color: var(--text-primary);
-    resize: vertical;
-    min-height: 85px;
-    outline: none !important;
-    box-shadow: none !important;
-    display: block;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.ethics-composer-textarea:focus {
-    border-color: var(--accent-cyan);
-    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15) !important;
-}
-
-.ethics-composer-textarea::placeholder {
-    color: var(--text-muted);
-}
-
-.ethics-composer-footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.75rem 1.25rem !important;
-    background: var(--bg-surface-elevated);
-    border-top: 1px solid var(--border-color);
-}
-
-.ethics-identity-notice {
-    background: rgba(var(--brand-rgb), 0.05);
-    border: 1px solid rgba(var(--brand-rgb), 0.2);
-    border-radius: 6px;
-    padding: 0.85rem 1rem;
-}
-
-.ethics-identity-notice-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 6px;
-    background: rgba(var(--brand-rgb), 0.12);
-    color: var(--accent-cyan);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.15rem;
-    flex-shrink: 0;
-}
-
-.ethics-identity-box {
-    background: rgba(var(--brand-rgb), 0.05);
-    border: 1px solid rgba(var(--brand-rgb), 0.2);
-    border-radius: 6px;
-    padding: 1rem;
-}
 
 .ethics-photo-grid {
     display: flex;
@@ -5791,26 +5467,6 @@ body {
 
 .ethics-photo-card:hover .photo-overlay {
     opacity: 1;
-}
-
-.ethics-header-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    background: rgba(var(--brand-rgb), 0.12);
-    color: var(--accent-cyan);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.35rem;
-    border: 1px solid rgba(var(--brand-rgb), 0.25);
-    flex-shrink: 0;
-}
-
-.ethics-public-chip {
-    background: var(--bg-surface-elevated);
-    border-color: var(--border-color) !important;
-    border-radius: 6px !important;
 }
 
 /* ==========================================================================
@@ -9804,13 +9460,13 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
  * desplazamiento y los buscadores de ancho fijo toman todo el ancho.
  * ============================================================================= */
 @media (max-width: 767.98px) {
-    .panel-content :is(.cal-views-group, .ethics-tab-group, .settings-hub-nav) {
+    .panel-content :is(.cal-views-group, .settings-hub-nav) {
         max-width: 100%;
         flex-wrap: nowrap;
         overflow-x: auto;
         scrollbar-width: none;
     }
-    .panel-content :is(.cal-views-group, .ethics-tab-group, .settings-hub-nav) > * { flex-shrink: 0; white-space: nowrap; }
+    .panel-content :is(.cal-views-group, .settings-hub-nav) > * { flex-shrink: 0; white-space: nowrap; }
 
     /* Tablas sin .table-responsive: el contenedor se desliza, la página no */
     .panel-content :has(> table):not(.table-responsive) { overflow-x: auto; }

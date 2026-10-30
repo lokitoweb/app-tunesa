@@ -4,303 +4,163 @@
 
 @section('content')
 <div class="ethics-page-wrapper">
-    {{-- Header Ejecutivo del Módulo --}}
-    <div class="ethics-header-bar">
-        <div class="d-flex align-items-center gap-3">
-            <div class="ethics-header-icon shadow-sm">
-                <i class="bi bi-shield-lock-fill"></i>
-            </div>
-            <div>
-                <div class="d-flex align-items-center gap-3 flex-wrap">
-                    <h1 class="h3 fw-bold mb-0 text-body">Canal ético</h1>
-                    <span class="badge rounded-2 bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 small fw-semibold">
-                        <i class="bi bi-lock-fill me-1"></i>Confidencial & Cifrado
-                    </span>
-                    <div id="ethicsHeaderUnreadBadge">
-                        @if(($counts['unread'] ?? 0) > 0)
-                            <span class="badge rounded-2 bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 small fw-semibold d-inline-flex align-items-center gap-1.5">
-                                <span class="ethics-unread-pulse"></span>
-                                <span>{{ $counts['unread'] }} con mensajes nuevos</span>
-                            </span>
-                        @endif
-                    </div>
-                </div>
-                <p class="text-secondary small mb-0 mt-1">
-                    Bandeja oficial para la recepción, investigación imparcial y seguimiento de denuncias corporativas.
-                </p>
+    <header class="page-head">
+        <div class="page-head-text">
+            <h1 class="page-title">Canal ético</h1>
+            <p class="page-subtitle">Recepción, investigación imparcial y seguimiento de denuncias. Confidencial y cifrado.</p>
+            <div id="ethicsHeaderUnreadBadge" class="mt-2">
+                @if(($counts['unread'] ?? 0) > 0)
+                    <span class="status-pill tone-rose"><span class="ethics-unread-pulse"></span>{{ $counts['unread'] }} con mensajes nuevos</span>
+                @endif
             </div>
         </div>
-
-        {{-- Acciones Globales & Enlace al Portal Web Anónimo --}}
-        <div class="d-flex align-items-center gap-2 flex-wrap">
+        <div class="page-actions">
             @php($ethicsTenant = $currentTenant ?? (app(\App\Modules\Core\Services\TenantContext::class)->resolved() ? app(\App\Modules\Core\Services\TenantContext::class)->get() : null))
             @if($ethicsTenant)
-                <div class="ethics-public-chip d-flex align-items-center gap-2 p-1.5 pe-2 rounded-3 border">
-                    <span class="badge bg-body-secondary text-secondary rounded-2 px-2 py-1 small font-monospace">
-                        <i class="bi bi-globe2 me-1"></i>Web Pública
-                    </span>
-                    <span class="small text-truncate font-monospace d-none d-md-inline" style="max-width: 200px;">
-                        {{ $ethicsTenant->slug }}
-                    </span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary py-1 px-2 d-inline-flex align-items-center gap-1" 
-                            onclick="copyPublicUrl('{{ route('ethics.public', $ethicsTenant->slug) }}', this)" 
-                            title="Copiar enlace web para colaboradores">
-                        <i class="bi bi-clipboard"></i>
-                        <span class="d-none d-sm-inline">Copiar link</span>
-                    </button>
-                    <a href="{{ route('ethics.public', $ethicsTenant->slug) }}" target="_blank" rel="noopener noreferrer" 
-                       class="btn btn-sm btn-primary py-1 px-2.5 d-inline-flex align-items-center gap-1"
-                       title="Abrir formulario web anónimo en una pestaña nueva">
-                        <i class="bi bi-box-arrow-up-right"></i>
-                        <span class="d-none d-sm-inline">Abrir portal</span>
-                    </a>
-                </div>
+                <button type="button" class="btn btn-light border" onclick="copyPublicUrl('{{ route('ethics.public', $ethicsTenant->slug) }}', this)" title="Copiar el enlace del formulario web para colaboradores">
+                    <i class="bi bi-clipboard me-1"></i>Copiar enlace público
+                </button>
+                <a href="{{ route('ethics.public', $ethicsTenant->slug) }}" target="_blank" rel="noopener noreferrer" class="btn btn-light border" title="Abrir el formulario web anónimo en una pestaña nueva">
+                    <i class="bi bi-box-arrow-up-right me-1"></i>Abrir portal
+                </a>
             @endif
         </div>
-    </div>
+    </header>
 
-    {{-- Contenedor Reactivo Dinámico para AJAX --}}
+    {{-- Zona que se actualiza por AJAX (bandeja, filtros y página) --}}
     <div id="ethicsDynamicWrapper">
-        {{-- Barra de Controles, Pestañas y Filtros Inteligentes --}}
-        <div class="card border-0 mb-3 shadow-sm" style="background: var(--bg-surface); border: 1px solid var(--border-color) !important; border-radius: 8px;">
-            <div class="card-body p-3">
-                <form method="GET" action="{{ route('ethics.index') }}" id="ethicsFilterForm" onsubmit="event.preventDefault(); applyEthicsFilter();">
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3 pb-3 border-bottom">
-                        {{-- Grupo de Pestañas Segmentadas --}}
-                        <div class="ethics-tab-group" role="tablist">
-                            @php($tabs = [
-                                'open'       => ['label' => 'Abiertas', 'count' => $counts['open'] ?? 0],
-                                'received'   => ['label' => 'Recibidas', 'count' => $counts['received'] ?? 0],
-                                'in_review'  => ['label' => 'En investigación', 'count' => $counts['in_review'] ?? 0],
-                                'needs_info' => ['label' => 'Esperan info', 'count' => $counts['needs_info'] ?? 0],
-                                'closed'     => ['label' => 'Cerradas', 'count' => $counts['closed'] ?? 0],
-                                'all'        => ['label' => 'Todas', 'count' => $counts['all'] ?? 0],
-                            ])
-                            @foreach($tabs as $tabKey => $tabData)
-                                <a href="{{ route('ethics.index', ['status' => $tabKey] + request()->only('category', 'code', 'origin', 'assignee')) }}" 
-                                   class="ethics-tab-btn {{ $status === $tabKey && !request()->boolean('unread') ? 'active' : '' }}"
-                                   onclick="switchEthicsStatus('{{ $tabKey }}', event)">
-                                    <span>{{ $tabData['label'] }}</span>
-                                    <span class="ethics-counter-pill {{ $status === $tabKey && !request()->boolean('unread') ? 'bg-primary text-white' : 'ethics-counter-pill-subtle' }}">
-                                        {{ $tabData['count'] }}
-                                    </span>
-                                </a>
-                            @endforeach
-
-                            @if(($counts['unread'] ?? 0) > 0)
-                                <a href="{{ route('ethics.index', ['unread' => 1] + request()->only('category', 'code', 'origin', 'assignee')) }}" 
-                                   class="ethics-tab-btn ethics-tab-unread {{ request()->boolean('unread') ? 'active' : '' }}"
-                                   onclick="switchEthicsUnread(event)"
-                                   title="Filtrar denuncias con mensajes nuevos sin leer">
-                                    <i class="bi bi-bell-fill text-danger"></i>
-                                    <span>Nuevas sin leer</span>
-                                    <span class="ethics-counter-pill bg-danger text-white">
-                                        {{ $counts['unread'] }}
-                                    </span>
-                                </a>
-                            @endif
-                        </div>
-
-                        {{-- Conteo y Limpieza de Filtros --}}
-                        <div class="d-flex align-items-center gap-2">
-                            @if(request()->hasAny(['code', 'category', 'origin', 'assignee', 'unread']) || $status !== 'open')
-                                <a href="{{ route('ethics.index') }}" onclick="resetEthicsFilters(event)" class="btn btn-sm btn-link text-danger text-decoration-none d-inline-flex align-items-center gap-1">
-                                    <i class="bi bi-x-circle"></i>
-                                    <span>Limpiar filtros</span>
-                                </a>
-                            @endif
-                            <span class="text-secondary small fw-medium">
-                                <i class="bi bi-funnel me-1"></i>{{ $cases->total() }} expediente(s)
-                            </span>
-                        </div>
-                    </div>
-
-                    {{-- Filtros Secundarios --}}
-                    <input type="hidden" name="status" id="ethicsStatusInput" value="{{ $status }}">
-                    @if(request()->boolean('unread'))
-                        <input type="hidden" name="unread" id="ethicsUnreadInput" value="1">
+    <section class="surface">
+        <form method="GET" action="{{ route('ethics.index') }}" id="ethicsFilterForm" onsubmit="event.preventDefault(); applyEthicsFilter();">
+            <input type="hidden" name="status" id="ethicsStatusInput" value="{{ $status }}">
+            @if(request()->boolean('unread'))
+                <input type="hidden" name="unread" id="ethicsUnreadInput" value="1">
+            @endif
+            <div class="filter-row justify-content-between">
+                <div class="seg-tabs" role="tablist" aria-label="Bandeja">
+                    @php($tabs = [
+                        'open'       => ['label' => 'Abiertas', 'count' => $counts['open'] ?? 0],
+                        'received'   => ['label' => 'Recibidas', 'count' => $counts['received'] ?? 0],
+                        'in_review'  => ['label' => 'En investigación', 'count' => $counts['in_review'] ?? 0],
+                        'needs_info' => ['label' => 'Esperan info', 'count' => $counts['needs_info'] ?? 0],
+                        'closed'     => ['label' => 'Cerradas', 'count' => $counts['closed'] ?? 0],
+                        'all'        => ['label' => 'Todas', 'count' => $counts['all'] ?? 0],
+                    ])
+                    @foreach($tabs as $tabKey => $tabData)
+                        @php($isActive = $status === $tabKey && ! request()->boolean('unread'))
+                        <a href="{{ route('ethics.index', ['status' => $tabKey] + request()->only('category', 'code', 'origin', 'assignee')) }}"
+                           role="tab" class="seg-tab {{ $isActive ? 'is-active' : '' }}" aria-selected="{{ $isActive ? 'true' : 'false' }}"
+                           onclick="switchEthicsStatus('{{ $tabKey }}', event)">
+                            {{ $tabData['label'] }} <span class="count-pill {{ $isActive ? 'tone-brand' : '' }}">{{ $tabData['count'] }}</span>
+                        </a>
+                    @endforeach
+                    @if(($counts['unread'] ?? 0) > 0)
+                        <a href="{{ route('ethics.index', ['unread' => 1] + request()->only('category', 'code', 'origin', 'assignee')) }}"
+                           role="tab" class="seg-tab {{ request()->boolean('unread') ? 'is-active' : '' }}" aria-selected="{{ request()->boolean('unread') ? 'true' : 'false' }}"
+                           onclick="switchEthicsUnread(event)" title="Denuncias con mensajes nuevos sin leer">
+                            Nuevas sin leer <span class="count-pill tone-rose">{{ $counts['unread'] }}</span>
+                        </a>
                     @endif
-                    <div class="row g-2 align-items-center">
-                        {{-- Buscador de Código --}}
-                        <div class="col-12 col-md-4 col-xl-3">
-                            <div class="ethics-search-box w-100 max-w-none">
-                                <i class="bi bi-search ethics-search-icon"></i>
-                                <input type="search" name="code" id="ethicsSearchCode" value="{{ request('code') }}" 
-                                       placeholder="Buscar por código (ej. 490081)..." 
-                                       class="ethics-search-input"
-                                       autocomplete="off"
-                                       oninput="debounceEthicsSearch()">
-                                @if(request('code'))
-                                    <button type="button" class="ethics-search-clear" onclick="clearEthicsSearch()" title="Borrar búsqueda">
-                                        <i class="bi bi-x-circle-fill"></i>
-                                    </button>
-                                @endif
-                            </div>
-                        </div>
-
-                        {{-- Filtro: Tipo de Hecho / Categoría --}}
-                        <div class="col-6 col-md-3 col-xl-3">
-                            <select name="category" id="ethicsFilterCategory" class="form-select form-select-sm" onchange="applyEthicsFilter()" aria-label="Filtrar por categoría">
-                                <option value="">Todas las categorías</option>
-                                @foreach(\App\Modules\Ethics\Models\EthicsCase::CATEGORIES as $k => $text)
-                                    <option value="{{ $k }}" @selected(request('category') === $k)>{{ $text }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        {{-- Filtro: Origen (Web Anónima vs App Móvil) --}}
-                        <div class="col-6 col-md-2 col-xl-2">
-                            <select name="origin" id="ethicsFilterOrigin" class="form-select form-select-sm" onchange="applyEthicsFilter()" aria-label="Filtrar por canal de origen">
-                                <option value="">Cualquier origen</option>
-                                <option value="web" @selected(request('origin') === 'web')>Web 100% Anónima</option>
-                                <option value="app" @selected(request('origin') === 'app')>App Móvil (Identidad reservada)</option>
-                            </select>
-                        </div>
-
-                        {{-- Filtro: Investigador Asignado --}}
-                        <div class="col-6 col-md-3 col-xl-3">
-                            <select name="assignee" id="ethicsFilterAssignee" class="form-select form-select-sm" onchange="applyEthicsFilter()" aria-label="Filtrar por investigador">
-                                <option value="">Todos los investigadores</option>
-                                <option value="unassigned" @selected(request('assignee') === 'unassigned')>Sin asignar</option>
-                                @foreach($investigators as $inv)
-                                    <option value="{{ $inv->id }}" @selected(request('assignee') == $inv->id)>
-                                        {{ $inv->first_name }} {{ $inv->last_name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        {{-- Botón Buscar / Aplicar --}}
-                        <div class="col-6 col-md-2 col-xl-1 d-grid">
-                            <button type="submit" class="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center gap-1">
-                                <i class="bi bi-search"></i>
-                                <span class="d-none d-xl-inline">Filtrar</span>
-                            </button>
-                        </div>
-                    </div>
-                </form>
+                </div>
+                <div class="d-flex align-items-center gap-2 small text-body-secondary">
+                    @if(request()->hasAny(['code', 'category', 'origin', 'assignee', 'unread']) || $status !== 'open')
+                        <a href="{{ route('ethics.index') }}" onclick="resetEthicsFilters(event)" class="btn btn-sm btn-link text-decoration-none"><i class="bi bi-x-circle me-1"></i>Limpiar filtros</a>
+                    @endif
+                    <span>{{ $cases->total() }} expediente(s)</span>
+                </div>
             </div>
-        </div>
+            <div class="filter-row">
+                <div class="search-field">
+                    <i class="bi bi-search"></i>
+                    <input type="search" name="code" id="ethicsSearchCode" value="{{ request('code') }}" placeholder="Buscar por código (ej. 490081)…" aria-label="Buscar por código"
+                           class="form-control" autocomplete="off" oninput="debounceEthicsSearch()">
+                </div>
+                <select name="category" id="ethicsFilterCategory" class="form-select w-auto" onchange="applyEthicsFilter()" aria-label="Filtrar por categoría">
+                    <option value="">Todas las categorías</option>
+                    @foreach(\App\Modules\Ethics\Models\EthicsCase::CATEGORIES as $k => $text)
+                        <option value="{{ $k }}" @selected(request('category') === $k)>{{ $text }}</option>
+                    @endforeach
+                </select>
+                <select name="origin" id="ethicsFilterOrigin" class="form-select w-auto" onchange="applyEthicsFilter()" aria-label="Filtrar por canal de origen">
+                    <option value="">Cualquier origen</option>
+                    <option value="web" @selected(request('origin') === 'web')>Web 100% anónima</option>
+                    <option value="app" @selected(request('origin') === 'app')>App móvil (identidad reservada)</option>
+                </select>
+                <select name="assignee" id="ethicsFilterAssignee" class="form-select w-auto" onchange="applyEthicsFilter()" aria-label="Filtrar por investigador">
+                    <option value="">Todos los investigadores</option>
+                    <option value="unassigned" @selected(request('assignee') === 'unassigned')>Sin asignar</option>
+                    @foreach($investigators as $inv)
+                        <option value="{{ $inv->id }}" @selected(request('assignee') == $inv->id)>{{ $inv->first_name }} {{ $inv->last_name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </form>
 
-    {{-- Tabla Principal de Denuncias --}}
-    <div class="card border-0 shadow-sm overflow-hidden" style="background: var(--bg-surface); border: 1px solid var(--border-color) !important; border-radius: 12px;">
+        @php($showCompany = ($globalView ?? false) || ! $currentTenant)
+        @php($toneMap = ['primary' => 'brand', 'success' => 'emerald', 'warning' => 'amber', 'danger' => 'rose', 'info' => 'blue', 'secondary' => 'neutral', 'dark' => 'neutral'])
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 ethics-table">
+            <table class="table data-table table-cards align-middle mb-0 ethics-table">
                 <thead>
                     <tr>
-                        <th style="min-width: 140px;">Expediente</th>
-                        <th style="min-width: 170px;">Categoría</th>
-                        <th style="min-width: 150px;">Origen</th>
-                        @if(($globalView ?? false) || !$currentTenant)
-                            <th style="min-width: 160px;">Empresa</th>
-                        @endif
-                        <th style="min-width: 160px;">Investigador</th>
-                        <th style="min-width: 120px;">Recepción</th>
-                        <th style="min-width: 130px;">Estado</th>
-                        <th class="text-end pe-3" style="min-width: 140px;">Acciones</th>
+                        <th>Expediente</th>
+                        <th>Categoría</th>
+                        <th>Origen</th>
+                        @if($showCompany)<th>Empresa</th>@endif
+                        <th>Investigador</th>
+                        <th>Recepción</th>
+                        <th>Estado</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($cases as $c)
                         <tr class="ethics-row {{ $c->investigator_unread ? 'row-unread' : '' }}" data-case-id="{{ $c->id }}">
-                            {{-- Expediente / Código --}}
-                            <td>
+                            <td class="cell-main">
                                 <div class="d-flex align-items-center gap-2">
-                                    <span class="ethics-code-badge" role="button" onclick="openEthicsQuickModal({{ $c->id }})" title="Ver expediente #{{ $c->public_code }}">
-                                        <i class="bi bi-shield-lock-fill text-primary"></i>
-                                        <span>#{{ $c->public_code }}</span>
-                                    </span>
+                                    <a href="#" class="cell-code text-decoration-none" onclick="event.preventDefault(); openEthicsQuickModal({{ $c->id }})" title="Ver expediente #{{ $c->public_code }}">#{{ $c->public_code }}</a>
                                     @if($c->investigator_unread)
-                                        <span class="badge rounded-2 text-bg-danger fw-bold d-inline-flex align-items-center gap-1" style="font-size: 0.675rem; padding: 3px 6px;">
-                                            <span class="ethics-unread-pulse" style="width: 5px; height: 5px;"></span>
-                                            <span>NUEVO</span>
-                                        </span>
+                                        <span class="status-pill tone-rose"><span class="ethics-unread-pulse"></span>Nuevo</span>
                                     @endif
                                 </div>
                             </td>
-
-                            {{-- Categoría --}}
-                            <td>
-                                <span class="badge rounded-2 bg-{{ $c->categoryTone() }}-subtle text-{{ $c->categoryTone() }}-emphasis border border-{{ $c->categoryTone() }}-subtle px-2.5 py-1 fw-medium" style="font-size: 0.75rem; letter-spacing: 0.01em;">
-                                    <i class="bi bi-{{ $c->categoryIcon() }} me-1.5"></i>{{ $c->categoryLabel() }}
-                                </span>
+                            <td data-label="Categoría">
+                                <span class="status-pill tone-{{ $toneMap[$c->categoryTone()] ?? 'neutral' }}"><i class="bi bi-{{ $c->categoryIcon() }}"></i>{{ $c->categoryLabel() }}</span>
                             </td>
-
-                            {{-- Origen --}}
-                            <td>
-                                <span class="ethics-origin-pill {{ $c->isFromApp() ? 'origin-app' : 'origin-web' }}" title="{{ $c->originLabel() }}">
-                                    <i class="bi bi-{{ $c->isFromApp() ? 'person-lock' : 'incognito' }}"></i>
-                                    <span>{{ $c->isFromApp() ? 'App móvil' : 'Web anónima' }}</span>
-                                </span>
+                            <td data-label="Origen">
+                                <span class="status-pill tone-{{ $c->isFromApp() ? 'blue' : 'neutral' }}" title="{{ $c->originLabel() }}"><i class="bi bi-{{ $c->isFromApp() ? 'person-lock' : 'incognito' }}"></i>{{ $c->isFromApp() ? 'App móvil' : 'Web anónima' }}</span>
                             </td>
-
-                            {{-- Empresa (Multi-tenant) --}}
-                            @if(($globalView ?? false) || !$currentTenant)
-                                <td>
-                                    <div class="small fw-semibold text-secondary text-truncate" style="max-width: 170px;" title="{{ $c->tenant?->company_name ?? 'Empresa' }}">
-                                        <i class="bi bi-buildings text-muted me-1"></i>{{ $c->tenant?->company_name ?? 'Empresa' }}
-                                    </div>
+                            @if($showCompany)
+                                <td data-label="Empresa">
+                                    <span class="text-truncate" title="{{ $c->tenant?->company_name ?? 'Empresa' }}">{{ $c->tenant?->company_name ?? 'Empresa' }}</span>
                                 </td>
                             @endif
-
-                            {{-- Investigador Asignado --}}
-                            <td>
+                            <td data-label="Investigador">
                                 @if($c->assignee)
-                                    <div class="d-flex align-items-center gap-1.5 small">
-                                        <div class="ethics-investigator-avatar">
-                                            {{ mb_substr($c->assignee->first_name, 0, 1) }}{{ mb_substr($c->assignee->last_name, 0, 1) }}
-                                        </div>
-                                        <span class="fw-semibold text-body text-truncate" style="max-width: 120px;" title="{{ $c->assignee->first_name }} {{ $c->assignee->last_name }}">
-                                            {{ $c->assignee->first_name }} {{ $c->assignee->last_name }}
-                                        </span>
-                                    </div>
+                                    <span class="text-truncate">{{ $c->assignee->first_name }} {{ $c->assignee->last_name }}</span>
                                 @else
-                                    <span class="badge rounded-2 bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 small" style="font-size: 0.725rem;">
-                                        <i class="bi bi-question-circle me-1"></i>Sin asignar
-                                    </span>
+                                    <span class="status-pill tone-amber">Sin asignar</span>
                                 @endif
                             </td>
-
-                            {{-- Fecha de Recepción --}}
-                            <td>
-                                <div class="small text-secondary text-nowrap">
-                                    <i class="bi bi-calendar3 me-1 text-muted"></i>{{ $c->reported_on->format('d/m/Y') }}
-                                </div>
+                            <td class="text-nowrap" data-label="Recepción">
+                                <span>{{ $c->reported_on->format('d/m/Y') }}</span>
                             </td>
-
-                            {{-- Estado del Expediente --}}
-                            <td>
+                            <td data-label="Estado">
                                 <x-status-badge type="ethics_status" :value="$c->status" />
                             </td>
-
-                            {{-- Acciones --}}
-                            <td class="text-end pe-3">
-                                <button type="button" 
-                                        class="btn-table-action" 
-                                        onclick="openEthicsQuickModal({{ $c->id }})" 
-                                        title="Ver denuncia #{{ $c->public_code }}" 
-                                        aria-label="Ver denuncia #{{ $c->public_code }}">
-                                    <i class="bi bi-eye"></i>
-                                </button>
+                            <td>
+                                <div class="row-actions">
+                                    <button type="button" class="icon-btn" onclick="openEthicsQuickModal({{ $c->id }})" title="Ver denuncia #{{ $c->public_code }}" aria-label="Ver denuncia #{{ $c->public_code }}">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     @empty
-                        <tr>
-                            <td colspan="{{ (($globalView ?? false) || !$currentTenant) ? '8' : '7' }}">
-                                <div class="text-center py-5">
-                                    <div class="ethics-empty-icon mb-3">
-                                        <i class="bi bi-shield-check"></i>
-                                    </div>
-                                    <h3 class="h5 fw-bold text-body mb-1">No hay denuncias en esta bandeja</h3>
-                                    <p class="text-secondary small mb-3" style="max-width: 420px; margin: 0 auto;">
-                                        No se encontraron expedientes que coincidan con los filtros seleccionados o el canal ético se encuentra al día.
-                                    </p>
-                                    @if(request()->hasAny(['code', 'category', 'origin', 'assignee', 'unread', 'status']))
-                                        <a href="{{ route('ethics.index') }}" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1">
-                                            <i class="bi bi-arrow-counterclockwise"></i>
-                                            <span>Restablecer filtros</span>
-                                        </a>
-                                    @endif
+                        <tr class="row-empty">
+                            <td colspan="{{ $showCompany ? 8 : 7 }}">
+                                <div class="dash-empty">
+                                    <span class="dash-empty-icon"><i class="bi bi-shield-check"></i></span>
+                                    <p class="dash-empty-title">No hay denuncias en esta bandeja</p>
+                                    <p class="dash-empty-text">No hay expedientes que coincidan con los filtros, o el canal está al día.</p>
                                 </div>
                             </td>
                         </tr>
@@ -310,16 +170,14 @@
         </div>
 
         @if($cases->hasPages())
-            <div class="card-footer border-top bg-transparent p-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div class="small text-secondary">
+            <footer class="surface-foot">
+                <div class="small text-body-secondary">
                     Mostrando del <strong>{{ $cases->firstItem() }}</strong> al <strong>{{ $cases->lastItem() }}</strong> de <strong>{{ $cases->total() }}</strong> expedientes
                 </div>
-                <div>
-                    {{ $cases->links() }}
-                </div>
-            </div>
+                <div>{{ $cases->links() }}</div>
+            </footer>
         @endif
-    </div>
+    </section>
     </div> {{-- Fin #ethicsDynamicWrapper --}}
 </div>
 
@@ -516,13 +374,13 @@ function copyPublicUrl(url, btn) {
     }
     navigator.clipboard.writeText(url).then(() => {
         const originalHtml = btn.innerHTML;
-        btn.classList.remove('btn-outline-secondary');
+        btn.classList.remove('btn-light');
         btn.classList.add('btn-success');
-        btn.innerHTML = '<i class="bi bi-check2"></i> <span class="d-none d-sm-inline">¡Copiado!</span>';
+        btn.innerHTML = '<i class="bi bi-check2 me-1"></i>¡Copiado!';
         setTimeout(() => {
             btn.innerHTML = originalHtml;
             btn.classList.remove('btn-success');
-            btn.classList.add('btn-outline-secondary');
+            btn.classList.add('btn-light');
         }, 2200);
     }).catch(() => {
         prompt('Copia este enlace para el canal ético web:', url);
