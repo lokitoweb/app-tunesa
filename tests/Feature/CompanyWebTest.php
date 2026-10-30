@@ -111,8 +111,8 @@ class CompanyWebTest extends TestCase
         $indexResp->assertOk()
             ->assertSee('companyModal')
             ->assertSee('modal-xl')
-            ->assertSee('Total Empresas')
-            ->assertSee('btn-table-action');
+            ->assertSee('Total de empresas')
+            ->assertSee('title="Editar empresa"', false);
     }
 
     public function test_only_super_admin_can_manage_companies(): void

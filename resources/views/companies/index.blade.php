@@ -12,115 +12,64 @@
     $statusesList = $statuses ?? C::STATUSES;
 @endphp
 
-{{-- Header con barra unificada de filtros y acción principal --}}
-<div class="company-header-bar">
-    <div>
-        <h1 class="h2 mb-1 fw-bold text-dark">Empresas</h1>
-        <p class="text-secondary mb-0" style="font-size: 0.875rem;">Gestión centralizada de empresas cliente, suscripciones, marca blanca y accesos.</p>
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-title">Empresas</h1>
+        <p class="page-subtitle">Gestión centralizada de empresas cliente, suscripciones, marca blanca y accesos.</p>
     </div>
-    
-    {{-- Filtros integrados al lado del botón Nueva empresa --}}
-    <div class="company-actions-bar">
-        <form method="GET" action="{{ route('companies.index') }}" class="d-flex align-items-center gap-2 m-0 p-0" data-ajax-filter="#companies-results">
-            {{-- Buscador con icono integrado (sin bordes rotos) --}}
-            <div class="company-search-wrapper">
-                <i class="bi bi-search search-icon"></i>
-                <input type="search" id="search" name="search" value="{{ request('search') }}" class="company-search-input" placeholder="Buscar empresa, RUC, subdominio...">
-            </div>
-
-            {{-- Filtro por Estado --}}
-            <div class="pretty-select pretty-select-sm company-status-pretty {{ request('status') ? 'is-active' : '' }}">
-                <i class="bi bi-funnel pretty-select-icon" aria-hidden="true"></i>
-                <select id="status_filter" name="status" class="form-select" data-autosubmit aria-label="Estado de la empresa">
-                <option value="">Todos los estados</option>
-                @foreach($statusesList + ['cancelled' => 'Dada de baja'] as $value => $label)
-                    <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
-                @endforeach
-            </select>
-            </div>
-
-                <a href="{{ route('companies.index') }}" data-ajax-reset class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" style="height: 38px; width: 38px; border-radius: 8px;" title="Limpiar filtros">
-                    <i class="bi bi-x-lg"></i>
-                </a>
-        </form>
-
-        {{-- Botón Nueva empresa --}}
-        <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm text-nowrap" style="height: 38px; border-radius: 8px; font-weight: 600; padding: 0 1.15rem;" onclick="openCreateCompanyModal()">
-            <i class="bi bi-plus-lg"></i>
-            <span>Nueva empresa</span>
+    <div class="page-actions">
+        <button type="button" class="btn btn-primary" onclick="openCreateCompanyModal()">
+            <i class="bi bi-plus-lg me-1"></i>Nueva empresa
         </button>
         <a href="{{ route('companies.create') }}" class="visually-hidden">Nueva empresa</a>
     </div>
-</div>
+</header>
 
-{{-- KPI Summary Cards --}}
-<div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3">
-        <div class="company-kpi-card">
-            <div class="company-kpi-icon" style="background: rgba(var(--brand-rgb), 0.1); color: var(--brand);">
-                <i class="bi bi-buildings"></i>
+<section class="dash-kpis" aria-label="Resumen de empresas">
+    @foreach ([['Total de empresas', $stats['total'] ?? $companies->total(), 'brand', 'buildings'], ['Empresas activas', $stats['active'] ?? $companies->where('status', 'active')->count(), 'emerald', 'check-circle'], ['Usuarios de la plataforma', $stats['total_users'] ?? 0, 'blue', 'people'], ['Dominios propios', $stats['custom_domains'] ?? 0, 'amber', 'globe']] as [$klabel, $kvalue, $ktone, $kicon])
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">{{ $klabel }}</span>
+                <span class="dash-kpi-icon tone-{{ $ktone }}"><i class="bi bi-{{ $kicon }}"></i></span>
             </div>
-            <div>
-                <div class="company-kpi-val">{{ number_format($stats['total'] ?? $companies->total()) }}</div>
-                <div class="company-kpi-label">Total Empresas</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="company-kpi-card">
-            <div class="company-kpi-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
-                <i class="bi bi-check-circle"></i>
-            </div>
-            <div>
-                <div class="company-kpi-val">{{ number_format($stats['active'] ?? $companies->where('status', 'active')->count()) }}</div>
-                <div class="company-kpi-label">Empresas Activas</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="company-kpi-card">
-            <div class="company-kpi-icon" style="background: rgba(99, 102, 241, 0.1); color: #6366f1;">
-                <i class="bi bi-people"></i>
-            </div>
-            <div>
-                <div class="company-kpi-val">{{ number_format($stats['total_users'] ?? 0) }}</div>
-                <div class="company-kpi-label">Usuarios Plataforma</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="company-kpi-card">
-            <div class="company-kpi-icon" style="background: rgba(245, 158, 11, 0.1); color: #d97706;">
-                <i class="bi bi-globe"></i>
-            </div>
-            <div>
-                <div class="company-kpi-val">{{ number_format($stats['custom_domains'] ?? 0) }}</div>
-                <div class="company-kpi-label">Dominios Propios</div>
-            </div>
-        </div>
-    </div>
-</div>
+            <div class="dash-kpi-value">{{ number_format($kvalue) }}</div>
+        </article>
+    @endforeach
+</section>
 
-{{-- Table Card --}}
+<section class="surface">
+<form method="GET" action="{{ route('companies.index') }}" class="filter-row" role="search" data-ajax-filter="#companies-results">
+    <div class="search-field">
+        <i class="bi bi-search"></i>
+        <input type="search" id="search" name="search" value="{{ request('search') }}" class="form-control" placeholder="Buscar empresa, RUC, subdominio…" aria-label="Buscar empresa">
+    </div>
+    <select id="status_filter" name="status" class="form-select w-auto" data-autosubmit aria-label="Estado de la empresa">
+        <option value="">Todos los estados</option>
+        @foreach($statusesList + ['cancelled' => 'Dada de baja'] as $value => $label)
+            <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
+        @endforeach
+    </select>
+    <a href="{{ route('companies.index') }}" data-ajax-reset class="btn btn-light border ms-auto" title="Limpiar filtros" aria-label="Limpiar filtros"><i class="bi bi-x-lg"></i></a>
+</form>
+
 <div id="companies-results">
-<div class="card border-0 shadow-sm" style="border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+        <table class="table data-table table-cards align-middle mb-0">
+            <thead>
                 <tr>
-                    <th class="ps-4 py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Empresa</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Subdominio / Dominio</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Plan</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold text-end" style="font-size: 0.725rem; letter-spacing: 0.05em;">Usuarios</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Estado</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Fecha Alta</th>
-                    <th class="pe-4 py-3 text-secondary text-uppercase fw-semibold text-end" style="font-size: 0.725rem; letter-spacing: 0.05em;">Acciones</th>
+                    <th>Empresa</th>
+                    <th>Subdominio / dominio</th>
+                    <th>Plan</th>
+                    <th class="text-end">Usuarios</th>
+                    <th>Estado</th>
+                    <th>Fecha de alta</th>
+                    <th class="text-end">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($companies as $c)
-                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                        <td class="ps-4 py-3">
+                    <tr>
+                        <td class="cell-main">
                             <div class="d-flex align-items-center gap-3">
                                 @if($c->logo_path)
                                     <span class="company-avatar-box">
@@ -131,48 +80,37 @@
                                         <i class="bi bi-buildings"></i>
                                     </span>
                                 @endif
-                                <div>
-                                    <div class="fw-bold text-dark" style="font-size: 0.925rem;">{{ $c->company_name }}</div>
-                                    <div class="small text-secondary d-flex align-items-center gap-2" style="font-size: 0.78rem;">
-                                        @if($c->ruc)
-                                            <span>RUC: <strong class="text-dark">{{ $c->ruc }}</strong></span>
-                                            <span class="text-muted">·</span>
-                                        @endif
-                                        <span>{{ $c->email }}</span>
+                                <div class="min-w-0">
+                                    <div class="cell-title">{{ $c->company_name }}</div>
+                                    <div class="cell-sub">
+                                        @if($c->ruc)RUC {{ $c->ruc }} · @endif{{ $c->email }}
                                     </div>
                                 </div>
                             </div>
                         </td>
-                        <td>
+                        <td data-label="Dominio">
                             <div class="d-inline-flex flex-column gap-1">
-                                <span class="badge bg-light text-dark border font-monospace text-lowercase fw-normal px-2 py-1" style="font-size: 0.775rem;">
-                                    {{ $c->slug }}.{{ config('app.domain') }}
-                                </span>
+                                <span class="cell-code text-lowercase">{{ $c->slug }}.{{ config('app.domain') }}</span>
                                 @if($c->custom_domain)
-                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace text-lowercase fw-normal px-2 py-1" style="font-size: 0.75rem;">
-                                        <i class="bi bi-link-45deg me-1"></i>{{ $c->custom_domain }}
-                                    </span>
+                                    <span class="cell-sub text-lowercase"><i class="bi bi-link-45deg me-1"></i>{{ $c->custom_domain }}</span>
                                 @endif
                             </div>
                         </td>
-                        <td>
-                            <span class="badge bg-secondary-subtle text-secondary border fw-medium px-2 py-1" style="font-size: 0.75rem;">
-                                {{ label('tenant_plan', $c->plan) }}
-                            </span>
+                        <td data-label="Plan">
+                            <span class="status-pill tone-neutral">{{ label('tenant_plan', $c->plan) }}</span>
                         </td>
-                        <td class="text-end">
-                            <span class="fw-bold text-dark me-1">{{ $c->users_count }}</span>
-                            <i class="bi bi-people text-secondary small"></i>
+                        <td class="text-end fw-semibold" data-label="Usuarios">
+                            <span>{{ $c->users_count }}</span>
                         </td>
-                        <td>
+                        <td data-label="Estado">
                             <x-status-badge type="tenant_status" :value="$c->status ?? 'cancelled'" />
                         </td>
-                        <td class="small text-secondary text-nowrap">
-                            <i class="bi bi-calendar3 me-1 text-muted"></i>{{ $c->created_at?->format('d/m/Y') }}
+                        <td class="text-nowrap" data-label="Alta">
+                            <span>{{ $c->created_at?->format('d/m/Y') }}</span>
                         </td>
-                        <td class="pe-4 text-end">
-                            <div class="d-inline-flex align-items-center gap-1">
-                                <button type="button" class="btn-table-action btn-action-edit" title="Editar empresa" onclick="openEditCompanyModal({{ $c->id }})">
+                        <td>
+                            <div class="row-actions">
+                                <button type="button" class="icon-btn" title="Editar empresa" aria-label="Editar empresa" onclick="openEditCompanyModal({{ $c->id }})">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <a href="{{ route('companies.edit', $c->id) }}" class="visually-hidden">Editar</a>
@@ -180,14 +118,12 @@
                         </td>
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="7" class="text-center py-5">
-                            <div class="empty-state p-4">
-                                <i class="bi bi-buildings text-muted fs-1 d-block mb-2"></i>
-                                <div class="fw-semibold text-secondary">No hay empresas registradas</div>
-                                <div class="text-muted small">
-                                    {{ request()->hasAny(['search', 'status']) ? 'No se encontraron resultados para los filtros seleccionados.' : 'Empieza agregando tu primera empresa.' }}
-                                </div>
+                    <tr class="row-empty">
+                        <td colspan="7">
+                            <div class="dash-empty">
+                                <span class="dash-empty-icon"><i class="bi bi-buildings"></i></span>
+                                <p class="dash-empty-title">No hay empresas</p>
+                                <p class="dash-empty-text">{{ request()->hasAny(['search', 'status']) ? 'No se encontraron resultados para los filtros seleccionados.' : 'Empieza agregando tu primera empresa.' }}</p>
                             </div>
                         </td>
                     </tr>
@@ -196,12 +132,12 @@
         </table>
     </div>
     @if($companies->hasPages())
-        <div class="card-footer bg-white border-top py-3 px-4">
+        <footer class="surface-foot">
             {{ $companies->links() }}
-        </div>
+        </footer>
     @endif
 </div>
-</div>
+</section>
 
 {{-- ========================================================================= --}}
 {{-- MODAL EXPANDIDO: CREAR / EDITAR EMPRESA --}}

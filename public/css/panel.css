@@ -1857,51 +1857,8 @@ body {
 }
 
 /* ==========================================================================
-   Company Module - KPIs & Avatars
+   Company Module - Avatars
    ========================================================================== */
-.company-kpi-card {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-color, #e2e8f0);
-    border-radius: 12px;
-    padding: 1rem 1.15rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.company-kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.company-kpi-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.25rem;
-    flex-shrink: 0;
-}
-
-.company-kpi-val {
-    font-size: 1.4rem;
-    font-weight: 700;
-    line-height: 1.15;
-    color: var(--text-primary, #0f172a);
-}
-
-.company-kpi-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-    color: var(--text-muted, #64748b);
-    margin-top: 2px;
-}
-
 .company-avatar-box {
     width: 38px;
     height: 38px;
@@ -2004,73 +1961,6 @@ body {
     border: 1px solid #86efac;
     white-space: nowrap;
 }
-
-/* ==========================================================================
-   Company Module - Unified Header Toolbar & Search Box
-   ========================================================================== */
-.company-header-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.25rem;
-    margin-bottom: 1.5rem;
-}
-
-.company-actions-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    flex-wrap: nowrap;
-}
-
-/* Unified Search Input (Clean, No Ugly Split Borders) */
-.company-search-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-    width: 250px;
-}
-
-.company-search-wrapper .search-icon {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-    font-size: 0.95rem;
-    pointer-events: none;
-    z-index: 2;
-}
-
-.company-search-input {
-    width: 100%;
-    height: 38px;
-    padding-left: 36px !important;
-    padding-right: 12px !important;
-    border-radius: 8px !important;
-    border: 1px solid var(--border-color) !important;
-    background: var(--bg-surface) !important;
-    font-size: 0.85rem !important;
-    color: var(--text-primary) !important;
-    transition: all 0.15s ease !important;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.company-search-input::placeholder {
-    color: var(--text-muted) !important;
-}
-
-.company-search-input:focus {
-    border-color: var(--accent-cyan) !important;
-    outline: none !important;
-    box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.15) !important;
-    background: var(--bg-surface) !important;
-    color: var(--text-primary) !important;
-}
-
-/* Filtro de estado de Empresas (estilo en pretty-select.css) */
-.company-status-pretty { width: 190px; flex-shrink: 0; }
 
 /* Domain Addon (Seamlessly integrated) */
 .input-domain-wrapper {
