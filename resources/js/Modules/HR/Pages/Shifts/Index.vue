@@ -251,150 +251,115 @@ async function destroy(shift) {
 
 <template>
     <AppLayout title="Horarios">
-        <!-- Header Principal de la Pantalla con Acciones Claras y Espaciado Amplio -->
-        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4" style="gap: 1.5rem;">
-            <div>
-                <h1 class="h2 fw-bold text-dark mb-1">Horarios</h1>
-                <p class="text-secondary mb-0" style="font-size: 0.875rem;">
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Horarios</h1>
+                <p class="page-subtitle">
                     Horarios fijos y rotativos de cada agencia, con su color y tolerancia. Los colaboradores se programan en
                     <a href="/shifts/schedule">Programación de horarios</a>.
                 </p>
             </div>
-            <div class="d-flex align-items-center" style="gap: 14px !important;">
-                <button type="button" class="btn btn-primary d-inline-flex align-items-center shadow-sm" style="height: 42px; border-radius: 8px; font-weight: 600; padding: 0 1.25rem; gap: 8px !important;" @click="openCreateModal">
-                    <i class="bi bi-plus-lg"></i>
-                    <span>Nuevo turno</span>
-                </button>
+            <div class="page-actions">
+                <button type="button" class="btn btn-primary" @click="openCreateModal"><i class="bi bi-plus-lg me-1"></i>Nuevo turno</button>
             </div>
-        </div>
+        </header>
 
-        <!-- Filtros: búsqueda, agencia y perfil (en el navegador, sin recargar) -->
-        <div class="shift-toolbar mb-3">
-            <div class="shift-toolbar-row">
-                <div class="shift-search">
-                    <i class="bi bi-search"></i>
+        <section class="surface mb-4">
+            <!-- Filtros: búsqueda, agencia y perfil (en el navegador, sin recargar) -->
+            <div class="filter-row">
+                <div class="search-field">
+                    <i class="bi bi-search" aria-hidden="true"></i>
                     <input v-model="search" type="search" class="form-control" placeholder="Buscar por nombre o código…" aria-label="Buscar horario">
                 </div>
-                <div class="shift-branch">
-                    <i class="bi bi-geo-alt"></i>
-                    <select v-model="branchFilter" class="form-select" aria-label="Filtrar por agencia">
-                        <option value="">Todas las agencias</option>
-                        <option v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</option>
-                        <option value="none">Sin agencia asignada</option>
-                    </select>
+                <select v-model="branchFilter" class="form-select w-auto" aria-label="Filtrar por agencia">
+                    <option value="">Todas las agencias</option>
+                    <option v-for="b in branches" :key="b.id" :value="String(b.id)">{{ b.name }}</option>
+                    <option value="none">Sin agencia asignada</option>
+                </select>
+                <div v-if="Object.keys(profiles).length" class="seg-tabs" role="tablist" aria-label="Filtrar por perfil">
+                    <button v-for="o in profileOptions" :key="o.key" type="button" role="tab" class="seg-tab" :class="{ 'is-active': profileFilter === o.key }"
+                            :aria-selected="profileFilter === o.key" @click="profileFilter = o.key">
+                        {{ o.label }} <span class="count-pill">{{ o.count }}</span>
+                    </button>
                 </div>
-                <button v-if="hasFilters" type="button" class="btn btn-link btn-sm text-decoration-none shift-clear" @click="clearFilters">
-                    <i class="bi bi-x-circle me-1"></i>Limpiar
-                </button>
+                <button v-if="hasFilters" type="button" class="btn btn-sm btn-link text-decoration-none ms-auto" @click="clearFilters"><i class="bi bi-x-circle me-1"></i>Limpiar</button>
             </div>
-            <div v-if="Object.keys(profiles).length" class="shift-segment" role="tablist" aria-label="Filtrar por perfil">
-                <button v-for="o in profileOptions" :key="o.key" type="button" role="tab" class="shift-segment-btn"
-                        :class="{ active: profileFilter === o.key }" :aria-selected="profileFilter === o.key" @click="profileFilter = o.key">
-                    <span>{{ o.label }}</span><span class="shift-segment-count">{{ o.count }}</span>
-                </button>
-            </div>
-        </div>
 
-        <!-- 1. TABLA PRINCIPAL DE TURNOS (Executive Design System: .emp-table-card) -->
-        <div class="emp-table-card mb-5 shadow-sm">
-            <div class="emp-table-responsive">
-                <table class="emp-table align-middle">
+            <div class="table-responsive">
+                <table class="table data-table table-cards align-middle mb-0">
                     <thead>
                         <tr>
-                            <th class="ps-4">Turno</th>
+                            <th>Turno</th>
                             <th>Tipo</th>
                             <th>Horario</th>
                             <th>Días / Ciclo</th>
-                            <th>Tolerancia</th>
-                            <th>Asignados</th>
+                            <th class="text-end">Tolerancia</th>
+                            <th class="text-end">Asignados</th>
                             <th>Estado</th>
-                            <th class="pe-4 text-end">Acciones</th>
+                            <th class="text-end"><span class="visually-hidden">Acciones</span></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="shift in visibleShifts" :key="shift.id">
-                            <!-- Turno: Dot + Nombre + Badge Código Inline (Sin amontonamiento) -->
-                            <td class="ps-4 py-3">
-                                <div class="d-flex align-items-center" style="gap: 10px !important;">
-                                    <span class="rounded-circle d-inline-block flex-shrink-0 shadow-sm" :style="{ width: '10px', height: '10px', background: shift.color }"></span>
-                                    <span class="fw-bold text-dark" style="font-size: 0.885rem;">{{ shift.name }}</span>
-                                    <span v-if="shift.code" class="badge text-secondary font-monospace" style="background: rgba(100, 116, 139, 0.1); border-radius: 4px; font-size: 0.72rem; padding: 2px 6px; font-weight: 600; letter-spacing: 0.03em;">{{ shift.code }}</span>
+                        <tr v-for="shift in visibleShifts" :key="shift.id" :class="{ 'is-muted': !shift.is_active }">
+                            <td data-label="Turno" class="cell-main">
+                                <div class="d-flex align-items-start gap-2">
+                                    <span class="shift-dot" :style="{ background: shift.color }" aria-hidden="true"></span>
+                                    <div class="min-w-0">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="cell-title text-truncate">{{ shift.name }}</span>
+                                            <span v-if="shift.code" class="status-pill tone-neutral font-monospace">{{ shift.code }}</span>
+                                        </div>
+                                        <div class="cell-sub text-truncate"><i class="bi bi-geo-alt me-1"></i>{{ shift.branch || 'Todas las agencias (sin agencia asignada)' }}</div>
+                                        <div v-if="shift.tenant_id" class="mt-1"><TenantBadge :tenant-id="shift.tenant_id" /></div>
+                                    </div>
                                 </div>
-                                <div class="small text-secondary d-flex align-items-center" style="padding-left: 20px; margin-top: 3px; gap: 4px;">
-                                    <i class="bi bi-geo-alt"></i>{{ shift.branch || 'Todas las agencias (sin agencia asignada)' }}
-                                </div>
-                                <div v-if="shift.tenant_id" style="padding-left: 20px; margin-top: 3px;">
-                                    <TenantBadge :tenant-id="shift.tenant_id" />
-                                </div>
                             </td>
-                            <td class="py-3">
-                                <span class="badge border" :class="shift.type === 'rotating' ? 'bg-primary-subtle text-primary border-primary-subtle' : 'bg-body-secondary text-secondary border-secondary-subtle'" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem; padding: 4px 8px;">
-                                    {{ shift.type === 'rotating' ? 'Rotativo' : 'Fijo' }}
-                                </span>
-                                <div v-if="shift.profile" class="small text-secondary mt-1">{{ profiles[shift.profile] }}</div>
+                            <td data-label="Tipo">
+                                <span class="status-pill" :class="shift.type === 'rotating' ? 'tone-brand' : 'tone-neutral'">{{ shift.type === 'rotating' ? 'Rotativo' : 'Fijo' }}</span>
+                                <div v-if="shift.profile" class="cell-sub mt-1">{{ profiles[shift.profile] }}</div>
                             </td>
-                            <td class="py-3 text-nowrap text-body" style="font-size: 0.85rem; font-weight: 500;">
-                                {{ hora(shift.start_time) }} – {{ hora(shift.end_time) }}
-                                <span v-if="shift.crosses_midnight" class="small text-secondary ms-1">(+1 día)</span>
-                                <div v-for="d in ownDays(shift)" :key="d" class="small text-info-emphasis fw-normal" title="Horario propio de ese día">{{ d }}</div>
+                            <td data-label="Horario" class="text-nowrap">
+                                <span class="cell-title fw-medium tabular">{{ hora(shift.start_time) }} – {{ hora(shift.end_time) }}</span>
+                                <span v-if="shift.crosses_midnight" class="cell-sub ms-1">(+1 día)</span>
+                                <div v-for="d in ownDays(shift)" :key="d" class="cell-sub text-info-emphasis" title="Horario propio de ese día">{{ d }}</div>
                             </td>
-                            <td class="py-3 text-secondary" style="font-size: 0.85rem;">
-                                <template v-if="shift.type === 'rotating'">
-                                    <span class="fw-semibold text-dark">{{ shift.rotation_work_days }}</span>
-                                    <span class="text-muted mx-1">×</span>
-                                    <span class="fw-semibold text-dark">{{ shift.rotation_rest_days }}</span>
-                                </template>
-                                <template v-else>
-                                    <span>{{ shift.working_days.map((d) => DAYS[d] ?? d).join(', ') }}</span>
-                                </template>
+                            <td data-label="Días / Ciclo">
+                                <span v-if="shift.type === 'rotating'" class="cell-title fw-medium">{{ shift.rotation_work_days }} × {{ shift.rotation_rest_days }}</span>
+                                <span v-else class="small">{{ shift.working_days.map((d) => DAYS[d] ?? d).join(', ') }}</span>
                             </td>
-                            <td class="py-3 text-secondary" style="font-size: 0.85rem;">
-                                <span class="fw-semibold text-dark">{{ shift.grace_period_minutes }}</span> min
-                            </td>
-                            <td class="py-3 text-secondary" style="font-size: 0.85rem;">
-                                <span class="fw-semibold text-dark">{{ shift.employees_count }}</span>
-                            </td>
-                            <td class="py-3">
-                                <span v-if="shift.is_active" class="badge bg-success-subtle text-success border border-success-subtle" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem; padding: 4px 8px;">
-                                    Activo
-                                </span>
-                                <span v-else class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem; padding: 4px 8px;">
-                                    Inactivo
-                                </span>
-                            </td>
-                            <!-- Acciones: Solo Iconos Elegantes (btn-table-action estándar del ERP) -->
-                            <td class="pe-4 py-3 text-end text-nowrap">
-                                <div class="emp-table-actions justify-content-end" style="gap: 8px !important;">
-                                    <button type="button" class="btn-table-action" title="Editar turno" @click="openEditModal(shift)">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button type="button" class="btn-table-action btn-table-delete" :title="`Eliminar ${shift.name}`" @click="destroy(shift)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                            <td data-label="Tolerancia" class="text-end text-nowrap tabular">{{ shift.grace_period_minutes }} min</td>
+                            <td data-label="Asignados" class="text-end"><span class="cell-amount">{{ shift.employees_count }}</span></td>
+                            <td data-label="Estado"><span class="status-pill" :class="shift.is_active ? 'tone-emerald' : 'tone-neutral'">{{ shift.is_active ? 'Activo' : 'Inactivo' }}</span></td>
+                            <td class="cell-actions">
+                                <div class="row-actions">
+                                    <button type="button" class="icon-btn" title="Editar turno" :aria-label="`Editar ${shift.name}`" @click="openEditModal(shift)"><i class="bi bi-pencil"></i></button>
+                                    <button type="button" class="icon-btn icon-btn-danger" :title="`Eliminar ${shift.name}`" :aria-label="`Eliminar ${shift.name}`" @click="destroy(shift)"><i class="bi bi-trash3"></i></button>
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="!visibleShifts.length && shifts.length">
-                            <td colspan="8" class="text-center py-5 text-muted">
-                                <i class="bi bi-funnel fs-1 d-block mb-2 opacity-50"></i>
-                                <div class="fw-medium">Ningún horario coincide con los filtros.</div>
-                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" style="border-radius: 8px;" @click="clearFilters">Limpiar filtros</button>
+                        <tr v-if="!visibleShifts.length && shifts.length" class="row-empty">
+                            <td colspan="8">
+                                <div class="dash-empty">
+                                    <span class="dash-empty-icon"><i class="bi bi-funnel"></i></span>
+                                    <p class="dash-empty-title">Ningún horario coincide con los filtros</p>
+                                    <button type="button" class="btn btn-sm btn-light border mt-2" @click="clearFilters">Limpiar filtros</button>
+                                </div>
                             </td>
                         </tr>
-                        <tr v-else-if="!visibleShifts.length">
-                            <td colspan="8" class="text-center py-5 text-muted">
-                                <i class="bi bi-calendar-x fs-1 d-block mb-2 opacity-50"></i>
-                                <div class="fw-medium">Aún no hay turnos registrados.</div>
-                                <p class="small text-muted mb-3">Crea el primer horario laboral para asignar a tus colaboradores.</p>
-                                <button type="button" class="btn btn-sm btn-primary" style="border-radius: 8px; font-weight: 600;" @click="openCreateModal">
-                                    <i class="bi bi-plus-lg me-1"></i>Crear turno
-                                </button>
+                        <tr v-else-if="!visibleShifts.length" class="row-empty">
+                            <td colspan="8">
+                                <div class="dash-empty">
+                                    <span class="dash-empty-icon"><i class="bi bi-calendar-x"></i></span>
+                                    <p class="dash-empty-title">Aún no hay turnos registrados</p>
+                                    <p class="dash-empty-text">Crea el primer horario laboral para asignar a tus colaboradores.</p>
+                                    <button type="button" class="btn btn-sm btn-primary mt-2" @click="openCreateModal"><i class="bi bi-plus-lg me-1"></i>Crear turno</button>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-        </div>
+        </section>
 
         <!-- =========================================================================
              MODAL 1: CREAR / EDITAR TURNO (CON CLASES ESTÁNDAR EMP-MODAL)
@@ -699,44 +664,8 @@ async function destroy(shift) {
 </template>
 
 <style scoped>
-/* Barra de filtros: misma tarjeta y altura (42 px) que el resto del panel */
-.shift-toolbar {
-    display: flex; flex-direction: column; gap: 12px;
-    padding: 14px 16px; border-radius: 12px;
-    background: var(--bg-surface, #fff); border: 1px solid var(--border-color, #e2e8f0);
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-}
-.shift-toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.shift-search, .shift-branch { position: relative; flex: 1 1 220px; }
-.shift-branch { flex: 0 1 280px; }
-.shift-search > i, .shift-branch > i {
-    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-    color: var(--text-secondary, #64748b); pointer-events: none; z-index: 1;
-}
-.shift-search .form-control, .shift-branch .form-select { height: 42px; padding-left: 36px; border-radius: 10px; }
-.shift-clear { white-space: nowrap; }
-
-/* Perfil: control segmentado con conteo */
-.shift-segment {
-    display: inline-flex; flex-wrap: wrap; gap: 4px; align-self: flex-start;
-    padding: 4px; border-radius: 10px; background: var(--bg-surface-elevated, #f1f5f9);
-}
-.shift-segment-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 0; background: transparent; border-radius: 8px; padding: 6px 12px;
-    font-size: 0.82rem; font-weight: 600; color: var(--text-secondary, #475569);
-    transition: background-color .15s, color .15s, box-shadow .15s;
-}
-.shift-segment-btn:hover { color: var(--text-primary, #0f172a); }
-.shift-segment-btn.active { background: var(--bg-surface, #fff); color: var(--brand, #0284c7); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
-.shift-segment-btn:focus-visible { outline: 2px solid var(--brand, #0284c7); outline-offset: 1px; }
-.shift-segment-count {
-    min-width: 22px; padding: 1px 7px; border-radius: 999px; font-size: 0.72rem; text-align: center;
-    background: rgba(100, 116, 139, 0.14); color: inherit;
-}
-.shift-segment-btn.active .shift-segment-count { background: rgba(2, 132, 199, 0.12); }
-
-/* Colores del horario: los usados por otro horario quedan bloqueados */
+/* Punto de color del turno en la lista */
+.shift-dot { width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 3px var(--border-color); }
 .shift-swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .shift-swatch {
     width: 34px; height: 34px; padding: 0; border-radius: 9px;
