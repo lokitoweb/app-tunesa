@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import ConfirmModal from '@/Modules/Core/Components/ConfirmModal.vue';
 import FlashToasts from '@/Modules/Core/Components/FlashToasts.vue';
 import TenantPickerModal from '@/Modules/Core/Components/TenantPickerModal.vue';
@@ -26,11 +26,27 @@ function toggleTheme() {
     try { localStorage.setItem('panel-theme', theme.value); } catch (e) { /* almacenamiento bloqueado */ }
 }
 
-// Sidebar Dock Colapsable / Deslizante (Sincronizado con Blade)
-const isExpanded = ref(false);
+// Menú lateral (mismo comportamiento que panel.js en Blade): en escritorio se reduce a íconos y se recuerda;
+// en celular se abre como panel deslizable y se cierra con Escape, tocando afuera o al navegar
+const drawerOpen = ref(false);
+const isDrawer = () => window.matchMedia('(max-width: 991.98px)').matches;
 function toggleSidebar() {
-    isExpanded.value = !isExpanded.value;
+    if (isDrawer()) { drawerOpen.value = false; return; }
+    const rail = document.documentElement.getAttribute('data-sidebar') !== 'rail';
+    if (rail) document.documentElement.setAttribute('data-sidebar', 'rail');
+    else document.documentElement.removeAttribute('data-sidebar');
+    try { localStorage.setItem('panel-sidebar', rail ? 'rail' : 'full'); } catch (e) { /* almacenamiento bloqueado */ }
 }
+const closeDrawerOnEscape = (e) => { if (e.key === 'Escape') drawerOpen.value = false; };
+let stopNavigateListener = null;
+onMounted(() => {
+    document.addEventListener('keydown', closeDrawerOnEscape);
+    stopNavigateListener = router.on('navigate', () => { drawerOpen.value = false; });
+});
+onUnmounted(() => {
+    document.removeEventListener('keydown', closeDrawerOnEscape);
+    stopNavigateListener?.();
+});
 
 // Selector de Empresa del Super Admin
 const showTenantMenu = ref(false);
@@ -123,7 +139,7 @@ onUnmounted(() => {
 
     <div class="panel-shell">
         <!-- SIDEBAR: Dock colapsable con auto-expansión al pasar el mouse o al hacer clic -->
-        <aside id="sidebar" class="panel-sidebar" :class="{ 'is-expanded': isExpanded }" tabindex="-1" aria-label="Menú principal">
+        <aside id="sidebar" class="panel-sidebar" :class="{ 'is-open': drawerOpen }" tabindex="-1" aria-label="Menú principal">
             <div class="sidebar-header">
                 <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Expandir / Contraer menú" aria-label="Expandir o contraer menú" @click="toggleSidebar">
                     <i class="bi bi-layout-sidebar"></i>
@@ -151,12 +167,13 @@ onUnmounted(() => {
                 </div>
             </div>
         </aside>
+        <div class="sidebar-backdrop" :class="{ 'is-open': drawerOpen }" aria-hidden="true" @click="drawerOpen = false"></div>
 
         <!-- CONTENIDO -->
         <div class="panel-main">
             <header class="panel-topbar">
                 <div class="topbar-left">
-                    <button class="sidebar-toggle-btn d-lg-none" type="button" id="sidebarMobileToggle" aria-label="Abrir menú" @click="toggleSidebar">
+                    <button class="sidebar-toggle-btn d-lg-none" type="button" id="sidebarMobileToggle" aria-label="Abrir menú" aria-controls="sidebar" :aria-expanded="drawerOpen" @click="drawerOpen = true">
                         <i class="bi bi-list"></i>
                     </button>
                     <!-- Selector de empresa del Super Admin -->

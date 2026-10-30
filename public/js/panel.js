@@ -140,15 +140,15 @@
             const now = new Date();
             const hours = now.getHours();
 
-            let greeting = 'BUENAS NOCHES';
+            let greeting = 'Buenas noches';
             if (hours >= 6 && hours < 12) {
-                greeting = 'BUENOS DÍAS';
+                greeting = 'Buenos días';
             } else if (hours >= 12 && hours < 19) {
-                greeting = 'BUENAS TARDES';
+                greeting = 'Buenas tardes';
             }
 
             if (titleEl && titleEl.dataset.userName) {
-                titleEl.textContent = `${greeting}, ${titleEl.dataset.userName.toUpperCase()}`;
+                titleEl.textContent = `${greeting}, ${titleEl.dataset.userName}`;
             }
 
             if (clockEl) {
@@ -261,22 +261,27 @@
         // Setup Command Palette
         setupCommandPalette();
 
-        // Sidebar Collapse / Expand Toggle
+        // Menú lateral: en escritorio se reduce a íconos (se recuerda); en celular se abre como panel deslizable
         const sidebar = document.getElementById('sidebar');
-        const sidebarToggle = document.getElementById('sidebarToggle');
-        const sidebarMobileToggle = document.getElementById('sidebarMobileToggle');
-
-        if (sidebar && sidebarToggle) {
-            sidebarToggle.addEventListener('click', () => {
-                sidebar.classList.toggle('is-expanded');
-            });
-        }
-        if (sidebar && sidebarMobileToggle) {
-            sidebarMobileToggle.addEventListener('click', () => {
-                sidebar.classList.toggle('is-expanded');
-            });
-        }
-
+        const backdrop = document.getElementById('sidebarBackdrop');
+        const isDrawer = () => window.matchMedia('(max-width: 991.98px)').matches;
+        const setDrawer = (open) => {
+            if (!sidebar) return;
+            sidebar.classList.toggle('is-open', open);
+            backdrop?.classList.toggle('is-open', open);
+            document.getElementById('sidebarMobileToggle')?.setAttribute('aria-expanded', String(open));
+            if (open) sidebar.querySelector('.sidebar-link.active, .sidebar-link')?.focus({ preventScroll: true });
+        };
+        document.getElementById('sidebarToggle')?.addEventListener('click', () => {
+            if (isDrawer()) return setDrawer(false);
+            const rail = document.documentElement.getAttribute('data-sidebar') !== 'rail';
+            if (rail) document.documentElement.setAttribute('data-sidebar', 'rail');
+            else document.documentElement.removeAttribute('data-sidebar');
+            try { localStorage.setItem('panel-sidebar', rail ? 'rail' : 'full'); } catch (e) {}
+        });
+        document.getElementById('sidebarMobileToggle')?.addEventListener('click', () => setDrawer(true));
+        backdrop?.addEventListener('click', () => setDrawer(false));
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sidebar?.classList.contains('is-open')) setDrawer(false); });
         // Fullscreen toggle
         const fullscreenBtn = document.getElementById('fullscreenToggle');
         if (fullscreenBtn) {

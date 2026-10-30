@@ -22,7 +22,7 @@ const FLASH = {
 </script>
 
 <template>
-    <div class="toast-stack" aria-live="polite">
+    <TransitionGroup tag="div" name="toast" class="toast-stack" aria-live="polite">
         <template v-for="(text, key) in page.props.flash" :key="key + text">
             <div v-if="!dismissed.has(key + text) && FLASH[key]" class="alert toast-item" :class="`alert-${FLASH[key][0]} toast-${FLASH[key][0]}`" role="alert">
                 <div class="toast-icon-badge" :class="`toast-badge-${FLASH[key][0]}`">
@@ -38,7 +38,7 @@ const FLASH = {
             </div>
         </template>
 
-        <div v-if="errors.length && !dismissed.has('errors')" class="alert alert-danger toast-item toast-danger" role="alert">
+        <div v-if="errors.length && !dismissed.has('errors')" key="errors" class="alert alert-danger toast-item toast-danger" role="alert">
             <div class="toast-icon-badge toast-badge-danger">
                 <i class="bi bi-exclamation-triangle-fill"></i>
             </div>
@@ -52,5 +52,5 @@ const FLASH = {
                 <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
             </button>
         </div>
-    </div>
+    </TransitionGroup>
 </template>

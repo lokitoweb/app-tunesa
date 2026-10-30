@@ -59,12 +59,13 @@
             </div>
         </div>
     </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
 
     {{-- CONTENIDO --}}
     <div class="panel-main">
         <header class="panel-topbar">
             <div class="topbar-left">
-                <button class="sidebar-toggle-btn d-lg-none" type="button" id="sidebarMobileToggle" aria-label="Abrir menú">
+                <button class="sidebar-toggle-btn d-lg-none" type="button" id="sidebarMobileToggle" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false">
                     <i class="bi bi-list"></i>
                 </button>
                 @if($navUser->isSuperAdmin())

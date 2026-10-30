@@ -339,9 +339,9 @@ async function destroyHoliday(holiday) {
                         </div>
 
                         <!-- Stepper de Año y Buscador con Espaciado Garantizado -->
-                        <div class="d-flex align-items-center" style="gap: 12px !important;">
-                            <!-- Buscador en Tiempo Real con Lupa Perfectamente Espaciada -->
-                            <div class="position-relative" style="min-width: 210px;">
+                        <div class="d-flex align-items-center flex-grow-1 flex-sm-grow-0" style="gap: 12px !important;">
+                            <!-- Buscador: 210 px en escritorio; en celular se ajusta al ancho que queda -->
+                            <div class="position-relative" style="flex: 1 1 210px; min-width: 0;">
                                 <i 
                                     class="bi bi-search" 
                                     style="position: absolute; left: 14px !important; top: 50%; transform: translateY(-50%); font-size: 0.85rem; color: #94a3b8; pointer-events: none; z-index: 5;"

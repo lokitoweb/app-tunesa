@@ -11,6 +11,8 @@
             }
         } catch (e) {}
         document.documentElement.setAttribute('data-bs-theme', t);
+        {{-- Menú lateral reducido a íconos (preferencia de escritorio), antes de pintar para que no salte --}}
+        try { if (localStorage.getItem('panel-sidebar') === 'rail') document.documentElement.setAttribute('data-sidebar', 'rail'); } catch (e) {}
     })();
 </script>
 

@@ -11,15 +11,15 @@
     $brandSettings = \App\Modules\Core\Models\TenantSetting::forTenant($brandTenant);
     $currentHour = (int) now(tenant_timezone())->format('G');
     $initialGreeting = match(true) {
-        $currentHour >= 6 && $currentHour < 12 => 'BUENOS DÍAS',
-        $currentHour >= 12 && $currentHour < 19 => 'BUENAS TARDES',
-        default => 'BUENAS NOCHES',
+        $currentHour >= 6 && $currentHour < 12 => 'Buenos días',
+        $currentHour >= 12 && $currentHour < 19 => 'Buenas tardes',
+        default => 'Buenas noches',
     };
 @endphp
 
 @if(!empty($platform))
-    <div class="alert alert-primary d-flex align-items-center gap-2 mb-4" role="status" style="border-radius: 8px; font-size: 0.85rem;">
-        <i class="bi bi-buildings fs-5 text-primary"></i>
+    <div class="dash-notice" role="status">
+        <i class="bi bi-buildings"></i>
         <div>
             <strong>Plataforma:</strong> {{ $platform['active_tenants'] }} de {{ $platform['tenants'] }} empresas activas.
             Las cifras, el mapa y las marcaciones suman todas las empresas.
@@ -27,20 +27,29 @@
     </div>
 @endif
 
-{{-- 1. Cabecera con Saludo Dinámico, Reloj en Tiempo Real y Filtros Rápidos --}}
-<div class="dashboard-header-bar">
-    <div class="greeting-section">
-        <div>
-            <h1 class="greeting-title" id="liveGreetingTitle" data-user-name="{{ $navUser->first_name }} {{ $navUser->last_name }}">
-                {{ $initialGreeting }}, {{ strtoupper($navUser->first_name . ' ' . $navUser->last_name) }}
-            </h1>
-            <div class="greeting-clock" id="liveClockText">
-                {{ now()->format('h:i:s a') }} • {{ now()->isoFormat('dddd, D [de] MMMM [de] YYYY') }}
-            </div>
-        </div>
+@php
+    $coverageRate = $kpis['coverage_rate'] ?? ($kpis['total_employees'] > 0 ? round(($totalRegs / $kpis['total_employees']) * 100) : 0);
+    $punctualityRate = min(max($kpis['punctuality_rate'], 0), 100);
+    $hasHourly = array_sum($hourlyDistribution) > 0;
+    $hasWeekly = array_sum(array_merge($weeklyChart['on_time'] ?? [], $weeklyChart['late'] ?? [], $weeklyChart['absent'] ?? [])) > 0;
+@endphp
+
+{{-- 1. Encabezado: saludo, hora en vivo y filtros (empresa, sede, período) --}}
+<header class="dash-head">
+    <div class="dash-head-text">
+        <p class="dash-eyebrow">
+            <span class="dash-live-dot" aria-hidden="true"></span>
+            Panel de operaciones · {{ $brandTenant?->company_name ?? 'Todas las empresas' }}
+        </p>
+        <h1 class="dash-title" id="liveGreetingTitle" data-user-name="{{ $navUser->first_name }}">
+            {{ $initialGreeting }}, {{ $navUser->first_name }}
+        </h1>
+        <p class="dash-subtitle" id="liveClockText">
+            {{ now()->format('h:i:s a') }} • {{ ucfirst(now()->isoFormat('dddd, D [de] MMMM [de] YYYY')) }}
+        </p>
     </div>
 
-    <div class="header-controls">
+    <div class="dash-controls header-controls">
         @if($navUser->isSuperAdmin())
             @php
                 $dashTenants = \App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']);
@@ -254,262 +263,257 @@
             </div>
         </div>
     </div>
-</div>
+</header>
 
-{{-- 2. Tarjetas KPI Principales con Bordes de Acento Neón --}}
-<div class="row g-3 mb-4">
-    {{-- Card 1: Volumen de Asistencia (Acento Cian) --}}
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="kpi-card accent-cyan">
-            <div class="kpi-header">
-                <span class="kpi-title">Asistencias del Período</span>
-                <span class="kpi-icon-squircle cyan"><i class="bi bi-clock-history"></i></span>
-            </div>
-            <div class="kpi-number" id="kpiTotal">{{ $totalRegs }}</div>
-            <div class="kpi-footer-row">
-                <span class="kpi-footer-bullet"><span class="bullet-dot emerald"></span> Puntuales: <b id="kpiPresentText">{{ $kpis['on_time_count'] }}</b></span>
-                <span class="kpi-footer-bullet"><span class="bullet-dot blue"></span> Tardanzas: <b id="kpiLateText">{{ $kpis['late_count'] }}</b></span>
-            </div>
-        </div>
-    </div>
-
-    {{-- Card 2: Tasa de Puntualidad (Acento Esmeralda) --}}
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="kpi-card accent-emerald">
-            <div class="kpi-header">
-                <span class="kpi-title">Tasa de Puntualidad</span>
-                <span class="kpi-icon-squircle emerald"><i class="bi bi-award"></i></span>
-            </div>
-            <div class="kpi-number emerald" id="kpiRate">{{ $kpis['punctuality_rate'] }}%</div>
-            <div class="kpi-footer-row justify-content-between">
-                <span id="kpiAbsentText">{{ $kpis['absent_count'] }} ausentes</span>
-                <span class="fw-bold">Meta: <span class="text-emerald">≥ 95%</span></span>
-            </div>
-        </div>
-    </div>
-
-    {{-- Card 3: Sedes y Geocercas (Acento Azul Eléctrico) --}}
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="kpi-card accent-blue">
-            <div class="kpi-header">
-                <span class="kpi-title">Sedes y Geocercas</span>
-                <span class="kpi-icon-squircle blue"><i class="bi bi-geo-alt-fill"></i></span>
-            </div>
-            <div class="kpi-number" id="kpiActiveBranches">{{ $activeBranches }}</div>
-            <div class="kpi-footer-row">
-                <span>Perímetros: <span class="{{ ($calibratedRate ?? 100) >= 100 ? 'text-success' : (($calibratedRate ?? 100) >= 80 ? 'text-primary' : 'text-warning') }} fw-bold" id="kpiCalibratedText">{{ $calibratedRate ?? 100 }}% Calibrados</span></span>
-            </div>
-        </div>
-    </div>
-
-    {{-- Card 4: Colaboradores en Turno (Acento Ámbar) --}}
-    <div class="col-12 col-sm-6 col-xl-3">
-        <div class="kpi-card accent-amber">
-            <div class="kpi-header">
-                <span class="kpi-title">Colaboradores en Turno</span>
-                <span class="kpi-icon-squircle amber"><i class="bi bi-people-fill"></i></span>
-            </div>
-            <div class="kpi-number" id="kpiActiveEmp">{{ $totalRegs }} / {{ $kpis['total_employees'] }}</div>
-            <div class="kpi-footer-row">
-                <span class="kpi-footer-bullet"><span class="bullet-dot emerald"></span> En sede: <span class="text-success fw-bold" id="kpiOnShiftText">{{ $kpis['active_on_shift'] ?? $totalRegs }} activos</span></span>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- 3. Barra Horizontal de Estado / Telemetría Operativa Real --}}
-<div class="telemetry-strip">
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        <span class="telemetry-pill-btn">
-            <i class="bi bi-shield-check"></i> Monitoreo Operativo
-        </span>
-        <span class="telemetry-badge-pill" id="telemetryBranchesBadge">
-            <i class="bi bi-geo-alt text-primary"></i> Geocercas GPS: {{ $activeBranches }} Sedes
-        </span>
-        <span class="telemetry-badge-pill">
-            <i class="bi bi-camera text-info"></i>
+{{-- 2. Estado de la telemetría: una línea discreta, no una barra que compite con las cifras --}}
+<div class="dash-status" role="status">
+    <div class="dash-status-items">
+        <span class="dash-chip is-ok"><i class="bi bi-shield-check"></i> Monitoreo operativo</span>
+        <span class="dash-chip" id="telemetryBranchesBadge"><i class="bi bi-geo-alt text-primary"></i> Geocercas GPS: {{ $activeBranches }} Sedes</span>
+        <span class="dash-chip">
+            <i class="bi bi-camera"></i>
             @if($brandSettings->face_detection_required)
-                Detección Facial y Selfie Activas
+                Detección facial y selfie activas
             @elseif($brandSettings->selfie_required)
-                Evidencia Biométrica (Selfie)
+                Evidencia biométrica (selfie)
             @else
-                Evidencia Fotográfica Opcional
+                Evidencia fotográfica opcional
             @endif
         </span>
     </div>
-
-    <div class="d-flex align-items-center gap-2">
-        <span class="live-indicator-pill">
-            <span class="live-pulse-dot"></span> En Vivo
-        </span>
-        <button type="button" class="topbar-icon-btn" id="telemetryRefreshBtn" onclick="window.refreshDashboardTelemetry(this)" title="Sincronizar telemetría internamente" style="width: 32px; height: 32px;">
+    <div class="dash-status-items">
+        <span class="dash-live-pill"><span class="dash-live-dot" aria-hidden="true"></span> En vivo · cada 15 s</span>
+        <button type="button" class="dash-icon-btn" id="telemetryRefreshBtn" onclick="window.refreshDashboardTelemetry(this)" title="Actualizar ahora" aria-label="Actualizar ahora">
             <i class="bi bi-arrow-repeat"></i>
         </button>
     </div>
 </div>
 
-{{-- 4. Sección Central: Métricas Circulares, Distribución Horaria y Mapa GPS --}}
-<div class="row g-3 mb-4">
-    {{-- Columna Izquierda: Diales de Progreso Circular --}}
-    <div class="col-12 col-xl-3">
-        <div class="dark-panel-card">
-            <div class="card-header-clean">
-                <span class="card-title-clean">Métricas del Periodo</span>
-                <i class="bi bi-pie-chart text-secondary"></i>
-            </div>
+{{-- 3. Indicadores principales --}}
+<section class="dash-kpis" aria-label="Indicadores del período">
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Asistencias del período</span>
+            <span class="dash-kpi-icon tone-brand"><i class="bi bi-clock-history"></i></span>
+        </div>
+        <div class="dash-kpi-value" id="kpiTotal">{{ $totalRegs }}</div>
+        <div class="dash-kpi-meta">
+            <span><span class="dash-dot tone-emerald"></span> Puntuales <b id="kpiPresentText">{{ $kpis['on_time_count'] }}</b></span>
+            <span><span class="dash-dot tone-amber"></span> Tardanzas <b id="kpiLateText">{{ $kpis['late_count'] }}</b></span>
+        </div>
+    </article>
 
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Tasa de puntualidad</span>
+            <span class="dash-kpi-icon tone-emerald"><i class="bi bi-award"></i></span>
+        </div>
+        <div class="dash-kpi-value" id="kpiRate">{{ $kpis['punctuality_rate'] }}%</div>
+        <div class="dash-meter" role="presentation">
+            <span class="dash-meter-fill tone-emerald" id="kpiRateBar" style="width: {{ $punctualityRate }}%"></span>
+            <span class="dash-meter-goal" style="left: 95%" title="Meta 95 %"></span>
+        </div>
+        <div class="dash-kpi-meta justify-content-between">
+            <span id="kpiAbsentText">{{ $kpis['absent_count'] }} ausentes</span>
+            <span>Meta ≥ 95 %</span>
+        </div>
+    </article>
+
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Sedes y geocercas</span>
+            <span class="dash-kpi-icon tone-blue"><i class="bi bi-geo-alt"></i></span>
+        </div>
+        <div class="dash-kpi-value" id="kpiActiveBranches">{{ $activeBranches }}</div>
+        <div class="dash-kpi-meta">
+            <span>Perímetros <span class="{{ ($calibratedRate ?? 100) >= 100 ? 'text-success' : (($calibratedRate ?? 100) >= 80 ? 'text-primary' : 'text-warning') }} fw-bold" id="kpiCalibratedText">{{ $calibratedRate ?? 100 }}% Calibrados</span></span>
+        </div>
+    </article>
+
+    <article class="dash-kpi-card">
+        <div class="dash-kpi-top">
+            <span class="dash-kpi-label">Colaboradores en turno</span>
+            <span class="dash-kpi-icon tone-amber"><i class="bi bi-people"></i></span>
+        </div>
+        <div class="dash-kpi-value" id="kpiActiveEmp">{{ $totalRegs }} / {{ $kpis['total_employees'] }}</div>
+        <div class="dash-meter" role="presentation">
+            <span class="dash-meter-fill tone-brand" id="kpiCoverageBar" style="width: {{ min(max($coverageRate, 0), 100) }}%"></span>
+        </div>
+        <div class="dash-kpi-meta">
+            <span><span class="dash-dot tone-emerald"></span> En sede <span class="text-success fw-bold" id="kpiOnShiftText">{{ $kpis['active_on_shift'] ?? $totalRegs }} activos</span></span>
+        </div>
+    </article>
+</section>
+
+{{-- 4. Métricas, distribución horaria y mapa --}}
+<div class="dash-grid dash-grid-3">
+    <section class="dash-panel">
+        <header class="dash-panel-head">
+            <div>
+                <h2 class="dash-panel-title">Métricas del período</h2>
+                <p class="dash-panel-sub">Cumplimiento sobre el personal activo</p>
+            </div>
+        </header>
+
+        <div class="dash-dials">
             <div class="progress-dial-group">
                 <div class="circular-dial-wrapper">
-                    <svg width="52" height="52" viewBox="0 0 52 52">
+                    <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
                         <circle class="dial-bg" cx="26" cy="26" r="21" />
-                        <circle class="dial-meter" id="dialPunctualityMeter" cx="26" cy="26" r="21" stroke-dasharray="131.9" stroke-dashoffset="{{ 131.9 - (131.9 * min(max($kpis['punctuality_rate'], 0), 100) / 100) }}" style="stroke: var(--accent-cyan);" />
+                        <circle class="dial-meter" id="dialPunctualityMeter" cx="26" cy="26" r="21" stroke-dasharray="131.9" stroke-dashoffset="{{ 131.9 - (131.9 * $punctualityRate / 100) }}" style="stroke: var(--accent-emerald);" />
                     </svg>
                     <span class="dial-center-text" id="dialPunctualityText">{{ $kpis['punctuality_rate'] }}%</span>
                 </div>
                 <div class="dial-details">
-                    <div class="dial-details-title">Puntualidad del Período</div>
+                    <div class="dial-details-title">Puntualidad</div>
                     <div class="dial-details-val" id="dialPunctualityVal">{{ $kpis['on_time_count'] }} puntuales</div>
                     <div class="dial-details-sub" id="dialPunctualitySub">{{ $kpis['late_count'] }} con tardanza</div>
                 </div>
             </div>
 
             <div class="progress-dial-group">
-                @php
-                    $coverageRate = $kpis['coverage_rate'] ?? ($kpis['total_employees'] > 0 ? round(($totalRegs / $kpis['total_employees']) * 100) : 0);
-                @endphp
                 <div class="circular-dial-wrapper">
-                    <svg width="52" height="52" viewBox="0 0 52 52">
+                    <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
                         <circle class="dial-bg" cx="26" cy="26" r="21" />
-                        <circle class="dial-meter" id="dialCoverageMeter" cx="26" cy="26" r="21" stroke-dasharray="131.9" stroke-dashoffset="{{ 131.9 - (131.9 * min(max($coverageRate, 0), 100) / 100) }}" style="stroke: var(--accent-emerald);" />
+                        <circle class="dial-meter" id="dialCoverageMeter" cx="26" cy="26" r="21" stroke-dasharray="131.9" stroke-dashoffset="{{ 131.9 - (131.9 * min(max($coverageRate, 0), 100) / 100) }}" style="stroke: var(--brand);" />
                     </svg>
                     <span class="dial-center-text" id="dialCoverageText">{{ $coverageRate }}%</span>
                 </div>
                 <div class="dial-details">
-                    <div class="dial-details-title">Cobertura de Turno</div>
+                    <div class="dial-details-title">Cobertura de turno</div>
                     <div class="dial-details-val" id="dialCoverageVal">{{ $totalRegs }} / {{ $kpis['total_employees'] }}</div>
                     <div class="dial-details-sub" id="dialCoverageSub">{{ $kpis['absent_count'] }} ausentes</div>
                 </div>
             </div>
 
-            {{-- 3er Dial: Cumplimiento de Geocercas GPS (Elimina espacio muerto) --}}
             <div class="progress-dial-group">
                 <div class="circular-dial-wrapper">
-                    <svg width="52" height="52" viewBox="0 0 52 52">
+                    <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
                         <circle class="dial-bg" cx="26" cy="26" r="21" />
                         <circle class="dial-meter" id="dialGeofenceMeter" cx="26" cy="26" r="21" stroke-dasharray="131.9" stroke-dashoffset="{{ 131.9 - (131.9 * min(max($kpis['geofence_rate'] ?? 100, 0), 100) / 100) }}" style="stroke: var(--accent-blue);" />
                     </svg>
                     <span class="dial-center-text" id="dialGeofenceText">{{ $kpis['geofence_rate'] ?? 100 }}%</span>
                 </div>
                 <div class="dial-details">
-                    <div class="dial-details-title">Cumplimiento Geocercas</div>
+                    <div class="dial-details-title">Dentro de geocerca</div>
                     <div class="dial-details-val" id="dialGeofenceVal">{{ $kpis['within_geofence_count'] ?? $totalRegs }} en radio</div>
                     <div class="dial-details-sub" id="dialGeofenceSub">{{ $kpis['out_of_geofence'] ?? 0 }} fuera de radio</div>
                 </div>
             </div>
+        </div>
+    </section>
 
-            <div class="mt-auto pt-3 small text-secondary d-flex align-items-center gap-2">
-                <span class="bullet-dot emerald"></span> Sincronización continua activa (15s)
+    <section class="dash-panel">
+        <header class="dash-panel-head">
+            <div>
+                <h2 class="dash-panel-title">Distribución horaria</h2>
+                <p class="dash-panel-sub">Marcaciones de entrada por hora · <span data-period-label>{{ $presetLabel }}</span></p>
+            </div>
+        </header>
+        <div class="dash-chart" style="height: 240px;">
+            <canvas id="hourlyActivityChart" aria-label="Distribución horaria de marcaciones" role="img"></canvas>
+            <div class="dash-chart-empty" id="hourlyEmpty" @if($hasHourly) hidden @endif>
+                <span class="dash-empty-icon"><i class="bi bi-bar-chart"></i></span>
+                <p class="dash-empty-title">Sin marcaciones en el período</p>
+                <p class="dash-empty-text">Cambia la sede o el período para ver la actividad por hora.</p>
             </div>
         </div>
-    </div>
+    </section>
 
-    {{-- Columna Central: Gráfico de Distribución Horaria --}}
-    <div class="col-12 col-xl-5">
-        <div class="dark-panel-card">
-            <div class="card-header-clean">
-                <span class="card-title-clean">Distribución Horaria de Actividad</span>
-                <span class="badge text-bg-light border" style="font-size: 0.7rem;">Hoy (24 Horas)</span>
+    <section class="dash-panel">
+        <header class="dash-panel-head">
+            <div>
+                <h2 class="dash-panel-title">Geocercas GPS</h2>
+                <p class="dash-panel-sub">{{ $activeBranches }} sedes activas</p>
             </div>
-            <div style="height: 250px; position: relative;">
-                <canvas id="hourlyActivityChart" aria-label="Distribución horaria" role="img"></canvas>
-            </div>
+        </header>
+        <div id="liveMap" class="map-frame dash-map" style="height: 240px;"></div>
+        <div class="dash-legend">
+            <span><span class="dash-dot tone-brand"></span> Perímetro</span>
+            <span><span class="dash-dot tone-emerald"></span> Dentro</span>
+            <span><span class="dash-dot tone-rose"></span> Fuera</span>
         </div>
-    </div>
-
-    {{-- Columna Derecha: Geolocalización / Mapa de Geocercas --}}
-    <div class="col-12 col-xl-4">
-        <div class="dark-panel-card">
-            <div class="card-header-clean">
-                <span class="card-title-clean"><i class="bi bi-globe2 text-primary me-1"></i> Geolocalización GPS</span>
-                <span class="text-secondary small" style="font-size: 0.75rem;">{{ $activeBranches }} sedes activas</span>
-            </div>
-            <div id="liveMap" class="map-frame" style="height: 250px;"></div>
-            <div class="d-flex justify-content-between align-items-center mt-2 pt-1 small text-secondary" style="font-size: 0.75rem;">
-                <span><i class="bi bi-circle-fill text-primary me-1" style="font-size: 0.6rem;"></i> Perímetro</span>
-                <span><i class="bi bi-circle-fill text-success me-1" style="font-size: 0.6rem;"></i> Dentro</span>
-                <span><i class="bi bi-circle-fill text-danger me-1" style="font-size: 0.6rem;"></i> Fuera</span>
-            </div>
-        </div>
-    </div>
+    </section>
 </div>
 
-{{-- 5. Actividad Reciente y Puntualidad Semanal --}}
-<div class="row g-3">
-    <div class="col-12 col-xl-7">
-        <div class="dark-panel-card">
-            <div class="card-header-clean">
-                <span class="card-title-clean">Puntualidad de los Últimos 7 Días</span>
-                <span class="badge text-bg-light border" style="font-size: 0.72rem;">Semana en curso</span>
+{{-- 5. Tendencia semanal y marcaciones en vivo --}}
+<div class="dash-grid dash-grid-2">
+    <section class="dash-panel">
+        <header class="dash-panel-head">
+            <div>
+                <h2 class="dash-panel-title">Puntualidad de los últimos 7 días</h2>
+                <p class="dash-panel-sub">Puntuales, tardanzas y ausencias por día</p>
             </div>
-            <div style="height: 280px; position: relative;">
-                <canvas id="weeklyChartCanvas" aria-label="Gráfico semanal" role="img"></canvas>
+            <div class="dash-legend m-0 p-0 border-0">
+                <span><span class="dash-dot tone-emerald"></span> Puntuales</span>
+                <span><span class="dash-dot tone-amber"></span> Tardanzas</span>
+                <span><span class="dash-dot tone-rose"></span> Ausencias</span>
+            </div>
+        </header>
+        <div class="dash-chart" style="height: 280px;">
+            <canvas id="weeklyChartCanvas" aria-label="Puntualidad de los últimos 7 días" role="img"></canvas>
+            <div class="dash-chart-empty" id="weeklyEmpty" @if($hasWeekly) hidden @endif>
+                <span class="dash-empty-icon"><i class="bi bi-calendar-week"></i></span>
+                <p class="dash-empty-title">Aún no hay datos esta semana</p>
+                <p class="dash-empty-text">La tendencia aparece con las primeras marcaciones.</p>
             </div>
         </div>
-    </div>
+    </section>
 
-    <div class="col-12 col-xl-5">
-        <div class="dark-panel-card">
-            <div class="card-header-clean">
-                <span class="card-title-clean">Transmisión de Marcaciones en Vivo</span>
-                <span class="badge bg-success-subtle"><span class="badge-dot"></span> Tiempo Real</span>
+    <section class="dash-panel dash-feed">
+        <header class="dash-panel-head">
+            <div>
+                <h2 class="dash-panel-title">Marcaciones en vivo</h2>
+                <p class="dash-panel-sub">Las más recientes primero</p>
             </div>
-            <div class="list-group list-group-flush stream-list" id="streamContainer" style="max-height: 290px; overflow-y: auto;">
-                @forelse($recentAttendances as $att)
-                    <div class="list-group-item d-flex align-items-center gap-3 px-2 py-2" data-attendance-id="{{ $att->id }}">
-                        @if($att->clock_in_photo)
-                            <div class="selfie-wrapper">
-                                <img src="{{ attendance_photo_thumb_url($att, 'in') }}" alt="Selfie de {{ $att->user->first_name }}"
-                                     class="selfie-thumb {{ $att->clock_in_within_geofence ? '' : 'is-outside' }}"
-                                     data-photo="{{ attendance_photo_url($att, 'in') }}"
-                                     data-photo-title="{{ $att->user->first_name }} {{ $att->user->last_name }}"
-                                     data-photo-meta="Hora: {{ $att->clock_in_at->format('h:i:s a') }} · Distancia: {{ $att->clock_in_distance_meters }} m"
-                                     data-fallback-initials="{{ mb_substr($att->user->first_name ?? 'U', 0, 1) }}">
-                            </div>
-                        @else
-                            <div class="selfie-wrapper">
-                                <span class="topbar-avatar" style="width: 36px; height: 36px;">{{ mb_substr($att->user->first_name ?? 'U', 0, 1) }}{{ mb_substr($att->user->last_name ?? '', 0, 1) }}</span>
-                            </div>
-                        @endif
-                        <div class="flex-grow-1 min-w-0">
-                            <div class="fw-bold text-truncate" style="font-size: 0.85rem; color: var(--text-primary);">{{ $att->user->first_name }} {{ $att->user->last_name }}</div>
-                            <div class="small text-secondary text-truncate" style="font-size: 0.75rem;">
-                                {{ $att->branch->name ?? 'Sede Principal' }} ·
-                                @if($att->clock_in_within_geofence === null)
-                                    <span class="text-warning-emphasis">Sin GPS · contingencia</span>
-                                @else
-                                    <span class="{{ $att->clock_in_within_geofence ? 'text-success' : 'text-danger' }}">{{ $att->clock_in_distance_meters }} m</span>
-                                @endif
-                            </div>
+            <span class="dash-live-pill"><span class="dash-live-dot" aria-hidden="true"></span> Tiempo real</span>
+        </header>
+        <div class="list-group list-group-flush stream-list" id="streamContainer">
+            @forelse($recentAttendances as $att)
+                <div class="list-group-item d-flex align-items-center gap-3 px-2 py-2" data-attendance-id="{{ $att->id }}">
+                    @if($att->clock_in_photo)
+                        <div class="selfie-wrapper">
+                            <img src="{{ attendance_photo_thumb_url($att, 'in') }}" alt="Selfie de {{ $att->user->first_name }}"
+                                 class="selfie-thumb {{ $att->clock_in_within_geofence ? '' : 'is-outside' }}"
+                                 data-photo="{{ attendance_photo_url($att, 'in') }}"
+                                 data-photo-title="{{ $att->user->first_name }} {{ $att->user->last_name }}"
+                                 data-photo-meta="Hora: {{ $att->clock_in_at->format('h:i:s a') }} · Distancia: {{ $att->clock_in_distance_meters }} m"
+                                 data-fallback-initials="{{ mb_substr($att->user->first_name ?? 'U', 0, 1) }}">
                         </div>
-                        <div class="text-end">
-                            <div class="fw-bold" style="font-size: 0.825rem; color: var(--text-primary);">{{ $att->clock_in_at?->format('h:i a') ?? '--:--' }}</div>
-                            @include('partials.attendance-status', ['status' => $att->status])
+                    @else
+                        <div class="selfie-wrapper">
+                            <span class="topbar-avatar" style="width: 36px; height: 36px;">{{ mb_substr($att->user->first_name ?? 'U', 0, 1) }}{{ mb_substr($att->user->last_name ?? '', 0, 1) }}</span>
+                        </div>
+                    @endif
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="dash-feed-name text-truncate">{{ $att->user->first_name }} {{ $att->user->last_name }}</div>
+                        <div class="dash-feed-meta text-truncate">
+                            {{ $att->branch->name ?? 'Sede Principal' }} ·
+                            @if($att->clock_in_within_geofence === null)
+                                <span class="text-warning-emphasis">Sin GPS · contingencia</span>
+                            @else
+                                <span class="{{ $att->clock_in_within_geofence ? 'text-success' : 'text-danger' }}">{{ $att->clock_in_distance_meters }} m</span>
+                            @endif
                         </div>
                     </div>
-                @empty
-                    <div class="empty-state text-center py-4">
-                        <i class="bi bi-inbox text-secondary fs-3 d-block mb-2"></i>
-                        <div class="fw-semibold small" style="color: var(--text-primary);">Sin actividad reciente en el periodo seleccionado</div>
-                        <div class="text-secondary small" style="font-size: 0.75rem;">Las transmisiones aparecerán automáticamente aquí.</div>
+                    <div class="text-end">
+                        <div class="dash-feed-time">{{ $att->clock_in_at?->format('h:i a') ?? '--:--' }}</div>
+                        @include('partials.attendance-status', ['status' => $att->status])
                     </div>
-                @endforelse
-            </div>
-            <div class="px-3 py-2 border-top bg-light-subtle d-flex justify-content-between align-items-center" style="font-size: 0.725rem; color: #64748b; border-color: var(--border-color) !important;">
-                <span>Mostrando <b id="streamCount">{{ count($recentAttendances) }}</b> marcaciones</span>
-                <span><i class="bi bi-shield-check text-success me-1"></i> Telemetría activa</span>
-            </div>
+                </div>
+            @empty
+                <div class="dash-empty empty-state">
+                    <span class="dash-empty-icon"><i class="bi bi-broadcast"></i></span>
+                    <p class="dash-empty-title">Sin marcaciones en este período</p>
+                    <p class="dash-empty-text">Las nuevas marcaciones aparecerán aquí en tiempo real.</p>
+                </div>
+            @endforelse
         </div>
-    </div>
+        <footer class="dash-panel-foot">
+            <span>Mostrando <b id="streamCount">{{ count($recentAttendances) }}</b> marcaciones</span>
+            <span><i class="bi bi-shield-check text-success me-1"></i> Telemetría activa</span>
+        </footer>
+    </section>
 </div>
 @endsection
 
@@ -566,102 +570,101 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentBranchId = @json($selectedBranchId);
     renderMapBranches(currentBranchId);
 
-    {{-- 2. Gráfico de Distribución Horaria Real --}}
+    {{-- 2 y 3. Gráficos con los colores del tema (claro / oscuro) y de la marca de la empresa --}}
+    const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const alpha = (rgbVar, a) => `rgba(${css(rgbVar)}, ${a})`;
+    function chartTheme() {
+        return {
+            text: css('--text-muted') || '#64748b',
+            grid: css('--border-color') || '#e2e8f0',
+            surface: css('--bg-surface') || '#ffffff',
+            title: css('--text-primary') || '#0f172a',
+            body: css('--text-secondary') || '#475569',
+            brand: alpha('--brand-rgb', 0.85),
+            brandHover: css('--brand') || '#0284c7',
+            emerald: css('--accent-emerald') || '#059669',
+            amber: css('--accent-amber') || '#d97706',
+            rose: css('--accent-rose') || '#dc2626',
+        };
+    }
+    Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, sans-serif";
+    Chart.defaults.font.size = 11;
+
+    const tooltipOf = (t) => ({
+        backgroundColor: t.surface, borderColor: t.grid, borderWidth: 1, titleColor: t.title, bodyColor: t.body,
+        padding: 10, cornerRadius: 8, boxWidth: 8, boxHeight: 8, boxPadding: 4, usePointStyle: true,
+        titleFont: { weight: '700' }, caretSize: 5,
+    });
+    const scalesOf = (t, stacked) => ({
+        x: { stacked, grid: { display: false }, border: { display: false }, ticks: { color: t.text, maxRotation: 0, autoSkipPadding: 12 } },
+        y: { stacked, beginAtZero: true, border: { display: false }, grid: { color: t.grid, drawTicks: false }, ticks: { color: t.text, precision: 0, maxTicksLimit: 5, padding: 8 } },
+    });
+    const baseOptions = (t, stacked) => ({
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 500, easing: 'easeOutQuart' },
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false }, tooltip: tooltipOf(t) },
+        scales: scalesOf(t, stacked),
+    });
+
+    {{-- Mensaje en vez de un gráfico vacío --}}
+    function toggleChartEmpty(id, ...series) {
+        const el = document.getElementById(id);
+        if (el) el.hidden = series.flat().reduce((s, v) => s + (Number(v) || 0), 0) > 0;
+    }
+
     const hourlyCtx = document.getElementById('hourlyActivityChart');
     let hourlyChartInstance = null;
     if (hourlyCtx) {
+        const t = chartTheme();
         hourlyChartInstance = new Chart(hourlyCtx, {
             type: 'bar',
             data: {
                 labels: hoursLabels,
-                datasets: [{
-                    label: 'Registros',
-                    data: hourlyActivity,
-                    backgroundColor: '#0284c7',
-                    hoverBackgroundColor: '#0369a1',
-                    borderRadius: 4,
-                    barThickness: 14,
-                }]
+                datasets: [{ label: 'Marcaciones', data: hourlyActivity, backgroundColor: t.brand, hoverBackgroundColor: t.brandHover,
+                    borderRadius: 6, borderSkipped: false, barPercentage: 0.6, categoryPercentage: 0.8, maxBarThickness: 22 }],
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#0f172a',
-                        borderColor: '#e2e8f0',
-                        borderWidth: 1,
-                        titleColor: '#fff',
-                        bodyColor: '#cbd5e1',
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#64748b', font: { size: 10 } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(0, 0, 0, 0.06)' },
-                        ticks: { color: '#64748b', font: { size: 10 }, stepSize: 2 }
-                    }
-                }
-            }
+            options: baseOptions(t, false),
         });
     }
 
-    {{-- 3. Gráfico Semanal / Tendencia --}}
     const weeklyCtx = document.getElementById('weeklyChartCanvas');
     let weeklyChartInstance = null;
     if (weeklyCtx) {
+        const t = chartTheme();
+        {{-- Barras apiladas: el borde del color de la tarjeta separa los tramos --}}
+        const segment = { borderRadius: 4, borderSkipped: false, borderWidth: 2, borderColor: t.surface, maxBarThickness: 28, barPercentage: 0.55 };
         weeklyChartInstance = new Chart(weeklyCtx, {
             type: 'bar',
             data: {
                 labels: chartData.labels,
                 datasets: [
-                    { label: 'Puntuales', data: chartData.on_time, backgroundColor: '#059669', borderRadius: 4, barThickness: 14 },
-                    { label: 'Tardanzas', data: chartData.late, backgroundColor: '#d97706', borderRadius: 4, barThickness: 14 },
-                    { label: 'Ausencias', data: chartData.absent, backgroundColor: '#dc2626', borderRadius: 4, barThickness: 14 },
+                    { label: 'Puntuales', data: chartData.on_time, backgroundColor: t.emerald, ...segment },
+                    { label: 'Tardanzas', data: chartData.late, backgroundColor: t.amber, ...segment },
+                    { label: 'Ausencias', data: chartData.absent, backgroundColor: t.rose, ...segment },
                 ],
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        align: 'end',
-                        labels: {
-                            color: '#64748b',
-                            usePointStyle: true,
-                            pointStyle: 'circle',
-                            font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: '#0f172a',
-                        borderColor: '#e2e8f0',
-                        borderWidth: 1,
-                        titleColor: '#fff',
-                        bodyColor: '#cbd5e1',
-                        cornerRadius: 8,
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#64748b', font: { size: 11 } }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(0, 0, 0, 0.06)' },
-                        ticks: { color: '#64748b', precision: 0, font: { size: 11 } }
-                    },
-                },
-            },
+            options: baseOptions(t, true),
         });
     }
+
+    {{-- Cambio de tema: se recolorean sin recrear los gráficos --}}
+    document.addEventListener('panel:theme', () => {
+        requestAnimationFrame(() => {
+            const t = chartTheme();
+            [hourlyChartInstance, weeklyChartInstance].forEach((c) => {
+                if (!c) return;
+                c.options.plugins.tooltip = tooltipOf(t);
+                c.options.scales = scalesOf(t, c === weeklyChartInstance);
+            });
+            if (hourlyChartInstance) Object.assign(hourlyChartInstance.data.datasets[0], { backgroundColor: t.brand, hoverBackgroundColor: t.brandHover });
+            if (weeklyChartInstance) {
+                [t.emerald, t.amber, t.rose].forEach((color, i) => Object.assign(weeklyChartInstance.data.datasets[i], { backgroundColor: color, borderColor: t.surface }));
+            }
+            hourlyChartInstance?.update('none');
+            weeklyChartInstance?.update('none');
+        });
+    });
 
     {{-- Filtro de Sede / Oficina Reactivo 100% Asíncrono (Cero recarga de página, cero parámetros en URL) --}}
     const branchSelectEl = document.getElementById('branchSelectFilter');
@@ -891,14 +894,14 @@ document.addEventListener('DOMContentLoaded', () => {
         div.innerHTML = `
             ${avatarOrPhoto}
             <div class="flex-grow-1 min-w-0">
-                <div class="fw-bold text-truncate" style="font-size: 0.85rem; color: var(--text-primary);">${safeUserName}</div>
-                <div class="small text-secondary text-truncate" style="font-size: 0.75rem;">
+                <div class="dash-feed-name text-truncate">${safeUserName}</div>
+                <div class="dash-feed-meta text-truncate">
                     ${Panel.esc(att.branch_name || 'Sin asignar')} ·
                     ${att.within_geofence === null ? '<span class="text-warning-emphasis">Sin GPS · contingencia</span>' : `<span class="${att.within_geofence ? 'text-success' : 'text-danger'}">${safeDist} m</span>`}
                 </div>
             </div>
             <div class="text-end">
-                <div class="fw-bold" style="font-size: 0.825rem; color: var(--text-primary);">${safeClockIn}</div>
+                <div class="dash-feed-time">${safeClockIn}</div>
                 ${statusBadge}
             </div>`;
         return div;
@@ -977,6 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const triggerFrom = document.getElementById('calTriggerFrom');
             const triggerTo = document.getElementById('calTriggerTo');
             if (triggerLabel) triggerLabel.textContent = data.presetLabel;
+            document.querySelectorAll('[data-period-label]').forEach((el) => { el.textContent = data.presetLabel; });
             if (triggerFrom) triggerFrom.textContent = formatToDMY(data.dateFrom);
             if (triggerTo) triggerTo.textContent = formatToDMY(data.dateTo);
 
@@ -1035,6 +1039,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (elLate) elLate.textContent = data.kpis.late_count ?? 0;
             const elRate = document.getElementById('kpiRate');
             if (elRate) elRate.textContent = `${data.kpis.punctuality_rate ?? 0}%`;
+            const elRateBar = document.getElementById('kpiRateBar');
+            if (elRateBar) elRateBar.style.width = `${Math.min(Math.max(data.kpis.punctuality_rate ?? 0, 0), 100)}%`;
             const elAbsent = document.getElementById('kpiAbsentText');
             if (elAbsent) elAbsent.textContent = `${data.kpis.absent_count ?? 0} ausentes`;
             const elActive = document.getElementById('kpiActiveEmp');
@@ -1059,6 +1065,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const cOffset = 131.9 - (131.9 * coverageRate / 100);
             const cMeter = document.getElementById('dialCoverageMeter');
             if (cMeter) cMeter.style.strokeDashoffset = cOffset;
+            const covBar = document.getElementById('kpiCoverageBar');
+            if (covBar) covBar.style.width = `${coverageRate}%`;
             const cText = document.getElementById('dialCoverageText');
             if (cText) cText.textContent = `${coverageRate}%`;
             const cVal = document.getElementById('dialCoverageVal');
@@ -1081,6 +1089,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (hourlyChartInstance && data.hourlyDistribution) {
                 hourlyChartInstance.data.datasets[0].data = data.hourlyDistribution;
                 hourlyChartInstance.update();
+                toggleChartEmpty('hourlyEmpty', data.hourlyDistribution);
             }
 
             if (weeklyChartInstance && data.weeklyChart) {
@@ -1089,6 +1098,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 weeklyChartInstance.data.datasets[1].data = data.weeklyChart.late;
                 weeklyChartInstance.data.datasets[2].data = data.weeklyChart.absent;
                 weeklyChartInstance.update();
+                toggleChartEmpty('weeklyEmpty', data.weeklyChart.on_time, data.weeklyChart.late, data.weeklyChart.absent);
             }
 
             {{-- 4. Feed de Marcaciones en Vivo (Reconciliación Inteligente: No parpadear fotos ya cargadas) --}}
@@ -1128,10 +1138,10 @@ document.addEventListener('DOMContentLoaded', () => {
             function renderFullStream(items, container) {
                 if (!items || items.length === 0) {
                     container.innerHTML = `
-                        <div class="empty-state text-center py-4">
-                            <i class="bi bi-inbox text-secondary fs-3 d-block mb-2"></i>
-                            <div class="fw-semibold small" style="color: var(--text-primary);">Sin actividad reciente en el periodo seleccionado</div>
-                            <div class="text-secondary small" style="font-size: 0.75rem;">Las transmisiones aparecerán automáticamente aquí.</div>
+                        <div class="dash-empty empty-state">
+                            <span class="dash-empty-icon"><i class="bi bi-broadcast"></i></span>
+                            <p class="dash-empty-title">Sin marcaciones en este período</p>
+                            <p class="dash-empty-text">Las nuevas marcaciones aparecerán aquí en tiempo real.</p>
                         </div>`;
                     renderedAttendanceIds = [];
                 } else {
