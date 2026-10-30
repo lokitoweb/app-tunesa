@@ -41,7 +41,7 @@ class ScheduleProgramming
                 ->where(fn ($w) => $w->whereNull('employee_branch.assigned_until')->orWhere('employee_branch.assigned_until', '>=', $from)))
             ->visibleTo($viewer)
             ->orderBy('last_name')->orderBy('first_name')
-            ->get(['id', 'first_name', 'last_name', 'employee_code', 'position', 'tenant_id']);
+            ->get(['id', 'first_name', 'last_name', 'employee_code', 'position', 'position_id', 'tenant_id']);
     }
 
     /**

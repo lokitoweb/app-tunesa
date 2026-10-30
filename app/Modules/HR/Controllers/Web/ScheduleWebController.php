@@ -4,6 +4,7 @@ namespace App\Modules\HR\Controllers\Web;
 
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\Position;
 use App\Modules\HR\Models\Holiday;
 use App\Modules\HR\Models\Shift;
 use App\Modules\HR\Services\ScheduleProgramming;
@@ -53,7 +54,12 @@ class ScheduleWebController extends Controller
             'month'    => $month->format('Y-m'),
             'from'     => $from,
             'to'       => $to,
-            'people'   => $people->map(fn ($u) => ['id' => $u->id, 'name' => trim("{$u->last_name}, {$u->first_name}"), 'code' => $u->employee_code, 'position' => $u->position])->values(),
+            'people'   => $people->map(fn ($u) => ['id' => $u->id, 'name' => trim("{$u->last_name}, {$u->first_name}"), 'code' => $u->employee_code, 'position' => $u->position, 'position_id' => $u->position_id])->values(),
+            // QA3-03: filtro por cargo (catálogo de la empresa de la agencia; va en la recarga porque cambia con la agencia)
+            // (activos, más los inactivos que aún tiene alguien de la agencia, para que nadie quede fuera del filtro)
+            'positions' => $branch ? Position::withoutGlobalScopes()->where('tenant_id', $branch->tenant_id)
+                ->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $people->pluck('position_id')->filter()->unique()->all()))
+                ->orderBy('name')->get(['id', 'name']) : [],
             'grid'     => $branch ? $this->programming->grid($people, $from, $to) : [],
             // Regla 6: el mes se programa con PROGRAMMING_LEAD_DAYS días de anticipación
             'deadline' => $month->subDays(self::PROGRAMMING_LEAD_DAYS)->toDateString(),

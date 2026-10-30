@@ -117,6 +117,31 @@ class ScheduleProgrammingTest extends TestCase
         $this->program_again_is_idempotent();
     }
 
+    /** QA3-03: la pantalla trae el catálogo de cargos y el cargo de cada persona; repetir para los visibles no toca a los ocultos */
+    public function test_position_filter_data_and_bulk_copy_only_touches_the_people_sent(): void
+    {
+        $call = \App\Modules\Core\Models\Position::create(['tenant_id' => $this->acme->id, 'name' => 'CALL CENTER', 'is_active' => true]);
+        $old  = \App\Modules\Core\Models\Position::create(['tenant_id' => $this->acme->id, 'name' => 'CARGO ANTIGUO', 'is_active' => false]);
+        \App\Modules\Core\Models\Position::create(['tenant_id' => $this->acme->id, 'name' => 'INACTIVO SIN NADIE', 'is_active' => false]);
+        $this->people['Juan']->update(['position_id' => $call->id]);
+        $this->people['Fidel']->update(['position_id' => $old->id]);
+
+        $json = $this->actingAs($this->hr)->getJson(route('shifts.schedule', ['branch_id' => $this->trujillo->id, 'month' => '2026-10']))->assertOk()->json();
+        $this->assertSame(['CALL CENTER', 'CARGO ANTIGUO'], array_column($json['positions'], 'name'));
+        $byName = collect($json['people'])->keyBy(fn ($p) => explode(', ', $p['name'])[1]);
+        $this->assertSame([$call->id, 'CALL CENTER'], [$byName['Juan']['position_id'], $byName['Juan']['position']]);
+        $this->assertNull($byName['Juana']['position_id']);
+
+        // Con el filtro «CALL CENTER» la pantalla manda solo a Juan: Fidel y Juana quedan como estaban
+        $this->program();
+        $this->actingAs($this->hr)->postJson(route('shifts.schedule.repeat'), [
+            'branch_id' => $this->trujillo->id, 'user_ids' => [$this->people['Juan']->id],
+            'source_from' => '2026-10-05', 'source_to' => '2026-10-11', 'target_from' => '2026-10-19', 'until' => '2026-10-25',
+        ])->assertOk();
+        $this->assertSame(7, EmployeeScheduleDay::where('user_id', $this->people['Juan']->id)->whereBetween('work_date', ['2026-10-19', '2026-10-25'])->count());
+        $this->assertSame(0, EmployeeScheduleDay::whereIn('user_id', [$this->people['Fidel']->id, $this->people['Juana']->id])->whereBetween('work_date', ['2026-10-19', '2026-10-25'])->count());
+    }
+
     private function program_again_is_idempotent(): void
     {
         $juan = $this->people['Juan'];

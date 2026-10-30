@@ -15,6 +15,7 @@ const props = defineProps({
     from: { type: String, required: true },
     to: { type: String, required: true },
     people: { type: Array, default: () => [] },
+    positions: { type: Array, default: () => [] },
     grid: { type: [Object, Array], default: () => ({}) },
     holidays: { type: [Object, Array], default: () => ({}) },
     deadline: { type: String, default: null },
@@ -30,6 +31,7 @@ const state = reactive({
     from: props.from,
     to: props.to,
     people: [...props.people],
+    positions: [...props.positions],
     grid: JSON.parse(JSON.stringify(props.grid || {})),
     holidays: { ...(props.holidays || {}) },
     deadline: props.deadline,
@@ -53,6 +55,45 @@ const showToast = (message, type = 'success') => toast(message, type);
 
 const shiftById = computed(() => Object.fromEntries(state.shifts.map((s) => [s.id, s])));
 
+// QA3-03: filtro por cargo (varios a la vez; vacío = todos). Se mantiene al cambiar de mes.
+// Todo lo masivo (seleccionar, marcar la columna, guardar, copiar y repetir) trabaja solo con los visibles.
+const NO_POSITION = 'none';
+// Clave del cargo: el del catálogo (id) o, si solo hay texto (cargo antiguo sin catálogo), ese texto;
+// un texto igual a un cargo del catálogo cuenta como ese cargo (una sola opción)
+const catalogByName = computed(() => Object.fromEntries(state.positions.map((p) => [p.name.trim().toLowerCase(), p.id])));
+const positionKey = (p) => p.position_id
+    ?? (p.position ? (catalogByName.value[p.position.trim().toLowerCase()] ?? `txt:${p.position.trim()}`) : NO_POSITION);
+// Opciones: el catálogo de la empresa más los cargos de texto que tenga alguien de la agencia
+const positionOptions = computed(() => {
+    const catalog = state.positions.map((p) => ({ key: p.id, name: p.name }));
+    const legacy = [...new Set(state.people.map(positionKey).filter((k) => typeof k === 'string' && k.startsWith('txt:')))]
+        .map((key) => ({ key, name: key.slice(4) }));
+    return [...catalog, ...legacy].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+});
+const positionFilter = ref([]);
+const filtering = computed(() => positionFilter.value.length > 0);
+const visiblePeople = computed(() => (filtering.value
+    ? state.people.filter((p) => positionFilter.value.includes(positionKey(p)))
+    : state.people));
+const positionFilterLabel = computed(() => {
+    if (!filtering.value) return 'Todos los cargos';
+    if (positionFilter.value.length > 1) return `${positionFilter.value.length} cargos`;
+    const only = positionFilter.value[0];
+    return only === NO_POSITION ? 'Sin cargo' : (positionOptions.value.find((o) => o.key === only)?.name ?? '1 cargo');
+});
+function togglePosition(id) {
+    positionFilter.value = positionFilter.value.includes(id)
+        ? positionFilter.value.filter((x) => x !== id)
+        : [...positionFilter.value, id];
+    dropHiddenFromSelection();
+}
+function clearPositionFilter() { positionFilter.value = []; }
+// Al filtrar, la selección se queda solo con los que se ven: nunca se actúa sobre filas ocultas
+function dropHiddenFromSelection() {
+    const visible = new Set(visiblePeople.value.map((p) => p.id));
+    selected.value = new Set([...selected.value].filter((id) => visible.has(id)));
+}
+
 const days = computed(() => {
     const out = [];
     const end = new Date(state.to + 'T00:00:00');
@@ -75,15 +116,17 @@ const weeks = computed(() => {
 
 const monthLabel = computed(() => {
     const [y, m] = state.month.split('-').map(Number);
-    return new Date(y, m - 1, 1).toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
+    const label = new Date(y, m - 1, 1).toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
+    return label.charAt(0).toUpperCase() + label.slice(1);
 });
 
 function cell(userId, date) {
     return state.grid[userId]?.[date] ?? { shift_id: null, source: 'none' };
 }
 
-// Alerta: colaboradores con días sin ninguna programación (ni día libre ni horario)
-const unscheduled = computed(() => state.people
+// Alerta: colaboradores con días sin ninguna programación (ni día libre ni horario).
+// Con el filtro de cargo cuenta solo a los que se ven (el aviso lo dice)
+const unscheduled = computed(() => visiblePeople.value
     .map((p) => ({ ...p, count: days.value.filter((d) => cell(p.id, d.date).source === 'none' && !state.holidays[d.date]).length }))
     .filter((p) => p.count > 0));
 
@@ -131,9 +174,9 @@ function stopPaint() { dragging.value = false; }
 window.addEventListener('mouseup', stopPaint);
 onBeforeUnmount(() => window.removeEventListener('mouseup', stopPaint));
 
-// Programar a varios a la vez: clic en el día pinta a los seleccionados (o a todos)
+// Programar a varios a la vez: clic en el día pinta a los seleccionados (o a todos los que se ven)
 function targets() {
-    return selected.value.size ? state.people.filter((p) => selected.value.has(p.id)) : state.people;
+    return selected.value.size ? visiblePeople.value.filter((p) => selected.value.has(p.id)) : visiblePeople.value;
 }
 // Columna: si todos los elegidos ya tienen el horario del pincel ese día, se desmarca
 function paintColumn(date) {
@@ -146,15 +189,17 @@ function toggle(id) {
     s.has(id) ? s.delete(id) : s.add(id);
     selected.value = s;
 }
-const allSelected = computed(() => state.people.length > 0 && selected.value.size === state.people.length);
-function toggleAll() { selected.value = allSelected.value ? new Set() : new Set(state.people.map((p) => p.id)); }
+const allSelected = computed(() => visiblePeople.value.length > 0 && visiblePeople.value.every((p) => selected.value.has(p.id)));
+function toggleAll() { selected.value = allSelected.value ? new Set() : new Set(visiblePeople.value.map((p) => p.id)); }
 
 async function load(params) {
     if (dirty.value && !(await ask({ title: 'Cambios sin guardar', message: 'Tienes cambios sin guardar en este mes. ¿Descartarlos?', confirmText: 'Descartar', cancelText: 'Volver', variant: 'warning' }))) return;
     loading.value = true;
     try {
         const res = await axios.get('/shifts/schedule', { params: { branch_id: state.branchId, month: state.month, ...params }, headers });
-        Object.assign(state, { ...res.data, grid: res.data.grid || {}, holidays: res.data.holidays || {}, shifts: res.data.shifts || [] });
+        Object.assign(state, { ...res.data, grid: res.data.grid || {}, holidays: res.data.holidays || {}, shifts: res.data.shifts || [], positions: res.data.positions || [] });
+        // El filtro de cargo se mantiene (mes nuevo); en otra empresa se quitan los cargos que ya no existen
+        positionFilter.value = positionFilter.value.filter((key) => key === NO_POSITION || positionOptions.value.some((o) => o.key === key));
         saved = JSON.parse(JSON.stringify(state.grid));
         state.branchId = res.data.branchId;
         // El pincel sigue si el horario existe en la nueva agencia; si no, el primero de ella
@@ -197,9 +242,13 @@ async function save() {
         return;
     }
     const total = rows.reduce((n, r) => n + Object.keys(r.days).length, 0);
+    // Cambios hechos antes de filtrar a personas que ahora no se ven: no se guardan (se avisa)
+    const visibleIds = new Set(visiblePeople.value.map((p) => p.id));
+    const hiddenEdited = editedRows(state.people.filter((p) => !visibleIds.has(p.id))).length;
+    const hiddenNote = hiddenEdited ? ` Hay cambios en ${hiddenEdited} colaborador(es) ocultos por el filtro de cargo: no se guardan; quita el filtro para guardarlos.` : '';
     const ok = await ask({
         title: 'Guardar programación',
-        message: `Se guardarán ${total} día(s) marcados de ${rows.length} colaborador(es). Rigen desde ya en la app y la marcación; los días que no marcaste no cambian.`,
+        message: `Se guardarán ${total} día(s) marcados de ${rows.length} colaborador(es). Rigen desde ya en la app y la marcación; los días que no marcaste no cambian.${hiddenNote}`,
         confirmText: 'Guardar', cancelText: 'Cancelar', variant: 'primary', icon: 'bi bi-floppy2-fill',
     });
     if (!ok) return;
@@ -235,8 +284,11 @@ async function repeat() {
         if (!until) { showToast('Indica hasta qué fecha repetir.', 'danger'); return; }
     }
     try {
+        // Sin selección: los que se ven (con filtro de cargo, nunca toda la agencia)
+        const userIds = selected.value.size ? [...selected.value] : (filtering.value ? visiblePeople.value.map((p) => p.id) : []);
+        if (filtering.value && !userIds.length) { showToast('No hay colaboradores con ese cargo para copiar.', 'danger'); return; }
         const res = await axios.post('/shifts/schedule/repeat', {
-            branch_id: state.branchId, user_ids: [...selected.value], source_from: src.from, source_to: srcTo.to,
+            branch_id: state.branchId, user_ids: userIds, source_from: src.from, source_to: srcTo.to,
             target_from: targetFrom, until, reason: reason.value,
         }, { headers });
         showToast(res.data.message);
@@ -266,7 +318,7 @@ async function repeat() {
             <div v-if="unscheduled.length" class="sched-alert is-warning" role="alert">
                 <i class="bi bi-exclamation-triangle"></i>
                 <span>
-                    <strong>{{ unscheduled.length }} colaborador(es) con días sin programar:</strong>
+                    <strong>{{ unscheduled.length }} colaborador(es) con días sin programar<template v-if="filtering"> (de los {{ visiblePeople.length }} que ves con el filtro de cargo)</template>:</strong>
                     {{ unscheduled.slice(0, 3).map((p) => `${p.name} (${p.count})`).join(' · ') }}<template v-if="unscheduled.length > 3"> y {{ unscheduled.length - 3 }} más</template>.
                 </span>
             </div>
@@ -290,8 +342,37 @@ async function repeat() {
                     <span class="sched-label">Mes</span>
                     <div class="sched-month" role="group" aria-label="Mes y año">
                         <button type="button" class="sched-month-btn" :disabled="loading" title="Mes anterior" aria-label="Mes anterior" @click="shiftMonth(-1)"><i class="bi bi-chevron-left"></i></button>
-                        <span class="sched-month-label text-capitalize">{{ monthLabel }}</span>
+                        <span class="sched-month-label">{{ monthLabel }}</span>
                         <button type="button" class="sched-month-btn" :disabled="loading" title="Mes siguiente" aria-label="Mes siguiente" @click="shiftMonth(1)"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div v-if="state.branchId" class="sched-field">
+                    <span class="sched-label" id="sched-position-label">Cargo</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="dropdown">
+                            <button type="button" class="btn sched-position-btn dropdown-toggle" :class="{ 'is-active': filtering }" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                                aria-expanded="false" aria-labelledby="sched-position-label">
+                                <i class="bi bi-person-badge"></i><span class="text-truncate">{{ positionFilterLabel }}</span>
+                            </button>
+                            <div class="dropdown-menu sched-position-menu p-2">
+                                <label class="dropdown-item sched-position-option">
+                                    <input type="checkbox" class="form-check-input" :checked="!filtering" @change="clearPositionFilter">
+                                    <span class="fw-semibold">Todos los cargos</span>
+                                </label>
+                                <div class="dropdown-divider my-1"></div>
+                                <label v-for="opt in positionOptions" :key="opt.key" class="dropdown-item sched-position-option">
+                                    <input type="checkbox" class="form-check-input" :checked="positionFilter.includes(opt.key)" @change="togglePosition(opt.key)">
+                                    <span class="text-truncate" :title="opt.name">{{ opt.name }}</span>
+                                </label>
+                                <label class="dropdown-item sched-position-option">
+                                    <input type="checkbox" class="form-check-input" :checked="positionFilter.includes(NO_POSITION)" @change="togglePosition(NO_POSITION)">
+                                    <span class="fst-italic">Sin cargo</span>
+                                </label>
+                            </div>
+                        </div>
+                        <button v-if="filtering" type="button" class="btn btn-sm btn-link text-decoration-none px-1" @click="clearPositionFilter">
+                            <i class="bi bi-x-circle me-1"></i>Limpiar
+                        </button>
                     </div>
                 </div>
                 <div class="sched-legends ms-lg-auto">
@@ -338,7 +419,7 @@ async function repeat() {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="p in state.people" :key="p.id">
+                        <tr v-for="p in visiblePeople" :key="p.id">
                             <td class="sched-name">
                                 <div class="sched-person">
                                     <input type="checkbox" class="form-check-input" :checked="selected.has(p.id)" :aria-label="`Seleccionar ${p.name}`" @change="toggle(p.id)">
@@ -367,6 +448,12 @@ async function repeat() {
                         <tr v-if="!state.people.length">
                             <td :colspan="days.length + 1" class="text-center text-muted py-5">No hay colaboradores activos asignados a esta agencia.</td>
                         </tr>
+                        <tr v-else-if="!visiblePeople.length">
+                            <td :colspan="days.length + 1" class="text-center text-muted py-5">
+                                Sin colaboradores con {{ positionFilter.length > 1 ? 'esos cargos' : 'ese cargo' }} en esta agencia.
+                                <button type="button" class="btn btn-sm btn-link" @click="clearPositionFilter">Ver todos</button>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -379,7 +466,7 @@ async function repeat() {
                     <label for="sched-reason" class="sched-label">Motivo <span class="text-body-secondary fw-normal">(opcional, queda en la bitácora)</span></label>
                     <input id="sched-reason" v-model="reason" type="text" class="form-control sched-input mb-3" maxlength="300" placeholder="Ej.: Programación de noviembre">
                     <div class="d-flex align-items-center flex-wrap" style="gap: 12px;">
-                        <button type="button" class="btn btn-primary sched-btn" :disabled="saving || !state.people.length" @click="save">
+                        <button type="button" class="btn btn-primary sched-btn" :disabled="saving || !visiblePeople.length" @click="save">
                             <span v-if="saving" class="spinner-border spinner-border-sm"></span>
                             <i v-else class="bi bi-floppy2-fill"></i>
                             <span>Guardar cambios {{ selected.size ? `(${selected.size} seleccionados)` : '' }}</span>
@@ -420,7 +507,7 @@ async function repeat() {
                         </div>
                         <button type="button" class="btn btn-outline-primary sched-btn" @click="repeat"><i class="bi bi-copy"></i><span>Aplicar</span></button>
                     </div>
-                    <div class="small text-body-secondary mt-2">Se aplica a los seleccionados (o a todos) y copia solo los días ya programados y guardados.</div>
+                    <div class="small text-body-secondary mt-2">Se aplica a los seleccionados (o a todos los que se ven{{ filtering ? ' con el filtro de cargo' : '' }}) y copia solo los días ya programados y guardados.</div>
                 </div>
             </div>
         </div>
@@ -443,6 +530,11 @@ async function repeat() {
 .sched-month-btn:hover:not(:disabled) { background: var(--bs-tertiary-bg); }
 .sched-month-btn:disabled { opacity: .5; }
 .sched-month-label { display: inline-flex; align-items: center; padding: 0 14px; min-width: 150px; justify-content: center; font-weight: 700; color: var(--bs-emphasis-color); border-left: 1px solid var(--bs-border-color); border-right: 1px solid var(--bs-border-color); }
+.sched-position-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; max-width: 260px; padding: 0 12px; border: 1px solid var(--bs-border-color); border-radius: 10px; background: var(--bs-body-bg); color: var(--bs-body-color); font-size: 0.85rem; }
+.sched-position-btn.is-active { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.sched-position-menu { min-width: 240px; max-height: 320px; overflow-y: auto; }
+.sched-position-option { display: flex; align-items: center; gap: 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.sched-position-option .form-check-input { margin: 0; flex-shrink: 0; }
 .sched-legends { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.78rem; color: var(--bs-secondary-color); }
 .sched-legends span { display: inline-flex; align-items: center; gap: 6px; }
 .sched-legend { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
