@@ -7,245 +7,137 @@
     $statusLabels = ['pending' => 'Pendientes', 'approved' => 'Aprobadas', 'rejected' => 'Rechazadas', 'cancelled' => 'Canceladas'];
 @endphp
 
-{{-- Header Ejecutivo con Título, Subtítulo y Badge de Resumen --}}
-<div class="appr-header-bar">
-    <div>
-        <div class="d-flex align-items-center gap-2 mb-1" id="apprHeaderBadge">
-            <h1 class="h3 fw-bold mb-0 text-body">Aprobaciones</h1>
-            @php $totalPending = ($counts['leave'] ?? 0) + ($counts['justifications'] ?? 0) + ($counts['overtime'] ?? 0); @endphp
-            @if($totalPending > 0)
-                <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2 py-1" style="font-size: 0.775rem; font-weight: 700;">
-                    <i class="bi bi-bell-fill me-1"></i>{{ $totalPending }} pendientes
-                </span>
-            @else
-                <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.775rem; font-weight: 600;">
-                    <i class="bi bi-check-circle me-1"></i>Al día
-                </span>
-            @endif
-        </div>
-        <p class="text-secondary small mb-0">Vacaciones, permisos, licencias médicas, justificaciones de asistencia y horas extra.</p>
+@php $totalPending = ($counts['leave'] ?? 0) + ($counts['justifications'] ?? 0) + ($counts['overtime'] ?? 0); @endphp
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-title">Aprobaciones</h1>
+        <p class="page-subtitle">Vacaciones, permisos, licencias médicas, justificaciones de asistencia y horas extra.</p>
     </div>
-</div>
+    <div class="page-actions" id="apprHeaderBadge">
+        @if($totalPending > 0)
+            <span class="status-pill tone-rose"><i class="bi bi-bell"></i>{{ $totalPending }} pendientes</span>
+        @else
+            <span class="status-pill tone-emerald"><i class="bi bi-check-circle"></i>Al día</span>
+        @endif
+    </div>
+</header>
 
-{{-- Contenedor Reactivo Dinámico AJAX (Actualización Fluida sin Recargas ni Parámetros Expuestos en URL) --}}
+{{-- Zona que se actualiza por AJAX (pestaña, estado y página) sin cambiar la URL --}}
 <div id="approvalsDynamicWrapper" class="appr-dynamic-area">
-    {{-- Barra de Navegación Segmentada (Pestañas de Módulo y Filtro de Estados) --}}
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
-        <div class="appr-tab-group">
-            <button type="button" 
-                    class="appr-tab-btn {{ $tab === 'leave' ? 'active' : '' }}" 
-                    data-tab="leave" 
-                    onclick="switchTab('leave')"
-                    @if($tab === 'leave') aria-current="page" @endif>
-                <i class="bi bi-calendar-check"></i>
-                <span>Solicitudes</span>
-                @if($counts['leave'])
-                    <span class="appr-counter-pill">{{ $counts['leave'] }}</span>
+<section class="surface">
+    <div class="filter-row justify-content-between">
+        <div class="seg-tabs" role="tablist" aria-label="Tipo de solicitud">
+            @foreach ([['leave', 'Solicitudes', null], ['justifications', 'Justificaciones', 'attendance.review'], ['overtime', 'Horas extra', null]] as [$tkey, $tlabel, $tcan])
+                @if(! $tcan || auth()->user()->can($tcan))
+                    <button type="button" role="tab" class="seg-tab {{ $tab === $tkey ? 'is-active' : '' }}" data-tab="{{ $tkey }}" aria-selected="{{ $tab === $tkey ? 'true' : 'false' }}" onclick="switchTab('{{ $tkey }}')">
+                        {{ $tlabel }}
+                        @if($counts[$tkey] ?? 0)<span class="count-pill tone-rose">{{ $counts[$tkey] }}</span>@endif
+                    </button>
                 @endif
-            </button>
-            @can('attendance.review')
-            <button type="button" 
-                    class="appr-tab-btn {{ $tab === 'justifications' ? 'active' : '' }}" 
-                    data-tab="justifications" 
-                    onclick="switchTab('justifications')"
-                    @if($tab === 'justifications') aria-current="page" @endif>
-                <i class="bi bi-card-checklist"></i>
-                <span>Justificaciones</span>
-                @if($counts['justifications'])
-                    <span class="appr-counter-pill">{{ $counts['justifications'] }}</span>
-                @endif
-            </button>
-            @endcan
-            <button type="button" 
-                    class="appr-tab-btn {{ $tab === 'overtime' ? 'active' : '' }}" 
-                    data-tab="overtime" 
-                    onclick="switchTab('overtime')"
-                    @if($tab === 'overtime') aria-current="page" @endif>
-                <i class="bi bi-clock-history"></i>
-                <span>Horas extra</span>
-                @if($counts['overtime'])
-                    <span class="appr-counter-pill">{{ $counts['overtime'] }}</span>
-                @endif
-            </button>
+            @endforeach
         </div>
-
-        <div class="appr-status-group" role="group" aria-label="Filtrar por estado">
+        <div class="seg-tabs" role="group" aria-label="Filtrar por estado">
             @foreach($statusLabels as $key => $label)
                 @continue(in_array($tab, ['justifications', 'overtime'], true) && $key === 'cancelled')
-                <button type="button" 
-                        class="appr-status-btn {{ $status === $key ? 'active' : '' }}"
-                        data-status="{{ $key }}"
-                        onclick="switchStatus('{{ $key }}')">
-                    @if($key === 'pending')
-                        <i class="bi bi-hourglass-split"></i>
-                    @elseif($key === 'approved')
-                        <i class="bi bi-check2-circle"></i>
-                    @elseif($key === 'rejected')
-                        <i class="bi bi-x-circle"></i>
-                    @else
-                        <i class="bi bi-dash-circle"></i>
-                    @endif
-                    <span>{{ $label }}</span>
-                </button>
+                <button type="button" class="seg-tab {{ $status === $key ? 'is-active' : '' }}" data-status="{{ $key }}" aria-pressed="{{ $status === $key ? 'true' : 'false' }}" onclick="switchStatus('{{ $key }}')">{{ $label }}</button>
             @endforeach
         </div>
     </div>
 
-<div class="card border-0 shadow-sm appr-card">
+    @if($tab === 'overtime' && $status === 'pending' && $items->isNotEmpty())
+        <form method="POST" action="{{ route('approvals.overtime.bulk') }}" id="overtimeBulk" class="surface-toolbar">
+            @csrf
+            <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="overtimeAll" onclick="document.querySelectorAll('[data-overtime-pick]').forEach((c) => c.checked = this.checked)">
+                <label class="form-check-label small fw-semibold" for="overtimeAll">Seleccionar todas para aprobación masiva</label>
+            </div>
+            <button class="btn btn-sm btn-success ms-auto"><i class="bi bi-check2-all me-1"></i>Aprobar las marcadas</button>
+        </form>
+    @endif
+
     <div class="table-responsive">
     @if($tab === 'leave')
-        <table class="table table-hover align-middle mb-0">
+        <table class="table data-table table-cards align-middle mb-0">
             <thead>
                 <tr>
-                    <th class="ps-4">Colaborador</th>
+                    <th>Colaborador</th>
                     <th>Tipo</th>
                     <th>Fechas</th>
                     <th>Días</th>
                     <th>Motivo</th>
                     <th>Estado</th>
-                    <th class="pe-4" style="min-width: 270px;">Acción</th>
+                    <th class="text-end">Acción</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($items as $leave)
                     <tr>
-                        <td class="ps-4">
-                            <div class="d-flex align-items-center gap-3">
-                                @if(!empty($leave->employee?->avatar_path))
-                                    <img src="{{ asset('storage/' . $leave->employee->avatar_path) }}" alt="{{ $leave->employee->first_name }}" class="attendance-user-avatar">
-                                @else
-                                    <span class="attendance-user-initials">
-                                        {{ mb_substr($leave->employee?->first_name ?? 'U', 0, 1) }}{{ mb_substr($leave->employee?->last_name ?? '', 0, 1) }}
-                                    </span>
-                                @endif
-                                <div class="min-w-0">
-                                    <div class="fw-bold text-body text-truncate" style="font-size: 0.875rem;">
-                                        {{ $leave->employee?->full_name }}
-                                    </div>
-                                    <div class="small text-secondary text-truncate" style="font-size: 0.775rem;">
-                                        {{ $leave->employee?->employee_code ?? '—' }}
-                                    </div>
-                                    @if($leave->isPending())
-                                        <div class="small text-secondary" style="font-size: 0.75rem;" title="Puede aprobarla su jefe inmediato o RR. HH.">
-                                            <i class="bi bi-person-check me-1"></i>Revisa: {{ $leave->reviewersLabel() }}
-                                        </div>
-                                    @endif
-                                    @include('partials.tenant-badge', ['tenantId' => $leave->tenant_id])
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            @if($leave->type === 'vacation')
-                                <span class="appr-type-badge type-vacation"><i class="bi bi-sun"></i> {{ $leave->type_label }}</span>
-                            @elseif($leave->type === 'permission')
-                                <span class="appr-type-badge type-permission"><i class="bi bi-clock"></i> {{ $leave->type_label }}</span>
-                            @elseif($leave->type === 'medical_leave')
-                                <span class="appr-type-badge type-medical"><i class="bi bi-heart-pulse"></i> {{ $leave->type_label }}</span>
-                            @else
-                                <span class="badge bg-secondary-subtle text-secondary">{{ $leave->type_label }}</span>
-                            @endif
-                        </td>
-                        <td class="text-nowrap">
-                            <div class="fw-semibold text-body" style="font-size: 0.825rem;">
-                                <i class="bi bi-calendar3 text-muted me-1"></i>{{ $leave->start_date->format('d/m/Y') }} → {{ $leave->end_date->format('d/m/Y') }}
-                            </div>
-                            @if($leave->start_time)
-                                <div class="small text-secondary mt-0.5">
-                                    <i class="bi bi-clock text-muted me-1"></i>{{ hora($leave->start_time) }} – {{ hora($leave->end_time) }}
-                                </div>
-                            @endif
-                        </td>
-                        <td>
-                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1" style="font-size: 0.775rem; font-weight: 600;">
-                                {{ rtrim(rtrim((string) $leave->days, '0'), '.') }} {{ (float)$leave->days == 1 ? 'día' : 'días' }}
-                            </span>
-                        </td>
-                        <td>
-                            <div class="small text-body" style="max-width: 280px; line-height: 1.4;">{{ $leave->reason }}</div>
-                            @if($leave->attachment_path)
-                                <div>
-                                    <a href="{{ route('approvals.leave.attachment', $leave->id) }}" target="_blank" rel="noopener" class="appr-attachment-link">
-                                        <i class="bi bi-paperclip"></i>
-                                        <span>Ver sustento</span>
-                                    </a>
-                                </div>
-                            @endif
-                        </td>
-                        <td>
-                            <x-status-badge type="leave_status" :value="$leave->status" />
-                            @if($leave->reviewer)
-                                <div class="small text-secondary mt-1" style="font-size: 0.75rem;">
-                                    <i class="bi bi-person-check me-1"></i>{{ $leave->reviewer->full_name }} · {{ $leave->reviewed_at?->format('d/m h:i a') }}
-                                </div>
-                            @endif
-                            @if($leave->review_notes)
-                                <div class="appr-review-note">
-                                    <i class="bi bi-chat-left-quote me-1"></i>{{ $leave->review_notes }}
-                                </div>
-                            @endif
-                        </td>
-                        <td class="pe-4">
+                        <td class="cell-main">
+                            @include('approvals.partials.person', ['person' => $leave->employee, 'tenantId' => $leave->tenant_id])
                             @if($leave->isPending())
-                                <form method="POST" action="{{ route('approvals.leave.review', $leave->id) }}" class="appr-action-box">
-                                    @csrf
-                                    <input name="notes" class="form-control form-control-sm mb-2" placeholder="Comentario (obligatorio si rechazas)" aria-label="Comentario" style="border-radius: 6px;">
-                                    <div class="d-flex gap-2">
-                                        <button name="decision" value="approved" class="btn btn-sm btn-success flex-fill d-inline-flex align-items-center justify-content-center shadow-sm" style="border-radius: 6px; font-weight: 600; height: 32px; gap: 5px;">
-                                            <i class="bi bi-check-lg"></i>
-                                            <span>Aprobar</span>
-                                        </button>
-                                        <button name="decision" value="rejected" class="btn btn-sm btn-outline-danger flex-fill d-inline-flex align-items-center justify-content-center" style="border-radius: 6px; font-weight: 600; height: 32px; gap: 5px;">
-                                            <i class="bi bi-x-lg"></i>
-                                            <span>Rechazar</span>
-                                        </button>
-                                    </div>
-                                </form>
-                            @else
-                                <span class="small text-secondary fst-italic">
-                                    <i class="bi bi-check2-all me-1"></i>Procesado
-                                </span>
+                                <div class="cell-sub" title="Puede aprobarla su jefe inmediato o RR. HH."><i class="bi bi-person-check me-1"></i>Revisa: {{ $leave->reviewersLabel() }}</div>
                             @endif
+                        </td>
+                        <td data-label="Tipo">
+                            @php $leaveTone = ['vacation' => 'blue', 'permission' => 'amber', 'medical_leave' => 'rose'][$leave->type] ?? 'neutral'; @endphp
+                            <span class="status-pill tone-{{ $leaveTone }}">{{ $leave->type_label }}</span>
+                        </td>
+                        <td class="text-nowrap" data-label="Fechas">
+                            <div>
+                                <div class="cell-title">{{ $leave->start_date->format('d/m/Y') }} → {{ $leave->end_date->format('d/m/Y') }}</div>
+                                @if($leave->start_time)
+                                    <div class="cell-sub">{{ hora($leave->start_time) }} – {{ hora($leave->end_time) }}</div>
+                                @endif
+                            </div>
+                        </td>
+                        <td class="text-nowrap" data-label="Días">
+                            <span>{{ rtrim(rtrim((string) $leave->days, '0'), '.') }} {{ (float) $leave->days == 1 ? 'día' : 'días' }}</span>
+                        </td>
+                        <td data-label="Motivo">
+                            <div class="appr-reason">
+                                {{ $leave->reason }}
+                                @if($leave->attachment_path)
+                                    <div><a href="{{ route('approvals.leave.attachment', $leave->id) }}" target="_blank" rel="noopener" class="small"><i class="bi bi-paperclip me-1"></i>Ver sustento</a></div>
+                                @endif
+                            </div>
+                        </td>
+                        <td data-label="Estado">
+                            <div>
+                                <x-status-badge type="leave_status" :value="$leave->status" />
+                                @if($leave->reviewer)
+                                    <div class="cell-sub mt-1"><i class="bi bi-person-check me-1"></i>{{ $leave->reviewer->full_name }} · {{ $leave->reviewed_at?->format('d/m h:i a') }}</div>
+                                @endif
+                                @if($leave->review_notes)
+                                    <div class="appr-review-note"><i class="bi bi-chat-left-quote me-1"></i>{{ $leave->review_notes }}</div>
+                                @endif
+                            </div>
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                @if($leave->isPending())
+                                    @include('approvals.partials.review-buttons', ['action' => route('approvals.leave.review', $leave->id), 'kind' => 'leave', 'who' => $leave->employee?->full_name, 'what' => $leave->type_label . ' · ' . $leave->start_date->format('d/m/Y') . ' → ' . $leave->end_date->format('d/m/Y')])
+                                @else
+                                    <span class="cell-sub"><i class="bi bi-check2-all me-1"></i>Procesado</span>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="7" class="py-5 text-center">
-                            <div class="empty-state py-4">
-                                <div style="width: 54px; height: 54px; border-radius: 12px; background: var(--bg-surface-elevated); color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; margin-bottom: 1rem; border: 1px solid var(--border-color);">
-                                    <i class="bi bi-check2-all"></i>
-                                </div>
-                                <div class="fw-bold text-body fs-6">No hay solicitudes {{ strtolower($statusLabels[$status] ?? '') }}</div>
-                                <div class="text-secondary small mt-1" style="max-width: 420px; margin: 0 auto;">No se encontraron solicitudes con este estado para el filtro actual.</div>
-                            </div>
-                        </td>
-                    </tr>
+                    @include('approvals.partials.empty', ['cols' => 7, 'what' => 'solicitudes'])
                 @endforelse
             </tbody>
         </table>
     @elseif($tab === 'overtime')
-        @if($status === 'pending' && $items->isNotEmpty())
-            <form method="POST" action="{{ route('approvals.overtime.bulk') }}" id="overtimeBulk" class="appr-bulk-toolbar">
-                @csrf
-                <div class="form-check mb-0">
-                    <input class="form-check-input" type="checkbox" id="overtimeAll" onclick="document.querySelectorAll('[data-overtime-pick]').forEach((c) => c.checked = this.checked)">
-                    <label class="form-check-label small fw-semibold text-body" for="overtimeAll">Seleccionar todas para aprobación masiva</label>
-                </div>
-                <button class="btn btn-sm btn-success ms-auto d-inline-flex align-items-center shadow-sm" style="border-radius: 6px; font-weight: 600; height: 32px; gap: 6px;">
-                    <i class="bi bi-check2-all"></i>
-                    <span>Aprobar las marcadas</span>
-                </button>
-            </form>
-        @endif
-        <table class="table table-hover align-middle mb-0">
+        <table class="table data-table table-cards align-middle mb-0">
             <thead>
                 <tr>
-                    @if($status === 'pending')<th style="width: 2.5rem;" class="ps-4"><span class="visually-hidden">Marcar</span></th>@endif
-                    <th class="{{ $status !== 'pending' ? 'ps-4' : '' }}">Colaborador</th>
+                    @if($status === 'pending')<th style="width: 2.5rem;"><span class="visually-hidden">Marcar</span></th>@endif
+                    <th>Colaborador</th>
                     <th>Fecha</th>
                     <th>Jornada</th>
                     <th class="text-end">Horas extra</th>
                     <th>Estado</th>
-                    <th class="pe-4" style="min-width: 280px;">Acción</th>
+                    <th class="text-end">Acción</th>
                 </tr>
             </thead>
             <tbody>
@@ -253,214 +145,118 @@
                     @php $own = (int) $att->user_id === (int) auth()->id(); @endphp
                     <tr>
                         @if($status === 'pending')
-                            <td class="ps-4">
+                            <td>
                                 @unless($own)
                                     <input class="form-check-input" type="checkbox" name="ids[]" value="{{ $att->id }}" form="overtimeBulk" data-overtime-pick aria-label="Marcar a {{ $att->user?->full_name }}">
                                 @endunless
                             </td>
                         @endif
-                        <td class="{{ $status !== 'pending' ? 'ps-4' : '' }}">
-                            <div class="d-flex align-items-center gap-3">
-                                @if(!empty($att->user?->avatar_path))
-                                    <img src="{{ asset('storage/' . $att->user->avatar_path) }}" alt="{{ $att->user->first_name }}" class="attendance-user-avatar">
-                                @else
-                                    <span class="attendance-user-initials">
-                                        {{ mb_substr($att->user?->first_name ?? 'U', 0, 1) }}{{ mb_substr($att->user?->last_name ?? '', 0, 1) }}
-                                    </span>
+                        <td class="cell-main">
+                            @include('approvals.partials.person', ['person' => $att->user, 'tenantId' => $att->tenant_id])
+                        </td>
+                        <td class="text-nowrap" data-label="Fecha">
+                            <div>
+                                <a href="{{ route('attendance.show', $att->id) }}" class="cell-title text-decoration-none">{{ $att->work_date->format('d/m/Y') }}</a>
+                                <div class="cell-sub">{{ $att->branch?->name ?? 'Sin sede' }}</div>
+                            </div>
+                        </td>
+                        <td class="text-nowrap" data-label="Jornada">
+                            <div>
+                                <div class="cell-title">{{ $att->clock_in_at?->format('h:i a') }} – {{ $att->clock_out_at?->format('h:i a') }}</div>
+                                <div class="cell-sub">{{ formato_horas_minutos($att->worked_hours) }} trabajadas{{ $att->shift ? ' · turno de ' . formato_horas_minutos($att->shift->daily_hours) : '' }}</div>
+                            </div>
+                        </td>
+                        <td class="text-end" data-label="Horas extra">
+                            <div>
+                                <span class="status-pill tone-brand">+{{ formato_horas_minutos($att->overtime_hours) }}</span>
+                                @if($att->overtime_status === 'approved' && (float) $att->overtime_approved_hours < (float) $att->overtime_hours)
+                                    <div class="cell-sub mt-1">{{ formato_horas_minutos($att->overtime_approved_hours) }} aprobadas</div>
                                 @endif
-                                <div class="min-w-0">
-                                    <div class="fw-bold text-body text-truncate" style="font-size: 0.875rem;">
-                                        {{ $att->user?->full_name }}
-                                    </div>
-                                    <div class="small text-secondary text-truncate" style="font-size: 0.775rem;">
-                                        {{ $att->user?->employee_code ?? '—' }}
-                                    </div>
-                                    @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])
-                                </div>
                             </div>
                         </td>
-                        <td class="text-nowrap">
-                            <a href="{{ route('attendance.show', $att->id) }}" class="fw-semibold text-decoration-none hover-primary" style="font-size: 0.825rem;">
-                                <i class="bi bi-calendar3 text-muted me-1"></i>{{ $att->work_date->format('d/m/Y') }}
-                            </a>
-                            <div class="small text-secondary">
-                                <i class="bi bi-geo-alt text-muted me-1"></i>{{ $att->branch?->name ?? 'Sin sede' }}
+                        <td data-label="Estado">
+                            <div>
+                                <x-status-badge type="overtime_status" :value="$att->overtime_status" />
+                                @if($att->overtimeReviewer)
+                                    <div class="cell-sub mt-1"><i class="bi bi-person-check me-1"></i>{{ $att->overtimeReviewer->full_name }} · {{ $att->overtime_reviewed_at?->format('d/m h:i a') }}</div>
+                                @endif
+                                @if($att->overtime_review_notes)
+                                    <div class="appr-review-note"><i class="bi bi-chat-left-quote me-1"></i>{{ $att->overtime_review_notes }}</div>
+                                @endif
                             </div>
-                        </td>
-                        <td class="small text-nowrap">
-                            <div class="fw-semibold text-body">
-                                {{ $att->clock_in_at?->format('h:i a') }} – {{ $att->clock_out_at?->format('h:i a') }}
-                            </div>
-                            <div class="text-secondary mt-0.5">
-                                {{ formato_horas_minutos($att->worked_hours) }} trabajadas{{ $att->shift ? ' · turno de ' . formato_horas_minutos($att->shift->daily_hours) : '' }}
-                            </div>
-                        </td>
-                        <td class="text-end">
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size: 0.8rem; font-weight: 700;">
-                                +{{ formato_horas_minutos($att->overtime_hours) }}
-                            </span>
-                            @if($att->overtime_status === 'approved' && (float) $att->overtime_approved_hours < (float) $att->overtime_hours)
-                                <div class="small text-secondary fw-normal mt-0.5">{{ formato_horas_minutos($att->overtime_approved_hours) }} aprobadas</div>
-                            @endif
                         </td>
                         <td>
-                            <x-status-badge type="overtime_status" :value="$att->overtime_status" />
-                            @if($att->overtimeReviewer)
-                                <div class="small text-secondary mt-1" style="font-size: 0.75rem;">
-                                    <i class="bi bi-person-check me-1"></i>{{ $att->overtimeReviewer->full_name }} · {{ $att->overtime_reviewed_at?->format('d/m h:i a') }}
-                                </div>
-                            @endif
-                            @if($att->overtime_review_notes)
-                                <div class="appr-review-note">
-                                    <i class="bi bi-chat-left-quote me-1"></i>{{ $att->overtime_review_notes }}
-                                </div>
-                            @endif
-                        </td>
-                        <td class="pe-4">
-                            @if($att->overtime_status === 'pending' && $own)
-                                <span class="small text-secondary"><i class="bi bi-info-circle me-1"></i>Las revisa tu jefatura o RRHH.</span>
-                            @elseif($att->overtime_status === 'pending')
-                                <form method="POST" action="{{ route('approvals.overtime.review', $att->id) }}" class="appr-action-box">
-                                    @csrf
-                                    <div class="input-group input-group-sm mb-2">
-                                        <span class="input-group-text bg-surface text-secondary" style="font-size: 0.775rem;">Aprobar</span>
-                                        <input type="number" name="hours" value="{{ (float) $att->overtime_hours }}" min="0.25" max="{{ (float) $att->overtime_hours }}" step="0.25" class="form-control" aria-label="Horas a aprobar">
-                                        <span class="input-group-text bg-surface text-secondary" style="font-size: 0.775rem;">h</span>
-                                    </div>
-                                    <input name="notes" class="form-control form-control-sm mb-2" placeholder="Comentario (obligatorio si rechazas)" aria-label="Comentario" maxlength="500" style="border-radius: 6px;">
-                                    <div class="d-flex gap-2">
-                                        <button name="decision" value="approved" class="btn btn-sm btn-success flex-fill d-inline-flex align-items-center justify-content-center shadow-sm" style="border-radius: 6px; font-weight: 600; height: 32px; gap: 5px;">
-                                            <i class="bi bi-check-lg"></i>
-                                            <span>Aprobar</span>
-                                        </button>
-                                        <button name="decision" value="rejected" class="btn btn-sm btn-outline-danger flex-fill d-inline-flex align-items-center justify-content-center" style="border-radius: 6px; font-weight: 600; height: 32px; gap: 5px;">
-                                            <i class="bi bi-x-lg"></i>
-                                            <span>Rechazar</span>
-                                        </button>
-                                    </div>
-                                </form>
-                            @else
-                                <span class="small text-secondary fst-italic">
-                                    <i class="bi bi-check2-all me-1"></i>Procesado
-                                </span>
-                            @endif
+                            <div class="row-actions">
+                                @if($att->overtime_status === 'pending' && $own)
+                                    <span class="cell-sub"><i class="bi bi-info-circle me-1"></i>Las revisa tu jefatura o RRHH.</span>
+                                @elseif($att->overtime_status === 'pending')
+                                    @include('approvals.partials.review-buttons', ['action' => route('approvals.overtime.review', $att->id), 'kind' => 'overtime', 'who' => $att->user?->full_name, 'what' => 'Horas extra del ' . $att->work_date->format('d/m/Y') . ': +' . formato_horas_minutos($att->overtime_hours), 'hours' => (float) $att->overtime_hours])
+                                @else
+                                    <span class="cell-sub"><i class="bi bi-check2-all me-1"></i>Procesado</span>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="7" class="py-5 text-center">
-                            <div class="empty-state py-4">
-                                <div style="width: 54px; height: 54px; border-radius: 12px; background: var(--bg-surface-elevated); color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; margin-bottom: 1rem; border: 1px solid var(--border-color);">
-                                    <i class="bi bi-check2-all"></i>
-                                </div>
-                                <div class="fw-bold text-body fs-6">No hay horas extra {{ strtolower($statusLabels[$status] ?? '') }}</div>
-                                <div class="text-secondary small mt-1" style="max-width: 420px; margin: 0 auto;">No se encontraron horas extra con este estado para el filtro actual.</div>
-                            </div>
-                        </td>
-                    </tr>
+                    @include('approvals.partials.empty', ['cols' => 7, 'what' => 'horas extra'])
                 @endforelse
             </tbody>
         </table>
     @else
-        <table class="table table-hover align-middle mb-0">
+        <table class="table data-table table-cards align-middle mb-0">
             <thead>
                 <tr>
-                    <th class="ps-4">Colaborador</th>
+                    <th>Colaborador</th>
                     <th>Fecha</th>
                     <th>Sucursal</th>
                     <th>Asistencia</th>
                     <th>Justificación</th>
-                    <th class="pe-4" style="min-width: 260px;">Acción</th>
+                    <th class="text-end">Acción</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($items as $att)
                     <tr>
-                        <td class="ps-4">
-                            <div class="d-flex align-items-center gap-3">
-                                @if(!empty($att->user?->avatar_path))
-                                    <img src="{{ asset('storage/' . $att->user->avatar_path) }}" alt="{{ $att->user->first_name }}" class="attendance-user-avatar">
-                                @else
-                                    <span class="attendance-user-initials">
-                                        {{ mb_substr($att->user?->first_name ?? 'U', 0, 1) }}{{ mb_substr($att->user?->last_name ?? '', 0, 1) }}
-                                    </span>
+                        <td class="cell-main">
+                            @include('approvals.partials.person', ['person' => $att->user, 'tenantId' => $att->tenant_id])
+                        </td>
+                        <td class="text-nowrap" data-label="Fecha">
+                            <a href="{{ route('attendance.show', $att->id) }}" class="cell-title text-decoration-none">{{ $att->work_date->format('d/m/Y') }}</a>
+                        </td>
+                        <td data-label="Sucursal">
+                            <span>{{ $att->branch?->name ?? 'Sin sede' }}</span>
+                        </td>
+                        <td data-label="Asistencia">
+                            <div>
+                                @include('partials.attendance-status', ['status' => $att->status])
+                                @if($att->late_minutes)
+                                    <div class="cell-sub mt-1">({{ formato_tardanza($att) }})</div>
                                 @endif
-                                <div class="min-w-0">
-                                    <div class="fw-bold text-body text-truncate" style="font-size: 0.875rem;">
-                                        {{ $att->user?->full_name }}
-                                    </div>
-                                    <div class="small text-secondary text-truncate" style="font-size: 0.775rem;">
-                                        {{ $att->user?->employee_code ?? '—' }}
-                                    </div>
-                                    @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])
-                                </div>
+                                @if($att->clock_in_at)
+                                    <div class="cell-sub">Entrada: {{ hora($att->clock_in_at, true) }}</div>
+                                @endif
                             </div>
                         </td>
-                        <td class="text-nowrap">
-                            <a href="{{ route('attendance.show', $att->id) }}" class="fw-semibold text-decoration-none hover-primary" style="font-size: 0.825rem;">
-                                <i class="bi bi-calendar3 text-muted me-1"></i>{{ $att->work_date->format('d/m/Y') }}
-                            </a>
-                        </td>
-                        <td>
-                            <span class="small text-body"><i class="bi bi-geo-alt text-muted me-1"></i>{{ $att->branch?->name ?? 'Sin sede' }}</span>
-                        </td>
-                        <td>
-                            @include('partials.attendance-status', ['status' => $att->status])
-                            @if($att->late_minutes)
-                                <div class="small text-secondary mt-0.5 fw-medium">({{ formato_tardanza($att) }})</div>
-                            @endif
-                            @if($att->clock_in_at)
-                                <div class="small text-muted mt-0.5" style="font-size: 0.75rem;">
-                                    <i class="bi bi-clock me-1"></i>Entrada: {{ hora($att->clock_in_at, true) }}
-                                </div>
-                            @endif
-                        </td>
-                        <td>
-                            <div class="small text-body" style="max-width: 280px; line-height: 1.4;">
+                        <td data-label="Justificación">
+                            <div class="appr-reason">
                                 {{ \Illuminate\Support\Str::limit($att->notes, 140) }}
+                                @if($att->justification_file)
+                                    <div><a href="{{ route('attendance.justification-file', $att->id) }}" target="_blank" rel="noopener" class="small"><i class="bi bi-paperclip me-1"></i>Ver sustento</a></div>
+                                @endif
                             </div>
-                            @if($att->justification_file)
-                                <div>
-                                    <a href="{{ route('attendance.justification-file', $att->id) }}" target="_blank" rel="noopener" class="appr-attachment-link">
-                                        <i class="bi bi-paperclip"></i>
-                                        <span>Ver sustento</span>
-                                    </a>
-                                </div>
-                            @endif
                         </td>
-                        <td class="pe-4">
-                            @if($att->justification_status === 'pending')
-                                <form method="POST" action="{{ route('attendance.review', $att->id) }}" class="appr-action-box">
-                                    @csrf
-                                    <input name="review_notes" class="form-control form-control-sm mb-2" placeholder="Comentario" aria-label="Comentario" style="border-radius: 6px;">
-                                    <div class="d-flex gap-2">
-                                        <button name="justification_status" value="approved" class="btn btn-sm btn-success flex-fill d-inline-flex align-items-center justify-content-center shadow-sm" style="border-radius: 6px; font-weight: 600; height: 32px; gap: 5px;">
-                                            <i class="bi bi-check-lg"></i>
-                                            <span>Aprobar</span>
-                                        </button>
-                                        <button name="justification_status" value="rejected" class="btn btn-sm btn-outline-danger flex-fill d-inline-flex align-items-center justify-content-center" style="border-radius: 6px; font-weight: 600; height: 32px; gap: 5px;">
-                                            <i class="bi bi-x-lg"></i>
-                                            <span>Rechazar</span>
-                                        </button>
-                                    </div>
-                                </form>
-                            @else
-                                <x-status-badge type="justification_status" :value="$att->justification_status" />
-                            @endif
+                        <td>
+                            <div class="row-actions">
+                                @if($att->justification_status === 'pending')
+                                    @include('approvals.partials.review-buttons', ['action' => route('attendance.review', $att->id), 'kind' => 'justification', 'who' => $att->user?->full_name, 'what' => 'Justificación del ' . $att->work_date->format('d/m/Y')])
+                                @else
+                                    <x-status-badge type="justification_status" :value="$att->justification_status" />
+                                @endif
+                            </div>
                         </td>
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="6" class="py-5 text-center">
-                            <div class="empty-state py-4">
-                                <div style="width: 54px; height: 54px; border-radius: 12px; background: var(--bg-surface-elevated); color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; margin-bottom: 1rem; border: 1px solid var(--border-color);">
-                                    <i class="bi bi-check2-all"></i>
-                                </div>
-                                <div class="fw-bold text-body fs-6">No hay justificaciones {{ strtolower($statusLabels[$status] ?? '') }}</div>
-                                <div class="text-secondary small mt-1" style="max-width: 420px; margin: 0 auto;">No se encontraron justificaciones con este estado para el filtro actual.</div>
-                            </div>
-                        </td>
-                    </tr>
+                    @include('approvals.partials.empty', ['cols' => 6, 'what' => 'justificaciones'])
                 @endforelse
             </tbody>
         </table>
@@ -490,25 +286,51 @@
                 @else
                     <nav aria-label="Navegación de páginas">
                         <ul class="pagination pagination-sm mb-0">
-                            <li class="page-item disabled" aria-disabled="true">
-                                <span class="page-link" aria-label="Anterior">&lsaquo;</span>
-                            </li>
-                            <li class="page-item active" aria-current="page">
-                                <span class="page-link">1</span>
-                            </li>
-                            <li class="page-item disabled" aria-disabled="true">
-                                <span class="page-link" aria-label="Siguiente">&rsaquo;</span>
-                            </li>
+                            <li class="page-item disabled" aria-disabled="true"><span class="page-link" aria-label="Anterior">&lsaquo;</span></li>
+                            <li class="page-item active" aria-current="page"><span class="page-link">1</span></li>
+                            <li class="page-item disabled" aria-disabled="true"><span class="page-link" aria-label="Siguiente">&rsaquo;</span></li>
                         </ul>
                     </nav>
                 @endif
-                <span class="pagination-page-indicator">
-                    Pág. {{ $items->currentPage() }} de {{ $items->lastPage() }}
-                </span>
+                <span class="pagination-page-indicator">Pág. {{ $items->currentPage() }} de {{ $items->lastPage() }}</span>
             </div>
         </div>
     @endif
+</section>
 </div>
+
+{{-- Diálogo único para aprobar o rechazar: se llena con los datos del botón pulsado --}}
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+        <form method="POST" action="" class="modal-content" id="reviewForm">
+            @csrf
+            <input type="hidden" id="reviewDecision" value="">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5" id="reviewModalTitle">Aprobar</h2>
+                    <div class="small text-body-secondary" id="reviewModalWho"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-body-secondary mb-3" id="reviewModalWhat"></p>
+                <div class="mb-3 d-none" id="reviewHoursBox">
+                    <label class="form-label small fw-semibold" for="reviewHours">Horas a aprobar</label>
+                    <div class="input-group">
+                        <input type="number" name="hours" id="reviewHours" min="0.25" step="0.25" class="form-control" disabled>
+                        <span class="input-group-text">h</span>
+                    </div>
+                    <div class="form-text">Puedes aprobar menos horas de las registradas.</div>
+                </div>
+                <label class="form-label small fw-semibold" for="reviewNotes">Comentario <span id="reviewNotesHint" class="text-body-secondary fw-normal">(opcional)</span></label>
+                <textarea id="reviewNotes" class="form-control" rows="3" maxlength="500" placeholder="Escribe el motivo…"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success" id="reviewSubmit">Aprobar</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -611,6 +433,49 @@ document.addEventListener('click', function(e) {
             }
         }
     }
+});
+
+{{-- Diálogo de revisión: cada tipo envía los mismos campos que antes al mismo endpoint --}}
+const REVIEW_FIELDS = {
+    leave: { decision: 'decision', notes: 'notes', notesRequiredOnReject: true },
+    overtime: { decision: 'decision', notes: 'notes', notesRequiredOnReject: true },
+    justification: { decision: 'justification_status', notes: 'review_notes', notesRequiredOnReject: false },
+};
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-review]');
+    if (!btn) return;
+    const d = btn.dataset;
+    const fields = REVIEW_FIELDS[d.kind];
+    const approve = d.decision === 'approved';
+    const form = document.getElementById('reviewForm');
+    const decision = document.getElementById('reviewDecision');
+    const notes = document.getElementById('reviewNotes');
+    const hours = document.getElementById('reviewHours');
+    const submit = document.getElementById('reviewSubmit');
+    const notesRequired = !approve && fields.notesRequiredOnReject;
+
+    form.action = d.action;
+    decision.name = fields.decision;
+    decision.value = d.decision;
+    notes.name = fields.notes;
+    notes.value = '';
+    notes.required = notesRequired;
+    document.getElementById('reviewNotesHint').textContent = notesRequired ? '(obligatorio)' : '(opcional)';
+    document.getElementById('reviewModalTitle').textContent = approve ? 'Aprobar' : 'Rechazar';
+    document.getElementById('reviewModalWho').textContent = d.who || '';
+    document.getElementById('reviewModalWhat').textContent = d.what || '';
+    const withHours = approve && d.kind === 'overtime';
+    document.getElementById('reviewHoursBox').classList.toggle('d-none', !withHours);
+    hours.disabled = !withHours;
+    if (withHours) { hours.max = d.hours; hours.value = d.hours; }
+    submit.textContent = approve ? 'Aprobar' : 'Rechazar';
+    submit.className = 'btn ' + (approve ? 'btn-success' : 'btn-danger');
+
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('reviewModal'));
+    modal.show();
+});
+document.getElementById('reviewModal')?.addEventListener('shown.bs.modal', function () {
+    document.getElementById(document.getElementById('reviewHours').disabled ? 'reviewNotes' : 'reviewHours').focus();
 });
 
 {{-- Limpiar la URL inicial al cargar la página si el navegador traía query params --}}

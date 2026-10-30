@@ -4252,110 +4252,8 @@ body {
 }
 
 /* =============================================================================
- * Approvals Module (Executive Redesign — Clean, Spaced, Adaptive Light/Dark)
+ * Aprobaciones: zona que se recarga por AJAX, motivo y comentario de revisión
  * ============================================================================= */
-.appr-header-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
-}
-
-.appr-tab-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-}
-
-.appr-tab-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 15px;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-decoration: none;
-    border-radius: 7px;
-    border: 1px solid transparent;
-    background: transparent;
-    cursor: pointer;
-    font-family: inherit;
-    line-height: normal;
-    transition: all 0.15s ease;
-    user-select: none;
-}
-
-.appr-tab-btn:hover {
-    color: var(--text-primary);
-    background: rgba(var(--accent-cyan-rgb), 0.05);
-}
-
-.appr-tab-btn.active {
-    background: var(--bg-surface);
-    color: var(--accent-cyan);
-    font-weight: 700;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    border: 1px solid var(--border-color);
-}
-
-.appr-counter-pill {
-    background: #dc2626;
-    color: #ffffff;
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 999px;
-    line-height: 1.2;
-}
-
-.appr-status-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 3px;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-}
-
-.appr-status-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 13px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-decoration: none;
-    border-radius: 7px;
-    border: 1px solid transparent;
-    background: transparent;
-    cursor: pointer;
-    font-family: inherit;
-    line-height: normal;
-    transition: all 0.15s ease;
-    user-select: none;
-}
-
-.appr-status-btn:hover {
-    color: var(--text-primary);
-    background: rgba(0, 0, 0, 0.04);
-}
-
-.appr-status-btn.active {
-    background: var(--accent-cyan);
-    color: #ffffff !important;
-    border-color: var(--accent-cyan);
-    box-shadow: 0 2px 6px rgba(var(--accent-cyan-rgb), 0.35);
-}
-
 .appr-dynamic-area {
     position: relative;
     transition: opacity 0.2s ease;
@@ -4364,81 +4262,6 @@ body {
 .appr-dynamic-area.is-loading {
     opacity: 0.55;
     pointer-events: none;
-}
-
-.appr-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: var(--card-radius);
-    overflow: hidden;
-    box-shadow: var(--card-shadow);
-}
-
-.appr-card thead th {
-    background: var(--bg-surface-elevated);
-    border-bottom: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    font-size: 0.725rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 0.85rem 1rem;
-    white-space: nowrap;
-}
-
-.appr-card tbody td {
-    padding: 1rem;
-    vertical-align: middle;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.appr-card tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.appr-type-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 9px;
-    border-radius: 6px;
-    font-size: 0.775rem;
-    font-weight: 600;
-}
-
-.type-vacation {
-    background: rgba(var(--brand-rgb), 0.1);
-    color: var(--brand);
-    border: 1px solid rgba(var(--brand-rgb), 0.2);
-}
-
-.type-permission {
-    background: rgba(124, 58, 237, 0.1);
-    color: #7c3aed;
-    border: 1px solid rgba(124, 58, 237, 0.2);
-}
-
-.type-medical {
-    background: rgba(239, 68, 68, 0.1);
-    color: #dc2626;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.appr-attachment-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 4px;
-    font-size: 0.775rem;
-    font-weight: 600;
-    color: var(--accent-cyan);
-    text-decoration: none;
-    transition: opacity 0.15s ease;
-}
-
-.appr-attachment-link:hover {
-    text-decoration: underline;
-    opacity: 0.85;
 }
 
 .appr-review-note {
@@ -4452,31 +4275,7 @@ body {
     max-width: 260px;
     line-height: 1.35;
 }
-
-.appr-action-box {
-    max-width: 290px;
-}
-
-.appr-action-box .form-control {
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    font-size: 0.785rem;
-}
-
-.appr-action-box .form-control:focus {
-    border-color: var(--accent-cyan);
-    box-shadow: none;
-}
-
-.appr-bulk-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.85rem 1.25rem;
-    background: var(--bg-surface-elevated);
-    border-bottom: 1px solid var(--border-color);
-}
+.appr-reason { min-width: 180px; max-width: 280px; font-size: 0.82rem; line-height: 1.4; color: var(--text-primary); }
 
 /* =============================================================================
  * Onboarding Module (Executive Redesign — Clean, Spaced, Adaptive Light/Dark)
@@ -10207,13 +10006,13 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
  * desplazamiento y los buscadores de ancho fijo toman todo el ancho.
  * ============================================================================= */
 @media (max-width: 767.98px) {
-    .panel-content :is(.cal-views-group, .appr-tab-group, .appr-status-group, .onb-tab-group, .ethics-tab-group, .settings-hub-nav) {
+    .panel-content :is(.cal-views-group, .onb-tab-group, .ethics-tab-group, .settings-hub-nav) {
         max-width: 100%;
         flex-wrap: nowrap;
         overflow-x: auto;
         scrollbar-width: none;
     }
-    .panel-content :is(.cal-views-group, .appr-tab-group, .appr-status-group, .onb-tab-group, .ethics-tab-group, .settings-hub-nav) > * { flex-shrink: 0; white-space: nowrap; }
+    .panel-content :is(.cal-views-group, .onb-tab-group, .ethics-tab-group, .settings-hub-nav) > * { flex-shrink: 0; white-space: nowrap; }
 
     /* Tablas sin .table-responsive: el contenedor se desliza, la página no */
     .panel-content :has(> table):not(.table-responsive) { overflow-x: auto; }
