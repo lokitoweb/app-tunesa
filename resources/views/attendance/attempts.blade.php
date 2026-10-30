@@ -3,221 +3,104 @@
 @section('title', 'Intentos rechazados')
 
 @section('content')
-{{-- Header Ejecutivo del Módulo de Intentos Rechazados --}}
-<div class="attempts-header-bar">
-    <div>
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <h1 class="h3 fw-bold mb-0 text-body">Intentos rechazados</h1>
-            <span class="attempts-pill bg-danger-subtle text-danger border border-danger-subtle">
-                <i class="bi bi-shield-lock" style="margin-right: 5px;"></i>
-                <span>Seguridad & Telemetría</span>
-            </span>
-        </div>
-        <p class="text-body-secondary mb-0" style="font-size: 0.875rem;">
-            Marcaciones que la app no aceptó: fuera de la geocerca, ubicación simulada, GPS impreciso y más.
-        </p>
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-title">Intentos rechazados</h1>
+        <p class="page-subtitle">Marcaciones que la app no aceptó: fuera de la geocerca, ubicación simulada, GPS impreciso y más.</p>
     </div>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
-        <a href="{{ route('attendance.index') }}" class="attempts-header-btn btn btn-outline-secondary shadow-sm">
-            <i class="bi bi-clock-history" style="margin-right: 8px; font-size: 0.95rem;"></i>
-            <span>Marcaciones y GPS</span>
-        </a>
-        <a href="{{ route('attendance.calendar') }}" class="attempts-header-btn btn btn-outline-secondary shadow-sm">
-            <i class="bi bi-calendar3" style="margin-right: 8px; font-size: 0.95rem;"></i>
-            <span>Calendario</span>
-        </a>
-        <a href="{{ route('live.index') }}" class="attempts-header-btn btn btn-primary shadow-sm">
-            <i class="bi bi-broadcast" style="margin-right: 8px; font-size: 0.95rem;"></i>
-            <span>En Vivo</span>
-        </a>
+    <div class="page-actions">
+        <a href="{{ route('attendance.index') }}" class="btn btn-light border"><i class="bi bi-clock-history me-1"></i>Marcaciones y GPS</a>
+        <a href="{{ route('attendance.calendar') }}" class="btn btn-light border"><i class="bi bi-calendar3 me-1"></i>Calendario</a>
+        <a href="{{ route('live.index') }}" class="btn btn-light border"><i class="bi bi-broadcast me-1"></i>En vivo</a>
     </div>
-</div>
+</header>
 
-{{-- Resumen Ejecutivo por Motivo (KPI Cards Interactivas) --}}
-<div class="row g-3 mb-4">
-    {{-- Tarjeta 1: Total en el rango --}}
-    <div class="col-6 col-xl-3">
-        <a href="{{ request()->fullUrlWithQuery(['code' => null, 'page' => null]) }}" 
-           class="attempts-kpi-card {{ !request('code') ? 'is-active' : '' }}"
-           title="Ver todos los intentos rechazados">
-            <div class="attempts-kpi-icon" style="background: rgba(var(--brand-rgb), 0.12); color: var(--brand);">
-                <i class="bi bi-slash-circle"></i>
+{{-- Resumen por motivo: cada tarjeta filtra la lista --}}
+<section class="dash-kpis" aria-label="Resumen por motivo">
+    @foreach ([
+        [null, 'Total en el rango', $total, 'brand', 'slash-circle', $uniqueUsersCount . ' colaboradores', 'Ver todos los intentos rechazados'],
+        ['MOCK_LOCATION_DETECTED', 'Ubicación simulada', $mockCount, 'rose', 'phone-vibrate', 'Fake GPS detectado', 'Filtrar por ubicación simulada'],
+        ['GEOFENCE_VIOLATION', 'Fuera de la geocerca', $byCode['GEOFENCE_VIOLATION'] ?? 0, 'amber', 'geo-alt', 'Fuera del radio', 'Filtrar por fuera de la geocerca'],
+        ['GPS_ACCURACY_TOO_LOW', 'GPS impreciso', $byCode['GPS_ACCURACY_TOO_LOW'] ?? 0, 'blue', 'crosshair2', 'Baja precisión satelital', 'Filtrar por GPS impreciso'],
+    ] as [$kcode, $klabel, $kvalue, $ktone, $kicon, $kmeta, $ktitle])
+        @php $kactive = $kcode === null ? ! request('code') : request('code') === $kcode; @endphp
+        <a href="{{ request()->fullUrlWithQuery(['code' => $kcode, 'page' => null]) }}" class="dash-kpi-card is-link {{ $kactive ? 'is-active' : '' }}" title="{{ $ktitle }}" @if($kactive) aria-current="true" @endif>
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">{{ $klabel }}</span>
+                <span class="dash-kpi-icon tone-{{ $ktone }}"><i class="bi bi-{{ $kicon }}"></i></span>
             </div>
-            <div>
-                <div class="attempts-kpi-label">Total en el rango</div>
-                <div class="attempts-kpi-val">{{ number_format($total) }}</div>
-                <div class="attempts-kpi-sub d-flex align-items-center">
-                    <i class="bi bi-people" style="margin-right: 7px;"></i>
-                    <span>{{ $uniqueUsersCount }} colaboradores</span>
-                </div>
-            </div>
+            <div class="dash-kpi-value">{{ number_format($kvalue) }}</div>
+            <div class="dash-kpi-meta">{{ $kmeta }}</div>
         </a>
-    </div>
+    @endforeach
+</section>
 
-    {{-- Tarjeta 2: Ubicación simulada / Fake GPS --}}
-    <div class="col-6 col-xl-3">
-        <a href="{{ request()->fullUrlWithQuery(['code' => 'MOCK_LOCATION_DETECTED', 'page' => null]) }}" 
-           class="attempts-kpi-card {{ request('code') === 'MOCK_LOCATION_DETECTED' ? 'is-active' : '' }}"
-           title="Filtrar por ubicación simulada (Fake GPS)">
-            <div class="attempts-kpi-icon" style="background: rgba(220, 38, 38, 0.12); color: #dc2626;">
-                <i class="bi bi-phone-vibrate"></i>
-            </div>
-            <div>
-                <div class="attempts-kpi-label">Ubicación simulada</div>
-                <div class="attempts-kpi-val text-danger">{{ number_format($mockCount) }}</div>
-                <div class="attempts-kpi-sub text-danger-emphasis d-flex align-items-center">
-                    <i class="bi bi-shield-slash" style="margin-right: 7px;"></i>
-                    <span>Fake GPS detectado</span>
-                </div>
-            </div>
-        </a>
-    </div>
-
-    {{-- Tarjeta 3: Fuera de la geocerca --}}
-    <div class="col-6 col-xl-3">
-        <a href="{{ request()->fullUrlWithQuery(['code' => 'GEOFENCE_VIOLATION', 'page' => null]) }}" 
-           class="attempts-kpi-card {{ request('code') === 'GEOFENCE_VIOLATION' ? 'is-active' : '' }}"
-           title="Filtrar por fuera de la geocerca">
-            <div class="attempts-kpi-icon" style="background: rgba(217, 119, 6, 0.12); color: #d97706;">
-                <i class="bi bi-geo-alt"></i>
-            </div>
-            <div>
-                <div class="attempts-kpi-label">Fuera de la geocerca</div>
-                <div class="attempts-kpi-val">{{ number_format($byCode['GEOFENCE_VIOLATION'] ?? 0) }}</div>
-                <div class="attempts-kpi-sub d-flex align-items-center">
-                    <i class="bi bi-crosshair" style="margin-right: 7px;"></i>
-                    <span>Fuera del radio</span>
-                </div>
-            </div>
-        </a>
-    </div>
-
-    {{-- Tarjeta 4: GPS impreciso u otros motivos --}}
-    <div class="col-6 col-xl-3">
-        <a href="{{ request()->fullUrlWithQuery(['code' => 'GPS_ACCURACY_TOO_LOW', 'page' => null]) }}" 
-           class="attempts-kpi-card {{ request('code') === 'GPS_ACCURACY_TOO_LOW' ? 'is-active' : '' }}"
-           title="Filtrar por GPS impreciso">
-            <div class="attempts-kpi-icon" style="background: rgba(124, 58, 237, 0.12); color: #7c3aed;">
-                <i class="bi bi-crosshair2"></i>
-            </div>
-            <div>
-                <div class="attempts-kpi-label">GPS impreciso</div>
-                <div class="attempts-kpi-val">{{ number_format($byCode['GPS_ACCURACY_TOO_LOW'] ?? 0) }}</div>
-                <div class="attempts-kpi-sub d-flex align-items-center">
-                    <i class="bi bi-reception-2" style="margin-right: 7px;"></i>
-                    <span>Baja precisión satelital</span>
-                </div>
-            </div>
-        </a>
-    </div>
-</div>
-
-{{-- Barra de Filtros Avanzados --}}
-<div class="attempts-filter-card">
-    <form method="GET" action="{{ route('attendance.attempts') }}" id="attemptsFilterForm">
+<section class="surface mb-3">
+    <form method="GET" action="{{ route('attendance.attempts') }}" id="attemptsFilterForm" class="filter-row border-0" role="search">
         <input type="hidden" name="per_page" value="{{ request('per_page', $attempts->perPage()) }}">
-        <div class="row g-3 align-items-end">
-            <div class="col-6 col-md-3 col-xl-2">
-                <label for="start_date" class="attempts-filter-label">Desde</label>
-                <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" class="form-control attempts-filter-input">
-            </div>
-            <div class="col-6 col-md-3 col-xl-2">
-                <label for="end_date" class="attempts-filter-label">Hasta</label>
-                <input type="date" id="end_date" name="end_date" value="{{ $endDate }}" class="form-control attempts-filter-input">
-            </div>
-            <div class="col-6 col-md-3 col-xl-2">
-                <label for="branch_id" class="attempts-filter-label">Sucursal</label>
-                <select id="branch_id" name="branch_id" class="form-select attempts-filter-select">
-                    <option value="">Todas las sucursales</option>
-                    @foreach($branches as $b)
-                        <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-6 col-md-3 col-xl-2">
-                <label for="code" class="attempts-filter-label">Motivo</label>
-                <select id="code" name="code" class="form-select attempts-filter-select">
-                    <option value="">Todos los motivos</option>
-                    @foreach($codes as $value => $text)
-                        <option value="{{ $value }}" @selected(request('code') === $value)>{{ $text }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-6 col-md-3 col-xl-2">
-                <label for="type" class="attempts-filter-label">Marcación</label>
-                <select id="type" name="type" class="form-select attempts-filter-select">
-                    <option value="">Entrada, salida y descansos</option>
-                    @foreach(\App\Modules\Core\Support\Labels::options('punch_type') as $value => $text)
-                        <option value="{{ $value }}" @selected(request('type') === $value)>{{ $text }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <label for="search" class="attempts-filter-label">Colaborador</label>
-                <div class="attempts-search-wrapper">
-                    <i class="bi bi-search search-icon"></i>
-                    <input type="search" id="search" name="search" value="{{ request('search') }}" placeholder="Nombre, código o DNI...">
-                </div>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <div class="d-flex align-items-center gap-2">
-                    <button type="submit" class="btn btn-primary d-inline-flex align-items-center justify-content-center shadow-sm flex-grow-1" style="height: 40px; border-radius: 8px; font-weight: 600;">
-                        <i class="bi bi-funnel" style="margin-right: 7px;"></i>
-                        <span>Filtrar</span>
-                    </button>
-                    @if(request()->hasAny(['search', 'branch_id', 'code', 'type', 'start_date', 'end_date']))
-                        <a href="{{ route('attendance.attempts') }}" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center flex-shrink-0" style="height: 40px; width: 40px; border-radius: 8px;" title="Limpiar todos los filtros">
-                            <i class="bi bi-x-lg"></i>
-                        </a>
-                    @endif
-                </div>
-            </div>
+        <div class="search-field">
+            <i class="bi bi-search"></i>
+            <input type="search" id="search" name="search" value="{{ request('search') }}" class="form-control" placeholder="Colaborador: nombre, código o DNI…" aria-label="Colaborador">
+        </div>
+        <div class="range-field">
+            <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" class="form-control" aria-label="Desde">
+            <span class="text-body-secondary small">a</span>
+            <input type="date" id="end_date" name="end_date" value="{{ $endDate }}" class="form-control" aria-label="Hasta">
+        </div>
+        <select id="branch_id" name="branch_id" class="form-select w-auto" aria-label="Sucursal">
+            <option value="">Todas las sucursales</option>
+            @foreach($branches as $b)
+                <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
+            @endforeach
+        </select>
+        <select id="code" name="code" class="form-select w-auto" aria-label="Motivo">
+            <option value="">Todos los motivos</option>
+            @foreach($codes as $value => $text)
+                <option value="{{ $value }}" @selected(request('code') === $value)>{{ $text }}</option>
+            @endforeach
+        </select>
+        <select id="type" name="type" class="form-select w-auto" aria-label="Marcación">
+            <option value="">Entrada, salida y descansos</option>
+            @foreach(\App\Modules\Core\Support\Labels::options('punch_type') as $value => $text)
+                <option value="{{ $value }}" @selected(request('type') === $value)>{{ $text }}</option>
+            @endforeach
+        </select>
+        <div class="d-flex gap-2 ms-auto">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+            @if(request()->hasAny(['search', 'branch_id', 'code', 'type', 'start_date', 'end_date']))
+                <a href="{{ route('attendance.attempts') }}" class="btn btn-light border" title="Limpiar todos los filtros" aria-label="Limpiar filtros"><i class="bi bi-x-lg"></i></a>
+            @endif
         </div>
     </form>
-</div>
+</section>
 
-{{-- Sección del Mapa Geoespacial (Dónde intentaron marcar) --}}
+{{-- Mapa: dónde intentaron marcar --}}
 @if($mapPoints->isNotEmpty())
-<div class="attempts-map-card">
-    <div class="attempts-map-header">
-        <div class="d-flex align-items-center gap-2">
-            <span class="d-inline-flex align-items-center justify-content-center rounded-2 bg-primary-subtle text-primary p-2">
-                <i class="bi bi-geo-alt-fill fs-6"></i>
-            </span>
-            <div>
-                <h2 class="h6 mb-0 fw-bold text-body">Dónde intentaron marcar</h2>
-                <span class="small text-body-secondary">Intentos de esta página y radio de cada sede (línea punteada: tolerancia del borde)</span>
-            </div>
+<section class="surface mb-3 overflow-hidden">
+    <div class="surface-head align-items-center flex-wrap">
+        <div>
+            <h2 class="surface-title">Dónde intentaron marcar</h2>
+            <p class="surface-sub">Intentos de esta página y radio de cada sede (línea punteada: tolerancia del borde)</p>
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
-            <span class="attempts-pill bg-light text-body border">
-                <span class="badge-dot" style="width: 7px; height: 7px; border-radius: 50%; background: var(--brand); display: inline-block; margin-right: 6px;"></span>
-                <span>Sedes & Perímetro</span>
-            </span>
-            <span class="attempts-pill bg-danger-subtle text-danger border border-danger-subtle">
-                <span class="badge-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #dc2626; display: inline-block; margin-right: 6px;"></span>
-                <span>GPS simulado</span>
-            </span>
-            <span class="attempts-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                <span class="badge-dot" style="width: 7px; height: 7px; border-radius: 50%; background: #d97706; display: inline-block; margin-right: 6px;"></span>
-                <span>Fuera de radio</span>
-            </span>
-            <button type="button" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center" id="toggleMapBtn" style="border-radius: 6px; font-size: 0.75rem; padding: 4px 10px;">
-                <i class="bi bi-arrows-angle-contract" id="toggleMapIcon" style="margin-right: 6px;"></i>
-                <span id="toggleMapText">Contraer</span>
+            <span class="status-pill tone-brand">Sedes y perímetro</span>
+            <span class="status-pill tone-rose">GPS simulado</span>
+            <span class="status-pill tone-amber">Fuera de radio</span>
+            <button type="button" class="btn btn-sm btn-light border" id="toggleMapBtn">
+                <i class="bi bi-arrows-angle-contract me-1" id="toggleMapIcon"></i><span id="toggleMapText">Contraer</span>
             </button>
         </div>
     </div>
     <div id="attemptsMapWrapper">
         <div id="attemptsMap" style="height: 330px;" class="w-100"></div>
     </div>
-</div>
+</section>
 @endif
 
 {{-- Tabla de Intentos Rechazados (Totalmente Adaptable sin Scrollbar Forzado) --}}
-<div class="attempts-table-card">
+<section class="surface">
     <div class="table-responsive">
-        <table class="attempts-table table table-hover align-middle">
+        <table class="table data-table table-cards align-middle mb-0">
             <thead>
                 <tr>
                     <th style="width: 22%;">Colaborador</th>
@@ -226,7 +109,7 @@
                     <th style="width: 24%;">Motivo</th>
                     <th style="width: 15%;">Ubicación</th>
                     <th style="width: 9%;">Teléfono</th>
-                    <th style="width: 5%;" class="text-end pe-3">Auditoría</th>
+                    <th class="text-end">Auditoría</th>
                 </tr>
             </thead>
             <tbody>
@@ -268,7 +151,7 @@
                     @endphp
                     <tr>
                         {{-- 1. Colaborador --}}
-                        <td>
+                        <td class="cell-main">
                             <div class="d-flex align-items-center gap-2.5">
                                 @if(!empty($a->user?->avatar_path))
                                     <img src="{{ asset('storage/' . $a->user->avatar_path) }}" alt="{{ $userFullName }}" class="attempts-avatar-img">
@@ -292,7 +175,7 @@
                         </td>
 
                         {{-- 2. Fecha y hora --}}
-                        <td>
+                        <td data-label="Fecha">
                             <div class="fw-bold text-body" style="font-size: 0.825rem;">{{ $a->created_at->format('d/m/Y') }}</div>
                             <div class="text-body-secondary small d-flex align-items-center mt-0.5" style="font-size: 0.75rem;">
                                 <i class="bi bi-clock text-muted" style="margin-right: 5px;"></i>
@@ -315,18 +198,18 @@
                         </td>
 
                         {{-- 3. Tipo de Marcación --}}
-                        <td>
+                        <td data-label="Marcación">
                             <x-status-badge type="punch_type" :value="$a->type" />
                         </td>
 
                         {{-- 4. Motivo del Rechazo --}}
-                        <td>
+                        <td data-label="Motivo">
                             <x-status-badge type="punch_attempt_code" :value="$a->error_code" />
                             <div class="attempts-msg-box mt-1" title="{{ $a->message }}">{{ $a->message }}</div>
                         </td>
 
                         {{-- 5. Ubicación y Telemetría --}}
-                        <td class="small">
+                        <td class="small" data-label="Ubicación">
                             @if($a->distance_meters !== null)
                                 <div class="text-danger fw-semibold d-flex align-items-center" style="font-size: 0.78rem; white-space: nowrap;">
                                     <i class="bi bi-geo-alt-fill" style="margin-right: 5px;"></i>
@@ -363,7 +246,7 @@
                         </td>
 
                         {{-- 6. Teléfono & Dispositivo --}}
-                        <td class="small">
+                        <td class="small" data-label="Teléfono">
                             <div class="text-truncate fw-semibold text-body d-flex align-items-center" style="font-size: 0.8rem;">
                                 <i class="bi bi-phone text-secondary" style="margin-right: 6px;"></i>
                                 <span>{{ $a->device_os ?? '—' }}</span>
@@ -386,7 +269,7 @@
                         </td>
 
                         {{-- 7. Acciones Forenses --}}
-                        <td class="text-end pe-3">
+                        <td class="text-end">
                             <button type="button" 
                                     class="attempts-btn-audit" 
                                     onclick="openAttemptAudit(@js($attemptJson))"
@@ -397,16 +280,12 @@
                         </td>
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="7" class="py-5 text-center">
-                            <div class="empty-state py-4">
-                                <div style="width: 54px; height: 54px; border-radius: 12px; background: rgba(16, 185, 129, 0.1); color: #10b981; display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; margin-bottom: 0.75rem;">
-                                    <i class="bi bi-shield-check"></i>
-                                </div>
-                                <div class="fw-bold text-body fs-6">No hubo intentos rechazados en este rango.</div>
-                                <div class="text-body-secondary small mt-1" style="max-width: 440px; margin: 0 auto;">
-                                    Todas las marcaciones del periodo cumplieron las políticas de geocerca, precisión GPS y seguridad de dispositivo.
-                                </div>
+                    <tr class="row-empty">
+                        <td colspan="7">
+                            <div class="dash-empty">
+                                <span class="dash-empty-icon"><i class="bi bi-shield-check"></i></span>
+                                <p class="dash-empty-title">No hubo intentos rechazados en este rango.</p>
+                                <p class="dash-empty-text">Todas las marcaciones del periodo cumplieron la geocerca, la precisión GPS y la seguridad del dispositivo.</p>
                             </div>
                         </td>
                     </tr>
@@ -456,7 +335,7 @@
             </div>
         </div>
     @endif
-</div>
+</section>
 
 {{-- Modal de Auditoría Forense Completa de Intento --}}
 <div class="modal fade" id="attemptAuditModal" tabindex="-1" aria-labelledby="attemptAuditModalLabel" aria-hidden="true">
@@ -691,12 +570,12 @@ document.addEventListener('DOMContentLoaded', () => {
             isExpanded = !isExpanded;
             if (isExpanded) {
                 mapWrapper.style.display = 'block';
-                toggleIcon.className = 'bi bi-arrows-angle-contract';
+                toggleIcon.className = 'bi bi-arrows-angle-contract me-1';
                 toggleText.textContent = 'Contraer';
                 map.invalidateSize();
             } else {
                 mapWrapper.style.display = 'none';
-                toggleIcon.className = 'bi bi-arrows-angle-expand';
+                toggleIcon.className = 'bi bi-arrows-angle-expand me-1';
                 toggleText.textContent = 'Expandir';
             }
         });
