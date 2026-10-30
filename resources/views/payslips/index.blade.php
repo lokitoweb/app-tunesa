@@ -14,58 +14,35 @@
 @section('content')
 <div class="payslips-page-wrapper">
 
-    {{-- =========================================================================
-         1. CABECERA EJECUTIVA DEL MÓDULO
-         ========================================================================= --}}
-    <div class="payslips-header-card shadow-sm p-3 p-md-4 mb-4">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div class="d-flex align-items-center">
-                <div class="payslips-header-icon shadow-sm" style="margin-right: 16px !important;">
-                    <i class="bi bi-receipt-cutoff"></i>
-                </div>
-                <div>
-                    <div class="d-flex align-items-center flex-wrap mb-1" style="gap: 10px !important;">
-                        <h1 class="h4 fw-bold mb-0 text-body">Boletas de Pago</h1>
-                        <span class="badge rounded-2 bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 small fw-semibold">
-                            <i class="bi bi-cash-stack" style="margin-right: 6px !important;"></i>Nómina Digital
-                        </span>
-                        <span class="badge rounded-2 bg-info-subtle text-info border border-info-subtle px-2.5 py-1 small fw-semibold" id="headerPeriodBadge">
-                            <i class="bi bi-calendar3" style="margin-right: 6px !important;"></i><span id="headerPeriodText">{{ $currentMonthName }} {{ $currentYear }}</span>
-                        </span>
-                        <span class="badge rounded-2 bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 small fw-semibold {{ ($summary['drafts'] ?? 0) > 0 ? '' : 'd-none' }}" id="headerDraftsBadge">
-                            <i class="bi bi-clock-history" style="margin-right: 6px !important;"></i><span id="headerDraftsText">{{ $summary['drafts'] ?? 0 }}</span> pendiente(s) de publicar
-                        </span>
-                    </div>
-                    <p class="text-secondary small mb-0">
-                        Carga y distribución segura de boletas en PDF con cálculo de haberes, firma digital y auditoría de lectura móvil en tiempo real.
-                    </p>
-                </div>
-            </div>
-
-            <div class="d-flex align-items-center flex-wrap" style="gap: 10px;">
-                <button type="button" 
-                        class="btn btn-outline-primary d-inline-flex align-items-center shadow-sm"
-                        style="height: 38px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; padding: 0 1.15rem;"
-                        data-bs-toggle="modal" 
-                        data-bs-target="#bulkUploadPayslipModal">
-                    <i class="bi bi-files" style="margin-right: 8px !important;"></i>
-                    <span>Carga masiva</span>
-                </button>
-                <button type="button" 
-                        class="btn btn-primary d-inline-flex align-items-center shadow-sm"
-                        style="height: 38px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; padding: 0 1.25rem;"
-                        data-bs-toggle="modal" 
-                        data-bs-target="#uploadSinglePayslipModal">
-                    <i class="bi bi-cloud-arrow-up-fill" style="margin-right: 8px !important;"></i>
-                    <span>Subir boleta</span>
-                </button>
+    <header class="page-head">
+        <div class="page-head-text">
+            <h1 class="page-title">Boletas de pago</h1>
+            <p class="page-subtitle">Carga y publicación de boletas en PDF, con firma digital y confirmación de lectura del colaborador.</p>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <span class="status-pill tone-blue" id="headerPeriodBadge"><i class="bi bi-calendar3"></i><span id="headerPeriodText">{{ $currentMonthName }} {{ $currentYear }}</span></span>
+                <span class="status-pill tone-amber {{ ($summary['drafts'] ?? 0) > 0 ? '' : 'd-none' }}" id="headerDraftsBadge"><i class="bi bi-clock-history"></i><span id="headerDraftsText">{{ $summary['drafts'] ?? 0 }}</span> pendiente(s) de publicar</span>
             </div>
         </div>
-    </div>
+        <div class="page-actions">
+            @php $draftsCount = $summary['drafts'] ?? 0; @endphp
+            <button type="button" class="btn btn-light border" id="btnPublishAllTrigger"
+                    @if($draftsCount > 0)
+                        data-bs-toggle="modal" data-bs-target="#confirmPublishAllModal"
+                    @else
+                        disabled title="No hay boletas en borrador para publicar"
+                    @endif>
+                <i class="bi bi-send-check me-1"></i>Publicar todas
+                <span class="count-pill tone-amber ms-1 {{ $draftsCount > 0 ? '' : 'd-none' }}" id="publishAllCountBadge">{{ $draftsCount }}</span>
+            </button>
+            <button type="button" class="btn btn-light border" data-bs-toggle="modal" data-bs-target="#bulkUploadPayslipModal">
+                <i class="bi bi-files me-1"></i>Carga masiva
+            </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadSinglePayslipModal">
+                <i class="bi bi-cloud-arrow-up me-1"></i>Subir boleta
+            </button>
+        </div>
+    </header>
 
-    {{-- =========================================================================
-         2. TARJETAS DE MÉTRICAS KPI (RESUMEN EJECUTIVO CON IDs REACTIVOS)
-         ========================================================================= --}}
     @php
         $totalEmitted = $summary['total_emitted'] ?? 0;
         $publishedCount = $summary['published'] ?? 0;
@@ -75,249 +52,141 @@
         $readPercent = $publishedCount > 0 ? round(($readCount / $publishedCount) * 100) : 0;
     @endphp
 
-    <div class="row g-3 mb-4">
-        {{-- Total Emitidas --}}
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="payslips-kpi-card shadow-sm p-3 h-100">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Emitidas en Periodo</span>
-                    <div class="payslips-kpi-pill bg-primary-subtle text-primary">
-                        <i class="bi bi-file-earmark-text-fill"></i>
-                    </div>
-                </div>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="h3 fw-bold mb-0 text-body" id="kpi_total_emitted">{{ $totalEmitted }}</span>
-                    <span class="text-muted small">boletas</span>
-                </div>
-                <div class="text-muted small mt-1" style="font-size: 0.75rem;" id="kpi_period_hint">
-                    Periodo {{ sprintf('%02d', $currentMonth) }}/{{ $currentYear }}
-                </div>
+    <section class="dash-kpis" aria-label="Resumen del periodo">
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">Emitidas en el periodo</span>
+                <span class="dash-kpi-icon tone-brand"><i class="bi bi-file-earmark-text"></i></span>
             </div>
-        </div>
+            <div class="dash-kpi-value" id="kpi_total_emitted">{{ $totalEmitted }}</div>
+            <div class="dash-kpi-meta" id="kpi_period_hint">Periodo {{ sprintf('%02d', $currentMonth) }}/{{ $currentYear }}</div>
+        </article>
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">Publicadas en la app</span>
+                <span class="dash-kpi-icon tone-emerald"><i class="bi bi-phone"></i></span>
+            </div>
+            <div class="dash-kpi-value" id="kpi_published">{{ $publishedCount }}</div>
+            <div class="dash-kpi-meta" id="kpi_pub_badge">{{ $pubPercent }}% emitidas</div>
+        </article>
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">Leídas por el colaborador</span>
+                <span class="dash-kpi-icon tone-blue"><i class="bi bi-check2-all"></i></span>
+            </div>
+            <div class="dash-kpi-value" id="kpi_read_count">{{ $readCount }}</div>
+            <div class="dash-kpi-meta" id="kpi_read_percent">({{ $readPercent }}% de publicadas)</div>
+        </article>
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">Planilla neta total</span>
+                <span class="dash-kpi-icon tone-amber"><i class="bi bi-cash-stack"></i></span>
+            </div>
+            <div class="dash-kpi-value kpi-money" id="kpi_total_payroll">S/ {{ number_format($totalPayroll, 2) }}</div>
+            <div class="dash-kpi-meta">Neto a desembolsar en el mes</div>
+        </article>
+    </section>
 
-        {{-- Publicadas en App --}}
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="payslips-kpi-card shadow-sm p-3 h-100">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Publicadas en App</span>
-                    <div class="payslips-kpi-pill bg-emerald-subtle text-emerald">
-                        <i class="bi bi-phone-fill"></i>
-                    </div>
-                </div>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="h3 fw-bold mb-0 text-body" id="kpi_published">{{ $publishedCount }}</span>
-                    <span class="badge {{ $publishedCount > 0 ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}" id="kpi_pub_badge">
-                        {{ $pubPercent }}% emitidas
+    {{-- Filtros (AJAX): periodo con calendario de meses, colaborador y estado --}}
+    <section class="surface mb-3">
+        <form id="payslipsFilterForm" onsubmit="event.preventDefault(); applyPayslipFilters();" class="filter-row border-0" role="search">
+            <input type="hidden" name="year" id="filter_year" value="{{ $currentYear }}">
+            <input type="hidden" name="month" id="filter_month" value="{{ $currentMonth }}">
+            <div class="search-field">
+                <i class="bi bi-search"></i>
+                <input type="search" id="filter_search" name="search" value="{{ request('search') }}" class="form-control" placeholder="Nombre, DNI o boleta…" aria-label="Buscar boleta" autocomplete="off">
+            </div>
+            <div class="dropdown" id="payslipPeriodDropdown">
+                <button type="button" 
+                        class="btn btn-light border d-inline-flex align-items-center justify-content-between payslip-calendar-trigger-btn" 
+                        data-bs-toggle="dropdown" 
+                        data-bs-auto-close="outside" 
+                        id="periodPickerBtn" 
+                        aria-expanded="false">
+                    <span class="d-inline-flex align-items-center">
+                        <i class="bi bi-calendar-event text-primary" style="margin-right: 8px !important;"></i>
+                        <span class="fw-bold text-body" id="selectedPeriodDisplay">{{ $currentMonthName }} {{ $currentYear }}</span>
                     </span>
-                </div>
-                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                    Disponibles en el móvil del colaborador
-                </div>
-            </div>
-        </div>
+                    <i class="bi bi-chevron-down text-muted small" style="margin-left: 8px !important;"></i>
+                </button>
 
-        {{-- Leídas / Confirmadas --}}
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="payslips-kpi-card shadow-sm p-3 h-100">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Leídas por Empleado</span>
-                    <div class="payslips-kpi-pill bg-info-subtle text-info">
-                        <i class="bi bi-check2-all"></i>
-                    </div>
-                </div>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="h3 fw-bold mb-0 text-body" id="kpi_read_count">{{ $readCount }}</span>
-                    <span class="text-muted small" id="kpi_read_percent">({{ $readPercent }}% de publicadas)</span>
-                </div>
-                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                    Confirmación de recepción y apertura
-                </div>
-            </div>
-        </div>
+                <div class="dropdown-menu calendar-pro-popover shadow-lg p-0" id="calendarPeriodPopover" aria-labelledby="periodPickerBtn">
+                    <div class="calendar-pro-grid">
+                        {{-- Columna Lateral: Periodos Rápidos --}}
+                        <div class="calendar-sidebar-presets">
+                            <div class="calendar-presets-heading">ACCESOS RÁPIDOS</div>
+                            <button type="button" class="calendar-preset-btn" data-period-year="{{ date('Y') }}" data-period-month="{{ date('n') }}">
+                                <span>Mes actual</span>
+                                <i class="bi bi-check-lg ms-auto {{ ($currentYear == date('Y') && $currentMonth == date('n')) ? '' : 'd-none' }}"></i>
+                            </button>
+                            @php
+                                $prevM = date('n') == 1 ? 12 : date('n') - 1;
+                                $prevY = date('n') == 1 ? date('Y') - 1 : date('Y');
+                            @endphp
+                            <button type="button" class="calendar-preset-btn" data-period-year="{{ $prevY }}" data-period-month="{{ $prevM }}">
+                                <span>Mes anterior</span>
+                            </button>
+                            <button type="button" class="calendar-preset-btn" data-period-year="{{ date('Y') }}" data-period-month="10">
+                                <span>Octubre {{ date('Y') }}</span>
+                            </button>
+                            <button type="button" class="calendar-preset-btn" data-period-year="{{ date('Y') }}" data-period-month="9">
+                                <span>Septiembre {{ date('Y') }}</span>
+                            </button>
+                            <button type="button" class="calendar-preset-btn" data-period-year="{{ date('Y') }}" data-period-month="8">
+                                <span>Agosto {{ date('Y') }}</span>
+                            </button>
+                        </div>
 
-        {{-- Neto Total --}}
-        <div class="col-12 col-sm-6 col-xl-3">
-            <div class="payslips-kpi-card shadow-sm p-3 h-100">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="text-muted fw-semibold small text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Planilla Neta Total</span>
-                    <div class="payslips-kpi-pill bg-amber-subtle text-amber">
-                        <i class="bi bi-cash-stack"></i>
-                    </div>
-                </div>
-                <div class="d-flex align-items-baseline gap-2">
-                    <span class="h3 fw-bold mb-0 text-body font-monospace" id="kpi_total_payroll">S/ {{ number_format($totalPayroll, 2) }}</span>
-                </div>
-                <div class="text-muted small mt-1" style="font-size: 0.75rem;">
-                    Total neto a desembolsar en el mes
-                </div>
-            </div>
-        </div>
-    </div>
+                        {{-- Columna Principal: Navegador de Año y Matriz de 12 Meses --}}
+                        <div class="calendar-content-pane">
+                            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                                <button type="button" class="calendar-nav-btn" id="btnCalPrevYear" title="Año anterior">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                                <span class="calendar-month-title fs-6 fw-bold text-body" id="calActiveYearDisplay">{{ $currentYear }}</span>
+                                <button type="button" class="calendar-nav-btn" id="btnCalNextYear" title="Año siguiente">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
 
-    {{-- =========================================================================
-         3. BARRA DE FILTROS & CALENDARIO MODERNO DE PERIODO (AJAX INTERNO)
-         ========================================================================= --}}
-    <div class="payslips-filter-card shadow-sm p-3 mb-4">
-        <div class="d-flex flex-wrap align-items-end justify-content-between gap-3">
-            <form id="payslipsFilterForm" onsubmit="event.preventDefault(); applyPayslipFilters();" class="d-flex flex-wrap align-items-end flex-grow-1" style="gap: 12px;">
-                {{-- Campos ocultos para Año y Mes sincronizados por el calendario --}}
-                <input type="hidden" name="year" id="filter_year" value="{{ $currentYear }}">
-                <input type="hidden" name="month" id="filter_month" value="{{ $currentMonth }}">
-
-                {{-- Búsqueda predictiva AJAX --}}
-                <div class="filter-field-box" style="flex: 1 1 210px; min-width: 180px;">
-                    <label for="filter_search" class="filter-label">
-                        <i class="bi bi-search" style="margin-right: 6px !important;"></i>Buscar
-                    </label>
-                    <input type="text" 
-                           id="filter_search" 
-                           name="search" 
-                           value="{{ request('search') }}" 
-                           class="form-control payslip-input"
-                           placeholder="Nombre, DNI o boleta..."
-                           autocomplete="off">
-                </div>
-
-                {{-- CALENDARIO MODERNO DE PERIODO (Reemplazo elegante de los selects separados) --}}
-                <div class="filter-field-box" style="min-width: 190px;">
-                    <label class="filter-label">
-                        <i class="bi bi-calendar3" style="margin-right: 6px !important;"></i>Periodo de Pago
-                    </label>
-                    <div class="dropdown" id="payslipPeriodDropdown">
-                        <button type="button" 
-                                class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-between payslip-calendar-trigger-btn w-100" 
-                                data-bs-toggle="dropdown" 
-                                data-bs-auto-close="outside" 
-                                id="periodPickerBtn" 
-                                aria-expanded="false">
-                            <span class="d-inline-flex align-items-center">
-                                <i class="bi bi-calendar-event text-primary" style="margin-right: 8px !important;"></i>
-                                <span class="fw-bold text-body" id="selectedPeriodDisplay">{{ $currentMonthName }} {{ $currentYear }}</span>
-                            </span>
-                            <i class="bi bi-chevron-down text-muted small" style="margin-left: 8px !important;"></i>
-                        </button>
-
-                        <div class="dropdown-menu calendar-pro-popover shadow-lg p-0" id="calendarPeriodPopover" aria-labelledby="periodPickerBtn">
-                            <div class="calendar-pro-grid">
-                                {{-- Columna Lateral: Periodos Rápidos --}}
-                                <div class="calendar-sidebar-presets">
-                                    <div class="calendar-presets-heading">ACCESOS RÁPIDOS</div>
-                                    <button type="button" class="calendar-preset-btn" data-period-year="{{ date('Y') }}" data-period-month="{{ date('n') }}">
-                                        <span>Mes actual</span>
-                                        <i class="bi bi-check-lg ms-auto {{ ($currentYear == date('Y') && $currentMonth == date('n')) ? '' : 'd-none' }}"></i>
+                            <div class="calendar-months-grid mb-2">
+                                @foreach($monthNames as $mNum => $mLabel)
+                                    <button type="button" 
+                                            class="calendar-month-cell {{ $currentMonth == $mNum ? 'is-selected' : '' }}" 
+                                            data-month="{{ $mNum }}">
+                                        {{ substr($mLabel, 0, 3) }}
                                     </button>
-                                    @php
-                                        $prevM = date('n') == 1 ? 12 : date('n') - 1;
-                                        $prevY = date('n') == 1 ? date('Y') - 1 : date('Y');
-                                    @endphp
-                                    <button type="button" class="calendar-preset-btn" data-period-year="{{ $prevY }}" data-period-month="{{ $prevM }}">
-                                        <span>Mes anterior</span>
-                                    </button>
-                                    <button type="button" class="calendar-preset-btn" data-period-year="{{ date('Y') }}" data-period-month="10">
-                                        <span>Octubre {{ date('Y') }}</span>
-                                    </button>
-                                    <button type="button" class="calendar-preset-btn" data-period-year="{{ date('Y') }}" data-period-month="9">
-                                        <span>Septiembre {{ date('Y') }}</span>
-                                    </button>
-                                    <button type="button" class="calendar-preset-btn" data-period-year="{{ date('Y') }}" data-period-month="8">
-                                        <span>Agosto {{ date('Y') }}</span>
-                                    </button>
-                                </div>
+                                @endforeach
+                            </div>
 
-                                {{-- Columna Principal: Navegador de Año y Matriz de 12 Meses --}}
-                                <div class="calendar-content-pane">
-                                    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
-                                        <button type="button" class="calendar-nav-btn" id="btnCalPrevYear" title="Año anterior">
-                                            <i class="bi bi-chevron-left"></i>
-                                        </button>
-                                        <span class="calendar-month-title fs-6 fw-bold text-body" id="calActiveYearDisplay">{{ $currentYear }}</span>
-                                        <button type="button" class="calendar-nav-btn" id="btnCalNextYear" title="Año siguiente">
-                                            <i class="bi bi-chevron-right"></i>
-                                        </button>
-                                    </div>
-
-                                    <div class="calendar-months-grid mb-2">
-                                        @foreach($monthNames as $mNum => $mLabel)
-                                            <button type="button" 
-                                                    class="calendar-month-cell {{ $currentMonth == $mNum ? 'is-selected' : '' }}" 
-                                                    data-month="{{ $mNum }}">
-                                                {{ substr($mLabel, 0, 3) }}
-                                            </button>
-                                        @endforeach
-                                    </div>
-
-                                    <div class="text-muted small mt-auto pt-2 border-top d-flex justify-content-between align-items-center" style="font-size: 0.725rem;">
-                                        <span>Selecciona mes y año</span>
-                                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none fw-semibold" id="btnApplyCurrentMonth">Mes actual</button>
-                                    </div>
-                                </div>
+                            <div class="text-muted small mt-auto pt-2 border-top d-flex justify-content-between align-items-center" style="font-size: 0.725rem;">
+                                <span>Selecciona mes y año</span>
+                                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none fw-semibold" id="btnApplyCurrentMonth">Mes actual</button>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                {{-- Colaborador --}}
-                <div class="filter-field-box" style="flex: 1 1 200px; min-width: 180px;">
-                    <label for="filter_user_id" class="filter-label">
-                        <i class="bi bi-person" style="margin-right: 6px !important;"></i>Colaborador
-                    </label>
-                    <select id="filter_user_id" name="user_id" class="form-select payslip-input">
-                        <option value="">Todos los colaboradores</option>
-                        @foreach($employees as $e)
-                            <option value="{{ $e->id }}" @selected(request('user_id') == $e->id)>
-                                {{ $e->first_name }} {{ $e->last_name }} ({{ $e->document_number }})
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- Estado --}}
-                <div class="filter-field-box" style="width: 130px;">
-                    <label for="filter_status" class="filter-label">
-                        <i class="bi bi-funnel" style="margin-right: 6px !important;"></i>Estado
-                    </label>
-                    <select id="filter_status" name="status" class="form-select payslip-input">
-                        <option value="">Todos</option>
-                        <option value="draft" @selected(request('status') === 'draft')>Borrador</option>
-                        <option value="published" @selected(request('status') === 'published')>Publicada</option>
-                        <option value="archived" @selected(request('status') === 'archived')>Anulada</option>
-                    </select>
-                </div>
-
-                {{-- Botones de Filtrar y Limpiar --}}
-                <div class="d-flex align-items-center" style="gap: 8px;">
-                    <button type="button" onclick="applyPayslipFilters();" class="btn btn-primary d-inline-flex align-items-center btn-payslip-filter shadow-sm">
-                        <i class="bi bi-funnel-fill" style="margin-right: 8px !important;"></i>
-                        <span>Filtrar</span>
-                    </button>
-                    <button type="button" onclick="resetPayslipFilters();" class="btn btn-outline-secondary d-inline-flex align-items-center btn-payslip-reset" title="Restablecer filtros">
-                        <i class="bi bi-arrow-counterclockwise" style="margin-right: 8px !important;"></i>
-                        <span>Limpiar</span>
-                    </button>
-                </div>
-            </form>
-
-            {{-- Botón Publicar Todas con Modal Dialog --}}
-            <div class="d-flex align-items-center">
-                @php $draftsCount = $summary['drafts'] ?? 0; @endphp
-                <button type="button" 
-                        class="btn btn-success d-inline-flex align-items-center shadow-sm btn-publish-all"
-                        id="btnPublishAllTrigger"
-                        @if($draftsCount > 0)
-                            data-bs-toggle="modal" 
-                            data-bs-target="#confirmPublishAllModal"
-                        @else
-                            disabled 
-                            title="No hay boletas en borrador para publicar"
-                        @endif>
-                    <i class="bi bi-send-check" style="margin-right: 8px !important;"></i>
-                    <span>Publicar todas</span>
-                    <span class="badge bg-white text-success ms-2 fw-bold {{ $draftsCount > 0 ? '' : 'd-none' }}" id="publishAllCountBadge" style="border-radius: 6px;">{{ $draftsCount }}</span>
-                </button>
             </div>
-        </div>
-    </div>
-
+            <select id="filter_user_id" name="user_id" class="form-select w-auto" aria-label="Colaborador">
+                <option value="">Todos los colaboradores</option>
+                @foreach($employees as $e)
+                    <option value="{{ $e->id }}" @selected(request('user_id') == $e->id)>
+                        {{ $e->first_name }} {{ $e->last_name }} ({{ $e->document_number }})
+                    </option>
+                @endforeach
+            </select>
+            <select id="filter_status" name="status" class="form-select w-auto" aria-label="Estado">
+                <option value="">Todos los estados</option>
+                <option value="draft" @selected(request('status') === 'draft')>Borrador</option>
+                <option value="published" @selected(request('status') === 'published')>Publicada</option>
+                <option value="archived" @selected(request('status') === 'archived')>Anulada</option>
+            </select>
+            <div class="d-flex gap-2 ms-auto">
+                <button type="button" onclick="applyPayslipFilters();" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+                <button type="button" onclick="resetPayslipFilters();" class="btn btn-light border" title="Restablecer filtros"><i class="bi bi-arrow-counterclockwise me-1"></i>Limpiar</button>
+            </div>
+        </form>
+    </section>
     {{-- =========================================================================
          4. CONTENEDOR DE LA TABLA (ACTUALIZADO POR AJAX)
          ========================================================================= --}}
@@ -767,50 +636,6 @@ Estilos Profesionales del Módulo de Boletas de Pago
     width: 100%;
 }
 
-{{-- Cabecera Ejecutiva --}}
-.payslips-header-card {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
-    border-radius: 12px;
-}
-
-.payslips-header-icon {
-    width: 48px;
-    height: 48px;
-    background: linear-gradient(135deg, var(--brand) 0%, #2563eb 100%);
-    color: #ffffff;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.35rem;
-    flex-shrink: 0;
-}
-
-{{-- Tarjetas KPI --}}
-.payslips-kpi-card {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.07));
-    border-radius: 10px;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.payslips-kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.06) !important;
-}
-
-.payslips-kpi-pill {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-    flex-shrink: 0;
-}
-
 {{-- Colores pill auxiliares --}}
 .bg-emerald-subtle {
     background: rgba(16, 185, 129, 0.12) !important;
@@ -824,22 +649,6 @@ Estilos Profesionales del Módulo de Boletas de Pago
 }
 .text-amber {
     color: #f59e0b !important;
-}
-
-{{-- Tarjeta de Filtros --}}
-.payslips-filter-card {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
-    border-radius: 10px;
-}
-
-.filter-label {
-    display: block;
-    font-size: 0.725rem;
-    font-weight: 600;
-    color: var(--text-secondary, #64748b);
-    margin-bottom: 4px;
-    letter-spacing: 0.02em;
 }
 
 .payslip-input {
@@ -906,65 +715,6 @@ Estilos Profesionales del Módulo de Boletas de Pago
     background: var(--brand) !important;
     color: #ffffff !important;
     box-shadow: 0 2px 6px rgba(var(--brand-rgb), 0.35);
-}
-
-{{-- Botones de Filtro --}}
-.btn-payslip-filter {
-    height: 38px;
-    padding: 0 16px;
-    border-radius: 6px !important;
-    font-weight: 600;
-    font-size: 0.85rem;
-}
-
-.btn-payslip-reset {
-    height: 38px;
-    padding: 0 14px;
-    border-radius: 6px !important;
-    border: 1px solid var(--border-color, #cbd5e1);
-    background: var(--bg-surface, #ffffff);
-    color: var(--text-secondary, #64748b);
-    font-weight: 600;
-    font-size: 0.85rem;
-    transition: all 0.15s ease;
-}
-
-.btn-payslip-reset:hover {
-    background: var(--bg-surface-elevated, #f1f5f9);
-    color: var(--text-primary, #0f172a);
-    border-color: #94a3b8;
-}
-
-.btn-publish-all {
-    height: 38px;
-    padding: 0 16px;
-    border-radius: 6px !important;
-    font-weight: 600;
-    font-size: 0.85rem;
-}
-
-{{-- Tarjeta y Tabla --}}
-.payslips-table-card {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.08));
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.payslips-table thead th {
-    background: var(--bg-surface-elevated, #f8fafc);
-    color: var(--text-secondary, #64748b);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--border-color, #e2e8f0);
-}
-
-.payslips-table tbody td {
-    padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .payslip-avatar-circle {
@@ -1047,7 +797,10 @@ Estilos Profesionales del Módulo de Boletas de Pago
     color: #ffffff;
 }
 
-{{-- Empty State --}}
+{{-- Empty State (en celular queda a la vista aunque la tabla se deslice) --}}
+@media (max-width: 767.98px) {
+    .payslips-empty-state { position: sticky; left: 0; max-width: calc(100vw - 34px); padding: 2rem 1rem !important; }
+}
 .payslips-empty-icon {
     width: 64px;
     height: 64px;
@@ -1138,24 +891,6 @@ Estilos Profesionales del Módulo de Boletas de Pago
 {{-- =============================================================================
 Modo Oscuro [data-bs-theme="dark"]
 ============================================================================= --}}
-[data-bs-theme="dark"] .payslips-header-card,
-[data-bs-theme="dark"] .payslips-kpi-card,
-[data-bs-theme="dark"] .payslips-filter-card,
-[data-bs-theme="dark"] .payslips-table-card {
-    background: #111622 !important;
-    border-color: #1e2638 !important;
-}
-
-[data-bs-theme="dark"] .payslips-table thead th {
-    background: #161f30 !important;
-    border-bottom-color: #243048 !important;
-    color: #94a3b8 !important;
-}
-
-[data-bs-theme="dark"] .payslips-table tbody td {
-    border-bottom-color: #1e2638 !important;
-}
-
 [data-bs-theme="dark"] .payslip-avatar-circle {
     background: #1a273d !important;
     color: #38bdf8 !important;
@@ -1168,7 +903,6 @@ Modo Oscuro [data-bs-theme="dark"]
     color: #94a3b8 !important;
 }
 
-[data-bs-theme="dark"] .btn-payslip-reset,
 [data-bs-theme="dark"] .payslip-calendar-trigger-btn {
     background: #161f30 !important;
     border-color: #243048 !important;

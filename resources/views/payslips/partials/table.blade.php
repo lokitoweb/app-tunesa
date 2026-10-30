@@ -7,12 +7,11 @@
     $currentMonthName = $monthNames[$currentMonth] ?? 'Mes ' . $currentMonth;
 @endphp
 
-<div class="payslips-table-card shadow-sm mb-4">
-    <div class="payslips-table-header p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <div class="d-flex align-items-center">
-            <i class="bi bi-file-earmark-ruled text-primary fs-5" style="margin-right: 10px !important;"></i>
-            <h2 class="h6 fw-bold mb-0 text-body" style="margin-right: 10px !important;">Registro de Boletas de Pago</h2>
-            <span class="badge rounded-pill bg-light text-secondary border px-2 py-0.5 small" id="tableRecordsBadge">
+<section class="surface mb-4">
+    <div class="surface-head align-items-center flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <h2 class="surface-title">Registro de boletas</h2>
+            <span class="count-pill" id="tableRecordsBadge">
                 {{ $payslips->total() }} {{ $payslips->total() === 1 ? 'boleta' : 'boletas' }}
             </span>
         </div>
@@ -22,7 +21,7 @@
     </div>
 
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0 payslips-table">
+        <table class="table data-table align-middle mb-0 payslips-table">
             <thead>
                 <tr>
                     <th style="min-width: 240px;">Colaborador</th>
@@ -214,13 +213,13 @@
     </div>
 
     @if($payslips->hasPages())
-        <div class="card-footer bg-transparent p-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <footer class="surface-foot">
             <div class="small text-muted">
                 Mostrando {{ $payslips->firstItem() }} a {{ $payslips->lastItem() }} de {{ $payslips->total() }} registros
             </div>
             <div class="payslip-ajax-pagination">
                 {{ $payslips->links() }}
             </div>
-        </div>
+        </footer>
     @endif
-</div>
+</section>
