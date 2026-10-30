@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import axios from 'axios';
 import { useSkeleton } from '@/Modules/Core/Composables/useSkeleton';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import { toast } from '@/Modules/Core/Composables/useToast';
 import TenantBadge from '@/Modules/Core/Components/TenantBadge.vue';
 import DateRangePicker from '@/Modules/Core/Components/DateRangePicker.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
@@ -42,20 +43,7 @@ const formErrors = ref({});
 const formLoading = ref(false);
 
 // Sistema de Toast / Feedback Ejecutivo
-const toast = ref({
-    show: false,
-    message: '',
-    type: 'success',
-});
-let toastTimeout = null;
-
-function showToast(message, type = 'success') {
-    if (toastTimeout) clearTimeout(toastTimeout);
-    toast.value = { show: true, message, type };
-    toastTimeout = setTimeout(() => {
-        toast.value.show = false;
-    }, 3500);
-}
+const showToast = (message, type = 'success') => toast(message, type);
 
 // Búsqueda instantánea en tiempo real sin recargar página
 const searchQuery = ref('');
@@ -188,27 +176,6 @@ async function destroyHoliday(holiday) {
 
 <template>
     <AppLayout title="Feriados">
-        <!-- Notificación Toast Flotante -->
-        <div 
-            v-if="toast.show" 
-            class="position-fixed top-0 end-0 p-4" 
-            style="z-index: 9999;"
-        >
-            <div 
-                class="toast show align-items-center text-white border-0 shadow-lg px-3 py-2" 
-                :class="toast.type === 'danger' ? 'bg-danger' : (toast.type === 'info' ? 'bg-primary' : 'bg-success')"
-                role="alert" 
-                style="border-radius: 10px; min-width: 280px;"
-            >
-                <div class="d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center" style="gap: 10px;">
-                        <i :class="toast.type === 'danger' ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'" style="font-size: 1.1rem;"></i>
-                        <span style="font-size: 0.875rem; font-weight: 500;">{{ toast.message }}</span>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white ms-2" @click="toast.show = false"></button>
-                </div>
-            </div>
-        </div>
 
         <!-- Header Principal de la Pantalla con Acciones -->
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4" style="gap: 1.25rem;">

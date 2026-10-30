@@ -2,6 +2,7 @@
 import { ref, computed, reactive, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import { toast } from '@/Modules/Core/Composables/useToast';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 
 // Programación por calendario (QA Ronda 2, HQ-05): agencia → horario → días.
@@ -47,14 +48,8 @@ const dirty = ref(false);
 const brush = ref(state.shifts[0]?.id ?? null); // id de turno, o null = día libre
 const selected = ref(new Set());
 const reason = ref('');
-const toast = ref({ show: false, message: '', type: 'success' });
-let toastTimer = null;
-
-function showToast(message, type = 'success') {
-    clearTimeout(toastTimer);
-    toast.value = { show: true, message, type };
-    toastTimer = setTimeout(() => (toast.value.show = false), 4000);
-}
+// Avisos en la pila compartida
+const showToast = (message, type = 'success') => toast(message, type);
 
 const shiftById = computed(() => Object.fromEntries(state.shifts.map((s) => [s.id, s])));
 
@@ -254,21 +249,13 @@ async function repeat() {
 
 <template>
     <AppLayout title="Programación de horarios">
-        <div v-if="toast.show" class="position-fixed top-0 end-0 p-4" style="z-index: 9999;">
-            <div class="toast show text-white border-0 shadow-lg px-3 py-2" :class="toast.type === 'danger' ? 'bg-danger' : 'bg-success'" role="alert" style="border-radius: 10px; min-width: 280px;">
-                <div class="d-flex align-items-center justify-content-between" style="gap: 10px;">
-                    <span style="font-size: 0.875rem; font-weight: 500;">{{ toast.message }}</span>
-                    <button type="button" class="btn-close btn-close-white" @click="toast.show = false" aria-label="Cerrar"></button>
-                </div>
-            </div>
-        </div>
 
-        <div class="mb-3">
-            <h1 class="h2 fw-bold text-body-emphasis mb-1">Programación de horarios</h1>
-            <p class="text-body-secondary mb-0 small">
+        <header class="page-head">
+            <div class="page-head-text"><h1 class="page-title">Programación de horarios</h1>
+            <p class="page-subtitle">
                 Elige la agencia y el horario, y marca los días que asiste cada colaborador. Al guardar, lo programado se ve al instante en la app; los días sin programar siguen con su asignación semanal.
-            </p>
-        </div>
+            </p></div>
+        </header>
 
         <div v-if="deadlineInfo || unscheduled.length" class="sched-alerts mb-3">
             <div v-if="deadlineInfo" class="sched-alert" :class="deadlineInfo.overdue && unscheduled.length ? 'is-danger' : 'is-info'" role="status">

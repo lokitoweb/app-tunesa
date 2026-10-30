@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
+import { toast } from '@/Modules/Core/Composables/useToast';
 import TenantBadge from '@/Modules/Core/Components/TenantBadge.vue';
 import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 
@@ -317,31 +318,8 @@ function setRadiusPreset(radius) {
 // =========================================================================
 // SISTEMA DE NOTIFICACIONES TOAST MODERNO (REEMPLAZO DE ALERTS NATIVOS)
 // =========================================================================
-const toast = ref({
-    show: false,
-    message: '',
-    type: 'info', // 'success' | 'warning' | 'danger' | 'info'
-});
-const toastIcons = {
-    success: 'bi-check-lg',
-    warning: 'bi-exclamation-triangle-fill',
-    danger: 'bi-x-circle-fill',
-    info: 'bi-info-circle-fill',
-};
-const toastTitles = {
-    success: 'Listo',
-    warning: 'Atención',
-    danger: 'Error',
-    info: 'Aviso',
-};
-let toastTimer = null;
-function notify(message, type = 'info') {
-    if (toastTimer) clearTimeout(toastTimer);
-    toast.value = { show: true, message, type };
-    toastTimer = setTimeout(() => {
-        toast.value.show = false;
-    }, 4500);
-}
+// 'success' | 'warning' | 'danger' | 'info', en la pila de avisos compartida
+const notify = (message, type = 'info') => toast(message, type);
 
 const isDetectingGps = ref(false);
 function detectCurrentLocation() {
@@ -2264,22 +2242,7 @@ const catalogDetail = (catalog, row) => {
         <!-- =========================================================================
              TOAST FLOTANTE MODERNO (REEMPLAZA ALERTS NATIVOS DEL NAVEGADOR)
              ========================================================================= -->
-        <teleport to="body">
-            <div v-if="toast.show" class="toast-stack position-fixed bottom-0 end-0 p-3" style="z-index: 1090;">
-                <div class="alert toast-item shadow-lg" :class="`toast-${toast.type}`" role="alert">
-                    <div class="toast-icon-badge" :class="`toast-badge-${toast.type}`">
-                        <i class="bi" :class="toastIcons[toast.type]"></i>
-                    </div>
-                    <div class="toast-content">
-                        <strong class="toast-title">{{ toastTitles[toast.type] }}</strong>
-                        <span class="toast-text">{{ toast.message }}</span>
-                    </div>
-                    <button type="button" class="toast-close-btn" aria-label="Cerrar" @click="toast.show = false">
-                        <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
-                    </button>
-                </div>
-            </div>
-        </teleport>
+
     </AppLayout>
 </template>
 
