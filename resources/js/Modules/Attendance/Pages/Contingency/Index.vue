@@ -46,23 +46,27 @@ const progress = computed(() => (props.report?.covered ? Math.round((100 * props
 
 <template>
     <AppLayout title="Plan de contingencia">
-        <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+        <header class="page-head">
+            <div class="page-head-text d-flex align-items-start gap-3">
             <span class="cg-hero-icon"><i class="bi bi-life-preserver"></i></span>
-            <div class="flex-grow-1">
-                <h1 class="h4 fw-bold mb-1">Plan de contingencia</h1>
-                <p class="text-body-secondary small mb-0">
+            <div>
+                <h1 class="page-title">Plan de contingencia</h1>
+                <p class="page-subtitle">
                     Si la app no funciona (caída, sin señal, falla del sistema), las personas cubiertas marcan sus 4 marcas desde su portal web,
                     con la hora del servidor y sin GPS. Se apaga solo al vencer y cada marca queda etiquetada.
                 </p>
             </div>
-            <span v-if="active.length" class="badge rounded-pill text-bg-warning px-3 py-2"><i class="bi bi-broadcast me-1"></i>{{ active.length }} activo(s)</span>
-        </div>
+            </div>
+            <div class="page-actions">
+                <span v-if="active.length" class="status-pill tone-amber cg-live"><span class="dash-live-dot" aria-hidden="true"></span>{{ active.length }} activo(s)</span>
+            </div>
+        </header>
 
         <div class="row g-4">
             <div class="col-12 col-xl-5">
                 <form class="card cg-card" @submit.prevent="activate">
                     <div class="card-body p-4">
-                        <h2 class="h6 fw-bold mb-3">Activar un plan</h2>
+                        <h2 class="surface-title mb-3">Activar un plan</h2>
 
                         <label class="form-label small fw-semibold">¿Para quién?</label>
                         <div class="cg-scopes mb-3" role="radiogroup" aria-label="Alcance">
@@ -110,7 +114,7 @@ const progress = computed(() => (props.report?.covered ? Math.round((100 * props
             </div>
 
             <div class="col-12 col-xl-7">
-                <h2 class="h6 fw-bold mb-3">Planes</h2>
+                <h2 class="surface-title mb-3">Planes</h2>
                 <div v-if="!plans.length" class="card cg-card">
                     <div class="card-body text-center py-5 text-body-secondary">
                         <i class="bi bi-shield-check fs-1 d-block mb-2 opacity-50"></i>
@@ -126,22 +130,22 @@ const progress = computed(() => (props.report?.covered ? Math.round((100 * props
                                 {{ p.scope }}<span v-if="p.targets"> · {{ p.targets }}</span> · {{ p.starts_at }} → {{ p.ended_at || p.ends_at }} · por {{ p.by || '—' }}
                             </div>
                         </div>
-                        <span v-if="p.active" class="badge text-bg-warning">Activo</span>
-                        <span v-else-if="p.ended_at" class="badge text-bg-light border">Desactivado<span v-if="p.ended_by"> por {{ p.ended_by }}</span></span>
-                        <span v-else class="badge text-bg-light border">Vencido</span>
-                        <button v-if="p.active" type="button" class="btn btn-sm btn-outline-secondary" @click.stop="end(p)"><i class="bi bi-stop-circle me-1"></i>Desactivar</button>
+                        <span v-if="p.active" class="status-pill tone-amber">Activo</span>
+                        <span v-else-if="p.ended_at" class="status-pill tone-neutral">Desactivado<span v-if="p.ended_by"> por {{ p.ended_by }}</span></span>
+                        <span v-else class="status-pill tone-neutral">Vencido</span>
+                        <button v-if="p.active" type="button" class="btn btn-sm btn-light border" @click.stop="end(p)"><i class="bi bi-stop-circle me-1"></i>Desactivar</button>
                     </div>
                 </div>
 
                 <div v-if="report" class="card cg-card mt-3">
                     <div class="card-body p-4">
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-                            <h2 class="h6 fw-bold mb-0">Cierre del plan</h2>
+                            <h2 class="surface-title">Cierre del plan</h2>
                             <a href="/approvals?tab=justifications" class="small">{{ report.pending_justifications }} justificación(es) por revisar</a>
                         </div>
                         <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="progress flex-grow-1" style="height: 8px" role="progressbar" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100">
-                                <div class="progress-bar bg-success" :style="{ width: progress + '%' }"></div>
+                            <div class="dash-meter flex-grow-1" role="progressbar" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100">
+                                <span class="dash-meter-fill tone-emerald" :style="{ width: progress + '%' }"></span>
                             </div>
                             <span class="small fw-semibold text-nowrap">{{ report.marked }} de {{ report.covered }} marcaron</span>
                         </div>
@@ -149,8 +153,8 @@ const progress = computed(() => (props.report?.covered ? Math.round((100 * props
                             <li v-for="person in report.people" :key="person.document + person.name" class="list-group-item px-0 d-flex flex-wrap justify-content-between gap-2">
                                 <span><span class="fw-semibold">{{ person.name }}</span> <span class="text-body-secondary">{{ person.document }}</span></span>
                                 <span>
-                                    <span v-for="(m, i) in person.punches" :key="i" class="badge text-bg-light border me-1">{{ labels[m.type] }} {{ m.time }}</span>
-                                    <span v-if="!person.punches.length" class="badge text-bg-warning">No marcó</span>
+                                    <span v-for="(m, i) in person.punches" :key="i" class="status-pill tone-neutral me-1">{{ labels[m.type] }} {{ m.time }}</span>
+                                    <span v-if="!person.punches.length" class="status-pill tone-amber">No marcó</span>
                                 </span>
                             </li>
                         </ul>
@@ -162,20 +166,24 @@ const progress = computed(() => (props.report?.covered ? Math.round((100 * props
 </template>
 
 <style>
-.cg-hero-icon { width: 52px; height: 52px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem;
+.cg-hero-icon { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.35rem;
     background: rgba(var(--bs-warning-rgb), .15); color: var(--bs-warning-text-emphasis); flex-shrink: 0; }
-.cg-card { border-radius: 16px; border: 1px solid var(--bs-border-color-translucent); box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 4px 16px rgba(15, 23, 42, .04); }
+.cg-card { border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-xs); background: var(--bg-surface); }
+.cg-live { gap: .45rem; }
 .cg-scopes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
-.cg-scope { display: flex; flex-direction: column; align-items: center; gap: .3rem; padding: .7rem .25rem; border: 1px solid var(--bs-border-color); border-radius: 12px;
-    background: var(--bs-body-bg); color: var(--bs-secondary-color); font-size: .8rem; font-weight: 500; transition: all .15s; }
+.cg-scope { display: flex; flex-direction: column; align-items: center; gap: .3rem; padding: .7rem .25rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+    background: var(--bg-surface); color: var(--text-secondary); font-size: .8rem; font-weight: 600;
+    transition: border-color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.cg-scope:active { transform: scale(0.97); }
+.cg-scope:focus-visible { outline: none; box-shadow: var(--ring); }
 .cg-scope i { font-size: 1.15rem; }
 .cg-scope:hover { border-color: var(--brand); color: var(--bs-body-color); }
 .cg-scope.active { border-color: var(--brand); background: rgba(var(--brand-rgb), .08); color: var(--brand); }
-.cg-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--bs-border-color); border-radius: 12px; padding: .25rem; }
+.cg-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: .25rem; }
 .cg-list.is-invalid { border-color: var(--bs-danger); }
 .cg-item { display: flex; align-items: center; gap: .6rem; padding: .5rem .65rem; border-radius: 8px; cursor: pointer; font-size: .875rem; }
 .cg-item:hover { background: var(--bs-tertiary-bg); }
-.cg-plan { cursor: pointer; transition: border-color .15s; }
+.cg-plan { cursor: pointer; transition: border-color var(--dur-2) var(--ease-out); }
 .cg-plan:hover, .cg-plan.is-selected { border-color: var(--brand); }
 .cg-plan-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bs-secondary-bg); flex-shrink: 0; }
 .cg-plan.is-active .cg-plan-dot { background: var(--bs-warning); box-shadow: 0 0 0 4px rgba(var(--bs-warning-rgb), .25); }

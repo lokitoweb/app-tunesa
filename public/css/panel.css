@@ -10673,3 +10673,10 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 .tpl-field:hover { border-color: var(--brand); color: var(--brand); }
 .tpl-field:active { transform: scale(0.96); }
 .tpl-field:focus-visible { outline: none; box-shadow: var(--ring); }
+
+.dash-kpis.dash-kpis-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Liquidación: secciones del formulario y totales del cálculo */
+.st-section { margin: 1.25rem 0 0.6rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: 0.78rem; font-weight: 700; color: var(--text-primary); }
+.st-table .st-subtotal > td { font-weight: 700; background: var(--bg-surface-elevated); }
+.st-table tfoot .st-total > td { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); border-top: 2px solid var(--border-color-light); }

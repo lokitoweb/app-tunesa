@@ -59,26 +59,30 @@ async function register() {
 
 <template>
     <AppLayout title="Cese y liquidación">
-        <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
-            <div>
-                <h1 class="h4 fw-bold mb-1">Cese y liquidación</h1>
-                <p class="text-body-secondary small mb-0">
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Cese y liquidación</h1>
+                <p class="page-subtitle">
                     {{ employee.name }} · DNI {{ employee.document }} · {{ employee.position || 'Sin cargo' }} · ingresó el {{ fmtDate(employee.hire_date) }}
                 </p>
             </div>
-            <a :href="`/employees/${employee.id}/file`" class="btn btn-sm btn-light"><i class="bi bi-folder2-open me-1"></i>Ver legajo</a>
-        </div>
+            <div class="page-actions">
+                <a :href="`/employees/${employee.id}/file`" class="btn btn-light border"><i class="bi bi-folder2-open me-1"></i>Ver legajo</a>
+            </div>
+        </header>
 
-        <div v-if="!employee.hire_date" class="alert alert-warning">Registra la fecha de ingreso del colaborador para calcular la liquidación.</div>
+        <div v-if="!employee.hire_date" class="dash-notice notice-warning"><i class="bi bi-exclamation-triangle"></i><span>Registra la fecha de ingreso del colaborador para calcular la liquidación.</span></div>
 
         <div class="row g-3">
             <div class="col-12 col-lg-4">
-                <form class="card shadow-sm" @submit.prevent="recalc">
-                    <div class="card-body">
-                        <p class="small mb-3">
-                            Régimen: <strong>{{ regime?.name || 'sin régimen en la ficha' }}</strong>
-                            <a href="/labor-regimes" class="ms-1 small">parámetros</a>
-                        </p>
+                <form class="surface" @submit.prevent="recalc">
+                    <header class="surface-head">
+                        <div>
+                            <h2 class="surface-title">Datos del cese</h2>
+                            <p class="surface-sub">Régimen: <strong class="text-body">{{ regime?.name || 'sin régimen en la ficha' }}</strong> · <a href="/labor-regimes">parámetros</a></p>
+                        </div>
+                    </header>
+                    <div class="surface-pad">
                         <label class="form-label small fw-semibold" for="s-date">Fecha de cese</label>
                         <input id="s-date" v-model="form.termination_date" type="date" class="form-control form-control-sm mb-2" :class="{ 'is-invalid': form.errors.termination_date }" :min="employee.hire_date" required @change="recalc" />
                         <div class="invalid-feedback">{{ form.errors.termination_date }}</div>
@@ -87,7 +91,7 @@ async function register() {
                             <option v-for="(label, key) in reasons" :key="key" :value="key">{{ label }}</option>
                         </select>
 
-                        <h2 class="h6 fw-bold">Remuneración</h2>
+                        <h3 class="st-section">Remuneración</h3>
                         <label class="form-label small fw-semibold" for="s-salary">Remuneración básica</label>
                         <input id="s-salary" v-model="form.salary" type="number" min="0" step="0.01" class="form-control form-control-sm mb-2" :class="{ 'is-invalid': form.errors.salary }" required @change="recalc" />
                         <div class="form-check">
@@ -117,6 +121,7 @@ async function register() {
                             <label class="form-check-label small" for="s-indemnity">Incluir indemnización por despido</label>
                         </div>
 
+                        <h3 class="st-section">Descuentos y otros conceptos</h3>
                         <label class="form-label small fw-semibold" for="s-pension">Aporte de pensión</label>
                         <select id="s-pension" v-model="form.pension_rate_id" class="form-select form-select-sm mb-3" @change="recalc">
                             <option value="">Sin aporte</option>
@@ -135,6 +140,7 @@ async function register() {
                             </div>
                         </div>
 
+                        <h3 class="st-section">Documentos</h3>
                         <label class="form-label small fw-semibold" for="s-signatory">Firma por la empresa</label>
                         <select id="s-signatory" v-model="form.signatory_id" class="form-select form-select-sm mb-1">
                             <option value="">— Sin firma registrada —</option>
@@ -148,15 +154,24 @@ async function register() {
             </div>
 
             <div class="col-12 col-lg-8">
-                <div v-if="result" class="card shadow-sm">
-                    <div class="card-body">
-                        <div v-for="w in result.warnings" :key="w" class="alert alert-warning py-2 small">{{ w }}</div>
-                        <p class="small text-body-secondary mb-2">Tiempo de servicio: {{ result.service }}</p>
+                <section v-if="result" class="surface">
+                    <header class="surface-head">
+                        <div>
+                            <h2 class="surface-title">Liquidación calculada</h2>
+                            <p class="surface-sub">Tiempo de servicio: {{ result.service }}</p>
+                        </div>
+                        <div class="text-end">
+                            <div class="dash-kpi-label">Neto a pagar</div>
+                            <div class="cell-amount fs-5">{{ money(result.total) }}</div>
+                        </div>
+                    </header>
+                    <div class="surface-pad">
+                        <div v-for="w in result.warnings" :key="w" class="dash-notice notice-warning"><i class="bi bi-exclamation-triangle"></i><span>{{ w }}</span></div>
 
                         <div class="row g-2 mb-3">
                             <div v-for="b in result.bases" :key="b.key" class="col-12 col-md-4">
-                                <div class="border rounded p-2 h-100 small">
-                                    <div class="fw-semibold">Base {{ b.label }}</div>
+                                <div class="concept-card h-100 small">
+                                    <div class="concept-card-title mb-1">Base {{ b.label }}</div>
                                     <div v-for="c in b.components" :key="c.label" class="d-flex justify-content-between text-body-secondary">
                                         <span>{{ c.label }}</span><span>{{ money(c.amount) }}</span>
                                     </div>
@@ -166,36 +181,36 @@ async function register() {
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table table-sm align-middle small mb-2">
-                                <thead class="table-light"><tr><th>Concepto</th><th>Cálculo</th><th class="text-end">Monto</th></tr></thead>
+                            <table class="table data-table align-middle mb-2 st-table">
+                                <thead><tr><th>Concepto</th><th>Cálculo</th><th class="text-end">Monto</th></tr></thead>
                                 <tbody>
                                     <tr v-for="l in result.lines" :key="l.key">
                                         <td class="fw-semibold">{{ l.label }}</td>
                                         <td :class="l.amount === null ? 'text-warning-emphasis' : 'text-body-secondary'">{{ l.basis }}</td>
-                                        <td class="text-end">{{ money(l.amount) }}</td>
+                                        <td class="text-end tabular">{{ money(l.amount) }}</td>
                                     </tr>
-                                    <tr class="fw-semibold"><td colspan="2">Total liquidación</td><td class="text-end">{{ money(result.gross) }}</td></tr>
+                                    <tr class="st-subtotal"><td colspan="2">Total liquidación</td><td class="text-end tabular">{{ money(result.gross) }}</td></tr>
                                     <tr v-for="d in result.deductions" :key="d.key" class="text-danger-emphasis">
                                         <td>{{ d.label }}</td><td class="text-body-secondary">{{ d.basis }}</td><td class="text-end">− {{ money(d.amount) }}</td>
                                     </tr>
                                 </tbody>
-                                <tfoot><tr class="fw-bold"><td colspan="2">Neto a pagar</td><td class="text-end">{{ money(result.total) }}</td></tr></tfoot>
+                                <tfoot><tr class="st-total"><td colspan="2">Neto a pagar</td><td class="text-end tabular">{{ money(result.total) }}</td></tr></tfoot>
                             </table>
                         </div>
                         <p class="small text-body-secondary">No descuenta renta de quinta categoría: si corresponde, agrégala en «Otros descuentos».</p>
-                        <div class="d-flex justify-content-end">
-                            <button type="button" class="btn btn-danger btn-sm" :disabled="form.processing" @click="register">
-                                <i class="bi bi-person-x me-1"></i>Registrar cese
-                            </button>
-                        </div>
                     </div>
-                </div>
+                    <footer class="surface-foot justify-content-end">
+                        <button type="button" class="btn btn-danger" :disabled="form.processing" @click="register">
+                            <i class="bi bi-person-x me-1"></i>Registrar cese
+                        </button>
+                    </footer>
+                </section>
 
-                <div v-if="history.length" class="card shadow-sm mt-3">
-                    <div class="card-body">
-                        <h2 class="h6 fw-bold mb-2">Liquidaciones registradas</h2>
-                        <ul class="list-unstyled small mb-0">
-                            <li v-for="h in history" :key="h.id" class="border-bottom py-2">
+                <section v-if="history.length" class="surface mt-3">
+                    <header class="surface-head"><h2 class="surface-title">Liquidaciones registradas</h2></header>
+                    <div>
+                        <ul class="list-plain small mb-0">
+                            <li v-for="h in history" :key="h.id" class="list-plain-item d-block">
                                 <div class="d-flex flex-wrap justify-content-between gap-2">
                                     <span class="fw-semibold">N.° {{ h.id }} · {{ h.date }} · {{ h.reason }} · neto {{ money(h.total) }}</span>
                                     <button v-if="h.can_pay" type="button" class="btn btn-link btn-sm p-0" @click="router.post(`/settlements/${h.id}/treasury`, {}, { preserveScroll: true })">Enviar a Tesorería</button>
@@ -211,7 +226,7 @@ async function register() {
                             </li>
                         </ul>
                     </div>
-                </div>
+                </section>
             </div>
         </div>
     </AppLayout>
