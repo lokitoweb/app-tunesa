@@ -18,38 +18,36 @@ const url = (key) => `/finance-reports/${key}?${new URLSearchParams({ from: from
 
 <template>
     <AppLayout title="Reportes de finanzas">
-        <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
-            <div>
-                <h1 class="h4 fw-bold mb-1">Reportes de finanzas</h1>
-                <p class="text-body-secondary small mb-0">Los reportes del sistema anterior, en Excel, para el periodo que elijas.</p>
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Reportes de finanzas</h1>
+                <p class="page-subtitle">Los reportes del sistema anterior, en Excel, para el periodo que elijas.</p>
             </div>
-            <div class="d-flex flex-wrap gap-2 align-items-end">
-                <div>
-                    <label class="form-label small fw-semibold mb-1" for="rep-from">Desde</label>
-                    <input id="rep-from" v-model="from" type="date" class="form-control form-control-sm" />
-                </div>
-                <div>
-                    <label class="form-label small fw-semibold mb-1" for="rep-to">Hasta</label>
-                    <input id="rep-to" v-model="to" type="date" class="form-control form-control-sm" :class="{ 'is-invalid': invalid }" />
-                </div>
+            <div class="range-field align-self-end" role="group" aria-label="Periodo">
+                <label class="visually-hidden" for="rep-from">Desde</label>
+                <input id="rep-from" v-model="from" type="date" class="form-control" title="Desde" />
+                <span class="range-sep" aria-hidden="true">–</span>
+                <label class="visually-hidden" for="rep-to">Hasta</label>
+                <input id="rep-to" v-model="to" type="date" class="form-control" title="Hasta" :class="{ 'is-invalid': invalid }" />
             </div>
-        </div>
-        <div v-if="invalid" class="alert alert-warning py-2 small">La fecha final no puede ser anterior a la inicial.</div>
+        </header>
+        <div v-if="invalid" class="dash-notice notice-warning"><i class="bi bi-exclamation-triangle"></i><span>La fecha final no puede ser anterior a la inicial.</span></div>
 
-        <div class="row g-3">
-            <div v-for="r in reports" :key="r.key" class="col-md-6 col-xl-4">
-                <div class="card shadow-sm h-100">
-                    <div class="card-body d-flex flex-column">
-                        <div class="fw-semibold mb-1"><i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>{{ r.title }}</div>
-                        <p class="small text-body-secondary mb-2 flex-grow-1">{{ r.description }}</p>
-                        <input v-if="r.key === 'cost_center'" v-model="plate" type="text" maxlength="10" class="form-control form-control-sm mb-2 text-uppercase" placeholder="Placa (opcional)" aria-label="Placa" />
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="small text-body-tertiary" :title="`Equivale a ${r.legacy} del sistema anterior`">{{ r.legacy }}</span>
-                            <a :href="invalid ? undefined : url(r.key)" class="btn btn-sm btn-outline-success" :class="{ disabled: invalid }" :aria-disabled="invalid"><i class="bi bi-download me-1"></i>Excel</a>
-                        </div>
+        <div class="report-grid">
+            <article v-for="r in reports" :key="r.key" class="report-card">
+                <div class="d-flex align-items-start gap-2">
+                    <span class="dash-kpi-icon tone-emerald flex-shrink-0"><i class="bi bi-file-earmark-spreadsheet"></i></span>
+                    <div class="min-w-0">
+                        <h2 class="report-card-title">{{ r.title }}</h2>
+                        <p class="report-card-text">{{ r.description }}</p>
                     </div>
                 </div>
-            </div>
+                <input v-if="r.key === 'cost_center'" v-model="plate" type="text" maxlength="10" class="form-control form-control-sm text-uppercase" placeholder="Placa (opcional)" aria-label="Placa" />
+                <div class="d-flex justify-content-between align-items-center gap-2 mt-auto pt-1">
+                    <span class="status-pill tone-neutral font-monospace d-block text-truncate min-w-0" style="line-height: 22px" :title="`Equivale a ${r.legacy} del sistema anterior`">{{ r.legacy }}</span>
+                    <a :href="invalid ? undefined : url(r.key)" class="btn btn-sm btn-light border flex-shrink-0 text-nowrap" :class="{ disabled: invalid }" :aria-disabled="invalid"><i class="bi bi-download me-1"></i>Excel</a>
+                </div>
+            </article>
         </div>
     </AppLayout>
 </template>

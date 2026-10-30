@@ -10563,3 +10563,32 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 
 /* Utilidad que Bootstrap no trae (se usaba en muchas pantallas sin efecto): deja que un hijo flex se encoja y recorte su texto */
 .min-w-0 { min-width: 0 !important; }
+
+/* Firma escaneada en una lista */
+.signature-box { display: inline-flex; align-items: center; padding: 2px 6px; background: #fff; border: 1px solid var(--border-color); border-radius: var(--radius-sm); }
+.signature-box img { max-height: 32px; max-width: 120px; }
+
+/* Avisos con tono (rojo / ámbar) sobre la base de .dash-notice */
+.dash-notice.notice-danger { background: rgba(var(--accent-rose-rgb), 0.06); border-color: rgba(var(--accent-rose-rgb), 0.25); }
+.dash-notice.notice-danger > i { color: var(--accent-rose); }
+.dash-notice.notice-warning { background: rgba(var(--accent-amber-rgb), 0.07); border-color: rgba(var(--accent-amber-rgb), 0.28); }
+.dash-notice.notice-warning > i { color: var(--accent-amber); }
+
+/* Flujo de caja: concepto fijo a la izquierda, mes actual resaltado, subtotal y total marcados */
+.flow-table .flow-concept { position: sticky; left: 0; z-index: 2; min-width: 220px; background: var(--bg-surface); }
+.flow-table thead .flow-concept { background: var(--bg-surface-elevated); z-index: 3; }
+.flow-table .is-current { background: rgba(var(--brand-rgb), 0.05); }
+.flow-table thead .is-current { color: var(--brand); }
+.flow-table tfoot td { font-weight: 700; background: var(--bg-surface-elevated); border-top: 1px solid var(--border-color); }
+.flow-table tfoot .flow-concept { background: var(--bg-surface-elevated); }
+.flow-grand { border-color: rgba(var(--brand-rgb), 0.35); }
+.flow-grand td { font-weight: 700; padding-top: 0.9rem !important; padding-bottom: 0.9rem !important; }
+
+/* Reportes: tarjetas con descripción y descarga */
+.report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.report-card { display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem 1.1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.report-card:hover { border-color: var(--border-color-light); box-shadow: var(--shadow-sm); }
+.report-card-title { margin: 0; font-size: 0.88rem; font-weight: 700; color: var(--text-primary); }
+.report-card-text { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--text-muted); }
+
+.data-table > tfoot > tr > td { padding: 0.7rem 1rem; }
