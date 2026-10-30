@@ -10557,3 +10557,6 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 
 /* Contenido de borde a borde dentro del diálogo (listas con su propio relleno) */
 .app-modal-body > .app-modal-flush { margin: -1.1rem -1.25rem; }
+
+/* Fila anulada: se ve, pero atenuada */
+.data-table > tbody > tr.is-muted > td { opacity: 0.55; }
