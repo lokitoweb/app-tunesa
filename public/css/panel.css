@@ -10472,7 +10472,7 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
     .table-cards > tbody > tr > td { padding: 0 !important; border: 0 !important; text-align: left !important; max-width: none; min-width: 0; }
     .table-cards > tbody > tr > td + td { margin-top: 0.5rem; }
     .table-cards > tbody > tr > td[data-label] { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 0.5rem; align-items: baseline; }
-    .table-cards > tbody > tr > td[data-label] > * { grid-column: 2; }
+    .table-cards > tbody > tr > td[data-label] > * { grid-column: 2; justify-self: start; max-width: 100%; }
     .table-cards > tbody > tr > td[data-label]::before { content: attr(data-label); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
     .table-cards > tbody > tr > td.cell-main { display: block; }
     .table-cards > tbody > tr > td.cell-main::before { content: none; }
@@ -10494,3 +10494,8 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
     .page-actions .btn-primary { order: -1; flex: 1 1 100%; }
     .page-actions .btn:not(.btn-primary) { flex: 1 1 auto; white-space: nowrap; }
 }
+
+/* Fila que abre el detalle y código del documento (RQ, OC…) */
+.data-table > tbody > tr.is-clickable { cursor: pointer; }
+.cell-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8rem; font-weight: 600; color: var(--brand); text-decoration: none; }
+.cell-code:hover { text-decoration: underline; }

@@ -47,17 +47,20 @@ function create() {
     if (ensureTenant({ message: 'El requerimiento se registra en una empresa.' })) router.get('/requisitions/create');
 }
 
-
+// Color de cada etapa con los tonos del sistema (Requisition::STAGES trae el color de Bootstrap)
+const TONES = { warning: 'amber', info: 'blue', primary: 'brand', success: 'emerald', dark: 'neutral', danger: 'rose', secondary: 'neutral' };
+const tone = (stage) => `tone-${TONES[props.stages[stage]?.[1]] || 'neutral'}`;
+const filtered = () => props.filters.search || props.filters.stage || props.filters.from || props.filters.to;
 </script>
 
 <template>
     <AppLayout title="Requerimientos y compras">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-            <div>
-                <h1 class="h4 fw-bold mb-1">Requerimientos y compras</h1>
-                <p class="text-body-secondary small mb-0">Solicitud, aprobación, cotización y orden de compra o servicio.</p>
+        <header class="page-head">
+            <div class="page-head-text">
+                <h1 class="page-title">Requerimientos y compras</h1>
+                <p class="page-subtitle">Solicitud, aprobación, cotización y orden de compra o servicio.</p>
             </div>
-            <div class="d-flex flex-wrap align-items-center gap-3">
+            <div class="page-actions align-items-center">
                 <div v-if="company_code" class="small">
                     <form v-if="editingCode" class="d-flex align-items-start gap-1" @submit.prevent="saveCode">
                         <div>
@@ -66,97 +69,98 @@ function create() {
                             <div class="invalid-feedback">{{ codeForm.errors.code }}</div>
                         </div>
                         <button class="btn btn-sm btn-primary" :disabled="codeForm.processing">Guardar</button>
-                        <button type="button" class="btn btn-sm btn-light" @click="cancelCode">Cancelar</button>
+                        <button type="button" class="btn btn-sm btn-light border" @click="cancelCode">Cancelar</button>
                     </form>
-                    <span v-else class="text-body-secondary">
-                        Abreviatura en correlativos: <span class="badge text-bg-light border font-monospace">{{ company_code }}</span>
-                        <button v-if="can_edit_code" type="button" class="btn btn-link btn-sm p-0 ms-1" aria-label="Editar abreviatura" @click="editingCode = true"><i class="bi bi-pencil"></i></button>
+                    <span v-else class="text-body-secondary d-inline-flex align-items-center gap-1">
+                        Abreviatura en correlativos <span class="status-pill tone-neutral font-monospace">{{ company_code }}</span>
+                        <button v-if="can_edit_code" type="button" class="icon-btn" aria-label="Editar abreviatura" title="Editar abreviatura" @click="editingCode = true"><i class="bi bi-pencil"></i></button>
                     </span>
                 </div>
                 <button v-if="can_create" type="button" class="btn btn-primary" @click="create">
                     <i class="bi bi-plus-lg me-1"></i>Nuevo requerimiento
                 </button>
             </div>
-        </div>
+        </header>
 
-        <div class="d-flex flex-wrap gap-2 mb-3" role="tablist" aria-label="Etapas">
-            <button type="button" class="btn btn-sm" :class="!filters.stage ? 'btn-primary' : 'btn-outline-secondary'" @click="go({ stage: undefined })">
-                Todos <span class="badge bg-light text-dark ms-1">{{ Object.values(totals).reduce((a, b) => a + b, 0) }}</span>
-            </button>
-            <button
-                v-for="(s, key) in stages"
-                :key="key"
-                type="button"
-                class="btn btn-sm"
-                :class="filters.stage === key ? `btn-${s[1]}` : 'btn-outline-secondary'"
-                @click="go({ stage: key })"
-            >
-                {{ s[0] }} <span class="badge bg-light text-dark ms-1">{{ totals[key] || 0 }}</span>
-            </button>
-        </div>
-
-        <div class="card shadow-sm">
-            <div class="card-body border-bottom d-flex flex-wrap gap-2 align-items-center">
-                <div class="input-group" style="max-width: 460px">
-                    <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input v-model="search" type="search" class="form-control" placeholder="Buscar por N.º, detalle, área, solicitante u orden" aria-label="Buscar requerimiento" @input="onSearch" />
-                </div>
-                <div class="input-group" style="max-width: 360px">
-                    <span class="input-group-text small">Desde</span>
-                    <input v-model="from" type="date" class="form-control" aria-label="Desde" @change="go({})" />
-                    <span class="input-group-text small">Hasta</span>
-                    <input v-model="to" type="date" class="form-control" aria-label="Hasta" @change="go({})" />
+        <section class="surface">
+            <div class="surface-toolbar">
+                <div class="seg-tabs" role="tablist" aria-label="Etapas">
+                    <button type="button" role="tab" class="seg-tab" :class="{ 'is-active': !filters.stage }" :aria-selected="!filters.stage" @click="go({ stage: undefined })">
+                        Todos <span class="count-pill">{{ Object.values(totals).reduce((a, b) => a + b, 0) }}</span>
+                    </button>
+                    <button v-for="(s, key) in stages" :key="key" type="button" role="tab" class="seg-tab" :class="{ 'is-active': filters.stage === key }"
+                        :aria-selected="filters.stage === key" @click="go({ stage: key })">
+                        {{ s[0] }} <span class="count-pill" :class="filters.stage === key ? tone(key) : ''">{{ totals[key] || 0 }}</span>
+                    </button>
                 </div>
             </div>
+
+            <div class="filter-row">
+                <div class="search-field">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input v-model="search" type="search" class="form-control" placeholder="Buscar por N.º, detalle, área, solicitante u orden" aria-label="Buscar requerimiento" @input="onSearch" />
+                </div>
+                <div class="range-field" role="group" aria-label="Fecha del requerimiento">
+                    <input v-model="from" type="date" class="form-control" aria-label="Desde" title="Desde" @change="go({})" />
+                    <span class="range-sep" aria-hidden="true">–</span>
+                    <input v-model="to" type="date" class="form-control" aria-label="Hasta" title="Hasta" :min="from || undefined" @change="go({})" />
+                </div>
+            </div>
+
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table data-table table-cards align-middle mb-0">
+                    <thead>
                         <tr>
                             <th>N.º</th>
                             <th>Detalle</th>
-                            <th class="d-none d-md-table-cell">Solicita</th>
-                            <th class="d-none d-lg-table-cell">Proveedor / Orden</th>
-                            <th class="text-end d-none d-lg-table-cell">Monto</th>
+                            <th>Solicita</th>
+                            <th>Proveedor / Orden</th>
+                            <th class="text-end">Monto</th>
                             <th>Etapa</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="r in requisitions.data" :key="r.id" role="button" @click="router.get(`/requisitions/${r.id}`)">
-                            <td class="text-nowrap">
-                                <Link :href="`/requisitions/${r.id}`" class="fw-semibold font-monospace text-decoration-none" @click.stop>{{ r.code }}</Link>
-                                <span v-if="r.is_express" class="badge text-bg-warning ms-1" title="Express"><i class="bi bi-lightning-charge-fill"></i></span>
-                                <div class="small text-body-secondary">{{ r.requested_at }}</div>
+                        <tr v-for="r in requisitions.data" :key="r.id" class="is-clickable" @click="router.get(`/requisitions/${r.id}`)">
+                            <td data-label="N.º" class="text-nowrap">
+                                <div class="d-flex align-items-center gap-1">
+                                    <Link :href="`/requisitions/${r.id}`" class="cell-code" @click.stop>{{ r.code }}</Link>
+                                    <span v-if="r.is_express" class="status-pill tone-amber" title="Express"><i class="bi bi-lightning-charge-fill"></i>Express</span>
+                                </div>
+                                <div class="cell-sub tabular">{{ r.requested_at }}</div>
                             </td>
-                            <td style="max-width: 320px">
-                                <div class="text-truncate">{{ r.detail }}</div>
-                                <div class="small text-body-secondary">{{ r.classification }} · {{ r.items_count }} ítem(s)</div>
+                            <td data-label="Detalle" class="cell-main">
+                                <div class="min-w-0">
+                                    <div class="cell-title fw-medium text-truncate">{{ r.detail }}</div>
+                                    <div class="cell-sub">{{ r.classification }} · {{ r.items_count }} ítem(s)</div>
+                                </div>
                             </td>
-                            <td class="d-none d-md-table-cell small">
-                                <div>{{ r.requested_by }}</div>
-                                <div class="text-body-secondary">{{ r.area }}</div>
+                            <td data-label="Solicita" class="text-nowrap">
+                                <div class="cell-title fw-medium">{{ r.requested_by }}</div>
+                                <div class="cell-sub">{{ r.area }}</div>
                             </td>
-                            <td class="d-none d-lg-table-cell small">
-                                <div>{{ r.supplier || '—' }}</div>
-                                <div class="font-monospace text-body-secondary">{{ r.order_number }}</div>
+                            <td data-label="Proveedor">
+                                <div class="cell-title fw-medium">{{ r.supplier || '—' }}</div>
+                                <div class="cell-sub font-monospace">{{ r.order_number }}</div>
                             </td>
-                            <td class="text-end d-none d-lg-table-cell small text-nowrap">{{ r.amount ? money(r.amount, r.currency) : '—' }}</td>
-                            <td>
-                                <span class="badge" :class="`bg-${stages[r.stage]?.[1]}-subtle text-${stages[r.stage]?.[1]}-emphasis`">{{ stages[r.stage]?.[0] }}</span>
-                            </td>
+                            <td data-label="Monto" class="text-end text-nowrap"><span class="cell-amount">{{ r.amount ? money(r.amount, r.currency) : '—' }}</span></td>
+                            <td data-label="Etapa"><span class="status-pill" :class="tone(r.stage)">{{ stages[r.stage]?.[0] }}</span></td>
                         </tr>
-                        <tr v-if="!requisitions.data.length">
-                            <td colspan="6" class="text-center text-body-secondary py-5">
-                                <i class="bi bi-cart3 fs-2 d-block mb-2"></i>
-                                {{ filters.search || filters.stage ? 'Ningún requerimiento coincide con el filtro.' : 'Aún no hay requerimientos.' }}
+                        <tr v-if="!requisitions.data.length" class="row-empty">
+                            <td colspan="6">
+                                <div class="dash-empty">
+                                    <span class="dash-empty-icon"><i class="bi bi-cart3"></i></span>
+                                    <p class="dash-empty-title">{{ filtered() ? 'Ningún requerimiento coincide con el filtro' : 'Aún no hay requerimientos' }}</p>
+                                    <p class="dash-empty-text">{{ filtered() ? 'Prueba con otra etapa, otra búsqueda o sin fechas.' : 'Registra el primero con «Nuevo requerimiento».' }}</p>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
+            <footer class="surface-foot">
                 <span class="small text-body-secondary">{{ requisitions.total }} requerimiento(s)</span>
                 <Pagination :paginator="requisitions" />
-            </div>
-        </div>
+            </footer>
+        </section>
     </AppLayout>
 </template>
