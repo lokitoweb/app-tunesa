@@ -69,7 +69,9 @@ class ScheduleWebController extends Controller
             // en la recarga por JSON: al cambiar de agencia cambian los horarios disponibles
             'shifts'   => $branch ? Shift::where('tenant_id', $branch->tenant_id)->where('is_active', true)->forBranch($branch->id)->orderBy('start_time')->get()
                 ->map(fn (Shift $s) => ['id' => $s->id, 'name' => $s->name, 'color' => $s->color ?: '#64748B',
-                    'start' => substr((string) $s->start_time, 0, 5), 'end' => substr((string) $s->end_time, 0, 5)]) : [],
+                    'start' => substr((string) $s->start_time, 0, 5), 'end' => substr((string) $s->end_time, 0, 5),
+                    // QA3-04: "08:00 · 13:00 · 14:00 · 17:00" si el horario es de 4 marcaciones
+                    'times' => $s->timesLabel()]) : [],
         ];
 
         if ($request->wantsJson()) {

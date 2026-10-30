@@ -388,7 +388,7 @@ async function repeat() {
                     :style="{ '--chip': s.color }" :aria-pressed="brush === s.id" @click="brush = s.id">
                     <span class="sched-dot" :style="{ background: s.color }"></span>
                     <span class="fw-semibold">{{ s.name }}</span>
-                    <span class="sched-chip-time">{{ s.start }}–{{ s.end }}</span>
+                    <span class="sched-chip-time">{{ s.times || `${s.start}–${s.end}` }}</span>
                 </button>
                 <button type="button" class="sched-chip" :class="{ active: brush === null }" :aria-pressed="brush === null" @click="brush = null">
                     <span class="sched-dot sched-dot-free"></span><span class="fw-semibold">Día libre</span>

@@ -414,6 +414,7 @@ class AttendanceService
             'break_end_latitude'  => $data->latitude,
             'break_end_longitude' => $data->longitude,
             'break_minutes'       => $breakMinutes,
+            'break_late_minutes'  => $this->calculateBreakLateMinutes($attendance->shift, $attendance->work_date->toDateString(), $c['tenant']->timezone, $at),
             'clock_in_meta'       => $this->withBreakMeta($attendance, 'end', $data, $at, $geo),
         ]);
 
@@ -478,6 +479,8 @@ class AttendanceService
             'overtime_status'         => Attendance::overtimeStatusFor($overtimeHours),
             'overtime_approved_hours' => null,
             'status'         => $this->determineFinalStatus($attendance, $workedHours, $dailyHours),
+            // QA3-04: horario de 4 marcaciones y faltó la salida o el retorno del refrigerio
+            'punches_incomplete' => (bool) $shift?->hasBreakWindow() && ($attendance->break_start_at === null || $attendance->break_end_at === null),
         ]);
 
         return [$attendance, $branch, $geo, $reasons];
@@ -786,6 +789,11 @@ class AttendanceService
             }
         }
 
+        // QA3-04: salió sin marcar la salida o el retorno del refrigerio (horario de 4 marcaciones) → RR. HH.
+        if ($result->punch->type === 'clock_out' && $attendance->punches_incomplete) {
+            $this->alerts->incompletePunches($attendance);
+        }
+
         if (in_array(AttendancePunch::REASON_OUT_OF_GEOFENCE, $reasons, true)) {
             $this->alerts->outsideGeofence($result->attendance->user ?? User::find($result->punch->user_id), [
                 'branch_id'       => $result->punch->branch_id,
@@ -1002,6 +1010,31 @@ class AttendanceService
         $scheduledEntry = Carbon::parse("{$date} {$shift->start_time}", $timezone);
 
         return (int) $scheduledEntry->diffInMinutes($now);
+    }
+
+    /**
+     * QA3-04: retorno tardío del refrigerio, con la misma regla que la tardanza de entrada:
+     * pasada la tolerancia del turno se cuentan todos los minutos desde la hora de retorno.
+     * Solo en horarios de 4 marcaciones (con hora fija de retorno).
+     */
+    public function calculateBreakLateMinutes(?Shift $shift, string $date, string $timezone, Carbon $returnedAt): int
+    {
+        $shift = $shift?->forDate($date);
+        if (! $shift?->hasBreakWindow()) {
+            return 0;
+        }
+
+        $scheduledReturn = Carbon::parse("{$date} {$shift->break_end_time}", $timezone);
+        // Turno nocturno: el retorno puede caer al día siguiente de la entrada
+        if (substr((string) $shift->break_end_time, 0, 5) < substr((string) $shift->start_time, 0, 5)) {
+            $scheduledReturn->addDay();
+        }
+
+        if ($returnedAt->lessThanOrEqualTo($scheduledReturn->copy()->addMinutes(max(0, (int) $shift->grace_period_minutes)))) {
+            return 0;
+        }
+
+        return (int) $scheduledReturn->diffInMinutes($returnedAt);
     }
 
     /**

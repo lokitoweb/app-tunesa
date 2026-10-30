@@ -44,6 +44,12 @@ const ownDays = (shift) => Object.entries(shift.day_schedules || {})
     .filter(([, v]) => v.start_time || v.end_time)
     .map(([d, v]) => `${DAYS[d]} ${v.start_time || shift.start_time.substring(0, 5)}–${v.end_time || shift.end_time.substring(0, 5)}`);
 
+// QA3-04: las 4 marcaciones si el horario fija el refrigerio; si no, entrada – salida
+const hasBreakWindow = (s) => s.break_allowed && s.break_start_time && s.break_end_time;
+const timesOf = (s) => (hasBreakWindow(s)
+    ? [s.start_time, s.break_start_time, s.break_end_time, s.end_time].map((t) => hora(t)).join(' · ')
+    : `${hora(s.start_time)} – ${hora(s.end_time)}`);
+
 // Conversión amigable de 24h a 12h ("08:00 am")
 const hora = (t) => {
     if (!t) return '';
@@ -93,6 +99,9 @@ const defaultShiftData = () => ({
     daily_hours: 8,
     break_allowed: true,
     break_duration_minutes: 60,
+    // QA3-04: horas fijas del refrigerio (vacías = 2 marcaciones)
+    break_start_time: '',
+    break_end_time: '',
     working_days: [1, 2, 3, 4, 5],
     rotation_work_days: 4,
     rotation_rest_days: 2,
@@ -155,6 +164,8 @@ function openEditModal(shift) {
     shiftForm.daily_hours = shift.daily_hours ?? 8;
     shiftForm.break_allowed = Boolean(shift.break_allowed);
     shiftForm.break_duration_minutes = shift.break_duration_minutes ?? 60;
+    shiftForm.break_start_time = shift.break_start_time || '';
+    shiftForm.break_end_time = shift.break_end_time || '';
     shiftForm.working_days = Array.isArray(shift.working_days) ? [...shift.working_days] : [1, 2, 3, 4, 5];
     shiftForm.rotation_work_days = shift.rotation_work_days ?? 4;
     shiftForm.rotation_rest_days = shift.rotation_rest_days ?? 2;
@@ -210,6 +221,8 @@ const showErrorTab = (errors) => {
 function submitShiftModal() {
     normalizeTime('start_time');
     normalizeTime('end_time');
+    normalizeTime('break_start_time');
+    normalizeTime('break_end_time');
 
     if (modalEditing.value) {
         // Vista global: se guarda en la empresa del turno, sin preguntar
@@ -319,8 +332,9 @@ async function destroy(shift) {
                                 <div v-if="shift.profile" class="cell-sub mt-1">{{ profiles[shift.profile] }}</div>
                             </td>
                             <td data-label="Horario" class="text-nowrap">
-                                <span class="cell-title fw-medium tabular">{{ hora(shift.start_time) }} – {{ hora(shift.end_time) }}</span>
+                                <span class="cell-title fw-medium tabular">{{ timesOf(shift) }}</span>
                                 <span v-if="shift.crosses_midnight" class="cell-sub ms-1">(+1 día)</span>
+                                <div class="cell-sub">{{ hasBreakWindow(shift) ? '4 marcaciones (con refrigerio)' : '2 marcaciones' }}</div>
                                 <div v-for="d in ownDays(shift)" :key="d" class="cell-sub text-info-emphasis" title="Horario propio de ese día">{{ d }}</div>
                             </td>
                             <td data-label="Días / Ciclo">
@@ -620,9 +634,27 @@ async function destroy(shift) {
                                         </div>
                                     </div>
                                     <div v-if="shiftForm.break_allowed" class="pt-3 border-top">
-                                        <label for="modal_break_minutes" class="form-label fw-semibold small text-dark mb-1.5">Duración del descanso (minutos) <span class="text-danger">*</span></label>
-                                        <input id="modal_break_minutes" v-model="shiftForm.break_duration_minutes" type="number" min="0" max="480" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.break_duration_minutes }" required style="border-radius: 8px; height: 42px; max-width: 220px;">
-                                        <div class="form-text small text-secondary mt-1">Tiempo reglamentario de refrigerio (ej. 45 o 60 minutos).</div>
+                                        <!-- QA3-04: con las dos horas el horario es de 4 marcaciones; sin ellas, de 2 (solo duración) -->
+                                        <div class="row g-3 mb-2">
+                                            <div class="col-6 col-md-4">
+                                                <label for="modal_break_start" class="form-label fw-semibold small text-dark mb-1.5">Salida a refrigerio</label>
+                                                <input id="modal_break_start" v-model="shiftForm.break_start_time" type="text" inputmode="numeric" maxlength="5" placeholder="13:00" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.break_start_time }" style="border-radius: 8px; height: 42px;" @blur="normalizeTime('break_start_time')">
+                                            </div>
+                                            <div class="col-6 col-md-4">
+                                                <label for="modal_break_end" class="form-label fw-semibold small text-dark mb-1.5">Retorno de refrigerio</label>
+                                                <input id="modal_break_end" v-model="shiftForm.break_end_time" type="text" inputmode="numeric" maxlength="5" placeholder="14:00" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.break_end_time }" style="border-radius: 8px; height: 42px;" @blur="normalizeTime('break_end_time')">
+                                            </div>
+                                            <div v-if="shiftForm.errors.break_start_time || shiftForm.errors.break_end_time" class="col-12 invalid-feedback d-block mt-0">{{ shiftForm.errors.break_start_time || shiftForm.errors.break_end_time }}</div>
+                                        </div>
+                                        <div class="form-text small text-secondary mb-3">
+                                            Con las dos horas el horario pide <strong>4 marcaciones</strong> (entrada, salida a refrigerio, retorno y salida) y la duración se calcula sola.
+                                            Déjalas vacías para un horario de 2 marcaciones (por ejemplo, el sábado sin refrigerio).
+                                        </div>
+                                        <template v-if="!(shiftForm.break_start_time && shiftForm.break_end_time)">
+                                            <label for="modal_break_minutes" class="form-label fw-semibold small text-dark mb-1.5">Duración del descanso (minutos) <span class="text-danger">*</span></label>
+                                            <input id="modal_break_minutes" v-model="shiftForm.break_duration_minutes" type="number" min="0" max="480" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.break_duration_minutes }" required style="border-radius: 8px; height: 42px; max-width: 220px;">
+                                            <div class="form-text small text-secondary mt-1">Tiempo reglamentario de refrigerio (ej. 45 o 60 minutos).</div>
+                                        </template>
                                     </div>
                                 </div>
 

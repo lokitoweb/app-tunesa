@@ -33,6 +33,9 @@ const form = useForm({
     color: editing || !colorOwner(props.colorShifts, initialBranch, props.shift.color) ? props.shift.color : firstFreeColor(props.colorShifts, initialBranch),
     start_time: props.shift.start_time ? props.shift.start_time.substring(0, 5) : '08:00',
     end_time: props.shift.end_time ? props.shift.end_time.substring(0, 5) : '17:00',
+    // QA3-04: horas fijas del refrigerio (vacías = 2 marcaciones)
+    break_start_time: props.shift.break_start_time || '',
+    break_end_time: props.shift.break_end_time || '',
     working_days: Array.isArray(props.shift.working_days) ? [...props.shift.working_days] : [1, 2, 3, 4, 5],
     profile: props.shift.profile ?? '',
     day_schedules: emptyDays(props.shift.day_schedules),
@@ -72,6 +75,8 @@ function setWorkingDaysPreset(preset) {
 function submit() {
     normalizeTime('start_time');
     normalizeTime('end_time');
+    normalizeTime('break_start_time');
+    normalizeTime('break_end_time');
     form.transform((data) => ({ ...data, profile: data.profile || null }));
     editing ? form.put(`/shifts/${props.shift.id}`) : form.post('/shifts');
 }
@@ -259,10 +264,24 @@ function submit() {
                             </div>
                         </div>
                     </div>
-                    <div v-if="form.break_allowed" class="col-md-6">
-                        <label for="break_duration_minutes" class="emp-form-label">Duración del descanso (minutos) *</label>
-                        <input id="break_duration_minutes" v-model="form.break_duration_minutes" type="number" min="0" max="480" class="emp-form-input font-monospace" :class="{ 'is-invalid': form.errors.break_duration_minutes }" required>
-                    </div>
+                    <template v-if="form.break_allowed">
+                        <div class="col-6 col-md-3">
+                            <label for="break_start_time" class="emp-form-label">Salida a refrigerio</label>
+                            <input id="break_start_time" v-model="form.break_start_time" type="text" inputmode="numeric" maxlength="5" placeholder="13:00" class="emp-form-input font-monospace" :class="{ 'is-invalid': form.errors.break_start_time }" @blur="normalizeTime('break_start_time')">
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label for="break_end_time" class="emp-form-label">Retorno de refrigerio</label>
+                            <input id="break_end_time" v-model="form.break_end_time" type="text" inputmode="numeric" maxlength="5" placeholder="14:00" class="emp-form-input font-monospace" :class="{ 'is-invalid': form.errors.break_end_time }" @blur="normalizeTime('break_end_time')">
+                        </div>
+                        <div v-if="!(form.break_start_time && form.break_end_time)" class="col-md-6">
+                            <label for="break_duration_minutes" class="emp-form-label">Duración del descanso (minutos) *</label>
+                            <input id="break_duration_minutes" v-model="form.break_duration_minutes" type="number" min="0" max="480" class="emp-form-input font-monospace" :class="{ 'is-invalid': form.errors.break_duration_minutes }" required>
+                        </div>
+                        <div class="col-12">
+                            <div v-if="form.errors.break_start_time || form.errors.break_end_time" class="invalid-feedback d-block">{{ form.errors.break_start_time || form.errors.break_end_time }}</div>
+                            <div class="small text-muted">Con las dos horas el horario pide 4 marcaciones (entrada, salida a refrigerio, retorno y salida) y la duración se calcula sola. Vacías: 2 marcaciones.</div>
+                        </div>
+                    </template>
                 </div>
             </div>
 

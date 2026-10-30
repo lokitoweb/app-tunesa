@@ -76,6 +76,7 @@
                     <th>Selfie</th>
                     <th>Entrada</th>
                     <th>Ubicación</th>
+                    <th>Refrigerio</th>
                     <th>Salida</th>
                     <th>Horas</th>
                     <th>Estado</th>
@@ -137,6 +138,19 @@
                                 <span class="cell-sub">No registrado</span>
                             @endif
                         </td>
+                        {{-- QA3-04: 2.ª y 3.ª marcación (salida a refrigerio y retorno) --}}
+                        <td class="text-nowrap" data-label="Refrigerio">
+                            @if($att->break_start_at)
+                                <div>
+                                    <span>{{ $att->break_start_at->format('h:i a') }} → {{ $att->break_end_at?->format('h:i a') ?? '--:--' }}</span>
+                                    @if($att->break_late_minutes > 0)
+                                        <div class="cell-sub text-warning-emphasis fw-semibold" title="Volvió después de la hora de retorno del horario"><i class="bi bi-cup-hot me-1"></i>Retorno +{{ minutes_label($att->break_late_minutes) }}</div>
+                                    @endif
+                                </div>
+                            @else
+                                <span class="cell-sub">Sin marcar</span>
+                            @endif
+                        </td>
                         <td class="text-nowrap" data-label="Salida">
                             <div>
                                 <span>{{ $att->clock_out_at?->format('h:i:s a') ?? '--:--:--' }}</span>
@@ -154,6 +168,9 @@
                                 @if($att->is_suspicious)
                                     <span class="status-pill tone-amber" title="Ubicación simulada, hora desfasada, rostro no verificado o fuera de la ubicación"><i class="bi bi-shield-exclamation"></i>Sospechosa</span>
                                 @endif
+                                @if($att->punches_incomplete)
+                                    <span class="status-pill tone-rose" title="Horario de 4 marcaciones: faltó la salida o el retorno del refrigerio"><i class="bi bi-exclamation-circle"></i>Marcaciones incompletas</span>
+                                @endif
                             </div>
                         </td>
                         <td>
@@ -169,7 +186,7 @@
                     </tr>
                 @empty
                     <tr class="row-empty">
-                        <td colspan="9">
+                        <td colspan="10">
                             <div class="dash-empty">
                                 <span class="dash-empty-icon"><i class="bi bi-calendar2-x"></i></span>
                                 <p class="dash-empty-title">No hay marcaciones</p>

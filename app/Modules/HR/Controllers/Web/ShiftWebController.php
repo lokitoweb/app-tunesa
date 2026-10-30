@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -100,6 +101,8 @@ class ShiftWebController extends Controller
             'daily_hours'            => $shift->daily_hours,
             'break_allowed'          => (bool) $shift->break_allowed,
             'break_duration_minutes' => $shift->break_duration_minutes,
+            'break_start_time'       => $shift->break_start_time ? substr((string) $shift->break_start_time, 0, 5) : null,
+            'break_end_time'         => $shift->break_end_time ? substr((string) $shift->break_end_time, 0, 5) : null,
             'working_days'           => $shift->working_days ?? [],
             // Objeto (no lista) aunque esté vacío: el formulario lo indexa por día
             'day_schedules'          => (object) ($shift->day_schedules ?? []),
@@ -239,12 +242,17 @@ class ShiftWebController extends Controller
             'grace_period_minutes'   => ['required', 'integer', 'between:0,240'],
             'break_allowed'          => ['nullable', 'boolean'],
             'break_duration_minutes' => ['required', 'integer', 'between:0,480'],
+            // QA3-04: horas fijas del refrigerio (4 marcaciones). Las dos o ninguna (2 marcaciones)
+            'break_start_time'       => ['nullable', 'date_format:H:i', 'required_with:break_end_time'],
+            'break_end_time'         => ['nullable', 'date_format:H:i', 'required_with:break_start_time'],
             'working_days'           => [$rotating ? 'nullable' : 'required', 'array'],
             'working_days.*'         => ['integer', 'between:0,6'],
             'day_schedules'                          => ['nullable', 'array'],
             'day_schedules.*.start_time'             => ['nullable', 'date_format:H:i'],
             'day_schedules.*.end_time'               => ['nullable', 'date_format:H:i'],
             'day_schedules.*.break_duration_minutes' => ['nullable', 'integer', 'between:0,480'],
+            'day_schedules.*.break_start_time'       => ['nullable', 'date_format:H:i'],
+            'day_schedules.*.break_end_time'         => ['nullable', 'date_format:H:i'],
             'day_schedules.*.daily_hours'            => ['nullable', 'numeric', 'between:0.5,24'],
             'rotation_work_days'     => [$rotating ? 'required' : 'nullable', 'integer', 'between:1,60'],
             'rotation_rest_days'     => [$rotating ? 'required' : 'nullable', 'integer', 'between:1,60'],
@@ -266,6 +274,19 @@ class ShiftWebController extends Controller
         $data['crosses_midnight'] = $data['end_time'] <= $data['start_time'];
         $data['working_days']     = array_map('intval', $data['working_days'] ?? [0, 1, 2, 3, 4, 5, 6]);
 
+        // 4 marcaciones: el refrigerio va dentro de la jornada y en orden; su duración sale de las horas
+        if (filled($data['break_start_time'] ?? null) && filled($data['break_end_time'] ?? null)) {
+            $minutes = self::breakWindowMinutes($data['start_time'], $data['end_time'], $data['break_start_time'], $data['break_end_time']);
+            if ($minutes === null) {
+                throw ValidationException::withMessages(['break_start_time' => 'El refrigerio debe ir dentro de la jornada y en orden: entrada, salida a refrigerio, retorno y salida.']);
+            }
+            $data['break_allowed'] = true;
+            $data['break_duration_minutes'] = $minutes;
+        } else {
+            $data['break_start_time'] = null;
+            $data['break_end_time'] = null;
+        }
+
         // Sin el campo en la petición se conserva lo guardado
         if ($rotating || $request->has('day_schedules')) {
             $data['day_schedules'] = $rotating ? null : self::daySchedules($data['day_schedules'] ?? [], $data['working_days']);
@@ -277,6 +298,21 @@ class ShiftWebController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Minutos del refrigerio si va en orden dentro de la jornada (entrada < salida a refrigerio <
+     * retorno < salida, también en turnos que cruzan la medianoche); null si no.
+     */
+    public static function breakWindowMinutes(string $start, string $end, string $breakStart, string $breakEnd): ?int
+    {
+        $min = fn (string $t) => ((int) substr($t, 0, 2)) * 60 + (int) substr($t, 3, 2);
+        // Todo relativo a la entrada, dando la vuelta a la medianoche
+        $rel = fn (string $t) => ($min($t) - $min($start) + 1440) % 1440;
+        $shiftEnd = $rel($end) ?: 1440;
+        [$bs, $be] = [$rel($breakStart), $rel($breakEnd)];
+
+        return $bs > 0 && $bs < $be && $be < $shiftEnd ? $be - $bs : null;
     }
 
     /** Solo días laborables del turno y solo lo que difiere del horario general (vacío = general) */

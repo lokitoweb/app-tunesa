@@ -96,6 +96,8 @@ class Attendance extends Model
         'status',
         'late_minutes',
         'break_minutes',
+        'break_late_minutes',
+        'punches_incomplete',
         'worked_hours',
         'overtime_hours',
 
@@ -125,6 +127,8 @@ class Attendance extends Model
         'break_start_at'            => 'datetime',
         'break_end_at'              => 'datetime',
         'clock_out_at'              => 'datetime',
+        'break_late_minutes'        => 'integer',
+        'punches_incomplete'        => 'boolean',
         'clock_in_latitude'         => 'decimal:8',
         'clock_in_longitude'        => 'decimal:8',
         'clock_out_latitude'        => 'decimal:8',

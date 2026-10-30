@@ -38,6 +38,8 @@ class Shift extends Model
         'grace_period_minutes',
         'break_allowed',
         'break_duration_minutes',
+        'break_start_time',
+        'break_end_time',
         'working_days',
         'day_schedules',
         'rotation_work_days',
@@ -67,7 +69,7 @@ class Shift extends Model
     ];
 
     /** Lo que un día de la semana puede cambiar respecto del horario general */
-    public const DAY_FIELDS = ['start_time', 'end_time', 'break_duration_minutes', 'daily_hours'];
+    public const DAY_FIELDS = ['start_time', 'end_time', 'break_duration_minutes', 'break_start_time', 'break_end_time', 'daily_hours'];
 
     // =========================================================================
     // RELACIONES
@@ -105,6 +107,25 @@ class Shift extends Model
     // =========================================================================
     // HELPERS
     // =========================================================================
+
+    /**
+     * QA3-04: horario de 4 marcaciones (entrada · salida a refrigerio · retorno · salida).
+     * Sin las horas del refrigerio es un horario de 2 marcaciones, como los anteriores.
+     */
+    public function hasBreakWindow(): bool
+    {
+        return (bool) $this->break_allowed && filled($this->break_start_time) && filled($this->break_end_time);
+    }
+
+    /** "08:00 · 13:00 · 14:00 · 17:00" (4 marcaciones) o "08:00–17:00" (2 marcaciones) */
+    public function timesLabel(): string
+    {
+        $hm = fn ($t) => substr((string) $t, 0, 5);
+
+        return $this->hasBreakWindow()
+            ? implode(' · ', [$hm($this->start_time), $hm($this->break_start_time), $hm($this->break_end_time), $hm($this->end_time)])
+            : $hm($this->start_time) . '–' . $hm($this->end_time);
+    }
 
     /**
      * Verifica si el turno aplica en un día de la semana dado.

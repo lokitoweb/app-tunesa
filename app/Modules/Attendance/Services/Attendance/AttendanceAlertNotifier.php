@@ -8,6 +8,7 @@ use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Scopes\TenantScope;
 use App\Modules\Core\Models\User;
 use App\Modules\Attendance\Notifications\AttendanceEarlyExit;
+use App\Modules\Attendance\Notifications\AttendanceIncompletePunches;
 use App\Modules\Attendance\Notifications\AttendanceMockRepeated;
 use App\Modules\Attendance\Notifications\AttendanceOutsideGeofence;
 use App\Modules\Attendance\Notifications\AttendanceOutsideSchedule;
@@ -116,6 +117,30 @@ class AttendanceAlertNotifier
             $recipients->unique('id')
                 ->reject(fn (User $u) => (int) $u->id === (int) $employee->id)
                 ->each(fn (User $u) => $u->notify((new AttendanceMockRepeated($employee, $attempts, $branchName))->withoutPush()));
+        });
+    }
+
+    /** QA3-04: jornada de 4 marcaciones cerrada sin la salida o el retorno del refrigerio → RR. HH., administración y supervisor (in-app) */
+    public function incompletePunches(Attendance $attendance): void
+    {
+        $this->safely(function () use ($attendance) {
+            $employee = $this->activeUser($attendance->user_id);
+            if (! $employee) {
+                return;
+            }
+
+            $recipients = User::withoutGlobalScope(TenantScope::class)
+                ->where('tenant_id', $employee->tenant_id)
+                ->where('status', 'active')
+                ->whereIn('role', ['company_admin', 'hr_manager'])
+                ->get();
+            if ($supervisor = $this->supervisorOf($attendance->branch_id, $employee)) {
+                $recipients->push($supervisor);
+            }
+
+            $recipients->unique('id')
+                ->reject(fn (User $u) => (int) $u->id === (int) $employee->id)
+                ->each(fn (User $u) => $u->notify((new AttendanceIncompletePunches($attendance, $employee))->withoutPush()));
         });
     }
 
