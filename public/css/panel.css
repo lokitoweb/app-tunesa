@@ -9180,13 +9180,13 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
  * desplazamiento y los buscadores de ancho fijo toman todo el ancho.
  * ============================================================================= */
 @media (max-width: 767.98px) {
-    .panel-content :is(.cal-views-group, .settings-hub-nav) {
+    .panel-content :is(.settings-hub-nav) {
         max-width: 100%;
         flex-wrap: nowrap;
         overflow-x: auto;
         scrollbar-width: none;
     }
-    .panel-content :is(.cal-views-group, .settings-hub-nav) > * { flex-shrink: 0; white-space: nowrap; }
+    .panel-content :is(.settings-hub-nav) > * { flex-shrink: 0; white-space: nowrap; }
 
     /* Tablas sin .table-responsive: el contenedor se desliza, la página no */
     .panel-content :has(> table):not(.table-responsive) { overflow-x: auto; }

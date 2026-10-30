@@ -43,406 +43,21 @@
 }
 
 {{-- 1. Header con Título Principal y Exportación --}}
-.cal-header-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 0.25rem;
-}
-
-.cal-header-title-box h1 {
-    font-size: 1.65rem;
-    font-weight: 800;
-    color: var(--cal-text-main) !important;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-}
-
-.cal-header-title-box p {
-    color: var(--cal-text-muted) !important;
-    font-size: 0.875rem;
-    margin: 0;
-}
 
 {{-- 2. Tarjetas KPI Ejecutivas --}}
-.cal-kpis-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1rem;
-}
-
-.cal-kpi-card {
-    background: var(--cal-bg);
-    border: 1px solid var(--cal-border);
-    border-radius: 12px;
-    padding: 1.15rem 1.25rem;
-    display: flex;
-    align-items: center;
-    gap: 1.15rem;
-    box-shadow: var(--cal-shadow);
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-}
-.cal-kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-    border-color: var(--cal-border-light);
-}
-
-.cal-kpi-icon-box {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.35rem;
-    flex-shrink: 0;
-}
-
-.cal-kpi-value {
-    font-size: 1.6rem;
-    font-weight: 800;
-    line-height: 1.1;
-    color: var(--cal-text-main);
-    letter-spacing: -0.02em;
-}
-
-.cal-kpi-title {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 700;
-    color: var(--cal-text-subtle);
-    margin-top: 3px;
-}
 
 {{-- 3. Barra de Control de Navegación & Filtros Integrados --}}
-.cal-control-panel {
-    background: var(--cal-bg);
-    border: 1px solid var(--cal-border);
-    border-radius: 14px;
-    padding: 1rem 1.25rem;
-    box-shadow: var(--cal-shadow);
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-}
-
-.cal-control-row-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
 
 {{-- Navegador de Mes Moderno (Sin confusión con filtros de días) --}}
-.cal-month-nav {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    flex-wrap: wrap;
-}
-
-.cal-nav-arrow-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 9px;
-    border: 1px solid var(--cal-border-light);
-    background: var(--cal-bg-elevated);
-    color: var(--cal-text-main);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    font-size: 0.95rem;
-}
-.cal-nav-arrow-btn:hover {
-    background: var(--cal-bg);
-    border-color: #2563eb;
-    color: #2563eb;
-    transform: translateY(-1px);
-}
-
-.cal-month-display-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0 0.5rem;
-    color: var(--cal-text-main);
-}
-.cal-month-display-pill i {
-    font-size: 1.15rem;
-    color: #2563eb;
-}
 .cal-month-title {
     font-size: 1.18rem;
     font-weight: 800;
-    text-transform: capitalize;
     letter-spacing: -0.01em;
 }
 
-.cal-btn-current-month {
-    height: 32px;
-    padding: 0 0.85rem;
-    border-radius: 8px;
-    border: 1px solid rgba(37, 99, 235, 0.3);
-    background: rgba(37, 99, 235, 0.08);
-    color: #2563eb;
-    font-size: 0.775rem;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-.cal-btn-current-month:hover {
-    background: #2563eb;
-    color: #ffffff;
-    border-color: #2563eb;
-}
-[data-bs-theme="dark"] .cal-btn-current-month {
-    color: #60a5fa;
-    border-color: rgba(96, 165, 250, 0.35);
-    background: rgba(37, 99, 235, 0.16);
-}
-[data-bs-theme="dark"] .cal-btn-current-month:hover {
-    background: #2563eb;
-    color: #ffffff;
-}
-
-.cal-sync-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.775rem;
-    font-weight: 700;
-    color: #065f46;
-    background: #d1fae5;
-    border: 1px solid #a7f3d0;
-    padding: 5px 11px;
-    border-radius: 8px;
-}
-[data-bs-theme="dark"] .cal-sync-pill {
-    background: rgba(16, 185, 129, 0.15);
-    border-color: rgba(16, 185, 129, 0.35);
-    color: #34d399;
-}
-.cal-sync-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #10b981;
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
-}
-
 {{-- Fila de Filtros Asíncronos --}}
-.cal-control-row-bottom {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    padding-top: 0.85rem;
-    border-top: 1px solid var(--cal-border);
-}
-
-.cal-filters-group {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    flex-grow: 1;
-}
-
-.cal-search-container {
-    position: relative;
-    max-width: 260px;
-    width: 100%;
-}
-.cal-search-container i {
-    position: absolute;
-    left: 11px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--cal-text-subtle);
-    font-size: 0.85rem;
-    pointer-events: none;
-}
-.cal-search-input {
-    height: 38px;
-    padding-left: 34px;
-    padding-right: 12px;
-    border-radius: 8px;
-    border: 1px solid var(--cal-border-light);
-    font-size: 0.825rem;
-    color: var(--cal-text-main);
-    width: 100%;
-    background: var(--cal-bg-subtle);
-    font-weight: 500;
-    transition: all 0.12s ease;
-}
-.cal-search-input:focus {
-    outline: none;
-    border-color: #2563eb;
-    background: var(--cal-bg);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
-}
-
-.cal-select-control,
-.cal-colab-switcher {
-    height: 38px;
-    border-radius: 8px;
-    border: 1px solid var(--cal-border-light);
-    font-size: 0.825rem;
-    padding-left: 0.85rem;
-    padding-right: 2.25rem !important;
-    color: var(--cal-text-main);
-    background-color: var(--cal-bg-subtle);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.75rem center;
-    background-size: 13px 11px;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    font-weight: 500;
-    max-width: 215px;
-    cursor: pointer;
-    outline: none !important;
-    transition: all 0.15s ease;
-}
-
-.cal-colab-switcher {
-    max-width: 250px;
-    font-weight: 600;
-}
-
-[data-bs-theme="dark"] .cal-select-control,
-[data-bs-theme="dark"] .cal-colab-switcher {
-    background-color: var(--cal-bg-subtle);
-    border-color: var(--cal-border-light);
-    color: var(--cal-text-main);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
-}
-
-.cal-select-control:focus,
-.cal-select-control:focus-visible,
-.cal-colab-switcher:focus,
-.cal-colab-switcher:focus-visible,
-.cal-search-input:focus,
-.cal-search-input:focus-visible {
-    outline: none !important;
-    border-color: #2563eb !important;
-    background-color: var(--cal-bg) !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22) !important;
-}
-
-[data-bs-theme="dark"] .cal-select-control:focus,
-[data-bs-theme="dark"] .cal-select-control:focus-visible,
-[data-bs-theme="dark"] .cal-colab-switcher:focus,
-[data-bs-theme="dark"] .cal-colab-switcher:focus-visible,
-[data-bs-theme="dark"] .cal-search-input:focus,
-[data-bs-theme="dark"] .cal-search-input:focus-visible {
-    outline: none !important;
-    border-color: #3b82f6 !important;
-    background-color: var(--cal-bg) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
-}
-
-[data-bs-theme="dark"] .cal-select-control option,
-[data-bs-theme="dark"] .cal-colab-switcher option {
-    background: #161d2d;
-    color: #f8fafc;
-}
-
-.cal-submit-btn {
-    height: 38px;
-    padding: 0 1rem;
-    border-radius: 8px;
-    background: #2563eb;
-    color: #ffffff;
-    border: none;
-    font-size: 0.825rem;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
-    transition: all 0.12s ease;
-    outline: none !important;
-}
-.cal-submit-btn:hover {
-    background: #1d4ed8;
-    transform: translateY(-1px);
-}
-.cal-submit-btn:focus,
-.cal-submit-btn:focus-visible,
-.cal-clear-btn:focus,
-.cal-clear-btn:focus-visible {
-    outline: none !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25) !important;
-}
-
-.cal-clear-btn {
-    height: 38px;
-    width: 38px;
-    border-radius: 8px;
-    border: 1px solid var(--cal-border-light);
-    background: var(--cal-bg-subtle);
-    color: var(--cal-text-muted);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.12s ease;
-    outline: none !important;
-}
-.cal-clear-btn:hover {
-    background: var(--cal-bg-elevated);
-    color: var(--cal-text-main);
-    border-color: var(--cal-text-subtle);
-}
 
 {{-- Conmutador de Vistas --}}
-.cal-views-group {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-}
-
-.cal-seg-toggle {
-    display: inline-flex;
-    background: var(--cal-bg-elevated);
-    border: 1px solid var(--cal-border-light);
-    border-radius: 8px;
-    padding: 2px;
-}
-.cal-seg-button {
-    height: 32px;
-    padding: 0 0.85rem;
-    border-radius: 6px;
-    border: none;
-    background: transparent;
-    color: var(--cal-text-muted);
-    font-size: 0.7875rem;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    transition: all 0.12s ease;
-}
-.cal-seg-button.active {
-    background: var(--cal-bg);
-    color: var(--cal-text-main);
-    box-shadow: var(--cal-shadow);
-}
 
 {{-- ==========================================================================
    4. TABLERO CALENDARIO (7 COLUMNAS LUN - DOM) — MODO CLARO & OSCURO
@@ -735,39 +350,6 @@
 {{-- ==========================================================================
    BOTÓN EXPORTAR EXCEL (ADAPTATIVO Y LUMINOSO)
    ========================================================================== --}}
-.cal-btn-excel {
-    height: 38px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.825rem;
-    padding: 0 1.15rem;
-    color: #15803d;
-    background: #f0fdf4;
-    border: 1px solid #86efac;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    text-decoration: none;
-    transition: all 0.15s ease;
-}
-.cal-btn-excel:hover {
-    background: #16a34a;
-    color: #ffffff;
-    border-color: #16a34a;
-    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
-}
-[data-bs-theme="dark"] .cal-btn-excel {
-    color: #34d399 !important;
-    background: rgba(16, 185, 129, 0.14) !important;
-    border-color: rgba(52, 211, 153, 0.45) !important;
-    box-shadow: 0 0 14px rgba(16, 185, 129, 0.12);
-}
-[data-bs-theme="dark"] .cal-btn-excel:hover {
-    background: #059669 !important;
-    color: #ffffff !important;
-    border-color: #10b981 !important;
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
-}
 
 {{-- ==========================================================================
    MODAL DE JORNADA DEL DÍA — MODO CLARO & OSCURO
@@ -1419,150 +1001,82 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
 <div class="cal-app-shell" id="calendar-app-container">
     <script id="calendarDataScript" type="application/json">@json($rows->items())</script>
 
-    {{-- 1. Encabezado Principal y Acción de Exportación --}}
-    <div class="cal-header-bar">
-        <div class="cal-header-title-box">
-            <h1 class="h2 mb-1 fw-bold" style="color: var(--cal-text-main);">Calendario de asistencia</h1>
-            <p style="color: var(--cal-text-muted);">Control visual mensual, planificación sincronizada y semáforo de asistencias.</p>
+    <header class="page-head">
+        <div class="page-head-text">
+            <h1 class="page-title">Calendario de asistencia</h1>
+            <p class="page-subtitle">Vista mensual de asistencias, faltas y tardanzas por colaborador.</p>
         </div>
-        <div>
-            <a href="{{ route('attendance.calendar.excel', $filters->toQuery()) }}" class="cal-btn-excel shadow-xs" title="Descargar reporte mensual en Excel">
-                <i class="bi bi-file-earmark-spreadsheet"></i>
-                <span>Exportar a Excel</span>
+        <div class="page-actions">
+            <a href="{{ route('attendance.calendar.excel', $filters->toQuery()) }}" class="btn btn-light border" title="Descargar el reporte mensual en Excel">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar a Excel
             </a>
         </div>
-    </div>
+    </header>
 
-    {{-- 2. KPIs Ejecutivos (Métricas de Alto Impacto y Definición) --}}
-    <div class="cal-kpis-grid">
-        <div class="cal-kpi-card">
-            <div class="cal-kpi-icon-box" style="background: rgba(var(--brand-rgb), 0.12); color: var(--brand);">
-                <i class="bi bi-people-fill"></i>
-            </div>
-            <div>
-                <div class="cal-kpi-value">{{ number_format($totalEmployees) }}</div>
-                <div class="cal-kpi-title">Colaboradores en plantilla</div>
-            </div>
-        </div>
-
-        <div class="cal-kpi-card">
-            <div class="cal-kpi-icon-box" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;">
-                <i class="bi bi-x-circle-fill"></i>
-            </div>
-            <div>
-                <div class="cal-kpi-value">{{ number_format($totalFaltas) }}</div>
-                <div class="cal-kpi-title">Faltas acumuladas</div>
-            </div>
-        </div>
-
-        <div class="cal-kpi-card">
-            <div class="cal-kpi-icon-box" style="background: rgba(245, 158, 11, 0.12); color: #d97706;">
-                <i class="bi bi-clock-history"></i>
-            </div>
-            <div>
-                <div class="cal-kpi-value">{{ number_format($totalTardanzas) }}</div>
-                <div class="cal-kpi-title">Tardanzas registradas</div>
-            </div>
-        </div>
-
-        <div class="cal-kpi-card">
-            <div class="cal-kpi-icon-box" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
-                <i class="bi bi-stopwatch-fill"></i>
-            </div>
-            <div>
-                <div class="cal-kpi-value">{{ number_format($totalMinutosTarde) }} min</div>
-                <div class="cal-kpi-title">Minutos de tardanza</div>
-            </div>
-        </div>
-    </div>
-
-    {{-- 3. Panel de Control: Navegador de Mes, Filtros Asíncronos y Conmutador de Vistas --}}
-    <div class="cal-control-panel">
-        <div class="cal-control-row-top">
-            <div class="cal-month-nav">
-                <button type="button" class="cal-nav-arrow-btn" title="Mes anterior" onclick="changeMonthInternal('{{ $filters->previousMonth() }}')">
-                    <i class="bi bi-chevron-left"></i>
-                </button>
-                <div class="cal-month-display-pill">
-                    <i class="bi bi-calendar3"></i>
-                    <span class="cal-month-title">{{ $monthLabel }}</span>
+    <section class="dash-kpis" aria-label="Resumen del mes">
+        @foreach ([['Colaboradores en plantilla', number_format($totalEmployees), 'brand', 'people'], ['Faltas acumuladas', number_format($totalFaltas), 'rose', 'x-circle'], ['Tardanzas registradas', number_format($totalTardanzas), 'amber', 'clock-history'], ['Minutos de tardanza', number_format($totalMinutosTarde) . ' min', 'blue', 'stopwatch']] as [$klabel, $kvalue, $ktone, $kicon])
+            <article class="dash-kpi-card">
+                <div class="dash-kpi-top">
+                    <span class="dash-kpi-label">{{ $klabel }}</span>
+                    <span class="dash-kpi-icon tone-{{ $ktone }}"><i class="bi bi-{{ $kicon }}"></i></span>
                 </div>
-                <button type="button" class="cal-nav-arrow-btn" title="Mes siguiente" onclick="changeMonthInternal('{{ $filters->nextMonth() }}')">
-                    <i class="bi bi-chevron-right"></i>
-                </button>
+                <div class="dash-kpi-value">{{ $kvalue }}</div>
+            </article>
+        @endforeach
+    </section>
 
+    {{-- Mes, filtros (AJAX) y cambio de vista --}}
+    <section class="surface mb-3">
+        <div class="filter-row justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="icon-btn" title="Mes anterior" aria-label="Mes anterior" onclick="changeMonthInternal('{{ $filters->previousMonth() }}')"><i class="bi bi-chevron-left"></i></button>
+                <span class="cal-month-title">{{ \Illuminate\Support\Str::ucfirst($monthLabel) }}</span>
+                <button type="button" class="icon-btn" title="Mes siguiente" aria-label="Mes siguiente" onclick="changeMonthInternal('{{ $filters->nextMonth() }}')"><i class="bi bi-chevron-right"></i></button>
                 @if($filters->month !== now(tenant_timezone())->format('Y-m'))
-                    <button type="button" class="cal-btn-current-month" onclick="changeMonthInternal('{{ now(tenant_timezone())->format('Y-m') }}')" title="Volver al mes actual">
-                        <i class="bi bi-calendar2-check"></i>
-                        <span>Mes actual</span>
-                    </button>
+                    <button type="button" class="btn btn-sm btn-light border" onclick="changeMonthInternal('{{ now(tenant_timezone())->format('Y-m') }}')" title="Volver al mes actual">Mes actual</button>
                 @endif
             </div>
-
-            <div class="cal-sync-pill">
-                <span class="cal-sync-dot"></span>
-                <span>Sincronizado en tiempo real</span>
-            </div>
-        </div>
-
-        <div class="cal-control-row-bottom">
-            <form id="internalFilterForm" class="cal-filters-group" onsubmit="event.preventDefault(); applyInternalFilter();">
-                <input type="hidden" id="monthInput" name="month" value="{{ $filters->month }}">
-
-                <div class="cal-search-container">
-                    <i class="bi bi-search"></i>
-                    <input type="search" id="q" name="q" class="cal-search-input" value="{{ $filters->search }}" placeholder="Buscar colaborador o DNI..." onkeydown="if(event.key === 'Enter') applyInternalFilter();">
-                </div>
-
-                <select id="branch_id" name="branch_id" class="cal-select-control" onchange="applyInternalFilter()">
-                    <option value="">🏢 Todas las sucursales</option>
-                    @foreach($branches as $b)
-                        <option value="{{ $b->id }}" @selected($filters->branchId == $b->id)>{{ $b->name }}</option>
-                    @endforeach
-                </select>
-
-                @if($positions->isNotEmpty())
-                    <select id="position_id" name="position_id" class="cal-select-control" onchange="applyInternalFilter()">
-                        <option value="">💼 Todos los cargos</option>
-                        @foreach($positions as $p)
-                            <option value="{{ $p->id }}" @selected($filters->positionId == $p->id)>{{ $p->name }}</option>
-                        @endforeach
-                    </select>
-                @endif
-
-                <button type="submit" class="cal-submit-btn">
-                    <i class="bi bi-funnel"></i>
-                    <span>Filtrar</span>
-                </button>
-
-                @if($filters->branchId || $filters->positionId || $filters->search)
-                    <button type="button" class="cal-clear-btn" title="Limpiar filtros" onclick="resetInternalFilter()">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
-                @endif
-            </form>
-
-            <div class="cal-views-group">
-                <select id="quickCollaboratorSelect" class="cal-colab-switcher" onchange="switchCollaboratorCalendar(this.value)">
-                    <option value="all">👥 Vista General (Equipo)</option>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <select id="quickCollaboratorSelect" class="form-select w-auto" aria-label="Ver el calendario de" onchange="switchCollaboratorCalendar(this.value)">
+                    <option value="all">Vista general (equipo)</option>
                     @foreach($rows as $r)
                         <option value="{{ $r['user_id'] }}">{{ $r['last_name'] }}, {{ $r['first_name'] }}</option>
                     @endforeach
                 </select>
-
-                <div class="cal-seg-toggle">
-                    <button type="button" class="cal-seg-button active" id="btnViewCalendar" onclick="toggleViewMode('calendar')" title="Vista Calendario Mensual">
-                        <i class="bi bi-calendar3"></i>
-                        <span>Calendario</span>
-                    </button>
-                    <button type="button" class="cal-seg-button" id="btnViewMatrix" onclick="toggleViewMode('matrix')" title="Vista Matriz Completa">
-                        <i class="bi bi-table"></i>
-                        <span>Matriz</span>
-                    </button>
+                <div class="seg-tabs" role="group" aria-label="Vista">
+                    <button type="button" class="seg-tab is-active" id="btnViewCalendar" onclick="toggleViewMode('calendar')"><i class="bi bi-calendar3"></i>Calendario</button>
+                    <button type="button" class="seg-tab" id="btnViewMatrix" onclick="toggleViewMode('matrix')"><i class="bi bi-table"></i>Matriz</button>
                 </div>
             </div>
         </div>
-    </div>
+        <form id="internalFilterForm" class="filter-row border-0" role="search" onsubmit="event.preventDefault(); applyInternalFilter();">
+            <input type="hidden" id="monthInput" name="month" value="{{ $filters->month }}">
+            <div class="search-field">
+                <i class="bi bi-search"></i>
+                <input type="search" id="q" name="q" class="form-control" value="{{ $filters->search }}" placeholder="Buscar colaborador o DNI…" aria-label="Buscar colaborador o DNI" onkeydown="if(event.key === 'Enter') applyInternalFilter();">
+            </div>
+            <select id="branch_id" name="branch_id" class="form-select w-auto" aria-label="Sucursal" onchange="applyInternalFilter()">
+                <option value="">Todas las sucursales</option>
+                @foreach($branches as $b)
+                    <option value="{{ $b->id }}" @selected($filters->branchId == $b->id)>{{ $b->name }}</option>
+                @endforeach
+            </select>
+            @if($positions->isNotEmpty())
+                <select id="position_id" name="position_id" class="form-select w-auto" aria-label="Cargo" onchange="applyInternalFilter()">
+                    <option value="">Todos los cargos</option>
+                    @foreach($positions as $p)
+                        <option value="{{ $p->id }}" @selected($filters->positionId == $p->id)>{{ $p->name }}</option>
+                    @endforeach
+                </select>
+            @endif
+            <div class="d-flex gap-2 ms-auto">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+                @if($filters->branchId || $filters->positionId || $filters->search)
+                    <button type="button" class="btn btn-light border" title="Limpiar filtros" aria-label="Limpiar filtros" onclick="resetInternalFilter()"><i class="bi bi-x-lg"></i></button>
+                @endif
+            </div>
+        </form>
+    </section>
 
     {{-- Contenedor con Overlay Scoped: Solo cubre las vistas de grilla/matriz, dejando cabecera y filtros 100% visibles --}}
     <div id="cal-views-wrapper" data-sk="grid">
@@ -2020,13 +1534,13 @@ function toggleViewMode(mode) {
     if (mode === 'calendar') {
         if (calContainer) calContainer.classList.remove('d-none');
         if (matrixContainer) matrixContainer.classList.add('d-none');
-        if (btnCal) btnCal.classList.add('active');
-        if (btnMat) btnMat.classList.remove('active');
+        if (btnCal) btnCal.classList.add('is-active');
+        if (btnMat) btnMat.classList.remove('is-active');
     } else {
         if (calContainer) calContainer.classList.add('d-none');
         if (matrixContainer) matrixContainer.classList.remove('d-none');
-        if (btnMat) btnMat.classList.add('active');
-        if (btnCal) btnCal.classList.remove('active');
+        if (btnMat) btnMat.classList.add('is-active');
+        if (btnCal) btnCal.classList.remove('is-active');
     }
 }
 
