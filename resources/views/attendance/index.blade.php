@@ -3,147 +3,89 @@
 @section('title', 'Marcaciones y GPS')
 
 @section('content')
-{{-- Header con título y acción principal --}}
-<div class="attendance-header-bar">
-    <div>
-        <h1 class="h2 mb-1 fw-bold text-dark">Marcaciones y GPS</h1>
-        <p class="text-secondary mb-0" style="font-size: 0.875rem;">Revisa cada marcación con su selfie, hora, sucursal y validación de ubicación.</p>
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-title">Marcaciones y GPS</h1>
+        <p class="page-subtitle">Revisa cada marcación con su selfie, hora, sucursal y validación de ubicación.</p>
     </div>
-    <div id="att-export">
-        <a href="{{ route('reports.export.excel', request()->all()) }}" class="btn btn-outline-success d-inline-flex align-items-center gap-2 shadow-sm" style="height: 38px; border-radius: 8px; font-weight: 600; padding: 0 1.15rem;">
-            <i class="bi bi-file-earmark-spreadsheet"></i>
-            <span>Exportar a Excel</span>
+    <div class="page-actions" id="att-export">
+        <a href="{{ route('reports.export.excel', request()->all()) }}" class="btn btn-light border">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar a Excel
         </a>
     </div>
-</div>
+</header>
 
-{{-- Resumen del rango (KPI Cards) --}}
+{{-- Resumen del rango --}}
 <div id="att-kpis">
 @isset($summary)
-<div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3">
-        <div class="attendance-kpi-card">
-            <div class="attendance-kpi-icon" style="background: rgba(var(--brand-rgb), 0.1); color: var(--brand);">
-                <i class="bi bi-list-check"></i>
+<section class="dash-kpis" aria-label="Resumen del rango">
+    @foreach ([['Marcaciones totales', 'total', 'brand', 'list-check'], ['Puntuales', 'on_time', 'emerald', 'check-circle'], ['Tardanzas', 'late', 'amber', 'alarm'], ['Fuera de ubicación', 'out_of_geo', 'rose', 'geo-alt']] as [$klabel, $kkey, $ktone, $kicon])
+        <article class="dash-kpi-card">
+            <div class="dash-kpi-top">
+                <span class="dash-kpi-label">{{ $klabel }}</span>
+                <span class="dash-kpi-icon tone-{{ $ktone }}"><i class="bi bi-{{ $kicon }}"></i></span>
             </div>
-            <div>
-                <div class="attendance-kpi-val">{{ number_format($summary['total'] ?? 0) }}</div>
-                <div class="attendance-kpi-label">Marcaciones totales</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="attendance-kpi-card">
-            <div class="attendance-kpi-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
-                <i class="bi bi-check-circle"></i>
-            </div>
-            <div>
-                <div class="attendance-kpi-val">{{ number_format($summary['on_time'] ?? 0) }}</div>
-                <div class="attendance-kpi-label">Puntuales</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="attendance-kpi-card">
-            <div class="attendance-kpi-icon" style="background: rgba(245, 158, 11, 0.1); color: #d97706;">
-                <i class="bi bi-alarm"></i>
-            </div>
-            <div>
-                <div class="attendance-kpi-val">{{ number_format($summary['late'] ?? 0) }}</div>
-                <div class="attendance-kpi-label">Tardanzas</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-6 col-lg-3">
-        <div class="attendance-kpi-card">
-            <div class="attendance-kpi-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
-                <i class="bi bi-geo-alt"></i>
-            </div>
-            <div>
-                <div class="attendance-kpi-val">{{ number_format($summary['out_of_geo'] ?? 0) }}</div>
-                <div class="attendance-kpi-label">Fuera de ubicación</div>
-            </div>
-        </div>
-    </div>
-</div>
+            <div class="dash-kpi-value">{{ number_format($summary[$kkey] ?? 0) }}</div>
+        </article>
+    @endforeach
+</section>
 @endisset
 </div>
 
-{{-- Filtros integrados ejecutivos --}}
-<div class="attendance-filter-card">
-    <form method="GET" action="{{ route('attendance.index') }}" class="row g-3 align-items-end" id="attFilterForm"
-          data-ajax-filter="#att-kpis, #att-results, #att-export">
-        <input type="hidden" name="per_page" value="{{ request('per_page', $attendances->perPage()) }}" data-default="20">
-        <div class="col-6 col-md-3 col-xl-2">
-            <label for="start_date" class="attendance-filter-label">Desde</label>
-            <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control attendance-filter-input" data-autosubmit>
-        </div>
-        <div class="col-6 col-md-3 col-xl-2">
-            <label for="end_date" class="attendance-filter-label">Hasta</label>
-            <input type="date" id="end_date" name="end_date" value="{{ $endDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control attendance-filter-input" data-autosubmit>
-        </div>
-        <div class="col-6 col-md-3 col-xl-2">
-            <label for="branch_id" class="attendance-filter-label">Sucursal</label>
-            <select id="branch_id" name="branch_id" class="form-select attendance-filter-select" data-autosubmit>
-                <option value="">Todas las sucursales</option>
-                @foreach($branches as $b)
-                    <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="col-6 col-md-3 col-xl-2">
-            <label for="status" class="attendance-filter-label">Estado</label>
-            <select id="status" name="status" class="form-select attendance-filter-select" data-autosubmit>
-                <option value="">Todos los estados</option>
-                <option value="present" @selected(request('status') == 'present')>Puntual</option>
-                <option value="late" @selected(request('status') == 'late')>Tardanza</option>
-                <option value="excused" @selected(request('status') == 'excused')>Justificado</option>
-                <option value="suspicious" @selected(request('status') == 'suspicious')>Solo sospechosas</option>
-            </select>
-        </div>
-        <div class="col-6 col-md-4 col-xl-2">
-            <label for="search" class="attendance-filter-label">Colaborador</label>
-            <div class="attendance-search-wrapper">
-                <i class="bi bi-search search-icon"></i>
-                <input type="search" id="search" name="search" value="{{ request('search') }}" placeholder="Nombre o código…" class="attendance-search-input">
-            </div>
-        </div>
-        <div class="col-6 col-md-4 col-xl-2">
-            <div class="d-flex align-items-center gap-2">
-                <button type="submit" class="btn btn-primary d-inline-flex align-items-center justify-content-center shadow-sm flex-grow-1" style="height: 38px; border-radius: 8px; font-weight: 600; gap: 6px;">
-                    <i class="bi bi-funnel"></i>
-                    <span>Filtrar</span>
-                </button>
-                    <a href="{{ route('attendance.index') }}" data-ajax-reset class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center flex-shrink-0" style="height: 38px; width: 38px; border-radius: 8px;" title="Limpiar filtros">
-                        <i class="bi bi-x-lg"></i>
-                    </a>
-            </div>
-        </div>
-    </form>
-</div>
+<section class="surface">
+{{-- Filtros: se aplican al elegir (AJAX) --}}
+<form method="GET" action="{{ route('attendance.index') }}" class="filter-row" id="attFilterForm" role="search"
+      data-ajax-filter="#att-kpis, #att-results, #att-export">
+    <input type="hidden" name="per_page" value="{{ request('per_page', $attendances->perPage()) }}" data-default="20">
+    <div class="search-field">
+        <i class="bi bi-search"></i>
+        <input type="search" id="search" name="search" value="{{ request('search') }}" placeholder="Colaborador: nombre o código…" class="form-control" aria-label="Colaborador">
+    </div>
+    <div class="range-field">
+        <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control" aria-label="Desde" data-autosubmit>
+        <span class="text-body-secondary small">a</span>
+        <input type="date" id="end_date" name="end_date" value="{{ $endDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control" aria-label="Hasta" data-autosubmit>
+    </div>
+    <select id="branch_id" name="branch_id" class="form-select w-auto" aria-label="Sucursal" data-autosubmit>
+        <option value="">Todas las sucursales</option>
+        @foreach($branches as $b)
+            <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
+        @endforeach
+    </select>
+    <select id="status" name="status" class="form-select w-auto" aria-label="Estado" data-autosubmit>
+        <option value="">Todos los estados</option>
+        <option value="present" @selected(request('status') == 'present')>Puntual</option>
+        <option value="late" @selected(request('status') == 'late')>Tardanza</option>
+        <option value="excused" @selected(request('status') == 'excused')>Justificado</option>
+        <option value="suspicious" @selected(request('status') == 'suspicious')>Solo sospechosas</option>
+    </select>
+    <div class="d-flex gap-2 ms-auto">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
+        <a href="{{ route('attendance.index') }}" data-ajax-reset class="btn btn-light border" title="Limpiar filtros" aria-label="Limpiar filtros"><i class="bi bi-x-lg"></i></a>
+    </div>
+</form>
 
 {{-- Tabla de marcaciones --}}
 <div id="att-results">
-<div class="card border-0 shadow-sm" style="border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0;">
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+        <table class="table data-table table-cards align-middle mb-0">
+            <thead>
                 <tr>
-                    <th class="ps-4 py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Colaborador</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Fecha</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Selfie</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Entrada</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Ubicación</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Salida</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Horas</th>
-                    <th class="py-3 text-secondary text-uppercase fw-semibold" style="font-size: 0.725rem; letter-spacing: 0.05em;">Estado</th>
-                    <th class="pe-4 py-3 text-secondary text-uppercase fw-semibold text-end" style="font-size: 0.725rem; letter-spacing: 0.05em;">Acciones</th>
+                    <th>Colaborador</th>
+                    <th>Fecha</th>
+                    <th>Selfie</th>
+                    <th>Entrada</th>
+                    <th>Ubicación</th>
+                    <th>Salida</th>
+                    <th>Horas</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($attendances as $att)
-                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                        <td class="ps-4 py-3">
+                    <tr>
+                        <td class="cell-main">
                             <div class="d-flex align-items-center gap-3">
                                 @if(!empty($att->user?->avatar_path))
                                     <img src="{{ asset('storage/' . $att->user->avatar_path) }}" alt="{{ $att->user->first_name }}" class="attendance-user-avatar">
@@ -153,20 +95,16 @@
                                     </span>
                                 @endif
                                 <div class="min-w-0">
-                                    <div class="fw-bold text-dark text-truncate" style="font-size: 0.875rem;">
-                                        {{ $att->user->first_name ?? 'N/A' }} {{ $att->user->last_name ?? '' }}
-                                    </div>
-                                    <div class="small text-secondary text-truncate" style="font-size: 0.775rem;">
-                                        <span>{{ $att->user->employee_code ?? '—' }}</span> · <span>{{ $att->branch->name ?? 'Sin sucursal' }}</span>
-                                    </div>
+                                    <div class="cell-title text-truncate">{{ $att->user->first_name ?? 'N/A' }} {{ $att->user->last_name ?? '' }}</div>
+                                    <div class="cell-sub text-truncate">{{ $att->user->employee_code ?? '—' }} · {{ $att->branch->name ?? 'Sin sucursal' }}</div>
                                     @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])
                                 </div>
                             </div>
                         </td>
-                        <td class="py-3 text-nowrap" style="font-size: 0.85rem; font-weight: 500; color: #334155;">
-                            {{ $att->work_date?->format('d/m/Y') ?? '--' }}
+                        <td class="text-nowrap" data-label="Fecha">
+                            <span>{{ $att->work_date?->format('d/m/Y') ?? '--' }}</span>
                         </td>
-                        <td class="py-3">
+                        <td data-label="Selfie">
                             @if($att->clock_in_photo)
                                 <div class="attendance-selfie-thumb-wrapper {{ $att->clock_in_within_geofence ? '' : 'is-outside' }}"
                                      role="button" onclick="openEvidence({{ $att->id }})" title="Ver selfie y ubicación">
@@ -174,80 +112,68 @@
                                     <span class="selfie-zoom-badge"><i class="bi bi-zoom-in"></i></span>
                                 </div>
                             @else
-                                <span class="badge rounded-2 bg-light text-secondary border" style="font-weight: 500; font-size: 0.725rem; padding: 4px 6px;">
-                                    <i class="bi bi-camera-video-off me-1"></i>Sin foto
-                                </span>
+                                <span class="status-pill tone-neutral"><i class="bi bi-camera-video-off"></i>Sin foto</span>
                             @endif
                         </td>
-                        <td class="py-3 text-nowrap">
-                            <span class="fw-bold text-dark" style="font-size: 0.875rem;">{{ $att->clock_in_at?->format('h:i:s a') ?? '--:--:--' }}</span>
-                            @if(data_get($att->clock_in_meta, 'offline'))
-                                <span class="badge rounded-2 bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size: 0.7rem;" title="Marcada sin conexión y sincronizada después">
-                                    <i class="bi bi-wifi-off"></i> Sin conexión
-                                </span>
-                            @endif
-                            @if($att->late_minutes > 0)
-                                <div class="small text-warning fw-semibold mt-0.5" style="font-size: 0.75rem;">
-                                    <i class="bi bi-clock-history me-0.5"></i> +{{ minutes_label($att->late_minutes) }}
-                                </div>
-                            @endif
+                        <td class="text-nowrap" data-label="Entrada">
+                            <div>
+                                <span class="cell-title">{{ $att->clock_in_at?->format('h:i:s a') ?? '--:--:--' }}</span>
+                                @if(data_get($att->clock_in_meta, 'offline'))
+                                    <span class="status-pill tone-neutral ms-1" title="Marcada sin conexión y sincronizada después"><i class="bi bi-wifi-off"></i>Sin conexión</span>
+                                @endif
+                                @if($att->late_minutes > 0)
+                                    <div class="cell-sub text-warning-emphasis fw-semibold"><i class="bi bi-clock-history me-1"></i>+{{ minutes_label($att->late_minutes) }}</div>
+                                @endif
+                            </div>
                         </td>
-                        <td class="py-3 text-nowrap">
+                        <td class="text-nowrap" data-label="Ubicación">
                             @if($att->clock_in_distance_meters !== null)
                                 @if($att->clock_in_within_geofence)
-                                    <span class="live-location-badge in-range">
-                                        <span class="badge-dot" style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
-                                        En ubicación ({{ $att->clock_in_distance_meters }} m)
-                                    </span>
+                                    <span class="status-pill tone-emerald"><i class="bi bi-geo-alt"></i>En ubicación ({{ $att->clock_in_distance_meters }} m)</span>
                                 @else
-                                    <span class="live-location-badge out-range">
-                                        <span class="badge-dot" style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
-                                        Fuera ({{ $att->clock_in_distance_meters }} m)
-                                    </span>
+                                    <span class="status-pill tone-rose"><i class="bi bi-geo-alt"></i>Fuera ({{ $att->clock_in_distance_meters }} m)</span>
                                 @endif
                             @else
-                                <span class="small text-secondary" style="font-size: 0.775rem;">No registrado</span>
+                                <span class="cell-sub">No registrado</span>
                             @endif
                         </td>
-                        <td class="py-3 text-nowrap">
-                            <span class="text-dark" style="font-size: 0.85rem;">{{ $att->clock_out_at?->format('h:i:s a') ?? '--:--:--' }}</span>
-                            @if(data_get($att->clock_out_meta, 'offline'))
-                                <span class="badge rounded-2 bg-secondary-subtle text-secondary-emphasis ms-1" style="font-size: 0.7rem;" title="Salida marcada sin conexión">
-                                    <i class="bi bi-wifi-off"></i> Sin conexión
-                                </span>
-                            @endif
+                        <td class="text-nowrap" data-label="Salida">
+                            <div>
+                                <span>{{ $att->clock_out_at?->format('h:i:s a') ?? '--:--:--' }}</span>
+                                @if(data_get($att->clock_out_meta, 'offline'))
+                                    <span class="status-pill tone-neutral ms-1" title="Salida marcada sin conexión"><i class="bi bi-wifi-off"></i>Sin conexión</span>
+                                @endif
+                            </div>
                         </td>
-                        <td class="py-3 text-nowrap fw-semibold text-dark" style="font-size: 0.85rem;">
-                            {{ number_format((float) ($att->worked_hours ?? 0), 2) }} h
+                        <td class="text-nowrap fw-semibold" data-label="Horas">
+                            <span>{{ number_format((float) ($att->worked_hours ?? 0), 2) }} h</span>
                         </td>
-                        <td class="py-3 text-nowrap">
-                            @include('partials.attendance-status', ['status' => $att->status])
-                            @if($att->is_suspicious)
-                                <span class="badge rounded-2 bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-1" style="font-size: 0.7rem;" title="Ubicación simulada, hora desfasada, rostro no verificado o fuera de la ubicación">
-                                    <i class="bi bi-shield-exclamation"></i> Sospechosa
-                                </span>
-                            @endif
+                        <td class="text-nowrap" data-label="Estado">
+                            <div class="d-flex flex-wrap gap-1">
+                                @include('partials.attendance-status', ['status' => $att->status])
+                                @if($att->is_suspicious)
+                                    <span class="status-pill tone-amber" title="Ubicación simulada, hora desfasada, rostro no verificado o fuera de la ubicación"><i class="bi bi-shield-exclamation"></i>Sospechosa</span>
+                                @endif
+                            </div>
                         </td>
-                        <td class="pe-4 py-3 text-end text-nowrap">
-                            <div class="d-inline-flex gap-1">
-                                <button type="button" class="btn-table-action" onclick="openEvidence({{ $att->id }})" title="Ver selfie y ubicación" aria-label="Ver selfie y ubicación">
+                        <td>
+                            <div class="row-actions">
+                                <button type="button" class="icon-btn" onclick="openEvidence({{ $att->id }})" title="Ver selfie y ubicación" aria-label="Ver selfie y ubicación">
                                     <i class="bi bi-geo-alt"></i>
                                 </button>
-                                <a href="{{ route('attendance.show', $att->id) }}" class="btn-table-action" title="Auditoría completa" aria-label="Auditoría completa">
+                                <a href="{{ route('attendance.show', $att->id) }}" class="icon-btn" title="Auditoría completa" aria-label="Auditoría completa">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </div>
                         </td>
                     </tr>
                 @empty
-                    <tr>
-                        <td colspan="9" class="py-5 text-center">
-                            <div class="empty-state py-4">
-                                <div style="width: 54px; height: 54px; border-radius: 12px; background: #f1f5f9; color: #64748b; display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; margin-bottom: 1rem;">
-                                    <i class="bi bi-calendar2-x"></i>
-                                </div>
-                                <div class="fw-bold text-dark fs-6">No hay marcaciones encontradas</div>
-                                <div class="text-secondary small mt-1" style="max-width: 420px; margin: 0 auto;">Ajusta los filtros o las fechas seleccionadas para consultar otros registros de asistencia.</div>
+                    <tr class="row-empty">
+                        <td colspan="9">
+                            <div class="dash-empty">
+                                <span class="dash-empty-icon"><i class="bi bi-calendar2-x"></i></span>
+                                <p class="dash-empty-title">No hay marcaciones</p>
+                                <p class="dash-empty-text">Ajusta los filtros o las fechas para consultar otros registros de asistencia.</p>
                             </div>
                         </td>
                     </tr>
@@ -297,7 +223,7 @@
         </div>
     @endif
 </div>
-</div>
+</section>
 
 <script>
 // Cantidad por página: va en el formulario de filtros (AJAX, URL limpia)
