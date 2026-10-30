@@ -10592,3 +10592,71 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 .report-card-text { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--text-muted); }
 
 .data-table > tfoot > tr > td { padding: 0.7rem 1rem; }
+
+/* =============================================================================
+ * Armonización de componentes heredados (RR. HH., Asistencia, Comunicados,
+ * Beneficios, Capacitación, Documentos, Configuración, pantallas Blade):
+ * mismos tokens que las pantallas rediseñadas. Solo apariencia: no cambia
+ * distribución, así que no rompe ninguna pantalla.
+ * ============================================================================= */
+
+/* Tarjetas KPI: sin saltar al pasar el mouse ni líneas neón arriba */
+.kpi-card { border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); transition: border-color var(--dur-2) var(--ease-out); }
+.kpi-card:hover { transform: none; box-shadow: var(--shadow-xs); border-color: var(--border-color-light); }
+.kpi-card.accent-emerald, .kpi-card.accent-amber, .kpi-card.accent-cyan, .kpi-card.accent-blue { border-top: 1px solid var(--border-color) !important; }
+.kpi-title { text-transform: none; letter-spacing: 0; font-size: 0.8rem; font-weight: 600; }
+
+/* Botones de acción en filas: discretos hasta el hover, color de la marca, sin saltos */
+.btn-table-action { border-color: transparent; background: transparent; border-radius: var(--radius-sm); transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.btn-table-action:hover, .btn-table-action.btn-action-edit:hover { transform: none; box-shadow: none; color: var(--text-primary); background: var(--bg-surface-elevated); border-color: var(--border-color); }
+.btn-table-action:active { transform: scale(0.94); }
+.btn-table-action:focus-visible { outline: none; box-shadow: var(--ring); }
+.btn-table-action.btn-action-view:hover { color: var(--accent-emerald); background: rgba(var(--accent-emerald-rgb), 0.08); border-color: rgba(var(--accent-emerald-rgb), 0.2); }
+.btn-table-action.btn-action-danger:hover, .btn-table-action.btn-table-delete:hover { color: var(--accent-rose); background: rgba(var(--accent-rose-rgb), 0.08); border-color: rgba(var(--accent-rose-rgb), 0.2); }
+[data-bs-theme="dark"] .btn-table-action { background: transparent; border-color: transparent; }
+
+/* Campos con ícono y campos de formulario: anillo con el color de la marca */
+.modern-input-wrapper { border-radius: var(--radius-sm); background: var(--bg-surface-elevated); transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out); }
+.modern-input-wrapper:hover { border-color: var(--border-color-light); }
+.modern-input-wrapper:focus-within, [data-bs-theme="dark"] .modern-input-wrapper:focus-within { border-color: var(--brand) !important; box-shadow: var(--ring) !important; background: var(--bg-surface); }
+.modern-input-wrapper:focus-within .modern-input-icon { color: var(--brand); }
+.modern-input-control { height: 38px; font-weight: 400; }
+.modern-field-label, .emp-form-label, .legajo-form-label { text-transform: none; letter-spacing: 0; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+.emp-form-input, .emp-form-select, .legajo-form-input { border-radius: var(--radius-sm); background-color: var(--bg-surface-elevated); transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.emp-form-input:focus, .emp-form-select:focus, .legajo-form-input:focus { border-color: var(--brand); box-shadow: var(--ring); background-color: var(--bg-surface); }
+
+/* Secciones, tablas y diálogos heredados: mismo radio, borde y sombra */
+.emp-section-card { border-radius: var(--radius-md); background: var(--bg-surface); }
+.emp-section-title { text-transform: none; letter-spacing: -0.01em; font-size: 0.88rem; font-weight: 700; color: var(--text-primary); }
+.emp-section-title i { color: var(--brand); }
+.emp-table-card { border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); }
+.emp-table th { font-size: 0.68rem; }
+.emp-table tbody tr > td { transition: background-color var(--dur-1) var(--ease-out); }
+.emp-modal-content { border: 0; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+.emp-info-banner { border-radius: var(--radius-md); background: rgba(var(--brand-rgb), 0.06); border-color: rgba(var(--brand-rgb), 0.18); }
+
+/* Barra segmentada heredada = pestañas segmentadas nuevas */
+.training-segmented-bar { border-radius: var(--radius-md); gap: 2px; }
+.training-segmented-item { height: 32px; padding: 0 0.75rem; transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out); }
+.training-segmented-item:hover { background: transparent; }
+.training-segmented-item.is-active, [data-bs-theme="dark"] .training-segmented-item.is-active { color: var(--text-primary); background: var(--bg-surface); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 1px var(--border-color); }
+.training-segmented-item.is-active .training-segmented-pill { background: rgba(var(--brand-rgb), 0.12); color: var(--brand); }
+.training-segmented-item:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Paginación de Bootstrap */
+.page-link { border-radius: var(--radius-sm) !important; margin: 0 2px; border-color: var(--border-color); color: var(--text-secondary); font-size: 0.8rem; min-width: 32px; text-align: center; transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out); }
+.page-link:hover { background: var(--bg-surface-elevated); color: var(--text-primary); }
+.page-item.active .page-link { background: var(--brand); border-color: var(--brand); color: var(--brand-text, #fff); }
+.page-link:focus { box-shadow: var(--ring); }
+
+/* Encabezados "hero" de cada módulo (announcements-header-card, benefits-header-card…):
+   se leen como el encabezado de pantalla nuevo, sin tarjeta ni ícono en degradado */
+[class*="-header-card"]:not(.modal *) { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; margin-bottom: 1.5rem; }
+[class*="-header-card"]:not(.modal *) h1 { font-size: clamp(1.3rem, 1.1rem + 0.7vw, 1.6rem) !important; font-weight: 700 !important; letter-spacing: -0.025em; }
+[class*="-header-icon"]:not(.modal *):not(.cal-modal-header-icon):not(.evidence-header-icon) {
+    width: 44px !important; height: 44px !important; border-radius: 12px !important;
+    background: rgba(var(--brand-rgb), 0.1) !important; color: var(--brand) !important; box-shadow: none !important;
+}
+/* Tarjetas KPI de cada módulo: sin saltar al pasar el mouse */
+[class*="-kpi-card"]:hover { transform: none !important; }
+[class*="-kpi-card"] { border-radius: var(--radius-lg) !important; }
