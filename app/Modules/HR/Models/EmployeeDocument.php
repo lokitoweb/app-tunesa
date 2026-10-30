@@ -35,6 +35,9 @@ class EmployeeDocument extends Model
         'other'            => 'Otro',
     ];
 
+    /** Tipos que admiten varios archivos a la vez (certificados, otros): uno nuevo no reemplaza al anterior */
+    public const MULTIPLE_TYPES = ['certificate', 'other'];
+
     /** Tipos que el colaborador puede subir desde la app (el contrato lo carga RRHH) */
     public const EMPLOYEE_TYPES = ['dni', 'cv', 'proof_of_address', 'certificate', 'medical_exam', 'driver_license', 'pension_exemption', 'other'];
 

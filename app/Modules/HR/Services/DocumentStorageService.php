@@ -70,12 +70,14 @@ class DocumentStorageService
         $path      = $file->storeAs($directory, Str::uuid() . '.' . $extension, $this->disk());
 
         return DB::transaction(function () use ($owner, $file, $type, $uploader, $extra, $sha256, $path, $realMime) {
-            // Un pendiente del mismo tipo se reemplaza por el nuevo
-            EmployeeDocument::where('user_id', $owner->id)
-                ->where('type', $type)
-                ->where('status', 'pending')
-                ->get()
-                ->each(fn (EmployeeDocument $old) => $this->purge($old));
+            // Un pendiente del mismo tipo se reemplaza por el nuevo (salvo los tipos que admiten varios)
+            if (! in_array($type, EmployeeDocument::MULTIPLE_TYPES, true)) {
+                EmployeeDocument::where('user_id', $owner->id)
+                    ->where('type', $type)
+                    ->where('status', 'pending')
+                    ->get()
+                    ->each(fn (EmployeeDocument $old) => $this->purge($old));
+            }
 
             $document = EmployeeDocument::create([
                 'tenant_id'     => $owner->tenant_id,
@@ -160,7 +162,7 @@ class DocumentStorageService
             ->where('type', $document->type)
             ->where('status', 'approved')
             ->where('id', '!=', $document->id)
-            ->whereNotIn('type', ['certificate', 'other'])
+            ->whereNotIn('type', EmployeeDocument::MULTIPLE_TYPES)
             ->update(['status' => 'superseded']);
     }
 }

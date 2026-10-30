@@ -35,6 +35,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [DocumentWebController::class, 'index'])->name('index');
         Route::post('/{id}/review', [DocumentWebController::class, 'review'])->name('review')->whereNumber('id');
         Route::get('/{id}/open', [DocumentWebController::class, 'open'])->name('open')->whereNumber('id');
+        Route::get('/{id}/download', [DocumentWebController::class, 'download'])->name('download')->whereNumber('id');
     });
     Route::prefix('employees/{id}/file')->name('employees.file')->whereNumber('id')->middleware('can:profiles.manage')->group(function () {
         Route::get('/', [DocumentWebController::class, 'employeeFile'])->name('');
@@ -42,6 +43,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::post('/payment-review', [DocumentWebController::class, 'reviewPayment'])->name('.payment-review');
         Route::match(['get', 'post'], '/reveal', [DocumentWebController::class, 'reveal'])->name('.reveal')->middleware('can:profiles.view_sensitive');
         Route::post('/documents', [DocumentWebController::class, 'upload'])->name('.upload')->middleware('can:documents.review');
+        Route::delete('/documents/{documentId}', [DocumentWebController::class, 'destroyDocument'])->name('.documents.destroy')->whereNumber('documentId')->middleware('can:documents.review');
     });
 
     // Regímenes laborales de la empresa (parámetros de vacaciones, gratificación, CTS e indemnización)

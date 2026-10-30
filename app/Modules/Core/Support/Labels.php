@@ -191,6 +191,8 @@ final class Labels
         // Legajo
         'document.uploaded'                  => ['Documento subido', 'info', 'file-earmark-arrow-up'],
         'document.viewed'                    => ['Documento abierto', 'secondary', 'file-earmark-text'],
+        'document.downloaded'                => ['Documento descargado', 'secondary', 'download'],
+        'document.deleted'                   => ['Documento eliminado del legajo', 'danger', 'file-earmark-x'],
         'document.approved'                  => ['Documento aprobado', 'success', 'file-earmark-check'],
         'document.rejected'                  => ['Documento rechazado', 'danger', 'file-earmark-x'],
         'document.deleted'                   => ['Documento eliminado', 'danger', 'file-earmark-minus'],

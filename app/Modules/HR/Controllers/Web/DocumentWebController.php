@@ -230,23 +230,85 @@ class DocumentWebController extends Controller
             ->with('success', 'Números de cuenta revelados y auditados.');
     }
 
-    public function upload(Request $request, int $id): RedirectResponse
+    /** Tope de archivos por carga (QA3-06: varios a la vez) */
+    public const MAX_FILES_PER_UPLOAD = 10;
+
+    /**
+     * Agrega documentos al legajo: uno ("file", ficha completa) o varios a la vez ("files[]",
+     * diálogo del expediente; QA3-06). Tipo y tamaño se validan en el servidor; cada archivo se
+     * guarda por separado y, si uno no se puede (repetido, por ejemplo), se informa sin perder el resto.
+     */
+    public function upload(Request $request, int $id): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $employee  = User::findOrFail($id);
         abort_unless(Auth::user()->canManage($employee), 403);
 
+        $fileRules = DocumentStorageService::fileRules(CompanyConfiguration::current());
         $validated = $request->validate([
             'type'       => ['required', Rule::in(array_keys(EmployeeDocument::TYPES))],
-            'file'       => DocumentStorageService::fileRules(CompanyConfiguration::current()),
+            'file'       => array_merge(['required_without:files'], array_values(array_filter($fileRules, fn ($rule) => $rule !== 'required'))),
+            'files'      => ['required_without:file', 'array', 'min:1', 'max:' . self::MAX_FILES_PER_UPLOAD],
+            'files.*'    => $fileRules,
             'title'      => ['nullable', 'string', 'max:150'],
             // Opcional siempre (el examen médico puede no tener fecha aún): sin ella solo no hay alerta
             'expires_at' => ['nullable', 'date'],
+        ], [
+            'files.max' => 'Puedes subir hasta ' . self::MAX_FILES_PER_UPLOAD . ' archivos a la vez.',
         ]);
 
-        $this->documents->store($employee, $request->file('file'), $validated['type'], Auth::user(), $validated);
+        $files = $request->file('files') ?: [$request->file('file')];
+        $stored = 0;
+        $failed = [];
+        foreach ($files as $file) {
+            try {
+                $this->documents->store($employee, $file, $validated['type'], Auth::user(), $validated);
+                $stored++;
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                $reason = collect($e->errors())->flatten()->first();
+                // Con un solo archivo basta el motivo; con varios se dice cuál falló
+                $failed[] = count($files) === 1 ? $reason : $file->getClientOriginalName() . ': ' . $reason;
+            }
+        }
 
         $noDate = in_array($validated['type'], EmployeeDocument::EXPIRING_TYPES, true) && empty($validated['expires_at']);
+        $message = ($stored === 1 ? 'Documento agregado al legajo.' : "{$stored} documentos agregados al legajo.")
+            . ($stored && $noDate ? ' Sin fecha de vencimiento no se enviará alerta: agrégala cuando la tengas.' : '');
 
-        return back()->with('success', 'Documento agregado al legajo.' . ($noDate ? ' Sin fecha de vencimiento no se enviará alerta: agrégala cuando la tengas.' : ''));
+        if ($request->wantsJson()) {
+            return response()->json(['message' => $stored ? $message : 'No se agregó ningún documento.', 'stored' => $stored, 'failed' => $failed], $stored ? 200 : 422);
+        }
+        if (! $stored) {
+            return back()->withErrors(['file' => $failed[0] ?? 'No se pudo agregar el documento.']);
+        }
+
+        return back()->with('success', $message . ($failed ? ' No se agregaron: ' . implode(' · ', $failed) : ''));
+    }
+
+    /** QA3-06: descarga el archivo con su nombre original (queda en la bitácora) */
+    public function download(int $id): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $document = EmployeeDocument::findOrFail($id);
+        abort_unless(Auth::user()->canManage($document->user()->withoutGlobalScopes()->firstOrFail()), 403);
+        $this->audit->log('document.downloaded', $document);
+
+        return \Illuminate\Support\Facades\Storage::disk($document->disk)->download($document->path, $document->original_name ?: "documento-{$document->id}");
+    }
+
+    /**
+     * QA3-06: quita un documento del legajo (con confirmación en pantalla). Se archiva (borrado
+     * lógico, el archivo se conserva) y queda en la bitácora con quién y cuándo.
+     */
+    public function destroyDocument(Request $request, int $id, int $documentId): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        $employee = User::findOrFail($id);
+        abort_unless(Auth::user()->canManage($employee), 403);
+        $document = EmployeeDocument::where('user_id', $employee->id)->findOrFail($documentId);
+
+        $this->audit->log('document.deleted', $document, ['type' => $document->type, 'original_name' => $document->original_name, 'status' => $document->status]);
+        $document->delete();
+
+        $message = 'Documento eliminado del legajo.';
+
+        return $request->wantsJson() ? response()->json(['message' => $message]) : back()->with('success', $message);
     }
 }

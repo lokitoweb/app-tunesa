@@ -834,6 +834,45 @@ Estilos del Modal Dialog de Nuevo Colaborador
     </div>
 </div>
 
+{{-- QA3-06: agregar documentos al legajo (se abre encima del expediente) --}}
+@can('documents.review')
+<div class="modal fade modal-stacked" id="documentUploadModal" tabindex="-1" aria-labelledby="documentUploadTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+        <form class="modal-content" id="documentUploadForm" novalidate>
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5" id="documentUploadTitle">Agregar documento</h2>
+                    <div class="small text-body-secondary" id="documentUploadWho"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label small fw-semibold" for="docType">Tipo de documento <span class="text-danger">*</span></label>
+                <select id="docType" name="type" class="form-select mb-3" required>
+                    @foreach(\App\Modules\HR\Models\EmployeeDocument::TYPES as $key => $label)
+                        <option value="{{ $key }}" @selected($key === 'certificate')>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <div id="docTitleBox" class="mb-3">
+                    <label class="form-label small fw-semibold" for="docTitle">Descripción <span class="text-body-secondary fw-normal">(opcional; ej. «Certificado de trabajo 2024»)</span></label>
+                    <input type="text" id="docTitle" name="title" class="form-control" maxlength="150">
+                </div>
+                <label class="form-label small fw-semibold" for="docFiles">Archivos <span class="text-danger">*</span></label>
+                <input type="file" id="docFiles" name="files[]" class="form-control" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple required>
+                <div class="form-text" id="docFilesHint"></div>
+                <ul class="small mb-0 mt-2 ps-3" id="docFilesList"></ul>
+                <label class="form-label small fw-semibold mt-3" for="docExpires">Fecha de vencimiento <span class="text-body-secondary fw-normal">(opcional; contratos, exámenes médicos…)</span></label>
+                <input type="date" id="docExpires" name="expires_at" class="form-control">
+                <div class="alert alert-danger small py-2 mt-3 mb-0 d-none" id="docUploadError" role="alert"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="docUploadSubmit"><i class="bi bi-cloud-arrow-up me-1"></i>Subir</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endcan
 
 @endsection
 
@@ -1889,6 +1928,112 @@ document.addEventListener('DOMContentLoaded', function () {
             `;
         }
     }
+
+    {{-- QA3-06: tras subir o eliminar, se recarga el expediente y se vuelve a la pestaña de documentos --}}
+    async function reloadFileOnDocuments(employeeId) {
+        await openFileModal(employeeId);
+        document.getElementById('tab-sub-docs-btn')?.click();
+    }
+
+    {{-- QA3-06: agregar documentos (varios a la vez) en un diálogo encima del expediente --}}
+    const uploadModalEl = document.getElementById('documentUploadModal');
+    const uploadForm = document.getElementById('documentUploadForm');
+    const DOC_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
+    const DOC_MAX_FILES = {{ \App\Modules\HR\Controllers\Web\DocumentWebController::MAX_FILES_PER_UPLOAD }};
+    let upload = { url: '', employee: null, maxMb: 5 };
+
+    function uploadError(message) {
+        const box = document.getElementById('docUploadError');
+        box.textContent = message || '';
+        box.classList.toggle('d-none', !message);
+    }
+
+    {{-- Validación en pantalla (el servidor vuelve a validar tipo real y tamaño) --}}
+    function checkFiles() {
+        const files = [...document.getElementById('docFiles').files];
+        const list = document.getElementById('docFilesList');
+        list.innerHTML = files.map((f) => `<li>${Panel.esc(f.name)} · ${(f.size / 1048576).toFixed(1)} MB</li>`).join('');
+        if (!files.length) return 'Elige al menos un archivo.';
+        if (files.length > DOC_MAX_FILES) return `Puedes subir hasta ${DOC_MAX_FILES} archivos a la vez.`;
+        const badType = files.find((f) => !DOC_EXTENSIONS.includes((f.name.split('.').pop() || '').toLowerCase()));
+        if (badType) return `«${badType.name}» no es un formato permitido: solo PDF, JPG o PNG.`;
+        const tooBig = files.find((f) => f.size > upload.maxMb * 1048576);
+        if (tooBig) return `«${tooBig.name}» pesa más de ${upload.maxMb} MB, el máximo por archivo.`;
+        return '';
+    }
+
+    document.addEventListener('click', async (e) => {
+        const openBtn = e.target.closest('[data-doc-upload]');
+        if (openBtn && uploadModalEl) {
+            upload = { url: openBtn.dataset.url, employee: openBtn.dataset.employee, maxMb: Number(openBtn.dataset.maxMb) || 5 };
+            uploadForm.reset();
+            document.getElementById('docType').value = 'certificate';
+            document.getElementById('docFilesList').innerHTML = '';
+            document.getElementById('docFilesHint').textContent = `PDF, JPG o PNG · máximo ${upload.maxMb} MB por archivo · hasta ${DOC_MAX_FILES} archivos a la vez.`;
+            document.getElementById('documentUploadWho').textContent = openBtn.dataset.name || '';
+            uploadError('');
+            bootstrap.Modal.getOrCreateInstance(uploadModalEl).show();
+            return;
+        }
+
+        const delBtn = e.target.closest('[data-doc-delete]');
+        if (delBtn) {
+            const ok = await Panel.confirm(`Se quitará «${delBtn.dataset.docName}» del legajo. Queda registrado en la bitácora.`, { title: 'Eliminar documento', confirmText: 'Eliminar', danger: true });
+            if (!ok) return;
+            try {
+                const res = await fetch(delBtn.dataset.docDelete, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.message || 'No se pudo eliminar el documento.');
+                showToast(data.message || 'Documento eliminado.');
+                reloadFileOnDocuments(delBtn.dataset.employee);
+            } catch (err) {
+                showToast(err.message, 'danger');
+            }
+        }
+    });
+
+    document.getElementById('docFiles')?.addEventListener('change', () => uploadError(checkFiles()));
+
+    uploadForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const problem = checkFiles();
+        if (problem) { uploadError(problem); return; }
+        const submit = document.getElementById('docUploadSubmit');
+        submit.disabled = true;
+        uploadError('');
+        try {
+            const res = await fetch(upload.url, {
+                method: 'POST',
+                body: new FormData(uploadForm),
+                headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const first = data.errors ? Object.values(data.errors).flat()[0] : null;
+                throw new Error(first || (data.failed || [])[0] || data.message || 'No se pudo subir el documento.');
+            }
+            bootstrap.Modal.getOrCreateInstance(uploadModalEl).hide();
+            showToast(data.message + ((data.failed || []).length ? ` No se agregaron: ${data.failed.join(' · ')}` : ''), (data.failed || []).length ? 'warning' : 'success');
+            reloadFileOnDocuments(upload.employee);
+        } catch (err) {
+            uploadError(err.message);
+        } finally {
+            submit.disabled = false;
+        }
+    });
+
+    {{-- Diálogo encima de otro: su fondo oscuro también va encima del expediente --}}
+    uploadModalEl?.addEventListener('show.bs.modal', () => setTimeout(() => {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops[backdrops.length - 1]?.classList.add('is-stacked');
+    }));
+    {{-- Al cerrarlo, Bootstrap suelta el bloqueo de scroll aunque el expediente siga abierto: se repone --}}
+    uploadModalEl?.addEventListener('hidden.bs.modal', () => {
+        if (fileModalEl?.classList.contains('show')) document.body.classList.add('modal-open');
+    });
 });
 </script>
 @endsection

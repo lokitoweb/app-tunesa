@@ -8,6 +8,10 @@
     $approvedTypes = $documents->where('status', 'approved')->pluck('type')->all();
     $required = $config->requiredDocumentsFor($employee); // empresa + su cargo
     $missing = array_diff($required, $approvedTypes);
+    // QA3-06: de los obligatorios que faltan aprobar, cuántos ya tienen un archivo por revisar (los adicionales no cuentan)
+    $pendingRequired = array_values(array_intersect($missing, $documents->where('status', 'pending')->pluck('type')->unique()->all()));
+    $notUploaded = count($missing) - count($pendingRequired);
+    $canManageDocs = auth()->user()->can('documents.review');
     $sizes = $employee->uniformSize;
     $initials = mb_strtoupper(mb_substr($employee->first_name, 0, 1) . mb_substr($employee->last_name, 0, 1));
     $primaryBranch = $employee->branches->firstWhere('pivot.is_primary', true) ?? $employee->branches->first();
@@ -563,10 +567,17 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
         <div class="legajo-stat-item">
             <div class="legajo-stat-label">Documentos</div>
             <div class="legajo-stat-value">
-                <span>{{ count($required) - count($missing) }} / {{ count($required) }}</span>
+                <span>{{ count($required) - count($missing) }} / {{ count($required) }} aprobados</span>
             </div>
             <div class="legajo-stat-note {{ $missing ? 'text-warning' : 'text-success' }}">
-                {{ $missing ? 'Falta: ' . count($missing) . ' obligatorio(s)' : '100% completo' }}
+                @if(! $missing)
+                    Obligatorios completos
+                @else
+                    {{ implode(' · ', array_filter([
+                        $pendingRequired ? count($pendingRequired) . ' por revisar' : null,
+                        $notUploaded ? $notUploaded . ' sin subir' : null,
+                    ])) }}
+                @endif
             </div>
         </div>
         <div class="legajo-stat-item">
@@ -980,6 +991,19 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
 
         {{-- SUBTAB 2: DOCUMENTOS --}}
         <div class="tab-pane fade" id="tab-sub-docs" role="tabpanel">
+            {{-- QA3-06: agregar documentos (varios a la vez) — RR. HH. con permiso de revisión de documentos --}}
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                <div class="small text-muted">
+                    <i class="bi bi-info-circle me-1"></i>PDF, JPG o PNG · máx. {{ $config->max_upload_mb ?? 5 }} MB por archivo. Los documentos adicionales no cuentan como obligatorios.
+                </div>
+                @if($canManageDocs)
+                    <button type="button" class="legajo-btn-primary" data-doc-upload
+                            data-url="{{ route('employees.file.upload', $employee->id) }}" data-employee="{{ $employee->id }}"
+                            data-name="{{ $employee->full_name }}" data-max-mb="{{ $config->max_upload_mb ?? 5 }}">
+                        <i class="bi bi-plus-lg"></i><span>Agregar documento</span>
+                    </button>
+                @endif
+            </div>
             <div class="legajo-card-table">
                 <div class="table-responsive mb-0">
                     <table class="legajo-table">
@@ -1036,11 +1060,23 @@ Expediente y Ficha del Colaborador — Executive Responsive Design
                                             {{ EmployeeDocument::STATUSES[$doc->status] ?? ucfirst($doc->status) }}
                                         </span>
                                     </td>
-                                    <td class="text-end">
-                                        <a href="{{ route('documents.open', $doc->id) }}" target="_blank" class="legajo-link-btn" title="Ver archivo">
+                                    <td class="text-end text-nowrap">
+                                        <a href="{{ route('documents.open', $doc->id) }}" target="_blank" rel="noopener" class="legajo-link-btn" title="Ver archivo">
                                             <i class="bi bi-box-arrow-up-right"></i>
                                             <span>Ver</span>
                                         </a>
+                                        @if($canManageDocs)
+                                            <a href="{{ route('documents.download', $doc->id) }}" class="legajo-link-btn" title="Descargar {{ $doc->original_name }}">
+                                                <i class="bi bi-download"></i>
+                                                <span>Descargar</span>
+                                            </a>
+                                            <button type="button" class="legajo-link-btn text-danger border-0 bg-transparent" title="Eliminar del legajo"
+                                                    data-doc-delete="{{ route('employees.file.documents.destroy', [$employee->id, $doc->id]) }}" data-employee="{{ $employee->id }}"
+                                                    data-doc-name="{{ (EmployeeDocument::TYPES[$doc->type] ?? $doc->type) . ' · ' . $doc->original_name }}">
+                                                <i class="bi bi-trash"></i>
+                                                <span>Eliminar</span>
+                                            </button>
+                                        @endif
                                     </td>
                                 </tr>
                             @empty
