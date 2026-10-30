@@ -15,13 +15,27 @@
     </div>
 </header>
 
-{{-- Resumen por motivo: cada tarjeta filtra la lista --}}
-<section class="dash-kpis" aria-label="Resumen por motivo">
+@if($flaggingBranches->isNotEmpty())
+    {{-- Regla de geocerca de la sede = "aceptar y marcar": esas marcaciones no se rechazan, se ven en Marcaciones y GPS --}}
+    <div class="dash-notice notice-warning mb-3" role="status">
+        <i class="bi bi-info-circle"></i>
+        <div>
+            <strong>{{ $flaggingBranches->count() === 1 ? 'La sede ' . $flaggingBranches->first() . ' acepta' : $flaggingBranches->count() . ' sedes aceptan' }} las marcaciones fuera de la geocerca.</strong>
+            Esas no se rechazan: quedan registradas como «Fuera de ubicación» en
+            <a href="{{ route('attendance.index', ['start_date' => $startDate, 'end_date' => $endDate]) }}">Marcaciones y GPS</a>.
+            Aquí solo aparecen las que la app o el servidor no aceptaron. La regla se define en Ajustes › Reglas de asistencia y puede ajustarse por sede.
+        </div>
+    </div>
+@endif
+
+{{-- Resumen por motivo: cada tarjeta filtra la lista (el Total es la suma de las tarjetas) --}}
+<section class="dash-kpis dash-kpis-5" aria-label="Resumen por motivo">
     @foreach ([
         [null, 'Total en el rango', $total, 'brand', 'slash-circle', $uniqueUsersCount . ' colaboradores', 'Ver todos los intentos rechazados'],
         ['MOCK_LOCATION_DETECTED', 'Ubicación simulada', $mockCount, 'rose', 'phone-vibrate', 'Fake GPS detectado', 'Filtrar por ubicación simulada'],
         ['GEOFENCE_VIOLATION', 'Fuera de la geocerca', $byCode['GEOFENCE_VIOLATION'] ?? 0, 'amber', 'geo-alt', 'Fuera del radio', 'Filtrar por fuera de la geocerca'],
         ['GPS_ACCURACY_TOO_LOW', 'GPS impreciso', $byCode['GPS_ACCURACY_TOO_LOW'] ?? 0, 'blue', 'crosshair2', 'Baja precisión satelital', 'Filtrar por GPS impreciso'],
+        [\App\Modules\Attendance\Controllers\Web\PunchAttemptWebController::OTHER_CODE, 'Otros motivos', $otherCount, 'neutral', 'three-dots', 'Selfie, sin conexión, sin sede…', 'Filtrar por otros motivos'],
     ] as [$kcode, $klabel, $kvalue, $ktone, $kicon, $kmeta, $ktitle])
         @php $kactive = $kcode === null ? ! request('code') : request('code') === $kcode; @endphp
         <a href="{{ request()->fullUrlWithQuery(['code' => $kcode, 'page' => null]) }}" class="dash-kpi-card is-link {{ $kactive ? 'is-active' : '' }}" title="{{ $ktitle }}" @if($kactive) aria-current="true" @endif>
@@ -126,7 +140,7 @@
                             'position' => $userPos,
                             'avatar_url' => !empty($a->user->avatar_path) ? asset('storage/' . $a->user->avatar_path) : null,
                             'branch_name' => $a->branch->name ?? 'Sin sucursal',
-                            'date_formatted' => $a->created_at->format('d/m/Y h:i:s a'),
+                            'date_formatted' => $a->created_at->copy()->setTimezone($tz)->format('d/m/Y h:i:s a'),
                             'punch_type' => label('punch_type', $a->type),
                             'error_code' => $a->error_code,
                             'error_label' => label('punch_attempt_code', $a->error_code),
@@ -176,10 +190,10 @@
 
                         {{-- 2. Fecha y hora --}}
                         <td data-label="Fecha">
-                            <div class="fw-bold text-body" style="font-size: 0.825rem;">{{ $a->created_at->format('d/m/Y') }}</div>
+                            <div class="fw-bold text-body" style="font-size: 0.825rem;">{{ $a->created_at->copy()->setTimezone($tz)->format('d/m/Y') }}</div>
                             <div class="text-body-secondary small d-flex align-items-center mt-0.5" style="font-size: 0.75rem;">
                                 <i class="bi bi-clock text-muted" style="margin-right: 5px;"></i>
-                                <span>{{ $a->created_at->format('h:i:s a') }}</span>
+                                <span>{{ $a->created_at->copy()->setTimezone($tz)->format('h:i:s a') }}</span>
                             </div>
                             <div class="d-flex align-items-center gap-1 mt-1 flex-wrap">
                                 @if($a->fromApp())

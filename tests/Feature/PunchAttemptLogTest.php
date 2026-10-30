@@ -136,4 +136,45 @@ class PunchAttemptLogTest extends TestCase
 
         $this->actingAs($this->makeUser($this->acme, 'supervisor'))->get(route('attendance.attempts'))->assertForbidden();
     }
+
+    /** QA3-02: las tarjetas por motivo suman el Total (con «Otros») y «Hasta hoy» llega a las 23:59 */
+    public function test_cards_add_up_to_the_total_and_the_end_date_covers_the_whole_day(): void
+    {
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/clock-in', $this->gps(['latitude' => -12.2]))->assertStatus(422);
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/clock-in', $this->gps(['is_mocked' => true]))->assertStatus(422);
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/clock-in', $this->gps(['accuracy_meters' => 900]))->assertStatus(422);
+        $this->app['auth']->forgetGuards();
+
+        // Un motivo sin tarjeta propia, registrado tarde en la noche de hoy
+        $late = AttendancePunchAttempt::withoutGlobalScopes()->create([
+            'tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'type' => 'clock_out',
+            'error_code' => 'FACE_NOT_DETECTED', 'message' => 'No se detectó un rostro en la selfie.',
+        ]);
+        $late->forceFill(['created_at' => Carbon::parse('2026-10-09 23:30:00', 'America/Lima')])->save();
+
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $res = $this->actingAs($hr)->get(route('attendance.attempts', ['start_date' => '2026-10-09', 'end_date' => '2026-10-09']))->assertOk();
+        $res->assertViewHas('total', 4)->assertViewHas('mockCount', 1)->assertViewHas('otherCount', 1)
+            ->assertSee('Otros motivos');
+        $byCode = $res->viewData('byCode');
+        $this->assertSame(4, $res->viewData('mockCount') + ($byCode['GEOFENCE_VIOLATION'] ?? 0) + ($byCode['GPS_ACCURACY_TOO_LOW'] ?? 0) + $res->viewData('otherCount'));
+        $this->assertSame(4, $res->viewData('attempts')->total());
+
+        // «Otros» filtra solo los motivos sin tarjeta
+        $others = $this->actingAs($hr)->get(route('attendance.attempts', ['start_date' => '2026-10-09', 'end_date' => '2026-10-09', 'code' => 'OTHER']))->assertOk();
+        $this->assertSame(['FACE_NOT_DETECTED'], $others->viewData('attempts')->getCollection()->pluck('error_code')->all());
+        $others->assertViewHas('total', 4); // las tarjetas no cambian con el filtro de motivo
+    }
+
+    /** QA3-02: si la sede acepta y marca lo de fuera de la geocerca, la pantalla lo explica (no se ve vacía sin motivo) */
+    public function test_branch_that_flags_out_of_geofence_shows_a_notice(): void
+    {
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $this->actingAs($hr)->get(route('attendance.attempts'))->assertOk()->assertDontSee('acepta las marcaciones fuera de la geocerca');
+
+        \App\Modules\Core\Models\Branch::withoutGlobalScopes()->where('tenant_id', $this->acme->id)->update(['geofence_policy' => 'flag']);
+        $this->actingAs($hr)->get(route('attendance.attempts'))->assertOk()
+            ->assertSee('La sede Terminal Plaza Norte acepta las marcaciones fuera de la geocerca.')
+            ->assertSee(e(route('attendance.index', ['start_date' => '2026-10-03', 'end_date' => '2026-10-09'])), false);
+    }
 }
