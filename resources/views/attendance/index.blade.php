@@ -97,7 +97,9 @@
                                 @endif
                                 <div class="min-w-0">
                                     <div class="cell-title text-truncate">{{ $att->user->first_name ?? 'N/A' }} {{ $att->user->last_name ?? '' }}</div>
-                                    <div class="cell-sub text-truncate">{{ $att->user->employee_code ?? '—' }} · {{ $att->branch->name ?? 'Sin sucursal' }}</div>
+                                    {{-- QA3-01: cargo · código · agencia (texto largo recortado; completo al pasar el mouse) --}}
+                                    @php $attSub = implode(' · ', [$att->user?->position ?: 'Sin cargo', $att->user->employee_code ?? '—', $att->branch->name ?? 'Sin sucursal']); @endphp
+                                    <div class="cell-sub text-truncate" title="{{ $attSub }}">{{ $attSub }}</div>
                                     @include('partials.tenant-badge', ['tenantId' => $att->tenant_id])
                                 </div>
                             </div>

@@ -101,7 +101,7 @@ class AttendanceExport
                         $row->work_date ? $row->work_date->format('Y-m-d') : '',
                         $row->user->employee_code ?? 'N/A',
                         $row->user ? "{$row->user->first_name} {$row->user->last_name}" : 'N/A',
-                        $row->user->position ?? '',
+                        ($row->user?->position ?: 'Sin cargo'),
                         $row->branch->name ?? 'N/A',
                         $row->shift->name ?? 'Estándar',
                         $row->clock_in_at ? $row->clock_in_at->format('h:i:s a') : 'Sin marcar',
