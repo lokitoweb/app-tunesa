@@ -88,6 +88,16 @@ function togglePosition(id) {
     dropHiddenFromSelection();
 }
 function clearPositionFilter() { positionFilter.value = []; }
+
+// QA3-05: Excel de lo que se ve (agencia, mes y cargos). Trae lo guardado: con cambios pendientes se pide guardar
+function exportExcel() {
+    if (!state.branchId) return;
+    if (dirty.value) { showToast('Guarda primero los cambios: el Excel trae la programación guardada.', 'danger'); return; }
+    if (!visiblePeople.value.length) { showToast('No hay colaboradores para exportar con esos filtros.', 'danger'); return; }
+    const params = new URLSearchParams({ branch_id: state.branchId, month: state.month });
+    positionFilter.value.forEach((key) => params.append('positions[]', String(key)));
+    window.location.href = `/shifts/schedule/export?${params}`;
+}
 // Al filtrar, la selección se queda solo con los que se ven: nunca se actúa sobre filas ocultas
 function dropHiddenFromSelection() {
     const visible = new Set(visiblePeople.value.map((p) => p.id));
@@ -307,6 +317,11 @@ async function repeat() {
             <p class="page-subtitle">
                 Elige la agencia y el horario, y marca los días que asiste cada colaborador. Al guardar, lo programado se ve al instante en la app; los días sin programar siguen con su asignación semanal.
             </p></div>
+            <div class="page-actions">
+                <button type="button" class="btn btn-light border" :disabled="!state.branchId || loading" title="Descarga lo que ves: agencia, mes y cargos filtrados" @click="exportExcel">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar a Excel
+                </button>
+            </div>
         </header>
 
         <div v-if="deadlineInfo || unscheduled.length" class="sched-alerts mb-3">

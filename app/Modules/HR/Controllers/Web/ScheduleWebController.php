@@ -85,6 +85,85 @@ class ScheduleWebController extends Controller
         ]);
     }
 
+    /**
+     * QA3-05: exporta a Excel lo que se ve en la programación (agencia, mes y cargos filtrados):
+     * colaborador, cargo, código/DNI, agencia, un día por columna con el código del horario
+     * (L = día libre, V = vacaciones, vacío = sin programar), total de días y de horas.
+     */
+    public function export(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse|\Illuminate\Http\RedirectResponse
+    {
+        $data = $request->validate([
+            'branch_id'   => ['required', 'integer'],
+            'month'       => ['required', 'date_format:Y-m'],
+            'positions'   => ['nullable', 'array', 'max:200'],
+            'positions.*' => ['string', 'max:150'],
+        ]);
+        $branch = Branch::visibleTo($request->user())->findOrFail((int) $data['branch_id']);
+        $month = CarbonImmutable::parse($data['month'] . '-01');
+        [$from, $to] = [$month->toDateString(), $month->endOfMonth()->toDateString()];
+
+        $people = $this->programming->people($branch, $request->user(), $from, $to);
+        $catalog = Position::withoutGlobalScopes()->where('tenant_id', $branch->tenant_id)->pluck('id', 'name');
+        $wanted = array_map('strval', $data['positions'] ?? []);
+        if ($wanted) {
+            $people = $people->filter(fn ($u) => in_array(self::positionKey($u, $catalog), $wanted, true))->values();
+        }
+        if ($people->isEmpty()) {
+            return back()->with('error', 'No hay colaboradores para exportar con esos filtros: no se descargó ningún archivo.');
+        }
+
+        $grid = $this->programming->grid($people, $from, $to);
+        $shifts = Shift::withoutGlobalScopes()->where('tenant_id', $branch->tenant_id)->whereIn('id', collect($grid)->flatten(1)->pluck('shift_id')->filter()->unique())->get()->keyBy('id');
+        $days = collect(\Carbon\CarbonPeriod::create($from, $to))->map(fn ($d) => $d->toDateString())->all();
+
+        $rows = $people->map(function ($u) use ($grid, $shifts, $days, $branch) {
+            $cells = [];
+            $worked = 0;
+            $hours = 0.0;
+            foreach ($days as $day) {
+                $cell = $grid[$u->id][$day] ?? ['shift_id' => null, 'source' => 'none'];
+                $shift = $cell['shift_id'] ? $shifts->get($cell['shift_id']) : null;
+                if ($cell['source'] === 'vacation') {
+                    $cells[] = 'V';
+                } elseif ($shift) {
+                    $cells[] = $shift->code ?: $shift->name;
+                    $worked++;
+                    $hours += (float) $shift->forDate($day)->daily_hours;
+                } else {
+                    // Programado sin horario = día libre; sin programación = vacío
+                    $cells[] = $cell['source'] === 'none' ? '' : 'L';
+                }
+            }
+
+            return array_merge([trim("{$u->last_name}, {$u->first_name}"), $u->position ?: 'Sin cargo', $u->employee_code ?: ($u->document_number ?: '—'), $branch->name],
+                $cells, [$worked, round($hours, 2)]);
+        });
+
+        $label = \Illuminate\Support\Str::ucfirst($month->locale('es')->isoFormat('MMMM-YYYY'));
+        $name = 'Programacion_' . trim(preg_replace('/[^A-Za-z0-9]+/', '-', \Illuminate\Support\Str::ascii($branch->name)), '-') . "_{$label}.xlsx";
+        $path = tempnam(sys_get_temp_dir(), 'prog') . '.xlsx';
+        \App\Modules\Core\Support\SpreadsheetRows::export($path, 'Programación ' . $month->format('m-Y'),
+            array_merge(['Colaborador', 'Cargo', 'Código / DNI', 'Agencia'], array_map(fn ($d) => (string) (int) substr($d, 8, 2), $days), ['Días programados', 'Horas']),
+            $rows);
+
+        return response()->download($path, $name)->deleteFileAfterSend();
+    }
+
+    /** Cargo para filtrar igual que la pantalla: el del catálogo (id), su nombre si coincide con el catálogo, el texto, o "none" */
+    public static function positionKey(object $user, \Illuminate\Support\Collection $catalogByName): string
+    {
+        if ($user->position_id) {
+            return (string) $user->position_id;
+        }
+        $text = trim((string) $user->position);
+        if ($text === '') {
+            return 'none';
+        }
+        $match = $catalogByName->first(fn ($id, $name) => mb_strtolower(trim($name)) === mb_strtolower($text));
+
+        return $match ? (string) $match : "txt:{$text}";
+    }
+
     /** Guarda el mes (o el rango) de la agencia para los colaboradores enviados */
     public function save(Request $request): JsonResponse
     {

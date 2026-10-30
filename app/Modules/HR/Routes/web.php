@@ -107,7 +107,10 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::prefix('shifts')->name('shifts.')->middleware('can:shifts.program')->group(function () {
         Route::get('/schedule', [ScheduleWebController::class, 'index'])->name('schedule');
         Route::post('/schedule', [ScheduleWebController::class, 'save'])->name('schedule.save');
-        Route::post('/schedule/repeat', [ScheduleWebController::class, 'repeat'])->name('schedule.repeat');    });
+        Route::post('/schedule/repeat', [ScheduleWebController::class, 'repeat'])->name('schedule.repeat');
+        // QA3-05: exportar a Excel lo que se ve (agencia, mes y cargos)
+        Route::get('/schedule/export', [ScheduleWebController::class, 'export'])->name('schedule.export');
+    });
 
     // Feriados: el control de faltas no registra ausencias en estas fechas
     Route::prefix('holidays')->name('holidays.')->middleware('can:shifts.manage')->group(function () {

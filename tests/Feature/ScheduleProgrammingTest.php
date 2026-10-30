@@ -142,6 +142,56 @@ class ScheduleProgrammingTest extends TestCase
         $this->assertSame(0, EmployeeScheduleDay::whereIn('user_id', [$this->people['Fidel']->id, $this->people['Juana']->id])->whereBetween('work_date', ['2026-10-19', '2026-10-25'])->count());
     }
 
+    /** QA3-05: el Excel trae lo que se ve (agencia, mes y cargos), con L / V / vacío y totales */
+    public function test_schedule_export_matches_the_screen_and_its_filters(): void
+    {
+        $this->program();
+        $this->people['Juana']->update(['first_name' => 'Juana', 'last_name' => 'Peña']); // tildes y ñ
+        $call = \App\Modules\Core\Models\Position::create(['tenant_id' => $this->acme->id, 'name' => 'CALL CENTER', 'is_active' => true]);
+        $this->people['Juan']->update(['position_id' => $call->id]);
+
+        $read = function ($res) {
+            $res->assertOk()->assertDownload();
+            $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($res->baseResponse->getFile()->getPathname())->getActiveSheet();
+
+            return $sheet->toArray(null, false, false, false);
+        };
+
+        $res = $this->actingAs($this->hr)->get(route('shifts.schedule.export', ['branch_id' => $this->trujillo->id, 'month' => '2026-10']));
+        $this->assertSame('attachment; filename=Programacion_Ag-Trujillo_Octubre-2026.xlsx', $res->headers->get('content-disposition'));
+        $rows = $read($res);
+        $this->assertSame(['Colaborador', 'Cargo', 'Código / DNI', 'Agencia', 1], array_slice($rows[0], 0, 5));
+        $this->assertCount(4 + 31 + 2, $rows[0]);
+        $this->assertSame(['Días programados', 'Horas'], array_slice($rows[0], -2));
+
+        $byName = collect(array_slice($rows, 1))->keyBy(0);
+        $this->assertSame(['Prueba, Juan', 'Prueba, Fidel', 'Peña, Juana'], array_keys($byName->sortBy(fn ($r) => array_search($r[0], ['Prueba, Juan', 'Prueba, Fidel', 'Peña, Juana']))->all()));
+        $juan = $byName['Prueba, Juan'];
+        $day = fn (array $row, int $d) => $row[3 + $d];
+        $this->assertSame(['CALL CENTER', 'Ag. Trujillo'], [$juan[1], $juan[3]]);
+        $this->assertSame('Horario A', $day($juan, 5));   // lunes 5: horario A
+        $this->assertSame('L', $day($juan, 10));          // domingo 10: día libre programado
+        $this->assertNull($day($juan, 1));                // 1 de octubre: sin programar (vacío)
+        $this->assertSame([10, 80], [(int) $juan[35], (int) $juan[36]]); // 10 días × 8 h
+
+        // Con el filtro de cargo solo sale Juan
+        $only = $read($this->actingAs($this->hr)->get(route('shifts.schedule.export', ['branch_id' => $this->trujillo->id, 'month' => '2026-10', 'positions' => [(string) $call->id]])));
+        $this->assertSame(['Prueba, Juan'], array_column(array_slice($only, 1), 0));
+
+        // Febrero: 28 columnas de días
+        $feb = $read($this->actingAs($this->hr)->get(route('shifts.schedule.export', ['branch_id' => $this->trujillo->id, 'month' => '2027-02'])));
+        $this->assertCount(4 + 28 + 2, $feb[0]);
+
+        // Sin nadie con ese cargo: aviso, sin archivo
+        $this->actingAs($this->hr)->from(route('shifts.schedule'))->get(route('shifts.schedule.export', ['branch_id' => $this->trujillo->id, 'month' => '2026-10', 'positions' => ['none-existe']]))
+            ->assertRedirect(route('shifts.schedule'))->assertSessionHas('error');
+
+        // Sin permiso de programación: no puede exportar
+        $url = route('shifts.schedule.export', ['branch_id' => $this->trujillo->id, 'month' => '2026-10']);
+        $this->actingAs($this->makeUser($this->acme, 'accountant'))->get($url)->assertForbidden();
+        $this->assertNull($this->actingAs($this->people['Juan'])->get($url)->headers->get('content-disposition')); // el colaborador va a su portal
+    }
+
     private function program_again_is_idempotent(): void
     {
         $juan = $this->people['Juan'];
