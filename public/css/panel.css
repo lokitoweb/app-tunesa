@@ -10746,3 +10746,19 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 .form-switch .form-check-input:focus:not(:checked) { --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%2894, 106, 125, 0.6%29'/%3e%3c/svg%3e"); }
 .nav-pills .nav-link.active, .page-item.active .page-link { background-color: var(--brand); }
 .progress-bar { background-color: var(--brand); }
+
+/* =============================================================================
+ * Modo oscuro: el color de la marca como TEXTO se aclara para leerse sobre fondo
+ * oscuro (una marca oscura, p. ej. azul acero, quedaba con poco contraste).
+ * Botones y rellenos siguen con la marca tal cual.
+ * ============================================================================= */
+:root { --brand-ink: var(--brand); }
+[data-bs-theme="dark"] {
+    --brand-ink: color-mix(in srgb, var(--brand) 55%, #fff);
+    --bs-link-color: var(--brand-ink);
+    --bs-link-hover-color: color-mix(in srgb, var(--brand) 40%, #fff);
+}
+[data-bs-theme="dark"] :is(.cell-code, .cell-sub a, .sidebar-link.active, .sidebar-link.active .bi, .role-nav-item.is-active, .portal-tab.active, .text-primary, .btn-link, .topbar-avatar, .list-plain-icon, .modern-input-wrapper:focus-within .modern-input-icon, .emp-section-title i) { color: var(--brand-ink) !important; }
+[data-bs-theme="dark"] .btn-outline-primary { --bs-btn-color: var(--brand-ink); --bs-btn-border-color: color-mix(in srgb, var(--brand) 70%, #fff); }
+/* Etiquetas y contadores con tono: el texto se aclara, el fondo sigue tenue */
+[data-bs-theme="dark"] :is(.status-pill, .count-pill[class*="tone-"], .dash-kpi-icon[class*="tone-"]) { color: color-mix(in srgb, rgb(var(--tone, 148, 163, 184)) 60%, #fff); }
