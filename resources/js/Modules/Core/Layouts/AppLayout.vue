@@ -35,7 +35,7 @@ function toggleSidebar() {
     const rail = document.documentElement.getAttribute('data-sidebar') !== 'rail';
     if (rail) document.documentElement.setAttribute('data-sidebar', 'rail');
     else document.documentElement.removeAttribute('data-sidebar');
-    try { localStorage.setItem('panel-sidebar', rail ? 'rail' : 'full'); } catch (e) { /* almacenamiento bloqueado */ }
+    try { rail ? localStorage.removeItem('panel-sidebar-pinned') : localStorage.setItem('panel-sidebar-pinned', '1'); } catch (e) { /* almacenamiento bloqueado */ }
 }
 const closeDrawerOnEscape = (e) => { if (e.key === 'Escape') drawerOpen.value = false; };
 let stopNavigateListener = null;
@@ -141,7 +141,7 @@ onUnmounted(() => {
         <!-- SIDEBAR: Dock colapsable con auto-expansión al pasar el mouse o al hacer clic -->
         <aside id="sidebar" class="panel-sidebar" :class="{ 'is-open': drawerOpen }" tabindex="-1" aria-label="Menú principal">
             <div class="sidebar-header">
-                <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Expandir / Contraer menú" aria-label="Expandir o contraer menú" @click="toggleSidebar">
+                <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Fijar el menú abierto o volver a la barra de íconos" aria-label="Fijar el menú abierto o volver a la barra de íconos" @click="toggleSidebar">
                     <i class="bi bi-layout-sidebar"></i>
                 </button>
                 <a href="/dashboard" class="sidebar-logo-link" :title="brand.trade_name">

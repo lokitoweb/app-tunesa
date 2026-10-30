@@ -36,7 +36,7 @@
     {{-- SIDEBAR: Dock colapsable con auto-expansión al pasar el mouse o al hacer clic --}}
     <aside id="sidebar" class="panel-sidebar" tabindex="-1" aria-label="Menú principal">
         <div class="sidebar-header">
-            <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Expandir / Contraer menú" aria-label="Expandir o contraer menú">
+            <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Fijar el menú abierto o volver a la barra de íconos" aria-label="Fijar el menú abierto o volver a la barra de íconos">
                 <i class="bi bi-layout-sidebar"></i>
             </button>
             <a href="{{ route('dashboard') }}" class="sidebar-logo-link" title="{{ $brandSettings->tradeName() }}">

@@ -11,8 +11,10 @@
             }
         } catch (e) {}
         document.documentElement.setAttribute('data-bs-theme', t);
-        {{-- Menú lateral reducido a íconos (preferencia de escritorio), antes de pintar para que no salte --}}
-        try { if (localStorage.getItem('panel-sidebar') === 'rail') document.documentElement.setAttribute('data-sidebar', 'rail'); } catch (e) {}
+        {{-- Menú lateral: barra de íconos que se abre al pasar el mouse, salvo que el usuario lo haya fijado abierto. Antes de pintar para que no salte --}}
+        var pinned = false;
+        try { pinned = localStorage.getItem('panel-sidebar-pinned') === '1'; } catch (e) {}
+        if (!pinned) document.documentElement.setAttribute('data-sidebar', 'rail');
     })();
 </script>
 

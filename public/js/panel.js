@@ -277,7 +277,7 @@
             const rail = document.documentElement.getAttribute('data-sidebar') !== 'rail';
             if (rail) document.documentElement.setAttribute('data-sidebar', 'rail');
             else document.documentElement.removeAttribute('data-sidebar');
-            try { localStorage.setItem('panel-sidebar', rail ? 'rail' : 'full'); } catch (e) {}
+            try { rail ? localStorage.removeItem('panel-sidebar-pinned') : localStorage.setItem('panel-sidebar-pinned', '1'); } catch (e) {}
         });
         document.getElementById('sidebarMobileToggle')?.addEventListener('click', () => setDrawer(true));
         backdrop?.addEventListener('click', () => setDrawer(false));
