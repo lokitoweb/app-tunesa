@@ -14,178 +14,130 @@
     $submittedCount = (int) ($counts['submitted'] ?? 0);
 @endphp
 
-{{-- Header Ejecutivo con Título, Subtítulo, Contador y Acción de Configuración --}}
-<div class="onb-header-bar">
-    <div>
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <h1 class="h3 fw-bold mb-0 text-body">Incorporación</h1>
-            @if($submittedCount > 0)
-                <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 d-inline-flex align-items-center" style="font-size: 0.775rem; font-weight: 700;">
-                    <i class="bi bi-bell-fill" style="margin-right: 6px;"></i>
-                    <span>{{ $submittedCount }} por revisar</span>
-                </span>
-            @else
-                <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle px-2.5 py-1 d-inline-flex align-items-center" style="font-size: 0.775rem; font-weight: 600;">
-                    <i class="bi bi-check-circle" style="margin-right: 6px;"></i>
-                    <span>Al día</span>
-                </span>
-            @endif
-        </div>
-        <p class="text-secondary small mb-0">Nadie marca asistencia hasta que apruebes su incorporación: datos, tallas, documentos e inducción.</p>
+<header class="page-head">
+    <div class="page-head-text">
+        <h1 class="page-title">Incorporación</h1>
+        <p class="page-subtitle">Nadie marca asistencia hasta que apruebes su incorporación: datos, tallas, documentos e inducción.</p>
     </div>
-    @can('onboarding.manage')
-        <button type="button" 
-                class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center shadow-sm onb-settings-btn" 
-                style="border-radius: 8px; font-weight: 600; padding: 7px 15px; gap: 8px;"
-                data-bs-toggle="modal"
-                data-bs-target="#onboardingSettingsModal"
-                onclick="openOnboardingSettingsModal()">
-            <i class="bi bi-sliders"></i>
-            <span>Configurar etapas</span>
-        </button>
-    @endcan
-</div>
+    <div class="page-actions">
+        @if($submittedCount > 0)
+            <span class="status-pill tone-rose"><i class="bi bi-bell"></i>{{ $submittedCount }} por revisar</span>
+        @else
+            <span class="status-pill tone-emerald"><i class="bi bi-check-circle"></i>Al día</span>
+        @endif
+        @can('onboarding.manage')
+            <button type="button" class="btn btn-light border" data-bs-toggle="modal" data-bs-target="#onboardingSettingsModal" onclick="openOnboardingSettingsModal()">
+                <i class="bi bi-sliders me-1"></i>Configurar etapas
+            </button>
+        @endcan
+    </div>
+</header>
 
-{{-- Contenedor Reactivo Dinámico AJAX (Actualización Fluida sin Recargas ni Parámetros Expuestos en URL) --}}
+{{-- Zona que se actualiza por AJAX (bandeja, búsqueda y página) sin cambiar la URL --}}
 <div id="onboardingDynamicWrapper" class="onb-dynamic-area">
-    {{-- Barra de Navegación Segmentada y Buscador Integrado --}}
-    <div class="onb-controls-bar">
-        <div class="onb-tab-group" role="tablist">
+<section class="surface">
+    <div class="filter-row justify-content-between">
+        <div class="seg-tabs" role="tablist" aria-label="Bandeja">
             @foreach($tabLabels as $key => $text)
-                <button type="button" 
-                        class="onb-tab-btn {{ $status === $key ? 'active' : '' }}" 
-                        data-status="{{ $key }}" 
-                        onclick="switchOnbStatus('{{ $key }}')"
-                        @if($status === $key) aria-current="page" @endif>
-                    <span>{{ $text }}</span>
-                    @php $cnt = (int) ($counts[$key] ?? 0); @endphp
-                    @if($key === 'submitted' && $cnt > 0)
-                        <span class="onb-counter-pill onb-counter-pill-alert">{{ $cnt }}</span>
-                    @elseif($cnt > 0)
-                        <span class="onb-counter-pill onb-counter-pill-subtle">{{ $cnt }}</span>
-                    @endif
+                @php $cnt = (int) ($counts[$key] ?? 0); @endphp
+                <button type="button" role="tab" class="seg-tab {{ $status === $key ? 'is-active' : '' }}" data-status="{{ $key }}" aria-selected="{{ $status === $key ? 'true' : 'false' }}" onclick="switchOnbStatus('{{ $key }}')">
+                    {{ $text }}
+                    @if($cnt > 0)<span class="count-pill {{ $key === 'submitted' ? 'tone-rose' : '' }}">{{ $cnt }}</span>@endif
                 </button>
             @endforeach
         </div>
-
-        <div class="onb-search-box">
-            <i class="bi bi-search onb-search-icon"></i>
-            <input type="search" 
-                   id="onbSearchInput" 
-                   class="onb-search-input" 
-                   placeholder="Nombre o DNI..." 
-                   value="{{ request('search') }}"
-                   autocomplete="off"
+        <div class="search-field">
+            <i class="bi bi-search"></i>
+            <input type="search" id="onbSearchInput" class="form-control" placeholder="Nombre o DNI…" aria-label="Buscar por nombre o DNI"
+                   value="{{ request('search') }}" autocomplete="off"
                    onkeydown="if(event.key === 'Enter') { event.preventDefault(); submitOnbSearch(); }">
-            @if(request('search'))
-                <button type="button" class="onb-search-clear" onclick="clearOnbSearch()" title="Limpiar búsqueda">
-                    <i class="bi bi-x-circle-fill"></i>
-                </button>
-            @endif
         </div>
+        @if(request('search'))
+            <button type="button" class="btn btn-sm btn-link text-decoration-none" onclick="clearOnbSearch()"><i class="bi bi-x-circle me-1"></i>Limpiar búsqueda</button>
+        @endif
     </div>
 
-    {{-- Tarjeta Ejecutiva con Tabla de Incorporaciones --}}
-    <div class="onb-card">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead>
+    <div class="table-responsive">
+        <table class="table data-table table-cards align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Colaborador</th>
+                    <th>Etapas</th>
+                    <th>Estado</th>
+                    <th>Enviada</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($processes as $p)
+                    @php
+                        $evaluated = collect($stages[$p->id] ?? [])->where('status', '!=', 'not_applicable');
+                        $user = $p->user;
+                    @endphp
                     <tr>
-                        <th class="ps-4">Colaborador</th>
-                        <th>Etapas</th>
-                        <th>Estado</th>
-                        <th>Enviada</th>
-                        <th class="text-end pe-4">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($processes as $p)
-                        @php 
-                            $evaluated = collect($stages[$p->id] ?? [])->where('status', '!=', 'not_applicable');
-                            $user = $p->user;
-                        @endphp
-                        <tr>
-                            <td class="ps-4">
-                                <div class="d-flex align-items-center gap-3">
-                                    @if(!empty($user->avatar_path))
-                                        <img src="{{ asset('storage/' . $user->avatar_path) }}" alt="{{ $user->first_name }}" class="attendance-user-avatar">
-                                    @else
-                                        <span class="attendance-user-initials">
-                                            {{ mb_substr($user->first_name ?? 'U', 0, 1) }}{{ mb_substr($user->last_name ?? '', 0, 1) }}
+                        <td class="cell-main">
+                            <div class="d-flex align-items-center gap-3">
+                                @if(!empty($user->avatar_path))
+                                    <img src="{{ asset('storage/' . $user->avatar_path) }}" alt="{{ $user->first_name }}" class="attendance-user-avatar">
+                                @else
+                                    <span class="attendance-user-initials">{{ mb_substr($user->first_name ?? 'U', 0, 1) }}{{ mb_substr($user->last_name ?? '', 0, 1) }}</span>
+                                @endif
+                                <div class="min-w-0">
+                                    <div class="cell-title text-truncate">{{ $user->full_name }}</div>
+                                    <div class="cell-sub text-truncate">{{ label('id_document_type', $user->document_type) }} {{ $user->document_number }} · {{ $user->branches->firstWhere('pivot.is_primary', true)?->name ?? 'Sin sucursal' }}</div>
+                                    @include('partials.tenant-badge', ['tenantId' => $p->tenant_id])
+                                </div>
+                            </div>
+                        </td>
+                        <td data-label="Etapas">
+                            @if($p->isApproved())
+                                <span class="status-pill tone-emerald"><i class="bi bi-check-circle"></i>Completas</span>
+                            @else
+                                <div class="d-flex flex-wrap gap-1 align-items-center">
+                                    @foreach($evaluated as $s)
+                                        <span class="status-pill {{ $s['status'] === 'completed' ? 'tone-emerald' : 'tone-amber' }}" title="{{ $s['status'] === 'completed' ? 'Completa' : 'Falta: ' . implode(', ', $s['missing']) }}">
+                                            <i class="bi {{ $s['status'] === 'completed' ? 'bi-check-circle' : 'bi-hourglass-split' }}"></i>{{ $s['title'] }}
                                         </span>
-                                    @endif
-                                    <div class="min-w-0">
-                                        <div class="fw-bold text-body text-truncate" style="font-size: 0.875rem;">
-                                            {{ $user->full_name }}
-                                        </div>
-                                        <div class="small text-secondary text-truncate" style="font-size: 0.775rem;">
-                                            {{ label('id_document_type', $user->document_type) }} {{ $user->document_number }} · {{ $user->branches->firstWhere('pivot.is_primary', true)?->name ?? 'Sin sucursal' }}
-                                        </div>
-                                        @include('partials.tenant-badge', ['tenantId' => $p->tenant_id])
-                                    </div>
+                                    @endforeach
                                 </div>
-                            </td>
-                            <td>
-                                @if($p->isApproved())
-                                    <span class="onb-stage-completed-all">
-                                        <i class="bi bi-check-circle-fill"></i>
-                                        <span>Completas</span>
-                                    </span>
-                                @else
-                                    <div class="d-flex flex-wrap gap-1 align-items-center">
-                                        @foreach($evaluated as $s)
-                                            <span class="onb-stage-badge {{ $s['status'] === 'completed' ? 'onb-stage-completed' : 'onb-stage-pending' }}" 
-                                                  title="{{ $s['status'] === 'completed' ? 'Completa' : 'Falta: ' . implode(', ', $s['missing']) }}">
-                                                <i class="bi {{ $s['status'] === 'completed' ? 'bi-check-circle-fill' : 'bi-hourglass-split' }}"></i>
-                                                <span>{{ $s['title'] }}</span>
-                                            </span>
-                                        @endforeach
-                                    </div>
-                                @endif
-                            </td>
-                            <td>
-                                <x-status-badge type="onboarding_status" :value="$p->status" />
-                            </td>
-                            <td class="text-nowrap">
-                                @if($p->submitted_at)
-                                    <div class="fw-semibold text-body" style="font-size: 0.825rem;">
-                                        <i class="bi bi-clock-history text-muted" style="margin-right: 6px;"></i>{{ $p->submitted_at->format('d/m/Y') }}
-                                    </div>
-                                    <div class="text-secondary small" style="font-size: 0.75rem;">
-                                        {{ $p->submitted_at->format('h:i a') }}
-                                    </div>
-                                @else
-                                    <span class="text-muted small">—</span>
-                                @endif
-                            </td>
-                            <td class="text-end pe-4">
-                                <button type="button" 
-                                   class="btn btn-sm {{ $p->status === 'submitted' ? 'btn-primary' : 'btn-outline-secondary' }} d-inline-flex align-items-center shadow-sm"
-                                   style="border-radius: 6px; font-weight: 600; padding: 6px 14px; font-size: 0.8rem; gap: 8px;"
-                                   data-bs-toggle="modal"
-                                   data-bs-target="#onboardingModal"
-                                   onclick="openOnboardingModal({{ $p->user_id }})">
-                                    <i class="bi {{ $p->status === 'submitted' ? 'bi-shield-check' : 'bi-eye' }}"></i>
-                                    <span>{{ $p->status === 'submitted' ? 'Revisar' : 'Ver' }}</span>
+                            @endif
+                        </td>
+                        <td data-label="Estado">
+                            <x-status-badge type="onboarding_status" :value="$p->status" />
+                        </td>
+                        <td class="text-nowrap" data-label="Enviada">
+                            @if($p->submitted_at)
+                                <div>
+                                    <div class="cell-title">{{ $p->submitted_at->format('d/m/Y') }}</div>
+                                    <div class="cell-sub">{{ $p->submitted_at->format('h:i a') }}</div>
+                                </div>
+                            @else
+                                <span class="cell-sub">—</span>
+                            @endif
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                <button type="button" class="btn btn-sm {{ $p->status === 'submitted' ? 'btn-primary' : 'btn-light border' }}"
+                                        data-bs-toggle="modal" data-bs-target="#onboardingModal" onclick="openOnboardingModal({{ $p->user_id }})">
+                                    <i class="bi {{ $p->status === 'submitted' ? 'bi-shield-check' : 'bi-eye' }} me-1"></i>{{ $p->status === 'submitted' ? 'Revisar' : 'Ver' }}
                                 </button>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="py-5 text-center">
-                                <div class="empty-state py-4">
-                                    <div style="width: 54px; height: 54px; border-radius: 12px; background: var(--bg-surface-elevated); color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; margin-bottom: 1rem; border: 1px solid var(--border-color);">
-                                        <i class="bi bi-person-check"></i>
-                                    </div>
-                                    <div class="fw-bold text-body fs-6">No hay incorporaciones en esta bandeja.</div>
-                                    <div class="text-secondary small mt-1" style="max-width: 420px; margin: 0 auto;">No se encontraron colaboradores en proceso de incorporación para el filtro o término de búsqueda seleccionado.</div>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr class="row-empty">
+                        <td colspan="5">
+                            <div class="dash-empty">
+                                <span class="dash-empty-icon"><i class="bi bi-person-check"></i></span>
+                                <p class="dash-empty-title">No hay incorporaciones en esta bandeja</p>
+                                <p class="dash-empty-text">No se encontraron colaboradores en proceso de incorporación para este filtro o búsqueda.</p>
+                            </div>
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 
         @if($processes->total() > 0)
             <div class="table-pagination-footer">
@@ -228,7 +180,7 @@
                 </div>
             </div>
         @endif
-    </div>
+</section>
 </div>
 
 {{-- Modal Diálogo Ejecutivo de Detalle y Acciones de Incorporación --}}
