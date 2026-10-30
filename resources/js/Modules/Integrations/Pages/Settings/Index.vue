@@ -161,6 +161,7 @@ async function testGeocode() {
 }
 
 const pushEmail = ref('');
+const mailTestEmail = ref(''); // correo de prueba (SMTP): vacío = el propio
 </script>
 
 <template>
@@ -598,6 +599,25 @@ const pushEmail = ref('');
                                     </div>
                                 </div>
                                 <small class="settings-helper-text d-block mt-1">Sin servidor propio, los avisos salen por el correo del servidor. Cada aviso se envía una sola vez.</small>
+                                <!-- Aviso: sin SMTP en el panel y el servidor en "log": ningún correo sale (contraseñas temporales, alertas…) -->
+                                <div v-if="!services.effective.smtp && !services.effective.server_mailer_sends" class="alert alert-warning small py-2 px-2 mt-2 mb-0" role="alert">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>Hoy <strong>no sale ningún correo</strong>: no hay SMTP configurado y el servidor está en modo «{{ services.effective.server_mailer }}».
+                                    Completa estos datos, guarda y envía un correo de prueba.
+                                </div>
+                                <!-- Prueba con lo guardado (guarda primero si cambiaste algo) -->
+                                <div class="mt-2">
+                                    <label for="mail_test_email" class="form-label small fw-semibold mb-1">Probar envío</label>
+                                    <div class="d-flex gap-2">
+                                        <input id="mail_test_email" v-model="mailTestEmail" type="email" maxlength="255" :placeholder="userEmail" class="form-control form-control-sm">
+                                        <button type="button" class="btn btn-sm btn-light border text-nowrap" :disabled="busy.mail || form.isDirty" :title="form.isDirty ? 'Guarda los cambios antes de probar' : 'Enviar un correo de prueba con lo guardado'"
+                                            @click="test('mail', '/settings/branding/test-mail', { email: mailTestEmail.trim() })">
+                                            <span v-if="busy.mail" class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                                            <i v-else class="bi bi-envelope-check me-1"></i>Enviar correo de prueba
+                                        </button>
+                                    </div>
+                                    <small v-if="form.isDirty" class="settings-helper-text d-block mt-1">Guarda los cambios antes de probar: la prueba usa lo guardado.</small>
+                                    <TestResult :result="results.mail" />
+                                </div>
                             </div>
                         </div>
                     </div>

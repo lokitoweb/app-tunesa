@@ -165,6 +165,9 @@ class IntegrationsWebController extends Controller
                 'nubefact_configured' => filled($effective->nubefact()['url']),
                 'nubefact_demo'       => $effective->nubefact()['demo'],
                 'smtp'                => $effective->smtp() ? "{$effective->smtp_host}:" . ($effective->smtp_port ?: 587) : null,
+                // Sin SMTP en el panel se usa el del servidor (.env): en "log" o "array" los correos no salen
+                'server_mailer'       => config('mail.default'),
+                'server_mailer_sends' => ! in_array(config('mail.default'), ['log', 'array'], true),
                 'telegram_configured' => filled($effective->expiryAlerts()['telegram_token']),
             ],
         ];
@@ -192,6 +195,50 @@ class IntegrationsWebController extends Controller
     public function testNotification(Request $request): JsonResponse
     {
         return $this->test($request, SendTenantWebhook::TARGET_NOTIFICATION, 'notification.test', 'Escribe la URL del endpoint de notificaciones para probarlo.');
+    }
+
+    /**
+     * POST /settings/branding/test-mail → correo de prueba con el SMTP que está en efecto en este
+     * nivel (el de la empresa, el de la plataforma o el del servidor): lo mismo que usarán la
+     * contraseña temporal, los avisos y las alertas. Solo SuperAdmin (administra el SMTP).
+     */
+    public function testMail(Request $request, AuditLogger $audit): JsonResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403);
+        $to = $request->validate(['email' => ['nullable', 'email', 'max:255']], ['email.email' => 'Escribe un correo válido.'])['email']
+            ?? $request->user()->email;
+
+        $tenant = $this->tenantContext->getOrNull();
+        $smtp = TenantSetting::forTenant($tenant)->smtp();
+        if (! $smtp && in_array(config('mail.default'), ['log', 'array'], true)) {
+            return response()->json(['ok' => false, 'status' => null, 'ms' => 0,
+                'error' => 'No hay un servidor SMTP configurado y el servidor está en modo «' . config('mail.default') . '» (MAIL_MAILER): los correos no salen. Completa Servidor, Puerto, Usuario y Contraseña de aplicación, guarda y vuelve a probar.']);
+        }
+
+        $started = microtime(true);
+        try {
+            $mailer = config('mail.default');
+            if ($smtp) {
+                $mailer = 'tenant_smtp_test_' . ($tenant?->id ?? 'platform');
+                config(["mail.mailers.{$mailer}" => $smtp]);
+                app('mail.manager')->purge($mailer); // usa los datos recién guardados
+            }
+            $from = $smtp['from'] ?? config('mail.from');
+            \Illuminate\Support\Facades\Mail::mailer($mailer)->raw(
+                'Correo de prueba de ' . ($tenant?->company_name ?? 'la plataforma') . '. Si lo recibes, el envío de correos funciona: contraseñas temporales, avisos y alertas saldrán por aquí.',
+                fn ($m) => $m->to($to)->from($from['address'], $from['name'] ?? null)->subject('Correo de prueba')
+            );
+            $result = ['ok' => true, 'status' => null, 'ms' => (int) round((microtime(true) - $started) * 1000), 'error' => null,
+                'message' => "Enviado a {$to}. Revisa la bandeja de entrada (y spam)."];
+        } catch (Throwable $e) {
+            Log::warning('Falló el correo de prueba: ' . $e->getMessage());
+            $result = ['ok' => false, 'status' => null, 'ms' => (int) round((microtime(true) - $started) * 1000),
+                'error' => 'No se pudo enviar: ' . Str::limit($e->getMessage(), 300) . ' Revisa servidor, puerto, cifrado, usuario y contraseña de aplicación.'];
+        }
+
+        $audit->log('mail.tested', $request->user(), array_filter(['to' => $to, 'sent' => $result['ok'], 'error' => $result['error']], fn ($v) => $v !== null));
+
+        return response()->json($result);
     }
 
     /**

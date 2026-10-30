@@ -13,7 +13,8 @@ const pretty = (text) => {
         <div class="d-flex flex-wrap align-items-center gap-2">
             <i class="bi" :class="result.ok ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'"></i>
             <span v-if="result.status" class="badge" :class="`text-bg-${tone(result.status)}`">HTTP {{ result.status }}</span>
-            <span v-else class="badge text-bg-secondary">Sin respuesta</span>
+            <span v-else-if="result.message" class="small">{{ result.message }}</span>
+            <span v-else-if="!result.error" class="badge text-bg-secondary">Sin respuesta</span>
             <span v-if="result.ms" class="small text-body-secondary">{{ result.ms }} ms</span>
             <span v-if="result.signed === false" class="small text-body-secondary">(sin firma: no hay secreto)</span>
         </div>

@@ -46,6 +46,7 @@ final class Labels
         'integration.webhook_tested'         => ['Prueba de integración enviada', 'info', 'plug'],
         'integration.webhook_secret_regenerated' => ['Secreto del webhook regenerado', 'warning', 'key'],
         'push.tested'                        => ['Notificación push de prueba', 'info', 'phone-vibrate'],
+        'mail.tested'                        => ['Correo de prueba (SMTP)', 'info', 'envelope'],
 
         // Empresas (Super Admin)
         'tenant.created'                     => ['Empresa creada', 'success', 'building-add'],

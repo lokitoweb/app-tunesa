@@ -25,6 +25,7 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
                 Route::post('/test-webhook', [IntegrationsWebController::class, 'testWebhook'])->name('.test-webhook');
                 Route::post('/test-notification', [IntegrationsWebController::class, 'testNotification'])->name('.test-notification');
                 Route::post('/test-push', [IntegrationsWebController::class, 'testPush'])->name('.test-push');
+                Route::post('/test-mail', [IntegrationsWebController::class, 'testMail'])->name('.test-mail');
             });
             Route::post('/regenerate-webhook-secret', [IntegrationsWebController::class, 'regenerateWebhookSecret'])
                 ->middleware('throttle:10,1')->name('.regenerate-webhook-secret');
