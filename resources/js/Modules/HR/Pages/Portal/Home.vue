@@ -15,7 +15,8 @@ const page = usePage();
 const person = computed(() => page.props.portal?.person || {});
 const sections = computed(() => page.props.portal || {});
 const hour = new Date().getHours();
-const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
+// Igual que el Dashboard: de madrugada todavía es "buenas noches"
+const greeting = hour >= 6 && hour < 12 ? 'Buenos días' : hour >= 12 && hour < 19 ? 'Buenas tardes' : 'Buenas noches';
 const longDate = computed(() => {
     const text = new Date(`${props.today}T12:00:00`).toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
     return text.charAt(0).toUpperCase() + text.slice(1);
@@ -70,7 +71,7 @@ const shortcuts = computed(() => [
             <div class="card-body p-3 p-md-4">
                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                     <h2 class="h6 fw-bold mb-0">Mis marcas de hoy</h2>
-                    <span class="badge rounded-pill text-bg-light border">{{ done }} de 4</span>
+                    <span class="status-pill" :class="done === 4 ? 'tone-emerald' : 'tone-neutral'">{{ done }} de 4</span>
                 </div>
 
                 <div v-if="contingency" class="alert alert-warning d-flex gap-2 align-items-start py-2 small">
@@ -122,21 +123,24 @@ const shortcuts = computed(() => [
 .portal-hero-shift { display: flex; align-items: center; gap: .6rem; padding: .6rem .9rem; border-radius: 12px; background: rgba(255, 255, 255, .16); backdrop-filter: blur(4px); }
 .portal-hero-shift i { font-size: 1.25rem; }
 .punch-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
-.punch { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .35rem; padding: 1rem .5rem; border-radius: 14px;
-    border: 1px solid var(--bs-border-color-translucent); background: var(--bs-body-bg); }
+.punch { display: flex; flex-direction: column; align-items: center; text-align: center; gap: .35rem; padding: 1rem .5rem; border-radius: var(--radius-md);
+    border: 1px solid var(--border-color); background: var(--bg-surface); transition: border-color var(--dur-2) var(--ease-out), background-color var(--dur-2) var(--ease-out); }
 .punch-icon { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem;
-    background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
-.punch-label { font-size: .85rem; color: var(--bs-secondary-color); }
-.punch-time { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--bs-tertiary-color); }
+    background: var(--bg-surface-elevated); color: var(--text-muted); }
+.punch-label { font-size: .82rem; font-weight: 600; color: var(--text-secondary); }
+.punch-time { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .punch.is-done { border-color: rgba(var(--bs-success-rgb), .35); background: rgba(var(--bs-success-rgb), .05); }
 .punch.is-done .punch-icon { background: rgba(var(--bs-success-rgb), .15); color: var(--bs-success); }
 .punch.is-done .punch-time { color: var(--bs-success); }
 .punch.is-next { border: 2px solid var(--brand); }
 .punch.is-next .punch-icon { background: rgba(var(--brand-rgb), .12); color: var(--brand); }
-.punch-btn { background: var(--brand); color: #fff; border-radius: 10px; font-weight: 600; width: 100%; }
-.punch-btn:hover { filter: brightness(.95); color: #fff; }
-.portal-shortcut { transition: transform .15s, box-shadow .15s; }
-.portal-shortcut:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(15, 23, 42, .08); }
+.punch-btn { background: var(--brand); color: var(--brand-text, #fff); border-radius: var(--radius-sm); font-weight: 600; width: 100%; min-height: 38px; }
+.punch-btn:hover { filter: brightness(.95); color: var(--brand-text, #fff); }
+.portal-shortcut { transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.portal-shortcut:hover { border-color: rgba(var(--brand-rgb), .35) !important; box-shadow: var(--shadow-sm) !important; }
+.portal-shortcut:active { transform: scale(.99); }
+.portal-shortcut:hover .bi-chevron-right { color: var(--brand) !important; translate: 2px 0; }
+.portal-shortcut .bi-chevron-right { transition: translate var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out); }
 .portal-shortcut-icon { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.25rem;
     background: rgba(var(--brand-rgb), .1); color: var(--brand); flex-shrink: 0; }
 @media (max-width: 767.98px) {

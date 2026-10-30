@@ -7,16 +7,23 @@ defineProps({ payslips: { type: Array, default: () => [] } });
 <template>
     <PortalLayout title="Mis boletas">
         <h1 class="portal-title">Mis boletas</h1>
-        <div class="card shadow-sm">
-            <ul class="list-group list-group-flush">
-                <li v-for="p in payslips" :key="p.id" class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <div>
-                        <div class="fw-semibold text-capitalize">{{ p.period_label }}</div>
-                        <div class="small text-body-secondary">{{ p.title }}<span v-if="!p.is_read" class="badge bg-primary-subtle text-primary-emphasis ms-2">Nueva</span></div>
+        <div class="card">
+            <ul class="list-plain">
+                <li v-for="p in payslips" :key="p.id" class="list-plain-item flex-wrap">
+                    <span class="list-plain-icon"><i class="bi bi-file-earmark-text"></i></span>
+                    <div class="min-w-0 flex-grow-1">
+                        <div class="cell-title text-capitalize">{{ p.period_label }} <span v-if="!p.is_read" class="status-pill tone-brand ms-1">Nueva</span></div>
+                        <div class="cell-sub">{{ p.title }}</div>
                     </div>
-                    <a :href="`/mi-espacio/boletas/${p.id}/descargar`" class="btn btn-sm btn-outline-primary"><i class="bi bi-download me-1"></i>Descargar PDF</a>
+                    <a :href="`/mi-espacio/boletas/${p.id}/descargar`" class="btn btn-sm btn-light border"><i class="bi bi-download me-1"></i>Descargar PDF</a>
                 </li>
-                <li v-if="!payslips.length" class="list-group-item text-center text-body-secondary py-4">Aún no tienes boletas publicadas.</li>
+                <li v-if="!payslips.length">
+                    <div class="dash-empty">
+                        <span class="dash-empty-icon"><i class="bi bi-file-earmark-text"></i></span>
+                        <p class="dash-empty-title">Aún no tienes boletas publicadas</p>
+                        <p class="dash-empty-text">Cuando la empresa publique tu boleta aparecerá aquí.</p>
+                    </div>
+                </li>
             </ul>
         </div>
     </PortalLayout>

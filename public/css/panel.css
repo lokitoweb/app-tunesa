@@ -10680,3 +10680,11 @@ a:focus-visible, [role="button"]:focus-visible, .nav-link:focus-visible, .dropdo
 .st-section { margin: 1.25rem 0 0.6rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: 0.78rem; font-weight: 700; color: var(--text-primary); }
 .st-table .st-subtotal > td { font-weight: 700; background: var(--bg-surface-elevated); }
 .st-table tfoot .st-total > td { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); border-top: 2px solid var(--border-color-light); }
+
+/* Portal: resumen del mes en una fila compacta */
+.portal-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .5rem; }
+.portal-stat { display: flex; flex-direction: column; gap: .15rem; padding: .7rem .8rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.portal-stat .dash-dot { margin: 0 0 .15rem; }
+.portal-stat-label { font-size: .72rem; font-weight: 600; color: var(--text-muted); }
+.portal-stat-value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-primary); line-height: 1.1; }
+@media (max-width: 575.98px) { .portal-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
