@@ -62,7 +62,20 @@ class TenantSetting extends Model
         'self_password_change'    => true,
         // Correo de acceso de los colaboradores: [DNI]@dominio
         'login_email_domain'      => null,   // defaults(): LOGIN_EMAIL_DOMAIN o el dominio de la instalación
+        // Fondo del login: segundos de cada imagen
+        'login_slide_seconds'     => 8,
     ];
+
+    /**
+     * Fondos del login si nadie cargó los suyos. Fotos de Unsplash (licencia libre, uso
+     * comercial sin atribución): QVVHV24DA_o, URcajvag5PY, pt0nGH-NvoA, fllxjm9v_eE.
+     */
+    public const DEFAULT_LOGIN_BACKGROUNDS = [
+        'img/antigravity-bg.jpg', 'img/login/oficina-2.webp', 'img/login/oficina-3.webp', 'img/login/oficina-4.webp', 'img/login/oficina-5.webp',
+    ];
+
+    /** Máximo de fondos del login por plataforma o empresa */
+    public const MAX_LOGIN_BACKGROUNDS = 8;
 
     public const MOCK_LOCATION_POLICIES = ['reject', 'flag'];
 
@@ -70,7 +83,7 @@ class TenantSetting extends Model
 
     /** Columnas de configuración editables (NULL = heredar) */
     public const SETTING_FIELDS = [
-        'trade_name', 'contact_email', 'contact_phone', 'website', 'address', 'login_email_domain',
+        'trade_name', 'contact_email', 'contact_phone', 'website', 'address', 'login_email_domain', 'login_slide_seconds',
         'accent_color', 'navbar_color',
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
@@ -113,7 +126,7 @@ class TenantSetting extends Model
 
     protected $fillable = [
         'tenant_id', 'updated_by',
-        'trade_name', 'logo_path', 'logo_dark_path', 'favicon_path', 'splash_path',
+        'trade_name', 'logo_path', 'logo_dark_path', 'favicon_path', 'splash_path', 'login_backgrounds', 'login_slide_seconds',
         'contact_email', 'contact_phone', 'website', 'address', 'login_email_domain',
         'primary_color', 'secondary_color', 'accent_color', 'navbar_color',
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
@@ -155,6 +168,8 @@ class TenantSetting extends Model
         'fcm_enabled'             => 'boolean',
         'self_password_change'    => 'boolean',
         'max_time_drift_seconds'  => 'integer',
+        'login_backgrounds'       => 'array',
+        'login_slide_seconds'     => 'integer',
     ];
 
     /** Monto de la asignación familiar: % de la remuneración mínima (Regímenes laborales) */
@@ -536,6 +551,22 @@ class TenantSetting extends Model
     public function splashUrl(): ?string
     {
         return self::publicUrl($this->splash_path);
+    }
+
+    /** Fondos del login en orden: los de la empresa, si no los de la plataforma, si no los incluidos */
+    public function loginBackgroundUrls(): array
+    {
+        $paths = array_values(array_filter((array) $this->login_backgrounds));
+
+        return $paths
+            ? array_map(fn (string $p) => self::publicUrl($p), $paths)
+            : array_map(fn (string $p) => asset($p), self::DEFAULT_LOGIN_BACKGROUNDS);
+    }
+
+    /** Segundos que se muestra cada fondo del login (4 a 30) */
+    public function loginSlideSeconds(): int
+    {
+        return max(4, min(30, (int) ($this->login_slide_seconds ?: self::DEFAULTS['login_slide_seconds'])));
     }
 
     /**

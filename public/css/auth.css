@@ -872,3 +872,47 @@ html, body {
     }
 }
 
+
+/* -----------------------------------------------------------------------------
+ * Fondos del login: fundido entre imágenes con un acercamiento lento (administrables
+ * en Marca y app). Con "reducir movimiento" la primera queda fija.
+ * ----------------------------------------------------------------------------- */
+.auth-slides {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: #1f2937;
+}
+
+.auth-slide {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transition: opacity 1.8s ease-in-out;
+    will-change: opacity, transform;
+}
+
+.auth-slide.is-active {
+    opacity: 1;
+    animation: auth-slide-zoom var(--slide-ms, 9800ms) linear forwards;
+}
+
+/* La que sale se desvanece desde donde quedó su acercamiento, sin saltos */
+.auth-slide.is-leaving {
+    opacity: 0;
+    transform: scale(1.07);
+}
+
+@keyframes auth-slide-zoom {
+    from { transform: scale(1); }
+    to   { transform: scale(1.07); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-slide { transition: none; }
+    .auth-slide.is-active { animation: none; }
+}

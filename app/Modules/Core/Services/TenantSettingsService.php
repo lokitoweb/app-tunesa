@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -170,6 +171,12 @@ class TenantSettingsService
             'remove_logo_dark' => ['sometimes', 'boolean'],
             'remove_favicon'   => ['sometimes', 'boolean'],
             'remove_splash'    => ['sometimes', 'boolean'],
+            // Fondos del login: se agregan, se quitan y se elige cuántos segundos dura cada uno
+            'login_backgrounds_add'      => ['sometimes', 'array', 'max:' . TenantSetting::MAX_LOGIN_BACKGROUNDS],
+            'login_backgrounds_add.*'    => ['file', 'image', 'mimes:png,jpg,jpeg,webp', 'max:6144', 'dimensions:min_width=1024,min_height=576'],
+            'remove_login_backgrounds'   => ['sometimes', 'array'],
+            'remove_login_backgrounds.*' => ['string', 'max:255'],
+            'login_slide_seconds'        => ['sometimes', 'nullable', 'integer', 'between:4,30'],
 
             'api_base_url'            => ['sometimes', 'nullable', 'url:https', 'max:255', 'not_regex:/\/api\/?$/i'],
             'min_supported_version'   => ['sometimes', 'nullable', 'string', 'max:40', self::SEMVER],
@@ -396,6 +403,8 @@ class TenantSettingsService
                 }
             }
 
+            $this->saveLoginBackgrounds($row, $request, $dir);
+
             if ($tenant && $tenantChanges) {
                 $tenant->fill($tenantChanges);
                 $changed = array_merge($changed, array_keys($tenant->getDirty()));
@@ -438,6 +447,8 @@ class TenantSettingsService
             'logo_dark_url'   => TenantSetting::publicUrl($row->logo_dark_path),
             'favicon_url'     => TenantSetting::publicUrl($row->favicon_path),
             'splash_url'      => TenantSetting::publicUrl($row->splash_path),
+            // Fondos propios de esta fila (ruta para quitarlos y URL para verlos)
+            'login_backgrounds' => array_map(fn (string $p) => ['path' => $p, 'url' => TenantSetting::publicUrl($p)], array_values(array_filter((array) $row->login_backgrounds))),
             'geofence_policy' => $tenant ? CompanyConfiguration::forTenantId($tenant->id)->geofence_policy : null,
             'webhook_secret'  => self::mask($row->webhook_secret),
             'maps_api_key'    => self::mask($row->maps_api_key),
@@ -469,6 +480,55 @@ class TenantSettingsService
         }
 
         return str_repeat('•', 8) . (mb_strlen($secret) > 8 ? mb_substr($secret, -4) : '');
+    }
+
+    /**
+     * Fondos del login: quita los marcados (solo de esta fila) y agrega los subidos,
+     * convertidos a WebP de hasta 1920 px de ancho para que el login cargue rápido.
+     * Sin ninguno la fila queda en NULL y hereda (plataforma o imágenes incluidas).
+     */
+    private function saveLoginBackgrounds(TenantSetting $row, Request $request, string $dir): void
+    {
+        if (! in_array('login_backgrounds', self::columns(), true)) {
+            return;
+        }
+        $current = array_values(array_filter((array) $row->login_backgrounds));
+        $remove  = array_intersect((array) $request->input('remove_login_backgrounds', []), $current);
+        $added   = array_filter((array) $request->file('login_backgrounds_add', []), fn ($f) => $f instanceof UploadedFile);
+        if (! $remove && ! $added) {
+            return;
+        }
+
+        $kept = array_values(array_diff($current, $remove));
+        if (count($kept) + count($added) > TenantSetting::MAX_LOGIN_BACKGROUNDS) {
+            throw ValidationException::withMessages(['login_backgrounds_add' => 'Puedes tener hasta ' . TenantSetting::MAX_LOGIN_BACKGROUNDS . ' fondos. Quita alguno antes de agregar más.']);
+        }
+
+        foreach ($remove as $path) {
+            $this->deleteFile($path);
+        }
+        foreach ($added as $file) {
+            $kept[] = $this->storeBackground($file, "{$dir}/login");
+        }
+        $row->login_backgrounds = $kept ?: null;
+    }
+
+    /** WebP de hasta 1920 px de ancho (calidad 80); si el servidor no tiene WebP, el archivo tal cual */
+    private function storeBackground(UploadedFile $file, string $dir): string
+    {
+        $source = @imagecreatefromstring((string) file_get_contents($file->getRealPath()));
+        if (! $source || ! function_exists('imagewebp')) {
+            return $file->store($dir, 'public');
+        }
+        if (imagesx($source) > 1920) {
+            $source = imagescale($source, 1920);
+        }
+        ob_start();
+        imagewebp($source, null, 80);
+        $path = $dir . '/' . Str::random(32) . '.webp';
+        Storage::disk('public')->put($path, (string) ob_get_clean());
+
+        return $path;
     }
 
     private function deleteFile(?string $path): void

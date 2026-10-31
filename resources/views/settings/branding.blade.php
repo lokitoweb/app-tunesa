@@ -143,6 +143,63 @@
                         </div>
                     </div>
 
+                    {{-- Fondo del inicio de sesión (se alternan con fundido) --}}
+                    @if($has('login_backgrounds'))
+                        @php
+                            $ownBackgrounds = $values['login_backgrounds'] ?? [];
+                            $shownBackgrounds = $ownBackgrounds ? array_column($ownBackgrounds, 'url') : $effective->loginBackgroundUrls();
+                            $bgError = $errors->first('login_backgrounds_add') ?: $errors->first('login_backgrounds_add.*') ?: $errors->first('login_slide_seconds');
+                        @endphp
+                        <div class="card border-0 shadow-sm branding-card">
+                            <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
+                                <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Fondo del inicio de sesión</h2>
+                                <small class="settings-helper-text">Las imágenes se alternan con un fundido suave. Usa fotos horizontales (1920×1080), sin texto.</small>
+                            </div>
+                            <div class="card-body p-3 pt-1">
+                                @unless($ownBackgrounds)
+                                    <div class="small text-secondary mb-2">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        {{ $isGlobal ? 'Se usan las imágenes incluidas.' : 'Se usan las de la plataforma.' }} Al subir las tuyas, las reemplazan.
+                                    </div>
+                                @endunless
+                                <div class="row g-2 mb-3">
+                                    @foreach($shownBackgrounds as $i => $bgUrl)
+                                        <div class="col-6 col-md-4">
+                                            <div class="position-relative rounded overflow-hidden border" style="aspect-ratio: 16 / 9;">
+                                                <img src="{{ $bgUrl }}" alt="Fondo {{ $i + 1 }}" loading="lazy" class="w-100 h-100" style="object-fit: cover;">
+                                                <span class="badge text-bg-dark position-absolute top-0 start-0 m-1">{{ $i + 1 }}</span>
+                                            </div>
+                                            @if($ownBackgrounds)
+                                                <div class="form-check mt-1">
+                                                    <input class="form-check-input" type="checkbox" name="remove_login_backgrounds[]" value="{{ $ownBackgrounds[$i]['path'] }}" id="remove_bg_{{ $i }}">
+                                                    <label class="form-check-label small text-danger" for="remove_bg_{{ $i }}"><i class="bi bi-trash3 me-1"></i>Quitar</label>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-8">
+                                        <label for="login_backgrounds_add" class="form-label small fw-semibold text-body mb-1">Agregar imágenes</label>
+                                        <input type="file" id="login_backgrounds_add" name="login_backgrounds_add[]" multiple accept="image/jpeg,image/png,image/webp"
+                                               class="form-control form-control-sm {{ $bgError && ! $errors->has('login_slide_seconds') ? 'is-invalid' : '' }}">
+                                        <small class="settings-helper-text d-block mt-1">JPG, PNG o WebP de al menos 1024 px de ancho, máx. 6 MB. Hasta {{ \App\Modules\Core\Models\TenantSetting::MAX_LOGIN_BACKGROUNDS }} en total; se optimizan solas.</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="login_slide_seconds" class="form-label small fw-semibold text-body mb-1">Segundos por imagen</label>
+                                        <input type="number" id="login_slide_seconds" name="login_slide_seconds" min="4" max="30" step="1"
+                                               value="{{ $stored('login_slide_seconds') }}" placeholder="{{ $isGlobal ? \App\Modules\Core\Models\TenantSetting::DEFAULTS['login_slide_seconds'] : $inherited->loginSlideSeconds() }}"
+                                               class="form-control form-control-sm font-monospace @error('login_slide_seconds') is-invalid @enderror">
+                                        <small class="settings-helper-text d-block mt-1">De 4 a 30. {{ $isGlobal ? 'Vacío: 8.' : 'Vacío: el de la plataforma.' }}</small>
+                                    </div>
+                                    @if($bgError)
+                                        <div class="col-12"><div class="invalid-feedback d-block">{{ $bgError }}</div></div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+
                     {{-- Datos de Contacto --}}
                     <div class="card border-0 shadow-sm branding-card">
                         <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
