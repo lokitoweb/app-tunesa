@@ -291,12 +291,10 @@
                     button.innerHTML = '<span class="erp-spinner" aria-hidden="true"></span><span class="btn-engraved-text">Verificando...</span>';
                 }
 
-                {{-- Página abierta hace rato (o restaurada con "Atrás"): su token CSRF pudo --}}
-                {{-- caducar junto con la sesión. Se pide uno vigente antes de enviar. --}}
-                if (tokenMayBeStale()) {
-                    e.preventDefault();
-                    refreshToken().finally(() => form.submit());
-                }
+                {{-- Siempre se pide un token vigente antes de enviar: la página pudo quedar abierta --}}
+                {{-- horas, volver con "Atrás" o restaurarse al reabrir el navegador (sin aviso de 419) --}}
+                e.preventDefault();
+                refreshToken().finally(() => form.submit());
             });
         }
 

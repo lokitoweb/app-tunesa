@@ -37,6 +37,11 @@ class SecurityHeaders
         if ($request->isSecure() && ! $response->headers->has('Strict-Transport-Security')) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
+        // Páginas de acceso: el navegador no las guarda; al reabrirlo o volver con "Atrás"
+        // pide una nueva, con su token CSRF vigente (sin el aviso de página caducada)
+        if ($request->isMethod('GET') && $request->routeIs('login', 'password.request', 'password.reset')) {
+            $response->headers->set('Cache-Control', 'no-store, private');
+        }
 
         return $response;
     }
