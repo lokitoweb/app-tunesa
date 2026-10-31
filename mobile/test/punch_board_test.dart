@@ -40,6 +40,27 @@ void main() {
     expect(PunchBoard.lockedReason(ClockAction.breakStart, done), 'Ya completaste tus marcaciones de hoy.');
   });
 
+  testWidgets('horario partido: la pausa se llama fin del 1.er tramo e inicio del 2.º', (tester) async {
+    final schedule = DaySchedule(
+        date: DateTime(2026, 10, 10), isWorkday: true, start: '08:00', end: '22:00', breakStart: '12:00', breakEnd: '18:00', split: true);
+    final status = TodayStatus(
+      attendance: _day(clockIn: eight, breakStart: '12:01', onBreak: true),
+      actions: const [ClockAction.breakEnd],
+      schedule: schedule,
+    );
+    expect(status.isSplit, isTrue);
+    expect(ClockAction.breakStart.labelFor(split: true), 'Terminar 1.er tramo');
+    expect(ClockAction.breakEnd.labelFor(split: true), 'Iniciar 2.º tramo');
+    expect(ClockAction.breakEnd.labelFor(split: false), ClockAction.breakEnd.label);
+    expect(PunchBoard.lockedReason(ClockAction.clockOut, status), 'Marca el inicio de tu 2.º tramo para continuar.');
+
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PunchBoard(status: status, onPunch: (_) {}))));
+    for (final label in ['Entrada', 'Fin 1.er tramo', 'Inicio 2.º tramo', 'Salida']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.text('Inicio break'), findsNothing);
+  });
+
   testWidgets('muestra las cuatro marcaciones con su hora y solo abre la disponible', (tester) async {
     final opened = <ClockAction>[];
     final status = TodayStatus(

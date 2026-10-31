@@ -36,6 +36,7 @@ const form = useForm({
     // QA3-04: horas fijas del refrigerio (vacías = 2 marcaciones)
     break_start_time: props.shift.break_start_time || '',
     break_end_time: props.shift.break_end_time || '',
+    split_shift: !!props.shift.split_shift,
     working_days: Array.isArray(props.shift.working_days) ? [...props.shift.working_days] : [1, 2, 3, 4, 5],
     profile: props.shift.profile ?? '',
     day_schedules: emptyDays(props.shift.day_schedules),
@@ -266,16 +267,27 @@ function submit() {
                     </div>
                     <template v-if="form.break_allowed">
                         <div class="col-6 col-md-3">
-                            <label for="break_start_time" class="emp-form-label">Salida a refrigerio</label>
+                            <label for="break_start_time" class="emp-form-label">{{ form.split_shift ? 'Fin del 1.er tramo' : 'Salida a refrigerio' }}</label>
                             <input id="break_start_time" v-model="form.break_start_time" type="text" inputmode="numeric" maxlength="5" placeholder="13:00" class="emp-form-input font-monospace" :class="{ 'is-invalid': form.errors.break_start_time }" @blur="normalizeTime('break_start_time')">
                         </div>
                         <div class="col-6 col-md-3">
-                            <label for="break_end_time" class="emp-form-label">Retorno de refrigerio</label>
+                            <label for="break_end_time" class="emp-form-label">{{ form.split_shift ? 'Inicio del 2.º tramo' : 'Retorno de refrigerio' }}</label>
                             <input id="break_end_time" v-model="form.break_end_time" type="text" inputmode="numeric" maxlength="5" placeholder="14:00" class="emp-form-input font-monospace" :class="{ 'is-invalid': form.errors.break_end_time }" @blur="normalizeTime('break_end_time')">
                         </div>
                         <div v-if="!(form.break_start_time && form.break_end_time)" class="col-md-6">
                             <label for="break_duration_minutes" class="emp-form-label">Duración del descanso (minutos) *</label>
                             <input id="break_duration_minutes" v-model="form.break_duration_minutes" type="number" min="0" max="480" class="emp-form-input font-monospace" :class="{ 'is-invalid': form.errors.break_duration_minutes }" required>
+                        </div>
+                        <div v-if="form.break_start_time && form.break_end_time" class="col-md-6">
+                            <div class="emp-switch-box d-flex align-items-center justify-content-between">
+                                <div>
+                                    <div class="fw-semibold text-body" style="font-size: 0.825rem;">Horario partido (dos tramos)</div>
+                                    <div class="small text-muted" style="font-size: 0.725rem;">Ej.: 08:00–12:00 y 18:00–22:00. En la app se marca fin del 1.er tramo e inicio del 2.º</div>
+                                </div>
+                                <div class="form-check form-switch mb-0">
+                                    <input id="split_shift" v-model="form.split_shift" class="form-check-input emp-custom-switch" type="checkbox" role="switch">
+                                </div>
+                            </div>
                         </div>
                         <div class="col-12">
                             <div v-if="form.errors.break_start_time || form.errors.break_end_time" class="invalid-feedback d-block">{{ form.errors.break_start_time || form.errors.break_end_time }}</div>

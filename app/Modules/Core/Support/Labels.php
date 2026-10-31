@@ -495,6 +495,7 @@ final class Labels
         'break_duration_minutes'  => 'Duración del descanso (min)',
         'break_start_time'        => 'Salida a refrigerio',
         'break_end_time'          => 'Retorno de refrigerio',
+        'split_shift'             => 'Horario partido',
         'working_days'            => 'Días laborables',
         'day_schedules'           => 'Horario por día',
         'daily_hours'             => 'Horas por día',

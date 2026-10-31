@@ -79,6 +79,27 @@ void main() {
       expect(find.text('Sin horario programado'), findsOneWidget);
     });
 
+    testWidgets('horario partido: muestra los dos tramos y lee el JSON de /schedule', (tester) async {
+      final split = DaySchedule.fromJson({
+        'date': '2026-10-26',
+        'is_workday': true,
+        'shift': {'name': 'VTA', 'start_time': '08:00', 'end_time': '22:00', 'break_start_time': '12:00', 'break_end_time': '18:00', 'split': true},
+      });
+      expect(split.split, isTrue);
+      expect(split.hoursLabel, '08:00 am – 12:00 pm · 06:00 pm – 10:00 pm');
+
+      await _pump(tester, split);
+      expect(find.text('08:00 am – 12:00 pm · 06:00 pm – 10:00 pm'), findsOneWidget);
+
+      // Refrigerio fijo (no partido): se sigue viendo entrada – salida
+      final lunch = DaySchedule.fromJson({
+        'date': '2026-10-26',
+        'is_workday': true,
+        'shift': {'start_time': '08:00', 'end_time': '17:00', 'break_start_time': '13:00', 'break_end_time': '14:00', 'split': false},
+      });
+      expect(lunch.hoursLabel, '08:00 am – 05:00 pm');
+    });
+
     testWidgets('pantalla angosta y texto grande: no se desborda', (tester) async {
       tester.view.physicalSize = const Size(320 * 2, 640 * 2);
       tester.view.devicePixelRatio = 2;

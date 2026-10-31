@@ -40,6 +40,7 @@ class Shift extends Model
         'break_duration_minutes',
         'break_start_time',
         'break_end_time',
+        'split_shift',
         'working_days',
         'day_schedules',
         'rotation_work_days',
@@ -55,6 +56,7 @@ class Shift extends Model
         'day_schedules'          => 'array',
         'crosses_midnight'       => 'boolean',
         'break_allowed'          => 'boolean',
+        'split_shift'            => 'boolean',
         'is_active'              => 'boolean',
         'daily_hours'            => 'decimal:2',
         'rotation_work_days'     => 'integer',
@@ -117,10 +119,20 @@ class Shift extends Model
         return (bool) $this->break_allowed && filled($this->break_start_time) && filled($this->break_end_time);
     }
 
-    /** "08:00 · 13:00 · 14:00 · 17:00" (4 marcaciones) o "08:00–17:00" (2 marcaciones) */
+    /** Horario partido: la pausa fija separa dos tramos de trabajo (08:00–12:00 y 18:00–22:00) */
+    public function isSplit(): bool
+    {
+        return (bool) $this->split_shift && $this->hasBreakWindow();
+    }
+
+    /** "08:00 · 13:00 · 14:00 · 17:00" (4 marcaciones), "08:00–12:00 · 18:00–22:00" (partido) o "08:00–17:00" (2 marcaciones) */
     public function timesLabel(): string
     {
         $hm = fn ($t) => substr((string) $t, 0, 5);
+
+        if ($this->isSplit()) {
+            return $hm($this->start_time) . '–' . $hm($this->break_start_time) . ' · ' . $hm($this->break_end_time) . '–' . $hm($this->end_time);
+        }
 
         return $this->hasBreakWindow()
             ? implode(' · ', [$hm($this->start_time), $hm($this->break_start_time), $hm($this->break_end_time), $hm($this->end_time)])

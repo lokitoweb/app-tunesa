@@ -97,6 +97,10 @@ class AttendanceController extends Controller
     public static function successMessage(PunchResult $result): string
     {
         $a = $result->attendance;
+        // Horario partido: la pausa separa dos tramos de trabajo, no es un descanso
+        if ($a->shift?->forDate($a->work_date)->isSplit() && in_array($result->punch->type, ['break_start', 'break_end'], true)) {
+            return $result->punch->type === 'break_start' ? '✅ Fin del 1.er tramo registrado.' : '✅ Inicio del 2.º tramo registrado.';
+        }
 
         return match ($result->punch->type) {
             'clock_in'    => $a->clock_in_within_geofence

@@ -103,6 +103,7 @@ class ShiftWebController extends Controller
             'break_duration_minutes' => $shift->break_duration_minutes,
             'break_start_time'       => $shift->break_start_time ? substr((string) $shift->break_start_time, 0, 5) : null,
             'break_end_time'         => $shift->break_end_time ? substr((string) $shift->break_end_time, 0, 5) : null,
+            'split_shift'            => (bool) $shift->split_shift,
             'working_days'           => $shift->working_days ?? [],
             // Objeto (no lista) aunque esté vacío: el formulario lo indexa por día
             'day_schedules'          => (object) ($shift->day_schedules ?? []),
@@ -245,6 +246,7 @@ class ShiftWebController extends Controller
             // QA3-04: horas fijas del refrigerio (4 marcaciones). Las dos o ninguna (2 marcaciones)
             'break_start_time'       => ['nullable', 'date_format:H:i', 'required_with:break_end_time'],
             'break_end_time'         => ['nullable', 'date_format:H:i', 'required_with:break_start_time'],
+            'split_shift'            => ['nullable', 'boolean'],
             'working_days'           => [$rotating ? 'nullable' : 'required', 'array'],
             'working_days.*'         => ['integer', 'between:0,6'],
             'day_schedules'                          => ['nullable', 'array'],
@@ -282,9 +284,12 @@ class ShiftWebController extends Controller
             }
             $data['break_allowed'] = true;
             $data['break_duration_minutes'] = $minutes;
+            $data['split_shift'] = $request->boolean('split_shift');
         } else {
             $data['break_start_time'] = null;
             $data['break_end_time'] = null;
+            // Partido solo con las horas de la pausa
+            $data['split_shift'] = false;
         }
 
         // Sin el campo en la petición se conserva lo guardado

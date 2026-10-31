@@ -16,6 +16,13 @@ enum ClockAction {
   final String label;
   final bool requiresSelfie;
 
+  /// En horario partido la pausa separa dos tramos de trabajo: no es un descanso.
+  String labelFor({required bool split}) => switch (this) {
+        ClockAction.breakStart when split => 'Terminar 1.er tramo',
+        ClockAction.breakEnd when split => 'Iniciar 2.º tramo',
+        _ => label,
+      };
+
   static ClockAction? fromApi(String? name) {
     for (final a in values) {
       if (a.apiName == name) return a;
@@ -121,14 +128,36 @@ class Attendance {
 
 /// Turno programado para un día (GET /schedule).
 class DaySchedule {
-  const DaySchedule({required this.date, required this.isWorkday, this.shiftName, this.start, this.end, this.branch});
+  const DaySchedule({
+    required this.date,
+    required this.isWorkday,
+    this.shiftName,
+    this.start,
+    this.end,
+    this.breakStart,
+    this.breakEnd,
+    this.split = false,
+    this.branch,
+  });
 
   final DateTime date;
   final bool isWorkday;
   final String? shiftName;
   final String? start;
   final String? end;
+
+  /// Horas fijas de la pausa (4 marcaciones); null si el horario solo pide duración.
+  final String? breakStart;
+  final String? breakEnd;
+
+  /// Horario partido: dos tramos de trabajo (08:00–12:00 y 18:00–22:00).
+  final bool split;
   final String? branch;
+
+  /// "08:00 am – 12:00 pm · 06:00 pm – 10:00 pm" si es partido; si no, entrada – salida.
+  String get hoursLabel => split && breakStart != null && breakEnd != null
+      ? '${Fmt.clock(start)} – ${Fmt.clock(breakStart)} · ${Fmt.clock(breakEnd)} – ${Fmt.clock(end)}'
+      : '${Fmt.clock(start)} – ${Fmt.clock(end)}';
 
   /// Rango de horas al final del nombre, p. ej. "(08:00-13:00)": la tarjeta ya muestra la hora
   static final _trailingRange = RegExp(r'\s*[\(\[]\s*\d{1,2}[:.]\d{2}\s*[-–a]+\s*\d{1,2}[:.]\d{2}\s*[\)\]]\s*$');
@@ -150,6 +179,9 @@ class DaySchedule {
       shiftName: shift?['name'] as String?,
       start: shift?['start_time'] as String?,
       end: shift?['end_time'] as String?,
+      breakStart: shift?['break_start_time'] as String?,
+      breakEnd: shift?['break_end_time'] as String?,
+      split: shift?['split'] == true,
       branch: json['branch'] as String?,
     );
   }
@@ -195,6 +227,9 @@ class TodayStatus {
   final Attendance? attendance;
   final List<ClockAction> actions;
   final DaySchedule? schedule;
+
+  /// Horario partido hoy: la pausa se nombra como fin e inicio de tramo.
+  bool get isSplit => schedule?.split == true;
 
   /// Motivo por el que hoy no se puede marcar entrada (día de descanso o sin
   /// programación y sin autorización de RR. HH.). null = puede marcar.

@@ -110,6 +110,42 @@ class FourPunchShiftTest extends TestCase
         $this->assertSame(1, Shift::count());
     }
 
+    /** Horario partido 08:00–12:00 y 18:00–22:00: se guarda desde el formulario, la app recibe los dos tramos y se pagan 8 h */
+    public function test_split_shift_has_two_segments_in_the_app_and_eight_hours(): void
+    {
+        $this->actingAs($this->hr)->post('/shifts', [
+            'branch_id' => $this->branch->id, 'name' => 'VTA-PARTIDO', 'color' => '#3C729E', 'type' => 'fixed', 'start_time' => '08:00', 'end_time' => '22:00',
+            'grace_period_minutes' => 10, 'break_allowed' => true, 'break_duration_minutes' => 60, 'daily_hours' => 8, 'working_days' => [0, 1, 2, 3, 4, 5, 6],
+            'is_active' => true, 'break_start_time' => '12:00', 'break_end_time' => '18:00', 'split_shift' => true,
+        ])->assertSessionHasNoErrors();
+        $shift = Shift::where('name', 'VTA-PARTIDO')->sole();
+        $this->assertTrue($shift->isSplit());
+        $this->assertSame(360, (int) $shift->break_duration_minutes);
+        $this->assertSame('08:00–12:00 · 18:00–22:00', $shift->timesLabel());
+        EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'shift_id' => $shift->id,
+            'branch_id' => $this->branch->id, 'effective_from' => '2020-01-01', 'is_active' => true]);
+
+        $this->actingIn($this->emp, $this->acme)->getJson('/api/schedule?from=2026-11-02&to=2026-11-02')->assertOk()
+            ->assertJsonPath('data.0.shift.start_time', '08:00')->assertJsonPath('data.0.shift.break_start_time', '12:00')
+            ->assertJsonPath('data.0.shift.break_end_time', '18:00')->assertJsonPath('data.0.shift.end_time', '22:00')
+            ->assertJsonPath('data.0.shift.split', true);
+
+        $this->travelTo(Carbon::parse('2026-11-02 08:00:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->selfie())->assertCreated();
+        $this->travelTo(Carbon::parse('2026-11-02 12:00:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/break-start', $this->gps())->assertOk()
+            ->assertJsonPath('message', '✅ Fin del 1.er tramo registrado.');
+        $att = $this->day(null, null, '18:00', '22:00');
+        $this->assertEquals(8.0, (float) $att->worked_hours);
+        $this->assertSame(0, $att->break_late_minutes);
+        $this->assertFalse($att->punches_incomplete);
+        $this->assertSame('present', $att->status);
+
+        // Sin las horas de la pausa no puede ser partido
+        $shift->update(['break_start_time' => null, 'break_end_time' => null]);
+        $this->assertFalse($shift->fresh()->isSplit());
+    }
+
     /** T2: las 4 marcaciones en horario → horas netas 8:00 y sin avisos */
     public function test_t2_four_punches_on_time_give_eight_net_hours(): void
     {

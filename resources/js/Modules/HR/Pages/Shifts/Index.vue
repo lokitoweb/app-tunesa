@@ -46,7 +46,9 @@ const ownDays = (shift) => Object.entries(shift.day_schedules || {})
 
 // QA3-04: las 4 marcaciones si el horario fija el refrigerio; si no, entrada – salida
 const hasBreakWindow = (s) => s.break_allowed && s.break_start_time && s.break_end_time;
-const timesOf = (s) => (hasBreakWindow(s)
+const timesOf = (s) => (hasBreakWindow(s) && s.split_shift
+    ? `${hora(s.start_time)} – ${hora(s.break_start_time)} · ${hora(s.break_end_time)} – ${hora(s.end_time)}`
+    : hasBreakWindow(s)
     ? [s.start_time, s.break_start_time, s.break_end_time, s.end_time].map((t) => hora(t)).join(' · ')
     : `${hora(s.start_time)} – ${hora(s.end_time)}`);
 
@@ -102,6 +104,7 @@ const defaultShiftData = () => ({
     // QA3-04: horas fijas del refrigerio (vacías = 2 marcaciones)
     break_start_time: '',
     break_end_time: '',
+    split_shift: false,
     working_days: [1, 2, 3, 4, 5],
     rotation_work_days: 4,
     rotation_rest_days: 2,
@@ -166,6 +169,7 @@ function openEditModal(shift) {
     shiftForm.break_duration_minutes = shift.break_duration_minutes ?? 60;
     shiftForm.break_start_time = shift.break_start_time || '';
     shiftForm.break_end_time = shift.break_end_time || '';
+    shiftForm.split_shift = Boolean(shift.split_shift);
     shiftForm.working_days = Array.isArray(shift.working_days) ? [...shift.working_days] : [1, 2, 3, 4, 5];
     shiftForm.rotation_work_days = shift.rotation_work_days ?? 4;
     shiftForm.rotation_rest_days = shift.rotation_rest_days ?? 2;
@@ -637,14 +641,23 @@ async function destroy(shift) {
                                         <!-- QA3-04: con las dos horas el horario es de 4 marcaciones; sin ellas, de 2 (solo duración) -->
                                         <div class="row g-3 mb-2">
                                             <div class="col-6 col-md-4">
-                                                <label for="modal_break_start" class="form-label fw-semibold small text-dark mb-1.5">Salida a refrigerio</label>
+                                                <label for="modal_break_start" class="form-label fw-semibold small text-dark mb-1.5">{{ shiftForm.split_shift ? 'Fin del 1.er tramo' : 'Salida a refrigerio' }}</label>
                                                 <input id="modal_break_start" v-model="shiftForm.break_start_time" type="text" inputmode="numeric" maxlength="5" placeholder="13:00" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.break_start_time }" style="border-radius: 8px; height: 42px;" @blur="normalizeTime('break_start_time')">
                                             </div>
                                             <div class="col-6 col-md-4">
-                                                <label for="modal_break_end" class="form-label fw-semibold small text-dark mb-1.5">Retorno de refrigerio</label>
+                                                <label for="modal_break_end" class="form-label fw-semibold small text-dark mb-1.5">{{ shiftForm.split_shift ? 'Inicio del 2.º tramo' : 'Retorno de refrigerio' }}</label>
                                                 <input id="modal_break_end" v-model="shiftForm.break_end_time" type="text" inputmode="numeric" maxlength="5" placeholder="14:00" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.break_end_time }" style="border-radius: 8px; height: 42px;" @blur="normalizeTime('break_end_time')">
                                             </div>
                                             <div v-if="shiftForm.errors.break_start_time || shiftForm.errors.break_end_time" class="col-12 invalid-feedback d-block mt-0">{{ shiftForm.errors.break_start_time || shiftForm.errors.break_end_time }}</div>
+                                        </div>
+                                        <div v-if="shiftForm.break_start_time && shiftForm.break_end_time" class="d-flex align-items-center justify-content-between gap-3 mb-2">
+                                            <label for="modal_split_shift" class="mb-0">
+                                                <span class="fw-semibold small text-dark d-block">Horario partido (dos tramos)</span>
+                                                <span class="small text-secondary">Ej.: 08:00–12:00 y 18:00–22:00. En la app se marca fin del 1.er tramo e inicio del 2.º.</span>
+                                            </label>
+                                            <div class="form-check form-switch mb-0">
+                                                <input id="modal_split_shift" v-model="shiftForm.split_shift" class="form-check-input" type="checkbox" role="switch" style="width: 2.75em; height: 1.45em; cursor: pointer;">
+                                            </div>
                                         </div>
                                         <div class="form-text small text-secondary mb-3">
                                             Con las dos horas el horario pide <strong>4 marcaciones</strong> (entrada, salida a refrigerio, retorno y salida) y la duración se calcula sola.

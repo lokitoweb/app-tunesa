@@ -55,6 +55,9 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   /// Una selfie más vieja que esto ya no representa "el momento" de marcar.
   static const _maxShotAge = Duration(minutes: 5);
 
+  /// Nombre de la marcación; en horario partido la pausa es fin e inicio de tramo.
+  String get _label => widget.action.labelFor(split: ref.read(todayStatusProvider).value?.isSplit == true);
+
   /// Lectura de referencia (geocerca y dirección).
   LocationFix? _preview;
   LocationException? _locationError;
@@ -213,7 +216,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     setState(() => _cameraOpen = true);
     final shot = await Navigator.of(context).push<SelfieShot>(
       MaterialPageRoute(
-        builder: (_) => SelfieScreen(actionLabel: widget.action.label, onShutter: () => shotFix = _safeFix()),
+        builder: (_) => SelfieScreen(actionLabel: _label, onShutter: () => shotFix = _safeFix()),
         fullscreenDialog: true,
       ),
     );
@@ -463,7 +466,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     return PopScope(
       canPop: !_sending,
       child: Scaffold(
-        appBar: AppBar(title: Text(widget.action.label)),
+        appBar: AppBar(title: Text(_label)),
         body: SafeArea(
           child: Column(
             children: [
@@ -561,7 +564,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     required bool branchesLoading,
   }) {
     final hasShot = _selfie != null;
-    final label = widget.action.label.toLowerCase();
+    final label = _label.toLowerCase();
     final retake = _Action('Repetir selfie', Icons.camera_front_outlined, _takeSelfie);
 
     if (_sending) {
@@ -676,7 +679,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       return _Status(
         _Tone.info,
         Icons.fingerprint,
-        widget.action.label,
+        _label,
         'La selfie es opcional en esta marcación.',
         primary: _Action('Marcar sin selfie', Icons.fingerprint, _send),
         secondary: _Action('Tomar selfie', Icons.photo_camera_front_outlined, _takeSelfie),
@@ -687,7 +690,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     return _Status(
       hasShot ? _Tone.success : _Tone.info,
       Icons.fingerprint,
-      hasShot ? 'Selfie lista' : widget.action.label,
+      hasShot ? 'Selfie lista' : _label,
       near != null && near.inside ? 'Estás en ${near.branch.name}.' : 'Confirma para registrar tu marcación.',
       primary: _Action('Confirmar $label', Icons.check_rounded, _send),
       secondary: hasShot ? retake : null,

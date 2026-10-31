@@ -334,7 +334,7 @@ class ShiftCard extends StatelessWidget {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      works ? '${Fmt.clock(s.start)} – ${Fmt.clock(s.end)}' : 'Sin horario programado',
+                      works ? s.hoursLabel : 'Sin horario programado',
                       maxLines: 1,
                       softWrap: false,
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()]),

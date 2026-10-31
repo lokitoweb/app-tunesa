@@ -169,14 +169,19 @@ class ShiftController extends Controller
             $resolved = $schedules->resolve($assignments, $day, ScheduleResolver::LEGACY_FIRST_WORKING, userId: $me->id, tenantId: $me->tenant_id);
             $assignment = $resolved->works ? $resolved->assignment : null;
 
+            $shift = $assignment?->shift->forDate($day);
             $days[] = [
                 'date'       => $day->toDateString(),
                 'is_workday' => (bool) $assignment,
                 'shift'      => $assignment ? [
                     'id'         => $assignment->shift->id,
                     'name'       => $assignment->shift->name,
-                    'start_time' => substr($assignment->shift->forDate($day)->start_time, 0, 5),
-                    'end_time'   => substr($assignment->shift->forDate($day)->end_time, 0, 5),
+                    'start_time' => substr($shift->start_time, 0, 5),
+                    'end_time'   => substr($shift->end_time, 0, 5),
+                    // 4 marcaciones: horas fijas de la pausa; partido = dos tramos de trabajo
+                    'break_start_time' => $shift->hasBreakWindow() ? substr($shift->break_start_time, 0, 5) : null,
+                    'break_end_time'   => $shift->hasBreakWindow() ? substr($shift->break_end_time, 0, 5) : null,
+                    'split'            => $shift->isSplit(),
                     'color'      => $assignment->shift->color,
                 ] : null,
                 'branch'     => $assignment?->branch?->name,

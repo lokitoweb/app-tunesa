@@ -28,18 +28,22 @@ class PunchBoard extends StatelessWidget {
     if (status.isNotScheduled) return status.notScheduledMessage!;
     if (status.isDayComplete) return 'Ya completaste tus marcaciones de hoy.';
     if (a?.clockIn == null) return 'Primero marca tu hora de entrada.';
-    if (action == ClockAction.breakEnd && a?.breakStart == null) return 'Primero marca el inicio de tu break.';
-    if (a!.isOnBreak) return 'Marca el fin de tu break para continuar.';
-    if (action == ClockAction.breakStart) return 'Ya usaste tu break de hoy.';
+    final split = status.isSplit;
+    if (action == ClockAction.breakEnd && a?.breakStart == null) {
+      return split ? 'Primero marca el fin de tu 1.er tramo.' : 'Primero marca el inicio de tu break.';
+    }
+    if (a!.isOnBreak) return split ? 'Marca el inicio de tu 2.º tramo para continuar.' : 'Marca el fin de tu break para continuar.';
+    if (action == ClockAction.breakStart) return split ? 'Ya marcaste el fin de tu 1.er tramo.' : 'Ya usaste tu break de hoy.';
     return 'Esta marcación no está disponible en este momento.';
   }
 
-  static const _labels = {
-    ClockAction.clockIn: 'Entrada',
-    ClockAction.breakStart: 'Inicio break',
-    ClockAction.breakEnd: 'Fin break',
-    ClockAction.clockOut: 'Salida',
-  };
+  /// Nombre corto de cada casilla; en horario partido la pausa separa dos tramos.
+  static String labelOf(ClockAction action, {bool split = false}) => switch (action) {
+        ClockAction.clockIn => 'Entrada',
+        ClockAction.breakStart => split ? 'Fin 1.er tramo' : 'Inicio break',
+        ClockAction.breakEnd => split ? 'Inicio 2.º tramo' : 'Fin break',
+        ClockAction.clockOut => 'Salida',
+      };
 
   static const _icons = {
     ClockAction.clockIn: Icons.login_rounded,
@@ -51,7 +55,7 @@ class PunchBoard extends StatelessWidget {
   void _tap(BuildContext context, ClockAction action) {
     final time = timeOf(action, status.attendance);
     if (time != null) {
-      showSnack(context, 'Ya marcaste ${_labels[action]!.toLowerCase()} a las $time.');
+      showSnack(context, 'Ya marcaste ${labelOf(action, split: status.isSplit).toLowerCase()} a las $time.');
     } else if (status.actions.contains(action)) {
       onPunch(action);
     } else {
@@ -148,7 +152,7 @@ class PunchBoard extends StatelessWidget {
             Expanded(
               child: _PunchTile(
                 key: Key('punch-${action.apiName}'),
-                label: _labels[action]!,
+                label: labelOf(action, split: status.isSplit),
                 icon: _icons[action]!,
                 time: timeOf(action, a),
                 available: !status.isNotScheduled && status.actions.contains(action),
