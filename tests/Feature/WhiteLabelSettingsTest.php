@@ -502,4 +502,30 @@ class WhiteLabelSettingsTest extends TestCase
         TenantSetting::rowFor($acme)->update(['force_update' => false]);
         $this->actingIn($emp, $acme)->withHeader('X-App-Version', '1.0.0')->getJson('/api/attendance/today')->assertOk();
     }
+
+    public function test_latest_version_is_learned_from_the_newest_app_that_signs_in(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $emp  = $this->makeUser($acme);
+        TenantSetting::platform()->forceFill(['latest_version' => '1.5.1'])->save();
+
+        // Una app más vieja no cambia nada
+        $this->actingIn($emp, $acme)->withHeader('X-App-Version', '1.0.0')->getJson('/api/attendance/today')->assertOk();
+        $this->assertSame('1.5.1', TenantSetting::platform()->fresh()->latest_version);
+
+        // La primera app más nueva la actualiza en la plataforma; la empresa la hereda
+        $this->actingIn($emp, $acme)->withHeader('X-App-Version', '1.6.58+58')->getJson('/api/attendance/today')->assertOk();
+        $this->assertSame('1.6.58', TenantSetting::platform()->fresh()->latest_version);
+        $this->assertSame('1.6.58', TenantSetting::forTenant($acme)->mobile()['latest_version']);
+
+        // Una empresa con versión propia también se actualiza; formatos raros o sin sesión, no
+        $this->setRow($acme, ['latest_version' => '1.6.58']);
+        $this->actingIn($emp, $acme)->withHeader('X-App-Version', '1.6.60')->getJson('/api/attendance/today')->assertOk();
+        $this->assertSame('1.6.60', TenantSetting::rowFor($acme)->fresh()->latest_version);
+        $this->actingIn($emp, $acme)->withHeader('X-App-Version', '99.0.0-beta')->getJson('/api/attendance/today')->assertOk();
+        $this->assertSame('1.6.60', TenantSetting::platform()->fresh()->latest_version);
+        auth()->forgetGuards();
+        $this->withoutHeader('Authorization')->withHeaders(['X-Tenant-Slug' => 'acme', 'X-App-Version' => '9.9.9'])->getJson('/api/attendance/today')->assertUnauthorized();
+        $this->assertSame('1.6.60', TenantSetting::platform()->fresh()->latest_version);
+    }
 }

@@ -63,6 +63,8 @@ jobs:
       run:
         working-directory: mobile
     env:
+      # Versión automática: major.minor de pubspec.yaml + n.º de compilación (1.6.57); la app y el servidor la comparan
+      APP_BUILD_NUMBER: ${{ github.run_number }}
       ENV_NAME: ${{ inputs.environment || 'prod' }}
       BUILD_MODE: ${{ inputs.mode || 'release' }}
       API_BASE_URL: ${{ inputs.api_base_url || ((inputs.environment || 'prod') != 'prod' && vars.API_BASE_URL) || '' }}
@@ -175,6 +177,7 @@ jobs:
       run:
         working-directory: mobile
     env:
+      APP_BUILD_NUMBER: ${{ github.run_number }}
       ENV_NAME: ${{ inputs.environment || 'prod' }}
       API_BASE_URL: ${{ inputs.api_base_url || ((inputs.environment || 'prod') != 'prod' && vars.API_BASE_URL) || '' }}
       FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY || vars.FIREBASE_API_KEY }}
@@ -230,6 +233,9 @@ jobs:
           # El nombre de la app va en su propio archivo: con espacios no se puede pasar suelto
           EXTRA="--dart-define-from-file=branding/$(sed -n 's/.*"BRAND": *"\([^"]*\)".*/\1/p' "env/$ENV_NAME.json" | grep . || echo default)/brand.json"
           if [ -n "$API_BASE_URL" ]; then EXTRA="$EXTRA --dart-define=API_BASE_URL=$API_BASE_URL"; fi
+          # Misma versión automática que Android
+          BASE_VERSION=$(sed -n 's/^version: *\([0-9]*\.[0-9]*\)\..*/\1/p' pubspec.yaml)
+          EXTRA="$EXTRA --build-name=$BASE_VERSION.$APP_BUILD_NUMBER --build-number=$APP_BUILD_NUMBER"
           for VAR in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_IOS_APP_ID FIREBASE_IOS_BUNDLE_ID; do
             if [ -n "${!VAR}" ]; then EXTRA="$EXTRA --dart-define=$VAR=${!VAR}"; fi
           done

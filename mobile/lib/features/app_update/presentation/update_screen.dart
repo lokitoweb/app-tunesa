@@ -119,33 +119,60 @@ class UpdateBanner extends ConsumerWidget {
 
     final latest = ref.watch(appConfigProvider.select((s) => s.config.mobile.latestVersion));
     final updateUrl = ref.watch(appConfigProvider.select((s) => s.config.mobile.updateUrl));
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
 
-    return Material(
-      color: scheme.primaryContainer,
-      child: SafeArea(
-        bottom: false,
-        child: ListTile(
-          dense: true,
-          leading: Icon(Icons.system_update_rounded, color: scheme.onPrimaryContainer),
-          title: Text(
-            latest == null ? 'Hay una nueva versión de la app.' : 'Hay una nueva versión de la app ($latest).',
-            style: TextStyle(color: scheme.onPrimaryContainer),
-          ),
-          subtitle: Text('Actualízala cuando puedas.', style: TextStyle(color: scheme.onPrimaryContainer)),
-          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            if (updateUrl != null)
-              TextButton(
-                onPressed: () => openUpdateLink(context, updateUrl),
-                child: Text('Actualizar', style: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.w600)),
-              ),
-            IconButton(
-              tooltip: 'Cerrar',
-              icon: Icon(Icons.close, color: scheme.onPrimaryContainer),
-              onPressed: () => ref.read(updateBannerDismissedProvider.notifier).dismiss(),
-            ),
-          ]),
+    // Tarjeta flotante bajo la barra de estado: ícono, título, versión y botón
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        key: const Key('update-banner'),
+        margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+        decoration: BoxDecoration(
+          color: dark ? scheme.surfaceContainerHigh : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: scheme.primary.withValues(alpha: dark ? 0.35 : 0.18)),
+          boxShadow: dark ? null : [BoxShadow(color: scheme.primary.withValues(alpha: 0.12), blurRadius: 16, offset: const Offset(0, 6))],
         ),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(color: scheme.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+            child: Icon(Icons.rocket_launch_rounded, color: scheme.primary, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text('Nueva versión disponible', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 2),
+              Text(
+                latest == null ? 'Incluye mejoras y correcciones.' : 'Versión $latest con mejoras y correcciones.',
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ]),
+          ),
+          if (updateUrl != null) ...[
+            const SizedBox(width: 8),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => openUpdateLink(context, updateUrl),
+              child: const Text('Actualizar'),
+            ),
+          ],
+          IconButton(
+            tooltip: 'Ahora no',
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.close_rounded, color: scheme.onSurfaceVariant, size: 20),
+            onPressed: () => ref.read(updateBannerDismissedProvider.notifier).dismiss(),
+          ),
+        ]),
       ),
     );
   }

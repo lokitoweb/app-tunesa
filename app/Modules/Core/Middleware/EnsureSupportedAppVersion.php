@@ -25,7 +25,12 @@ class EnsureSupportedAppVersion
             return $next($request);
         }
 
-        $settings = TenantSetting::forTenant(app(\App\Modules\Core\Services\TenantContext::class)->getOrNull());
+        $tenant   = app(\App\Modules\Core\Services\TenantContext::class)->getOrNull();
+        $settings = TenantSetting::forTenant($tenant);
+        // Va antes de auth:sanctum: el token se verifica aquí con el guard de Sanctum
+        if (auth('sanctum')->user()) {
+            self::rememberNewerVersion($version, $settings, $tenant);
+        }
 
         if ($settings->force_update && $settings->isBelowMinimum($version)) {
             $mobile = $settings->mobile();
@@ -42,5 +47,31 @@ class EnsureSupportedAppVersion
         }
 
         return $next($request);
+    }
+
+    /**
+     * La versión más reciente se aprende sola: la primera vez que un usuario entra con una
+     * app más nueva que `latest_version`, se guarda (plataforma y, si la tiene propia, su
+     * empresa) y las apps más viejas ven el aviso de actualizar. Solo versiones X.Y.Z.
+     * ponytail: confía en el X-App-Version de un usuario con sesión; si alguien lo falsea, el
+     * administrador corrige la versión en Marca y app.
+     */
+    public static function rememberNewerVersion(string $version, TenantSetting $settings, ?\App\Modules\Core\Models\Tenant $tenant): void
+    {
+        $version = TenantSetting::normalizeVersion($version);
+        if (! preg_match('/^\d{1,3}\.\d{1,3}\.\d{1,6}$/', $version)
+            || version_compare($version, TenantSetting::normalizeVersion((string) ($settings->latest_version ?: '0.0.0')), '<=')) {
+            return;
+        }
+
+        foreach (array_filter([TenantSetting::editableRowFor(null), $tenant ? TenantSetting::rowFor($tenant) : null]) as $row) {
+            if ($row->tenant_id && blank($row->latest_version)) {
+                continue; // la empresa hereda la de la plataforma
+            }
+            if (version_compare($version, TenantSetting::normalizeVersion((string) ($row->latest_version ?: '0.0.0')), '>')) {
+                $row->forceFill(['latest_version' => $version])->save();
+            }
+        }
+        \Illuminate\Support\Facades\Log::info("App: versión más reciente detectada {$version}");
     }
 }

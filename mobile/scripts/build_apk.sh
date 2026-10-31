@@ -54,6 +54,12 @@ trap 'scripts/apply_brand.sh default >/dev/null' EXIT
 
 # Nombre de la app: brand.json del kit como segundo archivo de defines (APP_NAME)
 EXTRA_DEFINES=("--dart-define-from-file=branding/${BRAND}/brand.json")
+# En GitHub cada compilación sube la versión sola: major.minor de pubspec.yaml + n.º de compilación
+if [[ -n "${APP_BUILD_NUMBER:-}" ]]; then
+  BASE_VERSION=$(sed -n 's/^version: *\([0-9]*\.[0-9]*\)\..*/\1/p' pubspec.yaml)
+  EXTRA_DEFINES+=("--build-name=${BASE_VERSION}.${APP_BUILD_NUMBER}" "--build-number=${APP_BUILD_NUMBER}")
+  echo "Versión de la app: ${BASE_VERSION}.${APP_BUILD_NUMBER} (${APP_BUILD_NUMBER})"
+fi
 if [[ -n "${API_BASE_URL:-}" ]]; then
   EXTRA_DEFINES+=("--dart-define=API_BASE_URL=${API_BASE_URL}")
 fi
