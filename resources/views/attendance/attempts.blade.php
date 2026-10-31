@@ -8,7 +8,8 @@
    MÓDULO: INTENTOS DE MARCACIÓN RECHAZADOS (ATTENDANCE ATTEMPTS)
    UI/UX EJECUTIVO, MODERNO, EN UNA SOLA LÍNEA HORIZONTAL (MODO CLARO Y OSCURO)
    ========================================================================== */
-.attempts-module {
+.attempts-module,
+#attemptAuditModal {
     --att-bg: var(--bg-surface, #ffffff);
     --att-bg-subtle: var(--bg-surface-elevated, #f8fafc);
     --att-bg-elevated: #f1f5f9;
@@ -22,13 +23,18 @@
     --att-radius-xs: 6px;
     --att-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
     --att-shadow-hover: 0 6px 16px -2px rgba(0, 0, 0, 0.07), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+}
+
+/* El diálogo de auditoría vive fuera del módulo: comparte las variables, no el layout */
+.attempts-module {
     display: flex;
     flex-direction: column;
     gap: 1.15rem;
     max-width: 100%;
 }
 
-[data-bs-theme="dark"] .attempts-module {
+[data-bs-theme="dark"] .attempts-module,
+[data-bs-theme="dark"] #attemptAuditModal {
     --att-bg: #111622;
     --att-bg-subtle: #161d2d;
     --att-bg-elevated: #1a2234;
@@ -1335,7 +1341,7 @@
                         <tr>
                             {{-- 1. Colaborador --}}
                             <td>
-                                <div class="d-flex align-items-center gap-2.5">
+                                <div class="d-flex align-items-center gap-3">
                                     @if(!empty($a->user?->avatar_path))
                                         <img src="{{ asset('storage/' . $a->user->avatar_path) }}" alt="{{ $userFullName }}" class="attempts-avatar-img">
                                     @else
@@ -1547,7 +1553,7 @@
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content attempts-modal-content">
             <div class="modal-header" style="border-bottom: 1px solid var(--att-border); padding: 1.15rem 1.35rem;">
-                <div class="d-flex align-items-center gap-2.5">
+                <div class="d-flex align-items-center gap-3">
                     <span class="d-inline-flex align-items-center justify-content-center bg-danger-subtle text-danger" style="width: 38px; height: 38px; border-radius: 8px;">
                         <i class="bi bi-shield-shaded fs-5"></i>
                     </span>
@@ -1574,7 +1580,7 @@
                         <div id="auditAvatarContainer"></div>
                         <div class="min-w-0 flex-grow-1">
                             <div class="fw-bold fs-6 text-body" id="auditFullNameText"></div>
-                            <div class="text-body-secondary small mt-0.5 d-flex align-items-center gap-2 flex-wrap">
+                            <div class="text-body-secondary small mt-1 d-flex align-items-center gap-2 flex-wrap">
                                 <span>Código: <strong id="auditEmployeeCodeText"></strong></span>
                                 <span>·</span>
                                 <span>DNI: <strong id="auditDocumentNumberText"></strong></span>
@@ -1597,12 +1603,12 @@
                         <div class="col-md-6">
                             <div class="attempts-audit-label">Causa del rechazo</div>
                             <div id="auditReasonBadgeContainer" class="mb-1"></div>
-                            <div class="small text-body-secondary mt-1.5" id="auditMessageText" style="line-height: 1.45;"></div>
+                            <div class="small text-body-secondary mt-2" id="auditMessageText" style="line-height: 1.45;"></div>
                         </div>
                         <div class="col-md-6">
                             <div class="attempts-audit-label">Origen de la detección</div>
                             <div class="attempts-audit-value" id="auditSourceText"></div>
-                            <div class="attempts-audit-label mt-2.5">Marcación sin conexión (Offline)</div>
+                            <div class="attempts-audit-label mt-3">Marcación sin conexión (Offline)</div>
                             <div class="attempts-audit-value" id="auditOfflineText"></div>
                         </div>
                     </div>
@@ -1620,7 +1626,7 @@
                     <div class="row g-3 mb-3">
                         <div class="col-6 col-md-4">
                             <div class="attempts-audit-label">Distancia calculada</div>
-                            <div class="attempts-audit-value text-danger" id="auditDistanceText"></div>
+                            <div class="attempts-audit-value" id="auditDistanceText"></div>
                         </div>
                         <div class="col-6 col-md-4">
                             <div class="attempts-audit-label">Radio permitido</div>
@@ -2097,7 +2103,9 @@ function openAttemptAudit(data) {
         mockBadgeContainer.innerHTML = `<span class="attempts-pill bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i>GPS Auténtico</span>`;
     }
 
-    document.getElementById('auditDistanceText').textContent = data.distance_meters !== null ? `${data.distance_meters} metros` : 'No aplicable';
+    const distanceEl = document.getElementById('auditDistanceText');
+    distanceEl.textContent = data.distance_meters !== null ? `${data.distance_meters} metros` : 'No aplica';
+    distanceEl.classList.toggle('text-danger', data.distance_meters !== null && data.allowed_radius !== null && data.distance_meters > data.allowed_radius);
     document.getElementById('auditAllowedRadiusText').textContent = data.allowed_radius !== null ? `${data.allowed_radius} metros` : '—';
     document.getElementById('auditAccuracyText').textContent = data.accuracy_meters !== null ? `±${data.accuracy_meters} m` : 'No informada';
 
