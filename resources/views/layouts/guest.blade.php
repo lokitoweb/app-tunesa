@@ -106,9 +106,9 @@
     </div>
 
     <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+    {{-- Fondos del login: cambia cada N segundos con fundido; la siguiente imagen se descarga antes de mostrarse.
+         Con "reducir movimiento" o una sola imagen queda fija; se pausa con la pestaña oculta. --}}
     <script>
-        // Fondos del login: cambia cada N segundos con fundido; la siguiente imagen se descarga antes de mostrarse.
-        // Con "reducir movimiento" o una sola imagen queda fija; se pausa con la pestaña oculta.
         (() => {
             const box = document.querySelector('.auth-slides');
             const slides = box ? [...box.children] : [];

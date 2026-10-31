@@ -496,6 +496,8 @@ final class Labels
         'break_start_time'        => 'Salida a refrigerio',
         'break_end_time'          => 'Retorno de refrigerio',
         'split_shift'             => 'Horario partido',
+        'login_backgrounds'       => 'Fondos del inicio de sesión',
+        'login_slide_seconds'     => 'Segundos por fondo del inicio de sesión',
         'working_days'            => 'Días laborables',
         'day_schedules'           => 'Horario por día',
         'daily_hours'             => 'Horas por día',
