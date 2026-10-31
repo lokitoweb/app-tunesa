@@ -173,6 +173,9 @@
                                 @if($att->punches_incomplete)
                                     <span class="status-pill tone-rose" title="Horario de 4 marcaciones: faltó la salida o el retorno del refrigerio"><i class="bi bi-exclamation-circle"></i>Marcaciones incompletas</span>
                                 @endif
+                                @if($att->manual_edited_at)
+                                    <span class="status-pill tone-blue" title="Corregida a mano el {{ $att->manual_edited_at->format('d/m/Y h:i a') }}: {{ $att->manual_edit_reason }}"><i class="bi bi-pencil-square"></i>Corregida</span>
+                                @endif
                             </div>
                         </td>
                         <td>

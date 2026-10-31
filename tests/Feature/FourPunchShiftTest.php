@@ -146,6 +146,52 @@ class FourPunchShiftTest extends TestCase
         $this->assertFalse($shift->fresh()->isSplit());
     }
 
+    /** Olvidó el retorno del refrigerio: RR. HH. lo corrige con las 4 horas y todo se recalcula como en la app */
+    public function test_hr_corrects_a_forgotten_lunch_return_with_the_four_punches(): void
+    {
+        $this->assign(['break_start_time' => '13:00', 'break_end_time' => '14:00']);
+        $this->travelTo(Carbon::parse('2026-11-02 08:00:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->selfie())->assertCreated();
+        $this->travelTo(Carbon::parse('2026-11-02 13:00:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/break-start', $this->gps())->assertOk();
+        $this->travelTo(Carbon::parse('2026-11-02 18:00:00', 'America/Lima'));
+        $url = route('attendance.manual.update', ['id' => $this->emp->id, 'date' => '2026-11-02']);
+
+        // La pantalla muestra lo que marcó (entrada y salida a refrigerio) y el horario de cada marcación
+        $this->actingAs($this->hr)->get(route('attendance.manual.edit', ['id' => $this->emp->id, 'date' => '2026-11-02']))->assertOk()
+            ->assertSee('Salida refrigerio')->assertSee('Retorno refrigerio')->assertSee('Marcó 13:00')->assertSee('horario 14:00')
+            ->assertSee('value="08:00"', false)->assertSee('value="13:00"', false);
+
+        // Solo una hora del refrigerio, o fuera de orden: no se guarda
+        $this->actingAs($this->hr)->put($url, ['clock_in' => '08:00', 'break_start' => '13:00', 'clock_out' => '17:00', 'reason' => 'Olvidó marcar el retorno.'])
+            ->assertInvalid('break_end');
+        $this->actingAs($this->hr)->put($url, ['clock_in' => '08:00', 'break_start' => '13:00', 'break_end' => '14:20', 'clock_out' => '14:00', 'reason' => 'Olvidó marcar el retorno.'])
+            ->assertInvalid('clock_out');
+
+        $this->actingAs($this->hr)->put($url, [
+            'clock_in' => '08:00', 'break_start' => '13:00', 'break_end' => '14:20', 'clock_out' => '17:20', 'reason' => 'Olvidó marcar el retorno; confirmado por el supervisor.',
+        ])->assertValid();
+
+        $att = Attendance::where('user_id', $this->emp->id)->sole();
+        $this->assertSame(['13:00', '14:20', '17:20'], [$att->break_start_at->format('H:i'), $att->break_end_at->format('H:i'), $att->clock_out_at->format('H:i')]);
+        $this->assertSame(80, (int) $att->break_minutes);
+        $this->assertSame(20, (int) $att->break_late_minutes, 'retorno tardío con la tolerancia del turno');
+        $this->assertFalse($att->punches_incomplete);
+        $this->assertEquals(8.0, (float) $att->worked_hours, '9 h 20 min de jornada menos 80 min de refrigerio');
+        $this->assertSame('present', $att->status);
+        $this->assertNotNull($att->manual_edited_at);
+
+        // Marcaciones y GPS muestra las 4 horas y que fue corregida; queda en la bitácora con el antes y después
+        $this->actingAs($this->hr)->get('/attendance?start_date=2026-11-02&end_date=2026-11-02')->assertOk()->assertSee('Corregida');
+        $this->assertTrue(\App\Modules\Core\Models\AuditLog::where('action', 'attendance.manual_edit')->exists());
+
+        // Sin refrigerio en un horario de 4 marcaciones: queda como marcaciones incompletas (igual que en la app)
+        $this->actingAs($this->hr)->put($url, ['clock_in' => '08:00', 'break_start' => '', 'break_end' => '', 'clock_out' => '17:00', 'reason' => 'Se quitó el refrigerio por error.'])->assertValid();
+        $att->refresh();
+        $this->assertNull($att->break_start_at);
+        $this->assertTrue($att->punches_incomplete);
+    }
+
     /** T2: las 4 marcaciones en horario → horas netas 8:00 y sin avisos */
     public function test_t2_four_punches_on_time_give_eight_net_hours(): void
     {

@@ -48,45 +48,49 @@
                     @csrf
                     @method('PUT')
                     <div class="row g-3">
-                        <div class="col-6 col-md-4">
-                            <label for="clock_in" class="form-label small fw-semibold text-body mb-1.5">Entrada (24 h)</label>
-                            <div class="position-relative">
-                                <i class="bi bi-box-arrow-in-right position-absolute top-50 translate-middle-y text-secondary" style="left: 0.85rem; pointer-events: none; font-size: 0.95rem; z-index: 5;"></i>
-                                <input type="text" id="clock_in" name="clock_in" inputmode="numeric" pattern="([01]\d|2[0-3]):[0-5]\d" placeholder="08:00" maxlength="5"
-                                       value="{{ old('clock_in', $hhmm($a?->clock_in_at)) }}" 
-                                       class="form-control font-monospace @error('clock_in') is-invalid @enderror"
-                                       style="padding-left: 2.5rem; height: 42px; border-radius: 8px; border-color: var(--border-color); font-size: 0.9rem;">
+                        @php
+                            $hasWindow = (bool) $shift?->hasBreakWindow();
+                            $sched = fn ($t) => $t ? substr((string) $t, 0, 5) : null;
+                            // Las 4 marcaciones con lo registrado ese día y, debajo, la hora del horario
+                            $fields = [
+                                ['clock_in', 'Entrada', 'bi-box-arrow-in-right', $a?->clock_in_at, $sched($shift?->start_time)],
+                                ['break_start', 'Salida refrigerio', 'bi-cup-hot', $a?->break_start_at, $hasWindow ? $sched($shift->break_start_time) : null],
+                                ['break_end', 'Retorno refrigerio', 'bi-arrow-return-left', $a?->break_end_at, $hasWindow ? $sched($shift->break_end_time) : null],
+                                ['clock_out', 'Salida', 'bi-box-arrow-right', $a?->clock_out_at, $sched($shift?->end_time)],
+                            ];
+                        @endphp
+                        @foreach($fields as [$name, $label, $icon, $value, $planned])
+                            <div class="col-6 col-md-3">
+                                <label for="{{ $name }}" class="form-label small fw-semibold text-body mb-1 d-block text-truncate" title="{{ $label }}">{{ $label }}</label>
+                                <div class="position-relative">
+                                    <i class="bi {{ $icon }} position-absolute top-50 translate-middle-y text-secondary" style="left: 0.85rem; pointer-events: none; font-size: 0.95rem; z-index: 5;"></i>
+                                    <input type="text" id="{{ $name }}" name="{{ $name }}" inputmode="numeric" pattern="([01]\d|2[0-3]):[0-5]\d" placeholder="--:--" maxlength="5"
+                                           value="{{ old($name, $hhmm($value)) }}"
+                                           class="form-control font-monospace @error($name) is-invalid @enderror"
+                                           style="padding-left: 2.5rem; height: 42px; border-radius: 8px; border-color: var(--border-color); font-size: 0.9rem;">
+                                </div>
+                                <div class="text-secondary mt-1" style="font-size: 0.72rem;">
+                                    @if($value)
+                                        <i class="bi bi-check2-circle text-success"></i> Marcó {{ $hhmm($value) }}
+                                    @else
+                                        <i class="bi bi-dash-circle"></i> Sin marcar
+                                    @endif
+                                    @if($planned) · horario {{ $planned }} @endif
+                                </div>
+                                @error($name)<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                             </div>
-                            @error('clock_in')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                        </div>
-                        <div class="col-6 col-md-4">
-                            <label for="clock_out" class="form-label small fw-semibold text-body mb-1.5">Salida (24 h)</label>
-                            <div class="position-relative">
-                                <i class="bi bi-box-arrow-right position-absolute top-50 translate-middle-y text-secondary" style="left: 0.85rem; pointer-events: none; font-size: 0.95rem; z-index: 5;"></i>
-                                <input type="text" id="clock_out" name="clock_out" inputmode="numeric" pattern="([01]\d|2[0-3]):[0-5]\d" placeholder="17:00" maxlength="5"
-                                       value="{{ old('clock_out', $hhmm($a?->clock_out_at)) }}" 
-                                       class="form-control font-monospace @error('clock_out') is-invalid @enderror"
-                                       style="padding-left: 2.5rem; height: 42px; border-radius: 8px; border-color: var(--border-color); font-size: 0.9rem;">
-                            </div>
-                            @error('clock_out')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label for="break_minutes" class="form-label small fw-semibold text-body mb-1.5">Descanso tomado (min)</label>
-                            <div class="position-relative">
-                                <i class="bi bi-cup-hot position-absolute top-50 translate-middle-y text-secondary" style="left: 0.85rem; pointer-events: none; font-size: 0.95rem; z-index: 5;"></i>
-                                <input type="number" id="break_minutes" name="break_minutes" min="0" max="480"
-                                       value="{{ old('break_minutes', $a?->break_minutes) }}" 
-                                       class="form-control @error('break_minutes') is-invalid @enderror"
-                                       placeholder="0"
-                                       style="padding-left: 2.5rem; height: 42px; border-radius: 8px; border-color: var(--border-color); font-size: 0.9rem;">
-                            </div>
-                            @error('break_minutes')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                        </div>
+                        @endforeach
                         <div class="col-12">
-                            <div class="p-3 rounded-3 d-flex align-items-start gap-2.5 border" style="background: var(--bg-surface-elevated); border-color: var(--border-color) !important; border-radius: 8px;">
-                                <i class="bi bi-info-circle-fill text-primary mt-0.5 flex-shrink-0" style="font-size: 0.95rem;"></i>
-                                <div class="small text-secondary" style="line-height: 1.45; font-size: 0.775rem;">
-                                    Si la hora de salida es menor que la entrada, se procesa automáticamente como jornada nocturna (día siguiente). Deja la entrada en blanco si el colaborador no asistió.
+                            <div class="p-3 rounded-3 d-flex align-items-start gap-2 border" style="background: var(--bg-surface-elevated); border-color: var(--border-color) !important; border-radius: 8px;">
+                                <i class="bi bi-info-circle-fill text-primary flex-shrink-0" style="font-size: 0.95rem;"></i>
+                                <div class="small text-secondary" style="line-height: 1.5; font-size: 0.775rem;">
+                                    Escribe las horas en formato 24 h. El refrigerio se completa con sus dos horas o se deja vacío;
+                                    @if($hasWindow)
+                                        <b>este horario pide 4 marcaciones</b>, así que sin refrigerio la jornada queda con marcaciones incompletas.
+                                    @else
+                                        si queda vacío se descuenta el descanso fijo del horario.
+                                    @endif
+                                    Una hora menor que la entrada se toma como del día siguiente (turno nocturno). Deja la entrada vacía si no asistió.
                                 </div>
                             </div>
                         </div>
@@ -131,8 +135,9 @@
                         <div class="text-secondary small" style="font-size: 0.775rem;">Estado registrado en el sistema</div>
                     </div>
                 </div>
-                <span class="badge {{ $a ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle' }} px-2.5 py-1" style="border-radius: 6px; font-weight: 600; font-size: 0.725rem;">
-                    {{ $a ? 'Con marcación' : 'Falta / Sin marcación' }}
+                @php $punched = (bool) $a?->clock_in_at; @endphp
+                <span class="badge {{ $punched ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-danger-subtle text-danger border border-danger-subtle' }} px-2 py-1" style="border-radius: 6px; font-weight: 600; font-size: 0.725rem;">
+                    {{ $punched ? 'Con marcación' : ($a ? 'Falta registrada' : 'Sin marcación') }}
                 </span>
             </div>
 
@@ -144,17 +149,32 @@
                                 <i class="bi bi-calendar3-event text-secondary" style="font-size: 0.9rem;"></i>
                                 <span class="text-secondary small" style="font-size: 0.775rem; font-weight: 600;">Turno programado</span>
                             </div>
-                            <span class="fw-semibold text-body text-truncate" style="font-size: 0.85rem;">{{ $a->shift?->name ?? 'Sin turno asignado' }}</span>
+                            <span class="text-end min-w-0">
+                                <span class="fw-semibold text-body d-block text-truncate" style="font-size: 0.85rem;">{{ $shift?->name ?? 'Sin turno asignado' }}</span>
+                                @if($shift)<span class="font-monospace text-secondary" style="font-size: 0.75rem;">{{ $shift->timesLabel() }}</span>@endif
+                            </span>
                         </div>
 
-                        <div class="p-2.5 rounded-3 border d-flex align-items-center justify-content-between" style="background: var(--bg-surface-elevated); border-color: var(--border-color) !important; border-radius: 8px;">
-                            <div class="d-flex align-items-center gap-2 min-w-0">
-                                <i class="bi bi-arrow-left-right text-secondary" style="font-size: 0.9rem;"></i>
-                                <span class="text-secondary small" style="font-size: 0.775rem; font-weight: 600;">Entrada / Salida</span>
+                        {{-- Las 4 marcaciones registradas (lo mismo que ven Marcaciones y GPS, reportes y la app) --}}
+                        <div class="p-2.5 rounded-3 border" style="background: var(--bg-surface-elevated); border-color: var(--border-color) !important; border-radius: 8px;">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <i class="bi bi-fingerprint text-secondary" style="font-size: 0.9rem;"></i>
+                                <span class="text-secondary small" style="font-size: 0.775rem; font-weight: 600;">Marcaciones registradas</span>
                             </div>
-                            <span class="fw-bold font-monospace text-body" style="font-size: 0.85rem;">
-                                {{ $hhmm($a->clock_in_at) ?: '—' }} <span class="text-secondary">a</span> {{ $hhmm($a->clock_out_at) ?: '—' }}
-                            </span>
+                            <div class="row g-2 text-center">
+                                @foreach([['Entrada', $a->clock_in_at], ['Salida refrig.', $a->break_start_at], ['Retorno', $a->break_end_at], ['Salida', $a->clock_out_at]] as [$lbl, $t])
+                                    <div class="col-3">
+                                        <div class="text-secondary" style="font-size: 0.68rem;">{{ $lbl }}</div>
+                                        <div class="fw-bold font-monospace {{ $t ? 'text-body' : 'text-secondary' }}" style="font-size: 0.85rem;">{{ $hhmm($t) ?: '—' }}</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                            @if($a->punches_incomplete || $a->break_late_minutes > 0)
+                                <div class="d-flex flex-wrap gap-1 mt-2">
+                                    @if($a->punches_incomplete)<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-semibold">Marcaciones incompletas</span>@endif
+                                    @if($a->break_late_minutes > 0)<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-semibold">Retorno tardío {{ $a->break_late_minutes }} min</span>@endif
+                                </div>
+                            @endif
                         </div>
 
                         <div class="row g-2">
