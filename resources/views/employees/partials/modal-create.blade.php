@@ -153,10 +153,10 @@
                                             Correo de Acceso (Usuario App)
                                         </label>
                                         <input type="email" id="modal_email" name="email" class="emp-form-input"
-                                               placeholder="Dejar vacío para generar DNI@{{ $loginDomain ?? 'empresa.com' }}" maxlength="150">
+                                               placeholder="{{ 'Dejar vacío para generar DNI@' . ($loginDomain ?? 'empresa.com') }}" maxlength="150">
                                         <div class="invalid-feedback" id="err_email"></div>
                                         <div class="emp-form-hint" id="modalEmailHint">
-                                            Si se deja vacío, el sistema genera automáticamente: <code>DNI@{{ $loginDomain ?? 'empresa.com' }}</code>
+                                            Si se deja vacío, el sistema genera automáticamente: <code>{{ 'DNI@' . ($loginDomain ?? 'empresa.com') }}</code>
                                         </div>
                                     </div>
 
