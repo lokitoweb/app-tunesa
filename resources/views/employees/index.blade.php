@@ -1587,6 +1587,8 @@ document.addEventListener('DOMContentLoaded', function () {
             primaryRadios.forEach(rb => {
                 rb.checked = (parseInt(rb.value, 10) === parseInt(emp.primary_branch_id, 10));
             });
+            {{-- Listas y calendarios modernos muestran los valores recién cargados --}}
+            Panel.controls.refresh(document.getElementById('employeeEditModal') || document);
 
         } catch (err) {
             console.error('Error loading employee edit data:', err);

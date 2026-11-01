@@ -87,21 +87,25 @@
                                     {{-- Nombres --}}
                                     <div class="col-12 col-md-6">
                                         <label for="edit_first_name" class="emp-form-label">Nombres <span class="text-danger">*</span></label>
-                                        <input type="text" id="edit_first_name" name="first_name" class="emp-form-input" required maxlength="100">
+                                        <div class="field-icon"><i class="bi bi-person" aria-hidden="true"></i>
+                                            <input type="text" id="edit_first_name" name="first_name" class="emp-form-input" required maxlength="100">
+                                        </div>
                                         <div class="invalid-feedback" id="edit_err_first_name"></div>
                                     </div>
 
                                     {{-- Apellidos --}}
                                     <div class="col-12 col-md-6">
                                         <label for="edit_last_name" class="emp-form-label">Apellidos <span class="text-danger">*</span></label>
-                                        <input type="text" id="edit_last_name" name="last_name" class="emp-form-input" required maxlength="100">
+                                        <div class="field-icon"><i class="bi bi-person" aria-hidden="true"></i>
+                                            <input type="text" id="edit_last_name" name="last_name" class="emp-form-input" required maxlength="100">
+                                        </div>
                                         <div class="invalid-feedback" id="edit_err_last_name"></div>
                                     </div>
 
                                     {{-- Tipo de Documento --}}
                                     <div class="col-12 col-md-4">
                                         <label for="edit_document_type" class="emp-form-label">Tipo Doc. <span class="text-danger">*</span></label>
-                                        <select id="edit_document_type" name="document_type" class="emp-form-select" required>
+                                        <select id="edit_document_type" data-modern-select data-icon="bi-person-vcard" name="document_type" class="emp-form-select" required>
                                             <option value="dni">DNI</option>
                                             <option value="ce">Carné de extranjería</option>
                                             <option value="passport">Pasaporte</option>
@@ -112,21 +116,25 @@
                                     {{-- Número de Documento --}}
                                     <div class="col-12 col-md-4">
                                         <label for="edit_document_number" class="emp-form-label">N° de Documento <span class="text-danger">*</span></label>
-                                        <input type="text" id="edit_document_number" name="document_number" class="emp-form-input" required maxlength="30">
+                                        <div class="field-icon"><i class="bi bi-card-text" aria-hidden="true"></i>
+                                            <input type="text" id="edit_document_number" name="document_number" class="emp-form-input" required maxlength="30">
+                                        </div>
                                         <div class="invalid-feedback" id="edit_err_document_number"></div>
                                     </div>
 
                                     {{-- Teléfono / WhatsApp --}}
                                     <div class="col-12 col-md-4">
                                         <label for="edit_phone" class="emp-form-label">Teléfono / WhatsApp</label>
-                                        <input type="tel" id="edit_phone" name="phone" class="emp-form-input" maxlength="30">
+                                        <div class="field-icon"><i class="bi bi-telephone" aria-hidden="true"></i>
+                                            <input type="tel" id="edit_phone" name="phone" class="emp-form-input" maxlength="30">
+                                        </div>
                                         <div class="invalid-feedback" id="edit_err_phone"></div>
                                     </div>
 
                                     {{-- Fecha de Nacimiento --}}
                                     <div class="col-12 col-md-4">
                                         <label for="edit_birth_date" class="emp-form-label">Fecha de Nacimiento</label>
-                                        <input type="date" id="edit_birth_date" name="birth_date" class="emp-form-input" max="{{ now()->subDay()->format('Y-m-d') }}">
+                                        <input type="date" id="edit_birth_date" data-modern-date data-icon="bi-cake2" name="birth_date" class="emp-form-input" max="{{ now()->subDay()->format('Y-m-d') }}">
                                         <div class="invalid-feedback" id="edit_err_birth_date"></div>
                                     </div>
 
@@ -135,14 +143,16 @@
                                         <label for="edit_email" class="emp-form-label">
                                             Correo de Acceso (App) <span class="text-danger">*</span>
                                         </label>
-                                        <input type="email" id="edit_email" name="email" class="emp-form-input" required maxlength="150">
+                                        <div class="field-icon"><i class="bi bi-envelope" aria-hidden="true"></i>
+                                            <input type="email" id="edit_email" name="email" class="emp-form-input" required maxlength="150">
+                                        </div>
                                         <div class="invalid-feedback" id="edit_err_email"></div>
                                     </div>
 
                                     {{-- Estado de la Cuenta --}}
                                     <div class="col-12 col-md-3">
                                         <label for="edit_status" class="emp-form-label">Estado <span class="text-danger">*</span></label>
-                                        <select id="edit_status" name="status" class="emp-form-select" required>
+                                        <select id="edit_status" data-modern-select data-icon="bi-toggle-on" name="status" class="emp-form-select" required>
                                             <option value="active">Activo</option>
                                             <option value="inactive">Inactivo</option>
                                             <option value="suspended">Suspendido</option>
@@ -172,7 +182,7 @@
                                     {{-- Rol en el sistema --}}
                                     <div class="col-12 col-md-6">
                                         <label for="edit_role" class="emp-form-label">Rol en el Sistema <span class="text-danger">*</span></label>
-                                        <select id="edit_role" name="role" class="emp-form-select" required>
+                                        <select id="edit_role" data-modern-select data-icon="bi-person-badge" name="role" class="emp-form-select" required>
                                             @foreach($roleOptions as $roleKey => $roleData)
                                                 @if($actor->canAssignRole($roleKey))
                                                     <option value="{{ $roleKey }}">
@@ -189,14 +199,16 @@
                                     {{-- Código de Empleado --}}
                                     <div class="col-12 col-md-6">
                                         <label for="edit_employee_code" class="emp-form-label">Código de Empleado</label>
-                                        <input type="text" id="edit_employee_code" name="employee_code" class="emp-form-input" maxlength="50">
+                                        <div class="field-icon"><i class="bi bi-hash" aria-hidden="true"></i>
+                                            <input type="text" id="edit_employee_code" name="employee_code" class="emp-form-input" maxlength="50">
+                                        </div>
                                         <div class="invalid-feedback" id="edit_err_employee_code"></div>
                                     </div>
 
                                     {{-- Cargo del Catálogo --}}
                                     <div class="col-12 col-md-6">
                                         <label for="edit_position_id" class="emp-form-label">Cargo (Puesto de Trabajo)</label>
-                                        <select id="edit_position_id" name="position_id" class="emp-form-select">
+                                        <select id="edit_position_id" data-modern-select data-icon="bi-briefcase" name="position_id" class="emp-form-select">
                                             <option value="">Sin cargo asignado</option>
                                             @foreach($posGrouped as $groupName => $pItems)
                                                 <optgroup label="{{ $groupName }}">
@@ -214,7 +226,7 @@
                                     {{-- Área / Departamento --}}
                                     <div class="col-12 col-md-6">
                                         <label for="edit_department_id" class="emp-form-label">Área Organizacional</label>
-                                        <select id="edit_department_id" name="department_id" class="emp-form-select">
+                                        <select id="edit_department_id" data-modern-select data-icon="bi-diagram-2" name="department_id" class="emp-form-select">
                                             <option value="">Sin área específica</option>
                                             @foreach($departments as $d)
                                                 <option value="{{ $d->id }}">{{ $d->name }}</option>
@@ -251,7 +263,7 @@
                                         @else
                                             <div class="p-3 border rounded-3" style="background: var(--bg-surface-elevated); border-color: var(--border-color) !important;">
                                                 <label for="edit_scope_type" class="emp-form-label">Alcance territorial en el panel</label>
-                                                <select id="edit_scope_type" name="scope_type" class="emp-form-select mb-2">
+                                                <select id="edit_scope_type" data-modern-select data-icon="bi-diagram-3" name="scope_type" class="emp-form-select mb-2">
                                                     @foreach(\App\Modules\Core\Models\User::SCOPES as $sKey => $sLabel)
                                                         <option value="{{ $sKey }}">{{ $sLabel }}</option>
                                                     @endforeach
@@ -260,7 +272,7 @@
                                                 <div class="row g-2 mt-1">
                                                     <div class="col-md-6 d-none" id="editScopeZoneWrap">
                                                         <label for="edit_scope_zone_id" class="emp-form-label">Zona asignada</label>
-                                                        <select id="edit_scope_zone_id" name="scope_zone_id" class="emp-form-select">
+                                                        <select id="edit_scope_zone_id" data-modern-select data-icon="bi-map" name="scope_zone_id" class="emp-form-select">
                                                             <option value="">Selecciona zona…</option>
                                                             @foreach($zones as $z)
                                                                 <option value="{{ $z->id }}">{{ $z->name }}</option>
@@ -270,7 +282,7 @@
                                                     </div>
                                                     <div class="col-md-6 d-none" id="editScopeBranchWrap">
                                                         <label for="edit_scope_branch_id" class="emp-form-label">Sede asignada</label>
-                                                        <select id="edit_scope_branch_id" name="scope_branch_id" class="emp-form-select">
+                                                        <select id="edit_scope_branch_id" data-modern-select data-icon="bi-building" name="scope_branch_id" class="emp-form-select">
                                                             <option value="">Selecciona sede…</option>
                                                             @foreach($branches as $b)
                                                                 <option value="{{ $b->id }}">{{ $b->name }}</option>
@@ -286,18 +298,22 @@
                                     {{-- Fecha de ingreso, sueldo base y bono --}}
                                     <div class="col-12 col-md-4">
                                         <label for="edit_hire_date" class="emp-form-label">Fecha de Ingreso</label>
-                                        <input type="date" id="edit_hire_date" name="hire_date" class="emp-form-input">
+                                        <input type="date" id="edit_hire_date" data-modern-date data-icon="bi-calendar-check" name="hire_date" class="emp-form-input">
                                         <div class="invalid-feedback" id="edit_err_hire_date"></div>
                                     </div>
 
                                     <div class="col-12 col-md-4">
-                                        <label for="edit_base_salary" class="emp-form-label">Sueldo Base Mensual (S/.)</label>
-                                        <input type="number" step="0.01" min="0" id="edit_base_salary" name="base_salary" class="emp-form-input" placeholder="0.00">
+                                        <label for="edit_base_salary" class="emp-form-label">Sueldo base mensual</label>
+                                        <div class="field-icon"><span class="field-prefix" aria-hidden="true">S/</span>
+                                            <input type="number" step="0.01" min="0" id="edit_base_salary" name="base_salary" class="emp-form-input" placeholder="0.00">
+                                        </div>
                                         <div class="invalid-feedback" id="edit_err_base_salary"></div>
                                     </div>
                                     <div class="col-12 col-md-4">
-                                        <label for="edit_bonus" class="emp-form-label">Bono mensual (S/.) <span class="text-muted fw-normal">opcional</span></label>
-                                        <input type="number" step="0.01" min="0" id="edit_bonus" name="bonus" class="emp-form-input" placeholder="0.00">
+                                        <label for="edit_bonus" class="emp-form-label">Bono mensual <span class="text-muted fw-normal">opcional</span></label>
+                                        <div class="field-icon"><span class="field-prefix" aria-hidden="true">S/</span>
+                                            <input type="number" step="0.01" min="0" id="edit_bonus" name="bonus" class="emp-form-input" placeholder="0.00">
+                                        </div>
                                         <div class="invalid-feedback" id="edit_err_bonus"></div>
                                     </div>
                                 </div>

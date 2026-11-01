@@ -30,68 +30,47 @@
     </ol>
 </nav>
 
-{{-- Encabezado Ejecutivo del Colaborador --}}
-<div class="legajo-page-header">
+{{-- Cabecera: quién es (foto o iniciales, nombre, estado y datos clave) a la izquierda; acciones a la derecha, igual que la ficha --}}
+<header class="page-head emp-edit-header">
     <div class="d-flex align-items-center gap-3 min-w-0">
         @if(!empty($employee->avatar_path))
-            <img src="{{ asset('storage/' . $employee->avatar_path) }}" alt="{{ $employee->first_name }}" class="legajo-avatar-img">
+            <img src="{{ asset('storage/' . $employee->avatar_path) }}" alt="" class="emp-edit-avatar">
         @else
-            <div class="legajo-avatar-initials">
-                {{ $initials ?: 'U' }}
-            </div>
+            <span class="emp-edit-avatar" aria-hidden="true">{{ $initials ?: 'U' }}</span>
         @endif
-        <div class="min-w-0">
+        <div class="page-head-text">
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <h1 class="h3 fw-bold mb-0 text-body">{{ $employee->full_name }}</h1>
-                <span class="badge {{ $employee->status === 'active' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary' }} px-2.5 py-1" style="font-size: 0.725rem; font-weight: 700;">
-                    <i class="bi {{ $employee->status === 'active' ? 'bi-check-circle-fill' : 'bi-dash-circle' }}" style="margin-right: 5px;"></i>{{ $employee->status === 'active' ? 'Activo' : 'Inactivo' }}
-                </span>
+                <h1 class="page-title text-truncate">{{ $employee->full_name }}</h1>
+                <x-status-badge type="user_status" :value="$employee->status" />
             </div>
-            <div class="text-secondary small mt-1 d-flex align-items-center gap-2 flex-wrap" style="font-size: 0.8125rem;">
-                <span class="fw-semibold text-body">{{ $employee->position ?: 'Sin cargo' }}</span>
-                <span>·</span>
-                <span>{{ $employee->employee_code }}</span>
-                <span>·</span>
+            <p class="page-subtitle legajo-meta">
+                <span class="fw-semibold text-body">{{ $employee->jobPosition?->name ?? ($employee->position ?: 'Sin cargo') }}</span>
+                @if($employee->employee_code)<span>{{ $employee->employee_code }}</span>@endif
                 <span>{{ label('id_document_type', $employee->document_type) }} {{ $employee->document_number }}</span>
-                <span>·</span>
-                <span><i class="bi bi-calendar-event" style="margin-right: 5px;"></i>Ingreso {{ $employee->hire_date?->format('d/m/Y') ?? '—' }}</span>
-                @if($primaryBranch)
-                    <span>·</span>
-                    <span><i class="bi bi-geo-alt-fill text-warning" style="margin-right: 5px;"></i>{{ $primaryBranch->name }}</span>
-                @endif
-            </div>
+                <span><i class="bi bi-calendar-event"></i>Ingreso {{ $employee->hire_date?->format('d/m/Y') ?? '—' }}</span>
+                @if($primaryBranch)<span><i class="bi bi-geo-alt"></i>{{ $primaryBranch->name }}</span>@endif
+            </p>
         </div>
     </div>
-    <div class="d-flex align-items-center gap-2 mt-3 mt-md-0">
+    <div class="page-actions">
         @can('profiles.view_sensitive')
             @unless($revealed)
                 <form method="POST" action="{{ route('employees.file.reveal', $employee->id) }}" id="revealProfileForm" class="m-0">
                     @csrf
-                    <button type="submit" class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center shadow-sm" style="border-radius: 8px; font-weight: 600; padding: 7px 14px; gap: 8px;" title="Queda registrado en la bitácora de auditoría">
-                        <i class="bi bi-eye"></i>
-                        <span>Ver números completos</span>
-                    </button>
+                    <button type="submit" class="btn btn-outline-secondary" title="Queda registrado en la bitácora de auditoría"><i class="bi bi-eye me-1"></i>Ver números completos</button>
                 </form>
             @else
-                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 d-inline-flex align-items-center" style="font-size: 0.775rem; border-radius: 8px;">
-                    <i class="bi bi-unlock-fill" style="margin-right: 6px;"></i><span>Números visibles (auditado)</span>
-                </span>
+                <span class="status-pill tone-amber"><i class="bi bi-unlock"></i>Números visibles (auditado)</span>
             @endunless
         @endcan
         @can('users.manage')
-            <button type="button" class="btn btn-sm btn-outline-primary d-inline-flex align-items-center shadow-sm" onclick="openLegajoEditModal({{ $employee->id }})" style="border-radius: 8px; font-weight: 600; padding: 7px 15px; gap: 8px;">
-                <i class="bi bi-pencil"></i>
-                <span>Editar datos básicos</span>
-            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="openLegajoEditModal({{ $employee->id }})"><i class="bi bi-pencil me-1"></i>Editar datos básicos</button>
         @endcan
         @can('settlements.manage')
-            <a href="{{ route('settlements.create', $employee->id) }}" class="btn btn-sm btn-outline-danger d-inline-flex align-items-center shadow-sm" style="border-radius: 8px; font-weight: 600; padding: 7px 15px; gap: 8px;">
-                <i class="bi bi-person-x"></i>
-                <span>Cese y liquidación</span>
-            </a>
+            <a href="{{ route('settlements.create', $employee->id) }}" class="btn btn-outline-danger"><i class="bi bi-person-x me-1"></i>Cese y liquidación</a>
         @endcan
     </div>
-</div>
+</header>
 
 {{-- 4 Métricas Clave (KPI Strip) --}}
 <div class="legajo-stat-strip">
@@ -147,16 +126,16 @@
 <div class="legajo-tabs" role="tablist">
     <button class="legajo-tab-btn active" id="tab-btn-laboral" data-bs-toggle="tab" data-bs-target="#tab-content-laboral" type="button" role="tab" aria-selected="true">
         <i class="bi bi-person-vcard"></i>
-        <span>Datos Laborales y Cuentas</span>
+        <span>Datos laborales y cuentas</span>
     </button>
     <button class="legajo-tab-btn" id="tab-btn-docs" data-bs-toggle="tab" data-bs-target="#tab-content-docs" type="button" role="tab" aria-selected="false">
         <i class="bi bi-file-earmark-text"></i>
-        <span>Documentos del Expediente</span>
+        <span>Documentos</span>
         <span class="legajo-tab-badge">{{ $documents->count() }}</span>
     </button>
     <button class="legajo-tab-btn" id="tab-btn-uniforms" data-bs-toggle="tab" data-bs-target="#tab-content-uniforms" type="button" role="tab" aria-selected="false">
         <i class="bi bi-shield-shaded"></i>
-        <span>Dotación y Uniformes</span>
+        <span>Dotación y uniformes</span>
         <span class="legajo-tab-badge">{{ $deliveries->count() }}</span>
     </button>
 </div>
@@ -178,7 +157,9 @@
                     </div>
                     <div class="row g-2 align-items-center">
                         <div class="col-12 col-md-7">
-                            <input type="text" id="pay_reason" name="reason" class="form-control form-control-sm" placeholder="Motivo si la observas (ej. no coincide con el titular)">
+                            <div class="field-icon"><i class="bi bi-chat-left-text" aria-hidden="true"></i>
+                                <input type="text" id="pay_reason" name="reason" class="form-control form-control-sm" placeholder="Motivo si la observas (ej. no coincide con el titular)">
+                            </div>
                         </div>
                         <div class="col-12 col-md-5 d-flex gap-2">
                             <button name="decision" value="verified" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1.5 px-3">
@@ -381,7 +362,7 @@
                         <div class="row g-3 mb-4">
                             <div class="col-12 col-md-4">
                                 <label for="labor_regime" class="form-label small fw-bold text-secondary mb-1">Régimen laboral</label>
-                                <select id="labor_regime" name="labor_regime" class="form-select form-select-sm">
+                                <select id="labor_regime" data-modern-select data-icon="bi-briefcase" name="labor_regime" class="form-select form-select-sm">
                                     <option value="">— Seleccionar régimen —</option>
                                     @foreach($laborRegimes as $k => $v)
                                         <option value="{{ $k }}" @selected($profile->labor_regime === $k)>{{ $v }}</option>
@@ -395,7 +376,7 @@
                             </div>
                             <div class="col-12 col-md-4">
                                 <label for="health_insurance" class="form-label small fw-bold text-secondary mb-1">Seguro de salud</label>
-                                <select id="health_insurance" name="health_insurance" class="form-select form-select-sm">
+                                <select id="health_insurance" data-modern-select data-icon="bi-heart-pulse" name="health_insurance" class="form-select form-select-sm">
                                     <option value="">— Seleccionar seguro —</option>
                                     @foreach(EmployeeProfile::HEALTH_INSURANCES as $k => $v)
                                         <option value="{{ $k }}" @selected($profile->health_insurance === $k)>{{ $v }}</option>
@@ -404,7 +385,7 @@
                             </div>
                             <div class="col-12 col-md-4">
                                 <label for="pension_system" class="form-label small fw-bold text-secondary mb-1">Sistema previsional</label>
-                                <select id="pension_system" name="pension_system" class="form-select form-select-sm">
+                                <select id="pension_system" data-modern-select data-icon="bi-piggy-bank" name="pension_system" class="form-select form-select-sm">
                                     <option value="">— Seleccionar previsión —</option>
                                     @foreach(EmployeeProfile::PENSION_SYSTEMS as $k => $v)
                                         <option value="{{ $k }}" @selected($profile->pension_system === $k)>{{ $v }}</option>
@@ -414,11 +395,15 @@
 
                             <div class="col-12 col-md-6">
                                 <label for="pension_fund" class="form-label small fw-bold text-secondary mb-1">Fondo / Administradora AFP</label>
-                                <input id="pension_fund" name="pension_fund" class="form-control form-control-sm" list="pensionFundsDatalist" value="{{ $profile->pension_fund }}" placeholder="Ej. AFP Integra, Prima, Profuturo...">
+                                <div class="field-icon"><i class="bi bi-building" aria-hidden="true"></i>
+                                    <input id="pension_fund" name="pension_fund" class="form-control form-control-sm" list="pensionFundsDatalist" value="{{ $profile->pension_fund }}" placeholder="Ej. AFP Integra, Prima, Profuturo...">
+                                </div>
                             </div>
                             <div class="col-12 col-md-6">
                                 <label for="pension_code" class="form-label small fw-bold text-secondary mb-1">Código CUSPP</label>
-                                <input id="pension_code" name="pension_code" class="form-control form-control-sm font-monospace" value="{{ $profile->pension_code }}" placeholder="Ej. 123450INTEG1">
+                                <div class="field-icon"><i class="bi bi-upc" aria-hidden="true"></i>
+                                    <input id="pension_code" name="pension_code" class="form-control form-control-sm font-monospace" value="{{ $profile->pension_code }}" placeholder="Ej. 123450INTEG1">
+                                </div>
                             </div>
                         </div>
 
@@ -473,11 +458,13 @@
                             {{-- Fila Banco de Abono, Tipo y Moneda --}}
                             <div class="col-12 col-md-5">
                                 <label for="bank_name" class="form-label small fw-bold text-secondary mb-1">Banco de abono</label>
-                                <input id="bank_name" name="bank_name" class="form-control form-control-sm" list="banksDatalist" value="{{ $profile->bank_name }}" placeholder="Ej. BCP, BBVA, Interbank, Scotiabank...">
+                                <div class="field-icon"><i class="bi bi-bank" aria-hidden="true"></i>
+                                    <input id="bank_name" name="bank_name" class="form-control form-control-sm" list="banksDatalist" value="{{ $profile->bank_name }}" placeholder="Ej. BCP, BBVA, Interbank, Scotiabank...">
+                                </div>
                             </div>
                             <div class="col-12 col-md-4">
                                 <label for="bank_account_type" class="form-label small fw-bold text-secondary mb-1">Tipo de cuenta</label>
-                                <select id="bank_account_type" name="bank_account_type" class="form-select form-select-sm">
+                                <select id="bank_account_type" data-modern-select data-icon="bi-bank" name="bank_account_type" class="form-select form-select-sm">
                                     <option value="">— Seleccionar tipo —</option>
                                     @foreach(EmployeeProfile::BANK_ACCOUNT_TYPES as $k => $v)
                                         <option value="{{ $k }}" @selected($profile->bank_account_type === $k)>{{ $v }}</option>
@@ -486,7 +473,7 @@
                             </div>
                             <div class="col-12 col-md-3">
                                 <label for="bank_account_currency" class="form-label small fw-bold text-secondary mb-1">Moneda</label>
-                                <select id="bank_account_currency" name="bank_account_currency" class="form-select form-select-sm">
+                                <select id="bank_account_currency" data-modern-select data-icon="bi-currency-exchange" name="bank_account_currency" class="form-select form-select-sm">
                                     <option value="PEN" @selected(($profile->bank_account_currency ?? $employee->tenant?->currency ?? 'PEN') === 'PEN')>PEN (S/ · Soles)</option>
                                     <option value="USD" @selected(($profile->bank_account_currency ?? '') === 'USD')>USD ($ · Dólares)</option>
                                 </select>
@@ -500,7 +487,9 @@
                                         <span class="fw-normal text-muted">({{ $canView ? 'editable' : 'actual: ' . $show($profile->bank_account_number) }})</span>
                                     @endif
                                 </label>
-                                <input id="bank_account_number" name="bank_account_number" class="form-control form-control-sm font-monospace" inputmode="numeric" autocomplete="off" value="{{ $canView ? $profile->bank_account_number : '' }}" placeholder="{{ $profile->bank_account_number ? ($canView ? $profile->bank_account_number : $show($profile->bank_account_number)) : 'Número de cuenta' }}">
+                                <div class="field-icon"><i class="bi bi-credit-card" aria-hidden="true"></i>
+                                    <input id="bank_account_number" name="bank_account_number" class="form-control form-control-sm font-monospace" inputmode="numeric" autocomplete="off" value="{{ $canView ? $profile->bank_account_number : '' }}" placeholder="{{ $profile->bank_account_number ? ($canView ? $profile->bank_account_number : $show($profile->bank_account_number)) : 'Número de cuenta' }}">
+                                </div>
                                 @unless($canView)
                                     @if($profile->bank_account_number)
                                         <div class="form-text text-secondary" style="font-size: 0.72rem;">
@@ -516,7 +505,9 @@
                                         <span class="fw-normal text-muted">({{ $canView ? 'editable' : 'actual: ' . $show($profile->interbank_code) }})</span>
                                     @endif
                                 </label>
-                                <input id="interbank_code" name="interbank_code" class="form-control form-control-sm font-monospace" inputmode="numeric" autocomplete="off" value="{{ $canView ? $profile->interbank_code : '' }}" placeholder="{{ $profile->interbank_code ? ($canView ? $profile->interbank_code : $show($profile->interbank_code)) : 'Código interbancario de 20 dígitos' }}">
+                                <div class="field-icon"><i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+                                    <input id="interbank_code" name="interbank_code" class="form-control form-control-sm font-monospace" inputmode="numeric" autocomplete="off" value="{{ $canView ? $profile->interbank_code : '' }}" placeholder="{{ $profile->interbank_code ? ($canView ? $profile->interbank_code : $show($profile->interbank_code)) : 'Código interbancario de 20 dígitos' }}">
+                                </div>
                                 @unless($canView)
                                     @if($profile->interbank_code)
                                         <div class="form-text text-secondary" style="font-size: 0.72rem;">
@@ -529,11 +520,13 @@
                             {{-- Fila CTS --}}
                             <div class="col-12 col-md-5">
                                 <label for="cts_bank_name" class="form-label small fw-bold text-secondary mb-1">Banco de abono CTS</label>
-                                <input id="cts_bank_name" name="cts_bank_name" class="form-control form-control-sm" list="banksDatalist" value="{{ $profile->cts_bank_name }}" placeholder="Ej. Interbank, BCP, BBVA...">
+                                <div class="field-icon"><i class="bi bi-bank2" aria-hidden="true"></i>
+                                    <input id="cts_bank_name" name="cts_bank_name" class="form-control form-control-sm" list="banksDatalist" value="{{ $profile->cts_bank_name }}" placeholder="Ej. Interbank, BCP, BBVA...">
+                                </div>
                             </div>
                             <div class="col-12 col-md-3">
                                 <label for="cts_currency" class="form-label small fw-bold text-secondary mb-1">Moneda CTS</label>
-                                <select id="cts_currency" name="cts_currency" class="form-select form-select-sm">
+                                <select id="cts_currency" data-modern-select data-icon="bi-currency-exchange" name="cts_currency" class="form-select form-select-sm">
                                     <option value="PEN" @selected(($profile->cts_currency ?? 'PEN') === 'PEN')>PEN (S/ · Soles)</option>
                                     <option value="USD" @selected(($profile->cts_currency ?? '') === 'USD')>USD ($ · Dólares)</option>
                                 </select>
@@ -545,7 +538,9 @@
                                         <span class="fw-normal text-muted">({{ $canView ? 'editable' : 'actual: ' . $show($profile->cts_account_number) }})</span>
                                     @endif
                                 </label>
-                                <input id="cts_account_number" name="cts_account_number" class="form-control form-control-sm font-monospace" inputmode="numeric" autocomplete="off" value="{{ $canView ? $profile->cts_account_number : '' }}" placeholder="{{ $profile->cts_account_number ? ($canView ? $profile->cts_account_number : $show($profile->cts_account_number)) : 'Número de cuenta CTS' }}">
+                                <div class="field-icon"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i>
+                                    <input id="cts_account_number" name="cts_account_number" class="form-control form-control-sm font-monospace" inputmode="numeric" autocomplete="off" value="{{ $canView ? $profile->cts_account_number : '' }}" placeholder="{{ $profile->cts_account_number ? ($canView ? $profile->cts_account_number : $show($profile->cts_account_number)) : 'Número de cuenta CTS' }}">
+                                </div>
                                 @unless($canView)
                                     @if($profile->cts_account_number)
                                         <div class="form-text text-secondary" style="font-size: 0.72rem;">
@@ -565,20 +560,28 @@
                         <div class="row g-3">
                             <div class="col-12 col-md-7">
                                 <label for="address" class="form-label small fw-bold text-secondary mb-1">Dirección domiciliaria</label>
-                                <input id="address" name="address" class="form-control form-control-sm" value="{{ $profile->address }}" placeholder="Av. Principal 123...">
+                                <div class="field-icon"><i class="bi bi-house" aria-hidden="true"></i>
+                                    <input id="address" name="address" class="form-control form-control-sm" value="{{ $profile->address }}" placeholder="Av. Principal 123...">
+                                </div>
                             </div>
                             <div class="col-12 col-md-5">
                                 <label for="district" class="form-label small fw-bold text-secondary mb-1">Distrito / Localidad</label>
-                                <input id="district" name="district" class="form-control form-control-sm" value="{{ $profile->district }}" placeholder="Distrito de residencia">
+                                <div class="field-icon"><i class="bi bi-geo-alt" aria-hidden="true"></i>
+                                    <input id="district" name="district" class="form-control form-control-sm" value="{{ $profile->district }}" placeholder="Distrito de residencia">
+                                </div>
                             </div>
 
                             <div class="col-12 col-md-6">
                                 <label for="emergency_contact_name" class="form-label small fw-bold text-secondary mb-1">Contacto de emergencia</label>
-                                <input id="emergency_contact_name" name="emergency_contact_name" class="form-control form-control-sm" value="{{ $profile->emergency_contact_name }}" placeholder="Nombres completos y parentesco">
+                                <div class="field-icon"><i class="bi bi-person-heart" aria-hidden="true"></i>
+                                    <input id="emergency_contact_name" name="emergency_contact_name" class="form-control form-control-sm" value="{{ $profile->emergency_contact_name }}" placeholder="Nombres completos y parentesco">
+                                </div>
                             </div>
                             <div class="col-12 col-md-6">
                                 <label for="emergency_contact_phone" class="form-label small fw-bold text-secondary mb-1">Teléfono de emergencia</label>
-                                <input id="emergency_contact_phone" name="emergency_contact_phone" class="form-control form-control-sm font-monospace" value="{{ $profile->emergency_contact_phone }}" placeholder="Teléfono o celular de contacto">
+                                <div class="field-icon"><i class="bi bi-telephone" aria-hidden="true"></i>
+                                    <input id="emergency_contact_phone" name="emergency_contact_phone" class="form-control form-control-sm font-monospace" value="{{ $profile->emergency_contact_phone }}" placeholder="Teléfono o celular de contacto">
+                                </div>
                             </div>
                         </div>
 
@@ -711,7 +714,7 @@
                     <div class="row g-3">
                         <div class="col-12 col-md-4">
                             <label for="doc_type" class="form-label small fw-bold text-secondary mb-1">Tipo de documento</label>
-                            <select id="doc_type" name="type" class="form-select form-select-sm" required style="height: 38px; border-radius: 8px;">
+                            <select id="doc_type" data-modern-select data-icon="bi-file-earmark-text" name="type" class="form-select form-select-sm" required style="height: 38px; border-radius: 8px;">
                                 @foreach(EmployeeDocument::TYPES as $k => $v)
                                     <option value="{{ $k }}">{{ $v }}</option>
                                 @endforeach
@@ -719,7 +722,7 @@
                         </div>
                         <div class="col-12 col-md-4">
                             <label for="doc_expires" class="form-label small fw-bold text-secondary mb-1">Fecha de vencimiento <span class="fw-normal text-muted">(opcional)</span></label>
-                            <input type="date" id="doc_expires" name="expires_at" class="form-control form-control-sm" style="height: 38px; border-radius: 8px;">
+                            <input type="date" id="doc_expires" data-modern-date data-icon="bi-calendar-x" name="expires_at" class="form-control form-control-sm" style="height: 38px; border-radius: 8px;">
                         </div>
                         <div class="col-12 col-md-4">
                             <label for="doc_file" class="form-label small fw-bold text-secondary mb-1">Archivo adjunto (PDF, JPG o PNG)</label>
@@ -803,7 +806,7 @@
 
                             <div class="mb-3">
                                 <label for="delivery_item" class="form-label small fw-bold text-secondary mb-1">Prenda / Artículo</label>
-                                <select id="delivery_item" name="item" class="form-select form-select-sm" style="height: 38px; border-radius: 8px;">
+                                <select id="delivery_item" data-modern-select data-icon="bi-bag" name="item" class="form-select form-select-sm" style="height: 38px; border-radius: 8px;">
                                     @foreach(UniformDelivery::ITEMS as $k => $v)
                                         <option value="{{ $k }}">{{ $v }}</option>
                                     @endforeach
@@ -813,17 +816,21 @@
                             <div class="row g-2 mb-3">
                                 <div class="col-6">
                                     <label for="delivery_size" class="form-label small fw-bold text-secondary mb-1">Talla</label>
-                                    <input id="delivery_size" name="size" class="form-control form-control-sm" maxlength="10" placeholder="Ej. M, 32, 42" style="height: 38px; border-radius: 8px;">
+                                    <div class="field-icon"><i class="bi bi-rulers" aria-hidden="true"></i>
+                                        <input id="delivery_size" name="size" class="form-control form-control-sm" maxlength="10" placeholder="Ej. M, 32, 42" style="height: 38px; border-radius: 8px;">
+                                    </div>
                                 </div>
                                 <div class="col-6">
                                     <label for="delivery_quantity" class="form-label small fw-bold text-secondary mb-1">Cantidad</label>
-                                    <input type="number" id="delivery_quantity" name="quantity" class="form-control form-control-sm" value="1" min="1" max="50" style="height: 38px; border-radius: 8px;">
+                                    <div class="field-icon"><i class="bi bi-123" aria-hidden="true"></i>
+                                        <input type="number" id="delivery_quantity" name="quantity" class="form-control form-control-sm" value="1" min="1" max="50" style="height: 38px; border-radius: 8px;">
+                                    </div>
                                 </div>
                             </div>
 
                             <div class="mb-4">
                                 <label for="delivery_delivered_at" class="form-label small fw-bold text-secondary mb-1">Fecha de entrega</label>
-                                <input type="date" id="delivery_delivered_at" name="delivered_at" class="form-control form-control-sm" value="{{ now()->toDateString() }}" style="height: 38px; border-radius: 8px;">
+                                <input type="date" id="delivery_delivered_at" data-modern-date data-icon="bi-calendar-check" name="delivered_at" class="form-control form-control-sm" value="{{ now()->toDateString() }}" style="height: 38px; border-radius: 8px;">
                             </div>
 
                             <button type="submit" class="btn btn-primary w-100 d-inline-flex align-items-center justify-content-center gap-2 shadow-sm py-2" style="border-radius: 8px; font-weight: 600;">
@@ -1014,6 +1021,8 @@ window.openLegajoEditModal = async function(id) {
         primaryRadios.forEach(rb => {
             rb.checked = (parseInt(rb.value, 10) === parseInt(emp.primary_branch_id, 10));
         });
+        {{-- Listas y calendarios modernos muestran los valores recién cargados --}}
+        Panel.controls.refresh(document.getElementById('employeeEditModal') || document);
 
     } catch (err) {
         console.error('Error loading employee edit data:', err);

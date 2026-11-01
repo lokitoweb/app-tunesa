@@ -809,7 +809,11 @@
         button(field, label) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'mc-btn form-control';
+            // Toma el estilo del campo original (compacto, del modal, etc.) como si fuera un input de texto
+            const look = [...field.classList]
+                .filter((c) => !['mc-native', 'is-invalid'].includes(c))
+                .map((c) => ({ 'form-select': 'form-control', 'form-select-sm': 'form-control-sm', 'emp-form-select': 'emp-form-input' }[c] || c));
+            btn.className = ['mc-btn', ...(look.length ? look : ['form-control'])].join(' ');
             btn.setAttribute('aria-haspopup', 'listbox');
             btn.setAttribute('aria-expanded', 'false');
             if (field.id) {
@@ -962,6 +966,7 @@
             };
 
             sync();
+            input._mcRefresh = sync;
             btn.addEventListener('click', (e) => {
                 if (e.target.closest('.mc-clear')) { set(''); controls.close(); return; }
                 view = parse(input.value) || view;
@@ -988,6 +993,11 @@
         init(scope = document) {
             scope.querySelectorAll('select[data-modern-select]').forEach(controls.select);
             scope.querySelectorAll('input[type="date"][data-modern-date]').forEach(controls.date);
+        },
+        /** Tras llenar campos por código (p. ej. un modal con los datos de la API): se redibujan con su valor */
+        refresh(scope = document) {
+            scope.querySelectorAll('select[data-mc-ready]').forEach((s) => s._mcRefresh?.());
+            scope.querySelectorAll('input[data-mc-ready]').forEach((i) => i._mcRefresh?.());
         },
     };
     document.addEventListener('click', (e) => { if (controls.open && !controls.open.contains(e.target)) controls.close(); });
