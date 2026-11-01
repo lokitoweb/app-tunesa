@@ -155,8 +155,10 @@ void main() {
       expect(today.attendance, isNotNull);
       expect(today.attendance!.clockOut, isNotNull);
 
-      final now = DateTime.now();
-      final history = await repo.history(month: now.month, year: now.year);
+      // El mes del día marcado (fecha de la empresa), no el del equipo: en CI corre en UTC y
+      // de 7 p. m. a medianoche de Lima ya es el mes siguiente
+      final day = today.attendance!.workDate;
+      final history = await repo.history(month: day.month, year: day.year);
       expect(history.items, isNotEmpty);
 
       await repo.submitJustification(history.items.first.id, 'Prueba de punta a punta');
