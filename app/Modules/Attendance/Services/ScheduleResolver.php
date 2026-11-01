@@ -142,6 +142,12 @@ class ScheduleResolver
         return self::current($assignments, $day)->first(fn (EmployeeShift $a) => $a->worksOn($day));
     }
 
+    /** ¿Tiene una asignación vigente ese día? (con ella, un día sin turno es su descanso, no "sin programar") */
+    public function covered(Collection $assignments, CarbonInterface $day): bool
+    {
+        return self::current($assignments, $day)->isNotEmpty();
+    }
+
     private function v2(Collection $assignments, CarbonInterface $day, ?callable $eligible): DaySchedule
     {
         $current = self::current($assignments, $day);

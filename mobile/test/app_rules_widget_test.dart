@@ -13,6 +13,7 @@ import 'package:tunesa_mobile/core/config/app_config_controller.dart';
 import 'package:tunesa_mobile/core/config/version_gate.dart';
 import 'package:tunesa_mobile/core/location/location_service.dart';
 import 'package:tunesa_mobile/core/providers.dart';
+import 'package:tunesa_mobile/features/attendance/data/attempt_reporter.dart';
 import 'package:tunesa_mobile/features/attendance/domain/models.dart';
 import 'package:tunesa_mobile/features/attendance/presentation/attendance_providers.dart';
 import 'package:tunesa_mobile/features/attendance/presentation/clock_screen.dart';
@@ -84,6 +85,17 @@ class _FixedGps extends LocationService {
   );
 }
 
+/// Registra los intentos que la app reporta al servidor (sin red).
+class _SpyReporter implements AttemptReporter {
+  final reported = <AppAttempt>[];
+
+  @override
+  Future<void> report(AppAttempt attempt) async => reported.add(attempt);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 /// Agencia de pruebas con radio de 100 m.
 const _agency = BranchGeofence(id: 1, name: 'Agencia Centro', lat: -12.0464, lng: -77.0428, radius: 100);
 
@@ -110,6 +122,7 @@ void main() {
     LocationService? gps,
     bool settle = true,
     bool disclosed = true,
+    _SpyReporter? reporter,
   }) async {
     SharedPreferences.setMockInitialValues({
       AppConfigRepository.cacheKey: _cache(mobile: mobile),
@@ -124,6 +137,7 @@ void main() {
           myBranchesProvider.overrideWith((ref) async => const [_agency]),
           connectivityProvider.overrideWith((ref) => Stream.value(true)),
           offlineSyncProvider.overrideWith(() => _FakeSync(sync)),
+          attemptReporterProvider.overrideWithValue(reporter ?? _SpyReporter()),
         ],
         child: MaterialApp(
           locale: const Locale('es'),
@@ -185,6 +199,24 @@ void main() {
     expect(find.text('Estás fuera del perímetro'), findsOneWidget);
     expect(find.textContaining('Acércate a Agencia Centro para marcar'), findsOneWidget);
     expect(find.text('Volver a verificar'), findsOneWidget);
+  });
+
+  testWidgets('fuera del perímetro se reporta como intento rechazado, una vez por apertura', (tester) async {
+    final spy = _SpyReporter();
+    await pumpClock(tester, gps: _FixedGps(_agency.lat + 0.01, _agency.lng), reporter: spy);
+    expect(spy.reported.map((a) => a.code), [AppAttempt.geofenceCode]);
+    expect(spy.reported.single.distance, greaterThan(_agency.radius));
+
+    // "Volver a verificar" sigue fuera: no se repite en la bitácora
+    await tester.tap(find.text('Volver a verificar'));
+    await tester.pumpAndSettle();
+    expect(spy.reported, hasLength(1));
+  });
+
+  testWidgets('dentro de la agencia no se reporta nada', (tester) async {
+    final spy = _SpyReporter();
+    await pumpClock(tester, gps: _FixedGps(_agency.lat, _agency.lng), settle: false, reporter: spy);
+    expect(spy.reported, isEmpty);
   });
 
   testWidgets('sin geocerca estricta, fuera del radio igual abre la cámara', (tester) async {

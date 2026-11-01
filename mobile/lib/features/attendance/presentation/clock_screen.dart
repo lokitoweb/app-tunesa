@@ -187,6 +187,9 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       _locationError = error;
       if (fix != null) _preview = fix;
     });
+    // La pantalla "Estás fuera del perímetro" (o GPS falso/impreciso) sale aquí, antes de la
+    // selfie: también es un intento rechazado y RRHH debe verlo en Intentos rechazados
+    _reportBlock(fix: fix, error: error);
   }
 
   /// Con geocerca estricta: [fix] cae fuera del radio de la sede más cercana.
@@ -206,8 +209,11 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     final attempt = error != null
         ? AppAttempt.fromLocationError(widget.action, error, at: at)
         : (fix == null ? null : _outsideAttempt(fix, at: at));
-    if (attempt != null) unawaited(ref.read(attemptReporterProvider).report(attempt));
+    // Una vez por motivo en cada apertura de la pantalla: "Volver a verificar" repetido no llena la bitácora
+    if (attempt != null && _reportedCodes.add(attempt.code)) unawaited(ref.read(attemptReporterProvider).report(attempt));
   }
+
+  final Set<String> _reportedCodes = {};
 
   /// Abre la cámara. [auto]: apertura automática al entrar; si se cancela y
   /// la selfie es obligatoria, se cancela la marcación (vuelve al inicio).

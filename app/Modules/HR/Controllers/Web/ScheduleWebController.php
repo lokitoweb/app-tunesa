@@ -130,8 +130,8 @@ class ScheduleWebController extends Controller
                     $worked++;
                     $hours += (float) $shift->forDate($day)->daily_hours;
                 } else {
-                    // Programado sin horario = día libre; sin programación = vacío
-                    $cells[] = $cell['source'] === 'none' ? '' : 'L';
+                    // Día libre (programado o descanso de la asignación) = L; sin programar o fuera de contrato = vacío
+                    $cells[] = in_array($cell['source'], ['none', 'out'], true) ? '' : 'L';
                 }
             }
 

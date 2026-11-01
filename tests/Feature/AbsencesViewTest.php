@@ -70,10 +70,11 @@ class AbsencesViewTest extends TestCase
         $this->assertSame(3, $absentInCalendar);
     }
 
-    public function test_old_url_redirects_and_filters_work(): void
+    public function test_absent_filter_in_marcaciones_and_absences_filters_work(): void
     {
+        // "Falta (ausente)" filtra en Marcaciones las faltas ya registradas y enlaza al cruce completo
         $this->actingAs($this->hr)->get('/attendance?status=absent&start_date=2026-10-01&end_date=2026-10-21')
-            ->assertRedirect('/absences?from=2026-10-01&to=2026-10-21');
+            ->assertOk()->assertSee('Falta (ausente)')->assertSee('/absences?from=2026-10-01&amp;to=2026-10-21', false);
 
         $this->get('/absences?q=Mendoza&from=2026-10-19&to=2026-10-21')->assertViewHas('total', 1);
         // El menú lleva a la vista propia, sin parámetros en la URL

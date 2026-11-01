@@ -56,9 +56,20 @@
         <option value="">Todos los estados</option>
         <option value="present" @selected(request('status') == 'present')>Puntual</option>
         <option value="late" @selected(request('status') == 'late')>Tardanza</option>
+        <option value="absent" @selected(request('status') == 'absent')>Falta (ausente)</option>
+        <option value="incomplete" @selected(request('status') == 'incomplete')>Sin salida</option>
         <option value="excused" @selected(request('status') == 'excused')>Justificado</option>
         <option value="suspicious" @selected(request('status') == 'suspicious')>Solo sospechosas</option>
     </select>
+    @if ($positions->isNotEmpty())
+        <select id="position_id" name="position_id" class="form-select w-auto" aria-label="Cargo" data-autosubmit>
+            <option value="">Todos los cargos</option>
+            @foreach ($positions as $position)
+                <option value="{{ $position->id }}" @selected(request('position_id') == $position->id)>{{ $position->name }}</option>
+            @endforeach
+            <option value="none" @selected(request('position_id') === 'none')>Sin cargo</option>
+        </select>
+    @endif
     <div class="d-flex gap-2 ms-auto">
         <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filtrar</button>
         <a href="{{ route('attendance.index') }}" data-ajax-reset class="btn btn-light border" title="Limpiar filtros" aria-label="Limpiar filtros"><i class="bi bi-x-lg"></i></a>
@@ -67,6 +78,12 @@
 
 {{-- Tabla de marcaciones --}}
 <div id="att-results">
+    @if (request('status') === 'absent')
+        <div class="alert alert-info small py-2 mx-3 mt-3 mb-0" role="note">
+            <i class="bi bi-info-circle me-1"></i>Faltas ya registradas en el período. El cruce completo de lo programado contra lo marcado está en
+            <a href="{{ route('attendance.absences', array_filter(['from' => $startDate, 'to' => $endDate, 'branch_id' => request('branch_id')])) }}">Control de faltas</a>.
+        </div>
+    @endif
     <div class="table-responsive">
         <table class="table data-table table-cards align-middle mb-0">
             <thead>

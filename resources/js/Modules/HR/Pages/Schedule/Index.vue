@@ -143,8 +143,10 @@ const unscheduled = computed(() => visiblePeople.value
 // Etiqueta de la celda: hora de entrada, corta si es en punto ("08" o "08:30")
 const cellLabel = (shiftId) => (shiftById.value[shiftId]?.start || '?').replace(/:00$/, '');
 
-// Vacaciones aprobadas (módulo de licencias): bloqueadas, el pincel no las cambia
-const isLocked = (userId, date) => cell(userId, date).source === 'vacation';
+// Vacaciones aprobadas (módulo de licencias) y días fuera de su contrato (antes del ingreso o
+// después del cese): bloqueados, el pincel no los cambia
+const isLocked = (userId, date) => ['vacation', 'out'].includes(cell(userId, date).source);
+const isOut = (userId, date) => cell(userId, date).source === 'out';
 
 // value: id de turno, o null = día libre (borrador)
 function paint(userId, date, value = brush.value) {
@@ -364,8 +366,10 @@ async function repeat() {
                 <div v-if="state.branchId" class="sched-field">
                     <span class="sched-label" id="sched-position-label">Cargo</span>
                     <div class="d-flex align-items-center gap-2">
-                        <div class="dropdown">
-                            <button type="button" class="btn sched-position-btn dropdown-toggle" :class="{ 'is-active': filtering }" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                        <!-- El resaltado va en el contenedor: un :class en el botón le borraría a Bootstrap
+                             la clase "show" y el clic afuera ya no cerraría el menú -->
+                        <div class="dropdown" :class="{ 'is-active': filtering }">
+                            <button type="button" class="btn sched-position-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"
                                 aria-expanded="false" aria-labelledby="sched-position-label">
                                 <i class="bi bi-person-badge"></i><span class="text-truncate">{{ positionFilterLabel }}</span>
                             </button>
@@ -394,6 +398,7 @@ async function repeat() {
                     <span><i class="sched-legend sched-vacation"></i>Vacaciones (bloqueado)</span>
                     <span><i class="sched-legend sched-legend-none"></i>Sin programar</span>
                     <span><i class="sched-legend sched-legend-free"></i>Día libre</span>
+                    <span><i class="sched-legend sched-out"></i>Fuera de contrato</span>
                 </div>
             </div>
 
@@ -446,17 +451,20 @@ async function repeat() {
                             </td>
                             <td v-for="d in days" :key="d.date" class="sched-cell"
                                 :class="{
-                                    'sched-vacation': isLocked(p.id, d.date),
+                                    'sched-vacation': isLocked(p.id, d.date) && !isOut(p.id, d.date),
+                                    'sched-out': isOut(p.id, d.date),
                                     'sched-none': cell(p.id, d.date).source === 'none' && !state.holidays[d.date],
                                     'sched-inherited': cell(p.id, d.date).source === 'assignment',
                                 }"
                                 :style="cell(p.id, d.date).shift_id ? { background: shiftById[cell(p.id, d.date).shift_id]?.color } : {}"
                                 :aria-disabled="isLocked(p.id, d.date) || undefined"
-                                :title="isLocked(p.id, d.date) ? 'Vacaciones aprobadas: bloqueado'
+                                :title="isOut(p.id, d.date) ? 'Fuera de su contrato (antes del ingreso o después del cese): no se programa'
+                                    : isLocked(p.id, d.date) ? 'Vacaciones aprobadas: bloqueado'
                                     : cell(p.id, d.date).shift_id ? `${shiftById[cell(p.id, d.date).shift_id]?.name} (${cell(p.id, d.date).source === 'assignment' ? 'de la asignación semanal' : 'programado'}) · clic para quitar`
-                                    : (cell(p.id, d.date).source === 'none' ? 'Sin programación' : 'Día libre')"
+                                    : ({ none: 'Sin programación', assignment_off: 'Día libre (descanso de la asignación semanal)' }[cell(p.id, d.date).source] || 'Día libre')"
                                 @mousedown.prevent="startPaint(p.id, d.date)" @mouseenter="overPaint(p.id, d.date)">
-                                <template v-if="isLocked(p.id, d.date)">VAC</template>
+                                <template v-if="isOut(p.id, d.date)"></template>
+                                <template v-else-if="isLocked(p.id, d.date)">VAC</template>
                                 <template v-else>{{ cell(p.id, d.date).shift_id ? cellLabel(cell(p.id, d.date).shift_id) : '' }}</template>
                             </td>
                         </tr>
@@ -546,7 +554,7 @@ async function repeat() {
 .sched-month-btn:disabled { opacity: .5; }
 .sched-month-label { display: inline-flex; align-items: center; padding: 0 14px; min-width: 150px; justify-content: center; font-weight: 700; color: var(--bs-emphasis-color); border-left: 1px solid var(--bs-border-color); border-right: 1px solid var(--bs-border-color); }
 .sched-position-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; max-width: 260px; padding: 0 12px; border: 1px solid var(--bs-border-color); border-radius: 10px; background: var(--bs-body-bg); color: var(--bs-body-color); font-size: 0.85rem; }
-.sched-position-btn.is-active { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.is-active > .sched-position-btn { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
 .sched-position-menu { min-width: 240px; max-height: 320px; overflow-y: auto; }
 .sched-position-option { display: flex; align-items: center; gap: 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
 .sched-position-option .form-check-input { margin: 0; flex-shrink: 0; }
@@ -589,6 +597,8 @@ async function repeat() {
 .sched-cell { height: 32px; text-align: center; font-size: 0.6rem; font-weight: 700; color: #fff; cursor: crosshair; border: 1px solid var(--bs-border-color); overflow: hidden; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sched-inherited { opacity: 0.55; }
 .sched-none { box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.55); }
+/* Fuera de contrato: rayado gris, sin cursor de pintar (claro y oscuro) */
+.sched-out { cursor: not-allowed; background: repeating-linear-gradient(135deg, rgba(148, 163, 184, 0.18) 0 4px, transparent 4px 8px); }
 @media (max-width: 1399.98px) { .sched-name { width: 170px; } .sched-cell { font-size: 0.55rem; } }
 
 .sched-alerts { display: flex; flex-direction: column; gap: 8px; }

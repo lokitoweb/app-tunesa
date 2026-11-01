@@ -5,6 +5,7 @@ namespace App\Modules\Attendance\Controllers\Web;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Core\Models\Branch;
+use App\Modules\Core\Models\Position;
 use App\Modules\Core\Models\User;
 use App\Modules\Attendance\Services\AttendanceEvidence;
 use App\Modules\Core\Support\PrivateFile;
@@ -28,13 +29,6 @@ class AttendanceWebController extends Controller
      */
     public function index(Request $request): View|\Illuminate\Http\RedirectResponse
     {
-        // Las faltas no son marcaciones: se ven en Control de faltas (programación vs marcaciones)
-        if ($request->query('status') === 'absent') {
-            return redirect()->route('attendance.absences', array_filter([
-                'from' => $request->query('start_date'), 'to' => $request->query('end_date'), 'branch_id' => $request->query('branch_id'),
-            ]));
-        }
-
         $tenantId = current_tenant_id_or_null();
 
         // Rango de fechas por defecto: hoy
@@ -57,6 +51,15 @@ class AttendanceWebController extends Controller
             $query->where('is_suspicious', true);
         } elseif ($status = $request->input('status')) {
             $query->where('status', $status);
+        }
+
+        // Filtro por cargo: del catálogo (position_id) o, en fichas antiguas, el cargo escrito con ese nombre
+        $positions = $tenantId ? Position::where('is_active', true)->orderBy('name')->get(['id', 'name']) : collect();
+        if ($request->input('position_id') === 'none') {
+            $query->whereHas('user', fn ($u) => $u->whereNull('position_id')->where(fn ($w) => $w->whereNull('position')->orWhere('position', '')));
+        } elseif ($position = $positions->firstWhere('id', (int) $request->input('position_id'))) {
+            $query->whereHas('user', fn ($u) => $u->where('position_id', $position->id)
+                ->orWhere(fn ($w) => $w->whereNull('position_id')->where('position', $position->name)));
         }
 
         // Filtro por cumplimiento de geocerca
@@ -90,7 +93,8 @@ class AttendanceWebController extends Controller
             'branches',
             'startDate',
             'endDate',
-            'summary'
+            'summary',
+            'positions'
         ));
     }
 

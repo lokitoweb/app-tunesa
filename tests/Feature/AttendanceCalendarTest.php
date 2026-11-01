@@ -174,6 +174,11 @@ class AttendanceCalendarTest extends TestCase
         $this->assertSame('absent', $state());
         $this->day($this->emp, '2026-09-01', ['clock_in_at' => '2026-09-01 07:58:00', 'clock_out_at' => '2026-09-01 17:00:00']);
         $this->assertSame('present', $state());
+
+        // El mes en curso no se cachea: marcar hoy no toca el contador compartido (con
+        // marcaciones simultáneas, su SELECT … FOR UPDATE en el store 'database' daba deadlock)
+        $this->assertFalse(\Illuminate\Support\Facades\Cache::has('attendance-calendar:v:' . $this->emp->tenant_id . ':2026-10'));
+        $this->assertTrue(\Illuminate\Support\Facades\Cache::has('attendance-calendar:v:' . $this->emp->tenant_id . ':2026-09'));
     }
 
     public function test_punches_of_the_current_month_do_not_write_the_cache_table(): void

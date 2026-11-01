@@ -41,7 +41,7 @@ class ScheduleProgramming
                 ->where(fn ($w) => $w->whereNull('employee_branch.assigned_until')->orWhere('employee_branch.assigned_until', '>=', $from)))
             ->visibleTo($viewer)
             ->orderBy('last_name')->orderBy('first_name')
-            ->get(['id', 'first_name', 'last_name', 'employee_code', 'document_number', 'position', 'position_id', 'tenant_id']);
+            ->get(['id', 'first_name', 'last_name', 'employee_code', 'document_number', 'position', 'position_id', 'tenant_id', 'hire_date', 'termination_date']);
     }
 
     /**
@@ -67,6 +67,13 @@ class ScheduleProgramming
             $mine = $days->get($person->id, collect())->keyBy(fn (EmployeeScheduleDay $d) => $d->work_date->toDateString());
             foreach (CarbonPeriod::create($from, $to) as $date) {
                 $day = $date->toDateString();
+                // Antes de su ingreso o después de su cese no hay nada que programar: no es "sin programar"
+                if (($person->hire_date && $day < $person->hire_date->toDateString())
+                    || ($person->termination_date && $day > $person->termination_date->toDateString())) {
+                    $grid[$person->id][$day] = ['shift_id' => null, 'source' => 'out'];
+
+                    continue;
+                }
                 // Vacaciones aprobadas: el día queda bloqueado (no se programa encima)
                 if (isset($vacations[$person->id][$day])) {
                     $grid[$person->id][$day] = ['shift_id' => null, 'source' => 'vacation'];
@@ -78,8 +85,14 @@ class ScheduleProgramming
 
                     continue;
                 }
-                $working = $this->resolver->working($assignments->get($person->id, collect()), CarbonImmutable::parse($day));
-                $grid[$person->id][$day] = ['shift_id' => $working?->shift_id, 'source' => $working ? 'assignment' : 'none'];
+                $mineAssignments = $assignments->get($person->id, collect());
+                $working = $this->resolver->working($mineAssignments, CarbonImmutable::parse($day));
+                // Sin turno ese día pero con asignación semanal vigente = su descanso (día libre), no "sin programar"
+                $grid[$person->id][$day] = ['shift_id' => $working?->shift_id, 'source' => match (true) {
+                    (bool) $working => 'assignment',
+                    $this->resolver->covered($mineAssignments, CarbonImmutable::parse($day)) => 'assignment_off',
+                    default => 'none',
+                }];
             }
         }
 
@@ -166,11 +179,15 @@ class ScheduleProgramming
             return $counts;
         }
 
-        // Los días de vacaciones aprobadas no se sobrescriben (aunque el navegador los envíe)
+        // Los días de vacaciones aprobadas y los que están fuera de su contrato (antes del ingreso
+        // o después del cese) no se graban, aunque el navegador los envíe
         $vacations = $this->vacationDays(array_keys($values), $dates->min(), $dates->max());
+        $contracts = User::whereIn('id', array_keys($values))->get(['id', 'hire_date', 'termination_date'])->keyBy('id');
         foreach ($values as $userId => $days) {
+            $hired = $contracts->get($userId)?->hire_date?->toDateString();
+            $ended = $contracts->get($userId)?->termination_date?->toDateString();
             foreach (array_keys($days) as $date) {
-                if (isset($vacations[$userId][$date])) {
+                if (isset($vacations[$userId][$date]) || ($hired && $date < $hired) || ($ended && $date > $ended)) {
                     unset($values[$userId][$date]);
                     $counts['locked']++;
                 }

@@ -203,6 +203,32 @@ class ScheduleProgrammingTest extends TestCase
         $this->assertSame(1, AuditLog::where('action', 'schedule.programmed')->count());
     }
 
+    /**
+     * Caso reportado: un colaborador que ingresó el 26 salía con los días 1–25 en rojo ("sin programar"),
+     * y los descansos de su asignación semanal (sábado y domingo) también. Antes del ingreso es
+     * "fuera de contrato" (ni se programa) y el descanso de la asignación es día libre.
+     */
+    public function test_new_hire_days_before_entry_and_weekly_rest_days_are_not_unscheduled(): void
+    {
+        $new = $this->makeUser($this->acme, 'employee', ['first_name' => 'Nuevo', 'last_name' => 'Ingreso', 'hire_date' => '2026-10-26']);
+        $new->branches()->attach($this->trujillo->id, ['is_primary' => true, 'assigned_from' => '2026-10-26']);
+        \App\Modules\HR\Models\EmployeeShift::create(['tenant_id' => $this->acme->id, 'user_id' => $new->id, 'shift_id' => $this->a->id,
+            'branch_id' => $this->trujillo->id, 'effective_from' => '2026-10-26', 'is_active' => true]);
+
+        $grid = $this->actingAs($this->hr)->getJson(route('shifts.schedule', ['branch_id' => $this->trujillo->id, 'month' => '2026-10']))->json("grid.{$new->id}");
+        $this->assertSame('out', $grid['2026-10-25']['source']);                                   // antes del ingreso
+        $this->assertSame(['shift_id' => $this->a->id, 'source' => 'assignment'], $grid['2026-10-26']); // lunes: su horario
+        $this->assertSame('assignment_off', $grid['2026-10-31']['source']);                        // sábado: su descanso
+        $this->assertNotContains('none', array_column($grid, 'source'), 'ningún día queda en rojo');
+
+        // Aunque el navegador los envíe, los días antes del ingreso no se graban
+        $this->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-10-20', 'to' => '2026-10-27', 'reason' => 'Ingreso',
+            'rows' => [['user_id' => $new->id, 'days' => ['2026-10-20' => $this->b->id, '2026-10-27' => $this->b->id]]],
+        ])->assertOk()->assertJsonPath('result.locked', 1)->assertJsonPath('result.created', 1);
+        $this->assertFalse(EmployeeScheduleDay::where('user_id', $new->id)->where('work_date', '2026-10-20')->exists());
+    }
+
     public function test_approved_vacation_days_are_locked_in_the_matrix_and_reports(): void
     {
         $juan = $this->people['Juan'];
