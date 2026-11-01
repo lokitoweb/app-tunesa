@@ -11,8 +11,7 @@
 </nav>
 {{-- Cabecera: quién es (foto o iniciales, nombre, estado y cargo) a la izquierda; accesos a la derecha --}}
 @php
-    $statusTone = ['active' => ['emerald', 'Activo'], 'inactive' => ['neutral', 'Inactivo'], 'suspended' => ['rose', 'Suspendido']][$employee->status] ?? ['neutral', ucfirst((string) $employee->status)];
-    $meta = array_filter([$employee->jobPosition?->name ?? $employee->position, $employee->employee_code, $employee->document_number ? 'DNI ' . $employee->document_number : null]);
+    $meta =array_filter([$employee->jobPosition?->name ?? $employee->position, $employee->employee_code, $employee->document_number ? 'DNI ' . $employee->document_number : null]);
 @endphp
 <header class="page-head emp-edit-header">
     <div class="d-flex align-items-center gap-3 min-w-0">
@@ -24,7 +23,7 @@
         <div class="page-head-text">
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <h1 class="page-title text-truncate">{{ $employee->first_name }} {{ $employee->last_name }}</h1>
-                <span class="status-pill tone-{{ $statusTone[0] }}">{{ $statusTone[1] }}</span>
+                <x-status-badge type="user_status" :value="$employee->status" />
             </div>
             <p class="page-subtitle">Editar ficha · {{ implode(' · ', $meta) ?: 'Datos laborales, sedes de marcación y acceso' }}</p>
         </div>
