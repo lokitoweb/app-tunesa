@@ -41,10 +41,25 @@ Future<void> settleScreen(WidgetTester tester, String name) async {
 /// Lista vertical de la pantalla (las grillas y carruseles horizontales no cuentan).
 final _verticalList = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down);
 
-Future<void> tapText(WidgetTester tester, String text) async {
-  // Las listas se arman al desplazarse: si la opción aún no existe, se busca bajando
-  if (find.text(text).evaluate().isEmpty && _verticalList.evaluate().isNotEmpty) {
-    await tester.scrollUntilVisible(find.text(text), 300, scrollable: _verticalList.first);
+Future<void> tapText(WidgetTester tester, String text, {Duration timeout = const Duration(seconds: 20)}) async {
+  // En emuladores lentos la pantalla aún se está dibujando: se reintenta hasta [timeout]
+  // esperando y, si hay lista, bajando (las listas se arman al desplazarse)
+  final end = DateTime.now().add(timeout);
+  while (find.text(text).evaluate().isEmpty) {
+    if (!DateTime.now().isBefore(end)) {
+      final visible = find.byType(Text).evaluate().map((e) => (e.widget as Text).data).whereType<String>().take(40).join(' | ');
+      throw TestFailure('No apareció el texto "$text" en ${timeout.inSeconds} s\nEn pantalla: $visible');
+    }
+    if (_verticalList.evaluate().isNotEmpty) {
+      try {
+        await tester.scrollUntilVisible(find.text(text), 300, scrollable: _verticalList.first, maxScrolls: 20);
+      } on StateError {
+        // La lista cambió mientras bajaba: se vuelve a intentar
+      } on TestFailure {
+        // Aún no está: se vuelve a intentar tras esperar
+      }
+    }
+    await tester.pump(const Duration(milliseconds: 300));
   }
   final finder = find.text(text).first;
   await tester.ensureVisible(finder);
