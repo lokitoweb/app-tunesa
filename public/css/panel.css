@@ -9666,3 +9666,81 @@ a.dash-kpi-card.is-link.is-active { border-color: var(--brand); box-shadow: 0 0 
     .emp-edit-head { padding: 0.85rem 0.9rem; }
     .emp-edit-actions { grid-template-columns: 1fr; }
 }
+
+/* =============================================================================
+ * Controles modernos de formulario (Panel.controls): ícono dentro del campo,
+ * listas con buscador y calendario. Mismo alto y bordes que .form-control.
+ * ============================================================================= */
+.field-icon { position: relative; }
+.field-icon > .bi, .field-icon > .field-prefix {
+    position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%);
+    color: var(--text-muted); font-size: 0.95rem; pointer-events: none; z-index: 2;
+}
+.field-icon > .field-prefix { font-size: 0.82rem; font-weight: 600; }
+.field-icon > .form-control { padding-left: 2.45rem; }
+.field-icon:focus-within > .bi, .field-icon:focus-within > .field-prefix { color: var(--brand); }
+
+.mc { position: relative; }
+.mc-native { position: absolute !important; inset: 0; opacity: 0; pointer-events: none; }
+.mc-btn {
+    display: flex; align-items: center; gap: 0.55rem; width: 100%; text-align: left; cursor: pointer;
+    padding-left: 0.85rem; padding-right: 0.75rem;
+}
+.mc-btn .mc-icon { color: var(--text-muted); font-size: 0.95rem; flex: none; }
+.mc-btn .mc-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-btn.is-placeholder .mc-label { color: var(--text-muted); }
+.mc-btn .mc-caret { font-size: 0.75rem; color: var(--text-muted); transition: transform 0.18s ease; }
+.mc.is-open .mc-btn { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(var(--brand-rgb), 0.12); }
+.mc.is-open .mc-btn .mc-icon { color: var(--brand); }
+.mc.is-open .mc-caret { transform: rotate(180deg); }
+.mc-clear { font-size: 0.7rem; color: var(--text-muted); padding: 0.25rem; border-radius: 4px; display: none; }
+.mc-date.has-value .mc-clear { display: inline-block; }
+.mc-clear:hover { color: var(--text-primary); background: var(--bg-surface-elevated); }
+
+.mc-panel {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 1060;
+    display: none; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 10px;
+    box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.3); overflow: hidden;
+}
+.mc.drop-up .mc-panel { top: auto; bottom: calc(100% + 6px); }
+.mc.is-open .mc-panel { display: block; animation: mcIn 0.14s ease; }
+@keyframes mcIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.mc-search { position: relative; padding: 0.5rem; border-bottom: 1px solid var(--border-color); }
+.mc-search .bi { position: absolute; left: 1.15rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem; }
+.mc-search input { width: 100%; height: 36px; padding: 0 0.75rem 0 2.1rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-surface-elevated); color: var(--text-primary); font-size: 0.85rem; outline: none; }
+.mc-search input:focus { border-color: var(--brand); }
+.mc-list { max-height: 264px; overflow-y: auto; padding: 0.3rem; }
+.mc-group { padding: 0.55rem 0.65rem 0.25rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.mc-option {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%;
+    padding: 0.5rem 0.65rem; border: 0; border-radius: 6px; background: transparent; color: var(--text-primary);
+    font-size: 0.86rem; text-align: left;
+}
+.mc-option:hover, .mc-option:focus-visible { background: rgba(var(--brand-rgb), 0.07); outline: none; }
+.mc-option .bi { color: var(--brand); visibility: hidden; }
+.mc-option.is-selected { background: rgba(var(--brand-rgb), 0.1); color: var(--brand); font-weight: 600; }
+.mc-option.is-selected .bi { visibility: visible; }
+.mc-option:disabled { opacity: 0.45; }
+.mc-empty { padding: 0.9rem; text-align: center; font-size: 0.82rem; color: var(--text-muted); }
+
+.mc-cal { width: 296px; right: auto; padding: 0.75rem; }
+.mc-cal-head { display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.5rem; }
+.mc-cal-head select { flex: 1; min-width: 0; height: 32px; padding: 0 0.4rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); color: var(--text-primary); font-size: 0.84rem; font-weight: 600; }
+.mc-nav { width: 32px; height: 32px; flex: none; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-surface); color: var(--text-secondary); }
+.mc-nav:hover { color: var(--brand); border-color: var(--brand); }
+.mc-cal-week, .mc-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.mc-cal-week span { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); padding: 0.25rem 0; }
+.mc-day { height: 34px; border: 0; border-radius: 6px; background: transparent; color: var(--text-primary); font-size: 0.84rem; font-variant-numeric: tabular-nums; }
+.mc-day:hover:not(:disabled) { background: rgba(var(--brand-rgb), 0.08); }
+.mc-day.is-today { box-shadow: inset 0 0 0 1px rgba(var(--brand-rgb), 0.45); }
+.mc-day.is-selected { background: var(--brand); color: #fff; font-weight: 700; }
+.mc-day:disabled { opacity: 0.3; }
+.mc-cal-foot { display: flex; justify-content: space-between; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-color); }
+.mc-link { border: 0; background: transparent; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); padding: 0.25rem 0.4rem; border-radius: 6px; }
+.mc-link.is-primary { color: var(--brand); }
+.mc-link:hover:not(:disabled) { background: var(--bg-surface-elevated); }
+@media (max-width: 575.98px) { .mc-cal { width: auto; right: 0; } }
+/* El mensaje de error sigue visible aunque el campo esté envuelto (ícono, lista o calendario) */
+.field-icon:has(.is-invalid) ~ .invalid-feedback, .mc:has(.is-invalid) ~ .invalid-feedback { display: block; }
+.mc-date .mc-btn { gap: 0.4rem; padding-left: 0.7rem; padding-right: 0.45rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 575.98px) { .mc-date .mc-btn { font-size: 0.82rem; } .mc-date .mc-btn .mc-icon { font-size: 0.85rem; } }

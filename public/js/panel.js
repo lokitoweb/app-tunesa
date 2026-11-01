@@ -773,7 +773,228 @@
     // La dirección ya la dejó ajaxFilter (con la página): aquí solo memoria y etiquetas
     document.addEventListener('panel:ajax-filtered', (e) => { filters.save(e.detail.form); filters.chips(e.detail.form); });
 
-    window.Panel = { esc, minutes, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton, filters };
+    // =========================================================================
+    // Controles modernos de formulario (mejora progresiva: el campo real queda
+    // oculto debajo y es el que se envía, así que validaciones y guardado no cambian)
+    //   <select data-modern-select data-icon="bi-briefcase">        → lista con buscador
+    //   <input type="date" data-modern-date data-icon="bi-calendar3"> → calendario en español
+    // =========================================================================
+    const controls = {
+        open: null,
+        close() {
+            if (!controls.open) return;
+            controls.open.classList.remove('is-open');
+            controls.open.querySelector('[aria-expanded]')?.setAttribute('aria-expanded', 'false');
+            controls.open = null;
+        },
+        toggle(root, panel) {
+            const opening = controls.open !== root;
+            controls.close();
+            if (!opening) return false;
+            root.classList.add('is-open');
+            root.querySelector('[aria-expanded]')?.setAttribute('aria-expanded', 'true');
+            // Se abre hacia arriba si abajo no hay espacio
+            const rect = root.getBoundingClientRect();
+            root.classList.toggle('drop-up', innerHeight - rect.bottom < Math.min(panel.scrollHeight, 320) + 16 && rect.top > innerHeight - rect.bottom);
+            controls.open = root;
+            return true;
+        },
+        shell(field, extraClass) {
+            const root = document.createElement('div');
+            root.className = `mc ${extraClass}`;
+            field.parentNode.insertBefore(root, field);
+            root.appendChild(field);
+            return root;
+        },
+        button(field, label) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'mc-btn form-control';
+            btn.setAttribute('aria-haspopup', 'listbox');
+            btn.setAttribute('aria-expanded', 'false');
+            if (field.id) {
+                document.querySelector(`label[for="${field.id}"]`)?.setAttribute('for', `${field.id}__mc`);
+                btn.id = `${field.id}__mc`;
+            }
+            btn.innerHTML = `<i class="bi ${esc(field.dataset.icon || 'bi-list-ul')} mc-icon" aria-hidden="true"></i><span class="mc-label">${esc(label)}</span><i class="bi bi-chevron-down mc-caret" aria-hidden="true"></i>`;
+            if (field.classList.contains('is-invalid')) btn.classList.add('is-invalid');
+            return btn;
+        },
+
+        select(select) {
+            if (select.dataset.mcReady) return;
+            select.dataset.mcReady = '1';
+            const root = controls.shell(select, 'mc-select');
+            select.classList.add('mc-native');
+            select.tabIndex = -1;
+            const btn = controls.button(select, '');
+            const panel = document.createElement('div');
+            panel.className = 'mc-panel';
+            panel.setAttribute('role', 'listbox');
+            const searchable = select.options.length > 7;
+            panel.innerHTML = (searchable ? '<div class="mc-search"><i class="bi bi-search" aria-hidden="true"></i><input type="text" placeholder="Buscar…" aria-label="Buscar" autocomplete="off"></div>' : '') + '<div class="mc-list"></div><div class="mc-empty" hidden>Sin resultados</div>';
+            root.append(btn, panel);
+            const list = panel.querySelector('.mc-list');
+            const search = panel.querySelector('.mc-search input');
+
+            const render = () => {
+                let html = '';
+                [...select.children].forEach((node) => {
+                    const opts = node.tagName === 'OPTGROUP' ? [...node.children] : [node];
+                    if (node.tagName === 'OPTGROUP') html += `<div class="mc-group">${esc(node.label)}</div>`;
+                    opts.forEach((o) => {
+                        html += `<button type="button" role="option" class="mc-option${o.selected ? ' is-selected' : ''}" data-value="${esc(o.value)}" aria-selected="${o.selected}" ${o.disabled ? 'disabled' : ''}><span>${esc(o.text)}</span><i class="bi bi-check2" aria-hidden="true"></i></button>`;
+                    });
+                });
+                list.innerHTML = html;
+            };
+            const sync = () => {
+                const opt = select.selectedOptions[0];
+                btn.querySelector('.mc-label').textContent = opt ? opt.text : '';
+                btn.classList.toggle('is-placeholder', !opt || opt.value === '');
+                list.querySelectorAll('.mc-option').forEach((b) => {
+                    const on = b.dataset.value === select.value;
+                    b.classList.toggle('is-selected', on);
+                    b.setAttribute('aria-selected', on);
+                });
+            };
+            const filter = (q) => {
+                const term = q.trim().toLowerCase();
+                let shown = 0;
+                list.querySelectorAll('.mc-option').forEach((b) => {
+                    const hit = !term || b.textContent.toLowerCase().includes(term);
+                    b.hidden = !hit;
+                    shown += hit ? 1 : 0;
+                });
+                list.querySelectorAll('.mc-group').forEach((g) => {
+                    let n = g.nextElementSibling, any = false;
+                    while (n && !n.classList.contains('mc-group')) { any ||= !n.hidden; n = n.nextElementSibling; }
+                    g.hidden = !any;
+                });
+                panel.querySelector('.mc-empty').hidden = shown > 0;
+            };
+
+            render();
+            sync();
+            btn.addEventListener('click', () => {
+                if (!controls.toggle(root, panel)) return;
+                if (search) { search.value = ''; filter(''); search.focus(); }
+                list.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' });
+            });
+            list.addEventListener('click', (e) => {
+                const opt = e.target.closest('.mc-option');
+                if (!opt || opt.disabled) return;
+                select.value = opt.dataset.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                controls.close();
+                btn.focus();
+            });
+            search?.addEventListener('input', () => filter(search.value));
+            panel.addEventListener('keydown', (e) => {
+                const items = [...list.querySelectorAll('.mc-option:not([hidden]):not(:disabled)')];
+                const i = items.indexOf(document.activeElement);
+                if (e.key === 'ArrowDown') { e.preventDefault(); items[Math.min(i + 1, items.length - 1)]?.focus(); }
+                if (e.key === 'ArrowUp') { e.preventDefault(); (i <= 0 ? search : items[i - 1])?.focus(); }
+                if (e.key === 'Enter' && document.activeElement === search) { e.preventDefault(); items[0]?.click(); }
+            });
+            select.addEventListener('change', sync);
+            select._mcRefresh = () => { render(); sync(); };
+        },
+
+        date(input) {
+            if (input.dataset.mcReady) return;
+            input.dataset.mcReady = '1';
+            const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const parse = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? new Date(`${v}T00:00:00`) : null);
+            const min = input.min || '', max = input.max || '';
+            const root = controls.shell(input, 'mc-date');
+            input.type = 'hidden';
+            const btn = controls.button(input, '');
+            btn.querySelector('.mc-caret').className = 'bi bi-x-lg mc-clear';
+            btn.querySelector('.mc-icon').className = `bi ${esc(input.dataset.icon || 'bi-calendar3')} mc-icon`;
+            const panel = document.createElement('div');
+            panel.className = 'mc-panel mc-cal';
+            root.append(btn, panel);
+            const today = new Date();
+            const minYear = parse(min)?.getFullYear() ?? today.getFullYear() - 90;
+            const maxYear = parse(max)?.getFullYear() ?? today.getFullYear() + 5;
+            // Abre en la fecha elegida; si no hay, en hoy (o en el máximo si hoy queda fuera, p. ej. nacimiento)
+            let view = parse(input.value) || (parse(max) && parse(max) < today ? parse(max) : today);
+
+            const sync = () => {
+                const d = parse(input.value);
+                btn.querySelector('.mc-label').textContent = d ? d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'dd/mm/aaaa';
+                btn.classList.toggle('is-placeholder', !d);
+                root.classList.toggle('has-value', !!d);
+            };
+            const set = (value) => {
+                input.value = value;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                sync();
+            };
+            const render = () => {
+                const y = view.getFullYear(), m = view.getMonth();
+                const first = (new Date(y, m, 1).getDay() + 6) % 7;
+                const days = new Date(y, m + 1, 0).getDate();
+                let cells = '';
+                for (let i = 0; i < first; i++) cells += '<span></span>';
+                for (let d = 1; d <= days; d++) {
+                    const v = iso(new Date(y, m, d));
+                    const off = (min && v < min) || (max && v > max);
+                    cells += `<button type="button" class="mc-day${v === input.value ? ' is-selected' : ''}${v === iso(today) ? ' is-today' : ''}" data-date="${v}" ${off ? 'disabled' : ''}>${d}</button>`;
+                }
+                let years = '';
+                for (let yy = maxYear; yy >= minYear; yy--) years += `<option value="${yy}" ${yy === y ? 'selected' : ''}>${yy}</option>`;
+                panel.innerHTML = `
+                    <div class="mc-cal-head">
+                        <button type="button" class="mc-nav" data-step="-1" aria-label="Mes anterior"><i class="bi bi-chevron-left"></i></button>
+                        <select class="mc-cal-month" aria-label="Mes">${MONTHS.map((n, i) => `<option value="${i}" ${i === m ? 'selected' : ''}>${n}</option>`).join('')}</select>
+                        <select class="mc-cal-year" aria-label="Año">${years}</select>
+                        <button type="button" class="mc-nav" data-step="1" aria-label="Mes siguiente"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+                    <div class="mc-cal-week"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+                    <div class="mc-cal-grid">${cells}</div>
+                    <div class="mc-cal-foot">
+                        <button type="button" class="mc-link" data-act="clear">Limpiar</button>
+                        <button type="button" class="mc-link is-primary" data-act="today" ${(min && iso(today) < min) || (max && iso(today) > max) ? 'disabled' : ''}>Hoy</button>
+                    </div>`;
+            };
+
+            sync();
+            btn.addEventListener('click', (e) => {
+                if (e.target.closest('.mc-clear')) { set(''); controls.close(); return; }
+                view = parse(input.value) || view;
+                render();
+                controls.toggle(root, panel);
+            });
+            panel.addEventListener('click', (e) => {
+                const day = e.target.closest('.mc-day');
+                const nav = e.target.closest('.mc-nav');
+                const act = e.target.closest('[data-act]')?.dataset.act;
+                if (day && !day.disabled) { set(day.dataset.date); controls.close(); btn.focus(); }
+                if (nav) { view = new Date(view.getFullYear(), view.getMonth() + Number(nav.dataset.step), 1); render(); }
+                if (act === 'today') { set(iso(today)); controls.close(); }
+                if (act === 'clear') { set(''); controls.close(); }
+            });
+            panel.addEventListener('change', (e) => {
+                if (e.target.matches('.mc-cal-month, .mc-cal-year')) {
+                    view = new Date(Number(panel.querySelector('.mc-cal-year').value), Number(panel.querySelector('.mc-cal-month').value), 1);
+                    render();
+                }
+            });
+        },
+
+        init(scope = document) {
+            scope.querySelectorAll('select[data-modern-select]').forEach(controls.select);
+            scope.querySelectorAll('input[type="date"][data-modern-date]').forEach(controls.date);
+        },
+    };
+    document.addEventListener('click', (e) => { if (controls.open && !controls.open.contains(e.target)) controls.close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && controls.open) { const b = controls.open.querySelector('.mc-btn'); controls.close(); b?.focus(); } });
+    document.addEventListener('DOMContentLoaded', () => controls.init());
+
+    window.Panel = { esc, minutes, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton, filters, controls };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;
     window.openCommandPalette = openCommandPalette;

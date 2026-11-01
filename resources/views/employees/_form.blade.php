@@ -35,17 +35,21 @@
             <div class="emp-edit-body row g-3">
                 <div class="col-md-6">
                     <label for="first_name" class="form-label">Nombres <span class="text-danger">*</span></label>
-                    <input type="text" id="first_name" name="first_name" value="{{ $val('first_name') }}" required class="form-control @error('first_name') is-invalid @enderror">
+                    <div class="field-icon"><i class="bi bi-person" aria-hidden="true"></i>
+                        <input type="text" id="first_name" name="first_name" value="{{ $val('first_name') }}" required class="form-control @error('first_name') is-invalid @enderror">
+                    </div>
                     @error('first_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-6">
                     <label for="last_name" class="form-label">Apellidos <span class="text-danger">*</span></label>
-                    <input type="text" id="last_name" name="last_name" value="{{ $val('last_name') }}" required class="form-control @error('last_name') is-invalid @enderror">
+                    <div class="field-icon"><i class="bi bi-person" aria-hidden="true"></i>
+                        <input type="text" id="last_name" name="last_name" value="{{ $val('last_name') }}" required class="form-control @error('last_name') is-invalid @enderror">
+                    </div>
                     @error('last_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-6 col-lg-3">
                     <label for="document_type" class="form-label">Tipo de documento <span class="text-danger">*</span></label>
-                    <select id="document_type" name="document_type" class="form-select">
+                    <select id="document_type" data-modern-select data-icon="bi-person-vcard" name="document_type" class="form-select">
                         @foreach(['dni' => 'DNI', 'ce' => 'Carné de extranjería', 'passport' => 'Pasaporte'] as $code => $label)
                             <option value="{{ $code }}" @selected($val('document_type') == $code)>{{ $label }}</option>
                         @endforeach
@@ -53,17 +57,21 @@
                 </div>
                 <div class="col-6 col-lg-3">
                     <label for="document_number" class="form-label">N.º de documento <span class="text-danger">*</span></label>
-                    <input type="text" id="document_number" name="document_number" value="{{ $val('document_number') }}" required class="form-control @error('document_number') is-invalid @enderror">
+                    <div class="field-icon"><i class="bi bi-card-text" aria-hidden="true"></i>
+                        <input type="text" id="document_number" name="document_number" value="{{ $val('document_number') }}" required class="form-control @error('document_number') is-invalid @enderror">
+                    </div>
                     @error('document_number')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-6 col-lg-3">
                     <label for="birth_date" class="form-label">Fecha de nacimiento</label>
-                    <input type="date" id="birth_date" name="birth_date" value="{{ old('birth_date', $employee?->birth_date?->format('Y-m-d') ?? '') }}" max="{{ now()->subDay()->format('Y-m-d') }}" class="form-control @error('birth_date') is-invalid @enderror" title="Para el módulo de cumpleaños (en la app solo se muestran día y mes)">
+                    <input type="date" id="birth_date" data-modern-date data-icon="bi-cake2" name="birth_date" value="{{ old('birth_date', $employee?->birth_date?->format('Y-m-d') ?? '') }}" max="{{ now()->subDay()->format('Y-m-d') }}" class="form-control @error('birth_date') is-invalid @enderror" title="Para el módulo de cumpleaños (en la app solo se muestran día y mes)">
                     @error('birth_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-6 col-lg-3">
                     <label for="phone" class="form-label">Teléfono / WhatsApp</label>
-                    <input type="tel" id="phone" name="phone" value="{{ $val('phone') }}" class="form-control">
+                    <div class="field-icon"><i class="bi bi-telephone" aria-hidden="true"></i>
+                        <input type="tel" id="phone" name="phone" value="{{ $val('phone') }}" class="form-control">
+                    </div>
                 </div>
                 <div class="col-12">
                     <label for="avatar" class="form-label">{{ $editing ? 'Foto de perfil (reemplazar)' : 'Foto de perfil' }}</label>
@@ -81,9 +89,11 @@
             <div class="emp-edit-body row g-3">
                 <div class="col-md-6">
                     <label for="email" class="form-label">Correo de acceso @if($editing)<span class="text-danger">*</span>@endif</label>
-                    <input type="email" id="email" name="email" value="{{ $val('email') }}" @if($editing) required @endif
-                           class="form-control @error('email') is-invalid @enderror" aria-describedby="email_help"
-                           @unless($editing) placeholder="{{ 'DNI@' . $loginDomain }}" @endunless>
+                    <div class="field-icon"><i class="bi bi-envelope" aria-hidden="true"></i>
+                        <input type="email" id="email" name="email" value="{{ $val('email') }}" @if($editing) required @endif
+                               class="form-control @error('email') is-invalid @enderror" aria-describedby="email_help"
+                               @unless($editing) placeholder="{{ 'DNI@' . $loginDomain }}" @endunless>
+                    </div>
                     <div id="email_help" class="form-text">
                         @if($editing)
                             Con este correo ingresa a la app.
@@ -104,7 +114,7 @@
                 </div>
                 <div class="{{ $editing ? 'col-md-8' : 'col-12' }}">
                     <label for="role" class="form-label">Rol <span class="text-danger">*</span></label>
-                    <select id="role" name="role" class="form-select @error('role') is-invalid @enderror" aria-describedby="role_help">
+                    <select id="role" data-modern-select data-icon="bi-person-badge" name="role" class="form-select @error('role') is-invalid @enderror" aria-describedby="role_help">
                         @foreach($roleOptions as $role => $label)
                             @if(Auth::user()->canAssignRole($role) || $employee?->role === $role)
                                 <option value="{{ $role }}" @selected($val('role', 'employee') == $role)>{{ $label }}</option>
@@ -117,7 +127,7 @@
                 @if($editing)
                     <div class="col-md-4">
                         <label for="status" class="form-label">Estado <span class="text-danger">*</span></label>
-                        <select id="status" name="status" class="form-select">
+                        <select id="status" data-modern-select data-icon="bi-toggle-on" name="status" class="form-select">
                             @foreach(['active' => 'Activo', 'inactive' => 'Inactivo', 'suspended' => 'Suspendido'] as $code => $label)
                                 <option value="{{ $code }}" @selected($val('status') == $code)>{{ $label }}</option>
                             @endforeach
@@ -135,7 +145,7 @@
                     @endphp
                     <div class="col-md-4">
                         <label for="scope_type" class="form-label">Alcance en el panel</label>
-                        <select id="scope_type" name="scope_type" class="form-select @error('scope_type') is-invalid @enderror" aria-describedby="scope_help">
+                        <select id="scope_type" data-modern-select data-icon="bi-diagram-3" name="scope_type" class="form-select @error('scope_type') is-invalid @enderror" aria-describedby="scope_help">
                             @foreach(\App\Modules\Core\Models\User::SCOPES as $value => $label)
                                 <option value="{{ $value }}" @selected($val('scope_type', 'global') === $value)>{{ $label }}</option>
                             @endforeach
@@ -144,7 +154,7 @@
                     </div>
                     <div class="col-md-4">
                         <label for="scope_zone_id" class="form-label">Zona asignada</label>
-                        <select id="scope_zone_id" name="scope_zone_id" class="form-select @error('scope_zone_id') is-invalid @enderror">
+                        <select id="scope_zone_id" data-modern-select data-icon="bi-map" name="scope_zone_id" class="form-select @error('scope_zone_id') is-invalid @enderror">
                             <option value="">—</option>
                             @foreach($scopeZones as $z)
                                 <option value="{{ $z->id }}" @selected($val('scope_zone_id') == $z->id)>{{ $z->name }}</option>
@@ -154,7 +164,7 @@
                     </div>
                     <div class="col-md-4">
                         <label for="scope_branch_id" class="form-label">Sede asignada</label>
-                        <select id="scope_branch_id" name="scope_branch_id" class="form-select @error('scope_branch_id') is-invalid @enderror">
+                        <select id="scope_branch_id" data-modern-select data-icon="bi-building" name="scope_branch_id" class="form-select @error('scope_branch_id') is-invalid @enderror">
                             <option value="">—</option>
                             @foreach($scopeBranches as $b)
                                 <option value="{{ $b->id }}" @selected($val('scope_branch_id') == $b->id)>{{ $b->name }}</option>
@@ -176,7 +186,7 @@
             <div class="emp-edit-body row g-3">
                 <div class="col-md-6">
                     <label for="position_id" class="form-label">Cargo</label>
-                    <select id="position_id" name="position_id" class="form-select @error('position_id') is-invalid @enderror">
+                    <select id="position_id" data-modern-select data-icon="bi-briefcase" name="position_id" class="form-select @error('position_id') is-invalid @enderror">
                         <option value="">Sin cargo</option>
                         @foreach($positionOptions as $group => $items)
                             <optgroup label="{{ $group }}">
@@ -196,7 +206,7 @@
                 @if($departments->isNotEmpty())
                     <div class="col-md-6">
                         <label for="department_id" class="form-label">Área</label>
-                        <select id="department_id" name="department_id" class="form-select @error('department_id') is-invalid @enderror">
+                        <select id="department_id" data-modern-select data-icon="bi-diagram-2" name="department_id" class="form-select @error('department_id') is-invalid @enderror">
                             <option value="">Sin área</option>
                             @foreach($departments as $d)
                                 <option value="{{ $d->id }}" @selected($val('department_id') == $d->id)>{{ $d->name }}</option>
@@ -209,28 +219,30 @@
                 @else
                     <div class="col-md-6">
                         <label for="department" class="form-label">Área</label>
-                        <input type="text" id="department" name="department" value="{{ $val('department') }}" placeholder="Ej.: Operaciones" class="form-control">
+                        <div class="field-icon"><i class="bi bi-diagram-2" aria-hidden="true"></i>
+                            <input type="text" id="department" name="department" value="{{ $val('department') }}" placeholder="Ej.: Operaciones" class="form-control">
+                        </div>
                     </div>
                 @endif
                 <div class="col-6 col-lg-3">
                     <label for="employee_code" class="form-label">Código de empleado</label>
-                    <input type="text" id="employee_code" name="employee_code" value="{{ $val('employee_code') }}" placeholder="Automático" class="form-control">
+                    <div class="field-icon"><i class="bi bi-hash" aria-hidden="true"></i>
+                        <input type="text" id="employee_code" name="employee_code" value="{{ $val('employee_code') }}" placeholder="Automático" class="form-control">
+                    </div>
                 </div>
                 <div class="col-6 col-lg-3">
                     <label for="hire_date" class="form-label">Fecha de ingreso</label>
-                    <input type="date" id="hire_date" name="hire_date" value="{{ old('hire_date', $employee?->hire_date?->format('Y-m-d') ?? ($editing ? '' : date('Y-m-d'))) }}" class="form-control">
+                    <input type="date" id="hire_date" data-modern-date data-icon="bi-calendar-check" name="hire_date" value="{{ old('hire_date', $employee?->hire_date?->format('Y-m-d') ?? ($editing ? '' : date('Y-m-d'))) }}" class="form-control">
                 </div>
                 <div class="col-6 col-lg-3">
                     <label for="base_salary" class="form-label">Sueldo base mensual</label>
-                    <div class="input-group">
-                        <span class="input-group-text">S/</span>
+                    <div class="field-icon"><span class="field-prefix" aria-hidden="true">S/</span>
                         <input type="number" step="0.01" min="0" id="base_salary" name="base_salary" value="{{ $val('base_salary') }}" placeholder="0.00" class="form-control">
                     </div>
                 </div>
                 <div class="col-6 col-lg-3">
                     <label for="bonus" class="form-label">Bono mensual</label>
-                    <div class="input-group">
-                        <span class="input-group-text">S/</span>
+                    <div class="field-icon"><span class="field-prefix" aria-hidden="true">S/</span>
                         <input type="number" step="0.01" min="0" id="bonus" name="bonus" value="{{ $val('bonus') }}" placeholder="0.00" class="form-control">
                     </div>
                 </div>
@@ -274,7 +286,7 @@
             </div>
             <div class="emp-edit-body emp-edit-divider">
                 <label for="shift_id" class="form-label">{{ $editing ? 'Turno actual' : 'Turno inicial' }}</label>
-                <select id="shift_id" name="shift_id" class="form-select">
+                <select id="shift_id" data-modern-select data-icon="bi-clock-history" name="shift_id" class="form-select">
                     <option value="">Sin turno asignado</option>
                     @foreach($shifts as $s)
                         <option value="{{ $s->id }}" @selected(old('shift_id', $activeShiftId) == $s->id)>{{ $s->name }} ({{ hora($s->start_time) }} – {{ hora($s->end_time) }})</option>
@@ -296,7 +308,10 @@
 document.getElementById('position_id')?.addEventListener('change', (event) => {
     const option = event.target.selectedOptions[0];
     const department = document.getElementById('department_id');
-    if (department && !department.value && option?.dataset.department) department.value = option.dataset.department;
+    if (department && !department.value && option?.dataset.department) {
+        department.value = option.dataset.department;
+        department.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     if (option?.dataset.roaming === '1') document.getElementById('roaming_attendance_enabled').checked = true;
 });
 </script>
