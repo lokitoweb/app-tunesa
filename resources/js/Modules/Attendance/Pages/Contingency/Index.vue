@@ -54,16 +54,19 @@ const status = (p) => (p.active ? ['Activo', 'tone-amber'] : p.ended_at ? ['Desa
         <header class="page-head">
             <div class="page-head-text">
                 <h1 class="page-title">Plan de contingencia</h1>
-                <p class="page-subtitle">
-                    Si la app no funciona (caída, sin señal, falla del sistema), las personas cubiertas marcan sus 4 marcas desde su portal web,
-                    con la hora del servidor y sin GPS. El plan se apaga solo al vencer y cada marca queda etiquetada.
-                </p>
+                <p class="page-subtitle">Marcación de respaldo desde el portal web cuando la app no funciona (caída, sin señal o falla del sistema).</p>
             </div>
             <div class="page-actions">
                 <span v-if="active.length" class="status-pill tone-amber"><span class="dash-live-dot" aria-hidden="true"></span>{{ active.length }} plan(es) activo(s)</span>
                 <span v-else class="status-pill tone-neutral"><i class="bi bi-shield-check"></i>Sin planes activos</span>
             </div>
         </header>
+
+        <div class="dash-notice" :class="{ 'notice-warning': active.length }">
+            <i class="bi" :class="active.length ? 'bi-exclamation-triangle' : 'bi-info-circle'"></i>
+            <span v-if="active.length">Hay un plan activo: las personas cubiertas marcan desde su portal hasta <strong class="text-body">{{ active[0].ends_at }}</strong>.</span>
+            <span v-else>Las personas cubiertas marcan sus 4 marcas con la <strong class="text-body">hora del servidor</strong> y <strong class="text-body">sin GPS</strong>. El plan se apaga solo al vencer y cada marca queda etiquetada.</span>
+        </div>
 
         <section class="dash-kpis dash-kpis-3" aria-label="Resumen">
             <article class="dash-kpi-card">
@@ -97,8 +100,8 @@ const status = (p) => (p.active ? ['Activo', 'tone-amber'] : p.ended_at ? ['Desa
 
         <div class="row g-3">
             <!-- Activar -->
-            <div class="col-12 col-xl-5">
-                <form class="surface" novalidate @submit.prevent="activate">
+            <div class="col-12 col-xl-5 d-flex">
+                <form class="surface w-100 d-flex flex-column" novalidate @submit.prevent="activate">
                     <header class="surface-head">
                         <div>
                             <h2 class="surface-title"><i class="bi bi-life-preserver me-1 text-warning"></i>Activar un plan</h2>
@@ -106,7 +109,7 @@ const status = (p) => (p.active ? ['Activo', 'tone-amber'] : p.ended_at ? ['Desa
                         </div>
                     </header>
 
-                    <div class="surface-pad">
+                    <div class="surface-pad flex-grow-1">
                         <label class="form-label small fw-semibold">¿Para quién?</label>
                         <div class="seg-tabs w-100 mb-3" role="radiogroup" aria-label="Alcance">
                             <button v-for="(label, key) in options.scopes" :key="key" type="button" role="radio" :aria-checked="form.scope === key"
@@ -145,15 +148,15 @@ const status = (p) => (p.active ? ['Activo', 'tone-amber'] : p.ended_at ? ['Desa
 
                         <label class="form-label small fw-semibold mt-2" for="cg-hours">Duración</label>
                         <div class="d-flex flex-wrap align-items-center gap-2">
-                            <div class="input-group cg-hours">
+                            <div class="cg-hours">
                                 <input id="cg-hours" v-model="form.hours" type="number" min="1" :max="options.max_hours" class="form-control" :class="{ 'is-invalid': form.errors.hours }" required />
-                                <span class="input-group-text">horas</span>
+                                <span class="cg-hours-unit">horas</span>
                             </div>
                             <div class="seg-tabs" role="group" aria-label="Duración rápida">
                                 <button v-for="h in presets" :key="h" type="button" class="seg-tab" :class="{ 'is-active': Number(form.hours) === h }" @click="form.hours = h">{{ h }} h</button>
                             </div>
                         </div>
-                        <div class="cell-sub mt-1">Máximo {{ options.max_hours }} h. Se desactiva solo al vencer.</div>
+                        <div class="cell-sub mt-2">Máximo {{ options.max_hours }} horas · se desactiva solo al vencer.</div>
                         <div v-if="form.errors.hours" class="small text-danger mt-1">{{ form.errors.hours }}</div>
                     </div>
 
@@ -216,7 +219,7 @@ const status = (p) => (p.active ? ['Activo', 'tone-amber'] : p.ended_at ? ['Desa
                     </div>
                 </section>
 
-                <section v-if="report" class="surface">
+                <section v-if="report" class="surface flex-grow-1">
                     <header class="surface-head">
                         <div>
                             <h2 class="surface-title"><i class="bi bi-clipboard-check me-1"></i>Cierre del plan</h2>
@@ -266,12 +269,14 @@ const status = (p) => (p.active ? ['Activo', 'tone-amber'] : p.ended_at ? ['Desa
 /* Lista de elección del plan (el resto usa las clases compartidas del panel) */
 .cg-picker { border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden; }
 .cg-picker.is-invalid { border-color: var(--bs-danger); }
-.cg-picker-search { border-bottom: 1px solid var(--border-color); }
-.cg-picker-search .form-control { border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.cg-picker-search { max-width: none; border-bottom: 1px solid var(--border-color); background: var(--bg-surface-elevated); }
+.cg-picker-search .form-control { height: 42px; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .cg-picker-list { max-height: 240px; overflow-y: auto; padding: 4px; }
 .cg-picker-item { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
 .cg-picker-item:hover { background: var(--bg-surface-elevated); }
 .cg-picker-item.is-checked { background: rgba(var(--brand-rgb), 0.06); font-weight: 600; }
-.cg-hours { width: 140px; }
+.cg-hours { position: relative; width: 130px; }
+.cg-hours .form-control { padding-right: 3.4rem; }
+.cg-hours-unit { position: absolute; right: 0.85rem; top: 50%; transform: translateY(-50%); font-size: 0.8rem; color: var(--text-muted); pointer-events: none; }
 .cg-col { max-width: 220px; }
 </style>
