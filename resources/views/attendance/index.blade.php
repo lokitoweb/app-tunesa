@@ -42,17 +42,17 @@
         <input type="search" id="search" name="search" value="{{ request('search') }}" placeholder="Colaborador: nombre o código…" class="form-control" aria-label="Colaborador">
     </div>
     <div class="range-field">
-        <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control" aria-label="Desde" data-autosubmit>
+        <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control" aria-label="Desde" data-autosubmit data-modern-date data-icon="bi-calendar3">
         <span class="text-body-secondary small">a</span>
-        <input type="date" id="end_date" name="end_date" value="{{ $endDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control" aria-label="Hasta" data-autosubmit>
+        <input type="date" id="end_date" name="end_date" value="{{ $endDate }}" data-default="{{ now(tenant_timezone())->toDateString() }}" class="form-control" aria-label="Hasta" data-autosubmit data-modern-date data-icon="bi-calendar3">
     </div>
-    <select id="branch_id" name="branch_id" class="form-select w-auto" aria-label="Sucursal" data-autosubmit>
-        <option value="">Todas las sucursales</option>
+    <select id="branch_id" name="branch_id" class="form-select w-auto" aria-label="Agencia" data-autosubmit data-modern-select data-icon="bi-geo-alt">
+        <option value="">Todas las agencias</option>
         @foreach($branches as $b)
             <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
         @endforeach
     </select>
-    <select id="status" name="status" class="form-select w-auto" aria-label="Estado" data-autosubmit>
+    <select id="status" name="status" class="form-select w-auto" aria-label="Estado" data-autosubmit data-modern-select data-icon="bi-shield-check">
         <option value="">Todos los estados</option>
         <option value="present" @selected(request('status') == 'present')>Puntual</option>
         <option value="late" @selected(request('status') == 'late')>Tardanza</option>
@@ -62,7 +62,7 @@
         <option value="suspicious" @selected(request('status') == 'suspicious')>Solo sospechosas</option>
     </select>
     @if ($positions->isNotEmpty())
-        <select id="position_id" name="position_id" class="form-select w-auto" aria-label="Cargo" data-autosubmit>
+        <select id="position_id" name="position_id" class="form-select w-auto" aria-label="Cargo" data-autosubmit data-modern-select data-icon="bi-person-badge">
             <option value="">Todos los cargos</option>
             @foreach ($positions as $position)
                 <option value="{{ $position->id }}" @selected(request('position_id') == $position->id)>{{ $position->name }}</option>

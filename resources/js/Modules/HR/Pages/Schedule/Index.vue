@@ -564,18 +564,23 @@ async function repeat() {
 .sched-legend-none { box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.6); }
 .sched-legend-free { border: 1px solid var(--bs-border-color); background: var(--bs-body-bg); }
 
-.sched-brushbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
+.sched-brushbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 16px; border-bottom: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
+/* Horario para marcar: chips compactos, esquinas moderadas (6px); el activo se tiñe con el color del horario */
 .sched-chip {
-    display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px;
-    border: 1px solid var(--bs-border-color); border-radius: 999px; background: var(--bs-body-bg); color: var(--bs-body-color);
-    font-size: 0.82rem; transition: border-color .15s, box-shadow .15s;
+    display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
+    border: 1px solid var(--bs-border-color); border-radius: 6px; background: var(--bs-body-bg); color: var(--bs-body-color);
+    font-size: 0.76rem; line-height: 1; white-space: nowrap; transition: border-color .15s, background-color .15s, box-shadow .15s;
 }
 .sched-chip:hover { border-color: var(--chip, var(--bs-secondary-color)); }
-.sched-chip.active { border-color: var(--chip, var(--bs-primary)); box-shadow: 0 0 0 2px var(--chip, var(--bs-primary)); }
+.sched-chip.active {
+    border-color: var(--chip, var(--bs-primary));
+    background: color-mix(in srgb, var(--chip, var(--bs-primary)) 12%, var(--bs-body-bg));
+    box-shadow: inset 0 0 0 1px var(--chip, var(--bs-primary));
+}
 .sched-chip:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
-.sched-chip-time { color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; }
+.sched-chip-time { color: var(--bs-secondary-color); font-size: 0.7rem; font-variant-numeric: tabular-nums; }
 .sched-hint { margin-left: auto; font-size: 0.75rem; color: var(--bs-secondary-color); }
-.sched-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.sched-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .sched-dot-free { background: var(--bs-body-bg); border: 1.5px solid var(--bs-secondary-color); }
 
 /* Matriz: columnas fijas que reparten el ancho (sin scroll en pantallas normales) */

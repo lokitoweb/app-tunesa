@@ -532,6 +532,7 @@
                 if (field.type === 'hidden' && !field.hasAttribute('data-default')) return;
                 field.value = field.dataset.default ?? '';
             });
+            controls.refresh(form); // listas y calendarios modernos muestran el valor restablecido
             ajaxFilter.load(form, cleanGetUrl(form));
             return;
         }
