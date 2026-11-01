@@ -9744,3 +9744,9 @@ a.dash-kpi-card.is-link.is-active { border-color: var(--brand); box-shadow: 0 0 
 .field-icon:has(.is-invalid) ~ .invalid-feedback, .mc:has(.is-invalid) ~ .invalid-feedback { display: block; }
 .mc-date .mc-btn { gap: 0.4rem; padding-left: 0.7rem; padding-right: 0.45rem; font-variant-numeric: tabular-nums; }
 @media (max-width: 575.98px) { .mc-date .mc-btn { font-size: 0.82rem; } .mc-date .mc-btn .mc-icon { font-size: 0.85rem; } }
+
+/* Cabecera de la ficha del colaborador: avatar, nombre y estado; accesos a la derecha en la misma línea */
+.emp-edit-header { align-items: center; margin-bottom: 1.25rem; }
+.emp-edit-avatar { width: 52px; height: 52px; flex: none; border-radius: 12px; object-fit: cover; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.05rem; color: var(--brand); background: rgba(var(--brand-rgb), 0.1); border: 1px solid rgba(var(--brand-rgb), 0.18); }
+.emp-edit-header .page-subtitle { max-width: none; }
+@media (max-width: 575.98px) { .emp-edit-header .page-actions { width: 100%; } .emp-edit-header .page-actions .btn { flex: 1; } .emp-edit-avatar { width: 44px; height: 44px; } }

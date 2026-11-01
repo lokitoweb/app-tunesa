@@ -9,12 +9,27 @@
         <li class="breadcrumb-item active" aria-current="page">{{ $employee->first_name }} {{ $employee->last_name }}</li>
     </ol>
 </nav>
-<div class="page-header">
-    <div>
-        <h1>Editar a {{ $employee->first_name }} {{ $employee->last_name }}</h1>
-        <p>Datos laborales, sucursales de marcación y credenciales.</p>
+{{-- Cabecera: quién es (foto o iniciales, nombre, estado y cargo) a la izquierda; accesos a la derecha --}}
+@php
+    $statusTone = ['active' => ['emerald', 'Activo'], 'inactive' => ['neutral', 'Inactivo'], 'suspended' => ['rose', 'Suspendido']][$employee->status] ?? ['neutral', ucfirst((string) $employee->status)];
+    $meta = array_filter([$employee->jobPosition?->name ?? $employee->position, $employee->employee_code, $employee->document_number ? 'DNI ' . $employee->document_number : null]);
+@endphp
+<header class="page-head emp-edit-header">
+    <div class="d-flex align-items-center gap-3 min-w-0">
+        @if($employee->avatar_path)
+            <img src="{{ asset('storage/' . $employee->avatar_path) }}" alt="" class="emp-edit-avatar">
+        @else
+            <span class="emp-edit-avatar" aria-hidden="true">{{ mb_substr($employee->first_name, 0, 1) }}{{ mb_substr($employee->last_name, 0, 1) }}</span>
+        @endif
+        <div class="page-head-text">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <h1 class="page-title text-truncate">{{ $employee->first_name }} {{ $employee->last_name }}</h1>
+                <span class="status-pill tone-{{ $statusTone[0] }}">{{ $statusTone[1] }}</span>
+            </div>
+            <p class="page-subtitle">Editar ficha · {{ implode(' · ', $meta) ?: 'Datos laborales, sedes de marcación y acceso' }}</p>
+        </div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="page-actions">
         @if(auth()->user()->can('attendance.view_all') || auth()->user()->can('attendance.view_team'))
             <a href="{{ route('attendance.calendar.person', $employee->id) }}" class="btn btn-outline-secondary"><i class="bi bi-calendar3 me-1"></i>Calendario</a>
         @endif
@@ -22,7 +37,7 @@
             <a href="{{ route('employees.file', $employee->id) }}" class="btn btn-outline-primary"><i class="bi bi-folder2-open me-1"></i>Ver legajo</a>
         @endcan
     </div>
-</div>
+</header>
 
 @include('employees._credentials')
 
