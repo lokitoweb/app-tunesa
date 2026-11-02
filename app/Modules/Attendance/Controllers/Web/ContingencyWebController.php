@@ -36,8 +36,8 @@ class ContingencyWebController extends Controller
         return Inertia::render('Attendance/Pages/Contingency/Index', [
             'plans' => $plans->map(fn (AttendanceContingency $c) => [
                 'id' => $c->id, 'scope' => AttendanceContingency::SCOPES[$c->scope] ?? $c->scope, 'targets' => $this->targetNames($c), 'reason' => $c->reason,
-                'starts_at' => $c->starts_at->setTimezone($tz)->format('d/m/Y H:i'), 'ends_at' => $c->ends_at->setTimezone($tz)->format('d/m/Y H:i'),
-                'ended_at' => $c->ended_at?->setTimezone($tz)->format('d/m/Y H:i'), 'active' => $c->isActive(),
+                'starts_at' => $c->starts_at->setTimezone($tz)->format('d/m/Y h:i a'), 'ends_at' => $c->ends_at->setTimezone($tz)->format('d/m/Y h:i a'),
+                'ended_at' => $c->ended_at?->setTimezone($tz)->format('d/m/Y h:i a'), 'active' => $c->isActive(),
                 'by' => $c->creator?->full_name, 'ended_by' => $c->ender?->full_name,
             ])->values(),
             'report' => $selected ? $this->report($selected) : null,
@@ -78,7 +78,7 @@ class ContingencyWebController extends Controller
         $this->audit->log('attendance.contingency_started', $plan, ['scope' => $plan->scope, 'targets' => $this->targetNames($plan), 'reason' => $plan->reason, 'hours' => (int) $data['hours']]);
 
         return redirect()->route('attendance.contingency.index', ['plan' => $plan->id])
-            ->with('success', 'Plan de contingencia activo hasta las ' . $plan->ends_at->setTimezone(tenant_timezone())->format('H:i \d\e\l d/m') . '. Las personas cubiertas marcan desde Mi espacio.');
+            ->with('success', 'Plan de contingencia activo hasta las ' . $plan->ends_at->setTimezone(tenant_timezone())->format('h:i a \d\e\l d/m') . '. Las personas cubiertas marcan desde Mi espacio.');
     }
 
     public function end(Request $request, int $id): RedirectResponse
@@ -109,7 +109,7 @@ class ContingencyWebController extends Controller
             'people' => $people->map(fn ($u) => [
                 'name' => $u->full_name, 'document' => $u->document_number,
                 'punches' => $punches->get($u->id, collect())->sortBy('server_time')
-                    ->map(fn ($p) => ['type' => $p->type, 'time' => $p->server_time->setTimezone(tenant_timezone())->format('d/m H:i')])->values(),
+                    ->map(fn ($p) => ['type' => $p->type, 'time' => $p->server_time->setTimezone(tenant_timezone())->format('d/m h:i a')])->values(),
             ])->values(),
         ];
     }

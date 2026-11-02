@@ -86,7 +86,7 @@ class PortalController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', self::PUNCH_LABELS[$data['type']] . ' registrada a las ' . $result->punch->server_time->setTimezone(tenant_timezone())->format('H:i') . ' (plan de contingencia).');
+        return back()->with('success', self::PUNCH_LABELS[$data['type']] . ' registrada a las ' . $result->punch->server_time->setTimezone(tenant_timezone())->format('h:i a') . ' (plan de contingencia).');
     }
 
     public const PUNCH_LABELS = ['clock_in' => 'Entrada', 'break_start' => 'Inicio de refrigerio', 'break_end' => 'Fin de refrigerio', 'clock_out' => 'Salida'];
