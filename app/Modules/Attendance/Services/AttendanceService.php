@@ -10,6 +10,7 @@ use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Models\AttendancePunch;
 use App\Modules\Core\Models\Branch;
 use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\Holiday;
 use App\Modules\HR\Models\Shift;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
@@ -399,6 +400,15 @@ class AttendanceService
         $breakMinutes = (int) $breakStart->diffInMinutes($at);
 
         $shift = $attendance->shift?->forDate($attendance->work_date);
+
+        // El fin del refrigerio se marca a su término o después, nunca antes. Una marca sin conexión
+        // ya ocurrió en el celular: se registra tal cual para no perderla.
+        $minimum = self::minimumBreakMinutes($shift, $c['settings']);
+        if (! $data->isOffline() && $breakMinutes < $minimum) {
+            throw new AttendanceException(
+                "Tu refrigerio es de {$minimum} min: podrás marcar el fin desde las " . hora($breakStart->copy()->addMinutes($minimum)) . '.',
+                'BREAK_TOO_SHORT', 422);
+        }
         if ($shift && $shift->break_allowed && $breakMinutes > $shift->break_duration_minutes) {
             logger()->info('Break excedido', [
                 'user_id'       => $attendance->user_id,
@@ -455,7 +465,7 @@ class AttendanceService
 
         $dailyHours    = self::baseDailyHours($shift, $employee);
         $overtimeHours = $this->overtimeHours($shift, $attendance->work_date->toDateString(), $c['tenant']->timezone, $clockOutTime,
-            $workedHours, $dailyHours, (bool) $c['tenant']->setting('flags.hours_v2'));
+            $workedHours, $dailyHours, (bool) $c['tenant']->setting('flags.hours_v2'), (int) $c['tenant']->id);
 
         $attendance->update([
             'clock_out_at'              => $clockOutTime,
@@ -1078,14 +1088,43 @@ class AttendanceService
      * salida oficial del horario, sin pasar de lo trabajado. Sin horario ese día (no hay salida
      * oficial) o sin hours_v2: horas trabajadas sobre la jornada base, como antes.
      */
-    public function overtimeHours(?Shift $shift, string $date, string $timezone, Carbon $out, float $workedHours, float $baseHours, bool $afterOfficialExit): float
+    public function overtimeHours(?Shift $shift, string $date, string $timezone, Carbon $out, float $workedHours, float $baseHours, bool $afterOfficialExit, ?int $tenantId = null): float
     {
+        // Regla del día en Feriados y días especiales: todo es hora extra, o desde una hora fija (p. ej. 24/12 desde la 1 pm)
+        $day = $tenantId ? Holiday::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('date', $date)->first(['overtime_rule', 'overtime_from']) : null;
+        if ($day?->overtime_rule === 'all') {
+            return round($workedHours, 2);
+        }
+        if ($day?->overtime_rule === 'after' && $day->overtime_from) {
+            $from = Carbon::parse("{$date} {$day->overtime_from}", $timezone);
+
+            return round(min($workedHours * 60, max(0, $from->diffInMinutes($out, false))) / 60, 2);
+        }
+
         $end = $afterOfficialExit ? self::scheduledEnd($shift, $date, $timezone) : null;
         if (! $end) {
             return max(0, round($workedHours - $baseHours, 2));
         }
 
         return round(min($workedHours * 60, max(0, $end->diffInMinutes($out, false))) / 60, 2);
+    }
+
+    /** Duración del refrigerio: la del turno (o su ventana fija); sin turno, la de la empresa */
+    public static function minimumBreakMinutes(?Shift $shift, TenantSetting $settings): int
+    {
+        if (! $shift) {
+            return max(0, (int) $settings->lunch_minutes);
+        }
+        if ((int) $shift->break_duration_minutes > 0) {
+            return (int) $shift->break_duration_minutes;
+        }
+
+        if (! $shift->hasBreakWindow()) {
+            return 0;
+        }
+        $minutes = (int) Carbon::parse($shift->break_start_time)->diffInMinutes(Carbon::parse($shift->break_end_time), false);
+
+        return $minutes < 0 ? $minutes + 1440 : $minutes;
     }
 
     public static function baseDailyHours(?Shift $shift, User $employee): float

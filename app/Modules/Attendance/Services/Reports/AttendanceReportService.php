@@ -637,7 +637,7 @@ class AttendanceReportService
         $needHolidays = array_filter($tenantIds, fn ($id) => ! isset($this->holidaysLoaded[$id][$key]));
 
         if ($needHolidays) {
-            Holiday::withoutGlobalScopes()
+            Holiday::withoutGlobalScopes()->daysOff()
                 ->whereIn('tenant_id', $needHolidays)
                 ->whereBetween('date', [$f->from, $f->to])
                 ->get(['tenant_id', 'date'])

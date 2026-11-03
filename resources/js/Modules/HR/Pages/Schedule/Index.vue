@@ -369,7 +369,7 @@ async function repeat() {
                         <!-- El resaltado va en el contenedor: un :class en el botón le borraría a Bootstrap
                              la clase "show" y el clic afuera ya no cerraría el menú -->
                         <div class="dropdown" :class="{ 'is-active': filtering }">
-                            <button type="button" class="btn sched-position-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                            <button type="button" class="btn sched-position-btn dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-popper-config='{"strategy":"fixed"}'
                                 aria-expanded="false" aria-labelledby="sched-position-label">
                                 <i class="bi bi-person-badge"></i><span class="text-truncate">{{ positionFilterLabel }}</span>
                             </button>

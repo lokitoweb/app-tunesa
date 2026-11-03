@@ -244,7 +244,7 @@ class AttendanceCalendarService
             ->groupBy('user_id');
 
         $holidays = [];
-        Holiday::withoutGlobalScopes()
+        Holiday::withoutGlobalScopes()->daysOff()
             ->whereIn('tenant_id', $tenantIds)
             ->whereBetween('date', [$from, $to])
             ->get(['tenant_id', 'date', 'name'])

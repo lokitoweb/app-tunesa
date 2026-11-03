@@ -165,6 +165,7 @@ final class Labels
         'training.unlocked'                  => ['Intentos extra en cuestionario', 'primary', 'unlock'],
         'holiday.created'                    => ['Feriado creado', 'success', 'calendar-heart'],
         'holiday.deleted'                    => ['Feriado eliminado', 'danger', 'calendar-x'],
+        'holiday.updated'                    => ['Regla de feriado o día especial cambiada', 'info', 'calendar-check'],
 
         // Colaboradores
         'employee.created'                   => ['Colaborador registrado', 'success', 'person-plus'],
@@ -407,6 +408,9 @@ final class Labels
 
         // Sucursales
         'city'                    => 'Ciudad',
+        'province'                => 'Provincia',
+        'overtime_rule'           => 'Horas extra del día',
+        'overtime_from'           => 'Hora extra desde',
         'country'                 => 'País',
         'latitude'                => 'Latitud',
         'longitude'               => 'Longitud',

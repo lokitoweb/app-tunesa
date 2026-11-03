@@ -103,7 +103,7 @@ class SendEntryReminders extends Command
 
     private function entryRemindersFor(Carbon $now, string $day): int
     {
-        if (Holiday::where('date', $day)->exists()) {
+        if (Holiday::daysOff()->where('date', $day)->exists()) {
             return 0;
         }
         $date = Carbon::parse($day, $now->getTimezone());

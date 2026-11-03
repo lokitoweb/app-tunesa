@@ -129,7 +129,7 @@ class ScheduledPunchGateTest extends TestCase
         $this->clockIn()->assertCreated();
         $this->travel(4)->hours();
         $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/break-start', $gps)->assertOk();
-        $this->travel(45)->minutes();
+        $this->travel(60)->minutes();
         $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/break-end', $gps)->assertOk();
         // Fin de break dos veces: no se duplica
         $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/break-end', $gps)->assertStatus(409)->assertJsonPath('code', 'BREAK_ALREADY_ENDED');
@@ -142,14 +142,14 @@ class ScheduledPunchGateTest extends TestCase
         app(TenantContext::class)->clear();
         $this->actingAs($manager)->get("/attendance-calendar/person/{$this->emp->id}/day/2026-10-26")->assertOk();
         $this->put("/attendance-calendar/person/{$this->emp->id}/day/2026-10-26", [
-            'clock_in' => '08:00', 'clock_out' => '17:00', 'break_minutes' => 45, 'reason' => 'Olvidó marcar la salida (confirmado por su jefe)',
+            'clock_in' => '08:00', 'clock_out' => '17:00', 'break_minutes' => 60, 'reason' => 'Olvidó marcar la salida (confirmado por su jefe)',
         ])->assertSessionHasNoErrors();
 
         $day = Attendance::withoutGlobalScopes()->where('user_id', $this->emp->id)->sole();
         $this->assertSame('2026-10-26 17:00', $day->clock_out_at->timezone('America/Lima')->format('Y-m-d H:i'));
         $this->assertNotNull($day->break_start_at);
         $this->assertNotNull($day->break_end_at);
-        $this->assertSame(45, (int) $day->break_minutes);
+        $this->assertSame(60, (int) $day->break_minutes);
         $this->assertSame($manager->id, (int) $day->manual_edited_by);
         $this->assertEquals(8.0, $day->regularHours());
     }

@@ -198,6 +198,8 @@ class BranchWebController extends Controller
                 Rule::unique('branches', 'document_series')->where('tenant_id', $tenantId)->whereNull('deleted_at')->ignore(request()->route('id'))],
             'address'               => ['required', 'string', 'max:255'],
             'city'                  => ['nullable', 'string', 'max:100'],
+            'province'              => ['nullable', 'string', 'max:100'],
+            'district'              => ['nullable', 'string', 'max:100'],
             'country'               => ['nullable', 'string', 'max:100'],
             'latitude'              => ['required', 'numeric', 'between:-90,90'],
             'longitude'             => ['required', 'numeric', 'between:-180,180'],

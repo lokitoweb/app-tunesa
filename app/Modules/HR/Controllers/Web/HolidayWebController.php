@@ -8,6 +8,7 @@ use App\Modules\Core\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -27,21 +28,11 @@ class HolidayWebController extends Controller
 
         $tenantId = current_tenant_id_or_null();
 
-        $peruList = Holiday::peruNational($year);
-
         $holidays = Holiday::forTenant($tenantId)
             ->whereYear('date', $year)
             ->orderBy('date')
             ->get()
-            ->map(fn (Holiday $h) => [
-                'id'             => $h->id,
-                'tenant_id'      => $h->tenant_id,
-                'date'           => $h->date->toDateString(),
-                'formatted_date' => $h->date->format('d/m/Y'),
-                'day_name'       => ucfirst($h->date->locale('es')->isoFormat('dddd')),
-                'name'           => $h->name,
-                'is_national'    => array_key_exists($h->date->toDateString(), $peruList),
-            ]);
+            ->map(fn (Holiday $h) => $h->present());
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
@@ -57,7 +48,35 @@ class HolidayWebController extends Controller
             'year'          => $year,
             'loadPeruLabel' => "Cargar feriados nacionales de Perú {$year}",
             'today'         => now(tenant_timezone())->toDateString(),
+            'kinds'         => Holiday::KINDS,
+            'overtimeRules' => Holiday::OVERTIME_RULES,
         ]);
+    }
+
+    /** Tipo de día y regla de horas extra (lo comparten alta y edición) */
+    private function ruleFields(Request $request): array
+    {
+        $data = $request->validate([
+            'kind'          => ['sometimes', Rule::in(array_keys(Holiday::KINDS))],
+            'overtime_rule' => ['sometimes', Rule::in(array_keys(Holiday::OVERTIME_RULES))],
+            'overtime_from' => ['nullable', 'required_if:overtime_rule,after', 'date_format:H:i'],
+        ], ['overtime_from.required_if' => 'Indica desde qué hora es hora extra.'], ['overtime_from' => 'hora']);
+
+        if (($data['overtime_rule'] ?? null) && $data['overtime_rule'] !== 'after') {
+            $data['overtime_from'] = null;
+        }
+
+        return $data;
+    }
+
+    /** Cambia el tipo de día o su regla de horas extra */
+    public function update(int $id, Request $request): JsonResponse
+    {
+        $holiday = Holiday::forTenant(current_tenant_id_or_null())->findOrFail($id);
+        $holiday->update($this->ruleFields($request));
+        $this->audit->log('holiday.updated', $holiday, $holiday->only(['kind', 'overtime_rule', 'overtime_from']));
+
+        return response()->json(['success' => true, 'holiday' => $holiday->present(), 'message' => 'Regla del día guardada.']);
     }
 
     public function store(Request $request): RedirectResponse|JsonResponse
@@ -78,22 +97,13 @@ class HolidayWebController extends Controller
             return back()->withInput()->withErrors(['date' => 'Ya hay un feriado registrado en esa fecha.']);
         }
 
-        $holiday = Holiday::create($validated);
+        $holiday = Holiday::create($validated + $this->ruleFields($request));
         $this->audit->log('holiday.created', $holiday, ['date' => $holiday->date->toDateString(), 'name' => $holiday->name]);
 
         if ($request->wantsJson() || $request->ajax()) {
-            $peruList = Holiday::peruNational($holiday->date->year);
             return response()->json([
                 'success' => true,
-                'holiday' => [
-                    'id'             => $holiday->id,
-                    'tenant_id'      => $holiday->tenant_id,
-                    'date'           => $holiday->date->toDateString(),
-                    'formatted_date' => $holiday->date->format('d/m/Y'),
-                    'day_name'       => ucfirst($holiday->date->locale('es')->isoFormat('dddd')),
-                    'name'           => $holiday->name,
-                    'is_national'    => array_key_exists($holiday->date->toDateString(), $peruList),
-                ],
+                'holiday' => $holiday->fresh()->present(),
                 'message' => "Feriado \"{$holiday->name}\" agregado.",
             ]);
         }

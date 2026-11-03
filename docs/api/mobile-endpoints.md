@@ -292,7 +292,8 @@ campos van en cada elemento de `sync-batch`.
    (una marcación offline busca la jornada del día de `offline_recorded_at`); evento offline
    anterior a la entrada → `422 OFFLINE_BEFORE_CLOCK_IN`; fin de descanso anterior a su inicio →
    `422 OFFLINE_OUT_OF_ORDER`; `409 BREAK_ALREADY_STARTED`, `409 BREAK_NOT_STARTED`,
-   `409 BREAK_ALREADY_ENDED`, `422 BREAK_NOT_ALLOWED`.
+   `409 BREAK_ALREADY_ENDED`, `422 BREAK_NOT_ALLOWED`; fin de descanso antes de cumplir su duración
+   (la del turno o `lunch_minutes` de la empresa) → `422 BREAK_TOO_SHORT` (una marca offline se registra tal cual).
 8. **Geocerca** (Haversine contra la sucursal), solo entrada y salida. La precisión máxima es la
    de la sede (`branches.max_gps_accuracy_meters`) o la de la empresa → `422 GPS_ACCURACY_TOO_LOW`.
    Con distancia d, radio r, precisión a y tolerancia t de la sede (`branches.geofence_tolerance_meters`,

@@ -40,6 +40,8 @@ class Branch extends Model
         'branch_type',
         'address',
         'city',
+        'province',
+        'district',
         'country',
         'latitude',
         'longitude',

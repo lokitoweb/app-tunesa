@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Modules\HR\Models\Holiday;
 use App\Modules\Attendance\Models\Attendance;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Shift;
@@ -101,6 +102,10 @@ class AttendanceErrorCodesTest extends TestCase
         $this->actingIn($emp, $acme)->postJson('/api/attendance/break-start', $this->gps())->assertOk();
         $this->actingIn($emp, $acme)->postJson('/api/attendance/break-start', $this->gps())
             ->assertStatus(409)->assertJsonPath('code', 'BREAK_ALREADY_STARTED');
+        // El fin del refrigerio no se marca antes de su término
+        $this->actingIn($emp, $acme)->postJson('/api/attendance/break-end', $this->gps())
+            ->assertStatus(422)->assertJsonPath('code', 'BREAK_TOO_SHORT');
+        $this->travel(60)->minutes();
         $this->actingIn($emp, $acme)->postJson('/api/attendance/break-end', $this->gps())->assertOk();
         $this->actingIn($emp, $acme)->postJson('/api/attendance/break-end', $this->gps())
             ->assertStatus(409)->assertJsonPath('code', 'BREAK_ALREADY_ENDED');
@@ -186,6 +191,31 @@ class AttendanceErrorCodesTest extends TestCase
         $this->setRow($acme, ['lunch_paid' => false]);
         $this->travelTo(Carbon::parse('2026-10-11 08:00:00', 'America/Lima'));
         $this->assertEquals(8.0, $work());
+    }
+
+    public function test_special_days_apply_their_overtime_rule(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $emp  = $this->employeeWithBranch($acme);
+        Holiday::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'date' => '2026-12-24', 'name' => 'Nochebuena', 'kind' => 'special', 'overtime_rule' => 'after', 'overtime_from' => '13:00']);
+        Holiday::withoutGlobalScopes()->create(['tenant_id' => $acme->id, 'date' => '2026-12-25', 'name' => 'Navidad', 'overtime_rule' => 'all']);
+
+        $work = function (string $day) use ($emp, $acme) {
+            $this->travelTo(Carbon::parse("{$day} 08:00:00", 'America/Lima'));
+            $this->actingIn($emp, $acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();
+            $this->travel(4)->hours();
+            $this->actingIn($emp, $acme)->postJson('/api/attendance/break-start', $this->gps())->assertOk();
+            $this->travel(1)->hours();
+            $this->actingIn($emp, $acme)->postJson('/api/attendance/break-end', $this->gps())->assertOk();
+            $this->travel(4)->hours();
+            $this->actingIn($emp, $acme)->post('/api/attendance/clock-out', $this->payload())->assertOk();
+
+            return (float) Attendance::latest('id')->firstOrFail()->overtime_hours;
+        };
+
+        $this->assertEquals(4.0, $work('2026-12-24')); // día especial: extra desde la 1 pm hasta las 5 pm
+        $this->assertEquals(8.0, $work('2026-12-25')); // feriado: todo lo trabajado es extra
+        $this->assertEquals(0.0, $work('2026-12-28')); // día normal
     }
 
     private function setRow(?Tenant $tenant, array $values): void

@@ -114,11 +114,12 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/schedule/export', [ScheduleWebController::class, 'export'])->name('schedule.export');
     });
 
-    // Feriados: el control de faltas no registra ausencias en estas fechas
+    // Feriados y días especiales: sin faltas en feriados; regla de horas extra por día
     Route::prefix('holidays')->name('holidays.')->middleware('can:shifts.manage')->group(function () {
         Route::get('/', [HolidayWebController::class, 'index'])->name('index');
         Route::post('/', [HolidayWebController::class, 'store'])->name('store');
         Route::post('/load-peru', [HolidayWebController::class, 'loadPeru'])->name('load-peru');
+        Route::put('/{id}', [HolidayWebController::class, 'update'])->name('update')->whereNumber('id');
         Route::delete('/{id}', [HolidayWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     });
 

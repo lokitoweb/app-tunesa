@@ -81,6 +81,7 @@ class IntegrationWebhooksTest extends TestCase
 
         $this->actingIn($emp, $acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();
         $this->actingIn($emp, $acme)->postJson('/api/attendance/break-start', $this->gps())->assertOk();
+        $this->travel(60)->minutes();
         $this->actingIn($emp, $acme)->postJson('/api/attendance/break-end', $this->gps())->assertOk();
         $this->actingIn($emp, $acme)->post('/api/attendance/clock-out', $this->payload())->assertOk();
 

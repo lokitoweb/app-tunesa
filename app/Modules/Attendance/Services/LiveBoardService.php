@@ -103,7 +103,7 @@ class LiveBoardService
             ->get(['user_id', 'type', 'start_date', 'end_date'])
             ->groupBy('user_id') : collect();
 
-        $holidays = $ids ? Holiday::withoutGlobalScopes()
+        $holidays = $ids ? Holiday::withoutGlobalScopes()->daysOff()
             ->whereIn('tenant_id', $tenants->keys()->all())
             ->whereIn('date', $todays)
             ->get(['tenant_id', 'date'])

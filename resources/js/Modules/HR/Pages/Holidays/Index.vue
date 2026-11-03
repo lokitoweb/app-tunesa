@@ -25,6 +25,8 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    kinds: { type: Object, default: () => ({}) },
+    overtimeRules: { type: Object, default: () => ({}) },
 });
 
 const { ask } = useConfirm();
@@ -39,6 +41,9 @@ const showYearSkeleton = useSkeleton(loadingYear);
 // Formulario reactivo para nuevo feriado (vía AJAX)
 const formDate = ref(props.today);
 const formName = ref('');
+const formKind = ref('holiday');
+const formRule = ref('none');
+const formFrom = ref('13:00');
 const formErrors = ref({});
 const formLoading = ref(false);
 
@@ -120,6 +125,9 @@ async function submitHoliday() {
         const res = await axios.post('/holidays', {
             date: formDate.value,
             name: formName.value,
+            kind: formKind.value,
+            overtime_rule: formRule.value,
+            overtime_from: formRule.value === 'after' ? formFrom.value : null,
         }, {
             headers: {
                 'Accept': 'application/json',
@@ -127,6 +135,8 @@ async function submitHoliday() {
             },
         });
         formName.value = '';
+        formKind.value = 'holiday';
+        formRule.value = 'none';
         showToast(res.data?.message || 'Feriado agregado con éxito.', 'success');
 
         const hYear = new Date(formDate.value + 'T00:00:00').getFullYear();
@@ -143,6 +153,20 @@ async function submitHoliday() {
         }
     } finally {
         formLoading.value = false;
+    }
+}
+
+// Tipo de día y regla de horas extra de una fila (se guarda al cambiar)
+async function saveRule(h, changes) {
+    const next = { kind: h.kind, overtime_rule: h.overtime_rule, overtime_from: h.overtime_from, ...changes };
+    if (next.overtime_rule === 'after' && !next.overtime_from) next.overtime_from = '13:00';
+    try {
+        const res = await axios.put(`/holidays/${h.id}`, next, { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+        Object.assign(h, res.data.holiday);
+        showToast(res.data.message, 'success');
+    } catch (err) {
+        const errors = err.response?.data?.errors;
+        showToast(errors ? Object.values(errors)[0][0] : 'No se pudo guardar la regla.', 'danger');
     }
 }
 
@@ -175,11 +199,11 @@ async function destroyHoliday(holiday) {
 </script>
 
 <template>
-    <AppLayout title="Feriados">
+    <AppLayout title="Feriados y días especiales">
         <header class="page-head">
             <div class="page-head-text">
-                <h1 class="page-title">Feriados</h1>
-                <p class="page-subtitle">En estas fechas el control de faltas no registra ausencias. Agrega los feriados nacionales y los propios de la empresa.</p>
+                <h1 class="page-title">Feriados y días especiales</h1>
+                <p class="page-subtitle">En los feriados no se registran faltas. Los días especiales (p. ej. 24 y 31 de diciembre) se trabajan. En ambos eliges cómo se cuentan las horas extra.</p>
             </div>
             <div class="page-actions">
                 <button type="button" class="btn btn-light border" :disabled="loadingSync" title="Sincronizar feriados oficiales de ley de Perú" @click="handleLoadPeru">
@@ -197,8 +221,8 @@ async function destroyHoliday(holiday) {
                         <div class="d-flex align-items-center gap-2">
                             <span class="list-plain-icon"><i class="bi bi-calendar-plus"></i></span>
                             <div>
-                                <h2 class="surface-title">Nuevo feriado</h2>
-                                <p class="surface-sub">Registra un día no laborable en el calendario</p>
+                                <h2 class="surface-title">Nuevo día</h2>
+                                <p class="surface-sub">Feriado o día especial, con su regla de horas extra</p>
                             </div>
                         </div>
                     </header>
@@ -214,9 +238,27 @@ async function destroyHoliday(holiday) {
                                 placeholder="Ej.: Aniversario de la empresa, Día cívico..." maxlength="150" required>
                             <div v-if="formErrors.name" class="invalid-feedback d-block mt-1">{{ formErrors.name[0] || formErrors.name }}</div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de día</label>
+                            <div class="seg-tabs w-100" role="radiogroup" aria-label="Tipo de día">
+                                <button v-for="(label, key) in kinds" :key="key" type="button" role="radio" :aria-checked="formKind === key"
+                                    class="seg-tab flex-fill justify-content-center" :class="{ 'is-active': formKind === key }" @click="formKind = key">{{ label.split(' (')[0] }}</button>
+                            </div>
+                            <div class="form-text">{{ formKind === 'holiday' ? 'No laborable: no se registran faltas.' : 'Laborable: se marca y se controla como cualquier día.' }}</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="holiday_rule" class="form-label">Horas extra ese día</label>
+                            <div class="d-flex gap-2">
+                                <select id="holiday_rule" v-model="formRule" class="form-select">
+                                    <option v-for="(label, key) in overtimeRules" :key="key" :value="key">{{ label }}</option>
+                                </select>
+                                <input v-if="formRule === 'after'" v-model="formFrom" type="time" step="60" class="form-control hol-time" aria-label="Hora extra desde" required>
+                            </div>
+                            <div v-if="formErrors.overtime_from" class="invalid-feedback d-block mt-1">{{ formErrors.overtime_from[0] }}</div>
+                        </div>
                         <button type="submit" class="btn btn-primary w-100" :disabled="formLoading">
                             <span v-if="formLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
-                            <i v-else class="bi bi-plus-lg me-1"></i>Agregar feriado
+                            <i v-else class="bi bi-plus-lg me-1"></i>Agregar día
                         </button>
                     </form>
                 </section>
@@ -256,11 +298,10 @@ async function destroyHoliday(holiday) {
 
                     <div class="table-responsive flex-grow-1" style="max-height: 460px; overflow-y: auto;" :class="{ 'sk-loading': showYearSkeleton }" :aria-busy="loadingYear">
                         <table class="table data-table table-cards align-middle mb-0">
-                            <thead><tr><th>Fecha</th><th>Día</th><th>Feriado</th><th>Tipo</th><th><span class="visually-hidden">Acciones</span></th></tr></thead>
+                            <thead><tr><th>Fecha</th><th>Feriado</th><th>Tipo</th><th>Horas extra</th><th><span class="visually-hidden">Acciones</span></th></tr></thead>
                             <tbody>
                                 <tr v-for="h in filteredHolidays" :key="h.id">
-                                    <td data-label="Fecha" class="text-nowrap"><span class="cell-title tabular">{{ h.formatted_date }}</span></td>
-                                    <td data-label="Día"><span class="status-pill tone-neutral">{{ h.day_name }}</span></td>
+                                    <td data-label="Fecha" class="text-nowrap"><div class="cell-title tabular">{{ h.formatted_date }}</div><div class="cell-sub">{{ h.day_name }}</div></td>
                                     <td data-label="Feriado" class="cell-main">
                                         <div class="min-w-0">
                                             <div class="cell-title fw-medium">{{ h.name }}</div>
@@ -268,8 +309,25 @@ async function destroyHoliday(holiday) {
                                         </div>
                                     </td>
                                     <td data-label="Tipo">
-                                        <span v-if="h.is_national" class="status-pill tone-brand"><i class="bi bi-flag-fill"></i>Nacional</span>
-                                        <span v-else class="status-pill tone-neutral"><i class="bi bi-building"></i>Empresa</span>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <span v-if="h.is_national" class="status-pill tone-brand"><i class="bi bi-flag-fill"></i>Nacional</span>
+                                            <span v-else class="status-pill tone-neutral"><i class="bi bi-building"></i>Empresa</span>
+                                            <button type="button" class="status-pill border-0" :class="h.kind === 'special' ? 'tone-amber' : 'tone-emerald'"
+                                                :title="h.kind === 'special' ? 'Día laborable. Clic para volverlo feriado' : 'No laborable. Clic para volverlo día especial'"
+                                                @click="saveRule(h, { kind: h.kind === 'special' ? 'holiday' : 'special' })">
+                                                {{ h.kind === 'special' ? 'Día especial' : 'Feriado' }}
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td data-label="Horas extra">
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <select class="form-select form-select-sm hol-rule" :value="h.overtime_rule" :aria-label="`Horas extra el ${h.formatted_date}`"
+                                                @change="saveRule(h, { overtime_rule: $event.target.value })">
+                                                <option v-for="(label, key) in overtimeRules" :key="key" :value="key">{{ label }}</option>
+                                            </select>
+                                            <input v-if="h.overtime_rule === 'after'" type="time" step="60" class="form-control form-control-sm hol-time" :value="h.overtime_from"
+                                                :aria-label="`Hora extra desde, ${h.formatted_date}`" @change="saveRule(h, { overtime_from: $event.target.value })">
+                                        </div>
                                     </td>
                                     <td class="cell-actions">
                                         <div class="row-actions">
@@ -294,3 +352,8 @@ async function destroyHoliday(holiday) {
         </div>
     </AppLayout>
 </template>
+
+<style>
+.hol-rule { min-width: 170px; }
+.hol-time { width: 140px; flex-shrink: 0; }
+</style>

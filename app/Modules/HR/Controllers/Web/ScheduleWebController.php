@@ -63,7 +63,7 @@ class ScheduleWebController extends Controller
             'grid'     => $branch ? $this->programming->grid($people, $from, $to) : [],
             // Regla 6: el mes se programa con PROGRAMMING_LEAD_DAYS días de anticipación
             'deadline' => $month->subDays(self::PROGRAMMING_LEAD_DAYS)->toDateString(),
-            'holidays' => Holiday::where('tenant_id', $branch?->tenant_id)->whereBetween('date', [$from, $to])->get(['date', 'name'])
+            'holidays' => Holiday::daysOff()->where('tenant_id', $branch?->tenant_id)->whereBetween('date', [$from, $to])->get(['date', 'name'])
                 ->mapWithKeys(fn (Holiday $h) => [$h->date->toDateString() => $h->name]),
             // Pincel: los horarios de la agencia elegida (y los anteriores, sin agencia). Va también
             // en la recarga por JSON: al cambiar de agencia cambian los horarios disponibles

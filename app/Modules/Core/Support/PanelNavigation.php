@@ -50,7 +50,7 @@ class PanelNavigation
                 ['Ethics', 'ethics.investigate', 'ethics.index', [], 'shield-exclamation', 'Canal ético', $request->routeIs('ethics.*'), fn () => $hasTenant ? EthicsCase::where('investigator_unread', true)->count() : 0],
                 ['HR', 'shifts.manage', 'shifts.index', [], 'calendar-week', 'Horarios', $request->routeIs('shifts*') && ! $request->routeIs('shifts.schedule*'), null, true],
                 ['HR', 'shifts.program', 'shifts.schedule', [], 'calendar3', 'Programación de horarios', $request->routeIs('shifts.schedule*')],
-                ['HR', 'shifts.manage', 'holidays.index', [], 'calendar-heart', 'Feriados', $request->routeIs('holidays*')],
+                ['HR', 'shifts.manage', 'holidays.index', [], 'calendar-heart', 'Feriados y días especiales', $request->routeIs('holidays*')],
                 ['Core', 'branches.manage', 'organization.index', [], 'diagram-3', 'Organización', $request->routeIs('organization*'), null, true],
                 ['Core', 'branches.manage', 'branches.index', [], 'pin-map', 'Sucursales y geocercas', $request->routeIs('branches*')],
                 ['Payroll', 'payslips.manage', 'payslips.index', [], 'file-earmark-text', 'Boletas de pago', $request->routeIs('payslips*')],

@@ -103,7 +103,7 @@ class AttendancePunchLogTest extends TestCase
 
         $this->travel(4)->hours();
         $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/break-start', $this->payload(['photo' => null]))->assertOk();
-        $this->travel(45)->minutes();
+        $this->travel(60)->minutes();
         $this->actingIn($this->emp, $this->acme)->post('/api/attendance/break-end', $this->payload(['photo' => UploadedFile::fake()->image('b.png', 300, 300)]))->assertOk();
         $this->travelTo(Carbon::parse('2026-10-09 17:02:00', 'America/Lima'));
         $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-out', $this->payload())
@@ -139,7 +139,7 @@ class AttendancePunchLogTest extends TestCase
         $this->assertFalse($attendance->clock_in_mock_location);
         $this->assertNull($attendance->clock_in_face_detected);
         $this->assertFalse($attendance->is_suspicious);
-        $this->assertSame(45, (int) $attendance->break_minutes);
+        $this->assertSame(60, (int) $attendance->break_minutes);
         $this->assertNotNull($punches[2]->photo_path, 'el descanso acepta foto');
         $this->get($punches[2]->photoUrl())->assertOk();
         $this->get(str_replace('punch-photo', 'selfie-in', $punches[2]->photoUrl()))->assertForbidden();

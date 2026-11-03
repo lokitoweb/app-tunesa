@@ -99,6 +99,30 @@ class HolidayTest extends TestCase
         $this->assertSame('absent', Attendance::withoutGlobalScopes()->where('user_id', $empO->id)->sole()->status);
     }
 
+    public function test_special_days_are_worked_and_their_rule_is_editable(): void
+    {
+        $acme  = $this->makeTenant('acme');
+        $hr    = $this->makeUser($acme, 'hr_manager');
+        $shift = Shift::create(['tenant_id' => $acme->id, 'name' => 'L-V', 'start_time' => '08:00', 'end_time' => '17:00', 'working_days' => [1, 2, 3, 4, 5]]);
+        $emp   = $this->makeUser($acme);
+        EmployeeShift::create(['tenant_id' => $acme->id, 'user_id' => $emp->id, 'shift_id' => $shift->id,
+            'branch_id' => $this->makeBranch($acme)->id, 'effective_from' => '2026-01-01', 'is_active' => true]);
+
+        $this->actingAs($hr)->postJson('/holidays', ['date' => '2026-12-24', 'name' => 'Nochebuena', 'kind' => 'special', 'overtime_rule' => 'after'])
+            ->assertStatus(422)->assertJsonValidationErrors('overtime_from');
+        $id = $this->postJson('/holidays', ['date' => '2026-12-24', 'name' => 'Nochebuena', 'kind' => 'special', 'overtime_rule' => 'after', 'overtime_from' => '13:00'])
+            ->assertOk()->assertJsonPath('holiday.kind', 'special')->assertJsonPath('holiday.overtime_from', '13:00')->json('holiday.id');
+
+        // Día especial: se trabaja, así que sí registra la falta
+        $this->artisan('attendance:mark-absences', ['--date' => '2026-12-24'])->assertSuccessful();
+        $this->assertSame('absent', Attendance::withoutGlobalScopes()->where('user_id', $emp->id)->sole()->status);
+
+        // Cambiar la regla desde la tabla: pasar a "todo es hora extra" borra la hora
+        $this->putJson("/holidays/{$id}", ['kind' => 'holiday', 'overtime_rule' => 'all', 'overtime_from' => '13:00'])
+            ->assertOk()->assertJsonPath('holiday.overtime_rule', 'all')->assertJsonPath('holiday.overtime_from', null);
+        $this->putJson("/holidays/{$id}", ['kind' => 'otro'])->assertStatus(422);
+    }
+
     public function test_supervisor_cannot_manage_holidays(): void
     {
         $acme = $this->makeTenant('acme');

@@ -8,18 +8,51 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Feriado de una empresa (nacional o propio). En estas fechas el control
- * de faltas no registra ausencias.
+ * Feriado o día especial de una empresa (nacional o propio). En un feriado
+ * (kind holiday) el control de faltas no registra ausencias; un día especial
+ * (p. ej. 24 y 31 de diciembre) es laborable. Ambos pueden tener su regla de
+ * horas extra (overtime_rule), que aplica AttendanceService::overtimeHours().
  */
 class Holiday extends Model
 {
     use BelongsToTenant, HasDateOnlyColumns;
 
+    public const KINDS = ['holiday' => 'Feriado (no laborable)', 'special' => 'Día especial (laborable)'];
+
+    public const OVERTIME_RULES = [
+        'none'  => 'Normales',
+        'all'   => 'Todo el día es extra',
+        'after' => 'Extra desde una hora',
+    ];
+
     protected array $dateOnly = ['date'];
 
-    protected $fillable = ['tenant_id', 'date', 'name'];
+    protected $fillable = ['tenant_id', 'date', 'name', 'kind', 'overtime_rule', 'overtime_from'];
 
     protected $casts = ['date' => 'date'];
+
+    /** Días no laborables (sin faltas ni recordatorios); los días especiales se trabajan */
+    public function scopeDaysOff($query)
+    {
+        return $query->where('kind', 'holiday');
+    }
+
+    /** Fila para la pantalla de Feriados */
+    public function present(): array
+    {
+        return [
+            'id'             => $this->id,
+            'tenant_id'      => $this->tenant_id,
+            'date'           => $this->date->toDateString(),
+            'formatted_date' => $this->date->format('d/m/Y'),
+            'day_name'       => ucfirst($this->date->locale('es')->isoFormat('dddd')),
+            'name'           => $this->name,
+            'kind'           => $this->kind ?? 'holiday',
+            'overtime_rule'  => $this->overtime_rule ?? 'none',
+            'overtime_from'  => $this->overtime_from ? substr($this->overtime_from, 0, 5) : null,
+            'is_national'    => array_key_exists($this->date->toDateString(), self::peruNational($this->date->year)),
+        ];
+    }
 
     /**
      * Feriados nacionales del Perú (calendario vigente desde 2024): fecha Y-m-d => nombre.

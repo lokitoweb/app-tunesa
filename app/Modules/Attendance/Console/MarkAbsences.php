@@ -66,7 +66,7 @@ class MarkAbsences extends Command
         $absent = $excused = 0;
 
         // Feriado de la empresa: nadie debía trabajar, no hay faltas que registrar
-        if (Holiday::where('date', $day)->exists()) {
+        if (Holiday::daysOff()->where('date', $day)->exists()) {
             $this->line("Feriado {$day}: no se registran faltas.");
 
             return [0, 0];
