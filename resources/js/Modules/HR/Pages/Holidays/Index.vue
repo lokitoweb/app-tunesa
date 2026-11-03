@@ -156,6 +156,11 @@ async function submitHoliday() {
     }
 }
 
+// Horas cada 30 min en formato de 12 h ("01:00 pm"); una hora guardada fuera de la lista se conserva
+const clock12 = (v) => { const [h, m] = v.split(':').map(Number); return `${String(h % 12 || 12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; };
+const halfHours = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
+const timeOptions = (current) => (current && !halfHours.includes(current) ? [...halfHours, current].sort() : halfHours).map((value) => ({ value, label: clock12(value) }));
+
 // Tipo de día y regla de horas extra de una fila (se guarda al cambiar)
 async function saveRule(h, changes) {
     const next = { kind: h.kind, overtime_rule: h.overtime_rule, overtime_from: h.overtime_from, ...changes };
@@ -252,7 +257,9 @@ async function destroyHoliday(holiday) {
                                 <select id="holiday_rule" v-model="formRule" class="form-select">
                                     <option v-for="(label, key) in overtimeRules" :key="key" :value="key">{{ label }}</option>
                                 </select>
-                                <input v-if="formRule === 'after'" v-model="formFrom" type="time" step="60" class="form-control hol-time" aria-label="Hora extra desde" required>
+                                <select v-if="formRule === 'after'" v-model="formFrom" class="form-select hol-time" aria-label="Hora extra desde">
+                                    <option v-for="t in timeOptions(formFrom)" :key="t.value" :value="t.value">{{ t.label }}</option>
+                                </select>
                             </div>
                             <div v-if="formErrors.overtime_from" class="invalid-feedback d-block mt-1">{{ formErrors.overtime_from[0] }}</div>
                         </div>
@@ -325,8 +332,10 @@ async function destroyHoliday(holiday) {
                                                 @change="saveRule(h, { overtime_rule: $event.target.value })">
                                                 <option v-for="(label, key) in overtimeRules" :key="key" :value="key">{{ label }}</option>
                                             </select>
-                                            <input v-if="h.overtime_rule === 'after'" type="time" step="60" class="form-control form-control-sm hol-time" :value="h.overtime_from"
+                                            <select v-if="h.overtime_rule === 'after'" class="form-select form-select-sm hol-time" :value="h.overtime_from"
                                                 :aria-label="`Hora extra desde, ${h.formatted_date}`" @change="saveRule(h, { overtime_from: $event.target.value })">
+                                                <option v-for="t in timeOptions(h.overtime_from)" :key="t.value" :value="t.value">{{ t.label }}</option>
+                                            </select>
                                         </div>
                                     </td>
                                     <td class="cell-actions">

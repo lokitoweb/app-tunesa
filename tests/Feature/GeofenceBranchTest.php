@@ -118,7 +118,9 @@ class GeofenceBranchTest extends TestCase
 
         // Editar desde la vista global usa la empresa de la propia sucursal
         $this->get("/branches/{$created->id}/edit")->assertOk()->assertSee('Acme SAC')->assertSee('Sofia')->assertDontSee('Bruno');
-        $this->put("/branches/{$created->id}", array_merge($branch, ['allowed_radius_meters' => 80]))->assertRedirect(route('branches.index'));
+        $this->put("/branches/{$created->id}", array_merge($branch, ['allowed_radius_meters' => 80, 'city' => 'Lima', 'province' => 'Lima', 'district' => 'La Victoria']))->assertRedirect(route('branches.index'));
         $this->assertSame(80, (int) $created->fresh()->allowed_radius_meters);
+        // Ubigeo: departamento (city), provincia y distrito
+        $this->assertSame(['Lima', 'Lima', 'La Victoria'], array_values($created->fresh()->only(['city', 'province', 'district'])));
     }
 }

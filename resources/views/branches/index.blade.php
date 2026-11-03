@@ -424,23 +424,8 @@
                             </select>
                         </div>
 
-                        {{-- Ubigeo: departamento (city) > provincia > distrito (public/data/ubigeo-pe.json) --}}
-                        <div class="col-12 col-md-4">
-                            <label for="m_city" class="form-label fw-semibold small text-body mb-1">Departamento</label>
-                            @include('branches.partials.region-select', ['id' => 'm_city', 'style' => 'height: 40px; border-radius: 8px; font-size: 0.85rem;'])
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label for="m_province" class="form-label fw-semibold small text-body mb-1">Provincia</label>
-                            <select id="m_province" name="province" class="form-select" style="height: 40px; border-radius: 8px; font-size: 0.85rem;" disabled>
-                                <option value="">Elige el departamento</option>
-                            </select>
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <label for="m_district" class="form-label fw-semibold small text-body mb-1">Distrito</label>
-                            <select id="m_district" name="district" class="form-select" style="height: 40px; border-radius: 8px; font-size: 0.85rem;" disabled>
-                                <option value="">Elige la provincia</option>
-                            </select>
-                        </div>
+                        {{-- Ubigeo: departamento (city) > provincia > distrito --}}
+                        @include('branches.partials.ubigeo-fields', ['prefix' => 'm_', 'labelClass' => 'form-label fw-semibold small text-body mb-1', 'style' => 'height: 40px; border-radius: 8px; font-size: 0.85rem;'])
 
                         {{-- Dirección: al escribirla (o cambiar el distrito) se ubica sola en el mapa --}}
                         <div class="col-12">
@@ -665,6 +650,7 @@
 @endsection
 
 @section('scripts')
+@include('branches.partials.ubigeo-script')
 <script>
     {{-- Variables de Leaflet para el Modal --}}
     let modalMap = null;
@@ -750,9 +736,8 @@
         document.getElementById('m_branch_type').value = 'agency';
         document.getElementById('m_zone_id').value = '';
         document.getElementById('m_supervisor_id').value = '';
-        setUbigeo('', '', '');
+        branchUbigeo.set('', '', '');
         document.getElementById('m_address').value = '';
-        setAddressStatus('Escribe la calle y el número: el mapa se ubica solo. Luego puedes ajustar el pin.');
         document.getElementById('m_latitude').value = '-12.046374';
         document.getElementById('m_longitude').value = '-77.042793';
         document.getElementById('m_allowed_radius_meters').value = defaultRadiusVal;
@@ -780,20 +765,13 @@
         document.getElementById('m_branch_type').value = branch.branch_type || 'agency';
         document.getElementById('m_zone_id').value = branch.zone_id || '';
         document.getElementById('m_supervisor_id').value = branch.supervisor_id || '';
-        {{-- Región de la lista (sin importar mayúsculas); un valor anterior fuera de la lista se conserva como opción --}}
+        {{-- Departamento de la lista (sin importar mayúsculas); un valor anterior fuera de la lista se conserva como "(actual)" --}}
         const citySelect = document.getElementById('m_city');
         citySelect.querySelectorAll('option[data-legacy]').forEach((o) => o.remove());
         const city = (branch.city || '').trim();
         const match = [...citySelect.options].find((o) => o.value && o.value.toLocaleLowerCase('es') === city.toLocaleLowerCase('es'));
-        if (city && !match) {
-            const legacy = new Option(`${city} (actual)`, city);
-            legacy.dataset.legacy = '1';
-            citySelect.add(legacy, 1);
-        }
-        citySelect.value = match ? match.value : city;
-        setUbigeo(citySelect.value, branch.province || '', branch.district || '');
+        branchUbigeo.set(match ? match.value : city, branch.province || '', branch.district || '');
         document.getElementById('m_address').value = branch.address || '';
-        setAddressStatus('Escribe la calle y el número: el mapa se ubica solo. Luego puedes ajustar el pin.');
         document.getElementById('m_latitude').value = parseFloat(branch.latitude || -12.046374).toFixed(6);
         document.getElementById('m_longitude').value = parseFloat(branch.longitude || -77.042793).toFixed(6);
         
@@ -873,92 +851,16 @@
         }
     };
 
-    {{-- ===== Ubigeo (departamento > provincia > distrito) y ubicación automática de la dirección ===== --}}
-    const cityEl = document.getElementById('m_city');
-    const provinceEl = document.getElementById('m_province');
-    const districtEl = document.getElementById('m_district');
-    const addressEl = document.getElementById('m_address');
-    let ubigeo = {};
-    const ubigeoReady = fetch('{{ asset('data/ubigeo-pe.json') }}').then((r) => r.json()).then((j) => { ubigeo = j; }).catch(() => {});
-
-    {{-- Llena un select; un valor guardado que no está en la lista se conserva como "(actual)" --}}
-    function fillSelect(select, items, placeholder, value) {
-        select.innerHTML = '';
-        select.add(new Option(placeholder, ''));
-        const sorted = [...items].sort((a, b) => a.localeCompare(b, 'es'));
-        if (value && !sorted.includes(value)) select.add(new Option(`${value} (actual)`, value));
-        sorted.forEach((name) => select.add(new Option(name, name)));
-        select.value = value || '';
-        select.disabled = select.options.length <= 1;
-    }
-    function fillProvinces(value) {
-        fillSelect(provinceEl, Object.keys(ubigeo[cityEl.value] || {}), cityEl.value ? 'Elige la provincia' : 'Elige el departamento', value);
-    }
-    function fillDistricts(value) {
-        fillSelect(districtEl, (ubigeo[cityEl.value] || {})[provinceEl.value] || [], provinceEl.value ? 'Elige el distrito' : 'Elige la provincia', value);
-    }
-    window.setUbigeo = async function(city, province, district) {
-        await ubigeoReady;
-        {{-- Sede antigua con la ciudad en "Región" (p. ej. "Trujillo"): se reconoce como provincia de su departamento --}}
-        const same = (a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }) === 0;
-        if (city && !ubigeo[city]) {
-            const dept = Object.keys(ubigeo).find((d) => Object.keys(ubigeo[d]).some((p) => same(p, city)));
-            if (dept) {
-                province = province || Object.keys(ubigeo[dept]).find((p) => same(p, city));
-                city = dept;
-                cityEl.querySelectorAll('option[data-legacy]').forEach((o) => o.remove());
-            }
-        }
-        cityEl.value = city;
-        fillProvinces(province);
-        fillDistricts(district);
-    };
-    cityEl.addEventListener('change', () => { fillProvinces(''); fillDistricts(''); locateAddress(); });
-    provinceEl.addEventListener('change', () => { fillDistricts(''); locateAddress(); });
-    districtEl.addEventListener('change', locateAddress);
-    addressEl.addEventListener('input', locateAddress);
-
-    function setAddressStatus(text, tone) {
-        const el = document.getElementById('m_addressStatus');
-        el.textContent = text;
-        el.className = 'form-text small' + (tone ? ` text-${tone}` : '');
-    }
-
-    {{-- Busca la dirección con el geocodificador del sistema (Nominatim, 1 petición/s): primero la
-         dirección completa, luego sin el número y, si no, el distrito; mueve el pin al primer resultado --}}
-    let locateTimer = null, locateSeq = 0;
-    function locateAddress() {
-        clearTimeout(locateTimer);
-        locateTimer = setTimeout(async () => {
-            const address = addressEl.value.trim();
-            const area = [districtEl.value, provinceEl.value, cityEl.value].filter(Boolean);
-            if (address.length < 4 && !area.length) return;
-            const street = address.replace(/\s+(n[°º.]?\s*)?\d+[\w-]*.*$/i, '').trim();
-            const tries = [...new Set([[address, ...area], [street, ...area], area]
-                .map((p) => p.filter(Boolean)).filter((p) => p.length).map((p) => [...p, 'Perú'].join(', ')))];
-            const seq = ++locateSeq;
-            setAddressStatus('Ubicando la dirección en el mapa…');
-            for (const [i, q] of tries.entries()) {
-                try {
-                    const res = await fetch(`{{ url('/geocode/search') }}?limit=1&q=${encodeURIComponent(q)}`, { headers: { Accept: 'application/json' } });
-                    const json = await res.json();
-                    if (seq !== locateSeq) return;
-                    const hit = json && json.success && json.data && json.data[0];
-                    if (!hit) continue;
-                    document.getElementById('m_latitude').value = Number(hit.lat).toFixed(6);
-                    document.getElementById('m_longitude').value = Number(hit.lng).toFixed(6);
-                    syncModalMapFromInputs();
-                    const exact = i === 0 && address.length >= 4;
-                    if (modalMap) modalMap.setView([hit.lat, hit.lng], exact ? 18 : (q.startsWith(street) && street ? 16 : 14));
-                    setAddressStatus(exact ? `Ubicada: ${hit.label}` : `Ubicación aproximada (${hit.label}). Arrastra el pin al punto exacto.`, exact ? 'success' : 'warning');
-                    return;
-                } catch (e) {
-                    if (seq !== locateSeq) return;
-                }
-            }
-            if (seq === locateSeq) setAddressStatus('No se encontró la dirección. Revisa el distrito o ubica el pin en el mapa.', 'danger');
-        }, 900);
-    }
+    {{-- Ubigeo y ubicación automática de la dirección (branches.partials.ubigeo-script) --}}
+    const branchUbigeo = BranchUbigeo({
+        city: 'm_city', province: 'm_province', district: 'm_district', address: 'm_address', status: 'm_addressStatus',
+        onLocate(lat, lng, zoom) {
+            document.getElementById('m_latitude').value = lat.toFixed(6);
+            document.getElementById('m_longitude').value = lng.toFixed(6);
+            syncModalMapFromInputs();
+            if (modalMap) modalMap.setView([lat, lng], zoom);
+        },
+    });
 
     {{-- Sincronizar radio cuando se escribe en el input --}}
     window.syncModalRadiusFromInput = function() {

@@ -251,112 +251,10 @@ function updateBranchInline(branch, changes) {
 }
 
 // =========================================================================
-// 1. MODAL DIALOG: NUEVA SEDE / EDITAR SEDE (CON GEOCERCA GPS Y SUPERVISOR)
-// =========================================================================
-const showBranchModal = ref(false);
-const editingBranch = ref(null);
-
-const branchForm = useForm({
-    name: '',
-    code: '',
-    branch_type: 'agency',
-    zone_id: null,
-    supervisor_id: null,
-    city: '',
-    address: '',
-    latitude: -12.046374,
-    longitude: -77.042793,
-    allowed_radius_meters: 100,
-    is_active: true,
-});
-
-function openCreateBranchModal() {
-    editingBranch.value = null;
-    branchForm.clearErrors();
-    branchForm.reset();
-    branchForm.name = '';
-    branchForm.code = '';
-    branchForm.branch_type = Object.keys(props.branchTypes)[0] || 'agency';
-    branchForm.zone_id = filter.zone && filter.zone !== NO_ZONE ? Number(filter.zone) : null;
-    branchForm.supervisor_id = null;
-    branchForm.city = '';
-    branchForm.address = '';
-    branchForm.latitude = -12.046374;
-    branchForm.longitude = -77.042793;
-    branchForm.allowed_radius_meters = props.defaultRadius || 100;
-    branchForm.is_active = true;
-    showBranchModal.value = true;
-}
-
-function openEditBranchModal(b) {
-    editingBranch.value = b;
-    branchForm.clearErrors();
-    branchForm.name = b.name || '';
-    branchForm.code = b.code || '';
-    branchForm.branch_type = b.type || 'agency';
-    branchForm.zone_id = b.zone_id ?? null;
-    branchForm.supervisor_id = b.supervisor_id ?? null;
-    branchForm.city = b.city || '';
-    branchForm.address = b.address || '';
-    branchForm.latitude = b.latitude ? Number(b.latitude) : -12.046374;
-    branchForm.longitude = b.longitude ? Number(b.longitude) : -77.042793;
-    branchForm.allowed_radius_meters = b.radius || props.defaultRadius || 100;
-    branchForm.is_active = Boolean(b.is_active);
-    showBranchModal.value = true;
-}
-
-function closeBranchModal() {
-    showBranchModal.value = false;
-    editingBranch.value = null;
-    branchForm.clearErrors();
-}
-
-function setRadiusPreset(radius) {
-    branchForm.allowed_radius_meters = radius;
-}
-
-// =========================================================================
 // SISTEMA DE NOTIFICACIONES TOAST MODERNO (REEMPLAZO DE ALERTS NATIVOS)
 // =========================================================================
 // 'success' | 'warning' | 'danger' | 'info', en la pila de avisos compartida
 const notify = (message, type = 'info') => toast(message, type);
-
-const isDetectingGps = ref(false);
-function detectCurrentLocation() {
-    if (!navigator.geolocation) {
-        notify('Tu navegador no soporta geolocalización.', 'warning');
-        return;
-    }
-    isDetectingGps.value = true;
-    navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            isDetectingGps.value = false;
-            branchForm.latitude = Number(pos.coords.latitude.toFixed(6));
-            branchForm.longitude = Number(pos.coords.longitude.toFixed(6));
-            notify('Coordenadas GPS obtenidas con éxito.', 'success');
-        },
-        () => {
-            isDetectingGps.value = false;
-            notify('No se pudo obtener la ubicación GPS actual. Revisa los permisos de ubicación en tu navegador.', 'warning');
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-    );
-}
-
-function submitBranchModal() {
-    const options = {
-        preserveScroll: true,
-        onSuccess: () => {
-            closeBranchModal();
-        },
-    };
-
-    if (editingBranch.value) {
-        branchForm.put(`/branches/${editingBranch.value.id}`, options);
-    } else {
-        branchForm.post('/branches', options);
-    }
-}
 
 async function confirmDeleteBranch(branch) {
     const ok = await ask({
@@ -642,18 +540,17 @@ const catalogDetail = (catalog, row) => {
                     </div>
                 </div>
 
-                <!-- Botones de Acción: ¡Todos abren Modal Dialog sin recargar! -->
+                <!-- Botones de acción (la sede se crea con el formulario de Sucursales) -->
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <button 
+                    <a
                         v-if="canManage"
-                        type="button" 
+                        href="/branches/create"
                         class="btn btn-primary d-inline-flex align-items-center shadow-sm org-action-btn"
                         style="gap: 8px !important;"
-                        @click="openCreateBranchModal"
                     >
                         <i class="bi bi-plus-lg fs-6"></i>
                         <span>Nueva sede</span>
-                    </button>
+                    </a>
 
                     <div v-if="canManage" class="btn-group shadow-sm">
                         <button 
@@ -1154,26 +1051,15 @@ const catalogDetail = (catalog, row) => {
                                                 <i class="bi bi-sliders fs-6"></i>
                                             </button>
 
-                                            <!-- Botón Editar Sede: Abre Modal Dialog -->
-                                            <button 
+                                            <!-- Editar sede: el mismo formulario de Sucursales (ubicación, mapa y geocerca) -->
+                                            <a
                                                 v-if="canManage"
-                                                type="button" 
-                                                class="btn btn-sm btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" 
+                                                :href="`/branches/${b.id}/edit`"
+                                                class="btn btn-sm btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center"
                                                 style="width: 34px; height: 34px; border-radius: 8px;"
-                                                title="Editar datos, coordenadas y supervisor de la sede"
-                                                @click="openEditBranchModal(b)"
+                                                :title="`Editar datos, ubicación y geocerca de ${b.name}`"
                                             >
                                                 <i class="bi bi-pencil-square fs-6"></i>
-                                            </button>
-
-                                            <!-- Ver Mapa GPS -->
-                                            <a 
-                                                :href="`/branches/${b.id}/edit`" 
-                                                class="btn btn-sm btn-outline-secondary p-0 d-inline-flex align-items-center justify-content-center" 
-                                                style="width: 34px; height: 34px; border-radius: 8px;"
-                                                :title="`Ver mapa interactivo y geocerca de ${b.name}`"
-                                            >
-                                                <i class="bi bi-geo-alt fs-6"></i>
                                             </a>
 
                                             <!-- Eliminar Sede -->
@@ -1595,328 +1481,6 @@ const catalogDetail = (catalog, row) => {
                             </tr>
                         </tbody>
                     </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- =========================================================================
-             MODAL DIALOG 1: NUEVA SEDE / EDITAR SEDE (CENTRALIZADO Y PROFESIONAL)
-             ========================================================================= -->
-        <div v-if="showBranchModal" class="modal-backdrop fade show" style="z-index: 1050;"></div>
-        <div 
-            v-if="showBranchModal" 
-            class="modal fade show d-block" 
-            tabindex="-1" 
-            role="dialog" 
-            style="z-index: 1055;"
-            @click.self="closeBranchModal"
-        >
-            <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down modal-dialog-centered modal-lg">
-                <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
-                    <!-- Cabecera -->
-                    <div class="modal-header py-3 px-4 border-bottom">
-                        <div class="d-flex align-items-center" style="gap: 14px !important;">
-                            <div class="kpi-icon-pill bg-primary-subtle text-primary" style="width: 42px; height: 42px; font-size: 1.25rem; flex-shrink: 0;">
-                                <i class="bi bi-buildings-fill"></i>
-                            </div>
-                            <div>
-                                <h2 class="h6 fw-bold mb-0 text-dark">
-                                    {{ editingBranch ? `Editar Sede · ${editingBranch.name}` : 'Crear Nueva Sede Operativa' }}
-                                </h2>
-                                <span class="small text-muted" style="font-size: 0.775rem;">
-                                    Define los datos corporativos, geocerca GPS y responsable de la sucursal.
-                                </span>
-                            </div>
-                        </div>
-                        <button type="button" class="btn-close" aria-label="Cerrar" @click="closeBranchModal"></button>
-                    </div>
-
-                    <!-- Formulario -->
-                    <form @submit.prevent="submitBranchModal">
-                        <div class="modal-body p-4" style="max-height: calc(85vh - 120px); overflow-y: auto;">
-                            <div class="row g-3">
-                                <!-- Nombre de la Sede -->
-                                <div class="col-12 col-md-8">
-                                    <label for="bm_name" class="form-label fw-semibold small text-dark mb-1">
-                                        Nombre de la Sede <span class="text-danger">*</span>
-                                    </label>
-                                    <input 
-                                        id="bm_name" 
-                                        v-model="branchForm.name" 
-                                        type="text" 
-                                        class="form-control" 
-                                        :class="{ 'is-invalid': branchForm.errors.name }" 
-                                        placeholder="Ej.: Sede Principal - Trujillo, Terminal Terrestre..."
-                                        style="height: 40px; border-radius: 8px; font-size: 0.85rem;"
-                                        required
-                                    >
-                                    <div v-if="branchForm.errors.name" class="invalid-feedback d-block mt-1">
-                                        {{ branchForm.errors.name }}
-                                    </div>
-                                </div>
-
-                                <!-- Código Interno -->
-                                <div class="col-12 col-md-4">
-                                    <label for="bm_code" class="form-label fw-semibold small text-dark mb-1">
-                                        Código Interno <span class="text-muted fw-normal">(Opcional)</span>
-                                    </label>
-                                    <input 
-                                        id="bm_code" 
-                                        v-model="branchForm.code" 
-                                        type="text" 
-                                        class="form-control" 
-                                        :class="{ 'is-invalid': branchForm.errors.code }" 
-                                        placeholder="Ej.: SED-01, TRU-AG"
-                                        style="height: 40px; border-radius: 8px; font-size: 0.85rem;"
-                                    >
-                                    <div v-if="branchForm.errors.code" class="invalid-feedback d-block mt-1">
-                                        {{ branchForm.errors.code }}
-                                    </div>
-                                </div>
-
-                                <!-- Tipo de Sede -->
-                                <div class="col-12 col-md-4">
-                                    <label for="bm_type" class="form-label fw-semibold small text-dark mb-1">
-                                        Tipo de Sede <span class="text-danger">*</span>
-                                    </label>
-                                    <select 
-                                        id="bm_type" 
-                                        v-model="branchForm.branch_type" 
-                                        class="form-select" 
-                                        :class="{ 'is-invalid': branchForm.errors.branch_type }"
-                                        style="height: 40px; border-radius: 8px; font-size: 0.85rem;"
-                                    >
-                                        <option v-for="(label, value) in branchTypes" :key="value" :value="value">{{ label }}</option>
-                                    </select>
-                                    <div v-if="branchForm.errors.branch_type" class="invalid-feedback d-block mt-1">
-                                        {{ branchForm.errors.branch_type }}
-                                    </div>
-                                </div>
-
-                                <!-- Zona Territorial -->
-                                <div class="col-12 col-md-4">
-                                    <label for="bm_zone" class="form-label fw-semibold small text-dark mb-1">
-                                        Zona Territorial <span class="text-muted fw-normal">(Opcional)</span>
-                                    </label>
-                                    <select 
-                                        id="bm_zone" 
-                                        v-model="branchForm.zone_id" 
-                                        class="form-select" 
-                                        :class="{ 'is-invalid': branchForm.errors.zone_id }"
-                                        style="height: 40px; border-radius: 8px; font-size: 0.85rem;"
-                                    >
-                                        <option :value="null">Sin zona territorial</option>
-                                        <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.name }}</option>
-                                    </select>
-                                    <div v-if="branchForm.errors.zone_id" class="invalid-feedback d-block mt-1">
-                                        {{ branchForm.errors.zone_id }}
-                                    </div>
-                                </div>
-
-                                <!-- Supervisor / Responsable -->
-                                <div class="col-12 col-md-4">
-                                    <label for="bm_supervisor" class="form-label fw-semibold small text-dark mb-1">
-                                        Supervisor / Encargado <span class="text-muted fw-normal">(Opcional)</span>
-                                    </label>
-                                    <select 
-                                        id="bm_supervisor" 
-                                        v-model="branchForm.supervisor_id" 
-                                        class="form-select" 
-                                        :class="{ 'is-invalid': branchForm.errors.supervisor_id }"
-                                        style="height: 40px; border-radius: 8px; font-size: 0.85rem;"
-                                    >
-                                        <option :value="null">Sin supervisor asignado</option>
-                                        <option v-for="s in supervisors" :key="s.id" :value="s.id">{{ s.name }}</option>
-                                    </select>
-                                    <div class="form-text small">Ve la asistencia del personal de esta sede y aprueba sus solicitudes.</div>
-                                    <div v-if="branchForm.errors.supervisor_id" class="invalid-feedback d-block mt-1">
-                                        {{ branchForm.errors.supervisor_id }}
-                                    </div>
-                                </div>
-
-                                <!-- Ciudad -->
-                                <div class="col-12 col-md-4">
-                                    <label for="bm_city" class="form-label fw-semibold small text-dark mb-1">
-                                        Ciudad / Región
-                                    </label>
-                                    <input 
-                                        id="bm_city" 
-                                        v-model="branchForm.city" 
-                                        type="text" 
-                                        class="form-control" 
-                                        :class="{ 'is-invalid': branchForm.errors.city }" 
-                                        placeholder="Ej.: Trujillo, Lima, Arequipa..."
-                                        style="height: 40px; border-radius: 8px; font-size: 0.85rem;"
-                                    >
-                                    <div v-if="branchForm.errors.city" class="invalid-feedback d-block mt-1">
-                                        {{ branchForm.errors.city }}
-                                    </div>
-                                </div>
-
-                                <!-- Dirección Completa -->
-                                <div class="col-12 col-md-8">
-                                    <label for="bm_address" class="form-label fw-semibold small text-dark mb-1">
-                                        Dirección Física <span class="text-danger">*</span>
-                                    </label>
-                                    <input 
-                                        id="bm_address" 
-                                        v-model="branchForm.address" 
-                                        type="text" 
-                                        class="form-control" 
-                                        :class="{ 'is-invalid': branchForm.errors.address }" 
-                                        placeholder="Ej.: Av. España 1234, Oficina 201"
-                                        style="height: 40px; border-radius: 8px; font-size: 0.85rem;"
-                                        required
-                                    >
-                                    <div v-if="branchForm.errors.address" class="invalid-feedback d-block mt-1">
-                                        {{ branchForm.errors.address }}
-                                    </div>
-                                </div>
-
-                                <!-- SECCIÓN GEOCERCA GPS -->
-                                <div class="col-12">
-                                    <div class="org-modal-section-card">
-                                        <div class="row g-3">
-                                            <!-- Cabecera de la Geocerca -->
-                                            <div class="col-12">
-                                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 pb-2 border-bottom">
-                                                    <div class="d-flex align-items-center" style="gap: 12px !important;">
-                                                        <div class="d-flex align-items-center justify-content-center bg-danger-subtle text-danger rounded-circle" style="width: 34px; height: 34px; flex-shrink: 0;">
-                                                            <i class="bi bi-geo-alt-fill fs-6"></i>
-                                                        </div>
-                                                        <div>
-                                                            <span class="fw-bold text-dark small d-block">Geocerca GPS y Marcación de Asistencia</span>
-                                                            <span class="text-muted" style="font-size: 0.735rem;">Coordenadas y radio para validar la presencia del personal</span>
-                                                        </div>
-                                                    </div>
-                                                    <button 
-                                                        type="button" 
-                                                        class="btn btn-sm btn-outline-primary d-inline-flex align-items-center" 
-                                                        style="border-radius: 6px; font-size: 0.785rem; padding: 6px 14px; gap: 6px !important; font-weight: 500;"
-                                                        :disabled="isDetectingGps"
-                                                        @click="detectCurrentLocation"
-                                                    >
-                                                        <span v-if="isDetectingGps" class="spinner-border spinner-border-sm"></span>
-                                                        <i v-else class="bi bi-crosshair"></i>
-                                                        <span>{{ isDetectingGps ? 'Obteniendo GPS...' : 'Usar mi ubicación actual' }}</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <!-- Coordenadas y Radio -->
-                                            <div class="col-12 col-md-4">
-                                                <label for="bm_lat" class="form-label small fw-semibold text-secondary mb-1">
-                                                    Latitud GPS <span class="text-danger">*</span>
-                                                </label>
-                                                <input 
-                                                    id="bm_lat" 
-                                                    v-model.number="branchForm.latitude" 
-                                                    type="number" 
-                                                    step="0.000001" 
-                                                    class="form-control" 
-                                                    :class="{ 'is-invalid': branchForm.errors.latitude }"
-                                                    style="height: 38px; border-radius: 6px; font-size: 0.85rem;"
-                                                    required
-                                                >
-                                            </div>
-                                            <div class="col-12 col-md-4">
-                                                <label for="bm_lng" class="form-label small fw-semibold text-secondary mb-1">
-                                                    Longitud GPS <span class="text-danger">*</span>
-                                                </label>
-                                                <input 
-                                                    id="bm_lng" 
-                                                    v-model.number="branchForm.longitude" 
-                                                    type="number" 
-                                                    step="0.000001" 
-                                                    class="form-control" 
-                                                    :class="{ 'is-invalid': branchForm.errors.longitude }"
-                                                    style="height: 38px; border-radius: 6px; font-size: 0.85rem;"
-                                                    required
-                                                >
-                                            </div>
-                                            <div class="col-12 col-md-4">
-                                                <label for="bm_radius" class="form-label small fw-semibold text-secondary mb-1">
-                                                    Radio permitido (metros) <span class="text-danger">*</span>
-                                                </label>
-                                                <input 
-                                                    id="bm_radius" 
-                                                    v-model.number="branchForm.allowed_radius_meters" 
-                                                    type="number" 
-                                                    min="10" 
-                                                    max="5000" 
-                                                    class="form-control" 
-                                                    :class="{ 'is-invalid': branchForm.errors.allowed_radius_meters }"
-                                                    style="height: 38px; border-radius: 6px; font-size: 0.85rem; font-weight: 600;"
-                                                    required
-                                                >
-                                            </div>
-
-                                            <!-- Distancias sugeridas para marcar con botones de esquinas normales -->
-                                            <div class="col-12">
-                                                <div class="pt-1">
-                                                    <div class="d-flex align-items-center justify-content-between mb-2">
-                                                        <span class="small fw-semibold text-secondary" style="font-size: 0.785rem;">
-                                                            Distancias sugeridas para marcar:
-                                                        </span>
-                                                        <span class="badge bg-body-secondary text-secondary border fw-medium" style="font-size: 0.725rem;">
-                                                            Seleccionado: {{ branchForm.allowed_radius_meters ?? 0 }} m
-                                                        </span>
-                                                    </div>
-                                                    <div class="d-flex align-items-center flex-wrap" style="gap: 8px !important;">
-                                                        <button 
-                                                            v-for="r in [50, 100, 200, 500, 1000]" 
-                                                            :key="r" 
-                                                            type="button" 
-                                                            class="btn btn-sm d-inline-flex align-items-center justify-content-center"
-                                                            :class="branchForm.allowed_radius_meters === r ? 'btn-primary shadow-sm' : 'btn-outline-secondary'"
-                                                            style="border-radius: 6px !important; font-size: 0.8rem; font-weight: 600; padding: 6px 14px !important;"
-                                                            @click="setRadiusPreset(r)"
-                                                        >
-                                                            {{ r }} metros
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Switch Sede Activa -->
-                                <div class="col-12">
-                                    <div class="org-modal-section-card d-flex align-items-center justify-content-between">
-                                        <div class="d-flex align-items-center" style="gap: 12px !important;">
-                                            <div class="d-flex align-items-center justify-content-center bg-success-subtle text-success rounded-circle" style="width: 32px; height: 32px; flex-shrink: 0;">
-                                                <i class="bi bi-power fs-6"></i>
-                                            </div>
-                                            <div>
-                                                <div class="fw-semibold text-dark small">Sede Activa</div>
-                                                <div class="text-muted" style="font-size: 0.75rem;">Las sedes inactivas no permiten marcación ni aparecen en turnos laborales.</div>
-                                            </div>
-                                        </div>
-                                        <div class="form-check form-switch m-0 ps-3">
-                                            <input id="bm_active" v-model="branchForm.is_active" class="form-check-input" type="checkbox" role="switch" style="cursor: pointer; width: 42px; height: 22px;">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Pie del Modal con Botón de Ancho Adecuado -->
-                        <div class="modal-footer py-3 px-4 border-top d-flex justify-content-end" style="gap: 10px !important;">
-                            <button type="button" class="btn btn-outline-secondary btn-sm px-3" style="height: 38px; border-radius: 6px; font-weight: 600;" @click="closeBranchModal">
-                                Cancelar
-                            </button>
-                            <button 
-                                type="submit" 
-                                class="btn btn-primary btn-sm d-inline-flex align-items-center justify-content-center px-4" 
-                                style="height: 38px; border-radius: 6px; font-weight: 600; white-space: nowrap !important; min-width: 140px; gap: 8px !important;" 
-                                :disabled="branchForm.processing"
-                            >
-                                <span v-if="branchForm.processing" class="spinner-border spinner-border-sm"></span>
-                                <span>{{ editingBranch ? 'Guardar Cambios' : 'Crear Sede' }}</span>
-                            </button>
-                        </div>
-                    </form>
                 </div>
             </div>
         </div>

@@ -94,6 +94,9 @@
                             </select>
                         </div>
                     </div>
+                    <div class="row g-3 mb-3">
+                        @include('branches.partials.ubigeo-fields', ['prefix' => '', 'col' => 'col-sm-4'])
+                    </div>
                     <div class="mb-3">
                         <label for="address" class="form-label">Dirección <span class="text-danger">*</span></label>
                         <input type="text" id="address" name="address" value="{{ old('address', $branch->address) }}" required maxlength="255" placeholder="Av. Principal 123" class="form-control @error('address') is-invalid @enderror">
@@ -102,17 +105,9 @@
                             <span id="addressSuggestionText"></span>
                             <button type="button" class="btn btn-link btn-sm p-0 align-baseline" id="useSuggestedAddress">Usar dirección sugerida</button>
                         </div>
+                        <div id="addressLocateStatus" class="form-text small" aria-live="polite">Escribe la calle y el número: el mapa se ubica solo. Luego puedes ajustar el pin.</div>
                     </div>
-                    <div class="row g-3 mb-3">
-                        <div class="col-sm-6">
-                            <label for="city" class="form-label">Región</label>
-                            @include('branches.partials.region-select', ['id' => 'city', 'value' => old('city', $branch->city)])
-                        </div>
-                        <div class="col-sm-6">
-                            <label for="country" class="form-label">País</label>
-                            <input type="text" id="country" name="country" value="{{ old('country', $branch->country ?? 'Perú') }}" class="form-control">
-                        </div>
-                    </div>
+                    <input type="hidden" name="country" value="{{ old('country', $branch->country ?? 'Perú') }}">
 
                     {{-- Radio de la geocerca: el empleado solo puede marcar dentro de este círculo --}}
                     <div class="mb-3">
@@ -235,6 +230,7 @@
 @endsection
 
 @section('scripts')
+@include('branches.partials.ubigeo-script')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const latInput = document.getElementById('latInput');
@@ -257,6 +253,12 @@ document.addEventListener('DOMContentLoaded', () => {
         circle.setLatLng([lat, lng]);
         if (pan) map.setView([lat, lng], Math.max(map.getZoom(), 16));
     }
+
+    {{-- Departamento > provincia > distrito y ubicación automática de la dirección --}}
+    BranchUbigeo({
+        city: 'city', province: 'province', district: 'district', address: 'address', status: 'addressLocateStatus',
+        onLocate(lat, lng, zoom) { moveTo(lat, lng, false); map.setView([lat, lng], zoom); },
+    }).set(@json(old('city', $branch->city) ?? ''), @json(old('province', $branch->province) ?? ''), @json(old('district', $branch->district) ?? ''));
 
 
     {{-- ===================== Búsqueda de direcciones y geocodificación inversa ===================== --}}
