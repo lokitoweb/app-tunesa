@@ -483,7 +483,7 @@
                                     {{-- Mini Mapa Leaflet Interactivo en el Modal --}}
                                     <div class="col-12">
                                         <div class="branch-map-container position-relative">
-                                            <div id="branchModalLeafletMap" style="height: 220px; width: 100%; border-radius: 8px; z-index: 1;"></div>
+                                            <div id="branchModalLeafletMap" style="height: 340px; width: 100%; border-radius: 8px; z-index: 1;"></div>
                                             <div class="branch-map-overlay-hint small text-muted">
                                                 <i class="bi bi-info-circle me-1"></i>Haz clic en el mapa o arrastra el marcador para ajustar la posición.
                                             </div>
@@ -798,7 +798,7 @@
         if (!mapContainer) return;
 
         if (!modalMap) {
-            modalMap = L.map('branchModalLeafletMap').setView([latVal, lngVal], 16);
+            modalMap = L.map('branchModalLeafletMap').setView([latVal, lngVal], 17);
             if (currentTileMode === 'satellite') {
                 currentTileLayer = L.tileLayer(satelliteTileUrl, { maxZoom: 19, attribution: satelliteTileAttrib }).addTo(modalMap);
             } else {
@@ -806,6 +806,8 @@
             }
 
             modalMarker = L.marker([latVal, lngVal], { draggable: true, title: 'Ubicación central' }).addTo(modalMap);
+            Panel.fullscreen(modalMap);
+            modalMarker.on('dragend', describeModalPin);
             modalCircle = L.circle([latVal, lngVal], {
                 radius: radVal,
                 color: '#0284c7',
@@ -829,14 +831,23 @@
                 document.getElementById('m_longitude').value = pos.lng.toFixed(6);
                 modalMarker.setLatLng(pos);
                 modalCircle.setLatLng(pos);
+                describeModalPin();
             });
         } else {
             modalMap.invalidateSize();
             modalMarker.setLatLng([latVal, lngVal]);
             modalCircle.setLatLng([latVal, lngVal]);
             modalCircle.setRadius(radVal);
-            modalMap.setView([latVal, lngVal], 16);
+            modalMap.setView([latVal, lngVal], 17);
         }
+        {{-- La dirección guardada, encima del pin --}}
+        BranchUbigeo.pin(modalMarker, document.getElementById('m_address').value.trim());
+    }
+
+    {{-- Pin movido a mano: afina el punto sin cambiar la dirección física --}}
+    function describeModalPin() {
+        const pos = modalMarker.getLatLng();
+        branchUbigeo.pinMoved(modalMarker, pos.lat, pos.lng);
     }
 
     {{-- Sincronizar mapa cuando se escriben coordenadas manualmente --}}
@@ -854,11 +865,12 @@
     {{-- Ubigeo y ubicación automática de la dirección (branches.partials.ubigeo-script) --}}
     const branchUbigeo = BranchUbigeo({
         city: 'm_city', province: 'm_province', district: 'm_district', address: 'm_address', status: 'm_addressStatus',
-        onLocate(lat, lng, zoom) {
+        onLocate(lat, lng, zoom, label) {
             document.getElementById('m_latitude').value = lat.toFixed(6);
             document.getElementById('m_longitude').value = lng.toFixed(6);
             syncModalMapFromInputs();
-            if (modalMap) modalMap.setView([lat, lng], zoom);
+            if (modalMap) modalMap.flyTo([lat, lng], zoom, { duration: 0.8 });
+            if (modalMarker) BranchUbigeo.pin(modalMarker, label);
         },
     });
 
@@ -912,6 +924,7 @@
                 document.getElementById('m_latitude').value = lat;
                 document.getElementById('m_longitude').value = lng;
                 syncModalMapFromInputs();
+                if (modalMarker) describeModalPin();
                 showToastFeedback('Coordenadas GPS obtenidas con éxito.', 'success');
             },
             function () {

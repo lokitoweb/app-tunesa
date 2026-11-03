@@ -100,11 +100,6 @@
                     <div class="mb-3">
                         <label for="address" class="form-label">Dirección <span class="text-danger">*</span></label>
                         <input type="text" id="address" name="address" value="{{ old('address', $branch->address) }}" required maxlength="255" placeholder="Av. Principal 123" class="form-control @error('address') is-invalid @enderror">
-                        <div class="small mt-1 d-none" id="addressSuggestion">
-                            <i class="bi bi-geo-alt me-1 text-body-secondary"></i><span class="text-body-secondary">Dirección del punto en el mapa:</span>
-                            <span id="addressSuggestionText"></span>
-                            <button type="button" class="btn btn-link btn-sm p-0 align-baseline" id="useSuggestedAddress">Usar dirección sugerida</button>
-                        </div>
                         <div id="addressLocateStatus" class="form-text small" aria-live="polite">Escribe la calle y el número: el mapa se ubica solo. Luego puedes ajustar el pin.</div>
                     </div>
                     <input type="hidden" name="country" value="{{ old('country', $branch->country ?? 'Perú') }}">
@@ -207,7 +202,7 @@
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
                             <input type="search" id="addressSearch" class="form-control" placeholder="Buscar dirección (ej.: Av. Larco 345, Miraflores)"
                                    autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="addressResults"
-                                   data-search-url="{{ url('/geocode/search') }}" data-reverse-url="{{ url('/geocode/reverse') }}">
+                                   data-search-url="{{ url('/geocode/search') }}">
                             <span class="input-group-text d-none" id="addressSearchSpinner"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span class="visually-hidden">Buscando…</span></span>
                         </div>
                         <ul class="list-group position-absolute w-100 shadow-sm d-none geo-results" id="addressResults" role="listbox" aria-label="Resultados de la búsqueda"></ul>
@@ -255,10 +250,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     {{-- Departamento > provincia > distrito y ubicación automática de la dirección --}}
-    BranchUbigeo({
+    const ubigeoCtl = BranchUbigeo({
         city: 'city', province: 'province', district: 'district', address: 'address', status: 'addressLocateStatus',
-        onLocate(lat, lng, zoom) { moveTo(lat, lng, false); map.setView([lat, lng], zoom); },
-    }).set(@json(old('city', $branch->city) ?? ''), @json(old('province', $branch->province) ?? ''), @json(old('district', $branch->district) ?? ''));
+        onLocate(lat, lng, zoom, label) { moveTo(lat, lng, false); map.flyTo([lat, lng], zoom, { duration: 0.8 }); BranchUbigeo.pin(marker, label); },
+    });
+    ubigeoCtl.set(@json(old('city', $branch->city) ?? ''), @json(old('province', $branch->province) ?? ''), @json(old('district', $branch->district) ?? ''));
+    BranchUbigeo.pin(marker, document.getElementById('address').value.trim());
 
 
     {{-- ===================== Búsqueda de direcciones y geocodificación inversa ===================== --}}
@@ -267,18 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const spinner = document.getElementById('addressSearchSpinner');
     const status = document.getElementById('addressSearchStatus');
     const addressInput = document.getElementById('address');
-    const cityInput = document.getElementById('city');
-    const suggestion = document.getElementById('addressSuggestion');
-    const suggestionText = document.getElementById('addressSuggestionText');
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-    {{-- La dirección se completa sola mientras el usuario no la haya escrito a mano --}}
-    let addressAuto = addressInput.value.trim() === '';
-    let suggested = null;
-    addressInput.addEventListener('input', () => {
-        addressAuto = addressInput.value.trim() === '';
-        if (addressAuto) hideSuggestion();
-    });
 
     function showStatus(message, type) {
         status.className = 'small mt-1 ' + (type === 'error' ? 'text-danger' : 'text-body-secondary');
@@ -296,27 +282,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return data.data;
     }
 
-    {{-- "345, Avenida José Larco, Miraflores, Lima, Provincia de Lima, 15074, Perú" → dirección + ciudad --}}
-    function splitLabel(label) {
+    {{-- "345, Avenida José Larco, Miraflores, Lima, Provincia de Lima, 15074, Perú" → "Avenida José Larco 345, Miraflores, Lima…"
+         (el departamento, la provincia y el distrito van en sus propios campos) --}}
+    function fillAddress(label) {
         let parts = String(label || '').split(',').map((p) => p.trim()).filter(Boolean)
             .filter((p) => !/^\d{4,6}$/.test(p) && !/^(per[uú]|peru)$/i.test(p) && !/^(provincia|departamento|regi[oó]n)\b/i.test(p));
         parts = parts.filter((p, i) => i === 0 || p.toLowerCase() !== parts[i - 1].toLowerCase());
         if (parts.length > 1 && /^\d+[a-z]?$/i.test(parts[0])) parts.splice(0, 2, parts[1] + ' ' + parts[0]);
-        const city = parts.length > 1 ? parts.pop().replace(/\s+\d{4,6}$/, "") : null;
-        return { address: parts.join(', ').slice(0, 255), city: city };
-    }
-
-    function fillAddress(label, withCity) {
-        const parts = splitLabel(label);
-        addressInput.value = parts.address || String(label).slice(0, 255);
-        if (withCity && parts.city) cityInput.value = parts.city.slice(0, 100);
-        addressAuto = true;
+        addressInput.value = (parts.join(', ') || String(label)).slice(0, 255);
         addressInput.classList.remove('is-invalid');
-        hideSuggestion();
     }
-
-    function hideSuggestion() { suggested = null; suggestion.classList.add('d-none'); }
-    document.getElementById('useSuggestedAddress').addEventListener('click', () => { if (suggested) fillAddress(suggested, true); });
 
     {{-- --- Búsqueda predictiva (400 ms, mínimo 3 caracteres) --- --}}
     let items = [];
@@ -358,8 +333,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!r) return;
         const lat = parseFloat(r.lat), lng = parseFloat(r.lng);
         if (isNaN(lat) || isNaN(lng)) return;
-        moveTo(lat, lng, true);
-        fillAddress(r.label, true);
+        moveTo(lat, lng, false);
+        map.flyTo([lat, lng], 18, { duration: 0.8 });
+        fillAddress(r.label);
+        BranchUbigeo.pin(marker, addressInput.value);
         search.value = r.label;
         closeResults();
         showStatus('');
@@ -413,36 +390,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     search.addEventListener('blur', () => setTimeout(closeResults, 150));
 
-    {{-- --- Geocodificación inversa al mover el pin o hacer clic en el mapa --- --}}
-    let reverseTimer = null;
-    let reverseCtrl = null;
-    function reverseGeocode() {
-        clearTimeout(reverseTimer);
-        reverseTimer = setTimeout(async () => {
-            reverseCtrl?.abort();
-            reverseCtrl = new AbortController();
-            const url = new URL(search.dataset.reverseUrl, window.location.origin);
-            url.searchParams.set('lat', latInput.value);
-            url.searchParams.set('lng', lngInput.value);
-            try {
-                const data = await getJson(url, reverseCtrl.signal);
-                if (!data || !data.address) return;
-                if (addressAuto) {
-                    fillAddress(data.address, true);
-                } else if (data.address !== addressInput.value) {
-                    suggested = data.address;
-                    suggestionText.textContent = data.address;
-                    suggestion.classList.remove('d-none');
-                }
-                showStatus('');
-            } catch (e) {
-                if (e.name !== 'AbortError') showStatus('No se pudo obtener la dirección de ese punto: ' + e.message, 'error');
-            }
-        }, 600);
-    }
-
-    marker.on('dragend', () => { const p = marker.getLatLng(); moveTo(p.lat, p.lng); reverseGeocode(); });
-    map.on('click', (e) => { moveTo(e.latlng.lat, e.latlng.lng); reverseGeocode(); });
+    {{-- Pin movido a mano: afina el punto sin cambiar la dirección física (si está vacía, se completa) --}}
+    marker.on('dragend', () => { const p = marker.getLatLng(); moveTo(p.lat, p.lng); ubigeoCtl.pinMoved(marker, p.lat, p.lng); });
+    map.on('click', (e) => { moveTo(e.latlng.lat, e.latlng.lng); ubigeoCtl.pinMoved(marker, e.latlng.lat, e.latlng.lng); });
     {{-- Slider y campo numérico van sincronizados; el círculo se redibuja en vivo --}}
     function setRadius(meters, fit) {
         circle.setRadius(meters);
@@ -483,13 +433,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     [latInput, lngInput].forEach((input) => input.addEventListener('change', () => {
         const lat = parseFloat(latInput.value), lng = parseFloat(lngInput.value);
-        if (!isNaN(lat) && !isNaN(lng)) { moveTo(lat, lng, true); reverseGeocode(); }
+        if (!isNaN(lat) && !isNaN(lng)) { moveTo(lat, lng, true); ubigeoCtl.pinMoved(marker, lat, lng); }
     }));
 
     document.getElementById('myLocation').addEventListener('click', () => {
         if (!navigator.geolocation) return Panel.toast('Tu navegador no permite obtener la ubicación.', 'warning');
         navigator.geolocation.getCurrentPosition(
-            (pos) => { moveTo(pos.coords.latitude, pos.coords.longitude, true); reverseGeocode(); },
+            (pos) => { moveTo(pos.coords.latitude, pos.coords.longitude, true); ubigeoCtl.pinMoved(marker, pos.coords.latitude, pos.coords.longitude); },
             () => Panel.toast('No se pudo obtener la ubicación del navegador.', 'warning'),
             { enableHighAccuracy: true, timeout: 10000 }
         );

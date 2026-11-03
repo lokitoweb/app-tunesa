@@ -7,6 +7,8 @@
 
     const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
     const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    const SATELLITE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    const SATELLITE_ATTRIBUTION = '&copy; Esri, Maxar, Earthstar Geographics';
 
     function esc(value) {
         return String(value ?? '').replace(/[&<>"']/g, (c) => ({
@@ -22,8 +24,44 @@
         return rest ? `${h} h ${rest} min` : `${h} h`;
     }
 
+    /** Calles + satélite (selector arriba a la derecha) y pantalla completa; devuelve la capa de calles */
     function tiles(map) {
-        return L.tileLayer(OSM_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION }).addTo(map);
+        const streets = L.tileLayer(OSM_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION }).addTo(map);
+        const satellite = L.tileLayer(SATELLITE_URL, { maxZoom: 19, attribution: SATELLITE_ATTRIBUTION });
+        L.control.layers({ Mapa: streets, 'Satélite': satellite }, null, { position: 'topright' }).addTo(map);
+        fullscreen(map);
+        return streets;
+    }
+
+    /** Botón de pantalla completa para un mapa de Leaflet (redibuja el mapa al entrar y salir) */
+    function fullscreen(map) {
+        const box = map.getContainer();
+        const Control = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd() {
+                const bar = L.DomUtil.create('div', 'leaflet-bar');
+                const btn = L.DomUtil.create('a', 'map-fullscreen-btn', bar);
+                btn.href = '#';
+                btn.role = 'button';
+                btn.title = 'Pantalla completa';
+                btn.setAttribute('aria-label', 'Pantalla completa');
+                btn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i>';
+                L.DomEvent.disableClickPropagation(bar);
+                L.DomEvent.on(btn, 'click', (e) => {
+                    L.DomEvent.preventDefault(e);
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    else box.requestFullscreen?.();
+                });
+                document.addEventListener('fullscreenchange', () => {
+                    const on = document.fullscreenElement === box;
+                    btn.innerHTML = `<i class="bi ${on ? 'bi-fullscreen-exit' : 'bi-arrows-fullscreen'}"></i>`;
+                    btn.title = on ? 'Salir de pantalla completa' : 'Pantalla completa';
+                    setTimeout(() => map.invalidateSize(), 150);
+                });
+                return bar;
+            },
+        });
+        if (box.requestFullscreen) new Control().addTo(map);
     }
 
     function cssVar(name) {
@@ -1005,7 +1043,7 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && controls.open) { const b = controls.open.querySelector('.mc-btn'); controls.close(); b?.focus(); } });
     document.addEventListener('DOMContentLoaded', () => controls.init());
 
-    window.Panel = { esc, minutes, tiles, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton, filters, controls };
+    window.Panel = { esc, minutes, tiles, fullscreen, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton, filters, controls };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;
     window.openCommandPalette = openCommandPalette;

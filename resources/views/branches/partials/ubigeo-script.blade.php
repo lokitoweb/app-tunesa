@@ -1,7 +1,7 @@
 {{--
     Ubigeo de la sede (departamento > provincia > distrito, public/data/ubigeo-pe.json) y ubicación
     automática de la dirección en el mapa. Lo usan el modal de Sucursales y la página de la sede:
-    const ubigeo = BranchUbigeo({ city, province, district, address, status, onLocate(lat, lng, zoom) });
+    const ubigeo = BranchUbigeo({ city, province, district, address, status, onLocate(lat, lng, zoom, label) });
     ubigeo.set(city, province, district) llena los selects (una sede antigua con la ciudad en "Región",
     p. ej. "Trujillo", se reconoce como provincia de su departamento).
 --}}
@@ -33,7 +33,11 @@ window.BranchUbigeo = function ({ city, province, district, address, status, onL
         statusEl.className = 'form-text small' + (tone ? ` text-${tone}` : '');
     }
 
-    {{-- Geocodificador del sistema (Nominatim, 1 petición/s): dirección completa, luego sin el número y, si no, el distrito --}}
+    {{-- Geocodificador del sistema (Nominatim o Google, según la empresa). Prueba la dirección completa, luego la
+         calle sin número y al final el distrito; de cada búsqueda toma el primer resultado que sea de la calle
+         escrita (así "Túpac Yupanqui 123" no cae en el 123 de otra calle) --}}
+    const fold = (t) => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const STREET_TYPE = /^(av|avenida|jr|jiron|calle|ca|cl|psje|pasaje|prol|prolongacion|carretera|mz|lt|urb|n|nro|no)$/;
     let timer = null, seq = 0;
     function locate() {
         clearTimeout(timer);
@@ -42,20 +46,28 @@ window.BranchUbigeo = function ({ city, province, district, address, status, onL
             const area = [districtEl.value, provinceEl.value, cityEl.value].filter(Boolean);
             if (street.length < 4 && !area.length) return;
             const noNumber = street.replace(/\s+(n[°º.]?\s*)?\d+[\w-]*.*$/i, '').trim();
-            const tries = [...new Set([[street, ...area], [noNumber, ...area], area]
-                .map((p) => p.filter(Boolean)).filter((p) => p.length).map((p) => [...p, 'Perú'].join(', ')))];
+            const words = fold(noNumber).split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !STREET_TYPE.test(w));
+            const isStreet = (label) => words.length > 0 && words.every((w) => fold(label).includes(w));
+            const join = (parts) => [...parts, 'Perú'].filter(Boolean).join(', ');
+            const tries = [];
+            if (street.length >= 4) tries.push({ q: join([street, ...area]), zoom: 19, kind: 'exact' });
+            if (noNumber.length >= 4 && noNumber !== street) tries.push({ q: join([noNumber, ...area]), zoom: 17, kind: 'street' });
+            if (area.length) tries.push({ q: join(area), zoom: 15, kind: 'area' });
             const mine = ++seq;
             setStatus('Ubicando la dirección en el mapa…');
-            for (const [i, q] of tries.entries()) {
+            for (const t of tries) {
                 try {
-                    const res = await fetch(`{{ url('/geocode/search') }}?limit=1&q=${encodeURIComponent(q)}`, { headers: { Accept: 'application/json' } });
+                    const res = await fetch(`{{ url('/geocode/search') }}?limit=5&q=${encodeURIComponent(t.q)}`, { headers: { Accept: 'application/json' } });
                     const json = await res.json();
                     if (mine !== seq) return;
-                    const hit = json && json.success && json.data && json.data[0];
+                    const results = (json && json.success && json.data) || [];
+                    const hit = t.kind === 'area' ? results[0] : results.find((r) => isStreet(r.label));
                     if (!hit) continue;
-                    const exact = i === 0 && street.length >= 4;
-                    onLocate(Number(hit.lat), Number(hit.lng), exact ? 18 : (noNumber && q.startsWith(noNumber) ? 16 : 14));
-                    setStatus(exact ? `Ubicada: ${hit.label}` : `Ubicación aproximada (${hit.label}). Arrastra el pin al punto exacto.`, exact ? 'success' : 'warning');
+                    {{-- La etiqueta del pin es la dirección física escrita, para que el mapa y el campo digan lo mismo --}}
+                    onLocate(Number(hit.lat), Number(hit.lng), t.zoom, street || hit.label);
+                    if (t.kind === 'exact') setStatus(`Ubicada: ${hit.label}`, 'success');
+                    else if (t.kind === 'street') setStatus(`Encontramos la calle, no el número exacto (${hit.label}). Arrastra el pin a la puerta.`, 'warning');
+                    else setStatus(`No encontramos la calle; el pin quedó en ${hit.label}. Arrastra el pin al punto exacto.`, 'warning');
                     return;
                 } catch (e) {
                     if (mine !== seq) return;
@@ -71,6 +83,19 @@ window.BranchUbigeo = function ({ city, province, district, address, status, onL
     addressEl.addEventListener('input', locate);
 
     return {
+        {{-- La dirección física manda: mover el pin a mano solo afina el punto (la puerta) y no la cambia.
+             Si el campo está vacío, se completa con la dirección del punto (reverse). --}}
+        async pinMoved(marker, lat, lng) {
+            seq++;
+            clearTimeout(timer);
+            if (!addressEl.value.trim()) {
+                BranchUbigeo.pin(marker, 'Buscando la dirección…');
+                const found = await BranchUbigeo.reverse(lat, lng);
+                if (found && !addressEl.value.trim()) addressEl.value = found.slice(0, 255);
+            }
+            BranchUbigeo.pin(marker, addressEl.value.trim() || 'Punto elegido en el mapa');
+            setStatus('Pin ajustado a mano. La dirección física no cambia.', 'success');
+        },
         async set(cityValue, provinceValue, districtValue) {
             await ready;
             if (cityValue && !data[cityValue]) {
@@ -93,5 +118,28 @@ window.BranchUbigeo = function ({ city, province, district, address, status, onL
             setStatus(hint);
         },
     };
+};
+
+{{-- Dirección del punto, encima del pin (las primeras partes, como en un buscador de mapas) --}}
+BranchUbigeo.pin = function (marker, text) {
+    marker.unbindTooltip();
+    if (!text) return;
+    let parts = String(text).split(',').map((p) => p.trim()).filter((p) => p && !/^\d{5}$/.test(p) && !/^per[uú]$/i.test(p));
+    {{-- "123, Delfín Corcuera, ..." → "Delfín Corcuera 123, ..." --}}
+    if (parts.length > 1 && /^\d+[\w-]*$/.test(parts[0])) parts = [`${parts[1]} ${parts[0]}`, ...parts.slice(2)];
+    const short = parts.slice(0, 2).join(', ');
+    marker.bindTooltip(short, { permanent: true, direction: 'top', offset: [0, -38], className: 'map-pin-label' }).openTooltip();
+};
+
+{{-- Dirección de un punto del mapa (geocodificación inversa del sistema) --}}
+BranchUbigeo.reverse = async function (lat, lng) {
+    try {
+        const res = await fetch(`{{ url('/geocode/reverse') }}?lat=${lat}&lng=${lng}`, { headers: { Accept: 'application/json' } });
+        const json = await res.json();
+        const d = json && json.data;
+        return typeof d === 'string' ? d : (d && d.address) || null;
+    } catch (e) {
+        return null;
+    }
 };
 </script>
