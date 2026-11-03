@@ -134,6 +134,24 @@ void main() {
       expect(today.actions, contains(ClockAction.clockIn));
 
       for (final action in [ClockAction.clockIn, ClockAction.breakStart, ClockAction.breakEnd, ClockAction.clockOut]) {
+        // El fin del refrigerio no se marca antes de cumplir su duración (BREAK_TOO_SHORT);
+        // la prueba no puede esperar la hora, así que comprueba el rechazo y sigue con la salida
+        if (action == ClockAction.breakEnd) {
+          await expectLater(
+            repo.sendPunch(PunchCapture(
+              action: action,
+              latitude: _lat,
+              longitude: _lng,
+              accuracy: 8,
+              isMocked: false,
+              deviceTime: DateTime.now(),
+            )),
+            throwsA(isA<ApiException>()
+                .having((e) => e.code, 'code', 'BREAK_TOO_SHORT')
+                .having((e) => e.message, 'message', contains('podrás marcar el fin'))),
+          );
+          continue;
+        }
         final capture = PunchCapture(
           action: action,
           latitude: _lat,
