@@ -455,7 +455,9 @@ class IntegrationDeliveriesTest extends TestCase
                 ->assertSee('role="combobox"', false)
                 ->assertSee(url('/geocode/search'))
                 ->assertSee(url('/geocode/reverse'))
-                ->assertSee('Usar dirección sugerida')
+                // La dirección física manda: el mapa la ubica sola (departamento > provincia > distrito)
+                ->assertSee('id="addressLocateStatus"', false)
+                ->assertSee('id="province"', false)->assertSee('id="district"', false)
                 ->assertSee('id="radiusSlider"', false);
         }
     }
