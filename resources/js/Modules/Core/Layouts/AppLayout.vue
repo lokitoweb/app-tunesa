@@ -288,6 +288,7 @@ onUnmounted(() => {
                                     <i class="bi bi-box-arrow-right"></i> <span>Cerrar sesión</span>
                                 </button>
                             </form>
+                            <div class="user-profile-version" :title="`Commit ${page.props.version?.commit || 'local'}`">{{ page.props.version?.label }}</div>
                         </div>
                     </div>
                 </div>

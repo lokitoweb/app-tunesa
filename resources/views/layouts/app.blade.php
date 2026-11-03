@@ -204,6 +204,7 @@
                                 <i class="bi bi-box-arrow-right"></i> <span>Cerrar sesión</span>
                             </button>
                         </form>
+                        <div class="user-profile-version" title="Commit {{ web_version()['commit'] ?? 'local' }}">{{ web_version()['label'] }}</div>
                     </div>
                 </div>
             </div>

@@ -135,6 +135,23 @@ if (! function_exists('masked')) {
     }
 }
 
+if (! function_exists('web_version')) {
+    /**
+     * Versión del panel web que corre: {version: "1.<n.º de commits>", commit, date}. La escribe
+     * scripts/deploy.sh en cada despliegue (storage/app/version.json); sin ese archivo (desarrollo) es "dev".
+     */
+    function web_version(): array
+    {
+        $version = (json_decode((string) @file_get_contents(storage_path('app/version.json')), true) ?: [])
+            + ['version' => 'dev', 'commit' => null, 'date' => null];
+        // "Versión web 1.445 · 03/11/2026"
+        $version['label'] = 'Versión web ' . $version['version']
+            . ($version['date'] ? ' · ' . date('d/m/Y', strtotime($version['date'])) : '');
+
+        return $version;
+    }
+}
+
 if (! function_exists('hora')) {
     /**
      * Hora para mostrar en formato de 12 horas ("08:00 am", "05:30 pm").

@@ -253,6 +253,10 @@ if [[ "$(cat storage/framework/server-setup.sha 2>/dev/null)" != "$(sha256sum sc
   log "AVISO: falta correr (o volver a correr) como root: sudo bash $APP_DIR/scripts/server-setup.sh"
 fi
 
+# Versión del panel web: 1.<n.º de commits> con su commit y fecha (la muestra el menú del usuario, web_version())
+printf '{"version":"1.%s","commit":"%s","date":"%s"}\n' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)" "$(git log -1 --format=%cs)" > storage/app/version.json \
+  || log "AVISO: no se pudo escribir storage/app/version.json"
+
 log "Listo: ${TARGET:0:7} en producción."
 }
 

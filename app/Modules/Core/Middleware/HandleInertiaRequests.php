@@ -43,6 +43,8 @@ class HandleInertiaRequests extends Middleware
         return parent::share($request) + [
             // Para los formularios POST clásicos del layout (salir, cambiar de empresa, campana)
             'csrf'  => fn () => csrf_token(),
+            // Versión del panel web (menú del usuario)
+            'version' => fn () => web_version(),
             'flash' => fn () => array_filter([
                 'success' => $request->session()->get('success'),
                 'info'    => $request->session()->get('info'),
