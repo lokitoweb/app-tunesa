@@ -2,6 +2,8 @@
 
 namespace App\Modules\Integrations\Services\Geocoding;
 
+use App\Modules\Attendance\Services\GeofenceService;
+use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\TenantContext;
@@ -18,6 +20,9 @@ use Illuminate\Support\Facades\Log;
  *
  * Empresa: la del contexto (TenantContext) salvo que se use forTenant(); sin
  * empresa (vista global del Super Admin, consola) se usa la fila de la plataforma.
+ *
+ * Reverse dentro del radio permitido de una sede de la empresa: la dirección
+ * registrada de esa sede, sin llamar a ningún proveedor (branchAddressAt).
  *
  * Caché (store por defecto): reverse 30 días por coordenadas redondeadas a 5
  * decimales (~1 m); search 1 día. No se cachean errores ni respuestas vacías
@@ -47,7 +52,34 @@ class GeocodingService
 
     public function settings(): TenantSetting
     {
-        return TenantSetting::forTenant($this->tenantFixed ? $this->tenant : $this->context->getOrNull());
+        return TenantSetting::forTenant($this->tenant());
+    }
+
+    private function tenant(): ?Tenant
+    {
+        return $this->tenantFixed ? $this->tenant : $this->context->getOrNull();
+    }
+
+    /**
+     * Dirección de la sede de la empresa en cuyo radio permitido cae el punto (la más cercana),
+     * tomada de la base de datos: así una marcación en la sede no consulta a Google ni a Nominatim.
+     */
+    public function branchAddressAt(float $lat, float $lng): ?string
+    {
+        if (! $tenant = $this->tenant()) {
+            return null;
+        }
+        $geofence = app(GeofenceService::class);
+
+        $nearest = Branch::withoutGlobalScopes()->where('tenant_id', $tenant->id)
+            ->whereNotNull('latitude')->whereNotNull('longitude')->where('address', '!=', '')->whereNotNull('address')
+            ->get(['id', 'address', 'latitude', 'longitude', 'allowed_radius_meters'])
+            ->map(fn (Branch $b) => [$b, $geofence->calculateDistance($lat, $lng, (float) $b->latitude, (float) $b->longitude)])
+            ->filter(fn ($pair) => $pair[1] <= (int) $pair[0]->allowed_radius_meters)
+            ->sortBy(fn ($pair) => $pair[1])
+            ->first();
+
+        return $nearest ? $nearest[0]->address : null;
     }
 
     /** Proveedor principal resuelto para la empresa */
@@ -95,6 +127,11 @@ class GeocodingService
      */
     public function reverse(float $lat, float $lng): array
     {
+        // Dentro del radio de una sede: su dirección registrada, sin llamar al proveedor (ni costo de Google)
+        if ($branchAddress = $this->branchAddressAt($lat, $lng)) {
+            return ['address' => $branchAddress, 'provider' => 'branch'];
+        }
+
         $lat = round($lat, 5);
         $lng = round($lng, 5);
 

@@ -218,4 +218,22 @@ class GeocodingTest extends TestCase
         ]])]);
         $this->assertSame('Av. Arequipa 1200, Lince 15046, Perú', (new \App\Modules\Integrations\Services\Geocoding\GoogleGeocoder('k'))->reverse(-12.08, -77.03));
     }
+
+    public function test_inside_a_branch_radius_the_branch_address_is_used_without_calling_the_provider(): void
+    {
+        Http::fake(['nominatim.openstreetmap.org/reverse*' => Http::response(self::NOMINATIM_REVERSE)]);
+        $acme = $this->makeTenant('acme');
+        $other = $this->makeTenant('otra');
+        $this->makeBranch($acme, ['name' => 'Ag. Lince', 'address' => 'Av. Arequipa 1234, Lince', 'allowed_radius_meters' => 80]);
+        $this->makeBranch($other, ['name' => 'Ajena', 'address' => 'Dirección de otra empresa', 'latitude' => -12.1100, 'longitude' => -77.0300]);
+
+        // A ~30 m de la sede: su dirección registrada, sin consultar al proveedor
+        $this->assertSame(['address' => 'Av. Arequipa 1234, Lince', 'provider' => 'branch'], $this->service($acme)->reverse(-12.09445, -77.03560));
+        Http::assertNothingSent();
+
+        // Fuera del radio, en la sede de otra empresa o sin empresa: el proveedor de siempre
+        $this->assertSame('nominatim', $this->service($acme)->reverse(-12.11000, -77.03000)['provider']);
+        $this->assertSame('nominatim', $this->service(null)->reverse(-12.09420, -77.03561)['provider']);
+        Http::assertSentCount(2);
+    }
 }
