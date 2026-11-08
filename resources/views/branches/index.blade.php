@@ -660,10 +660,10 @@
     let currentTileMode = 'streets';
     let defaultRadiusVal = {{ $defaultRadius ?? 100 }};
 
-    const streetTileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const streetTileAttrib = '© OpenStreetMap';
-    const satelliteTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-    const satelliteTileAttrib = '© Esri, Maxar, Earthstar Geographics';
+    const streetTileUrl = Panel.mapLayers.streets;
+    const streetTileAttrib = Panel.mapLayers.streetsAttribution;
+    const satelliteTileUrl = Panel.mapLayers.satellite;
+    const satelliteTileAttrib = Panel.mapLayers.satelliteAttribution;
 
     window.switchModalMapLayer = function(type) {
         if (!modalMap) return;

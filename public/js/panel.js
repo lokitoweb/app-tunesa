@@ -5,10 +5,13 @@
 (function () {
     'use strict';
 
-    const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-    const SATELLITE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-    const SATELLITE_ATTRIBUTION = '&copy; Esri, Maxar, Earthstar Geographics';
+    // Capas de Google si la empresa eligió Google como proveedor de mapas (layouts/app); si no, las gratuitas
+    const GOOGLE = window.PanelMapTiles || null;
+    const OSM_URL = GOOGLE ? GOOGLE.streets : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const OSM_ATTRIBUTION = GOOGLE ? GOOGLE.attribution : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    const SATELLITE_URL = GOOGLE ? GOOGLE.satellite : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    const SATELLITE_ATTRIBUTION = GOOGLE ? GOOGLE.attribution : '&copy; Esri, Maxar, Earthstar Geographics';
+    const mapLayers = { streets: OSM_URL, streetsAttribution: OSM_ATTRIBUTION, satellite: SATELLITE_URL, satelliteAttribution: SATELLITE_ATTRIBUTION };
 
     function esc(value) {
         return String(value ?? '').replace(/[&<>"']/g, (c) => ({
@@ -1043,7 +1046,7 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && controls.open) { const b = controls.open.querySelector('.mc-btn'); controls.close(); b?.focus(); } });
     document.addEventListener('DOMContentLoaded', () => controls.init());
 
-    window.Panel = { esc, minutes, tiles, fullscreen, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton, filters, controls };
+    window.Panel = { esc, minutes, tiles, mapLayers, fullscreen, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton, filters, controls };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;
     window.openCommandPalette = openCommandPalette;

@@ -340,6 +340,7 @@
 <script src="{{ asset('vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script src="{{ asset('vendor/chartjs/chart.umd.min.js') }}"></script>
+<script>window.PanelMapTiles = @json(app(\App\Modules\Integrations\Services\Geocoding\GeocodingService::class)->mapTiles());</script>
 <script src="{{ asset('js/panel.js') }}?v={{ filemtime(public_path('js/panel.js')) }}"></script>
 
 @yield('scripts')

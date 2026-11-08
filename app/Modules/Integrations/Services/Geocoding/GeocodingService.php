@@ -8,6 +8,7 @@ use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\TenantContext;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -80,6 +81,55 @@ class GeocodingService
             ->first();
 
         return $nearest ? $nearest[0]->address : null;
+    }
+
+    /**
+     * Capas de Google (Map Tiles API) para los mapas del panel cuando el proveedor efectivo es Google;
+     * null = capas gratuitas (OpenStreetMap / Esri). La sesión de Google dura ~2 semanas y se cachea;
+     * si Google la rechaza (API no habilitada, clave inválida) se reintenta en 10 minutos.
+     *
+     * @return array{streets: string, satellite: string, attribution: string}|null
+     */
+    public function mapTiles(): ?array
+    {
+        $settings = $this->settings();
+        if ($settings->geocodingProvider() !== 'google') {
+            return null;
+        }
+        $key = (string) $settings->googleMapsApiKey();
+
+        $session = function (string $type) use ($key): string {
+            $cacheKey = 'maptiles:' . $type . ':' . sha1($key);
+            if (is_string($cached = Cache::get($cacheKey))) {
+                return $cached;
+            }
+            try {
+                $res = Http::timeout(8)->post('https://tile.googleapis.com/v1/createSession?key=' . urlencode($key), [
+                    'mapType' => $type, 'language' => 'es-419', 'region' => 'PE',
+                ]);
+                if ($res->successful() && is_string($res->json('session'))) {
+                    $expiry = (int) $res->json('expiry');
+                    Cache::put($cacheKey, $res->json('session'), $expiry > time() + 86400 ? now()->setTimestamp($expiry)->subDay() : now()->addHour());
+
+                    return $res->json('session');
+                }
+                Log::warning('Google Map Tiles rechazó la sesión: ' . $res->body());
+            } catch (\Throwable $e) {
+                Log::warning('Google Map Tiles no respondió: ' . $e->getMessage());
+            }
+            Cache::put($cacheKey, '', now()->addMinutes(10));
+
+            return '';
+        };
+
+        $streets   = $session('roadmap');
+        $satellite = $session('satellite');
+        if ($streets === '' || $satellite === '') {
+            return null;
+        }
+        $url = fn (string $s) => 'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=' . $s . '&key=' . urlencode($key);
+
+        return ['streets' => $url($streets), 'satellite' => $url($satellite), 'attribution' => '&copy; Google'];
     }
 
     /** Proveedor principal resuelto para la empresa */

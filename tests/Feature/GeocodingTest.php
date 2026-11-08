@@ -236,4 +236,33 @@ class GeocodingTest extends TestCase
         $this->assertSame('nominatim', $this->service(null)->reverse(-12.09420, -77.03561)['provider']);
         Http::assertSentCount(2);
     }
+
+    public function test_panel_maps_use_google_tiles_only_when_google_is_the_provider(): void
+    {
+        Http::fake(['tile.googleapis.com/v1/createSession*' => Http::sequence()
+            ->push(['session' => 'S-ROAD', 'expiry' => (string) (time() + 14 * 86400)])
+            ->push(['session' => 'S-SAT', 'expiry' => (string) (time() + 14 * 86400)])
+            ->push(['error' => ['message' => 'Map Tiles API has not been used']], 403)]);
+        $acme = $this->makeTenant('acme');
+
+        // Nominatim (o Google sin clave) → capas gratuitas, sin llamar a Google
+        $this->assertNull($this->service($acme)->mapTiles());
+        TenantSetting::editableRowFor($acme)->fill(['geocoding_provider' => 'google'])->save();
+        $this->assertNull($this->service($acme)->mapTiles());
+        Http::assertNothingSent();
+
+        TenantSetting::editableRowFor($acme)->fill(['maps_api_key' => 'AIzaAcme'])->save();
+        $tiles = $this->service($acme)->mapTiles();
+        $this->assertSame('https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=S-ROAD&key=AIzaAcme', $tiles['streets']);
+        $this->assertSame('https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=S-SAT&key=AIzaAcme', $tiles['satellite']);
+        Http::assertSent(fn (Request $r) => $r['mapType'] === 'roadmap' && str_contains($r->url(), 'key=AIzaAcme'));
+
+        // sesión cacheada: no se vuelve a pedir
+        $this->assertSame($tiles, $this->service($acme)->mapTiles());
+        Http::assertSentCount(2);
+
+        // Google rechaza (API no habilitada) → capas gratuitas
+        TenantSetting::editableRowFor($acme)->fill(['maps_api_key' => 'AIzaSinTiles'])->save();
+        $this->assertNull($this->service($acme)->mapTiles());
+    }
 }
