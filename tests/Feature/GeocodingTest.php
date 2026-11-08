@@ -272,6 +272,7 @@ class GeocodingTest extends TestCase
             'maps.googleapis.com/*'   => Http::sequence()
                 ->pushResponse(Http::response($denied = ['status' => 'REQUEST_DENIED', 'error_message' => 'API keys with referer restrictions cannot be used with this API.']))
                 ->pushResponse(Http::response($denied))
+                ->pushResponse(Http::response($denied))
                 ->pushResponse(Http::response(self::GOOGLE_REVERSE)),
             'tile.googleapis.com/*'   => Http::response(['error' => ['message' => 'Map Tiles API has not been used in project 123']], 403),
             'nominatim.openstreetmap.org/*' => Http::response(self::NOMINATIM_REVERSE),
@@ -286,6 +287,11 @@ class GeocodingTest extends TestCase
             'tiles'     => ['ok' => false, 'error' => 'Google Map Tiles: HTTP 403 (Map Tiles API has not been used in project 123)'],
         ], $this->service($acme)->googleDiagnostics(-12.1, -77.0));
         Http::assertNotSent(fn (Request $r) => str_contains($r->url(), 'nominatim'));
+
+        // también desde la vista de plataforma (Super Admin sin empresa elegida)
+        TenantSetting::editableRowFor(null)->fill(['geocoding_provider' => 'google', 'maps_api_key' => 'AIzaGlobal'])->save();
+        $this->actingAs($this->makeUser(null, 'super_admin'))->postJson('/settings/branding/test-google')
+            ->assertOk()->assertJsonPath('data.google', true)->assertJsonPath('data.tiles.ok', false);
 
         // el respaldo de Nominatim no queda guardado como respuesta de Google por 30 días
         $this->assertSame('nominatim', $this->service($acme)->reverse(-12.2, -77.1)['provider']);
