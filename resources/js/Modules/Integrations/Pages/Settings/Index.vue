@@ -153,6 +153,9 @@ async function testGeocode() {
         geo.value = data.success && data.data?.address
             ? { ok: true, provider: data.data.provider === 'google' ? 'Google Maps' : 'OpenStreetMap', ms: Math.round(performance.now() - t0), address: data.data.address }
             : { ok: false, error: data.message || 'No se encontró una dirección para esas coordenadas.' };
+        // Con Google elegido: prueba directa (sin respaldo) con el motivo exacto si Google rechaza
+        const g = await requestJson('/settings/branding/test-google', { method: 'POST', body: '{}' });
+        if (g.success && g.data?.google) geo.value.google = g.data;
     } catch (e) {
         geo.value = { ok: false, error: e.message };
     } finally {
@@ -411,6 +414,12 @@ const mailTestEmail = ref(''); // correo de prueba (SMTP): vacío = el propio
                                 <div v-else class="small text-danger d-flex align-items-center gap-1">
                                     <i class="bi bi-x-circle-fill"></i>
                                     <span>{{ geo.error }}</span>
+                                </div>
+                                <div v-if="geo.google" class="border-top mt-2 pt-2 small">
+                                    <div v-for="row in [['Google Geocoding (direcciones)', geo.google.geocoding], ['Google Map Tiles (mapas)', geo.google.tiles]]" :key="row[0]" class="d-flex align-items-start gap-2 mb-1">
+                                        <i class="bi" :class="row[1].ok ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'"></i>
+                                        <span><strong>{{ row[0] }}:</strong> {{ row[1].ok ? 'funciona' : row[1].error }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

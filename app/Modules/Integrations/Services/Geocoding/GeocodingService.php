@@ -39,6 +39,9 @@ class GeocodingService
 
     private ?Tenant $tenant = null;
 
+    /** Motivo del último rechazo de Google Map Tiles (para la prueba de Integraciones) */
+    private ?string $tilesError = null;
+
     public function __construct(private readonly TenantContext $context) {}
 
     /** Copia ligada a una empresa (null = plataforma), p. ej. desde un job sin contexto */
@@ -113,9 +116,11 @@ class GeocodingService
 
                     return $res->json('session');
                 }
-                Log::warning('Google Map Tiles rechazó la sesión: ' . $res->body());
+                $this->tilesError = 'Google Map Tiles: HTTP ' . $res->status() . (is_string($res->json('error.message')) ? ' (' . $res->json('error.message') . ')' : '');
+                Log::warning($this->tilesError);
             } catch (\Throwable $e) {
-                Log::warning('Google Map Tiles no respondió: ' . $e->getMessage());
+                $this->tilesError = 'Google Map Tiles no respondió: ' . $e->getMessage();
+                Log::warning($this->tilesError);
             }
             Cache::put($cacheKey, '', now()->addMinutes(10));
 
@@ -130,6 +135,35 @@ class GeocodingService
         $url = fn (string $s) => 'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=' . $s . '&key=' . urlencode($key);
 
         return ['streets' => $url($streets), 'satellite' => $url($satellite), 'attribution' => '&copy; Google'];
+    }
+
+    /**
+     * Prueba directa de Google para Integraciones (sin respaldo a Nominatim ni caché): dirección del
+     * punto con la Geocoding API y sesión de capas con la Map Tiles API, con el motivo si Google rechaza.
+     *
+     * @return array{google: bool, geocoding?: array{ok: bool, address?: ?string, error?: string}, tiles?: array{ok: bool, error?: string}}
+     */
+    public function googleDiagnostics(float $lat, float $lng): array
+    {
+        $settings = $this->settings();
+        if ($settings->geocodingProvider() !== 'google') {
+            return ['google' => false];
+        }
+        $key = (string) $settings->googleMapsApiKey();
+
+        try {
+            $geocoding = ['ok' => true, 'address' => (new GoogleGeocoder($key))->reverse($lat, $lng)];
+        } catch (GeocodingException $e) {
+            $geocoding = ['ok' => false, 'error' => $e->getMessage()];
+        }
+
+        foreach (['roadmap', 'satellite'] as $type) {
+            Cache::forget('maptiles:' . $type . ':' . sha1($key));
+        }
+        $this->tilesError = null;
+        $tiles = $this->mapTiles() ? ['ok' => true] : ['ok' => false, 'error' => $this->tilesError ?? 'Google Map Tiles no devolvió sesión.'];
+
+        return ['google' => true, 'geocoding' => $geocoding, 'tiles' => $tiles];
     }
 
     /** Proveedor principal resuelto para la empresa */
@@ -163,11 +197,12 @@ class GeocodingService
             return $cached;
         }
 
-        $results = $this->withFallback($geocoder, fn (Geocoder $g) => $g->search($query, $limit))['value'];
+        $result = $this->withFallback($geocoder, fn (Geocoder $g) => $g->search($query, $limit));
 
-        Cache::put($key, $results, now()->addDays(self::SEARCH_TTL_DAYS));
+        // Respuesta de respaldo (Google falló): solo 1 hora, para volver a Google en cuanto se corrija
+        Cache::put($key, $result['value'], $result['provider'] === $geocoder->name() ? now()->addDays(self::SEARCH_TTL_DAYS) : now()->addHour());
 
-        return $results;
+        return $result['value'];
     }
 
     /**
@@ -196,7 +231,7 @@ class GeocodingService
         $data   = ['address' => $result['value'], 'provider' => $result['provider']];
 
         if ($data['address'] !== null) {
-            Cache::put($key, $data, now()->addDays(self::REVERSE_TTL_DAYS));
+            Cache::put($key, $data, $data['provider'] === $geocoder->name() ? now()->addDays(self::REVERSE_TTL_DAYS) : now()->addHour());
         }
 
         return $data;

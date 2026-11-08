@@ -13,6 +13,7 @@ use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Models\User;
 use App\Modules\Integrations\Models\WebhookDelivery;
 use App\Modules\Core\Services\AuditLogger;
+use App\Modules\Integrations\Services\Geocoding\GeocodingService;
 use App\Modules\Integrations\Services\WebhookSender;
 use App\Modules\Integrations\Services\Push\PushException;
 use App\Modules\Core\Services\TenantContext;
@@ -183,6 +184,14 @@ class IntegrationsWebController extends Controller
         return $branch
             ? ['lat' => (float) $branch->latitude, 'lng' => (float) $branch->longitude, 'label' => $branch->name]
             : ['lat' => -12.046374, 'lng' => -77.042793, 'label' => 'Centro de Lima'];
+    }
+
+    /** POST /settings/branding/test-google → Google Geocoding y Map Tiles directos, con el motivo si Google rechaza */
+    public function testGoogle(GeocodingService $geocoding): JsonResponse
+    {
+        $probe = $this->geoProbe($this->tenantContext->getOrNull());
+
+        return response()->json(['success' => true, 'data' => $geocoding->googleDiagnostics($probe['lat'], $probe['lng'])]);
     }
 
     /** POST /settings/branding/test-webhook → evento "ping" firmado, síncrono */
