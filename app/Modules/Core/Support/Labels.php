@@ -362,7 +362,9 @@ final class Labels
         'lunch_paid'              => 'Almuerzo pagado',
         'punch_requires_schedule' => 'Marcar solo con turno programado',
         'default_geofence_radius' => 'Radio de geocerca por defecto (m)',
-        'webhook_url'             => 'Dirección del webhook',
+        'entry_reminder_minutes'  => 'Recordatorio de entrada (min)',
+        'entry_reminder_timing'   => 'Momento del recordatorio de entrada',
+        'webhook_url'            => 'Dirección del webhook',
         'webhook_secret'          => 'Clave secreta del webhook',
         'maps_api_key'            => 'Clave de Google Maps',
         'notification_endpoint'   => 'Dirección para notificaciones',
@@ -838,6 +840,10 @@ final class Labels
             'reject' => ['Rechazar', 'danger'],
             'flag'   => ['Registrar como sospechosa', 'warning'],
             'allow'  => ['Permitir', 'secondary'],
+        ],
+        'entry_reminder_timing' => [
+            'before' => ['Antes de la hora de entrada', 'secondary'],
+            'after'  => ['Después de la hora de entrada', 'primary'],
         ],
         'geocoding_provider' => [
             'nominatim' => ['OpenStreetMap (gratis)', 'secondary'],

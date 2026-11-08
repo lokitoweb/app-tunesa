@@ -133,11 +133,11 @@ class ScheduleResolutionCharacterizationTest extends TestCase
         // El recordatorio solo sale por push: simula un FCM configurado
         $this->mock(FcmSender::class)->shouldReceive('canSendTo')->andReturn(true);
 
-        $this->travelTo(Carbon::parse(self::MONDAY . ' 07:56', 'America/Lima'));
+        $this->travelTo(Carbon::parse(self::MONDAY . ' 08:06', 'America/Lima'));
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         Notification::assertSentTo($this->emp, EntryReminder::class, fn (EntryReminder $n) => $n->shift->name === 'A');
 
-        $this->travelTo(Carbon::parse(self::SATURDAY . ' 13:56', 'America/Lima'));
+        $this->travelTo(Carbon::parse(self::SATURDAY . ' 14:06', 'America/Lima'));
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         Notification::assertSentTo($this->emp, EntryReminder::class, fn (EntryReminder $n) => $n->shift->name === 'B');
 

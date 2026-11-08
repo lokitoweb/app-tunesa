@@ -34,11 +34,11 @@ class EntryReminderProgrammedDayTest extends TestCase
             'start_time' => '08:00', 'end_time' => '17:00', 'grace_period_minutes' => 10, 'working_days' => [1, 2, 3, 4, 5], 'color' => '#3C729E']);
         EmployeeScheduleDay::create(['tenant_id' => $acme->id, 'user_id' => $emp->id, 'work_date' => '2026-11-02', 'shift_id' => $shift->id, 'branch_id' => $branch->id]);
 
-        $this->travelTo(Carbon::parse('2026-11-02 07:54', 'America/Lima'));
+        $this->travelTo(Carbon::parse('2026-11-02 08:04', 'America/Lima'));
         $this->artisan('attendance:remind-entry')->assertSuccessful();
-        Notification::assertNotSentTo($emp, EntryReminder::class); // aún no: 6 min antes
+        Notification::assertNotSentTo($emp, EntryReminder::class); // aún no: por defecto 5 min después de la entrada
 
-        $this->travelTo(Carbon::parse('2026-11-02 07:55', 'America/Lima'));
+        $this->travelTo(Carbon::parse('2026-11-02 08:05', 'America/Lima'));
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         Notification::assertSentToTimes($emp, EntryReminder::class, 1);
     }
@@ -70,7 +70,7 @@ class EntryReminderProgrammedDayTest extends TestCase
         $vacation    = $person('Vacaciones', ['type' => 'vacation']);
         $nobody      = $person('Normal', null);
 
-        $this->travelTo(Carbon::parse('2026-11-02 07:56', 'America/Lima'));
+        $this->travelTo(Carbon::parse('2026-11-02 08:06', 'America/Lima'));
         $this->artisan('attendance:remind-entry')->assertSuccessful();
 
         Notification::assertSentTo($laterPermit, EntryReminder::class);  // su permiso es de 10:00 a 12:00: igual entra a las 08:00

@@ -2,6 +2,8 @@
 
 namespace App\Modules\Core\Support;
 
+use App\Modules\Core\Models\Tenant;
+use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Models\User;
 
 /**
@@ -15,7 +17,8 @@ final class NotificationPreferences
     public const CATEGORIES = [
         'payslips'             => ['Boletas de pago', 'Cuando publican una boleta nueva.', ['payslip.']],
         'requests'             => ['Solicitudes y justificaciones', 'Cuando aprueban o rechazan tus solicitudes, justificaciones u horas extra, o llega una de tu equipo.', ['leave_request.', 'justification.', 'overtime.']],
-        'attendance_reminders' => ['Recordatorios de entrada y salida', '5 minutos antes de tu turno y si a los 5 minutos de terminarlo no marcaste la salida.', ['attendance.entry_reminder', 'attendance.exit_reminder']],
+        // La descripción real (con los minutos que configuró la empresa) la arma entryReminderText()
+        'attendance_reminders' => ['Recordatorios de entrada y salida', 'Si no marcaste la entrada de tu turno y si a los 5 minutos de terminarlo no marcaste la salida.', ['attendance.entry_reminder', 'attendance.exit_reminder']],
         'attendance_alerts'    => ['Alertas de marcación', 'Marcaciones fuera de horario o de la sede.', ['attendance.outside_']],
         'shifts'               => ['Turnos y horarios', 'Cuando te asignan o cambian el turno.', ['shift.']],
         'trainings'            => ['Capacitaciones', 'Cursos nuevos y los que están por vencer.', ['training.']],
@@ -53,6 +56,20 @@ final class NotificationPreferences
         return $category === null || (($user->notification_preferences ?? [])[$category] ?? true) !== false;
     }
 
+    /** "5 minutos después de la hora de entrada si no marcaste…", según lo que configuró la empresa */
+    public static function entryReminderText(User $user): string
+    {
+        $offset = TenantSetting::forTenant($user->tenant_id ? Tenant::find($user->tenant_id) : null)->entryReminderOffsetMinutes();
+        $minutes = abs($offset) === 1 ? '1 minuto' : abs($offset) . ' minutos';
+        $when = match (true) {
+            $offset < 0 => "{$minutes} antes de tu turno",
+            $offset > 0 => "{$minutes} después de tu hora de entrada si no marcaste",
+            default     => 'A tu hora de entrada si no marcaste',
+        };
+
+        return "{$when}, y si a los 5 minutos de terminar tu turno no marcaste la salida.";
+    }
+
     /** @return list<array{key: string, title: string, description: string, enabled: bool}> */
     public static function forUser(User $user): array
     {
@@ -61,7 +78,7 @@ final class NotificationPreferences
         return collect(self::CATEGORIES)->map(fn ($c, $key) => [
             'key'         => $key,
             'title'       => $c[0],
-            'description' => $c[1],
+            'description' => $key === 'attendance_reminders' ? self::entryReminderText($user) : $c[1],
             'enabled'     => ($prefs[$key] ?? true) !== false,
         ])->values()->all();
     }

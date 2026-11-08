@@ -129,7 +129,7 @@ class DiagnosePush extends Command
         $shift = $status['shift'] ?? null;
         $check('Turno hoy', (bool) $shift,
             $shift ? "{$shift['name']} {$shift['start_time']} – {$shift['end_time']}: recordatorio de entrada desde las "
-                . $today->copy()->setTimeFromTimeString($shift['start_time'])->subMinutes(\App\Modules\Attendance\Console\SendEntryReminders::LEAD_MINUTES)->format('H:i')
+                . $today->copy()->setTimeFromTimeString($shift['start_time'])->addMinutes(\App\Modules\Core\Models\TenantSetting::forTenant($tenant)->entryReminderOffsetMinutes())->format('H:i')
                 . ', de salida desde las ' . $today->copy()->setTimeFromTimeString($shift['end_time'])->addMinutes(\App\Modules\Attendance\Console\SendEntryReminders::LEAD_MINUTES)->format('H:i')
                 : 'sin turno programado hoy',
             'Sin turno no hay a qué hora recordar: asígnale turno (Horarios) o prográmale el día (Programación de horarios).');

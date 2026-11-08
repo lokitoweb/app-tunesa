@@ -32,7 +32,7 @@ Schedule::command('attendance:purge-photos')->dailyAt('03:45')->withoutOverlappi
 // mes anterior de cada empresa (disco privado) y notifica a administradores y RRHH
 Schedule::command('reports:send-monthly')->monthlyOn(1, '07:00')->withoutOverlapping()->onOneServer();
 
-// Recordatorio push de entrada: a quien empezó su turno (más la tolerancia) y no marcó
+// Recordatorios push de entrada (minutos antes/después configurables por empresa) y de salida, a quien no marcó
 Schedule::command('attendance:remind-entry')->everyMinute()->withoutOverlapping()->onOneServer();
 
 // Cola (push, webhooks, avisos de nueva versión): con solo el cron del scheduler

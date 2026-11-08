@@ -54,6 +54,9 @@ class TenantSetting extends Model
         'default_geofence_radius' => 50,
         'mock_location_policy'    => 'reject',
         'max_time_drift_seconds'  => 300,
+        // Recordatorio push de entrada: 5 minutos después de la hora de entrada del turno
+        'entry_reminder_minutes'  => 5,
+        'entry_reminder_timing'   => 'after',
         'geocoding_provider'      => 'nominatim',
         // Encendido por defecto: solo envía si la plataforma cargó la cuenta de
         // servicio de Firebase (fcmEnabled()). Una empresa puede apagarlo.
@@ -81,6 +84,9 @@ class TenantSetting extends Model
 
     public const GEOCODING_PROVIDERS = ['nominatim', 'google'];
 
+    /** Recordatorio de entrada: antes o después de la hora de entrada del turno */
+    public const ENTRY_REMINDER_TIMINGS = ['before', 'after'];
+
     /** Columnas de configuración editables (NULL = heredar) */
     public const SETTING_FIELDS = [
         'trade_name', 'contact_email', 'contact_phone', 'website', 'address', 'login_email_domain', 'login_slide_seconds',
@@ -88,6 +94,7 @@ class TenantSetting extends Model
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
+        'entry_reminder_minutes', 'entry_reminder_timing',
         'webhook_url', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled', 'self_password_change',
         // Servicios externos (solo SuperAdmin, ver SERVICE_FIELDS); los secretos van en SECRET_FIELDS
@@ -132,6 +139,7 @@ class TenantSetting extends Model
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
+        'entry_reminder_minutes', 'entry_reminder_timing',
         'webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_service_account_json', 'fcm_enabled', 'self_password_change',
         'migo_api_token', 'migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'nubefact_token',
@@ -168,6 +176,7 @@ class TenantSetting extends Model
         'fcm_enabled'             => 'boolean',
         'self_password_change'    => 'boolean',
         'max_time_drift_seconds'  => 'integer',
+        'entry_reminder_minutes'  => 'integer',
         'login_backgrounds'       => 'array',
         'login_slide_seconds'     => 'integer',
     ];
@@ -602,6 +611,18 @@ class TenantSetting extends Model
     public function maxTimeDriftSeconds(): int
     {
         return max(0, (int) ($this->max_time_drift_seconds ?? self::DEFAULTS['max_time_drift_seconds']));
+    }
+
+    /**
+     * Minutos respecto a la hora de entrada en que sale el recordatorio push de entrada:
+     * negativo = antes (-5 = 5 minutos antes), positivo = después, 0 = a la hora exacta.
+     */
+    public function entryReminderOffsetMinutes(): int
+    {
+        $minutes = max(0, min(120, (int) ($this->entry_reminder_minutes ?? self::DEFAULTS['entry_reminder_minutes'])));
+        $timing  = in_array($this->entry_reminder_timing, self::ENTRY_REMINDER_TIMINGS, true) ? $this->entry_reminder_timing : self::DEFAULTS['entry_reminder_timing'];
+
+        return $timing === 'before' ? -$minutes : $minutes;
     }
 
     /** Clave de Google Maps (columna maps_api_key, cifrada). Se hereda de la plataforma. */

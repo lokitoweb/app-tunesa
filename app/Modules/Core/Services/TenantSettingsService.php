@@ -194,6 +194,8 @@ class TenantSettingsService
 
             'default_grace_minutes'   => ['sometimes', 'nullable', 'integer', 'between:0,240'],
             'lunch_minutes'           => ['sometimes', 'nullable', 'integer', 'between:0,480'],
+            'entry_reminder_minutes'  => ['sometimes', 'nullable', 'integer', 'between:0,120'],
+            'entry_reminder_timing'   => ['sometimes', 'nullable', Rule::in(TenantSetting::ENTRY_REMINDER_TIMINGS)],
             'vacation_days_per_year'  => ['sometimes', 'nullable', 'integer', 'between:0,60'],
             'lunch_paid'              => ['sometimes', 'nullable', 'boolean'],
             'punch_requires_schedule' => ['sometimes', 'nullable', 'boolean'],
@@ -260,6 +262,8 @@ class TenantSettingsService
             'fcm_service_account_file.prohibited' => 'La cuenta de servicio de Firebase solo se configura en la plataforma.',
             'fcm_service_account_file.extensions' => 'Sube el archivo .json de la cuenta de servicio de Firebase.',
             'max_time_drift_seconds.between'      => 'La diferencia de hora permitida debe estar entre 30 y 86400 segundos.',
+            'entry_reminder_minutes.between'      => 'El recordatorio de entrada debe estar entre 0 y 120 minutos.',
+            'entry_reminder_timing.in'            => 'Elige si el recordatorio va antes o después de la hora de entrada.',
         ];
     }
 

@@ -6,12 +6,18 @@ use App\Modules\Core\Notifications\AppNotification;
 use App\Modules\HR\Models\Shift;
 
 /**
- * Al colaborador: su turno empieza en 5 minutos (o ya empezó) y no marcó entrada.
+ * Al colaborador: su turno empieza en unos minutos (o ya empezó) y no marcó entrada.
+ * El momento lo configura la empresa (antes o después de la hora de entrada).
  * Solo push (no llena la bandeja): lo envía attendance:remind-entry.
  */
 class EntryReminder extends AppNotification
 {
-    public function __construct(public readonly Shift $shift, public readonly string $workDate, public readonly bool $beforeStart = false) {}
+    public function __construct(
+        public readonly Shift $shift,
+        public readonly string $workDate,
+        public readonly bool $beforeStart = false,
+        public readonly int $minutesToStart = 5,
+    ) {}
 
     protected function channels(object $notifiable): array
     {
@@ -25,7 +31,12 @@ class EntryReminder extends AppNotification
 
     public function title(): string
     {
-        return $this->beforeStart ? 'Tu turno empieza en 5 minutos' : '¿Ya marcaste tu entrada?';
+        if (! $this->beforeStart) {
+            return '¿Ya marcaste tu entrada?';
+        }
+        $minutes = max(1, $this->minutesToStart);
+
+        return $minutes === 1 ? 'Tu turno empieza en 1 minuto' : "Tu turno empieza en {$minutes} minutos";
     }
 
     public function body(): string

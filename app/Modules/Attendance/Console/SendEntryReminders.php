@@ -22,9 +22,11 @@ use Illuminate\Support\Facades\Log;
 /**
  * Recordatorios push de entrada y de salida. Corre cada minuto.
  *
- *  - Entrada: LEAD_MINUTES antes de la hora de entrada del turno (y hasta
- *    WINDOW_MINUTES pasada la tolerancia, por si el programador se atrasó), a
- *    quien tiene turno ese día y no marcó. Sin feriados ni licencias aprobadas.
+ *  - Entrada: los minutos antes o después de la hora de entrada del turno que
+ *    configure la empresa (Marca y app › Reglas de asistencia; por defecto 5
+ *    minutos después), y hasta WINDOW_MINUTES más la tolerancia por si el
+ *    programador se atrasó, a quien tiene turno ese día y no marcó. Sin
+ *    feriados ni licencias aprobadas.
  *  - Salida: LEAD_MINUTES después de la hora de salida esperada (la del turno,
  *    o entrada + jornada base + descanso si no tiene turno), a quien marcó
  *    entrada y no salida. Turnos nocturnos: la salida cae al día siguiente.
@@ -36,7 +38,7 @@ use Illuminate\Support\Facades\Log;
  */
 class SendEntryReminders extends Command
 {
-    /** Minutos antes de la entrada y después de la salida en que se avisa */
+    /** Minutos después de la salida en que se avisa (la entrada la configura cada empresa) */
     public const LEAD_MINUTES = 5;
 
     /** Minutos durante los que todavía se recuerda si el aviso no salió a tiempo */
@@ -44,7 +46,7 @@ class SendEntryReminders extends Command
 
     protected $signature = 'attendance:remind-entry {--tenant= : Slug de una empresa concreta}';
 
-    protected $description = 'Push 5 min antes del turno a quien no marcó entrada y 5 min después a quien no marcó salida';
+    protected $description = 'Push a quien no marcó entrada (minutos configurables por empresa) y 5 min después de la salida a quien no la marcó';
 
     /** Marca de "ya se le recordó la entrada ese día" (guarda la hora del envío; push:diagnose la lee) */
     public static function entryKey(int $userId, string $day): string
@@ -76,7 +78,8 @@ class SendEntryReminders extends Command
             $context->set($tenant);
             try {
                 $now = Carbon::now($tenant->timezone ?: config('app.timezone'));
-                $sent += $this->entryReminders($now) + $this->exitReminders($now);
+                $offset = TenantSetting::forTenant($tenant)->entryReminderOffsetMinutes();
+                $sent += $this->entryReminders($now, $offset) + $this->exitReminders($now);
             } catch (\Throwable $e) {
                 Log::warning("Recordatorio de entrada ({$tenant->slug}): " . $e->getMessage());
             }
@@ -88,20 +91,22 @@ class SendEntryReminders extends Command
         return self::SUCCESS;
     }
 
-    private function entryReminders(Carbon $now): int
+    /** @param int $offset minutos respecto a la entrada: negativo = antes, positivo = después */
+    private function entryReminders(Carbon $now, int $offset): int
     {
-        // Un turno que empieza a las 00:02 se avisa a las 23:57 del día anterior
-        $days = [$now->toDateString(), $now->copy()->addMinutes(self::LEAD_MINUTES)->toDateString()];
+        // El aviso puede caer en otro día que el turno: 5 min antes de un turno de las 00:02 sale
+        // a las 23:57 del día anterior; 5 min después de uno de las 23:58, a las 00:03 del siguiente
+        $days = [$now->toDateString(), $now->copy()->subMinutes($offset)->toDateString()];
 
         $sent = 0;
         foreach (array_unique($days) as $day) {
-            $sent += $this->entryRemindersFor($now, $day);
+            $sent += $this->entryRemindersFor($now, $day, $offset);
         }
 
         return $sent;
     }
 
-    private function entryRemindersFor(Carbon $now, string $day): int
+    private function entryRemindersFor(Carbon $now, string $day, int $offset): int
     {
         if (Holiday::daysOff()->where('date', $day)->exists()) {
             return 0;
@@ -124,14 +129,15 @@ class SendEntryReminders extends Command
         $schedules->preload($tenantId, $byUser->keys()->all(), $day, $day);
 
         $due = $byUser
-            ->map(fn ($mine, $userId) => $schedules->resolve($mine, $date, ScheduleResolver::LEGACY_FIRST_WORKING, function (EmployeeShift $a) use ($now, $day) {
+            ->map(fn ($mine, $userId) => $schedules->resolve($mine, $date, ScheduleResolver::LEGACY_FIRST_WORKING, function (EmployeeShift $a) use ($now, $day, $offset) {
                 if (! $a->shift?->start_time) {
                     return false;
                 }
                 $start = Carbon::parse("{$day} {$a->shift->start_time}", $now->getTimezone());
-                $until = $start->copy()->addMinutes((int) $a->shift->grace_period_minutes + self::WINDOW_MINUTES);
+                $from  = $start->copy()->addMinutes($offset);
+                $until = $start->copy()->addMinutes(max(0, $offset) + (int) $a->shift->grace_period_minutes + self::WINDOW_MINUTES);
 
-                return $now->gte($start->copy()->subMinutes(self::LEAD_MINUTES)) && $now->lt($until);
+                return $now->gte($from) && $now->lt($until);
             }, userId: (int) $userId, tenantId: $tenantId))
             ->filter(fn (DaySchedule $d) => $d->works && $d->assignment->user?->status === 'active' && $d->assignment->user?->fcm_token)
             ->map(fn (DaySchedule $d) => $d->assignment)
@@ -160,7 +166,7 @@ class SendEntryReminders extends Command
             $start = Carbon::parse("{$day} {$assignment->shift->start_time}", $now->getTimezone());
             // Si el envío falla, se libera para reintentar en el minuto siguiente y no frena a los demás
             try {
-                $user->notify(new EntryReminder($assignment->shift, $day, $now->lt($start)));
+                $user->notify(new EntryReminder($assignment->shift, $day, $now->lt($start), (int) ceil($now->diffInSeconds($start, false) / 60)));
                 Log::info("Recordatorio de entrada enviado a {$user->email} (turno {$assignment->shift->start_time}, {$day})");
                 $sent++;
             } catch (\Throwable $e) {

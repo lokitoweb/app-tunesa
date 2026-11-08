@@ -7,7 +7,7 @@
     // Pestaña a abrir: la pedida, o la del primer campo con error
     $fieldTabs = [
         'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'self_password_change'],
-        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds'],
+        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds', 'entry_reminder_minutes', 'entry_reminder_timing'],
     ];
     // Campos que dependen de columnas nuevas de tenant_settings: solo se muestran si existen
     $has = fn (string $column) => in_array($column, $columns, true);
@@ -610,6 +610,69 @@
                         </div>
                     </div>
                 </div>
+                @endif
+
+                @if($has('entry_reminder_minutes') && $has('entry_reminder_timing'))
+                    @php
+                        $timingLabels = ['before' => ['Antes de la hora de entrada', 'Avisa con anticipación para que llegue a tiempo.'],
+                                         'after'  => ['Después de la hora de entrada', 'Avisa solo a quien ya debía marcar y todavía no lo hizo.']];
+                        $timingInherited  = $inh('entry_reminder_timing') ?: 'after';
+                        $timingCurrent    = (string) ($stored('entry_reminder_timing') ?? ($isGlobal ? $timingInherited : ''));
+                        $minutesInherited = $inh('entry_reminder_minutes') ?? 5;
+                    @endphp
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm branding-card">
+                            <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3">
+                                <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Recordatorio de entrada (notificación push)</h2>
+                                <small class="text-secondary">Aviso al teléfono del colaborador que tiene turno y no marcó su entrada. Llega en Android y en iPhone.</small>
+                            </div>
+                            <div class="card-body p-3 pt-1">
+                                <div class="row g-4">
+                                    <fieldset class="col-md-7">
+                                        <legend class="form-label small fw-semibold text-secondary mb-2">Momento del aviso</legend>
+                                        <div class="d-flex flex-column gap-2">
+                                            @unless($isGlobal)
+                                                <label class="doc-tile-card {{ $timingCurrent === '' ? 'active' : '' }}" for="reminder_inherit">
+                                                    <div class="form-check mb-0">
+                                                        <input class="form-check-input" type="radio" name="entry_reminder_timing" value="" id="reminder_inherit" @checked($timingCurrent === '') onchange="document.querySelectorAll('[name=entry_reminder_timing]').forEach(r => r.closest('.doc-tile-card')?.classList.remove('active')); this.closest('.doc-tile-card').classList.add('active');">
+                                                    </div>
+                                                    <div>
+                                                        <span class="d-block fw-semibold small">Heredar de la plataforma</span>
+                                                        <span class="d-block text-secondary" style="font-size: 0.775rem;">Actual: {{ $minutesInherited }} min {{ $timingInherited === 'before' ? 'antes' : 'después' }} de la hora de entrada.</span>
+                                                    </div>
+                                                </label>
+                                            @endunless
+                                            @foreach($timingLabels as $timing => [$label, $desc])
+                                                <label class="doc-tile-card {{ $timingCurrent === $timing ? 'active' : '' }}" for="reminder_{{ $timing }}">
+                                                    <div class="form-check mb-0">
+                                                        <input class="form-check-input @error('entry_reminder_timing') is-invalid @enderror" type="radio" name="entry_reminder_timing" value="{{ $timing }}" id="reminder_{{ $timing }}" @checked($timingCurrent === $timing) onchange="document.querySelectorAll('[name=entry_reminder_timing]').forEach(r => r.closest('.doc-tile-card')?.classList.remove('active')); this.closest('.doc-tile-card').classList.add('active');">
+                                                    </div>
+                                                    <div>
+                                                        <span class="d-block fw-semibold small">{{ $label }}</span>
+                                                        <span class="d-block text-secondary" style="font-size: 0.775rem;">{{ $desc }}</span>
+                                                    </div>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                        @error('entry_reminder_timing')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                    </fieldset>
+                                    <div class="col-md-5">
+                                        <label for="entry_reminder_minutes" class="form-label small fw-semibold text-secondary mb-1">Minutos</label>
+                                        <div class="modern-input-wrapper" style="max-width: 220px;">
+                                            <span class="modern-input-icon"><i class="bi bi-bell"></i></span>
+                                            <input type="number" id="entry_reminder_minutes" name="entry_reminder_minutes" min="0" max="120" step="1"
+                                                   value="{{ $stored('entry_reminder_minutes') }}" placeholder="{{ $minutesInherited }}"
+                                                   class="modern-input-control @error('entry_reminder_minutes') is-invalid @enderror">
+                                            <span class="modern-input-suffix">min</span>
+                                        </div>
+                                        @error('entry_reminder_minutes')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                        <small class="text-secondary d-block mt-1">De 0 a 120. Con 0 se avisa a la hora exacta de entrada. Vacío: {{ $isGlobal ? 'el valor por defecto' : 'el de la plataforma' }} ({{ $minutesInherited }} min).</small>
+                                        <small class="text-secondary d-block mt-2">Ejemplo con turno de 08:00: el aviso sale a las <strong>{{ \Carbon\Carbon::createFromTime(8)->addMinutes((\App\Modules\Core\Models\TenantSetting::forTenant($isGlobal ? null : $tenant))->entryReminderOffsetMinutes())->format('H:i') }}</strong> con lo guardado ahora.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 @endif
             </div>
         </div>

@@ -130,30 +130,32 @@ class PushEventsTest extends TestCase
         $this->assertSame(1, $this->emp->notifications()->count());
     }
 
-    public function test_entry_reminder_five_minutes_before_start_when_not_marked(): void
+    public function test_entry_reminder_five_minutes_after_start_by_default_when_not_marked(): void
     {
         $this->assign('08:00', grace: 10);
         $this->fakeFcm();
         $countReminders = fn () => collect($this->pushes())->where('data.type', 'attendance.entry_reminder')->count();
 
-        // Más de 5 minutos antes: nada
-        Carbon::setTestNow(Carbon::parse('2026-10-12 07:54', 'America/Lima'));
-        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        // Antes y justo a la hora de entrada: nada (por defecto avisa 5 minutos después)
+        foreach (['07:55', '08:00', '08:04'] as $time) {
+            Carbon::setTestNow(Carbon::parse("2026-10-12 {$time}", 'America/Lima'));
+            $this->artisan('attendance:remind-entry')->assertSuccessful();
+        }
         $this->assertSame(0, $countReminders());
 
-        // 5 minutos antes: un aviso, y no se repite
-        Carbon::setTestNow(Carbon::parse('2026-10-12 07:55', 'America/Lima'));
+        // 5 minutos después: un aviso, y no se repite
+        Carbon::setTestNow(Carbon::parse('2026-10-12 08:05', 'America/Lima'));
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         Carbon::setTestNow(Carbon::parse('2026-10-12 08:15', 'America/Lima'));
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         $this->assertSame(1, $countReminders());
         $push = collect($this->pushes())->firstWhere('data.type', 'attendance.entry_reminder');
-        $this->assertSame('Tu turno empieza en 5 minutos', $push['notification']['title']);
+        $this->assertSame('¿Ya marcaste tu entrada?', $push['notification']['title']);
         $this->assertStringContainsString('08:00', $push['notification']['body']);
         $this->assertSame(1, $this->emp->notifications()->count()); // solo el del turno: el recordatorio no va a la bandeja
 
         // Otro día, ya marcó: nada
-        Carbon::setTestNow(Carbon::parse('2026-10-13 07:56', 'America/Lima'));
+        Carbon::setTestNow(Carbon::parse('2026-10-13 08:06', 'America/Lima'));
         Attendance::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'branch_id' => EmployeeShift::sole()->branch_id,
             'work_date' => '2026-10-13', 'status' => 'present']);
         app(TenantContext::class)->clear();
@@ -161,7 +163,7 @@ class PushEventsTest extends TestCase
         $this->assertSame(1, $countReminders());
 
         // Feriado: nada
-        Carbon::setTestNow(Carbon::parse('2026-10-14 07:56', 'America/Lima'));
+        Carbon::setTestNow(Carbon::parse('2026-10-14 08:06', 'America/Lima'));
         Holiday::create(['tenant_id' => $this->acme->id, 'date' => '2026-10-14', 'name' => 'Feriado']);
         app(TenantContext::class)->clear();
         $this->artisan('attendance:remind-entry')->assertSuccessful();
@@ -178,6 +180,58 @@ class PushEventsTest extends TestCase
         $this->artisan('attendance:remind-entry')->assertSuccessful();
         $this->assertSame(2, $countReminders());
         Carbon::setTestNow();
+    }
+
+    public function test_entry_reminder_timing_is_configured_per_company_and_inherits_from_the_platform(): void
+    {
+        $this->assign('08:00', grace: 10);
+        $this->fakeFcm();
+        $reminders = fn () => collect($this->pushes())->where('data.type', 'attendance.entry_reminder')->values();
+        $run = function (string $at) {
+            Carbon::setTestNow(Carbon::parse($at, 'America/Lima'));
+            $this->artisan('attendance:remind-entry')->assertSuccessful();
+            app(TenantContext::class)->clear();
+        };
+
+        // Plataforma: 10 minutos antes → la empresa lo hereda
+        TenantSetting::editableRowFor(null)->fill(['entry_reminder_minutes' => 10, 'entry_reminder_timing' => 'before'])->save();
+        $run('2026-10-12 07:49');
+        $this->assertCount(0, $reminders());
+        $run('2026-10-12 07:50');
+        $this->assertCount(1, $reminders());
+        $this->assertSame('Tu turno empieza en 10 minutos', $reminders()->last()['notification']['title']);
+
+        // La empresa elige 15 minutos después
+        TenantSetting::editableRowFor($this->acme)->fill(['entry_reminder_minutes' => 15, 'entry_reminder_timing' => 'after'])->save();
+        $run('2026-10-13 07:50');
+        $run('2026-10-13 08:14');
+        $this->assertCount(1, $reminders());
+        $run('2026-10-13 08:15');
+        $this->assertCount(2, $reminders());
+        $this->assertSame('¿Ya marcaste tu entrada?', $reminders()->last()['notification']['title']);
+
+        // 0 minutos: a la hora exacta de entrada
+        TenantSetting::editableRowFor($this->acme)->fill(['entry_reminder_minutes' => 0])->save();
+        $run('2026-10-14 07:59');
+        $this->assertCount(2, $reminders());
+        $run('2026-10-14 08:00');
+        $this->assertCount(3, $reminders());
+
+        // El texto de preferencias de la app (Android e iOS) dice el momento configurado
+        TenantSetting::editableRowFor($this->acme)->fill(['entry_reminder_minutes' => 5, 'entry_reminder_timing' => 'after'])->save();
+        $this->assertStringStartsWith('5 minutos después de tu hora de entrada si no marcaste', \App\Modules\Core\Support\NotificationPreferences::entryReminderText($this->emp));
+        Carbon::setTestNow();
+    }
+
+    public function test_entry_reminder_settings_are_validated_and_saved_from_branding(): void
+    {
+        $root = $this->makeUser(null, 'super_admin');
+        $this->actingAs($root)->put('/settings/branding', ['entry_reminder_minutes' => 121, 'entry_reminder_timing' => 'later'])
+            ->assertSessionHasErrors(['entry_reminder_minutes', 'entry_reminder_timing']);
+
+        $this->actingAs($root)->put('/settings/branding', ['entry_reminder_minutes' => 7, 'entry_reminder_timing' => 'before'])->assertSessionHasNoErrors();
+        $this->assertSame(-7, TenantSetting::forTenant($this->acme)->entryReminderOffsetMinutes());
+        $this->actingAs($root)->get('/settings/branding?tab=reglas')->assertOk()->assertSee('Recordatorio de entrada (notificación push)');
     }
 
     public function test_exit_reminder_five_minutes_after_shift_end_when_not_clocked_out(): void
