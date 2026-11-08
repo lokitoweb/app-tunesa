@@ -59,6 +59,10 @@ class AttendanceService
     private const MAX_TRAVEL_KMH    = 150;
     private const MIN_TRAVEL_METERS = 2000;
 
+    /** Horas después de la salida esperada en que la jornada de ayer aún se puede cerrar (turno nocturno / horas extra) */
+    // ponytail: margen fijo; hacerlo ajuste de empresa si alguien hace más de 6 h extra pasada su salida
+    public const OVERNIGHT_GRACE_HOURS = 6;
+
     public function __construct(
         private readonly GeofenceService         $geofence,
         private readonly TenantContext           $tenantContext,
@@ -348,7 +352,7 @@ class AttendanceService
         $data = $c['data'];
         $at   = $c['at'];
 
-        $attendance = $this->getOpenAttendanceOrFail($c['employee'], $data->isOffline() ? $at->toDateString() : null);
+        $attendance = $this->getOpenAttendanceOrFail($c['employee'], $at);
 
         if (! is_null($attendance->break_start_at)) {
             throw new AttendanceException('Ya iniciaste tu descanso.', 'BREAK_ALREADY_STARTED', 409);
@@ -382,7 +386,7 @@ class AttendanceService
         $data = $c['data'];
         $at   = $c['at'];
 
-        $attendance = $this->getOpenAttendanceOrFail($c['employee'], $data->isOffline() ? $at->toDateString() : null);
+        $attendance = $this->getOpenAttendanceOrFail($c['employee'], $at);
 
         if (is_null($attendance->break_start_at)) {
             throw new AttendanceException('No has iniciado un descanso.', 'BREAK_NOT_STARTED', 409);
@@ -439,8 +443,8 @@ class AttendanceService
         $clockOutTime = $c['at'];
         $employee     = $c['employee'];
 
-        // Sin conexión: la jornada abierta del día en que se marcó (puede ser ayer)
-        $attendance = $this->getOpenAttendanceOrFail($employee, $data->isOffline() ? $clockOutTime->toDateString() : null);
+        // La jornada abierta a la hora de la marcación (con o sin conexión; la de ayer si cruzó medianoche)
+        $attendance = $this->getOpenAttendanceOrFail($employee, $clockOutTime);
 
         if ($data->isOffline() && $clockOutTime->lt($this->localTime($attendance->clock_in_at))) {
             throw new AttendanceException('La salida sin conexión no puede ser anterior a tu entrada.', 'OFFLINE_BEFORE_CLOCK_IN', 422);
@@ -904,17 +908,35 @@ class AttendanceService
         }
     }
 
-    /** Jornada abierta del día (con bloqueo para evitar carreras). */
-    private function getOpenAttendanceOrFail(User $employee, ?string $date = null): Attendance
+    /**
+     * Jornada abierta a la hora $at: la del día, o la de ayer si sigue abierta y $at no pasó
+     * OVERNIGHT_GRACE_HOURS de su salida esperada (turno nocturno, horas extra pasada la
+     * medianoche). Quien olvidó marcar la salida ayer de día no arrastra esa jornada a hoy.
+     */
+    public static function openAttendanceAt(User $employee, Carbon $at, bool $lock = false): ?Attendance
     {
-        $today = $date ?? Carbon::now(tenant_timezone())->toDateString();
+        $open = fn (string $day) => Attendance::where('user_id', $employee->id)
+            ->where('work_date', $day)->whereNotNull('clock_in_at')->whereNull('clock_out_at')
+            ->when($lock, fn ($q) => $q->lockForUpdate())
+            ->with(['shift', 'user'])->first();
 
-        $attendance = Attendance::where('user_id', $employee->id)
-            ->where('work_date', $today)
-            ->whereNotNull('clock_in_at')
-            ->whereNull('clock_out_at')
-            ->lockForUpdate()
-            ->first();
+        if ($today = $open($at->toDateString())) {
+            return $today;
+        }
+        $yesterday = $open($at->copy()->subDay()->toDateString());
+        if (! $yesterday) {
+            return null;
+        }
+        $lunch = (int) TenantSetting::forTenant($employee->tenant)->lunch_minutes;
+        $limit = self::expectedClockOut($yesterday, $at->getTimezone(), $lunch)->addHours(self::OVERNIGHT_GRACE_HOURS);
+
+        return $at->lt($limit) ? $yesterday : null;
+    }
+
+    /** Jornada abierta a la hora de la marcación (con bloqueo para evitar carreras). */
+    private function getOpenAttendanceOrFail(User $employee, Carbon $at): Attendance
+    {
+        $attendance = self::openAttendanceAt($employee, $at, lock: true);
 
         if (! $attendance) {
             throw new AttendanceException(

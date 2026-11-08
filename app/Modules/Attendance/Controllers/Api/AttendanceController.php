@@ -132,7 +132,9 @@ class AttendanceController extends Controller
         $attendance = Attendance::where('user_id', $employee->id)
             ->where('work_date', $today)
             ->with(['branch', 'shift'])
-            ->first();
+            ->first()
+            // Pasada la medianoche, el turno nocturno de ayer sigue abierto: la app ofrece cerrarlo
+            ?? AttendanceService::openAttendanceAt($employee, Carbon::now(tenant_timezone()))?->load(['branch', 'shift']);
 
         // Turno programado hoy: sin turno (ni autorización) no se ofrece marcar entrada
         $schedule = app(\App\Modules\Attendance\Services\ScheduleGate::class)->statusFor($employee, $today);

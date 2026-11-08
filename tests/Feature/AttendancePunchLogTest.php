@@ -342,6 +342,57 @@ class AttendancePunchLogTest extends TestCase
             ->assertCreated()->assertJsonPath('punch.suspicious', false);
     }
 
+    public function test_night_shift_closes_the_day_after_midnight_and_a_forgotten_day_exit_does_not_carry_over(): void
+    {
+        $this->withShift('22:00', '06:00', 15);
+        $this->travelTo(Carbon::parse('2026-10-09 21:55:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/break-start', $this->payload(['photo' => null]))->assertOk();
+
+        // Pasada la medianoche: la app sigue viendo la jornada de ayer y puede cerrar el refrigerio
+        $this->travelTo(Carbon::parse('2026-10-10 00:30:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->getJson('/api/attendance/today')
+            ->assertOk()->assertJsonPath('data.work_date', '2026-10-09')->assertJsonPath('next_action.action', 'break_end');
+        $this->actingIn($this->emp, $this->acme)->postJson('/api/attendance/break-end', $this->payload(['photo' => null]))->assertOk();
+
+        // Salida a las 06:02 del día siguiente: cierra la jornada del 9
+        $this->travelTo(Carbon::parse('2026-10-10 06:02:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->getJson('/api/attendance/today')->assertJsonPath('next_action.action', 'clock_out');
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-out', $this->payload())->assertOk();
+        $day = Attendance::withoutGlobalScopes()->where('user_id', $this->emp->id)->sole();
+        $this->assertSame('2026-10-09', $day->work_date->toDateString());
+        $this->assertNotNull($day->clock_out_at);
+        $this->assertSame(5.53, (float) $day->worked_hours); // 21:55 → 06:02 menos el refrigerio de 21:55 a 00:30
+    }
+
+    public function test_a_day_worker_who_forgot_to_clock_out_yesterday_starts_today_fresh(): void
+    {
+        $this->withShift('08:00', '17:00');
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated(); // 9 oct, 08:05
+
+        // Al día siguiente a las 08:00 (más de 6 h después de su salida de las 17:00): no arrastra la jornada de ayer
+        $this->travelTo(Carbon::parse('2026-10-10 08:00:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->getJson('/api/attendance/today')
+            ->assertOk()->assertJsonPath('data', null)->assertJsonPath('next_action.action', 'clock_in');
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-out', $this->payload())
+            ->assertStatus(404)->assertJsonPath('code', 'NO_OPEN_ATTENDANCE');
+
+        // La del 9 queda abierta (incompleta) para que RR. HH. la corrija; hoy marca entrada normal
+        $this->assertNull(Attendance::withoutGlobalScopes()->where('work_date', '2026-10-09')->sole()->clock_out_at);
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();
+    }
+
+    public function test_an_evening_shift_with_overtime_can_clock_out_after_midnight(): void
+    {
+        $this->withShift('14:00', '23:00');
+        $this->travelTo(Carbon::parse('2026-10-09 13:58:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();
+
+        $this->travelTo(Carbon::parse('2026-10-10 00:40:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-out', $this->payload())->assertOk();
+        $this->assertNotNull(Attendance::withoutGlobalScopes()->where('work_date', '2026-10-09')->sole()->clock_out_at);
+    }
+
     public function test_out_of_geofence_flag_policy_flags_and_reject_policy_notifies(): void
     {
         $far = ['latitude' => -12.0960, 'longitude' => -77.03560]; // ≈ 200 m al sur
