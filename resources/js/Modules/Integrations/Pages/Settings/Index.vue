@@ -151,7 +151,7 @@ async function testGeocode() {
     try {
         const data = await requestJson(`/geocode/reverse?lat=${props.geoProbe.lat}&lng=${props.geoProbe.lng}`, { method: 'GET' });
         geo.value = data.success && data.data?.address
-            ? { ok: true, provider: data.data.provider === 'google' ? 'Google Maps' : 'OpenStreetMap', ms: Math.round(performance.now() - t0), address: data.data.address }
+            ? { ok: true, provider: { google: 'Google Maps', branch: 'Dirección registrada de la sede' }[data.data.provider] || 'OpenStreetMap', ms: Math.round(performance.now() - t0), address: data.data.address }
             : { ok: false, error: data.message || 'No se encontró una dirección para esas coordenadas.' };
         // Con Google elegido: prueba directa (sin respaldo) con el motivo exacto si Google rechaza
         const g = await requestJson('/settings/branding/test-google', { method: 'POST', body: '{}' });

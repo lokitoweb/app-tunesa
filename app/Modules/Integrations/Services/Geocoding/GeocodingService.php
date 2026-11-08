@@ -191,7 +191,7 @@ class GeocodingService
         }
 
         $geocoder = $this->geocoder();
-        $key      = sprintf('geocode:search:%s:%d:%s', $geocoder->name(), $limit, sha1(mb_strtolower($query)));
+        $key      = sprintf('geocode:search:v2:%s:%d:%s', $geocoder->name(), $limit, sha1(mb_strtolower($query)));
 
         if (is_array($cached = Cache::get($key))) {
             return $cached;
@@ -221,7 +221,7 @@ class GeocodingService
         $lng = round($lng, 5);
 
         $geocoder = $this->geocoder();
-        $key      = sprintf('geocode:reverse:%s:%.5F:%.5F', $geocoder->name(), $lat, $lng);
+        $key      = sprintf('geocode:reverse:v2:%s:%.5F:%.5F', $geocoder->name(), $lat, $lng);
 
         if (is_array($cached = Cache::get($key))) {
             return $cached;
