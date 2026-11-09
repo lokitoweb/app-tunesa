@@ -230,8 +230,35 @@ class PushEventsTest extends TestCase
             ->assertSessionHasErrors(['entry_reminder_minutes', 'entry_reminder_timing']);
 
         $this->actingAs($root)->put('/settings/branding', ['entry_reminder_minutes' => 7, 'entry_reminder_timing' => 'before'])->assertSessionHasNoErrors();
-        $this->assertSame(-7, TenantSetting::forTenant($this->acme)->entryReminderOffsetMinutes());
+        $this->assertSame(-7, TenantSetting::forTenant($this->acme)->reminderOffsetMinutes('entry'));
         $this->actingAs($root)->get('/settings/branding?tab=reglas')->assertOk()->assertSee('Recordatorio de entrada (notificación push)');
+    }
+
+    public function test_exit_reminder_timing_is_configured_like_the_entry_one(): void
+    {
+        $root = $this->makeUser(null, 'super_admin');
+        $this->actingAs($root)->put('/settings/branding', ['exit_reminder_minutes' => 121, 'exit_reminder_timing' => 'later'])
+            ->assertSessionHasErrors(['exit_reminder_minutes', 'exit_reminder_timing']);
+        $this->actingAs($root)->put('/settings/branding', ['exit_reminder_minutes' => 10, 'exit_reminder_timing' => 'before'])->assertSessionHasNoErrors();
+        $this->assertSame(-10, TenantSetting::forTenant($this->acme)->reminderOffsetMinutes('exit'));
+        $this->assertSame(5, TenantSetting::forTenant($this->acme)->reminderOffsetMinutes('entry'));
+        $this->actingAs($root)->get('/settings/branding?tab=reglas')->assertOk()->assertSee('Recordatorio de salida (notificación push)');
+
+        $shift = $this->assign('08:00');
+        $this->fakeFcm();
+        Attendance::create(['tenant_id' => $this->acme->id, 'user_id' => $this->emp->id, 'branch_id' => EmployeeShift::sole()->branch_id,
+            'shift_id' => $shift->id, 'work_date' => '2026-10-12', 'status' => 'present', 'clock_in_at' => '2026-10-12 07:58:00']);
+        app(TenantContext::class)->clear();
+        $exits = fn () => collect($this->pushes())->where('data.type', 'attendance.exit_reminder');
+
+        // Sale a las 17:00 con aviso 10 min antes: a las 16:49 nada, a las 16:50 "está por terminar"
+        Carbon::setTestNow(Carbon::parse('2026-10-12 16:49', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertCount(0, $exits());
+        Carbon::setTestNow(Carbon::parse('2026-10-12 16:50', 'America/Lima'));
+        $this->artisan('attendance:remind-entry')->assertSuccessful();
+        $this->assertCount(1, $exits());
+        $this->assertStringContainsString('termina a las 05:00 pm', $exits()->first()['notification']['body']);
     }
 
     public function test_exit_reminder_five_minutes_after_shift_end_when_not_clocked_out(): void

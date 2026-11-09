@@ -364,6 +364,8 @@ final class Labels
         'default_geofence_radius' => 'Radio de geocerca por defecto (m)',
         'entry_reminder_minutes'  => 'Recordatorio de entrada (min)',
         'entry_reminder_timing'   => 'Momento del recordatorio de entrada',
+        'exit_reminder_minutes'   => 'Recordatorio de salida (min)',
+        'exit_reminder_timing'    => 'Momento del recordatorio de salida',
         'webhook_url'            => 'Dirección del webhook',
         'webhook_secret'          => 'Clave secreta del webhook',
         'maps_api_key'            => 'Clave de Google Maps',
@@ -844,6 +846,10 @@ final class Labels
         'entry_reminder_timing' => [
             'before' => ['Antes de la hora de entrada', 'secondary'],
             'after'  => ['Después de la hora de entrada', 'primary'],
+        ],
+        'exit_reminder_timing' => [
+            'before' => ['Antes de la hora de salida', 'secondary'],
+            'after'  => ['Después de la hora de salida', 'primary'],
         ],
         'geocoding_provider' => [
             'nominatim' => ['OpenStreetMap (gratis)', 'secondary'],

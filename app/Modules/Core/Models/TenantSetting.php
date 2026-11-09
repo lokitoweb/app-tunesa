@@ -54,9 +54,11 @@ class TenantSetting extends Model
         'default_geofence_radius' => 50,
         'mock_location_policy'    => 'reject',
         'max_time_drift_seconds'  => 300,
-        // Recordatorio push de entrada: 5 minutos después de la hora de entrada del turno
+        // Recordatorios push: 5 minutos después de la hora de entrada y de la de salida del turno
         'entry_reminder_minutes'  => 5,
         'entry_reminder_timing'   => 'after',
+        'exit_reminder_minutes'   => 5,
+        'exit_reminder_timing'    => 'after',
         'geocoding_provider'      => 'nominatim',
         // Encendido por defecto: solo envía si la plataforma cargó la cuenta de
         // servicio de Firebase (fcmEnabled()). Una empresa puede apagarlo.
@@ -84,8 +86,8 @@ class TenantSetting extends Model
 
     public const GEOCODING_PROVIDERS = ['nominatim', 'google'];
 
-    /** Recordatorio de entrada: antes o después de la hora de entrada del turno */
-    public const ENTRY_REMINDER_TIMINGS = ['before', 'after'];
+    /** Recordatorios de entrada y salida: antes o después de la hora del turno */
+    public const REMINDER_TIMINGS = ['before', 'after'];
 
     /** Columnas de configuración editables (NULL = heredar) */
     public const SETTING_FIELDS = [
@@ -94,7 +96,7 @@ class TenantSetting extends Model
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
-        'entry_reminder_minutes', 'entry_reminder_timing',
+        'entry_reminder_minutes', 'entry_reminder_timing', 'exit_reminder_minutes', 'exit_reminder_timing',
         'webhook_url', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled', 'self_password_change',
         // Servicios externos (solo SuperAdmin, ver SERVICE_FIELDS); los secretos van en SECRET_FIELDS
@@ -139,7 +141,7 @@ class TenantSetting extends Model
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
-        'entry_reminder_minutes', 'entry_reminder_timing',
+        'entry_reminder_minutes', 'entry_reminder_timing', 'exit_reminder_minutes', 'exit_reminder_timing',
         'webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_service_account_json', 'fcm_enabled', 'self_password_change',
         'migo_api_token', 'migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'nubefact_token',
@@ -177,6 +179,7 @@ class TenantSetting extends Model
         'self_password_change'    => 'boolean',
         'max_time_drift_seconds'  => 'integer',
         'entry_reminder_minutes'  => 'integer',
+        'exit_reminder_minutes'   => 'integer',
         'login_backgrounds'       => 'array',
         'login_slide_seconds'     => 'integer',
     ];
@@ -614,13 +617,14 @@ class TenantSetting extends Model
     }
 
     /**
-     * Minutos respecto a la hora de entrada en que sale el recordatorio push de entrada:
-     * negativo = antes (-5 = 5 minutos antes), positivo = después, 0 = a la hora exacta.
+     * Minutos respecto a la hora de entrada ($kind 'entry') o de salida ('exit') en que sale el
+     * recordatorio push: negativo = antes (-5 = 5 minutos antes), positivo = después, 0 = a la hora exacta.
      */
-    public function entryReminderOffsetMinutes(): int
+    public function reminderOffsetMinutes(string $kind = 'entry'): int
     {
-        $minutes = max(0, min(120, (int) ($this->entry_reminder_minutes ?? self::DEFAULTS['entry_reminder_minutes'])));
-        $timing  = in_array($this->entry_reminder_timing, self::ENTRY_REMINDER_TIMINGS, true) ? $this->entry_reminder_timing : self::DEFAULTS['entry_reminder_timing'];
+        $minutes = max(0, min(120, (int) ($this->{"{$kind}_reminder_minutes"} ?? self::DEFAULTS["{$kind}_reminder_minutes"])));
+        $timing  = $this->{"{$kind}_reminder_timing"};
+        $timing  = in_array($timing, self::REMINDER_TIMINGS, true) ? $timing : self::DEFAULTS["{$kind}_reminder_timing"];
 
         return $timing === 'before' ? -$minutes : $minutes;
     }

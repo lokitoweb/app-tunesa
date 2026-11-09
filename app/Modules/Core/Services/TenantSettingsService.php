@@ -195,7 +195,9 @@ class TenantSettingsService
             'default_grace_minutes'   => ['sometimes', 'nullable', 'integer', 'between:0,240'],
             'lunch_minutes'           => ['sometimes', 'nullable', 'integer', 'between:0,480'],
             'entry_reminder_minutes'  => ['sometimes', 'nullable', 'integer', 'between:0,120'],
-            'entry_reminder_timing'   => ['sometimes', 'nullable', Rule::in(TenantSetting::ENTRY_REMINDER_TIMINGS)],
+            'entry_reminder_timing'   => ['sometimes', 'nullable', Rule::in(TenantSetting::REMINDER_TIMINGS)],
+            'exit_reminder_minutes'   => ['sometimes', 'nullable', 'integer', 'between:0,120'],
+            'exit_reminder_timing'    => ['sometimes', 'nullable', Rule::in(TenantSetting::REMINDER_TIMINGS)],
             'vacation_days_per_year'  => ['sometimes', 'nullable', 'integer', 'between:0,60'],
             'lunch_paid'              => ['sometimes', 'nullable', 'boolean'],
             'punch_requires_schedule' => ['sometimes', 'nullable', 'boolean'],
@@ -264,6 +266,8 @@ class TenantSettingsService
             'max_time_drift_seconds.between'      => 'La diferencia de hora permitida debe estar entre 30 y 86400 segundos.',
             'entry_reminder_minutes.between'      => 'El recordatorio de entrada debe estar entre 0 y 120 minutos.',
             'entry_reminder_timing.in'            => 'Elige si el recordatorio va antes o después de la hora de entrada.',
+            'exit_reminder_minutes.between'       => 'El recordatorio de salida debe estar entre 0 y 120 minutos.',
+            'exit_reminder_timing.in'             => 'Elige si el recordatorio va antes o después de la hora de salida.',
         ];
     }
 

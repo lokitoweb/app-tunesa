@@ -56,18 +56,22 @@ final class NotificationPreferences
         return $category === null || (($user->notification_preferences ?? [])[$category] ?? true) !== false;
     }
 
-    /** "5 minutos después de la hora de entrada si no marcaste…", según lo que configuró la empresa */
+    /** "5 minutos después de tu hora de entrada si no marcaste…", según lo que configuró la empresa */
     public static function entryReminderText(User $user): string
     {
-        $offset = TenantSetting::forTenant($user->tenant_id ? Tenant::find($user->tenant_id) : null)->entryReminderOffsetMinutes();
-        $minutes = abs($offset) === 1 ? '1 minuto' : abs($offset) . ' minutos';
-        $when = match (true) {
-            $offset < 0 => "{$minutes} antes de tu turno",
-            $offset > 0 => "{$minutes} después de tu hora de entrada si no marcaste",
-            default     => 'A tu hora de entrada si no marcaste',
+        $settings = TenantSetting::forTenant($user->tenant_id ? Tenant::find($user->tenant_id) : null);
+        $phrase = function (int $offset, string $hour): string {
+            $minutes = abs($offset) === 1 ? '1 minuto' : abs($offset) . ' minutos';
+
+            return match (true) {
+                $offset < 0 => "{$minutes} antes de tu hora de {$hour}",
+                $offset > 0 => "{$minutes} después de tu hora de {$hour}",
+                default     => "a tu hora de {$hour}",
+            };
         };
 
-        return "{$when}, y si a los 5 minutos de terminar tu turno no marcaste la salida.";
+        return ucfirst($phrase($settings->reminderOffsetMinutes('entry'), 'entrada')) . ' si no marcaste la entrada, y '
+            . $phrase($settings->reminderOffsetMinutes('exit'), 'salida') . ' si no marcaste la salida.';
     }
 
     /** @return list<array{key: string, title: string, description: string, enabled: bool}> */

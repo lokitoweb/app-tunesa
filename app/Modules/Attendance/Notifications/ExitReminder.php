@@ -6,12 +6,12 @@ use App\Modules\Core\Notifications\AppNotification;
 use Carbon\CarbonInterface;
 
 /**
- * Al colaborador: su jornada ya terminó y no marcó salida.
+ * Al colaborador: su jornada termina (aviso antes) o ya terminó y no marcó salida.
  * Solo push (no llena la bandeja): lo envía attendance:remind-entry.
  */
 class ExitReminder extends AppNotification
 {
-    public function __construct(public readonly CarbonInterface $expectedEnd, public readonly string $workDate) {}
+    public function __construct(public readonly CarbonInterface $expectedEnd, public readonly string $workDate, public readonly bool $before = false) {}
 
     protected function channels(object $notifiable): array
     {
@@ -25,12 +25,14 @@ class ExitReminder extends AppNotification
 
     public function title(): string
     {
-        return '¿Ya marcaste tu salida?';
+        return $this->before ? 'Tu jornada está por terminar' : '¿Ya marcaste tu salida?';
     }
 
     public function body(): string
     {
-        return sprintf('Tu jornada terminó a las %s y aún no registras tu salida. Márcala desde la app.', hora($this->expectedEnd));
+        return $this->before
+            ? sprintf('Tu jornada termina a las %s. No olvides marcar tu salida desde la app.', hora($this->expectedEnd))
+            : sprintf('Tu jornada terminó a las %s y aún no registras tu salida. Márcala desde la app.', hora($this->expectedEnd));
     }
 
     public function payload(): array

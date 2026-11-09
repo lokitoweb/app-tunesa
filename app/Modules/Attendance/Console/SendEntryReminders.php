@@ -27,7 +27,8 @@ use Illuminate\Support\Facades\Log;
  *    minutos después), y hasta WINDOW_MINUTES más la tolerancia por si el
  *    programador se atrasó, a quien tiene turno ese día y no marcó. Sin
  *    feriados ni licencias aprobadas.
- *  - Salida: LEAD_MINUTES después de la hora de salida esperada (la del turno,
+ *  - Salida: los minutos antes o después de la hora de salida esperada que configure la
+ *    empresa (por defecto 5 minutos después; la hora es la del turno,
  *    o entrada + jornada base + descanso si no tiene turno), a quien marcó
  *    entrada y no salida. Turnos nocturnos: la salida cae al día siguiente.
  *
@@ -38,15 +39,12 @@ use Illuminate\Support\Facades\Log;
  */
 class SendEntryReminders extends Command
 {
-    /** Minutos después de la salida en que se avisa (la entrada la configura cada empresa) */
-    public const LEAD_MINUTES = 5;
-
     /** Minutos durante los que todavía se recuerda si el aviso no salió a tiempo */
     public const WINDOW_MINUTES = 60;
 
     protected $signature = 'attendance:remind-entry {--tenant= : Slug de una empresa concreta}';
 
-    protected $description = 'Push a quien no marcó entrada (minutos configurables por empresa) y 5 min después de la salida a quien no la marcó';
+    protected $description = 'Push a quien no marcó entrada o salida (minutos antes o después, configurables por empresa)';
 
     /** Marca de "ya se le recordó la entrada ese día" (guarda la hora del envío; push:diagnose la lee) */
     public static function entryKey(int $userId, string $day): string
@@ -78,8 +76,9 @@ class SendEntryReminders extends Command
             $context->set($tenant);
             try {
                 $now = Carbon::now($tenant->timezone ?: config('app.timezone'));
-                $offset = TenantSetting::forTenant($tenant)->entryReminderOffsetMinutes();
-                $sent += $this->entryReminders($now, $offset) + $this->exitReminders($now);
+                $settings = TenantSetting::forTenant($tenant);
+                $sent += $this->entryReminders($now, $settings->reminderOffsetMinutes('entry'))
+                    + $this->exitReminders($now, $settings->reminderOffsetMinutes('exit'), (int) $settings->lunch_minutes);
             } catch (\Throwable $e) {
                 Log::warning("Recordatorio de entrada ({$tenant->slug}): " . $e->getMessage());
             }
@@ -178,7 +177,8 @@ class SendEntryReminders extends Command
         return $sent;
     }
 
-    private function exitReminders(Carbon $now): int
+    /** @param int $offset minutos respecto a la salida: negativo = antes, positivo = después */
+    private function exitReminders(Carbon $now, int $offset, int $lunch): int
     {
         $tz = $now->getTimezone();
         $open = Attendance::query()
@@ -188,12 +188,11 @@ class SendEntryReminders extends Command
             ->with(['shift', 'user'])
             ->get();
 
-        $lunch = (int) TenantSetting::forTenant(app(TenantContext::class)->get())->lunch_minutes;
 
         $sent = 0;
         foreach ($open as $attendance) {
             $end = AttendanceService::expectedClockOut($attendance, $tz, $lunch);
-            $from = $end->copy()->addMinutes(self::LEAD_MINUTES);
+            $from = $end->copy()->addMinutes($offset);
             if ($now->lt($from) || $now->gte($from->copy()->addMinutes(self::WINDOW_MINUTES))) {
                 continue;
             }
@@ -202,7 +201,7 @@ class SendEntryReminders extends Command
                 continue;
             }
             try {
-                $attendance->user->notify(new ExitReminder($end, $attendance->work_date->toDateString()));
+                $attendance->user->notify(new ExitReminder($end, $attendance->work_date->toDateString(), $now->lt($end)));
                 Log::info("Recordatorio de salida enviado a {$attendance->user->email} ({$attendance->work_date->toDateString()})");
                 $sent++;
             } catch (\Throwable $e) {
