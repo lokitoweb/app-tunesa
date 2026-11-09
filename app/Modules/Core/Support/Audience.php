@@ -63,7 +63,7 @@ final class Audience
         $query = User::withoutGlobalScope(TenantScope::class)
             ->where('users.tenant_id', $tenantId)
             ->where('users.status', 'active')
-            ->whereIn('users.role', User::CLOCKING_ROLES);
+            ->clocking();
 
         if ($targets->isEmpty()) {
             return $query->whereRaw('1 = 0');
@@ -141,7 +141,7 @@ final class Audience
             'departments' => Department::orderBy('name')->get(['id', 'name']),
             'positions'   => User::whereNotNull('position')->where('position', '!=', '')->where('status', 'active')
                 ->distinct()->orderBy('position')->pluck('position'),
-            'employees'   => User::whereIn('role', User::CLOCKING_ROLES)->where('status', 'active')
+            'employees'   => User::clocking()->where('status', 'active')
                 ->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'employee_code']),
         ];
     }

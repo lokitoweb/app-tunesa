@@ -162,7 +162,7 @@ class CalendarWebController extends Controller
         abort_unless($employee && User::visibleTo($request->user())->whereKey($employee->id)->exists(), 404, 'No se encontró el colaborador solicitado.');
 
         // Si el usuario es de rol administrativo y no marca asistencia
-        if (!in_array($employee->role, User::CLOCKING_ROLES, true)) {
+        if (! $employee->clocks()) {
             return redirect()->route('employees.index')
                 ->with('warning', "El colaborador {$employee->first_name} {$employee->last_name} cuenta con rol administrativo (" . label('user_role', $employee->role) . ") y no registra asistencia en el calendario operativo.");
         }

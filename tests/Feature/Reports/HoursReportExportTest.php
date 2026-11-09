@@ -105,7 +105,8 @@ class HoursReportExportTest extends TestCase
 
     public function test_excel_export_is_a_valid_xlsx_with_summary_and_detail_sheets(): void
     {
-        $response = $this->actingAs($this->makeUser($this->tenant, 'hr_manager'))
+        // Gerencia exporta y no marca asistencia: no aparece como fila del Excel (RRHH sí marca)
+        $response = $this->actingAs($this->makeUser($this->tenant, 'manager'))
             ->get(route('reports.hours.excel', self::RANGE))
             ->assertOk()
             ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

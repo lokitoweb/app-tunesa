@@ -141,7 +141,7 @@ class BirthdaysTest extends TestCase
         $this->person('SinFecha', null, $this->lima);
 
         $this->actingAs($admin)->get('/birthdays?month=3')->assertOk()
-            ->assertInertia(fn ($p) => $p->component('Birthdays/Pages/Birthdays/Index')->has('people', 1)->where('missing', 1)->where('months.2.count', 1));
+            ->assertInertia(fn ($p) => $p->component('Birthdays/Pages/Birthdays/Index')->has('people', 1)->where('missing', 2)->where('months.2.count', 1)); // sin fecha: SinFecha y el administrador (también marca)
         $this->put('/birthdays/settings', ['notify_colleagues' => 'none', 'greet_celebrant' => true, 'hour' => 9])->assertSessionHasNoErrors();
         $this->assertSame('none', $this->acme->fresh()->setting('birthdays.notify_colleagues'));
         $this->get('/birthdays/export?month=3')->assertOk();

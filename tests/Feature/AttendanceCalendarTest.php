@@ -268,7 +268,8 @@ class AttendanceCalendarTest extends TestCase
 
     public function test_person_calendar_by_name_slug_and_no_leak_outside_the_team(): void
     {
-        $hr = $this->makeUser($this->acme, 'hr_manager', ['first_name' => 'Gerardo', 'last_name' => 'Admin']);
+        // Gerencia no marca asistencia (por defecto): no tiene calendario
+        $hr = $this->makeUser($this->acme, 'manager', ['first_name' => 'Gerardo', 'last_name' => 'Admin']);
 
         // Por nombre en la dirección (nombre-apellido o apellido-nombre)
         $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', ['id' => 'rosa-quispe', 'month' => '2026-09']))->assertOk()->assertSee('Rosa Quispe');

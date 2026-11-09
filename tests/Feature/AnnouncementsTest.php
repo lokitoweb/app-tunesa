@@ -101,7 +101,7 @@ class AnnouncementsTest extends TestCase
         $this->travel(1)->day(); // la hora del formulario es la de la empresa
         $this->artisan('announcements:dispatch')->assertSuccessful();
         $this->assertSame('sent', $scheduled->fresh()->status);
-        $this->assertSame(2, $scheduled->fresh()->recipients);
+        $this->assertSame(3, $scheduled->fresh()->recipients); // «Todos» incluye a quien lo envía: el administrador también marca
         $this->assertSame(1, $this->other->notifications()->where('type', 'announcement.published')->count());
     }
 

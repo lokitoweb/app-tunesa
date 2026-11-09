@@ -35,7 +35,7 @@ class ScheduleProgramming
     public function people(Branch $branch, User $viewer, string $from, string $to): Collection
     {
         return User::where('status', 'active')
-            ->whereIn('role', User::CLOCKING_ROLES)
+            ->clocking()
             ->whereHas('branches', fn ($q) => $q->where('branches.id', $branch->id)
                 ->where(fn ($w) => $w->whereNull('employee_branch.assigned_from')->orWhere('employee_branch.assigned_from', '<=', $to))
                 ->where(fn ($w) => $w->whereNull('employee_branch.assigned_until')->orWhere('employee_branch.assigned_until', '>=', $from)))

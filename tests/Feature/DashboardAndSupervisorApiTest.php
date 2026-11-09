@@ -112,7 +112,7 @@ class DashboardAndSupervisorApiTest extends TestCase
         $employee  = $this->makeUser($acme, 'employee');
         $colleague = $this->makeUser($acme, 'supervisor');   // supervisor que marca en la sede de $boss
         $inactive  = $this->makeUser($acme, 'employee', ['status' => 'inactive']);
-        $hr        = $this->makeUser($acme, 'hr_manager');   // no marca desde la app
+        $hr        = $this->makeUser($acme, 'manager');      // Gerencia no marca asistencia
         foreach ([$employee, $colleague, $inactive, $hr, $boss] as $u) {
             $u->branches()->attach($branch->id, ['is_primary' => true]);
         }

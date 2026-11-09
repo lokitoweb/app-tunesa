@@ -524,22 +524,50 @@ class User extends Authenticatable
     }
 
     /**
-     * Roles que marcan asistencia desde la app con GPS: colaboradores, supervisores y
-     * Contabilidad (política de la empresa). Fuente única para turnos, calendario,
-     * faltas, reportes de horas y públicos de comunicados/capacitaciones.
+     * Personal que marca asistencia: quien tiene el permiso attendance.mark ("Marcar asistencia"),
+     * con lo que cada empresa ajustó en Configuración › Roles y permisos (también en sus roles
+     * propios). Por defecto marcan todos menos Gerencia. Fuente única para turnos, calendario,
+     * faltas, reportes de horas, contingencia y públicos de comunicados/capacitaciones; es la
+     * misma regla que autoriza las rutas de marcación (permission:attendance.mark).
      */
-    public const CLOCKING_ROLES = ['employee', 'supervisor', 'accountant'];
+    public function scopeClocking($query)
+    {
+        // Todo en la misma consulta (sin consultas extra): roles del sistema con el permiso. El Super Admin
+        // de la plataforma tiene todos los permisos pero no es personal de ninguna empresa.
+        $roles = fn ($q) => $q->select('roles.slug')->from('roles')
+            ->join('permission_role', 'permission_role.role_id', '=', 'roles.id')
+            ->join('permissions', 'permissions.id', '=', 'permission_role.permission_id')
+            ->whereNull('roles.tenant_id')->where('roles.slug', '!=', 'super_admin')
+            ->where('permissions.slug', 'attendance.mark');
+        if (! self::overridesTableReady()) {
+            return $query->whereIn('users.role', $roles);
+        }
+
+        // Clave de los ajustes de la empresa: el rol propio (si se basa en su rol) o el rol del sistema
+        $key = 'COALESCE((SELECT r.slug FROM roles r WHERE r.id = users.custom_role_id AND r.tenant_id = users.tenant_id AND r.base_role = users.role), users.role)';
+        $override = 'EXISTS (SELECT 1 FROM role_permission_overrides o JOIN permissions p ON p.id = o.permission_id'
+            . " WHERE p.slug = 'attendance.mark' AND o.tenant_id = users.tenant_id AND o.granted = ? AND o.role = {$key})";
+
+        return $query->where(fn ($q) => $q
+            ->where(fn ($std) => $std->whereIn('users.role', $roles)->whereRaw("NOT {$override}", [false]))
+            ->orWhereRaw($override, [true]));
+    }
+
+    /** Marca asistencia (mismo criterio que scopeClocking; el Super Admin de la plataforma no) */
+    public function clocks(): bool
+    {
+        return ! $this->isSuperAdmin() && $this->hasPermission('attendance.mark');
+    }
 
     /**
-     * Equipo de $viewer para la app: personal activo que marca (colaboradores y
-     * supervisores) visible para él, sin incluirse a sí mismo. Lo usan
-     * GET /api/supervisor/team y /api/supervisor/attendance/live.
+     * Equipo de $viewer para la app: personal activo que marca visible para él,
+     * sin incluirse a sí mismo. Lo usan GET /api/supervisor/team y /api/supervisor/attendance/live.
      */
     public function scopeTeamOf($query, User $viewer, bool $activeOnly = true)
     {
         return $query->visibleTo($viewer)
             ->where('users.id', '!=', $viewer->id)
-            ->whereIn('users.role', self::CLOCKING_ROLES)
+            ->clocking()
             ->when($activeOnly, fn ($q) => $q->where('users.status', 'active'));
     }
 

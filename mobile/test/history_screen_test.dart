@@ -41,9 +41,10 @@ void main() {
     ),
   ], const HistorySummary(present: 1, late: 1, totalHours: 16.6));
 
-  Widget app(Widget home, {bool canPunch = true}) => ProviderScope(
+  Widget app(Widget home, {bool canPunch = true, bool marks = true}) => ProviderScope(
         overrides: [
           canPunchProvider.overrideWith((ref) => canPunch),
+          marksAttendanceProvider.overrideWith((ref) => marks),
           attendanceHistoryProvider.overrideWith((ref, period) async => history),
         ],
         child: MaterialApp(theme: AppTheme.light(), home: home),
@@ -68,6 +69,15 @@ void main() {
 
     expect(find.byKey(const Key('onboarding-gate')), findsOneWidget);
     expect(find.text('ENTRADA'), findsNothing);
+  });
+
+  testWidgets('rol que no marca (Gerencia): lo dice en vez de pedir la incorporación', (tester) async {
+    await tester.pumpWidget(app(const HistoryScreen(), canPunch: false, marks: false));
+    await tester.pump();
+
+    expect(find.byKey(const Key('no-attendance-role')), findsOneWidget);
+    expect(find.text('Tu rol no marca asistencia'), findsOneWidget);
+    expect(find.byKey(const Key('onboarding-gate')), findsNothing);
   });
 
   testWidgets('Mis horas extra: totales por estado y cada día', (tester) async {

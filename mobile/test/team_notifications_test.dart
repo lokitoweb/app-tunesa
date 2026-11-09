@@ -156,6 +156,12 @@ void main() {
       expect(u.hasTeamArea, isFalse);
     });
 
+    test('marca asistencia según el servidor (Gerencia no); sin el dato, sí, como antes', () {
+      expect(AppUser.fromJson(user('manager', {'can_mark_attendance': false})).marksAttendance, isFalse);
+      expect(AppUser.fromJson(user('hr_manager', {'can_mark_attendance': true})).marksAttendance, isTrue);
+      expect(AppUser.fromJson(user('employee')).marksAttendance, isTrue);
+    });
+
     test('acepta permisos como lista de slugs', () {
       final u = AppUser.fromJson(user('custom', ['leave.approve_team']));
       expect(u.canApproveRequests, isTrue);

@@ -121,6 +121,10 @@ class AppUser {
   /// como la prueba de avisos en este teléfono.
   bool get isAdmin => const {'hr_manager', 'company_admin', 'super_admin'}.contains(role);
 
+  /// Su rol marca asistencia (permiso «Marcar asistencia»: por defecto todos menos Gerencia).
+  /// Sin el dato (servidor anterior o sesión guardada) se asume que sí, como hasta ahora.
+  bool get marksAttendance => permissions['can_mark_attendance'] ?? true;
+
   /// Incorporación aprobada por RRHH: recién entonces puede marcar asistencia.
   bool get isOnboarded => onboardingStatus == 'approved';
 

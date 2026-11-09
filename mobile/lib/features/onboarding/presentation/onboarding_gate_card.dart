@@ -13,6 +13,19 @@ class OnboardingGateCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    // Rol que no marca (Gerencia, por defecto): solo lo informa, no hay nada que completar
+    if (!ref.watch(marksAttendanceProvider)) {
+      return Card(
+        key: const Key('no-attendance-role'),
+        color: scheme.secondaryContainer,
+        child: const ListTile(
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          leading: Icon(Icons.badge_outlined, size: 32),
+          title: Text('Tu rol no marca asistencia', style: TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text('Lo define tu empresa en Roles y permisos. Si debes marcar, consulta con RRHH.'),
+        ),
+      );
+    }
     final summary = ref.watch(onboardingProvider).value;
     final status = summary?.status ?? OnboardingStatus.pending;
 

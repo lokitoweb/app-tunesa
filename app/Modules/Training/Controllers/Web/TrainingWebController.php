@@ -303,7 +303,7 @@ class TrainingWebController extends Controller
             'departments' => Department::orderBy('name')->get(['id', 'name']),
             'positions'   => User::whereNotNull('position')->where('position', '!=', '')->where('status', 'active')
                 ->distinct()->orderBy('position')->pluck('position'),
-            'employees'   => User::whereIn('role', User::CLOCKING_ROLES)->where('status', 'active')
+            'employees'   => User::clocking()->where('status', 'active')
                 ->orderBy('last_name')->get(['id', 'first_name', 'last_name', 'employee_code']),
         ]);
     }

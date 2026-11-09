@@ -64,7 +64,8 @@ class WebErrorPagesTest extends TestCase
     public function test_admin_user_calendar_redirects_gracefully_instead_of_404(): void
     {
         $acme  = $this->makeTenant('acme');
-        $admin = $this->makeUser($acme, 'company_admin', ['first_name' => 'Carlos', 'last_name' => 'Ramírez']);
+        // Gerencia no marca asistencia (por defecto): su calendario no existe
+        $admin = $this->makeUser($acme, 'manager', ['first_name' => 'Carlos', 'last_name' => 'Ramírez']);
         $hr    = $this->makeUser($acme, 'hr_manager', ['first_name' => 'Ana', 'last_name' => 'RRHH']);
 
         $response = $this->actingAs($hr)->get(route('attendance.calendar.person', $admin->id));

@@ -96,7 +96,7 @@ class AttendanceCalendarService
         [$from, $to] = $f->range();
 
         return User::forTenant($f->tenantId)
-            ->whereIn('users.role', User::CLOCKING_ROLES)
+            ->clocking()
             ->when($f->viewer, fn ($q) => $q->visibleTo($f->viewer))
             ->when($f->branchId, fn ($q, $id) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $id)))
             ->when($f->zoneId, fn ($q, $id) => $q->whereHas('branches', fn ($b) => $b->where('branches.zone_id', $id)))

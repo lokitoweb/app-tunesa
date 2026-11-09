@@ -316,7 +316,8 @@ class WebPanelTest extends TestCase
         $this->get('/dashboard')
             ->assertOk()
             ->assertDontSee('Vista global')
-            ->assertViewHas('kpis', fn ($kpis) => $kpis['total_employees'] === 1 && $kpis['present_count'] === 1)
+            // El administrador también marca asistencia: cuenta como personal de su empresa (no los de la otra)
+            ->assertViewHas('kpis', fn ($kpis) => $kpis['total_employees'] === 2 && $kpis['present_count'] === 1)
             ->assertViewHas('recentAttendances', fn ($rows) => $rows->pluck('tenant_id')->unique()->all() === [$acme->id])
             ->assertSee('Sede Acme')
             ->assertDontSee('Sede Ajena');

@@ -19,10 +19,16 @@ final onboardingProvider = FutureProvider.autoDispose<OnboardingSummary>((ref) a
   }
 });
 
-/// ¿Se muestran los botones de marcar? Sin respuesta del servidor (cargando o
-/// sin conexión) se usa el estado guardado en la sesión. El servidor bloquea
-/// igual aunque la app se equivoque.
+/// ¿Su rol marca asistencia? (permiso «Marcar asistencia»; Gerencia no, por defecto)
+final marksAttendanceProvider = Provider.autoDispose<bool>(
+  (ref) => ref.watch(authControllerProvider.select((s) => s.user?.marksAttendance ?? true)),
+);
+
+/// ¿Se muestran los botones de marcar? Solo si su rol marca y su incorporación
+/// está aprobada. Sin respuesta del servidor (cargando o sin conexión) se usa el
+/// estado guardado en la sesión. El servidor bloquea igual aunque la app se equivoque.
 final canPunchProvider = Provider.autoDispose<bool>((ref) {
+  if (!ref.watch(marksAttendanceProvider)) return false;
   final remote = ref.watch(onboardingProvider);
   if (remote.hasValue) return remote.requireValue.canPunch;
   final status = ref.watch(authControllerProvider.select((s) => s.user?.onboardingStatus ?? 'approved'));

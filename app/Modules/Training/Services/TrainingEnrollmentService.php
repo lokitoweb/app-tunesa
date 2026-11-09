@@ -33,7 +33,7 @@ class TrainingEnrollmentService
         $query = User::withoutGlobalScope(TenantScope::class)
             ->where('users.tenant_id', $course->tenant_id)
             ->where('users.status', 'active')
-            ->whereIn('users.role', User::CLOCKING_ROLES);
+            ->clocking();
 
         if ($targets->isEmpty()) {
             return $query->whereRaw('1 = 0');
@@ -84,7 +84,7 @@ class TrainingEnrollmentService
     /** Cursos publicados que le corresponden a esta persona y aún no tiene */
     public function syncUser(User $user): int
     {
-        if ($user->status !== 'active' || ! in_array($user->role, User::CLOCKING_ROLES, true) || ! $user->tenant_id) {
+        if ($user->status !== 'active' || ! $user->clocks() || ! $user->tenant_id) {
             return 0;
         }
 

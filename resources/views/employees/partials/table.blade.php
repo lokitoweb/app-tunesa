@@ -131,7 +131,7 @@
                                         <i class="bi bi-folder2-open"></i>
                                     </button>
                                 @endcan
-                                @if((auth()->user()->can('attendance.view_all') || auth()->user()->can('attendance.view_team')) && in_array($emp->role, \App\Modules\Core\Models\User::CLOCKING_ROLES, true))
+                                @if((auth()->user()->can('attendance.view_all') || auth()->user()->can('attendance.view_team')) && $emp->clocks())
                                     <a href="{{ route('attendance.calendar.person', $emp->id) }}" class="btn-table-action" title="Calendario mensual de asistencia" aria-label="Calendario de {{ $emp->first_name }}">
                                         <i class="bi bi-calendar3"></i>
                                     </a>

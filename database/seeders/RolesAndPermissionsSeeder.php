@@ -149,7 +149,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'Ve indicadores, reportes y asistencia de toda la empresa; aprueba solicitudes. No edita datos.',
             [
                 'users.view', 'branches.view', 'shifts.view', 'shifts.view_own',
-                'attendance.mark', 'attendance.view_own', 'attendance.view_team', 'attendance.view_all', 'attendance.edit', 'attendance.authorize_offshift',
+                // Gerencia no marca asistencia (Configuración › Roles y permisos puede activarlo por empresa)
+                'attendance.view_own', 'attendance.view_team', 'attendance.view_all', 'attendance.edit', 'attendance.authorize_offshift',
                 'dashboard.view', 'reports.view', 'reports.export', 'expirations.view',
                 'leave.request', 'leave.approve_team', 'leave.approve_all',
                 'suppliers.view', 'requisitions.create', 'requisitions.view_all', 'requisitions.approve', 'treasury.view',

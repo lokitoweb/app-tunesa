@@ -83,7 +83,7 @@ class AttendanceReportService
     public function employeesQuery(ReportFilters $f): Builder
     {
         return User::forTenant($f->tenantId)
-            ->whereIn('users.role', User::CLOCKING_ROLES)
+            ->clocking()
             ->when($f->viewer, fn ($q) => $q->visibleTo($f->viewer))
             ->when($f->userId, fn ($q, $id) => $q->where('users.id', $id))
             ->when($f->branchId, fn ($q, $id) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $id)))

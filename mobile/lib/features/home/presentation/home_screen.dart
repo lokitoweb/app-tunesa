@@ -115,21 +115,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _TeamSection(canApprove: user.canApproveRequests, canViewTeam: user.canViewTeam, canAuthorizePayments: user.canAuthorizePayments),
               const SizedBox(height: 16),
             ],
-            today.whenSkeleton(
-              loading: () => const SkeletonPunchBoard(),
-              error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(todayStatusProvider)),
-              data: (status) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ShiftCard(schedule: status.schedule),
-                  const SizedBox(height: 12),
-                  if (canPunch)
-                    PunchBoard(status: status, onPunch: (action) => context.push('/clock/${action.apiName}'))
-                  else
-                    const OnboardingGateCard(),
-                ],
+            if (!ref.watch(marksAttendanceProvider))
+              const OnboardingGateCard()
+            else
+              today.whenSkeleton(
+                loading: () => const SkeletonPunchBoard(),
+                error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(todayStatusProvider)),
+                data: (status) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ShiftCard(schedule: status.schedule),
+                    const SizedBox(height: 12),
+                    if (canPunch)
+                      PunchBoard(status: status, onPunch: (action) => context.push('/clock/${action.apiName}'))
+                    else
+                      const OnboardingGateCard(),
+                  ],
+                ),
               ),
-            ),
             const SizedBox(height: 16),
             const RevealSize(child: BirthdayHomeCard()),
             const QuickActions(),

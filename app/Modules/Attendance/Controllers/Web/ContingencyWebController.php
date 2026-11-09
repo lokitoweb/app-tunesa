@@ -117,7 +117,7 @@ class ContingencyWebController extends Controller
     /** Personal que marca asistencia */
     private function clocking(): Builder
     {
-        return User::query()->where('status', 'active')->whereIn('role', User::CLOCKING_ROLES);
+        return User::query()->where('status', 'active')->clocking();
     }
 
     private function covered(AttendanceContingency $plan): Builder

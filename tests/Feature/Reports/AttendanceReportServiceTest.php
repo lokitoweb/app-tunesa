@@ -322,7 +322,8 @@ class AttendanceReportServiceTest extends TestCase
 
         $admin = $this->makeUser($tenant, 'company_admin');
         $ids = $this->service->employeesQuery($this->filters($tenant, '2026-10-01', '2026-10-05', $admin))->pluck('id')->all();
-        $this->assertEqualsCanonicalizing([$emp->id, $supervisor->id, $outsider->id], $ids);
+        // El administrador también marca asistencia: aparece en el reporte de su empresa
+        $this->assertEqualsCanonicalizing([$emp->id, $supervisor->id, $outsider->id, $admin->id], $ids);
 
         $super = $this->makeUser(null, 'super_admin');
         $ids = $this->service->employeesQuery(new ReportFilters(null, '2026-10-01', '2026-10-05', viewer: $super))->pluck('id')->all();
