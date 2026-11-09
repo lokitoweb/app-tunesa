@@ -3,7 +3,7 @@
 # arranque y logo encima de la app y deja el nombre para Android (dart-define APP_NAME) e iOS
 # (ios/Flutter/Brand.xcconfig). Lo llama scripts/build_apk.sh con el "BRAND" de env/<entorno>.json.
 #
-#   scripts/apply_brand.sh grupo-negreiros
+#   scripts/apply_brand.sh assist-conmigo
 #   scripts/apply_brand.sh default          # marca neutra (la que queda en el repositorio)
 #
 # Un cliente nuevo: copia branding/default a branding/<cliente>, reemplaza las imágenes (mismas

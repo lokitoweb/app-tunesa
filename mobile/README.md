@@ -36,13 +36,15 @@ y arranca el backend con `php artisan serve --host 0.0.0.0`.
 ## Marca de la app (kit por cliente)
 
 Lo que se ve **fuera** de la app (nombre bajo el ícono, ícono, pantalla de arranque) y el logo de
-respaldo se eligen al compilar con un kit de `branding/<kit>/`. Lo de **adentro** (logo, colores y
-nombre) lo manda el servidor desde **Marca y app**, sin recompilar.
+respaldo se eligen al compilar con un kit de `branding/<kit>/` (el sistema operativo no deja cambiar el ícono
+de una app instalada: un ícono nuevo es un APK/IPA nuevo). Lo de **adentro** (logo del login y de la app,
+colores y nombre) lo manda el servidor desde **Marca y app**, sin recompilar.
 
 | Kit | Para qué |
 |---|---|
 | `default` | Neutro ("ERP", ícono genérico). Es el que queda en el repositorio. |
-| `grupo-negreiros` | La marca actual; la usan `env/dev`, `prod`, `staging` y `tunnel` (`"BRAND"`). |
+| `assist-conmigo` | La marca actual (Assist Conmigo); la usan `env/dev`, `prod`, `staging` y `tunnel` (`"BRAND"`). |
+| `grupo-negreiros` | La marca anterior (se conserva para compilarla si hiciera falta). |
 
 `scripts/build_apk.sh` lee `"BRAND"` del `env/<entorno>.json`, aplica el kit con
 `scripts/apply_brand.sh`, pasa su `brand.json` (`APP_NAME`) como defines y, al terminar, deja otra

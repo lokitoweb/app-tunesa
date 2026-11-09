@@ -99,6 +99,10 @@ class WhiteLabelSettingsTest extends TestCase
         $this->actingAs($hr)->get('/settings/branding')->assertForbidden();
 
         $this->actingAs($root)->get('/settings/branding')->assertOk()->assertSee('Valores por defecto de la plataforma');
+        // Logos en SVG: el navegador los convierte a PNG antes de enviarlos (panel.js); el servidor no guarda SVG
+        $this->get('/settings/branding')->assertSee('data-svg-to-png="1200"', false)->assertSee('image/svg+xml', false);
+        $svg = \Illuminate\Http\UploadedFile::fake()->createWithContent('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
+        $this->put('/settings/branding', ['logo' => $svg])->assertSessionHasErrors('logo');
         $this->actingAs($root)->post('/admin/switch-tenant', ['tenant_id' => $acme->id]);
         $this->get('/settings/branding')->assertOk()->assertSee('Acme')->assertDontSee('Valores por defecto de la plataforma');
     }

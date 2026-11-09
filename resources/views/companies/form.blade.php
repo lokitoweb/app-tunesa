@@ -123,8 +123,8 @@
                         @endif
                         <div class="flex-grow-1">
                             <label for="logo" class="form-label">Logo</label>
-                            <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/webp" class="form-control @error('logo') is-invalid @enderror">
-                            <div class="form-text">PNG, JPG o WebP, máximo 2 MB.</div>
+                            <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg" data-svg-to-png="1200" class="form-control @error('logo') is-invalid @enderror">
+                            <div class="form-text">PNG, JPG, WebP o SVG, máximo 2 MB.</div>
                         </div>
                     </div>
                     @if($company->logo_path)

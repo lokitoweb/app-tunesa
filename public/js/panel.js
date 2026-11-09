@@ -1046,6 +1046,51 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && controls.open) { const b = controls.open.querySelector('.mc-btn'); controls.close(); b?.focus(); } });
     document.addEventListener('DOMContentLoaded', () => controls.init());
 
+    /**
+     * Logos en SVG: el navegador lo convierte a PNG transparente (lado mayor = data-svg-to-png, 1200 px
+     * por defecto) antes de enviarlo. El servidor solo guarda imágenes rasterizadas (un SVG puede llevar
+     * scripts) y así el logo se ve igual en el panel, la app móvil y los PDF.
+     *   <input type="file" data-svg-to-png accept="image/png,image/svg+xml">
+     */
+    function svgToPng(file, maxSide) {
+        return new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                const w = img.naturalWidth || 1000, h = img.naturalHeight || 1000;
+                const scale = maxSide / Math.max(w, h);
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(w * scale);
+                canvas.height = Math.round(h * scale);
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                canvas.toBlob((blob) => blob
+                    ? resolve(new File([blob], file.name.replace(/\.svg$/i, '') + '.png', { type: 'image/png' }))
+                    : reject(new Error('png')), 'image/png');
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('svg')); };
+            img.src = url;
+        });
+    }
+    // En captura: llega antes que la vista previa del campo, que recibe ya el PNG
+    document.addEventListener('change', async (e) => {
+        const input = e.target;
+        if (!(input instanceof HTMLInputElement) || !input.matches('input[type="file"][data-svg-to-png]')) return;
+        const file = input.files && input.files[0];
+        if (!file || !(file.type === 'image/svg+xml' || /\.svg$/i.test(file.name))) return;
+        e.stopImmediatePropagation();
+        try {
+            const png = await svgToPng(file, parseInt(input.dataset.svgToPng, 10) || 1200);
+            const list = new DataTransfer();
+            list.items.add(png);
+            input.files = list.files;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        } catch (err) {
+            input.value = '';
+            toast('No se pudo leer el SVG. Expórtalo de nuevo o súbelo en PNG.', 'danger');
+        }
+    }, true);
+
     window.Panel = { esc, minutes, tiles, mapLayers, fullscreen, cssVar, openPhoto, confirm: confirmDialog, toast, cleanQuery, skeleton, filters, controls };
     window.Toast = Toast;
     window.openPhotoModal = openPhoto;

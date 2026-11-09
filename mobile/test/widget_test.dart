@@ -101,12 +101,12 @@ void main() {
     expect(find.byKey(const Key('password-help-done')), findsOneWidget);
   });
 
-  testWidgets('el login muestra fijo el logo del kit de marca sin deformarlo', (tester) async {
+  testWidgets('el login muestra el logo administrado y, sin él, el del kit de marca sin deformarlo', (tester) async {
     tester.view.physicalSize = const Size(320 * 3, 640 * 3); // teléfono angosto
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await _pumpApp(tester, {});
-    expect(find.byType(BrandLogo), findsNothing); // el de la empresa solo dentro de la app
+    expect(find.byType(BrandLogo), findsOneWidget); // el de Marca y app (plataforma)
     final logo = tester.widget<Image>(find.descendant(of: find.byType(OfficialLogo), matching: find.byType(Image)));
     expect((logo.image as AssetImage).assetName, OfficialLogo.asset);
     expect(logo.fit, BoxFit.contain);

@@ -258,6 +258,10 @@ class TenantSettingsService
             'latest_version.regex'    => 'Usa el formato de versión 1.2.3.',
             'update_url.url'          => 'El enlace de descarga debe empezar con https://.',
             '*.regex'                 => 'El color debe ser hexadecimal, por ejemplo #1E40AF.',
+            // Un SVG lo convierte el navegador a PNG antes de enviarlo (panel.js, data-svg-to-png); el servidor no guarda SVG
+            'logo.mimes'              => 'El logo debe ser PNG, JPG o WebP. Si es SVG, vuelve a elegirlo: el panel lo convierte a PNG.',
+            'logo_dark.mimes'         => 'El logo debe ser PNG, JPG o WebP. Si es SVG, vuelve a elegirlo: el panel lo convierte a PNG.',
+            'splash.mimes'            => 'La imagen debe ser PNG, JPG o WebP. Si es SVG, vuelve a elegirla: el panel la convierte a PNG.',
             'favicon.mimes'           => 'El favicon debe ser PNG o ICO.',
             'favicon.extensions'      => 'El favicon debe ser PNG o ICO.',
             'fcm_service_account_json.prohibited' => 'La cuenta de servicio de Firebase solo se configura en la plataforma.',

@@ -20,10 +20,11 @@
     $inh = fn (string $key) => $inherited->{$key};
     $ownerName = $isGlobal ? 'la plataforma' : $tenant->company_name;
     $images = [
-        'logo'      => ['Logo (fondo claro)', $values['logo_url'], 'image/png,image/jpeg,image/webp', 'PNG, JPG o WebP. Máx. 2 MB. Se usa en el panel, el login y la app.'],
-        'logo_dark' => ['Logo (fondo oscuro)', $values['logo_dark_url'], 'image/png,image/jpeg,image/webp', 'Versión clara para el tema oscuro. Si no lo subes se usa el logo normal.'],
-        'favicon'   => ['Favicon', $values['favicon_url'], 'image/png,image/x-icon,.ico', 'PNG o ICO cuadrado (32×32 o 64×64). Máx. 2 MB.'],
-        'splash'    => ['Pantalla de inicio de la app', $values['splash_url'], 'image/png,image/jpeg,image/webp', 'Imagen vertical que la app muestra al abrirse (recomendado 1080×1920).'],
+        // [etiqueta, url, accept, ayuda, lado mayor al convertir un SVG a PNG (panel.js, data-svg-to-png)]
+        'logo'      => ['Logo (fondo claro)', $values['logo_url'], 'image/png,image/jpeg,image/webp,image/svg+xml,.svg', 'PNG, JPG, WebP o SVG. Máx. 2 MB. Se usa en el panel, el login y la app.', 1200],
+        'logo_dark' => ['Logo (fondo oscuro)', $values['logo_dark_url'], 'image/png,image/jpeg,image/webp,image/svg+xml,.svg', 'Versión clara para el tema oscuro (PNG, JPG, WebP o SVG). Si no lo subes se usa el logo normal.', 1200],
+        'favicon'   => ['Favicon', $values['favicon_url'], 'image/png,image/x-icon,.ico,image/svg+xml,.svg', 'PNG, ICO o SVG cuadrado (32×32 o 64×64). Máx. 2 MB.', 256],
+        'splash'    => ['Pantalla de inicio de la app', $values['splash_url'], 'image/png,image/jpeg,image/webp,image/svg+xml,.svg', 'Imagen vertical que la app muestra al abrirse (recomendado 1080×1920; también SVG).', 1920],
     ];
     $colors = [
         'primary_color'   => ['Primario', 'Botones, enlaces y elementos activos.'],
@@ -111,7 +112,7 @@
                         </div>
                         <div class="card-body p-3 pt-1">
                             <div class="row g-3">
-                                @foreach($images as $input => [$label, $url, $accept, $help])
+                                @foreach($images as $input => [$label, $url, $accept, $help, $svgSide])
                                     <div class="col-12 col-md-6">
                                         <div class="image-upload-card h-100 d-flex flex-column justify-content-between">
                                             <div>
@@ -124,7 +125,7 @@
                                                 </div>
                                             </div>
                                             <div>
-                                                <input type="file" id="{{ $input }}" name="{{ $input }}" accept="{{ $accept }}" data-preview-input="{{ $input }}"
+                                                <input type="file" id="{{ $input }}" name="{{ $input }}" accept="{{ $accept }}" data-preview-input="{{ $input }}" data-svg-to-png="{{ $svgSide }}"
                                                        class="form-control form-control-sm @error($input) is-invalid @enderror">
                                                 <small class="settings-helper-text d-block mt-1" style="font-size: 0.725rem;">{{ $help }}</small>
                                                 @if($url)
