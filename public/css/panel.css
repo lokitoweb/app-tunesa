@@ -9783,3 +9783,7 @@ a.dash-kpi-card.is-link.is-active { border-color: var(--brand); box-shadow: 0 0 
 
 /* Versión del panel web en el menú del usuario (web_version()) */
 .user-profile-version { padding: 6px 16px 4px; font-size: 0.7rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* Colaboradores: la columna Acciones queda fija a la derecha cuando la tabla es más ancha que la pantalla
+   (antes el lápiz quedaba fuera de la vista, sobre todo en filas con menos botones, como RRHH) */
+.emp-table th:last-child, .emp-table td:last-child { position: sticky; right: 0; z-index: 1; box-shadow: -8px 0 8px -8px rgba(15, 23, 42, 0.18); }
