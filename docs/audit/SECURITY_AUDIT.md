@@ -1,0 +1,130 @@
+# Auditoría de seguridad
+
+Severidades: Crítico · Alto · Medio · Bajo · Informativo. Nunca se escriben valores secretos en este documento.
+El repositorio en GitHub es **público**: este documento describe riesgos sin datos explotables.
+
+## 1. Inventario de secretos (bloque 0)
+
+### 1.1 Historial de git
+
+| Elemento | Dónde | Tipo | Estado |
+|---|---|---|---|
+| `.env` con `APP_KEY`, `APP_URL`, `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` | commit inicial `f10f077` (quitado en `b5d4bb6`) | **De desarrollo local** (`APP_ENV=local`, `APP_DEBUG=true`, sin datos de base) | Público en el historial. En local no coincide nada (comprobado). En producción: lo verifica `app:check-production` en cada despliegue (ver 1.4) |
+| `configurar_trujillo.php` | versionado en la raíz | Script puntual con el DNI de una persona real usado como contraseña | **Alto**: dato personal en un repositorio público. Quitarlo del repo requiere decisión (no se borra sin autorización) |
+| `mobile/android/app/google-services.json` | versionado | Clave de API de Firebase **pública por diseño** | Informativo: restringirla en Google Cloud por paquete Android y huella SHA-1 |
+| `_to_delete/google-services.json.vacio` | versionado | Archivo vacío | Sin riesgo; limpiar en bloque 7 |
+
+No se encontraron en el historial: llaves de firma (`.jks`, `.keystore`, `key.properties`), certificados de Apple
+(`.p12`, `.mobileprovision`), cuentas de servicio de Firebase ni llaves privadas.
+
+**Por qué el `.env` histórico probablemente no afecta a producción** (se confirma con 1.4):
+- La variable `SUPERADMIN_PASSWORD` ya no la usa ningún código. Producción crea el Super Admin con el asistente
+  (contraseña escrita por una persona, mínimo 10 caracteres) o con `SEED_SUPERADMIN_PASSWORD`.
+- El asistente genera una `APP_KEY` nueva al instalar (`app/Installer/InstallerServiceProvider.php`).
+- Solo habría riesgo si alguien copió a mano esos valores al servidor.
+
+### 1.2 Repositorio, APK y frontend (revisión estática)
+
+- `mobile/env/*.json`: solo URLs (producción, staging, túnel); las claves de Firebase vienen vacías.
+- `mobile/lib`: sin secretos. El APK solo trae la URL de la API y la clave pública de Firebase.
+- Panel web: la clave de Google Maps va en las URLs de las teselas (**Medio**: debe tener restricción por
+  dominio HTTP en Google Cloud; el código no lo puede imponer).
+- Semillas: las contraseñas de demostración solo se usan fuera de producción (`DatabaseSeeder.php:34`).
+
+### 1.3 GitHub (verificado con la API de GitHub, 09/11/2026)
+
+- Repositorio **público**. Escaneo de secretos y protección al hacer push: **activados**. Dependabot: desactivado.
+- GitHub Actions: **0 secretos y 0 variables** cargados. Los flujos esperan `ANDROID_KEYSTORE_*`, `FIREBASE_*`,
+  `IOS_CERTIFICATE_*`, `IOS_PROVISIONING_PROFILE_BASE64`, `IOS_TEAM_ID` y variables `API_BASE_URL`,
+  `APP_CERT_SHA256`, `IOS_EXPORT_METHOD`. Consecuencia: los APK que compila CI se firman con la llave de
+  depuración y salen sin push (Firebase vacío). **No se deben publicar en Play**.
+
+### 1.4 Verificación automática en producción (implementado)
+
+`php artisan app:check-production` (se ejecuta en cada despliegue) compara, **sin mostrar valores**, la `APP_KEY`
+del servidor y la contraseña de cada Super Admin con las del `.env` histórico (`git show f10f077:.env`).
+Si coincide algo, lo reporta como error. Si el servidor no tiene git, lo avisa. Prueba:
+`ProductionReadinessTest::test_detects_secrets_reused_from_the_public_git_history`.
+
+### 1.5 Prevención
+
+- `.gitignore` ampliado: `.env.*` (salvo los ejemplos), `*.p12`, `*.pem`, `*.key`, `*.mobileprovision`,
+  `*.keystore`, `*.jks`, `key.properties`, cuentas de servicio.
+- Recomendado (requiere ajustar el repositorio): activar Dependabot; poner el repositorio en privado.
+
+## 2. Procedimiento de rotación (preparado; se ejecuta con autorización, antes del cierre)
+
+1. **Respaldo** de la base y del `.env` del servidor.
+2. **Contraseña de Super Admin**: cambiarla desde Mi cuenta. Efecto: cierra sus sesiones. Sin más impacto.
+3. **APP_KEY** (solo si `app:check-production` reporta coincidencia, o como higiene):
+   - Afecta: cookies y sesiones (todos vuelven a iniciar sesión en el panel), URLs firmadas de `/secure-files`
+     (los enlaces vigentes de 5 min dejan de valer) y **todo lo cifrado con `encrypted`** en la base:
+     secretos de `tenant_settings` (clave de Google Maps, cuenta de servicio de Firebase, secreto de webhook,
+     tokens de Migo/Nubefact, contraseña SMTP de cada empresa) y cualquier otra columna con cast `encrypted`.
+   - Los tokens de la app (Sanctum) **no** dependen de `APP_KEY`: la app sigue conectada.
+   - Procedimiento seguro: poner la clave anterior en `APP_PREVIOUS_KEYS` (Laravel 11+ descifra con ella),
+     generar la nueva, y volver a guardar los secretos cifrados (re-cifrado) antes de quitar la anterior.
+4. Verificar con `php artisan app:check-production` y con un inicio de sesión real en panel y app.
+5. Reversión: restaurar el `.env` respaldado.
+
+## 3. Contraseña inicial (DNI) y recuperación de acceso
+
+### 3.1 Contraseña inicial = DNI (se conserva)
+
+Verificado y blindado:
+- La cuenta nace con `must_change_password` y vence en 72 h (`CredentialProvisioner`).
+- **App**: `EnsurePasswordChanged` cubre todas las rutas autenticadas de la API (las del Super Admin no lo
+  necesitan: no tienen contraseña temporal).
+- **Panel y Mi espacio** (corregido): antes solo se bloqueaban las pantallas (GET) y solo para usuarios con
+  dashboard; un envío de formulario o un pedido JSON podía saltarse el cambio. Ahora `EnsureWebPasswordChanged`
+  bloquea todo salvo cambiar la contraseña, cerrar sesión y las páginas legales.
+- La nueva contraseña no puede ser el DNI (exige letras, mayúsculas y números) y el DNI deja de servir.
+- Hash: argon2id (`config/hashing.php`). Prueba: `CredentialPolicyTest::test_dni_initial_password_cannot_be_skipped_and_stops_working_after_the_change`.
+
+### 3.2 Recuperación de acceso — problema
+
+Hoy "Olvidé mi contraseña" (`PasswordRecovery`) **cambia la contraseña en el momento** a una temporal, la envía
+por correo y cierra todas las sesiones. Cualquiera que sepa el correo de otra persona puede dejarla sin acceso
+cada 15 minutos (denegación de servicio). No permite tomar la cuenta (la temporal llega al correo de la víctima).
+
+### 3.3 Diseño propuesto (pendiente de aprobación; no implementado)
+
+1. El pedido no cambia nada: se genera un **enlace de un solo uso** (token aleatorio, guardado con hash) que
+   vence en **30 minutos**, y se envía al correo de la cuenta. La contraseña actual sigue funcionando.
+2. Al abrir el enlace, la persona escribe su nueva contraseña (misma política). Recién ahí se cambia, se cierran
+   sus sesiones y se invalida el enlace.
+3. Un nuevo pedido invalida el enlace anterior. Límite por correo y por IP (además del actual por IP).
+4. Respuesta siempre neutra (no revela si el correo existe), como hoy.
+5. "Restablecer acceso" de RRHH (vuelve al DNI) **no cambia**.
+
+Consecuencias: cambia el texto del correo y del mensaje en la app (lo manda el servidor; no requiere nueva
+versión de la app); la persona termina el cambio en el navegador del teléfono. Si no hay correo configurado,
+se mantiene el aviso a RRHH.
+
+## 4. Hallazgos y correcciones (bloque 1)
+
+| # | Hallazgo | Sev. | Estado |
+|---|---|---|---|
+| S1 | Sesión con contraseña temporal podía operar el panel por POST/JSON | Alto | **Corregido** |
+| S2 | Recuperación cambia la contraseña sin confirmación (DoS dirigido) | Medio | Diseño en 3.3, espera aprobación |
+| S3 | Instalador podía reabrirse si la base falla y no hay `installed.lock` | Medio | **Corregido**: el despliegue crea el lock tras migrar; `app:check-production` avisa si falta |
+| S4 | Login más rápido cuando el correo no existe (enumeración por tiempo) | Bajo | **Corregido**: hash de relleno |
+| S5 | Respuesta 403 revelaba los roles requeridos y el propio | Bajo | **Corregido** |
+| S6 | Correos de personas en los logs | Bajo | **Corregido**: ahora se registra el id |
+| S7 | CORS `*` (valor por defecto) | Info | **Corregido**: solo `APP_URL` y `CORS_ALLOWED_ORIGINS` |
+| S8 | Marcación sin precisión GPS saltaba el control de precisión | Medio | **Corregido**: se registra y queda como sospechosa (`ACCURACY_MISSING`) |
+| S9 | API de revisión de documentos y asignación de sede/turno sin `canManage` (el panel sí lo exige) | Bajo | Pendiente |
+| S10 | Panel y Mi espacio permiten cambiar la contraseña aunque la empresa lo prohíba (la API sí lo respeta) | Bajo | Pendiente |
+| S11 | Sin CSP en el panel | Bajo | Pendiente (primero en modo informe) |
+| S12 | Hora de marcación sin conexión controlada por el teléfono; deriva solo se marca | Medio | Pendiente (bloque 5) |
+| S13 | Fotos de perfil y selfies antiguas en disco público (nombres aleatorios) | Bajo | Pendiente |
+| S14 | `TRUSTED_PROXIES='*'` permitiría falsear la IP del límite de intentos | Info | A revisar en el servidor |
+| S15 | Sin Play Integrity / App Attest; señales de integridad solo informativas | Medio | Bloque 6 (decisión) |
+
+## 5. Verificado como correcto (fase 1)
+
+argon2id con rehash · tokens con vencimiento y revocación · aislamiento entre empresas (todos los
+`withoutGlobalScopes` revisados) · sin `$request->all()` hacia modelos · SQL con bindings · sin XSS (`{!! !!}` solo
+en Markdown sin HTML) · sin exec/unserialize · subidas con MIME real (finfo), PDF sin JS, documentos en disco
+privado servidos con CSP sandbox · CSRF sin excepciones · cookies seguras · webhooks con anti-SSRF y HMAC ·
+errores 5xx sin detalles · app: token en almacenamiento seguro, cola offline cifrada, sin backups, HTTPS obligatorio.
