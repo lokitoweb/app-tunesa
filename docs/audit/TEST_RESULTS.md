@@ -20,3 +20,5 @@ Solo se registran pruebas que se ejecutaron de verdad, con fecha y entorno.
 - Sin pruebas de iOS (ni unitarias de plataforma ni de punta a punta).
 - Sin pruebas de carga recientes con volumen de producción.
 - Casos límite de geocerca (borde exacto, coordenadas inválidas) y de turnos nocturnos con entrada después de medianoche.
+| 10/11/2026 | Local Windows, PHP 8.2.12, SQLite, `php artisan test --parallel` | Backend completo | 802 pruebas, 11 650 aserciones, 0 fallos (tras `hours_v2` y faltas justificadas); + 5 nuevas (re-cifrado, controles de seguridad) |
+| 10/11/2026 | GitHub Actions (`8611e67`) | Backend (SQLite + MySQL 8), frontend, E2E contrato API + emuladores Android 10/15, APK | 3/3 en verde |

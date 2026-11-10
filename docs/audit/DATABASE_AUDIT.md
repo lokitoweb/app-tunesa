@@ -48,13 +48,27 @@ normales, límites y excepcionales.
 |---|---|---|---|
 | Horas de la jornada cerrada (total − descanso, refrigerio pagado, jornada base, horas extra) | Copiada en la salida de la app (`AttendanceService`) y en la corrección manual (`ManualAttendanceEdit`) | Una sola: `AttendanceService::closedDayHours` | **Implementado y probado** (sin cambio de resultados) |
 | Estado de la jornada (tardanza / media jornada < 60 % / presente) | `determineFinalStatus` + copia en `ManualAttendanceEdit` | Una sola: `AttendanceService::closedDayStatus` | **Implementado y probado** |
-| Reporte de horas vs. lo guardado (C1–C4) | El reporte recalcula | — | **Pendiente**: alinear cambia cifras del reporte. Ya existe la bandera por empresa `hours_v2` (`php artisan attendance:flag`) que corrige C3 y parte de C4; activarla es decisión del propietario |
-| Faltas justificadas (C5, C10, C11) | Tres criterios | — | **Pendiente de aprobación** (propuesta B.2) |
+| Reporte de horas vs. lo guardado (C1–C4) | El reporte recalcula | El reporte toma horas y extras de la jornada guardada y solo reparte diurno/nocturno; `hours_v2` es la regla de todas (off por empresa = vuelta atrás) | **Implementado y probado** (`SingleSourceOfTruthTest`). C4: el reporte muestra extras generadas; la planilla, las aprobadas (columnas distintas, mismo origen) |
+| Salida anticipada | Calculada en 3 lugares, no guardada | Se guarda al cerrar la jornada (`early_exit_minutes`, misma fórmula) | **Implementado y probado** |
+| Faltas justificadas (C5, C10, C11) | Tres criterios | Un solo criterio por día para planilla y reporte (B.2) | **Implementado y probado** (`JustifiedTimeTest`) |
+| Recalcular jornadas guardadas | No existía | `attendance:recalculate` (vista previa por defecto; no toca extras ya revisadas) + migración única tras el respaldo del deploy | **Implementado y probado**; en producción corre al desplegar |
 
 Planilla, calendario, dashboard e integraciones leen lo guardado en `attendances`; con la fórmula única, lo
 guardado sale igual por la app o por la corrección manual.
 
-### B.2 Faltas justificadas: situación actual y propuesta (no implementada; cambia la planilla)
+### B.2 Faltas justificadas — decidido el 10/11/2026 e implementado
+
+Decisiones del propietario: (1) vacaciones y descanso médico siempre con goce; permisos y justificaciones, RR. HH.
+elige con o sin goce al aprobar; (2) sin valor por defecto: no se puede aprobar sin elegir; (3) tardanzas y
+salidas anticipadas justificadas en columna aparte, no cuentan como tardanza; el día sigue trabajado.
+
+Implementado: columnas `attendances.justification_paid`, `attendances.early_exit_minutes`,
+`leave_requests.with_pay` (solo agrega); `Attendance::reviewJustification` y `LeaveRequest::review` (una regla para
+panel, API y app); planilla con columnas con/sin goce y "sin clasificar" para aprobaciones anteriores (no se
+inventa el tratamiento); reporte con "Justif. min."; panel (aprobaciones y detalle de asistencia) y app del
+supervisor piden el tratamiento. Pruebas: `JustifiedTimeTest` y las de aprobación actualizadas.
+
+#### Texto original de la propuesta
 
 **Hoy** (verificado en el código):
 - **No suman horas trabajadas**: la falta tiene 0 h y aprobar la justificación no agrega horas. "Horas a pagar"

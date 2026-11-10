@@ -62,7 +62,7 @@ Datos verificados el 09/11/2026 con la API de GitHub: repositorio `lokitoweb/app
 | Tema | Efecto al pasar a privado | Qué hacer antes |
 |---|---|---|
 | Despliegue automático | El cron del servidor hace `git fetch`. Si `origin` es https anónimo, **deja de desplegar** (sin error visible en la web). Hay 0 deploy keys: no consta que el servidor use SSH | En el servidor: `sudo bash scripts/server-setup.sh --dry-run`; el paso 6 dice si lee el repo y si es por SSH. Si avisa https: crear deploy key de solo lectura (`docs/deployment/produccion-servidor.md` §4) y `git remote set-url origin git@github.com:lokitoweb/app-tunesa.git` como `cyp` |
-| Minutos de Actions | Público = gratis. Privado (plan Free) incluye **2 000 min/mes**; el uso medido es **~11 500 min/mes** (E2E ~5 600, APK ~3 500, backend ~2 400). Con límite de gasto 0, al agotarse **los workflows dejan de correr** | Antes: limitar disparadores (E2E y APK solo cuando cambian `mobile/` o la API, o a mano; cancelar corridas repetidas con `concurrency`). Requiere aprobación (cambia CI) |
+| Minutos de Actions | Público = gratis. Privado (plan Free) incluye **2 000 min/mes**; el uso medido es **~11 500 min/mes** (E2E ~5 600, APK ~3 500, backend ~2 400). Con límite de gasto 0, al agotarse **los workflows dejan de correr** | **Hecho y publicado (10/11/2026, `8611e67`)**: filtros por ruta, `concurrency`, caché de Gradle, emuladores solo con cambios de `mobile/`, `.aab` solo en tags/manual. Estimado ~6 300 min/mes (antes ~11 500): sigue sobre 2 000. Opciones en el informe al propietario |
 | Secret scanning / push protection | En repos privados sin GitHub Advanced Security se pierde el escaneo automático | Mantener la verificación propia: `app:check-production` y `.gitignore` endurecido (§1.4, §1.5) |
 | Exposición previa | Lo que ya fue público (historial, `.env` de `f10f077`, DNI antiguo) **no se des-publica**: pudo copiarse | La rotación (§2) sigue siendo necesaria |
 | Enlaces públicos | README, insignias o descargas de APK desde GitHub dejan de verse sin sesión | Revisar si alguien descarga APKs desde GitHub (hoy no hay Pages ni forks) |
@@ -110,8 +110,9 @@ Comparación hecha con huellas (sha256), nunca mostrando valores.
 4. **`APP_KEY`** (obligatoria solo si `app:check-production` reporta coincidencia; si no, higiene opcional):
    - `APP_PREVIOUS_KEYS=<clave actual>` y `APP_KEY=<nueva>` en el `.env`, `php artisan config:cache`.
      Laravel descifra con la anterior y cifra con la nueva: nada se rompe en este paso.
-   - Re-cifrar las columnas listadas (leer y volver a guardar cada fila). **Falta un comando** para esto
-     (`app:reencrypt`, idempotente y con conteo por tabla); se programa solo si se aprueba la rotación.
+   - Re-cifrar: `php artisan app:reencrypt --dry-run` y luego `php artisan app:reencrypt` (**implementado y
+     probado**, `ReencryptSecretsTest`: rotar → re-cifrar → quitar la clave anterior conserva todo; lo que no se
+     puede descifrar no se toca y el comando falla).
    - Verificar: panel, ajustes de la empresa (Maps/SMTP), un caso de ética y una ficha con cuenta bancaria.
    - Recién después, quitar `APP_PREVIOUS_KEYS`. Mantener el respaldo del `.env` anterior al menos 30 días.
 5. **Otros** (solo si hubo exposición; hoy no consta): `DB_PASSWORD`, `MAIL_PASSWORD`, tokens de Migo/Nubefact,

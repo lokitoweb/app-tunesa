@@ -2,6 +2,36 @@
 
 Cada entrada: qué se cambió, por qué, archivos, pruebas. Se agrega el commit cuando exista.
 
+## 10/11/2026 — Publicado en GitHub y desplegado
+
+- Publicados (solo código, sin `docs/audit`): recuperación con enlace, DNI fuera de `configurar_trujillo.php`,
+  paso 6 de `server-setup.sh`, fórmula única de la jornada y optimización de CI (`8611e67`). CI en verde (3/3).
+  Producción sirve la versión nueva (verificado en la página pública "¿Olvidaste tu contraseña?").
+
+## 10/11/2026 — CI: menos minutos sin quitar pruebas
+
+- Backend: no corre con cambios solo de app móvil o documentación; un push nuevo cancela el anterior.
+- E2E: el contrato API corre con cambios de backend o app; los emuladores (~14 min c/u) solo cuando cambia
+  `mobile/`, a mano o los lunes. Caché de Gradle. El `.aab` solo en tags `v*` o corrida manual release.
+
+## 10/11/2026 — Bloque 2: fuente única y `hours_v2` para todas (local, pendiente de publicar)
+
+- `hours_v2` por defecto en todas las empresas (off explícito = vuelta atrás). El reporte muestra la jornada
+  guardada (feriados con regla de extras y base de medio tiempo incluidos). `attendance:recalculate` y una
+  migración única que recalcula tras el respaldo del deploy. Diferencias documentadas en pruebas (extras solo
+  después de la salida oficial; con refrigerio pagado, salir a la hora no es extra; descanso fijo en nocturnos).
+
+## 10/11/2026 — Faltas y tiempos justificados con / sin goce (local, pendiente de publicar)
+
+- Ver `DATABASE_AUDIT.md` §B.2. Backend, base de datos (solo agrega columnas), panel, app, planilla y reporte.
+
+## 10/11/2026 — Secretos: rotación de APP_KEY sin pérdida (local, pendiente de publicar)
+
+- `php artisan app:reencrypt` (con `APP_PREVIOUS_KEYS`): re-cifra denuncias de ética, datos bancarios y
+  credenciales por empresa; no muestra valores; si algo no se descifra no lo toca y falla. Probado: rotar →
+  re-cifrar → quitar la clave anterior conserva todo.
+- `SecurityControlsTest`: el DNI no se puede volver a usar, Argon2id, CORS solo para orígenes permitidos.
+
 ## 09/11/2026 — Bloque 2: fórmula única de la jornada cerrada
 
 - `AttendanceService::closedDayHours` y `closedDayStatus`: la salida marcada en la app y la corrección manual de
