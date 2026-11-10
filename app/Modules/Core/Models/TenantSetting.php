@@ -679,7 +679,8 @@ class TenantSetting extends Model
             'project_id'   => (string) $data['project_id'],
             'client_email' => (string) $data['client_email'],
             'private_key'  => $data['private_key'],
-            'token_uri'    => (string) ($data['token_uri'] ?? 'https://oauth2.googleapis.com/token'),
+            // Siempre el de Google: el JSON subido no decide a qué URL se envía la firma (SSRF)
+            'token_uri'    => \App\Modules\Integrations\Services\Push\FcmSender::TOKEN_URI,
         ];
     }
 

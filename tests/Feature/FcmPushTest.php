@@ -96,6 +96,13 @@ class FcmPushTest extends TestCase
         $this->assertStringNotContainsString('=', $jwt);
     }
 
+    public function test_token_uri_from_the_uploaded_json_is_ignored(): void
+    {
+        $account = TenantSetting::parseServiceAccount($this->serviceAccount(['token_uri' => 'http://169.254.169.254/latest/meta-data']));
+
+        $this->assertSame(FcmSender::TOKEN_URI, $account['token_uri']);
+    }
+
     public function test_access_token_exchange_is_cached(): void
     {
         $this->fakeGoogle();
