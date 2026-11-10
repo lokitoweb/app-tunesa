@@ -81,13 +81,13 @@ Verificado y blindado:
 - La nueva contraseña no puede ser el DNI (exige letras, mayúsculas y números) y el DNI deja de servir.
 - Hash: argon2id (`config/hashing.php`). Prueba: `CredentialPolicyTest::test_dni_initial_password_cannot_be_skipped_and_stops_working_after_the_change`.
 
-### 3.2 Recuperación de acceso — problema
+### 3.2 Recuperación de acceso — problema (resuelto, ver 3.3)
 
-Hoy "Olvidé mi contraseña" (`PasswordRecovery`) **cambia la contraseña en el momento** a una temporal, la envía
+Antes "Olvidé mi contraseña" (`PasswordRecovery`) **cambia la contraseña en el momento** a una temporal, la envía
 por correo y cierra todas las sesiones. Cualquiera que sepa el correo de otra persona puede dejarla sin acceso
 cada 15 minutos (denegación de servicio). No permite tomar la cuenta (la temporal llega al correo de la víctima).
 
-### 3.3 Diseño propuesto (pendiente de aprobación; no implementado)
+### 3.3 Diseño aprobado e implementado (09/11/2026)
 
 1. El pedido no cambia nada: se genera un **enlace de un solo uso** (token aleatorio, guardado con hash) que
    vence en **30 minutos**, y se envía al correo de la cuenta. La contraseña actual sigue funcionando.
@@ -106,7 +106,7 @@ se mantiene el aviso a RRHH.
 | # | Hallazgo | Sev. | Estado |
 |---|---|---|---|
 | S1 | Sesión con contraseña temporal podía operar el panel por POST/JSON | Alto | **Corregido** |
-| S2 | Recuperación cambia la contraseña sin confirmación (DoS dirigido) | Medio | Diseño en 3.3, espera aprobación |
+| S2 | Recuperación cambia la contraseña sin confirmación (DoS dirigido) | Medio | **Corregido**: enlace de un solo uso, 30 min (§3.3) |
 | S3 | Instalador podía reabrirse si la base falla y no hay `installed.lock` | Medio | **Corregido**: el despliegue crea el lock tras migrar; `app:check-production` avisa si falta |
 | S4 | Login más rápido cuando el correo no existe (enumeración por tiempo) | Bajo | **Corregido**: hash de relleno |
 | S5 | Respuesta 403 revelaba los roles requeridos y el propio | Bajo | **Corregido** |

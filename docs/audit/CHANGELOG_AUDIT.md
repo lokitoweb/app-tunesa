@@ -2,6 +2,20 @@
 
 Cada entrada: qué se cambió, por qué, archivos, pruebas. Se agrega el commit cuando exista.
 
+## 09/11/2026 — Recuperación de acceso con enlace de un solo uso (S2, aprobado)
+
+- "¿Olvidaste tu contraseña?" ya **no cambia la contraseña** al pedirlo: envía un enlace de un solo uso que vence en
+  30 minutos (token guardado con sha256 en `password_reset_tokens`). La contraseña cambia recién al confirmarla en
+  `/restablecer-clave/{token}`; se borra el token, se cierran las sesiones y queda en auditoría.
+- Un pedido nuevo invalida el enlace anterior; un correo por persona cada 15 min, más límite por IP en las rutas.
+- Respuesta siempre neutra. Sin correo real (o si falla el envío) no se crea enlace y se avisa a RR. HH.
+- La contraseña inicial por DNI, su cambio obligatorio y "Restablecer acceso" de RR. HH. **no cambian**.
+- Archivos: `PasswordRecovery`, `PasswordResetLinkMail` (antes `TemporaryPasswordMail`), `Web/AuthController`,
+  `Api/AuthController`, `Routes/web.php`, `auth/reset-password.blade.php`, `auth/forgot-password.blade.php`,
+  `Labels`, `mobile/.../login_screen.dart` (texto del diálogo).
+- Pruebas: `PasswordRecoveryTest` reescrita (6), `LoginByEmailTest`, `PasswordHelpTest`, `PasswordResetWebTest`;
+  suite completa 798/798 en local. Página verificada en el navegador local.
+
 ## 09/11/2026 — Bloques 0 y 1 (primera tanda)
 
 - **Secretos del historial**: `app:check-production` compara sin mostrar valores la `APP_KEY` y las contraseñas de
