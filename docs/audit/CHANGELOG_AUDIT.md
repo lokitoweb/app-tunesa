@@ -2,6 +2,14 @@
 
 Cada entrada: qué se cambió, por qué, archivos, pruebas. Se agrega el commit cuando exista.
 
+## 10/11/2026 — Estado C9 visible en panel y app (publicado y desplegado, 1.475)
+
+- Prueba real en el servidor local (API de la app + panel a 1440 px): caso B `NO_SCHEDULE`, aviso solo al supervisor; caso C `OUTSIDE_SCHEDULE`, aviso a trabajador y supervisor.
+- Hallazgo: la lista mostraba "Puntual" a quien marcó sin horario y el texto de "Sospechosa" era fijo. `a896c7a`: la lista muestra "Sin horario configurado" / "Fuera de programación", el texto de ayuda lista los motivos reales, y la API (`status_label`) da el mismo estado a la app. Pruebas en ScheduleV2DefaultTest; suite 823/823. Validado en producción: 1.475 · a896c7a, pantallas 200.
+- Producción: la bitácora muestra hours_v2 y schedule_v2 encendidas el 26/10 y nunca apagadas (C9 activo).
+- Mapas: la clave de Google viaja en la URL de los mosaicos (así funciona Map Tiles). Pendiente del propietario: restringirla por dominio y API en Google Cloud.
+- Finanzas: todas las rutas exigen permiso (los reportes, por reporte en el controlador).
+
 ## 10/11/2026 — Rendimiento de permisos y manifiesto iOS (publicado y desplegado)
 
 - `e864ed5` permisos por empresa y rol una vez por request: /employees ya no hace 2 consultas por fila (54→65 ⇒ 46→45). QueryBudgetTest vigila 5 pantallas. Suite 823/823.
