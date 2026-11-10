@@ -25,7 +25,7 @@ bloque 6 (no consultada todavía en esta fase).
 
 | Requisito | Estado | Evidencia / nota |
 |---|---|---|
-| `PrivacyInfo.xcprivacy` | **Pendiente** | No existe en `ios/Runner` |
+| `PrivacyInfo.xcprivacy` | Hecho (local, 10/11) | `ios/Runner/PrivacyInfo.xcprivacy` en Resources de Runner: ubicación precisa, fotos, nombre, correo, ID de usuario y de dispositivo; sin rastreo; UserDefaults CA92.1. Prueba `store_readiness_test.dart`. Compilación iOS no verificada (solo en macOS, job manual) |
 | Textos de uso (ubicación, cámara, fotos, micrófono) | Cumplido | `Info.plist` |
 | Certificado y perfil de distribución App Store | **Pendiente** | Secretos `IOS_*` no cargados; método por defecto ad-hoc |
 | Subida a TestFlight | Pendiente | No hay paso de subida en CI |
