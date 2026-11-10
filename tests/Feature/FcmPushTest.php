@@ -461,7 +461,7 @@ class FcmPushTest extends TestCase
         app(TenantContext::class)->clear();
 
         $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', [
-            'latitude' => -12.09418, 'longitude' => -77.03560,
+            'latitude' => -12.09418, 'longitude' => -77.03560, 'accuracy_meters' => 8,
             'photo' => \Illuminate\Http\UploadedFile::fake()->image('s.jpg', 100, 100),
         ])->assertCreated()->assertJsonPath('punch.suspicion_reasons', ['OUTSIDE_SCHEDULE']);
 

@@ -166,11 +166,11 @@ class SendEntryReminders extends Command
             // Si el envío falla, se libera para reintentar en el minuto siguiente y no frena a los demás
             try {
                 $user->notify(new EntryReminder($assignment->shift, $day, $now->lt($start), (int) ceil($now->diffInSeconds($start, false) / 60)));
-                Log::info("Recordatorio de entrada enviado a {$user->email} (turno {$assignment->shift->start_time}, {$day})");
+                Log::info("Recordatorio de entrada enviado a usuario #{$user->id} (turno {$assignment->shift->start_time}, {$day})");
                 $sent++;
             } catch (\Throwable $e) {
                 Cache::forget($key);
-                Log::warning("Recordatorio de entrada a {$user->email} falló: " . $e->getMessage());
+                Log::warning("Recordatorio de entrada a usuario #{$user->id} falló: " . $e->getMessage());
             }
         }
 
@@ -202,11 +202,11 @@ class SendEntryReminders extends Command
             }
             try {
                 $attendance->user->notify(new ExitReminder($end, $attendance->work_date->toDateString(), $now->lt($end)));
-                Log::info("Recordatorio de salida enviado a {$attendance->user->email} ({$attendance->work_date->toDateString()})");
+                Log::info("Recordatorio de salida enviado a usuario #{$attendance->user->id} ({$attendance->work_date->toDateString()})");
                 $sent++;
             } catch (\Throwable $e) {
                 Cache::forget($key);
-                Log::warning("Recordatorio de salida a {$attendance->user->email} falló: " . $e->getMessage());
+                Log::warning("Recordatorio de salida a usuario #{$attendance->user->id} falló: " . $e->getMessage());
             }
         }
 

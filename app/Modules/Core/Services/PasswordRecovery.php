@@ -49,7 +49,7 @@ class PasswordRecovery
         // Sin un correo que salga de verdad (MAIL_MAILER=log y sin SMTP propio de la empresa) la clave
         // no se toca: nunca le llegaría y quedaría sin acceso. RR. HH. recibe el pedido, como antes.
         if (! self::mailDelivers($user)) {
-            Log::warning("Recuperación de contraseña de {$user->email}: el servidor no envía correos (MAIL_MAILER=" . config('mail.default') . '); se avisó a RR. HH.');
+            Log::warning("Recuperación de contraseña de usuario #{$user->id}: el servidor no envía correos (MAIL_MAILER=" . config('mail.default') . '); se avisó a RR. HH.');
             $this->askHumanResources($user);
 
             return;
@@ -65,7 +65,7 @@ class PasswordRecovery
                 $user->notify(new TemporaryPasswordMail($password));
             });
         } catch (\Throwable $e) {
-            Log::warning("No se pudo enviar la contraseña temporal a {$user->email}: " . $e->getMessage());
+            Log::warning("No se pudo enviar la contraseña temporal a usuario #{$user->id}: " . $e->getMessage());
             $this->askHumanResources($user);
 
             return;

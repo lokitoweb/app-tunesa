@@ -146,6 +146,16 @@ class AttendancePunchLogTest extends TestCase
         $this->assertNull($punches[1]->photo_path);
     }
 
+    public function test_punch_without_gps_accuracy_is_kept_but_flagged_for_review(): void
+    {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-09 08:05:00', 'America/Lima'));
+        $payload = $this->payload();
+        unset($payload['accuracy_meters']);
+
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $payload)->assertCreated()
+            ->assertJsonPath('punch.suspicion_reasons', fn ($reasons) => in_array('ACCURACY_MISSING', $reasons, true));
+    }
+
     public function test_punches_refuse_updates_and_deletes_except_the_address_fill(): void
     {
         $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();

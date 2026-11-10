@@ -148,6 +148,44 @@ class CredentialPolicyTest extends TestCase
         $this->assertFalse($ana->fresh()->must_change_password);
     }
 
+    public function test_dni_initial_password_cannot_be_skipped_and_stops_working_after_the_change(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $dni = '45678912';
+        $ana = $this->makeUser($acme, 'employee', [
+            'document_number' => $dni,
+            'password' => app(CredentialProvisioner::class)->initialPassword($dni),
+            'must_change_password' => true, 'temp_password_expires_at' => now()->addDay(),
+        ]);
+        $admin = $this->makeUser($acme, 'company_admin', ['must_change_password' => true]);
+        app(TenantContext::class)->clear();
+
+        // La contraseña inicial es el DNI (política de incorporación)
+        $this->assertTrue(Hash::check($dni, $ana->fresh()->password));
+
+        // Con la temporal no se puede hacer nada más en el panel ni en Mi espacio: pantallas, envíos ni JSON
+        $this->actingAs($ana)->post('/mi-espacio/marcar', ['type' => 'clock_in'])->assertRedirect(route('portal.profile'));
+        $this->actingAs($ana)->get('/mi-espacio/asistencia')->assertRedirect(route('portal.profile'));
+        $this->actingAs($admin)->postJson('/announcements', [])->assertForbidden()->assertJsonPath('code', 'PASSWORD_CHANGE_REQUIRED');
+        $this->actingAs($admin)->post('/announcements', [])->assertRedirect(route('account.edit'));
+        $this->actingAs($ana)->get('/mi-espacio/perfil')->assertOk();
+
+        // La nueva no puede ser el DNI (pide letras, mayúsculas y números) y luego el DNI deja de servir
+        $this->actingAs($ana)->from('/mi-espacio/perfil')->put('/mi-espacio/perfil/password', [
+            'current_password' => $dni, 'password' => $dni, 'password_confirmation' => $dni,
+        ])->assertSessionHasErrors('password');
+        $this->actingAs($ana)->put('/mi-espacio/perfil/password', [
+            'current_password' => $dni, 'password' => 'Propia2026x', 'password_confirmation' => 'Propia2026x',
+        ])->assertSessionHasNoErrors();
+
+        $fresh = $ana->fresh();
+        $this->assertFalse($fresh->must_change_password);
+        $this->assertFalse(Hash::check($dni, $fresh->password));
+        $this->assertTrue(Hash::check('Propia2026x', $fresh->password));
+        $this->assertStringStartsWith('$argon2id$', $fresh->password);
+        $this->actingAs($fresh)->get('/mi-espacio/asistencia')->assertOk();
+    }
+
     public function test_api_creation_generates_email_from_document(): void
     {
         $acme = $this->makeTenant('acme');

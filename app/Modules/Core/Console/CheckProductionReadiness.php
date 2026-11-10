@@ -73,6 +73,15 @@ class CheckProductionReadiness extends Command
             $errors[] = 'No hay conexión con la base de datos.';
         }
 
+        // Sin installed.lock, si la base falla un momento /install se abriría y podría reescribir el .env
+        if (\App\Installer\InstallState::enabled() && ! is_file(\App\Installer\InstallState::lockFile())) {
+            $warnings[] = 'El asistente /install sigue habilitado y falta storage/app/installed.lock: pon INSTALLER_ENABLED=false o crea el archivo.';
+        }
+
+        [$leakErrors, $leakWarnings] = $this->leakedSecrets();
+        $errors = array_merge($errors, $leakErrors);
+        $warnings = array_merge($warnings, $leakWarnings);
+
         // El cron del scheduler deja una señal cada minuto; sin ella no corren faltas, recordatorios ni la cola
         try {
             $lastRun = (int) cache()->get('scheduler:last_run', 0);
@@ -94,5 +103,51 @@ class CheckProductionReadiness extends Command
         }
 
         return $errors ? self::FAILURE : self::SUCCESS;
+    }
+
+    /** Commits públicos del repositorio que llevaron un .env (no se pueden borrar sin reescribir el historial) */
+    public const LEAKED_ENV_COMMITS = ['f10f077'];
+
+    /**
+     * ¿Este servidor usa algún secreto que quedó en el historial público? Compara, sin mostrar valores,
+     * la APP_KEY y las contraseñas de los Super Admin con las de cada .env histórico (git show).
+     *
+     * @return array{0: list<string>, 1: list<string>} [errores, advertencias]
+     */
+    public function leakedSecrets(?callable $readEnv = null): array
+    {
+        $readEnv ??= function (string $commit): ?string {
+            $out = @shell_exec('git -C ' . escapeshellarg(base_path()) . ' show ' . escapeshellarg("{$commit}:.env") . ' 2>' . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null'));
+
+            return is_string($out) && $out !== '' ? $out : null;
+        };
+        $errors = [];
+        $warnings = [];
+
+        foreach (self::LEAKED_ENV_COMMITS as $commit) {
+            $env = $readEnv($commit);
+            if ($env === null) {
+                $warnings[] = "No se pudo leer el .env del commit {$commit} para compararlo (sin git en el servidor).";
+                continue;
+            }
+            preg_match('/^APP_KEY=(.*)$/m', $env, $key);
+            if (filled($key[1] ?? null) && hash_equals(trim($key[1], " \t\"'\r"), (string) config('app.key'))) {
+                $errors[] = "APP_KEY es la misma que quedó en el historial público (commit {$commit}): rótala (ver docs/audit/SECURITY_AUDIT.md).";
+            }
+            preg_match('/^SUPERADMIN_PASSWORD=(.*)$/m', $env, $password);
+            $password = trim($password[1] ?? '', " \t\"'\r");
+            if ($password !== '') {
+                try {
+                    $hashes = \App\Modules\Core\Models\User::withoutGlobalScopes()->where('role', 'super_admin')->pluck('password');
+                    if ($hashes->contains(fn ($hash) => $hash && \Illuminate\Support\Facades\Hash::check($password, $hash))) {
+                        $errors[] = "Un Super Admin usa la contraseña que quedó en el historial público (commit {$commit}): cámbiala.";
+                    }
+                } catch (\Throwable) {
+                    $warnings[] = 'No se pudo comparar la contraseña de los Super Admin (sin base de datos).';
+                }
+            }
+        }
+
+        return [$errors, $warnings];
     }
 }

@@ -49,6 +49,9 @@ class AttendancePunch extends Model
     /** Selfie tomada más de STALE_PHOTO_SECONDS antes de enviar (reloj del teléfono en ambos extremos) */
     public const REASON_STALE_PHOTO           = 'STALE_PHOTO';
 
+    /** La marcación llegó sin la precisión del GPS: no se puede comprobar la lectura (se registra y se revisa) */
+    public const REASON_ACCURACY_MISSING      = 'ACCURACY_MISSING';
+
     public const STALE_PHOTO_SECONDS = 120;
 
     public const UPDATED_AT = null;

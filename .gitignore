@@ -21,3 +21,17 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Secretos: nunca al repositorio (el repositorio es público). Los .env de ejemplo sí se versionan
+.env.*
+!.env.example
+!.env.production.example
+*.p12
+*.pem
+*.key
+*.mobileprovision
+*.keystore
+*.jks
+key.properties
+*service-account*.json
+*-firebase-adminsdk-*.json

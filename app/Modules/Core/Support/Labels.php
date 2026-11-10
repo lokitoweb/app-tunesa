@@ -956,6 +956,7 @@ final class Labels
             'IMPOSSIBLE_TRAVEL'    => ['Viaje imposible desde la marcación anterior', 'danger'],
             'REPEATED_COORDINATES' => ['Coordenadas idénticas a otro día', 'danger'],
             'STALE_PHOTO'          => ['Selfie tomada mucho antes de enviar', 'warning'],
+            'ACCURACY_MISSING'     => ['Sin precisión GPS', 'warning'],
         ],
         'device_flag' => [
             'rooted'   => ['Root / jailbreak', 'danger'],

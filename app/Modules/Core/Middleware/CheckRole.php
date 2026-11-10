@@ -42,9 +42,8 @@ class CheckRole
             return response()->json([
                 'success' => false,
                 'message' => 'No tienes permisos suficientes para esta acción.',
+                // Sin la lista de roles ni el propio: no revela la estructura de permisos
                 'code'    => 'INSUFFICIENT_ROLE',
-                'required_roles' => $roles,
-                'your_role'      => $user->role,
             ], 403);
         }
 

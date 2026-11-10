@@ -19,6 +19,9 @@ use Illuminate\Validation\ValidationException;
  */
 class LoginGuard
 {
+    /** Hash de relleno para los intentos sin cuenta (mismo costo que uno real) */
+    private static ?string $dummyHash = null;
+
     public function maxAttempts(): int
     {
         return (int) config('auth.lockout.max_attempts', 5);
@@ -50,7 +53,9 @@ class LoginGuard
             throw $this->lockedException(now()->diffInSeconds($user->locked_until, true), 423);
         }
 
-        if (! $user || ! Hash::check((string) $request->input('password'), $user->password)) {
+        // Sin cuenta también se calcula un hash: así el tiempo de respuesta no revela qué correos existen
+        $hash = $user?->password ?? (self::$dummyHash ??= Hash::make(bin2hex(random_bytes(16))));
+        if (! Hash::check((string) $request->input('password'), $hash) || ! $user) {
             RateLimiter::hit($key, $this->lockMinutes() * 60);
             $this->registerFailure($user);
 

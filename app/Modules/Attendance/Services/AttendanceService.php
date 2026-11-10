@@ -858,6 +858,10 @@ class AttendanceService
         }
 
         $this->enforceAccuracy($data, $c['settings'], $branch);
+        // Sin precisión no se puede validar la lectura: se registra igual pero queda para revisión
+        if ($data->accuracyMeters === null) {
+            $reasons[] = AttendancePunch::REASON_ACCURACY_MISSING;
+        }
         $geo = $this->geofence->check($data->latitude, $data->longitude, $branch, $data->accuracyMeters);
         if (! $employee->roaming_attendance_enabled) {
             $reasons = $this->applyGeofencePolicy($geo, $employee, $branch, $reasons);

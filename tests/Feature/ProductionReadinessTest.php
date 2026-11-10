@@ -49,4 +49,29 @@ class ProductionReadinessTest extends TestCase
     {
         $this->get('/storage/payslips/1/x.pdf')->assertNotFound();
     }
+    public function test_detects_secrets_reused_from_the_public_git_history(): void
+    {
+        $check = app(\App\Modules\Core\Console\CheckProductionReadiness::class);
+        $leakedEnv = "APP_ENV=local
+APP_KEY=base64:filtrada123
+SUPERADMIN_PASSWORD=\"Vieja#Clave2026\"
+";
+        $root = \App\Modules\Core\Models\User::create(['first_name' => 'Root', 'last_name' => 'Admin', 'email' => 'root@example.test',
+            'password' => 'Otra#Clave2026', 'role' => 'super_admin', 'status' => 'active']);
+
+        // Nada coincide: sin errores ni advertencias
+        config(['app.key' => 'base64:otra-clave']);
+        $this->assertSame([[], []], $check->leakedSecrets(fn () => $leakedEnv));
+
+        // Misma APP_KEY y misma contraseña que el .env del historial: dos errores, sin mostrar los valores
+        config(['app.key' => 'base64:filtrada123']);
+        $root->forceFill(['password' => 'Vieja#Clave2026'])->save();
+        [$errors] = $check->leakedSecrets(fn () => $leakedEnv);
+        $this->assertCount(2, $errors);
+        $this->assertStringNotContainsString('filtrada123', implode(' ', $errors));
+        $this->assertStringNotContainsString('Vieja#Clave2026', implode(' ', $errors));
+
+        // Sin git en el servidor: lo avisa en vez de callar
+        $this->assertSame(1, count($check->leakedSecrets(fn () => null)[1]));
+    }
 }

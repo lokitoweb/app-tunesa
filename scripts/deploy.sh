@@ -219,6 +219,9 @@ IN_MAINTENANCE=1
 
 clear_compiled
 "$PHP" artisan migrate --force
+
+# Instalación en uso: el asistente /install queda cerrado aunque la base falle un momento (fail-closed)
+[[ -f storage/app/installed.lock ]] || printf '{"how":"deploy","installed_at":"%s"}\n' "$(date -Iseconds)" > storage/app/installed.lock
 # Roles y permisos del sistema desde el código (idempotente: updateOrCreate + sync de los roles del
 # sistema; no toca usuarios ni roles de empresa). Antes había que correrlo a mano tras cada deploy.
 # Los permisos no tienen caché persistente: no hace falta optimize:clear (borraría bloqueos y límites).
