@@ -3,6 +3,7 @@
 namespace App\Modules\Attendance\Services\Reports;
 
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Services\AttendanceFlags;
 use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\Attendance\Services\ScheduleResolver;
 use App\Modules\Attendance\Support\DayStatus;
@@ -156,7 +157,7 @@ class AttendanceReportService
         $span = intdiv(AttendanceService::FIXED_BREAK_MIN_SPAN_MINUTES, 60);
         $break = match (true) {
             (bool) $s->lunch_paid => 'sin descontar el refrigerio (la empresa lo paga)',
-            (bool) $tenant?->setting('flags.hours_v2') => "menos el descanso: el mayor entre lo marcado y el fijo del turno (o {$s->lunch_minutes} min de la empresa) si la jornada pasa de {$span} h",
+            AttendanceFlags::enabled($tenant, 'hours_v2') => "menos el descanso: el mayor entre lo marcado y el fijo del turno (o {$s->lunch_minutes} min de la empresa) si la jornada pasa de {$span} h",
             default => 'menos el descanso marcado',
         };
 
@@ -472,6 +473,17 @@ class AttendanceReportService
             $overtime = min($workedSeconds, max(0, $b - $officialEnd->getTimestamp()));
         }
 
+        // Única fuente de verdad: la jornada guardada (salida en la app o corrección de RR. HH., ambas con
+        // AttendanceService::closedDayHours, que ya aplica feriados/días especiales y la base de medio tiempo).
+        // Planilla, calendario y dashboard leen lo mismo; aquí solo se reparte en diurno y nocturno.
+        // ponytail: worked_hours tiene default 0, así que 0 = "sin calcular" (filas de prueba); una jornada
+        // real de 0 h se recalcula con la fórmula del reporte, que da lo mismo.
+        if ((float) $attendance->worked_hours > 0) {
+            $workedSeconds = (int) round((float) $attendance->worked_hours * 3600);
+            $overtime = min($workedSeconds, (int) round((float) $attendance->overtime_hours * 3600));
+            $breakSeconds = max(0, ($b - $a) - $workedSeconds);
+        }
+
         // Horas extra = cola de la jornada: se toman desde la salida hacia atrás
         $otNight = 0;
         $remaining = $overtime;
@@ -626,7 +638,7 @@ class AttendanceReportService
                 $settings = TenantSetting::forTenant($tenants->get($id));
                 $this->lunchPaid[$id] = (bool) $settings->lunch_paid;
                 $this->graces[$id] = (int) $settings->default_grace_minutes;
-                if ($tenants->get($id)?->setting('flags.hours_v2')) {
+                if (AttendanceFlags::enabled($tenants->get($id), 'hours_v2')) {
                     $this->unified[$id] = $settings;
                 }
                 $this->timezones[$id] = $tenants->get($id)?->timezone ?: config('app.timezone');

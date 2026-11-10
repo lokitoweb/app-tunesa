@@ -1194,7 +1194,7 @@ class AttendanceService
         $worked = round(max(0, $total - $deduct) / 60, 2);
         $base   = self::baseDailyHours($shift, $employee);
 
-        return [$worked, $this->overtimeHours($shift, $date, $tz, $out, $worked, $base, (bool) $tenant?->setting('flags.hours_v2'), (int) $employee->tenant_id), $base];
+        return [$worked, $this->overtimeHours($shift, $date, $tz, $out, $worked, $base, AttendanceFlags::enabled($tenant, 'hours_v2'), (int) $employee->tenant_id), $base];
     }
 
     /** Estado de una jornada cerrada: tardanza, media jornada (menos del 60 % de la base) o presente */

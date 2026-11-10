@@ -237,7 +237,9 @@ class AttendanceReportServiceTest extends TestCase
         $this->assertSame(2, $s['absences_justified']);
         $this->assertSame(4, $s['scheduled_days'], 'Lun, mié, jue y vie (el martes es feriado)');
         $this->assertSame(535, $s['worked_minutes']); // 9 h 55 − 60
-        $this->assertSame(55, $s['overtime_day_minutes']);
+        // hours_v2 (regla vigente 10): extra = solo lo marcado después de la salida oficial (17:00 → 18:00);
+        // la regla anterior daba 55 (trabajado − 8 h, contando como extra los 5 min que entró tarde)
+        $this->assertSame(60, $s['overtime_day_minutes']);
         $this->assertSame(8.92, $s['worked_hours']);
 
         $byDate = collect($report['days'])->keyBy('date');
@@ -269,6 +271,12 @@ class AttendanceReportServiceTest extends TestCase
 
         $s = $this->only((new AttendanceReportService())->forUsers(collect([$emp]), $f), $emp)['summary'];
         $this->assertSame(540, $s['worked_minutes']);
+        // hours_v2: salió a la hora oficial → sin horas extra (el refrigerio pagado no es extra)
+        $this->assertSame(0, $s['overtime_day_minutes']);
+
+        // Vuelta atrás por empresa: con hours_v2 apagada vuelve la regla anterior (trabajado − 8 h)
+        app(\App\Modules\Attendance\Services\AttendanceFlags::class)->set($tenant->fresh(), 'hours_v2', false, 'Prueba de reversión', 'test');
+        $s = $this->only((new AttendanceReportService())->forUsers(collect([$emp]), $f), $emp)['summary'];
         $this->assertSame(60, $s['overtime_day_minutes']);
     }
 
@@ -301,7 +309,8 @@ class AttendanceReportServiceTest extends TestCase
 
         $this->assertSame(1, $s['days_worked']);
         $this->assertSame(0, $s['absences_unjustified']);
-        $this->assertSame(480, $s['night_minutes']);
+        // hours_v2: 9 h marcadas − 60 min de descanso fijo del turno (sale de la mitad del tramo, de noche)
+        $this->assertSame(420, $s['night_minutes']);
         $this->assertSame(60, $s['overtime_day_minutes']);
         $this->assertSame(1.0, (float) $s['overtime_day_hours']);
     }

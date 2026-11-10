@@ -19,9 +19,17 @@ class AttendanceFlags
 
     public function __construct(private readonly AuditLogger $audit, private readonly TenantContext $context) {}
 
-    public static function enabled(Tenant $tenant, string $flag): bool
+    /**
+     * Valor si la empresa no la fijó. hours_v2 (reglas aprobadas RP-01 y vigente 10) es la regla de todas las
+     * empresas desde 11/2026; "off" explícito por empresa es la vuelta atrás (attendance:flag … hours_v2 off).
+     */
+    public const DEFAULTS = ['hours_v2' => true];
+
+    public static function enabled(?Tenant $tenant, string $flag): bool
     {
-        return (bool) $tenant->setting("flags.{$flag}", false);
+        $default = self::DEFAULTS[$flag] ?? false;
+
+        return (bool) ($tenant ? $tenant->setting("flags.{$flag}", $default) : $default);
     }
 
     /** @return bool true si cambió; false si ya estaba en ese estado */

@@ -112,8 +112,13 @@ class QaRonda2CasesTest extends TestCase
         // 6:57 marcadas − 60 min de break del turno = 5:57, igual en la jornada guardada y en el reporte (fórmula única)
         $this->assertSame([357, '5:57'], [(int) round((float) $saved->worked_hours * 60), AttendanceReportService::hm($day['worked_minutes'])]);
         $this->assertSame(['08:00', '08:06 am', '15:00', '03:03 pm'], [$day['scheduled_in'], $day['clock_in'], $day['scheduled_out'], $day['clock_out']]);
-        // Si la empresa paga el refrigerio: 6:57 (el valor "antes del break" del informe)
-        $this->assertSame(417, app(AttendanceReportService::class)->calculate($saved, $this->a, true)['worked_minutes']);
+        // Si la empresa pasa a pagar el refrigerio: se recalculan las jornadas (misma fórmula para planilla y reporte) → 6:57
+        $row = \App\Modules\Core\Models\TenantSetting::editableRowFor($this->tunesa);
+        $row->lunch_paid = true;
+        $row->save();
+        $this->artisan('attendance:recalculate', ['tenant' => 'tunesa', '--from' => '2026-10-01', '--to' => '2026-10-01', '--apply' => true])->assertSuccessful();
+        $this->assertSame(417, (int) round((float) $saved->fresh()->worked_hours * 60));
+        $this->assertSame(417, $this->day($this->report('2026-10-01', '2026-10-01'), $juan, '2026-10-01')['worked_minutes']);
         $this->assertStringContainsString('Horas trabajadas = salida marcada − entrada marcada', app(AttendanceReportService::class)->rules($this->tunesa->id)['formula']);
     }
 

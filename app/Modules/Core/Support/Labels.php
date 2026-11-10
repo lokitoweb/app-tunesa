@@ -28,6 +28,7 @@ final class Labels
     public const ACTIONS = [
         'attendance.offshift_authorized'     => ['Marcación fuera de turno autorizada', 'primary', 'calendar-plus'],
         'attendance.offshift_revoked'        => ['Autorización fuera de turno retirada', 'secondary', 'calendar-x'],
+        'attendance.recalculated'            => ['Jornadas recalculadas con la fórmula vigente', 'info', 'arrow-repeat'],
         // Acceso
         'auth.login'                         => ['Inicio de sesión', 'secondary', 'box-arrow-in-right'],
         'auth.logout'                        => ['Cierre de sesión', 'secondary', 'box-arrow-right'],

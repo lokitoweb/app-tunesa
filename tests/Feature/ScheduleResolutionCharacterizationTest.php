@@ -237,7 +237,7 @@ class ScheduleResolutionCharacterizationTest extends TestCase
     // Dos fórmulas de horas trabajadas (RP-01 · CP-01)
     // =========================================================================
 
-    public function test_actual_worked_hours_differ_between_the_saved_day_and_the_report(): void
+    public function test_actual_worked_hours_are_the_same_in_the_saved_day_and_the_report(): void
     {
         // Fixture del informe (CP-01): turno 08:00-15:00 con los valores por defecto de la migración
         $ana = $this->makeUser($this->acme, 'employee');
@@ -259,9 +259,9 @@ class ScheduleResolutionCharacterizationTest extends TestCase
         // Guardada: 6 h 57 min menos el break fijo del turno (60) = 5 h 57 min
         $this->assertSame(5.95, (float) $day->worked_hours);
 
-        // Reporte: solo descuenta el break marcado (ninguno) = 6 h 57 min
+        // Reporte: muestra lo guardado (bloque 2, fuente única). Antes descontaba solo el break marcado (6 h 57 min)
         $calc = app(AttendanceReportService::class)->calculate($day, $this->a, false);
-        $this->assertSame([417, 0], [$calc['worked_minutes'], $calc['break_minutes']]);
+        $this->assertSame([357, 60], [$calc['worked_minutes'], $calc['break_minutes']]);
     }
 
     // =========================================================================
