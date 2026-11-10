@@ -489,6 +489,7 @@
                             <div class="small">
                                 Por <span class="fw-semibold">{{ $attendance->reviewer ? $attendance->reviewer->first_name . ' ' . $attendance->reviewer->last_name : 'Administrador' }}</span>
                                 el {{ $attendance->reviewed_at?->format('d/m/Y h:i a') }}
+                                · {{ $attendance->incidentLabel() }}@if($attendance->justificationPayLabel()) · <span class="fw-semibold">{{ $attendance->justificationPayLabel() }}</span>@endif
                             </div>
                             @if($attendance->review_notes)
                                 <div class="mt-1 pt-1 border-top small" style="white-space: pre-wrap; opacity: 0.95; overflow-y: auto;">
@@ -503,6 +504,25 @@
                                 <i class="bi bi-pencil-square text-secondary me-1"></i> Dictamen y notas de resolución
                             </label>
                             <textarea id="review_notes" name="review_notes" rows="3" class="form-control mb-3" style="height: 100px; border-radius: 8px; border-color: #cbd5e1; font-size: 0.875rem; resize: none;" placeholder="Escribe el motivo o notas de la aprobación o el rechazo..."></textarea>
+                            @php $atStake = $attendance->justifiedMinutesAtStake(); @endphp
+                            <div class="small text-body-secondary mb-2">
+                                {{ $attendance->incidentLabel() }} · {{ $atStake === null ? 'día completo' : ($atStake > 0 ? minutes_label($atStake) : 'sin tiempo afectado') }}
+                            </div>
+                            @if($atStake !== 0)
+                                {{-- Decisión del propietario: al aprobar, RR. HH. elige con o sin goce (sin valor por defecto) --}}
+                                <fieldset class="mb-3">
+                                    <legend class="form-label small fw-semibold mb-1">Si apruebas: tratamiento</legend>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        @foreach (['1' => 'Con goce de haber', '0' => 'Sin goce de haber'] as $val => $text)
+                                            <div class="form-check">
+                                                <input class="form-check-input @error('justification_paid') is-invalid @enderror" type="radio" name="justification_paid" id="justification_paid_{{ $val }}" value="{{ $val }}" @checked(old('justification_paid') === $val)>
+                                                <label class="form-check-label" for="justification_paid_{{ $val }}">{{ $text }}</label>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    @error('justification_paid')<div class="small text-danger mt-1" role="alert">{{ $message }}</div>@enderror
+                                </fieldset>
+                            @endif
                             <div class="d-flex justify-content-end align-items-center gap-2">
                                 <button type="submit" name="justification_status" value="rejected" class="btn-action-reject">
                                     <i class="bi bi-x-circle fs-6"></i>

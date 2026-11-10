@@ -462,7 +462,7 @@ class AttendanceService
 
         // Horas trabajadas (proporcionales a lo marcado). El descanso fijo del turno se
         // descuenta aunque no se marque; con "Refrigerio pagado" no se descuenta nada.
-        [$workedHours, $overtimeHours, $dailyHours] = $this->closedDayHours($employee, $c['tenant'], $shift, $attendance->work_date->toDateString(), $c['tenant']->timezone,
+        [$workedHours, $overtimeHours, $dailyHours, $earlyExit] = $this->closedDayHours($employee, $c['tenant'], $shift, $attendance->work_date->toDateString(), $c['tenant']->timezone,
             $this->localTime($attendance->clock_in_at), $clockOutTime, (int) ($attendance->break_minutes ?? 0), $c['settings']);
 
         $attendance->update([
@@ -484,6 +484,7 @@ class AttendanceService
             'clock_out_face_detected'      => $data->faceDetected,
             'worked_hours'   => $workedHours,
             'overtime_hours' => $overtimeHours,
+            'early_exit_minutes' => $earlyExit,
             'overtime_status'         => Attendance::overtimeStatusFor($overtimeHours),
             'overtime_approved_hours' => null,
             'status'         => self::closedDayStatus($attendance->status === 'late', $workedHours, $dailyHours),
@@ -1185,7 +1186,7 @@ class AttendanceService
      * Horas de una jornada cerrada: única fórmula para la salida marcada en la app y la edición manual
      * (RR. HH.). Descuenta el descanso (salvo refrigerio pagado) y calcula horas extra sobre la jornada base.
      *
-     * @return array{0: float, 1: float, 2: float} [horas trabajadas, horas extra, jornada base]
+     * @return array{0: float, 1: float, 2: float, 3: int} [horas trabajadas, horas extra, jornada base, minutos de salida anticipada]
      */
     public function closedDayHours(User $employee, ?Tenant $tenant, ?Shift $shift, string $date, string $tz, Carbon $in, Carbon $out, int $markedBreakMinutes, TenantSetting $settings): array
     {
@@ -1194,7 +1195,8 @@ class AttendanceService
         $worked = round(max(0, $total - $deduct) / 60, 2);
         $base   = self::baseDailyHours($shift, $employee);
 
-        return [$worked, $this->overtimeHours($shift, $date, $tz, $out, $worked, $base, AttendanceFlags::enabled($tenant, 'hours_v2'), (int) $employee->tenant_id), $base];
+        return [$worked, $this->overtimeHours($shift, $date, $tz, $out, $worked, $base, AttendanceFlags::enabled($tenant, 'hours_v2'), (int) $employee->tenant_id), $base,
+            self::earlyExitMinutes($shift, $date, $tz, $out)];
     }
 
     /** Estado de una jornada cerrada: tardanza, media jornada (menos del 60 % de la base) o presente */

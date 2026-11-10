@@ -584,8 +584,9 @@ class AttendanceController extends Controller
         $attendance = Attendance::where('tenant_id', current_tenant_id())
             ->findOrFail($id);
 
-        $request->validate(['note' => ['sometimes', 'nullable', 'string', 'max:500']]);
-        $attendance->reviewJustification($request->user(), 'approved', $request->input('note'));
+        $request->validate(['note' => ['sometimes', 'nullable', 'string', 'max:500'], 'paid' => ['sometimes', 'nullable', 'boolean']]);
+        $attendance->reviewJustification($request->user(), 'approved', $request->input('note'),
+            $request->input('paid') === null ? null : $request->boolean('paid'));
 
         return response()->json([
             'success' => true,

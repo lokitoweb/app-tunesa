@@ -15,9 +15,13 @@ class TeamRepository {
     return Paged.fromJson(json, ApprovalRequest.fromJson);
   }
 
-  Future<void> approve(int id, {String? notes}) => _api.post(
+  /// [withPay]: con o sin goce; el backend lo exige al aprobar un permiso.
+  Future<void> approve(int id, {String? notes, bool? withPay}) => _api.post(
         ApiEndpoints.approveLeaveRequest(id),
-        data: {if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim()},
+        data: {
+          if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+          'with_pay': ?withPay,
+        },
       );
 
   /// El backend exige el motivo del rechazo en `notes`.

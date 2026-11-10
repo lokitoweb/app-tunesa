@@ -288,6 +288,16 @@ class AttendanceReportService
             if ($worked->isNotEmpty()) {
                 $row = $this->workedDay($worked, $resolved->assignment?->shift, $lunchPaid);
                 $row += ['date' => $day, 'status' => 'worked', 'scheduled' => (bool) $scheduled, 'holiday' => $isHoliday, 'note' => $isHoliday ? 'Feriado trabajado' : ''];
+                // Tardanza / salida anticipada justificada (RR. HH.): el día sigue trabajado con sus horas reales;
+                // esos minutos salen de "Tardanza" y van a "Justificado" (con o sin goce), igual que en planilla
+                if ($justifiedRecord = $worked->first(fn (Attendance $a) => $a->justification_status === 'approved')) {
+                    $row['justified_minutes'] = $row['late_minutes'] + $row['early_minutes'];
+                    [$row['late_minutes'], $row['early_minutes']] = [0, 0];
+                    if ($row['justified_minutes'] > 0) {
+                        $row['note'] = trim($row['note'] . ' ' . $justifiedRecord->incidentLabel() . ' justificada'
+                            . (($pay = $justifiedRecord->justificationPayLabel()) ? ' (' . mb_strtolower($pay) . ')' : ' (sin clasificar)'));
+                    }
+                }
                 $row += self::scheduledTimes($resolved->assignment?->shift ?? $worked->first()->shift, $day) + self::dayStatus(match (true) {
                     $row['open'] && $day < $today                 => DayStatus::INCOMPLETE,
                     $isHoliday                                    => DayStatus::HOLIDAY_WORKED,
@@ -303,6 +313,7 @@ class AttendanceReportService
                 $summary['late_days']              += $row['late_minutes'] > 0 ? 1 : 0;
                 $summary['early_minutes']          += $row['early_minutes'];
                 $summary['early_days']             += $row['early_minutes'] > 0 ? 1 : 0;
+                $summary['justified_minutes']      += $row['justified_minutes'];
                 $summary['overtime_day_minutes']   += $row['overtime_day_minutes'];
                 $summary['overtime_night_minutes'] += $row['overtime_night_minutes'];
                 $summary['night_minutes']          += $row['night_minutes'];
@@ -349,8 +360,7 @@ class AttendanceReportService
                     'status' => $justifiedRecord ? 'justified' : 'absent',
                     'note'   => match (true) {
                         $justifiedRecord === null           => 'Sin marcación',
-                        $justifiedRecord->status === 'excused' => 'Justificado',
-                        default                             => 'Justificación aprobada',
+                        default => 'Falta justificada' . (($pay = $justifiedRecord->justificationPayLabel()) ? ' (' . mb_strtolower($pay) . ')' : ''),
                     },
                     'shift' => $assignment?->shift?->name,
                 ] + self::emptyDay();
@@ -702,6 +712,7 @@ class AttendanceReportService
             'late_days'              => 0,
             'early_minutes'          => 0,
             'early_days'             => 0,
+            'justified_minutes'      => 0,
             'overtime_day_minutes'   => 0,
             'overtime_night_minutes' => 0,
             'night_minutes'          => 0,
@@ -760,6 +771,7 @@ class AttendanceReportService
             'overtime_night_minutes' => 0,
             'late_minutes'           => 0,
             'early_minutes'          => 0,
+            'justified_minutes'      => 0,
         ];
     }
 }

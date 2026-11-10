@@ -16,11 +16,11 @@ class ApprovalsController extends PagedController<ApprovalRequest> {
 
   /// Aprueba o rechaza y quita la solicitud de la bandeja. Lanza
   /// [ApiException] (ej: SELF_APPROVAL, NOT_PENDING) para que la UI lo muestre.
-  Future<void> review(int id, {required bool approve, String? notes}) async {
+  Future<void> review(int id, {required bool approve, String? notes, bool? withPay}) async {
     final repo = ref.read(teamRepositoryProvider);
     try {
       if (approve) {
-        await repo.approve(id, notes: notes);
+        await repo.approve(id, notes: notes, withPay: withPay);
       } else {
         await repo.reject(id, notes: notes ?? '');
       }

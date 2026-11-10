@@ -95,6 +95,7 @@ class Attendance extends Model
         // Cálculos
         'status',
         'late_minutes',
+        'early_exit_minutes',
         'break_minutes',
         'break_late_minutes',
         'punches_incomplete',
@@ -117,6 +118,7 @@ class Attendance extends Model
         'notes',
         'justification_file',
         'justification_status',
+        'justification_paid',
         'reviewed_by',
         'reviewed_at',
     ];
@@ -128,6 +130,8 @@ class Attendance extends Model
         'break_end_at'              => 'datetime',
         'clock_out_at'              => 'datetime',
         'break_late_minutes'        => 'integer',
+        'early_exit_minutes'        => 'integer',
+        'justification_paid'        => 'boolean',
         'punches_incomplete'        => 'boolean',
         'clock_in_latitude'         => 'decimal:8',
         'clock_in_longitude'        => 'decimal:8',
@@ -293,7 +297,7 @@ class Attendance extends Model
      * Aprueba o rechaza la justificación (panel y API usan esta misma regla).
      * Solo si está pendiente; la nota del revisor se agrega sin borrar lo que escribió el colaborador.
      */
-    public function reviewJustification(User $reviewer, string $decision, ?string $note = null): void
+    public function reviewJustification(User $reviewer, string $decision, ?string $note = null, ?bool $paid = null): void
     {
         if (! in_array($decision, ['approved', 'rejected'], true)) {
             throw new \InvalidArgumentException("Decisión inválida: {$decision}");
@@ -303,15 +307,56 @@ class Attendance extends Model
                 'justification_status' => 'Esta justificación ya fue revisada o no se envió.',
             ]);
         }
+        // Decisión del propietario: con o sin goce lo elige RR. HH. en cada aprobación, sin valor por defecto
+        $needsTreatment = $decision === 'approved' && $this->justifiedMinutesAtStake() !== 0;
+        if ($needsTreatment && $paid === null) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'justification_paid' => 'Indica si la justificación es con goce o sin goce de haber.',
+            ]);
+        }
 
         $this->update([
             'justification_status' => $decision,
-            'status'               => $decision === 'approved' ? 'excused' : $this->status,
+            // Solo una falta (día sin entrada) pasa a "justificada"; un día trabajado sigue siendo trabajado
+            // y su tardanza o salida anticipada queda justificada aparte (no se cuenta dos veces)
+            'status'               => $decision === 'approved' && $this->clock_in_at === null ? 'excused' : $this->status,
+            'justification_paid'   => $needsTreatment ? $paid : null,
             'reviewed_by'          => $reviewer->id,
             'reviewed_at'          => now(),
             'notes'                => ($this->notes ? $this->notes . "\n---\n" : '')
                 . "Revisión: {$decision}. Nota: " . (filled($note) ? $note : 'Sin comentarios adicionales.'),
         ]);
+    }
+
+    /**
+     * Tiempo que cubre la justificación: null = el día completo (falta, sin entrada); si trabajó, los minutos
+     * de tardanza + salida anticipada (0 = nada que pagar o descontar, p. ej. una marca olvidada).
+     */
+    public function justifiedMinutesAtStake(): ?int
+    {
+        return $this->clock_in_at === null ? null : (int) $this->late_minutes + (int) $this->early_exit_minutes;
+    }
+
+    /** Tipo de incidencia del día, para RR. HH. (panel, app y exportaciones usan esta misma etiqueta) */
+    public function incidentLabel(): string
+    {
+        $late = (int) $this->late_minutes > 0;
+        $early = (int) $this->early_exit_minutes > 0;
+
+        return match (true) {
+            $this->clock_in_at === null                                => 'Falta',
+            $late && $early                                            => 'Tardanza y salida anticipada',
+            $late                                                      => 'Tardanza',
+            $early                                                     => 'Salida anticipada',
+            $this->clock_out_at === null || (bool) $this->punches_incomplete => 'Marca olvidada',
+            default                                                    => 'Otra incidencia',
+        };
+    }
+
+    /** "Con goce" / "Sin goce" / null si no aplica o aún no se clasificó */
+    public function justificationPayLabel(): ?string
+    {
+        return $this->justification_paid === null ? null : ($this->justification_paid ? 'Con goce' : 'Sin goce');
     }
 
     // =========================================================================

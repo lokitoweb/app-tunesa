@@ -119,7 +119,7 @@ class _RequestCard extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Text(r.typeLabel, style: Theme.of(context).textTheme.titleMedium)),
-            StatusChip(status: r.status, label: r.statusLabel),
+            StatusChip(status: r.status, label: r.payLabel != null ? '${r.statusLabel} · ${r.payLabel}' : r.statusLabel),
           ]),
           const SizedBox(height: 4),
           Text('$range$hours · $days día(s)'),

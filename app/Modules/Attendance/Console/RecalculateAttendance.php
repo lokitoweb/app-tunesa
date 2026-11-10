@@ -56,10 +56,10 @@ class RecalculateAttendance extends Command
                     }
                     $date = $a->work_date->toDateString();
                     $local = fn (Carbon $at) => Carbon::createFromFormat('Y-m-d H:i:s', $at->format('Y-m-d H:i:s'), $tz);
-                    [$worked, $overtime, $base] = $service->closedDayHours($a->user, $tenant, $a->shift?->forDate($a->work_date), $date, $tz,
+                    [$worked, $overtime, $base, $earlyExit] = $service->closedDayHours($a->user, $tenant, $a->shift?->forDate($a->work_date), $date, $tz,
                         $local($a->clock_in_at), $local($a->clock_out_at), (int) ($a->break_minutes ?? 0), $settings);
 
-                    $new = ['worked_hours' => $worked, 'overtime_hours' => $overtime];
+                    $new = ['worked_hours' => $worked, 'overtime_hours' => $overtime, 'early_exit_minutes' => $earlyExit];
                     if (in_array($a->status, ['present', 'late', 'half_day'], true)) {
                         $new['status'] = AttendanceService::closedDayStatus((int) $a->late_minutes > 0, $worked, $base);
                     }
@@ -74,7 +74,7 @@ class RecalculateAttendance extends Command
                     }
 
                     $statusChanged = isset($new['status']) && $new['status'] !== $a->status;
-                    if (abs((float) $a->worked_hours - $worked) < 0.01 && ! $overtimeChanged && ! $statusChanged) {
+                    if (abs((float) $a->worked_hours - $worked) < 0.01 && ! $overtimeChanged && ! $statusChanged && (int) $a->early_exit_minutes === $earlyExit) {
                         continue;
                     }
                     $changed++;

@@ -134,8 +134,9 @@ class HoursReportExportTest extends TestCase
         $this->assertMatchesRegularExpression('/<c r="G2"[^>]*><v>4(\.0)?<\/v>/', $sheet1);
         $this->assertMatchesRegularExpression('/<c r="H2"[^>]*><v>1(\.0)?<\/v>/', $sheet1);
         $this->assertMatchesRegularExpression('/<c r="I2"[^>]*><v>0\.41666/', $sheet1);
-        $this->assertMatchesRegularExpression('/<c r="M2"[^>]*><v>0\.08333/', $sheet1);
-        $this->assertMatchesRegularExpression('/<c r="P2"[^>]*><v>3(\.0)?<\/v>/', $sheet1);
+        // M = tardanza / salida justificada (columna nueva); N = HE diurnas; Q = faltas injustificadas
+        $this->assertMatchesRegularExpression('/<c r="N2"[^>]*><v>0\.08333/', $sheet1);
+        $this->assertMatchesRegularExpression('/<c r="Q2"[^>]*><v>3(\.0)?<\/v>/', $sheet1);
         $this->assertStringContainsString('[h]:mm', $zip->getFromName('xl/styles.xml'));
         // Detalle: 1 día trabajado + 3 faltas (+ encabezado)
         $this->assertSame(5, substr_count($sheet2, '<row '));

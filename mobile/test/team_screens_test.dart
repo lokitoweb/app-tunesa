@@ -43,7 +43,7 @@ class _FakeTeamRepository extends TeamRepository {
       }, ApprovalRequest.fromJson);
 
   @override
-  Future<void> approve(int id, {String? notes}) async => approved.add(id);
+  Future<void> approve(int id, {String? notes, bool? withPay}) async => approved.add(id);
 
   @override
   Future<void> reject(int id, {required String notes}) async => rejected[id] = notes;

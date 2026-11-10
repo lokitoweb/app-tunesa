@@ -81,7 +81,10 @@ class NotificationsTest extends TestCase
         Notification::fake();
         config(['notifications.by_mail' => true]);
 
-        $this->actingAs($hr)->post("/approvals/leave/{$leave->id}", ['decision' => 'approved'])->assertSessionHas('success');
+        // Permiso: con o sin goce obligatorio al aprobar
+        $this->actingAs($hr)->post("/approvals/leave/{$leave->id}", ['decision' => 'approved'])->assertSessionHasErrors('with_pay');
+        $this->actingAs($hr)->post("/approvals/leave/{$leave->id}", ['decision' => 'approved', 'with_pay' => '1'])->assertSessionHas('success');
+        $this->assertTrue($leave->fresh()->with_pay);
 
         Notification::assertSentTo($emp, LeaveRequestReviewed::class, fn ($n, array $channels) => $channels === ['database', 'mail']);
 
@@ -142,7 +145,7 @@ class NotificationsTest extends TestCase
         $att = Attendance::create(['tenant_id' => $acme->id, 'user_id' => $emp->id, 'branch_id' => $branchId, 'work_date' => '2026-10-01',
             'status' => 'absent', 'justification_status' => 'pending']);
 
-        $this->actingAs($hr)->post("/attendance/{$att->id}/review", ['justification_status' => 'approved'])->assertSessionHas('success');
+        $this->actingAs($hr)->post("/attendance/{$att->id}/review", ['justification_status' => 'approved', 'justification_paid' => '1'])->assertSessionHas('success');
         $n = $emp->fresh()->notifications->firstWhere('data.type', 'justification.approved');
         $this->assertSame('Justificación aprobada', $n->data['title']);
 

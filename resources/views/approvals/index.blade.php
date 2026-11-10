@@ -107,6 +107,11 @@
                                 @if($leave->reviewer)
                                     <div class="cell-sub mt-1"><i class="bi bi-person-check me-1"></i>{{ $leave->reviewer->full_name }} · {{ $leave->reviewed_at?->format('d/m h:i a') }}</div>
                                 @endif
+                                @if($leave->payLabel())
+                                    <div class="cell-sub"><i class="bi bi-cash-coin me-1"></i>{{ $leave->payLabel() }}</div>
+                                @elseif($leave->status === 'approved')
+                                    <div class="cell-sub text-warning-emphasis"><i class="bi bi-exclamation-circle me-1"></i>Sin clasificar (con / sin goce)</div>
+                                @endif
                                 @if($leave->review_notes)
                                     <div class="appr-review-note"><i class="bi bi-chat-left-quote me-1"></i>{{ $leave->review_notes }}</div>
                                 @endif
@@ -115,7 +120,7 @@
                         <td>
                             <div class="row-actions">
                                 @if($leave->isPending())
-                                    @include('approvals.partials.review-buttons', ['action' => route('approvals.leave.review', $leave->id), 'kind' => 'leave', 'who' => $leave->employee?->full_name, 'what' => $leave->type_label . ' · ' . $leave->start_date->format('d/m/Y') . ' → ' . $leave->end_date->format('d/m/Y')])
+                                    @include('approvals.partials.review-buttons', ['action' => route('approvals.leave.review', $leave->id), 'kind' => 'leave', 'who' => $leave->employee?->full_name, 'what' => $leave->type_label . ' · ' . $leave->start_date->format('d/m/Y') . ' → ' . $leave->end_date->format('d/m/Y'), 'payField' => in_array($leave->type, \App\Modules\HR\Models\LeaveRequest::ALWAYS_PAID, true) ? null : 'with_pay'])
                                 @else
                                     <span class="cell-sub"><i class="bi bi-check2-all me-1"></i>Procesado</span>
                                 @endif
@@ -229,8 +234,13 @@
                         <td data-label="Asistencia">
                             <div>
                                 @include('partials.attendance-status', ['status' => $att->status])
+                                @php $atStake = $att->justifiedMinutesAtStake(); @endphp
+                                <div class="cell-sub mt-1 fw-semibold">{{ $att->incidentLabel() }} · {{ $atStake === null ? 'día completo' : ($atStake > 0 ? minutes_label($atStake) : 'sin tiempo afectado') }}</div>
                                 @if($att->late_minutes)
-                                    <div class="cell-sub mt-1">({{ formato_tardanza($att) }})</div>
+                                    <div class="cell-sub">({{ formato_tardanza($att) }})</div>
+                                @endif
+                                @if($att->early_exit_minutes)
+                                    <div class="cell-sub">Salida anticipada: {{ minutes_label($att->early_exit_minutes) }}</div>
                                 @endif
                                 @if($att->clock_in_at)
                                     <div class="cell-sub">Entrada: {{ hora($att->clock_in_at, true) }}</div>
@@ -248,9 +258,17 @@
                         <td>
                             <div class="row-actions">
                                 @if($att->justification_status === 'pending')
-                                    @include('approvals.partials.review-buttons', ['action' => route('attendance.review', $att->id), 'kind' => 'justification', 'who' => $att->user?->full_name, 'what' => 'Justificación del ' . $att->work_date->format('d/m/Y')])
+                                    @include('approvals.partials.review-buttons', ['action' => route('attendance.review', $att->id), 'kind' => 'justification', 'who' => $att->user?->full_name, 'what' => 'Justificación del ' . $att->work_date->format('d/m/Y') . ' · ' . $att->incidentLabel(), 'payField' => $att->justifiedMinutesAtStake() !== 0 ? 'justification_paid' : null])
                                 @else
-                                    <x-status-badge type="justification_status" :value="$att->justification_status" />
+                                    <div>
+                                        <x-status-badge type="justification_status" :value="$att->justification_status" />
+                                        @if($att->justificationPayLabel())
+                                            <div class="cell-sub mt-1"><i class="bi bi-cash-coin me-1"></i>{{ $att->justificationPayLabel() }}</div>
+                                        @endif
+                                        @if($att->reviewer)
+                                            <div class="cell-sub"><i class="bi bi-person-check me-1"></i>{{ $att->reviewer->full_name }} · {{ $att->reviewed_at?->format('d/m h:i a') }}</div>
+                                        @endif
+                                    </div>
                                 @endif
                             </div>
                         </td>
@@ -322,6 +340,20 @@
                     </div>
                     <div class="form-text">Puedes aprobar menos horas de las registradas.</div>
                 </div>
+                <fieldset class="mb-3 d-none" id="reviewPayBox">
+                    <legend class="form-label small fw-semibold mb-1">Tratamiento <span class="text-body-secondary fw-normal">(obligatorio)</span></legend>
+                    <div class="d-flex flex-wrap gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" id="reviewPay1" value="1" disabled>
+                            <label class="form-check-label" for="reviewPay1">Con goce de haber</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" id="reviewPay0" value="0" disabled>
+                            <label class="form-check-label" for="reviewPay0">Sin goce de haber</label>
+                        </div>
+                    </div>
+                    <div class="form-text">Las horas justificadas no se suman como trabajadas; esto define si se pagan.</div>
+                </fieldset>
                 <label class="form-label small fw-semibold" for="reviewNotes">Comentario <span id="reviewNotesHint" class="text-body-secondary fw-normal">(opcional)</span></label>
                 <textarea id="reviewNotes" class="form-control" rows="3" maxlength="500" placeholder="Escribe el motivo…"></textarea>
             </div>
@@ -468,6 +500,15 @@ document.addEventListener('click', function (e) {
     document.getElementById('reviewHoursBox').classList.toggle('d-none', !withHours);
     hours.disabled = !withHours;
     if (withHours) { hours.max = d.hours; hours.value = d.hours; }
+    const withPay = approve && !!d.payField;
+    document.getElementById('reviewPayBox').classList.toggle('d-none', !withPay);
+    ['reviewPay1', 'reviewPay0'].forEach(function (id) {
+        const radio = document.getElementById(id);
+        radio.name = d.payField || '';
+        radio.disabled = !withPay;
+        radio.required = withPay;
+        radio.checked = false;
+    });
     submit.textContent = approve ? 'Aprobar' : 'Rechazar';
     submit.className = 'btn ' + (approve ? 'btn-success' : 'btn-danger');
 

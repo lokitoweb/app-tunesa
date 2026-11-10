@@ -28,7 +28,7 @@ class HoursReportExporter
     public const SUMMARY_HEADERS = [
         'Código', 'Colaborador', 'Cargo', 'Tipo doc.', 'Documento', 'Sucursal',
         'Días programados', 'Días trabajados', 'Horas trabajadas',
-        'Tardanza', 'Días con tardanza', 'Salida anticipada',
+        'Tardanza', 'Días con tardanza', 'Salida anticipada', 'Tardanza / salida justificada',
         'HE diurnas', 'HE nocturnas', 'Horas nocturnas',
         'Faltas injustificadas', 'Faltas justificadas',
         'Descanso (días)', 'Feriados (días)', 'Vacaciones (días)', 'Permiso (días)', 'Descanso médico (días)',
@@ -40,7 +40,7 @@ class HoursReportExporter
     public const DETAIL_HEADERS = [
         'Código', 'Colaborador', 'Cargo', 'Fecha', 'Estado', 'Turno', 'Sucursal',
         'Entrada', 'Marcado entrada', 'Salida', 'Marcado salida', 'Descanso descontado (min)', 'Horas trabajadas',
-        'Tardanza', 'Salida anticipada', 'HE diurnas', 'HE nocturnas', 'Horas nocturnas', 'Observación',
+        'Tardanza', 'Salida anticipada', 'Tardanza / salida justificada', 'HE diurnas', 'HE nocturnas', 'Horas nocturnas', 'Observación',
     ];
 
     /** Formato H:MM de Excel para duraciones (no se corta en 24 h) */
@@ -134,7 +134,7 @@ class HoursReportExporter
         return [
             $r['employee_code'] ?? '', $r['name'], $r['position'] ?? '', strtoupper((string) ($r['document_type'] ?? '')), $r['document_number'] ?? '', $r['branch'] ?? '',
             $s['scheduled_days'], $s['days_worked'], self::duration($s['worked_minutes']),
-            self::duration($s['late_minutes']), $s['late_days'], self::duration($s['early_minutes']),
+            self::duration($s['late_minutes']), $s['late_days'], self::duration($s['early_minutes']), self::duration($s['justified_minutes']),
             self::duration($s['overtime_day_minutes']), self::duration($s['overtime_night_minutes']), self::duration($s['night_minutes']),
             $s['absences_unjustified'], $s['absences_justified'],
             $s['rest_days'], $s['holiday_days'], $s['vacation_days'], $s['permission_days'], $s['medical_leave_days'],
@@ -154,7 +154,7 @@ class HoursReportExporter
             $d['scheduled_in'] ?? '', $d['clock_in'] ?? '',
             $d['scheduled_out'] ?? '', $d['clock_out'] ?? ($d['open'] ? 'Sin salida' : ''),
             $d['break_minutes'], self::duration($d['worked_minutes']),
-            self::duration($d['late_minutes']), self::duration($d['early_minutes']),
+            self::duration($d['late_minutes']), self::duration($d['early_minutes']), self::duration($d['justified_minutes'] ?? 0),
             self::duration($d['overtime_day_minutes']), self::duration($d['overtime_night_minutes']),
             self::duration($d['night_minutes']), $d['note'] ?? '',
         ];

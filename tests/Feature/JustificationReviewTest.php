@@ -39,7 +39,9 @@ class JustificationReviewTest extends TestCase
 
         // Aprobación: queda justificada y conserva el texto
         $b = $make('2026-10-08');
-        $this->actingIn($hr, $acme)->postJson("/api/admin/attendance/{$b->id}/approve-justification")->assertOk();
+        // Sin elegir con / sin goce no se aprueba (decisión del propietario: sin valor por defecto)
+        $this->actingIn($hr, $acme)->postJson("/api/admin/attendance/{$b->id}/approve-justification")->assertStatus(422)->assertJsonValidationErrors('justification_paid');
+        $this->actingIn($hr, $acme)->postJson("/api/admin/attendance/{$b->id}/approve-justification", ['paid' => true])->assertOk();
         $this->assertSame(['approved', 'excused'], [$b->fresh()->justification_status, $b->fresh()->status]);
         $this->assertStringContainsString('Tráfico en la vía', $b->fresh()->notes);
 

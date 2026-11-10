@@ -443,12 +443,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${r.overtime_pending_hours > 0 ? `<a href="/approvals?tab=overtime" class="d-block text-warning fw-semibold text-decoration-none small">+${Number(r.overtime_pending_hours).toFixed(2)} por aprobar</a>` : ''}
                     </td>
                     <td class="text-end fw-bold text-primary">${Number(r.payable_hours).toFixed(2)}</td>
-                    <td>${r.late_count} <span class="text-body-secondary">(${Panel.minutes(r.late_minutes)})</span></td>
-                    <td>${r.absences} ${r.excused ? `<span class="text-body-secondary">+${r.excused} just.</span>` : ''}</td>
+                    <td>
+                        ${r.late_count} <span class="text-body-secondary">(${Panel.minutes(r.late_minutes)})</span>
+                        ${(r.justified_minutes_paid + r.justified_minutes_unpaid) > 0 ? `<div class="text-body-secondary small" title="Tardanzas y salidas anticipadas justificadas: con goce / sin goce">Just.: ${Panel.minutes(r.justified_minutes_paid)} c/g · ${Panel.minutes(r.justified_minutes_unpaid)} s/g</div>` : ''}
+                    </td>
+                    <td>
+                        ${r.absences}
+                        ${(r.excused_paid + r.excused_unpaid) > 0 ? `<div class="text-body-secondary small" title="Faltas justificadas: con goce / sin goce">Just.: ${r.excused_paid} c/g · ${r.excused_unpaid} s/g</div>` : ''}
+                        ${r.unclassified > 0 ? `<div class="text-warning-emphasis small" title="Aprobadas antes de elegir con o sin goce">${r.unclassified} sin clasificar</div>` : ''}
+                    </td>
                     <td class="text-body-secondary text-nowrap">
-                        <span title="Vacaciones">V: ${r.vacation_days}</span> •
-                        <span title="Descanso médico">M: ${r.medical_leave_days}</span> •
-                        <span title="Permisos">P: ${r.permission_days}</span>
+                        <span title="Vacaciones (con goce)">V: ${r.vacation_days}</span> •
+                        <span title="Descanso médico (con goce)">M: ${r.medical_leave_days}</span> •
+                        <span title="Permisos con goce / sin goce">P: ${r.permission_paid_days} c/g · ${r.permission_unpaid_days} s/g</span>
                     </td>
                     <td>
                         <div class="fw-medium text-body">${r.bank_name || '—'}</div>

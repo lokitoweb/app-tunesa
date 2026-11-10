@@ -74,6 +74,15 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
   bool _busy = false;
 
   Future<void> _approve() async {
+    if (widget.item.request.requiresPayChoice) {
+      final withPay = await showDialog<bool>(
+        context: context,
+        builder: (_) => _PayChoiceDialog(employeeName: widget.item.employeeName, typeLabel: widget.item.request.typeLabel),
+      );
+      if (withPay == null) return;
+      await _review(approve: true, withPay: withPay);
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -98,10 +107,10 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
     await _review(approve: false, notes: reason);
   }
 
-  Future<void> _review({required bool approve, String? notes}) async {
+  Future<void> _review({required bool approve, String? notes, bool? withPay}) async {
     setState(() => _busy = true);
     try {
-      await ref.read(approvalsProvider.notifier).review(widget.item.id, approve: approve, notes: notes);
+      await ref.read(approvalsProvider.notifier).review(widget.item.id, approve: approve, notes: notes, withPay: withPay);
       if (mounted) showSnack(context, approve ? 'Solicitud aprobada.' : 'Solicitud rechazada.');
     } on ApiException catch (e) {
       if (mounted) {
@@ -178,6 +187,48 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
 }
 
 /// Pide el motivo del rechazo (obligatorio en el backend, máx. 1000 caracteres).
+/// Aprobar un permiso: con o sin goce, sin opción marcada por defecto (decisión de la empresa).
+class _PayChoiceDialog extends StatefulWidget {
+  const _PayChoiceDialog({required this.employeeName, required this.typeLabel});
+
+  final String employeeName;
+  final String typeLabel;
+
+  @override
+  State<_PayChoiceDialog> createState() => _PayChoiceDialogState();
+}
+
+class _PayChoiceDialogState extends State<_PayChoiceDialog> {
+  bool? _withPay;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Aprobar solicitud'),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${widget.typeLabel} de ${widget.employeeName}. Elige cómo se trata:'),
+        const SizedBox(height: 12),
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: true, label: Text('Con goce')),
+            ButtonSegment(value: false, label: Text('Sin goce')),
+          ],
+          selected: {?_withPay},
+          emptySelectionAllowed: true,
+          showSelectedIcon: false,
+          onSelectionChanged: (s) => setState(() => _withPay = s.isEmpty ? null : s.first),
+        ),
+        const SizedBox(height: 8),
+        Text('Las horas del permiso no se suman como trabajadas.', style: Theme.of(context).textTheme.bodySmall),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Volver')),
+        FilledButton(onPressed: _withPay == null ? null : () => Navigator.pop(context, _withPay), child: const Text('Aprobar')),
+      ],
+    );
+  }
+}
+
 class _RejectDialog extends StatefulWidget {
   const _RejectDialog({required this.employeeName});
 

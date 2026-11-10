@@ -179,7 +179,8 @@ class LeaveRequestController extends Controller
     private function review(Request $request, int $id, string $status): JsonResponse
     {
         $request->validate([
-            'notes' => [$status === 'rejected' ? 'required' : 'sometimes', 'nullable', 'string', 'max:1000'],
+            'notes'    => [$status === 'rejected' ? 'required' : 'sometimes', 'nullable', 'string', 'max:1000'],
+            'with_pay' => ['sometimes', 'nullable', 'boolean'],
         ]);
 
         $reviewer = $request->user();
@@ -201,12 +202,7 @@ class LeaveRequestController extends Controller
             ], 409);
         }
 
-        $leave->update([
-            'status'       => $status,
-            'reviewed_by'  => $reviewer->id,
-            'reviewed_at'  => now(),
-            'review_notes' => $request->input('notes'),
-        ]);
+        $leave->review($reviewer, $status, $request->input('notes'), $request->has('with_pay') && $request->input('with_pay') !== null ? $request->boolean('with_pay') : null);
 
         return response()->json([
             'success' => true,
@@ -238,6 +234,9 @@ class LeaveRequestController extends Controller
             'reason'         => $leave->reason,
             'has_attachment' => (bool) $leave->attachment_path,
             'status'         => $leave->status,
+            // Con / sin goce (null: pendiente o sin clasificar). La app pide elegirlo al aprobar un permiso
+            'with_pay'       => $leave->with_pay,
+            'requires_pay_choice' => ! in_array($leave->type, LeaveRequest::ALWAYS_PAID, true),
             'review_notes'   => $leave->review_notes,
             'reviewed_at'    => $leave->reviewed_at?->toIso8601String(),
             'reviewer'       => $leave->reviewer?->full_name,

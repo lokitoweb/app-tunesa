@@ -172,7 +172,9 @@ class Phase3WebPanelTest extends TestCase
         $this->assertStringContainsString('AFP Prima', $csv);
         $this->assertStringContainsString('Régimen general', $csv);
         $line = collect(explode("\n", $csv))->first(fn ($l) => str_contains($l, '45879632'));
-        $this->assertStringContainsString(',1,7.5,0,0,7.5,1,20,1,0,', $line, 'horas extra aprobadas, por aprobar y a pagar');
+        // días, horas, extras aprobadas / por aprobar, a pagar, tardanzas (1 · 20 min), salida anticipada, min. justificados c/g y s/g,
+        // faltas injustificadas (1), justificadas c/g y s/g
+        $this->assertStringContainsString(',1,7.5,0,0,7.5,1,20,0,0,0,1,0,0,', $line, 'horas extra aprobadas, por aprobar y a pagar');
         $this->assertDatabaseHas('audit_logs', ['action' => 'payroll.exported']);
     }
 

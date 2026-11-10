@@ -74,7 +74,11 @@ class AttendanceResource extends JsonResource
                 'status'  => $this->justification_status,
                 'notes'   => $this->notes,
                 'has_file'=> (bool) $this->justification_file,
+                // Tratamiento elegido por RR. HH. al aprobar: true con goce, false sin goce, null sin clasificar / no aplica
+                'paid'    => $this->justification_paid,
+                'incident'=> $this->incidentLabel(),
             ],
+            'early_exit_minutes' => (int) $this->early_exit_minutes,
 
             // Relaciones cargadas
             'user' => $this->whenLoaded('user', fn() => $this->user ? [

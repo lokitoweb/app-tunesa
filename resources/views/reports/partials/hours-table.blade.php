@@ -19,6 +19,7 @@
                 <th class="py-3 text-end">Horas</th>
                 <th class="py-3 text-end">Tardanza</th>
                 <th class="py-3 text-end" title="Salidas anticipadas">Sal. antic.</th>
+                <th class="py-3 text-end" title="Tardanzas y salidas anticipadas justificadas por RR. HH. (no cuentan como tardanza)">Justif. min.</th>
                 <th class="py-3 text-end">HE diurnas</th>
                 <th class="py-3 text-end">HE nocturnas</th>
                 <th class="py-3 text-end">Nocturnas</th>
@@ -48,6 +49,7 @@
                     <td class="text-end fw-bold text-body small">{{ $hm($s['worked_minutes']) }}</td>
                     <td class="text-end small {{ $s['late_minutes'] > 0 ? 'text-warning-emphasis fw-bold' : 'text-body-secondary' }}">{{ $hm($s['late_minutes']) }}</td>
                     <td class="text-end text-body-secondary small">{{ $hm($s['early_minutes']) }}</td>
+                    <td class="text-end text-body-secondary small">{{ $hm($s['justified_minutes']) }}</td>
                     <td class="text-end small text-body">{{ $hm($s['overtime_day_minutes']) }}</td>
                     <td class="text-end small text-body">{{ $hm($s['overtime_night_minutes']) }}</td>
                     <td class="text-end small text-body">{{ $hm($s['night_minutes']) }}</td>
@@ -62,7 +64,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="17" class="p-5 text-center">
+                    <td colspan="18" class="p-5 text-center">
                         <div class="d-inline-flex align-items-center justify-content-center p-3 rounded-circle bg-primary-subtle text-primary mb-3" style="width: 56px; height: 56px;">
                             <i class="bi bi-inbox fs-3"></i>
                         </div>

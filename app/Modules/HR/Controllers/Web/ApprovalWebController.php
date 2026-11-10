@@ -92,6 +92,7 @@ class ApprovalWebController extends Controller
         $validated = $request->validate([
             'decision' => ['required', 'in:approved,rejected'],
             'notes'    => ['required_if:decision,rejected', 'nullable', 'string', 'max:1000'],
+            'with_pay' => ['nullable', 'in:0,1'],
         ], [
             'notes.required_if' => 'Indica el motivo del rechazo.',
         ]);
@@ -107,12 +108,8 @@ class ApprovalWebController extends Controller
             return back()->with('error', 'La solicitud ya fue revisada.');
         }
 
-        $leave->update([
-            'status'       => $validated['decision'],
-            'reviewed_by'  => $user->id,
-            'reviewed_at'  => now(),
-            'review_notes' => $validated['notes'] ?? null,
-        ]);
+        $leave->review($user, $validated['decision'], $validated['notes'] ?? null,
+            isset($validated['with_pay']) ? (bool) $validated['with_pay'] : null);
 
         return back()->with('success', 'Solicitud ' . ($validated['decision'] === 'approved' ? 'aprobada' : 'rechazada') . '.');
     }

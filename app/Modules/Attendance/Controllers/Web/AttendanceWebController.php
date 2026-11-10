@@ -137,9 +137,11 @@ class AttendanceWebController extends Controller
         $validated = $request->validate([
             'justification_status' => ['required', 'in:approved,rejected'],
             'review_notes'         => ['nullable', 'string', 'max:500'],
+            'justification_paid'   => ['nullable', 'in:0,1'],
         ]);
 
-        $attendance->reviewJustification(Auth::user(), $validated['justification_status'], $validated['review_notes'] ?? null);
+        $attendance->reviewJustification(Auth::user(), $validated['justification_status'], $validated['review_notes'] ?? null,
+            isset($validated['justification_paid']) ? (bool) $validated['justification_paid'] : null);
 
         $action = $validated['justification_status'] === 'approved' ? 'aprobada' : 'rechazada';
 

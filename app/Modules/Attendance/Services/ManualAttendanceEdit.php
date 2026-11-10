@@ -108,6 +108,7 @@ class ManualAttendanceEdit
             'worked_hours'  => 0,
             'overtime_hours' => 0,
             'late_minutes'  => 0,
+            'early_exit_minutes' => 0,
             'status'        => 'absent',
         ];
 
@@ -152,12 +153,13 @@ class ManualAttendanceEdit
                 if (isset($be) && $out->lte($be)) {
                     throw ValidationException::withMessages(['clock_out' => 'La salida debe ser después del retorno del refrigerio.']);
                 }
-                [$worked, $overtime, $base] = $this->attendance->closedDayHours($employee, $employee->tenant, $shift, $date, $tz, $in, $out,
+                [$worked, $overtime, $base, $earlyExit] = $this->attendance->closedDayHours($employee, $employee->tenant, $shift, $date, $tz, $in, $out,
                     (int) $values['break_minutes'], TenantSetting::forTenant($employee->tenant));
 
                 $values['clock_out_at']   = $out->format('Y-m-d H:i:s');
                 $values['worked_hours']   = $worked;
                 $values['overtime_hours'] = $overtime;
+                $values['early_exit_minutes'] = $earlyExit;
                 $values['status'] = AttendanceService::closedDayStatus($late > 0, $worked, $base);
                 // Igual que al marcar salida en la app: horario de 4 marcaciones sin el refrigerio completo
                 $values['punches_incomplete'] = (bool) $shift?->hasBreakWindow() && ! $breakStart;

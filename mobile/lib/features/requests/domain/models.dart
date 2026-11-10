@@ -33,6 +33,8 @@ class LeaveRequest {
     this.reviewer,
     this.reviewers,
     this.hasAttachment = false,
+    this.withPay,
+    this.requiresPayChoice = false,
   });
 
   final int id;
@@ -52,7 +54,15 @@ class LeaveRequest {
   final String? reviewers;
   final bool hasAttachment;
 
+  /// Con / sin goce (null: pendiente o sin clasificar). Vacaciones y descanso médico siempre con goce.
+  final bool? withPay;
+
+  /// Al aprobar hay que elegir con o sin goce (permisos; decisión de la empresa, sin valor por defecto)
+  final bool requiresPayChoice;
+
   bool get isPending => status == 'pending';
+
+  String? get payLabel => withPay == null ? null : (withPay! ? 'Con goce' : 'Sin goce');
 
   String get statusLabel => switch (status) {
         'pending' => 'Pendiente',
@@ -77,5 +87,7 @@ class LeaveRequest {
         reviewer: json['reviewer'] as String?,
         reviewers: json['reviewers'] as String?,
         hasAttachment: json['has_attachment'] == true,
+        withPay: json['with_pay'] as bool?,
+        requiresPayChoice: json['requires_pay_choice'] == true,
       );
 }

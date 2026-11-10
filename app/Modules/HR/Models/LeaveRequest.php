@@ -31,6 +31,9 @@ class LeaveRequest extends Model
 
     public const TYPES = ['vacation', 'permission', 'medical_leave'];
 
+    /** Siempre con goce (decisión del propietario, 11/2026); los permisos los clasifica RR. HH. al aprobar */
+    public const ALWAYS_PAID = ['vacation', 'medical_leave'];
+
     /** Columnas DATE guardadas como Y-m-d (ver HasDateOnlyColumns) */
     protected array $dateOnly = ['start_date', 'end_date'];
 
@@ -46,6 +49,7 @@ class LeaveRequest extends Model
         'reason',
         'attachment_path',
         'status',
+        'with_pay',
         'reviewed_by',
         'reviewed_at',
         'review_notes',
@@ -56,6 +60,7 @@ class LeaveRequest extends Model
         'end_date'    => 'date',
         'days'        => 'decimal:2',
         'reviewed_at' => 'datetime',
+        'with_pay'    => 'boolean',
     ];
 
     // =========================================================================
@@ -79,6 +84,36 @@ class LeaveRequest extends Model
     public function isPending(): bool
     {
         return $this->status === 'pending';
+    }
+
+    /**
+     * Aprueba o rechaza (panel y app del supervisor usan esta misma regla). Al aprobar un permiso, RR. HH. o el
+     * jefe eligen con o sin goce (sin valor por defecto); vacaciones y descanso médico son siempre con goce.
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    public function review(User $reviewer, string $decision, ?string $notes = null, ?bool $withPay = null): void
+    {
+        if (! in_array($decision, ['approved', 'rejected'], true)) {
+            throw new \InvalidArgumentException("Decisión inválida: {$decision}");
+        }
+        if ($decision === 'approved' && ! in_array($this->type, self::ALWAYS_PAID, true) && $withPay === null) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['with_pay' => 'Indica si el permiso es con goce o sin goce de haber.']);
+        }
+
+        $this->update([
+            'status'       => $decision,
+            'with_pay'     => $decision === 'approved' ? (in_array($this->type, self::ALWAYS_PAID, true) ? true : $withPay) : null,
+            'reviewed_by'  => $reviewer->id,
+            'reviewed_at'  => now(),
+            'review_notes' => $notes,
+        ]);
+    }
+
+    /** "Con goce" / "Sin goce" / null (pendiente, rechazada o aprobada antes de clasificar) */
+    public function payLabel(): ?string
+    {
+        return $this->with_pay === null ? null : ($this->with_pay ? 'Con goce' : 'Sin goce');
     }
 
     public function getTypeLabelAttribute(): string

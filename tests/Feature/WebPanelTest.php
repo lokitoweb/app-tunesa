@@ -135,12 +135,16 @@ class WebPanelTest extends TestCase
 
         $att = Attendance::create([
             'tenant_id' => $acme->id, 'user_id' => $emp->id, 'branch_id' => $branch->id, 'work_date' => '2026-10-07',
-            'status' => 'late', 'late_minutes' => 20, 'justification_status' => 'pending', 'notes' => 'Tráfico',
+            'clock_in_at' => '2026-10-07 08:20:00', 'status' => 'late', 'late_minutes' => 20, 'justification_status' => 'pending', 'notes' => 'Tráfico',
         ]);
 
+        // Con / sin goce es obligatorio al aprobar
         $this->actingAs($hr)->post("/attendance/{$att->id}/review", ['justification_status' => 'approved'])
+            ->assertSessionHasErrors('justification_paid');
+        $this->actingAs($hr)->post("/attendance/{$att->id}/review", ['justification_status' => 'approved', 'justification_paid' => '0'])
             ->assertSessionHas('success');
-        $this->assertSame('excused', $att->fresh()->status);
+        // Tardanza justificada: el día sigue trabajado (no pasa a "falta justificada"); queda sin goce
+        $this->assertSame(['late', 'approved', false], [$att->fresh()->status, $att->fresh()->justification_status, $att->fresh()->justification_paid]);
     }
 
     public function test_mark_absences_command(): void

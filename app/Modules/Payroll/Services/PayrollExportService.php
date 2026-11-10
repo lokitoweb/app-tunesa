@@ -39,11 +39,17 @@ class PayrollExportService
         'payable_hours'      => 'Horas a pagar',
         'late_count'         => 'Tardanzas',
         'late_minutes'       => 'Minutos de tardanza',
+        'early_exit_minutes' => 'Minutos de salida anticipada',
+        'justified_minutes_paid'   => 'Min. justificados con goce',
+        'justified_minutes_unpaid' => 'Min. justificados sin goce',
         'absences'           => 'Faltas injustificadas',
-        'excused'            => 'Faltas justificadas',
+        'excused_paid'       => 'Faltas justificadas con goce',
+        'excused_unpaid'     => 'Faltas justificadas sin goce',
         'vacation_days'      => 'Días de vacaciones',
         'medical_leave_days' => 'Días de licencia médica',
-        'permission_days'    => 'Días de permiso',
+        'permission_paid_days'   => 'Días de permiso con goce',
+        'permission_unpaid_days' => 'Días de permiso sin goce',
+        'unclassified'       => 'Justificaciones sin clasificar (revisar)',
         'bank_name'          => 'Banco',
         'bank_account_type'  => 'Tipo de cuenta',
         'currency'           => 'Moneda',
@@ -80,6 +86,8 @@ class PayrollExportService
         $ids = $employees->pluck('id');
 
         $payableOvertime = Attendance::payableOvertimeSql();
+        // Justificación aprobada por RR. HH. (sus minutos o el día salen de tardanzas/faltas y van a su columna con / sin goce)
+        $justified = "(justification_status = 'approved')";
 
         $attendance = Attendance::query()
             ->whereIn('user_id', $ids)
@@ -90,10 +98,15 @@ class PayrollExportService
                 COALESCE(SUM({$payableOvertime}), 0) AS overtime_hours,
                 COALESCE(SUM(CASE WHEN overtime_status = 'pending' THEN overtime_hours ELSE 0 END), 0) AS overtime_pending_hours,
                 COALESCE(SUM(COALESCE(worked_hours, 0) - COALESCE(overtime_hours, 0) + {$payableOvertime}), 0) AS payable_hours,
-                SUM(CASE WHEN late_minutes > 0 THEN 1 ELSE 0 END) AS late_count,
-                COALESCE(SUM(late_minutes), 0) AS late_minutes,
-                SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) AS absences,
-                SUM(CASE WHEN status = 'excused' THEN 1 ELSE 0 END) AS excused")
+                SUM(CASE WHEN late_minutes > 0 AND NOT {$justified} THEN 1 ELSE 0 END) AS late_count,
+                COALESCE(SUM(CASE WHEN {$justified} THEN 0 ELSE late_minutes END), 0) AS late_minutes,
+                COALESCE(SUM(CASE WHEN {$justified} THEN 0 ELSE early_exit_minutes END), 0) AS early_exit_minutes,
+                COALESCE(SUM(CASE WHEN {$justified} AND clock_in_at IS NOT NULL AND justification_paid = 1 THEN late_minutes + early_exit_minutes ELSE 0 END), 0) AS justified_minutes_paid,
+                COALESCE(SUM(CASE WHEN {$justified} AND clock_in_at IS NOT NULL AND justification_paid = 0 THEN late_minutes + early_exit_minutes ELSE 0 END), 0) AS justified_minutes_unpaid,
+                SUM(CASE WHEN status = 'absent' AND NOT {$justified} THEN 1 ELSE 0 END) AS absences,
+                SUM(CASE WHEN clock_in_at IS NULL AND {$justified} AND justification_paid = 1 THEN 1 ELSE 0 END) AS excused_paid,
+                SUM(CASE WHEN clock_in_at IS NULL AND {$justified} AND justification_paid = 0 THEN 1 ELSE 0 END) AS excused_unpaid,
+                SUM(CASE WHEN {$justified} AND justification_paid IS NULL AND (clock_in_at IS NULL OR late_minutes + early_exit_minutes > 0) THEN 1 ELSE 0 END) AS unclassified")
             ->groupBy('user_id')
             ->get()
             ->keyBy('user_id');
@@ -110,8 +123,9 @@ class PayrollExportService
             $a = $attendance->get($user->id);
             $p = $user->profile ?? new EmployeeProfile();
 
-            $leaveDays = fn (string $type) => ($leaves->get($user->id) ?? collect())
+            $leaveDays = fn (string $type, ?bool $withPay = null, bool $anyPay = true) => ($leaves->get($user->id) ?? collect())
                 ->where('type', $type)
+                ->filter(fn (LeaveRequest $l) => $anyPay || $l->with_pay === $withPay)
                 ->sum(fn (LeaveRequest $l) => $l->daysWithin($from, $to));
 
             return [
@@ -136,11 +150,17 @@ class PayrollExportService
                 'payable_hours'      => round((float) ($a->payable_hours ?? 0), 2),
                 'late_count'         => (int) ($a->late_count ?? 0),
                 'late_minutes'       => (int) ($a->late_minutes ?? 0),
+                'early_exit_minutes' => (int) ($a->early_exit_minutes ?? 0),
+                'justified_minutes_paid'   => (int) ($a->justified_minutes_paid ?? 0),
+                'justified_minutes_unpaid' => (int) ($a->justified_minutes_unpaid ?? 0),
                 'absences'           => (int) ($a->absences ?? 0),
-                'excused'            => (int) ($a->excused ?? 0),
+                'excused_paid'       => (int) ($a->excused_paid ?? 0),
+                'excused_unpaid'     => (int) ($a->excused_unpaid ?? 0),
                 'vacation_days'      => $leaveDays('vacation'),
                 'medical_leave_days' => $leaveDays('medical_leave'),
-                'permission_days'    => $leaveDays('permission'),
+                'permission_paid_days'   => $leaveDays('permission', true, false),
+                'permission_unpaid_days' => $leaveDays('permission', false, false),
+                'unclassified'       => round((int) ($a->unclassified ?? 0) + (float) $leaveDays('permission', null, false), 2),
                 'bank_name'          => $p->bank_name,
                 'bank_account_type'  => EmployeeProfile::BANK_ACCOUNT_TYPES[$p->bank_account_type] ?? null,
                 'currency'           => $p->bank_account_currency,
