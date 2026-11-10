@@ -60,5 +60,8 @@ Schedule::command('training:sync')->dailyAt('06:00')->withoutOverlapping()->onOn
 // Cumpleaños: saludo y aviso a los compañeros (cada empresa a su hora local; un aviso por persona y año)
 Schedule::command('birthdays:notify')->hourlyAt(5)->withoutOverlapping()->onOneServer();
 
+// App: la última compilación de producción en GitHub pasa a ser la "Última versión publicada" (aviso y push a las apps viejas)
+Schedule::command('app:sync-version')->everyTenMinutes()->withoutOverlapping()->onOneServer();
+
 // Comunicados programados: salen en el minuto indicado
 Schedule::command('announcements:dispatch')->everyMinute()->withoutOverlapping()->onOneServer();

@@ -28,7 +28,12 @@ class EnsureSupportedAppVersion
         $tenant   = app(\App\Modules\Core\Services\TenantContext::class)->getOrNull();
         $settings = TenantSetting::forTenant($tenant);
         // Va antes de auth:sanctum: el token se verifica aquí con el guard de Sanctum
-        if (auth('sanctum')->user()) {
+        if ($user = auth('sanctum')->user()) {
+            // Versión de su teléfono: el push de versión nueva no le llega si ya la tiene
+            $normalized = TenantSetting::normalizeVersion($version);
+            if (preg_match('/^\d{1,3}\.\d{1,3}\.\d{1,6}$/', $normalized) && $user->app_version !== $normalized) {
+                $user->forceFill(['app_version' => $normalized])->saveQuietly();
+            }
             self::rememberNewerVersion($version, $settings, $tenant);
         }
 

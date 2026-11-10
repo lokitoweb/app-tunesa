@@ -48,7 +48,9 @@ class NotifyAppUpdate implements ShouldQueue
                 ->where('tenant_id', $tenant->id)
                 ->where('status', 'active')
                 ->whereNotNull('fcm_token')
-                ->chunkById(200, fn ($users) => Notification::send($users, $notification));
+                // Quien ya entró con esta versión (o una más nueva) no recibe el aviso
+                ->chunkById(200, fn ($users) => Notification::send($users->filter(fn (User $u) => ! $u->app_version
+                    || version_compare($u->app_version, TenantSetting::normalizeVersion($this->version), '<')), $notification));
         }
     }
 

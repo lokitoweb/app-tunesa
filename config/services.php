@@ -35,6 +35,13 @@ return [
         ],
     ],
 
+    // Última compilación de producción de la app en GitHub (app:sync-version). Repo privado: token de solo lectura
+    'app_releases' => [
+        'repo'     => env('APP_RELEASES_REPO', 'lokitoweb/app-tunesa'),
+        'workflow' => env('APP_RELEASES_WORKFLOW', 'mobile-apk.yml'),
+        'token'    => env('APP_RELEASES_TOKEN'),
+    ],
+
     // Geocodificación (App\Services\Geocoding). Nominatim: máx. 1 petición por segundo
     // (política de uso de OpenStreetMap); el User-Agent lleva APP_URL.
     'nominatim' => [

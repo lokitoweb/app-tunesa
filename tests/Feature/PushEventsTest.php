@@ -103,6 +103,51 @@ class PushEventsTest extends TestCase
         $this->assertCount($before + 1, $this->pushes());
     }
 
+    public function test_the_version_push_skips_whoever_already_has_it(): void
+    {
+        $this->emp->forceFill(['app_version' => '1.6.154'])->save();
+        $updated = $this->makeUser($this->acme, 'employee', ['fcm_token' => 'phone-updated']);
+        $updated->forceFill(['app_version' => '1.6.160'])->save();
+        app(TenantContext::class)->clear();
+        $before = count($this->pushes());
+
+        TenantSetting::editableRowFor(null)->fill(['latest_version' => '1.6.160'])->save();
+
+        $tokens = array_column(array_slice($this->pushes(), $before), 'token');
+        $this->assertSame(['device-token-123'], $tokens); // el que ya tiene la 1.6.160 no recibe el aviso
+        $this->assertNotContains($updated->fcm_token, $tokens);
+    }
+
+    public function test_the_app_version_of_each_phone_is_remembered(): void
+    {
+        $this->actingIn($this->emp, $this->acme)->withHeader('X-App-Version', '1.6.160')->getJson('/api/attendance/today');
+
+        $this->assertSame('1.6.160', $this->emp->fresh()->app_version);
+    }
+
+    public function test_the_latest_production_build_on_github_becomes_the_published_version(): void
+    {
+        Http::fake([
+            'api.github.com/repos/*/actions/workflows/*/runs*' => Http::response(['workflow_runs' => [
+                ['id' => 3, 'run_number' => 161], // manual de staging: no cuenta
+                ['id' => 2, 'run_number' => 160],
+            ]]),
+            'api.github.com/repos/*/actions/runs/3/artifacts' => Http::response(['artifacts' => [['name' => 'tunesa-apk-staging-release']]]),
+            'api.github.com/repos/*/actions/runs/2/artifacts' => Http::response(['artifacts' => [['name' => 'tunesa-apk-prod-release-arm64-liviano'], ['name' => 'tunesa-apk-prod-release']]]),
+            '*' => Http::response(['name' => 'ok']),
+        ]);
+        TenantSetting::editableRowFor(null)->fill(['latest_version' => '1.6.154'])->save();
+        $base = preg_match('/^version:\s*(\d+\.\d+)\./m', file_get_contents(base_path('mobile/pubspec.yaml')), $m) ? $m[1] : null;
+
+        $this->artisan('app:sync-version')->assertSuccessful();
+        $this->assertSame("{$base}.160", TenantSetting::forTenant(null)->latest_version);
+
+        // Nunca baja: una compilación más vieja no pisa una versión mayor guardada
+        TenantSetting::editableRowFor(null)->fill(['latest_version' => "{$base}.999"])->save();
+        $this->artisan('app:sync-version')->assertSuccessful();
+        $this->assertSame("{$base}.999", TenantSetting::forTenant(null)->latest_version);
+    }
+
     public function test_required_update_says_so(): void
     {
         TenantSetting::editableRowFor($this->acme)->fill(['min_supported_version' => '2.0.0', 'force_update' => true, 'latest_version' => '2.0.0'])->save();

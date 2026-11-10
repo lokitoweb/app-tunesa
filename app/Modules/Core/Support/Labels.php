@@ -461,6 +461,7 @@ final class Labels
         'two_factor_secret'       => 'Verificación en dos pasos',
         'two_factor_recovery_codes' => 'Códigos de recuperación',
         'fcm_token'               => 'Dispositivo para notificaciones',
+        'app_version'             => 'Versión de la app',
         'fcm_token_updated_at'    => 'Dispositivo registrado el',
         'notification_preferences' => 'Preferencias de notificaciones',
         'failed_login_attempts'   => 'Intentos fallidos de ingreso',
