@@ -3,8 +3,16 @@ name: "Backend: pruebas"
 on:
   push:
     branches: [master]
+    # Solo app móvil o documentación: el servidor no cambia (y production no necesita avanzar)
+    paths-ignore: ["mobile/**", "docs/**", "**/*.md", ".github/workflows/app-e2e.yml", ".github/workflows/mobile-apk.yml"]
   pull_request:
-    paths-ignore: ["mobile/**"]
+    paths-ignore: ["mobile/**", "docs/**", "**/*.md"]
+  workflow_dispatch:
+
+# Pushes seguidos: solo se prueba el último (incluye a los anteriores); deployable tiene su propio grupo
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   phpunit:
