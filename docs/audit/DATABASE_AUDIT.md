@@ -35,7 +35,7 @@ Dónde se calcula hoy:
 | C6 | Turno nocturno con entrada después de medianoche: se archiva al día siguiente, sin tardanza, y el día real queda como falta | Alto — **corregido 10/11** (`clockInWorkDate`; pruebas `test_c6_*`) |
 | C7 | Turno partido: si faltan las marcas del medio, la pausa entre tramos cuenta como trabajada | Medio — **corregido 10/11**: la pausa se descuenta siempre, también con refrigerio pagado (`test_c7_*`) |
 | C8 | Marcación sin conexión que llega cuando el día ya cerró: 404 y se pierde sin rastro | Medio — **corregido 10/11**: queda en "Intentos rechazados" para RR. HH. (`test_c8_*`) |
-| C9 | Con `schedule_v2` apagado, la marcación y el calendario resuelven horarios con criterios distintos | Medio — **decisión del propietario**: encenderla para todas además marca y notifica "fuera de programación" a quien marque sin horario asignado (probado: 22 pruebas cambian) |
+| C9 | Con `schedule_v2` apagado, la marcación y el calendario resuelven horarios con criterios distintos | Medio — **corregido 10/11** (`d427650`): `schedule_v2` encendida por defecto; sin horario asignado se marca con "Sin horario configurado" (NO_SCHEDULE) y un aviso al supervisor por día; vuelta atrás por empresa con `attendance:flag` |
 | C10 | Aprobar la justificación de una **tardanza o marca olvidada** cambia el día a `excused`: la planilla lo cuenta a la vez como día trabajado y como "falta justificada" (`Attendance::reviewJustification`); el reporte lo cuenta solo como trabajado | Alto — **decisión del propietario** |
 | C11 | "Faltas justificadas" no significa lo mismo: la planilla cuenta filas `excused` (sin licencias); el reporte cuenta licencias aprobadas + faltas con justificación aprobada (sin días trabajados) | Alto |
 

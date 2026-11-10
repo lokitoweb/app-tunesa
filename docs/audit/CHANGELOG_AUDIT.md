@@ -2,6 +2,21 @@
 
 Cada entrada: qué se cambió, por qué, archivos, pruebas. Se agrega el commit cuando exista.
 
+## 10/11/2026 — C6–C9 publicados; endurecimiento FCM
+
+- `4fe53cc` C6–C8 + matriz de CI: suite 812/812, CI backend verde, `production` = `4fe53cc`.
+- `d427650` C9: `schedule_v2` por defecto (AttendanceFlags::DEFAULTS). Caso A: horario de la fecha. Caso B (sin ninguna
+  asignación ni día programado): marca igual, `NO_SCHEDULE` "Sin horario configurado", sospechosa (revisión), un aviso
+  in-app al supervisor por jornada, sin aviso al colaborador (lo ve en la app), nunca falta. Caso C: `OUTSIDE_SCHEDULE`
+  "Fuera de programación", avisos agrupados por jornada (caché `attendance-alert:schedule:{id}`, 2 días). Día de descanso:
+  sigue `punch_requires_schedule` (sin cambios). App: mismo texto que el panel, sin bloquear botones.
+  Pruebas: ScheduleV2DefaultTest (5), punch_board_test (C9); las 23 afectadas se ajustaron (las de GPS/selfie fijan la regla
+  anterior con `withoutScheduleV2()`, las de horario esperan el comportamiento nuevo). Suite 818/818, Flutter analyze sin errores.
+- `edfd346` FCM: `token_uri` del JSON subido se ignora; siempre `https://oauth2.googleapis.com/token` (evita SSRF con la firma).
+- Despliegue: verificable con el mecanismo existente: `storage/app/version.json` (lo escribe deploy.sh solo al terminar bien,
+  después de `migrate --force`) → menú del usuario del panel "Versión web 1.N", título "Commit xxxxxxx"; detalle en
+  `storage/logs/deploy.log` (salida del cron). Sin sesión en el panel ni acceso al servidor no se pudo leer.
+
 ## 10/11/2026 — C6–C8 corregidos (local, pendiente de publicar)
 
 - C6: entrada después de medianoche dentro del turno nocturno de ayer = jornada de ayer, con tardanza.
