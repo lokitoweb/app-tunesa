@@ -3,21 +3,21 @@
 /**
  * Configuración puntual para Turismo Negreiros (se ejecuta una sola vez y se puede repetir sin duplicar):
  *
- *  1. Crea (o actualiza) el colaborador 40767470@turismonegreiros.com, cargo "Atención al cliente",
- *     con la contraseña 40767470 (la app le pedirá cambiarla en su primer ingreso).
+ *  1. Crea (o actualiza) el colaborador <DNI>@<dominio de login>, cargo "Atención al cliente",
+ *     con su DNI como contraseña inicial (la app le pedirá cambiarla en su primer ingreso).
  *  2. Pone la sede de marcación en "Av. César Vallejo N° 1388, Trujillo 13006" con un radio estrecho.
  *  3. Endurece la geocerca de la empresa: fuera del radio se RECHAZA, GPS falso se RECHAZA
  *     y no se acepta una lectura de GPS con precisión peor que MAX_ACCURACY.
  *
  * Uso (desde la carpeta del proyecto Laravel, la misma donde está "artisan"):
- *     php configurar_trujillo.php                       -> usa la única sede activa
- *     php configurar_trujillo.php 3                     -> sede con id 3
+ *     php configurar_trujillo.php <DNI>                 -> usa la única sede activa
+ *     php configurar_trujillo.php <DNI> 3               -> sede con id 3
+ *
+ * El DNI va como argumento: no se guardan datos personales en el código.
  *
  * Las coordenadas de la sede ya vienen fijadas abajo (LATITUDE / LONGITUDE).
  */
 
-const DOCUMENT     = '40767470';
-const PASSWORD     = '40767470';
 const POSITION     = 'Atención al cliente';
 const ADDRESS      = 'Av. César Vallejo N° 1388, Trujillo 13006';
 const CITY         = 'Trujillo';
@@ -39,10 +39,13 @@ use App\Modules\Core\Models\User;
 use App\Modules\Onboarding\Services\OnboardingService;
 use Illuminate\Support\Facades\DB;
 
-[$branchId, $lat, $lng] = [$argv[1] ?? null, $argv[2] ?? LATITUDE, $argv[3] ?? LONGITUDE];
+[$document, $branchId, $lat, $lng] = [$argv[1] ?? '', $argv[2] ?? null, $argv[3] ?? LATITUDE, $argv[4] ?? LONGITUDE];
+if (! preg_match('/^\d{8}$/', $document)) {
+    exit("Indica el DNI (8 dígitos) del colaborador como primer argumento: php configurar_trujillo.php <DNI> [sede] [lat lng]\n");
+}
 
 $domain = TenantSetting::forTenant(null)->login_email_domain ?: 'turismonegreiros.com';
-$email  = DOCUMENT . '@' . $domain;
+$email  = $document . '@' . $domain;
 
 $tenants = Tenant::withoutGlobalScopes()->get();
 $tenant  = $tenants->count() === 1
@@ -57,7 +60,7 @@ $branch   = $branchId
     ? $branches->firstWhere('id', (int) $branchId) 
     : ($branches->first(fn ($b) => str_contains(strtolower($b->name . ' ' . $b->address), 'vallejo') || str_contains(strtolower($b->name), 'trujillo')) ?: ($branches->count() === 1 ? $branches->first() : null));
 if (! $branch) {
-    echo "Indica el id de la sede de Trujillo como primer argumento. Sedes activas:\n";
+    echo "Indica el id de la sede de Trujillo como segundo argumento. Sedes activas:\n";
     foreach ($branches as $b) {
         echo "  {$b->id}  {$b->name}  ({$b->address})\n";
     }
@@ -65,10 +68,10 @@ if (! $branch) {
 }
 
 if (($lat === null) !== ($lng === null) || ($lat !== null && (! is_numeric($lat) || ! is_numeric($lng)))) {
-    exit("Las coordenadas van juntas y en número, p. ej.: php configurar_trujillo.php {$branch->id} -8.0960 -79.0335\n");
+    exit("Las coordenadas van juntas y en número, p. ej.: php configurar_trujillo.php <DNI> {$branch->id} -8.0960 -79.0335\n");
 }
 
-DB::transaction(function () use ($tenant, $branch, $email, $lat, $lng) {
+DB::transaction(function () use ($tenant, $branch, $email, $document, $lat, $lng) {
     // --- 1. Sede y geocerca ---
     $branch->fill(['address' => ADDRESS, 'city' => CITY, 'allowed_radius_meters' => RADIUS]);
     if ($lat !== null) {
@@ -97,16 +100,16 @@ DB::transaction(function () use ($tenant, $branch, $email, $lat, $lng) {
     $user->fill([
         'email'           => $email,
         'document_type'   => 'dni',
-        'document_number' => DOCUMENT,
+        'document_number' => $document,
         'role'            => 'employee',
         'status'          => 'active',
         'position_id'     => $position->id,
         'position'        => POSITION,
     ]);
-    // Clave fija pedida por la empresa; se marca como temporal para que la cambie al entrar
+    // Contraseña inicial = DNI (procedimiento habitual); temporal: la cambia al entrar
     $user->forceFill([
         'tenant_id'                => $tenant->id,
-        'password'                 => PASSWORD,
+        'password'                 => $document,
         'must_change_password'     => true,
         'temp_password_expires_at' => now()->addHours(72),
     ])->save();
