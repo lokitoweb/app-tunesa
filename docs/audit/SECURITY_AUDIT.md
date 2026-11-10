@@ -10,7 +10,7 @@ El repositorio en GitHub es **público**: este documento describe riesgos sin da
 | Elemento | Dónde | Tipo | Estado |
 |---|---|---|---|
 | `.env` con `APP_KEY`, `APP_URL`, `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` | commit inicial `f10f077` (quitado en `b5d4bb6`) | **De desarrollo local** (`APP_ENV=local`, `APP_DEBUG=true`, sin datos de base) | Público en el historial. En local no coincide nada (comprobado). En producción: lo verifica `app:check-production` en cada despliegue (ver 1.4) |
-| `configurar_trujillo.php` | versionado en la raíz | Script puntual con el DNI de una persona real usado como contraseña | **Alto**: dato personal en un repositorio público. Quitarlo del repo requiere decisión (no se borra sin autorización) |
+| `configurar_trujillo.php` | versionado en la raíz | Script puntual con el DNI de una persona real usado como contraseña | **Alto**: dato personal en un repositorio público. **Corregido en el código actual** (09/11/2026): el DNI va como argumento. Sigue en el historial (no se reescribe); deja de ser visible al pasar el repo a privado |
 | `mobile/android/app/google-services.json` | versionado | Clave de API de Firebase **pública por diseño** | Informativo: restringirla en Google Cloud por paquete Android y huella SHA-1 |
 | `_to_delete/google-services.json.vacio` | versionado | Archivo vacío | Sin riesgo; limpiar en bloque 7 |
 

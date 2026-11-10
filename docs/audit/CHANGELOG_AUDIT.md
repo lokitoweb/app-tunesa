@@ -2,6 +2,14 @@
 
 Cada entrada: qué se cambió, por qué, archivos, pruebas. Se agrega el commit cuando exista.
 
+## 09/11/2026 — Datos personales fuera de `configurar_trujillo.php` (autorizado)
+
+- El DNI de la persona real (usado también como contraseña) ya no está en el código: el script lo recibe como primer
+  argumento (`php configurar_trujillo.php <DNI> [sede] [lat lng]`) y sin él se detiene antes de tocar la base.
+  La lógica no cambia: contraseña inicial = DNI con cambio obligatorio en el primer ingreso.
+- Dependencias revisadas: ningún otro archivo lo usa. La dirección es del local de la empresa (no es dato personal).
+- El historial de Git no se reescribe; el dato sigue en commits anteriores (ver `SECURITY_AUDIT.md` §1).
+
 ## 09/11/2026 — Recuperación de acceso con enlace de un solo uso (S2, aprobado)
 
 - "¿Olvidaste tu contraseña?" ya **no cambia la contraseña** al pedirlo: envía un enlace de un solo uso que vence en
