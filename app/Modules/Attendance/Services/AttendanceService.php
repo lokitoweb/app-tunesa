@@ -462,14 +462,8 @@ class AttendanceService
 
         // Horas trabajadas (proporcionales a lo marcado). El descanso fijo del turno se
         // descuenta aunque no se marque; con "Refrigerio pagado" no se descuenta nada.
-        $clockInTime  = $this->localTime($attendance->clock_in_at);
-        $totalMinutes = (int) $clockInTime->diffInMinutes($clockOutTime);
-        $breakMinutes = $c['settings']->lunch_paid ? 0 : $this->breakToDeduct($totalMinutes, (int) ($attendance->break_minutes ?? 0), $shift, $c['settings']);
-        $workedHours  = round(max(0, $totalMinutes - $breakMinutes) / 60, 2);
-
-        $dailyHours    = self::baseDailyHours($shift, $employee);
-        $overtimeHours = $this->overtimeHours($shift, $attendance->work_date->toDateString(), $c['tenant']->timezone, $clockOutTime,
-            $workedHours, $dailyHours, (bool) $c['tenant']->setting('flags.hours_v2'), (int) $c['tenant']->id);
+        [$workedHours, $overtimeHours, $dailyHours] = $this->closedDayHours($employee, $c['tenant'], $shift, $attendance->work_date->toDateString(), $c['tenant']->timezone,
+            $this->localTime($attendance->clock_in_at), $clockOutTime, (int) ($attendance->break_minutes ?? 0), $c['settings']);
 
         $attendance->update([
             'clock_out_at'              => $clockOutTime,
@@ -492,7 +486,7 @@ class AttendanceService
             'overtime_hours' => $overtimeHours,
             'overtime_status'         => Attendance::overtimeStatusFor($overtimeHours),
             'overtime_approved_hours' => null,
-            'status'         => $this->determineFinalStatus($attendance, $workedHours, $dailyHours),
+            'status'         => self::closedDayStatus($attendance->status === 'late', $workedHours, $dailyHours),
             // QA3-04: horario de 4 marcaciones y faltó la salida o el retorno del refrigerio
             'punches_incomplete' => (bool) $shift?->hasBreakWindow() && ($attendance->break_start_at === null || $attendance->break_end_at === null),
         ]);
@@ -1187,17 +1181,26 @@ class AttendanceService
         return Carbon::createFromFormat('Y-m-d H:i:s', $attendance->clock_in_at->format('Y-m-d H:i:s'), $tz)->addMinutes((int) round($hours * 60) + $break);
     }
 
-    public function determineFinalStatus(Attendance $attendance, float $workedHours, float $dailyHours): string
+    /**
+     * Horas de una jornada cerrada: única fórmula para la salida marcada en la app y la edición manual
+     * (RR. HH.). Descuenta el descanso (salvo refrigerio pagado) y calcula horas extra sobre la jornada base.
+     *
+     * @return array{0: float, 1: float, 2: float} [horas trabajadas, horas extra, jornada base]
+     */
+    public function closedDayHours(User $employee, ?Tenant $tenant, ?Shift $shift, string $date, string $tz, Carbon $in, Carbon $out, int $markedBreakMinutes, TenantSetting $settings): array
     {
-        if ($attendance->status === 'late') {
-            return 'late';
-        }
+        $total  = (int) $in->diffInMinutes($out);
+        $deduct = $settings->lunch_paid ? 0 : $this->breakToDeduct($total, $markedBreakMinutes, $shift, $settings);
+        $worked = round(max(0, $total - $deduct) / 60, 2);
+        $base   = self::baseDailyHours($shift, $employee);
 
-        if ($workedHours < ($dailyHours * 0.60)) {
-            return 'half_day';
-        }
+        return [$worked, $this->overtimeHours($shift, $date, $tz, $out, $worked, $base, (bool) $tenant?->setting('flags.hours_v2'), (int) $employee->tenant_id), $base];
+    }
 
-        return 'present';
+    /** Estado de una jornada cerrada: tardanza, media jornada (menos del 60 % de la base) o presente */
+    public static function closedDayStatus(bool $late, float $workedHours, float $dailyHours): string
+    {
+        return $late ? 'late' : ($workedHours < $dailyHours * 0.60 ? 'half_day' : 'present');
     }
 
     /** Orden de procesamiento de sync-batch para marcaciones con la misma hora */
