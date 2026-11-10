@@ -2,6 +2,13 @@
 
 Cada entrada: qué se cambió, por qué, archivos, pruebas. Se agrega el commit cuando exista.
 
+## 10/11/2026 — Rendimiento de permisos y manifiesto iOS (publicado y desplegado)
+
+- `e864ed5` permisos por empresa y rol una vez por request: /employees ya no hace 2 consultas por fila (54→65 ⇒ 46→45). QueryBudgetTest vigila 5 pantallas. Suite 823/823.
+- `2e4283c` iOS `PrivacyInfo.xcprivacy` en Runner + `store_readiness_test.dart`. Flutter 261/261. La compilación iOS no se probó (requiere macOS).
+- Validado en producción: "Versión web 1.474 · Commit e864ed5"; colaboradores, asistencia, calendario, mapa en vivo, planillas, programación y reporte de horas responden 200.
+- Revisado sin hallazgos: SQL crudo (solo constantes), XSS (3 salidas HTML escapadas), CSRF (sin excepciones), aislamiento por empresa, subidas (tipo/tamaño/SafeUpload, sin SVG), archivos privados (URL firmada y con vencimiento), tokens (30 días, revocación, poda), webhooks (bloqueo SSRF), cola offline de la app (404/409 no se reintentan; red y 5xx con espera hasta 30 min; UUID evita duplicados).
+
 ## 10/11/2026 — C6–C9 publicados; endurecimiento FCM
 
 - `4fe53cc` C6–C8 + matriz de CI: suite 812/812, CI backend verde, `production` = `4fe53cc`.
