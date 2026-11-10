@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Modules\Core\Models\Role;
+use App\Modules\Core\Models\User;
 use App\Modules\Core\Support\SystemRoles;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;
@@ -19,6 +20,7 @@ class SystemRolesSyncTest extends TestCase
         $acme = $this->makeTenant('acme');
         $emp  = $this->makeUser($acme, 'employee');
         Role::whereNull('tenant_id')->where('slug', 'employee')->first()->permissions()->detach();
+        User::forgetPermissionMemo(); // cambio directo en la base, fuera de los servicios de permisos
         $this->assertFalse($emp->fresh()->hasPermission('attendance.view_own'));
 
         $this->assertTrue(SystemRoles::sync());

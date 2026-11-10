@@ -227,6 +227,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 array_values(array_intersect_key($permissionIds, array_flip(self::expand($grants))))
             );
         }
+        \App\Modules\Core\Models\User::forgetPermissionMemo();
 
         $this->command?->info('✅ Roles y permisos: ' . count(self::ROLES) . ' roles, ' . count(self::PERMISSIONS) . ' permisos');
     }

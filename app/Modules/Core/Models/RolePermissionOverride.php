@@ -15,6 +15,13 @@ class RolePermissionOverride extends Model
 
     protected $casts = ['granted' => 'boolean'];
 
+    protected static function booted(): void
+    {
+        // Un ajuste de Roles y permisos se ve al instante en el mismo request
+        static::saved(fn () => User::forgetPermissionMemo());
+        static::deleted(fn () => User::forgetPermissionMemo());
+    }
+
     public function permission(): BelongsTo
     {
         return $this->belongsTo(Permission::class);

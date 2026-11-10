@@ -32,7 +32,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Permisos por empresa y rol, una vez por request o job (User::permissionSlugs); se limpia solo entre jobs
+        $this->app->scoped(\App\Modules\Core\Models\User::PERMISSION_MEMO, fn () => new \ArrayObject);
     }
 
     /**
@@ -40,6 +41,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Cada request parte sin permisos memorizados (en tests y servidores que reutilizan el proceso)
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Routing\Events\RouteMatched::class, fn () => \App\Modules\Core\Models\User::forgetPermissionMemo());
+
         // Al terminar `php artisan migrate` (cada despliegue) los roles y permisos
         // del sistema quedan al día con RolesAndPermissionsSeeder: un permiso o rol
         // nuevo en el código ya no exige correr el seeder a mano.

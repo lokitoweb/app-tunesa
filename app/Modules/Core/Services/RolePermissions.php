@@ -92,6 +92,7 @@ class RolePermissions
         abort_if($users > 0, 422, "El rol lo tienen {$users} persona(s): cámbiales el rol antes de eliminarlo.");
         DB::transaction(function () use ($tenant, $role) {
             RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('role', $role->slug)->delete();
+            \App\Modules\Core\Models\User::forgetPermissionMemo();
             $role->delete();
         });
     }
@@ -156,6 +157,7 @@ class RolePermissions
                 RolePermissionOverride::create($row + ['tenant_id' => $tenant->id, 'role' => $role, 'updated_by' => $by]);
             }
         });
+        \App\Modules\Core\Models\User::forgetPermissionMemo();
 
         return ['added' => array_values(array_diff($wanted, $before)), 'removed' => array_values(array_diff($before, $wanted))];
     }
@@ -164,5 +166,6 @@ class RolePermissions
     {
         abort_unless(array_key_exists($role, $this->standard($tenant)), 422, 'Ese rol no se puede personalizar.');
         RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('role', $role)->delete();
+        \App\Modules\Core\Models\User::forgetPermissionMemo();
     }
 }

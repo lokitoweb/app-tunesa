@@ -306,6 +306,15 @@ class User extends Authenticatable
             ->delete();
     }
 
+    /** Memoria de permisos por empresa y rol durante el request o job (contenedor "scoped") */
+    public const PERMISSION_MEMO = 'permission.slugs';
+
+    /** Tras cambiar permisos de un rol: el resto del request ya los ve */
+    public static function forgetPermissionMemo(): void
+    {
+        app()->forgetInstance(self::PERMISSION_MEMO);
+    }
+
     /**
      * Slugs de permisos del rol del usuario (memoizados por request).
      *
@@ -313,6 +322,12 @@ class User extends Authenticatable
      */
     public function permissionSlugs(): array
     {
+        // Mismo rol en la misma empresa = mismos permisos: listas de personas no consultan una vez por fila
+        $memo = app(self::PERMISSION_MEMO);
+        $memoKey = "{$this->tenant_id}|{$this->role}|{$this->custom_role_id}";
+        if (! array_key_exists('permission_slugs', $this->permissionCache) && isset($memo[$memoKey])) {
+            $this->permissionCache['permission_slugs'] = $memo[$memoKey];
+        }
         if (! array_key_exists('permission_slugs', $this->permissionCache)) {
             // Rol propio de la empresa: parte de su rol base y aplica sus propias diferencias
             [$base, $key] = [$this->role, $this->role];
@@ -339,7 +354,7 @@ class User extends Authenticatable
                 )));
             }
 
-            $this->permissionCache['permission_slugs'] = $slugs;
+            $this->permissionCache['permission_slugs'] = $memo[$memoKey] = $slugs;
         }
 
         return $this->permissionCache['permission_slugs'];
