@@ -239,8 +239,8 @@ class AuthController extends Controller
             'email.email'    => 'Escribe un correo válido.',
         ])['email'];
 
-        // Contraseña temporal por correo (si el correo no sale, RR. HH. recibe el pedido como antes)
-        app(\App\Modules\Core\Services\PasswordRecovery::class)->sendTemporaryPassword($email);
+        // Enlace de un solo uso por correo (si el correo no sale, RR. HH. recibe el pedido como antes)
+        app(\App\Modules\Core\Services\PasswordRecovery::class)->sendResetLink($email);
 
         return response()->json([
             'success' => true,

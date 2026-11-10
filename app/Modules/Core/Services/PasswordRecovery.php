@@ -4,39 +4,43 @@ namespace App\Modules\Core\Services;
 
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Notifications\PasswordHelpRequested;
-use App\Modules\Core\Notifications\TemporaryPasswordMail;
+use App\Modules\Core\Notifications\PasswordResetLinkMail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 /**
- * "Olvidé mi contraseña" por autoservicio (web y app): la persona escribe su correo y le llega
- * una contraseña temporal aleatoria que debe cambiar al ingresar (vence en
- * CredentialProvisioner::TEMP_TTL_HOURS). La contraseña actual no se puede enviar: solo se guarda
- * su huella cifrada.
+ * "Olvidé mi contraseña" por autoservicio (web y app), aprobado en la auditoría (SECURITY_AUDIT.md §3.3):
  *
- *  - Respuesta siempre igual: no revela si el correo existe.
- *  - Una solicitud por persona cada THROTTLE_MINUTES (nadie puede dejar sin acceso a otro a cada rato).
- *  - Si el correo no sale, la contraseña no cambia y se avisa a RR. HH. como antes.
- *  - Queda en la bitácora (sin la contraseña) y se cierran sus sesiones.
+ *  - El pedido NO cambia nada: llega al correo de la cuenta un enlace de un solo uso que vence en
+ *    TOKEN_TTL_MINUTES. La contraseña actual sigue funcionando; saber el correo o el DNI de alguien no
+ *    alcanza para tomar ni bloquear su cuenta.
+ *  - Recién al abrir el enlace y escribir una nueva se cambia la contraseña, se cierran las sesiones y el
+ *    enlace se invalida. Un pedido nuevo invalida el anterior.
+ *  - Respuesta siempre igual (no revela si el correo existe) y un pedido por persona cada THROTTLE_MINUTES,
+ *    además del límite por IP de las rutas.
+ *  - Sin un correo que salga de verdad, RR. HH. recibe el pedido (y restablece el acceso con el DNI, igual que hoy).
+ *  - La contraseña inicial con el DNI y su cambio obligatorio no se tocan (CredentialProvisioner).
  */
 class PasswordRecovery
 {
     public const THROTTLE_MINUTES = 15;
 
-    public const RESPONSE = 'Listo. Si el correo está registrado y activo, te enviamos una contraseña temporal. Revisa tu bandeja de entrada (y la carpeta de spam): vence en '
-        . CredentialProvisioner::TEMP_TTL_HOURS . ' horas y la cambiarás al ingresar.';
+    public const TOKEN_TTL_MINUTES = 30;
+
+    public const RESPONSE = 'Listo. Si el correo está registrado y activo, te enviamos un enlace para crear una nueva contraseña. '
+        . 'Revisa tu bandeja de entrada (y la carpeta de spam): vence en ' . self::TOKEN_TTL_MINUTES . ' minutos. Tu contraseña actual sigue funcionando hasta que la cambies.';
 
     public function __construct(
-        private readonly CredentialProvisioner $credentials,
         private readonly AccountDeletion $accounts,
         private readonly AuditLogger $audit,
     ) {}
 
-    /** Envía la contraseña temporal si corresponde. No informa nada hacia afuera (respuesta neutra). */
-    public function sendTemporaryPassword(string $email, ?int $tenantId = null): void
+    /** Envía el enlace si corresponde. No informa nada hacia afuera (respuesta neutra). */
+    public function sendResetLink(string $email, ?int $tenantId = null): void
     {
         $user = $this->accounts->findUser($email);
         if (! $user || $user->status !== 'active' || ! $user->email
@@ -46,8 +50,6 @@ class PasswordRecovery
         if (! Cache::add("password-recovery:{$user->id}", true, now()->addMinutes(self::THROTTLE_MINUTES))) {
             return;
         }
-        // Sin un correo que salga de verdad (MAIL_MAILER=log y sin SMTP propio de la empresa) la clave
-        // no se toca: nunca le llegaría y quedaría sin acceso. RR. HH. recibe el pedido, como antes.
         if (! self::mailDelivers($user)) {
             Log::warning("Recuperación de contraseña de usuario #{$user->id}: el servidor no envía correos (MAIL_MAILER=" . config('mail.default') . '); se avisó a RR. HH.');
             $this->askHumanResources($user);
@@ -55,23 +57,54 @@ class PasswordRecovery
             return;
         }
 
-        $password = $this->credentials->temporaryPassword();
+        $token = Str::random(64);
         try {
-            // El correo sale dentro de la transacción: si falla, la contraseña anterior sigue valiendo
-            DB::transaction(function () use ($user, $password) {
-                $user->forceFill($this->credentials->temporaryAttributes($password) + ['remember_token' => Str::random(60)])->save();
-                $user->tokens()->delete();
-                $user->endWebSessions();
-                $user->notify(new TemporaryPasswordMail($password));
-            });
+            // Un enlace vigente por cuenta: guardar el nuevo invalida el anterior. Solo se guarda su hash.
+            DB::table('password_reset_tokens')->updateOrInsert(['email' => $user->email], ['token' => hash('sha256', $token), 'created_at' => now()]);
+            $user->notify(new PasswordResetLinkMail(route('password.reset', ['token' => $token]), self::TOKEN_TTL_MINUTES));
         } catch (\Throwable $e) {
-            Log::warning("No se pudo enviar la contraseña temporal a usuario #{$user->id}: " . $e->getMessage());
+            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+            Log::warning("No se pudo enviar el enlace de recuperación a usuario #{$user->id}: " . $e->getMessage());
             $this->askHumanResources($user);
 
             return;
         }
 
-        $this->audit->log('auth.password_recovered', $user, ['name' => $user->full_name, 'channel' => 'email']);
+        $this->audit->log('auth.password_reset_requested', $user, ['name' => $user->full_name, 'channel' => 'email']);
+    }
+
+    /** Dueño de un enlace vigente, o null si no existe, venció o la cuenta ya no está activa */
+    public function userForToken(string $token): ?User
+    {
+        $row = DB::table('password_reset_tokens')->where('token', hash('sha256', $token))->first();
+        if (! $row) {
+            return null;
+        }
+        if (now()->subMinutes(self::TOKEN_TTL_MINUTES)->gt($row->created_at)) {
+            DB::table('password_reset_tokens')->where('email', $row->email)->delete();
+
+            return null;
+        }
+        $user = User::withoutGlobalScopes()->where('email', $row->email)->first();
+
+        return $user && $user->status === 'active' ? $user : null;
+    }
+
+    /** Cambia la contraseña con el enlace (una sola vez). false si el enlace ya no sirve. */
+    public function reset(string $token, string $password): bool
+    {
+        return DB::transaction(function () use ($token, $password) {
+            $user = $this->userForToken($token);
+            // Se borra antes de cambiar: dos envíos simultáneos con el mismo enlace no lo usan dos veces
+            if (! $user || ! DB::table('password_reset_tokens')->where('token', hash('sha256', $token))->delete()) {
+                return false;
+            }
+            $user->completePasswordReset(Hash::make($password));
+            $user->endWebSessions();
+            $this->audit->log('auth.password_recovered', $user, ['name' => $user->full_name, 'channel' => 'email']);
+
+            return true;
+        });
     }
 
     /** ¿El correo de esta persona sale de verdad? SMTP propio de su empresa, o un mailer real en el servidor */

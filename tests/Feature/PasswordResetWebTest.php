@@ -23,12 +23,12 @@ class PasswordResetWebTest extends TestCase
 
         $this->get('/forgot-password')->assertOk()
             ->assertSee('<form', false)->assertSee(route('password.email'), false)
-            ->assertSee('Enviar contraseña temporal')
+            ->assertSee('Enviar enlace')
             ->assertSee('Recursos Humanos también puede restablecer tu acceso')
             ->assertSee(route('login'));
     }
 
-    public function test_only_the_temporary_password_flow_exists_no_reset_links(): void
+    public function test_only_the_one_time_link_flow_exists_and_unknown_links_do_nothing(): void
     {
         $this->seedRoles();
         $acme = $this->makeTenant('acme');
@@ -36,10 +36,14 @@ class PasswordResetWebTest extends TestCase
 
         \Illuminate\Support\Facades\Notification::fake();
         $this->post('/forgot-password', ['email' => 'rrhh@acme.test'])->assertRedirect(route('password.request'));
+        // Las rutas genéricas de Laravel no existen; solo el enlace propio (PasswordRecovery)
         $this->get('/reset-password/x')->assertNotFound();
         $this->post('/reset-password', ['token' => 'x', 'email' => 'rrhh@acme.test', 'password' => 'Nueva123!', 'password_confirmation' => 'Nueva123!'])
             ->assertNotFound();
-        $this->assertDatabaseCount('password_reset_tokens', 0);
+        // Un enlace inventado no sirve ni cambia nada
+        $this->get(route('password.reset', 'inventado'))->assertOk()->assertSee('Este enlace ya no sirve');
+        $this->post(route('password.update', 'inventado'), ['password' => 'Nueva2026x', 'password_confirmation' => 'Nueva2026x'])
+            ->assertRedirect(route('password.request'));
         // La API de la app (410 PASSWORD_RESET_BY_ADMIN) ya la cubre LoginByEmailTest
     }
 

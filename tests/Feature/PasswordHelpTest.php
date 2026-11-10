@@ -17,7 +17,7 @@ class PasswordHelpTest extends TestCase
 {
     use CreatesTenants, RefreshDatabase;
 
-    public function test_forgot_password_in_the_app_mails_a_temporary_password_without_revealing_accounts(): void
+    public function test_forgot_password_in_the_app_mails_a_reset_link_without_revealing_accounts(): void
     {
         $this->seedRoles();
         Notification::fake();
@@ -31,13 +31,13 @@ class PasswordHelpTest extends TestCase
         $unknown = $this->postJson('/api/v1/auth/password-help', ['email' => 'nadie@acme.test'])->assertOk()->json('message');
         $this->assertSame($known, $unknown, 'la respuesta no revela si el correo existe');
 
-        Notification::assertSentTo($ana, \App\Modules\Core\Notifications\TemporaryPasswordMail::class);
+        Notification::assertSentTo($ana, \App\Modules\Core\Notifications\PasswordResetLinkMail::class);
         Notification::assertNotSentTo($hr, PasswordHelpRequested::class); // el correo salió: RRHH no tiene que intervenir
         Notification::assertNotSentTo($otherHr, PasswordHelpRequested::class);
 
         // Un envío cada 15 minutos aunque insista
         $this->postJson('/api/v1/auth/password-help', ['email' => 'ana@acme.test'])->assertOk();
-        Notification::assertSentToTimes($ana, \App\Modules\Core\Notifications\TemporaryPasswordMail::class, 1);
+        Notification::assertSentToTimes($ana, \App\Modules\Core\Notifications\PasswordResetLinkMail::class, 1);
 
         $this->postJson('/api/v1/auth/password-help', ['email' => 'no-es-correo'])->assertUnprocessable()->assertJsonValidationErrors('email');
     }

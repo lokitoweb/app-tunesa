@@ -152,8 +152,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-/// "Olvidé mi contraseña": con el correo, la app avisa a RRHH. Al terminar
-/// muestra los siguientes pasos (contraseña temporal que se cambia al entrar).
+/// "Olvidé mi contraseña": con el correo, el servidor envía un enlace de un solo uso para crear una
+/// nueva contraseña (si el correo no sale, avisa a RRHH). Al terminar muestra el mensaje del servidor.
 class _ForgotPasswordDialog extends StatefulWidget {
   const _ForgotPasswordDialog({required this.initialEmail, required this.send});
 
@@ -211,7 +211,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
       icon: const Icon(Icons.support_agent_rounded),
       title: const Text('¿Olvidaste tu contraseña?'),
       content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Escribe tu correo y avisaremos a RR. HH. Te darán una contraseña temporal que cambiarás al ingresar.'),
+        const Text('Escribe tu correo y te enviaremos un enlace para crear una nueva contraseña. Tu contraseña actual sigue funcionando hasta que la cambies.'),
         const SizedBox(height: 16),
         TextField(
           key: const Key('password-help-email'),
@@ -229,7 +229,7 @@ class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
           onPressed: _sending ? null : _submit,
           child: _sending
               ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Avisar a RR. HH.'),
+              : const Text('Enviar enlace'),
         ),
       ],
     );

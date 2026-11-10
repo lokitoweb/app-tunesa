@@ -15,12 +15,12 @@
             <img src="{{ $brandSettings->displayLogoUrl() }}" alt="{{ $brandSettings->tradeName() }}" class="card-brand-logo">
         </div>
 
-        {{-- Contraseña temporal por correo (PasswordRecovery): la respuesta es la misma exista o no el correo --}}
+        {{-- Enlace de un solo uso por correo (PasswordRecovery): la respuesta es la misma exista o no el correo --}}
         <h2 class="card-hero-title">¿Olvidaste tu contraseña?</h2>
         @if(session('status'))
             <p class="card-hero-subtitle" role="status">{{ session('status') }}</p>
         @else
-            <p class="card-hero-subtitle">Escribe tu correo y te enviaremos una contraseña temporal. Al ingresar te pediremos crear una nueva.</p>
+            <p class="card-hero-subtitle">Escribe tu correo y te enviaremos un enlace para crear una nueva contraseña. Tu contraseña actual sigue funcionando hasta que la cambies.</p>
 
             <form method="POST" action="{{ route('password.email') }}" novalidate class="antigravity-form" style="margin-top: 1.25rem;">
                 @csrf
@@ -41,7 +41,7 @@
                     @error('email')<div class="small text-danger mt-1" role="alert">{{ $message }}</div>@enderror
                 </div>
                 <button type="submit" class="organic-stone-btn">
-                    <span class="btn-engraved-text">Enviar contraseña temporal</span>
+                    <span class="btn-engraved-text">Enviar enlace</span>
                     <span class="btn-engraved-arrow">→</span>
                 </button>
             </form>

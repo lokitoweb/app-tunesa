@@ -102,21 +102,22 @@ class LoginByEmailTest extends TestCase
         Storage::disk('public')->assertMissing($current);
     }
 
-    public function test_app_forgot_password_mails_a_temporary_password_and_old_reset_routes_stay_closed(): void
+    public function test_app_forgot_password_mails_a_reset_link_and_old_reset_routes_stay_closed(): void
     {
         \Illuminate\Support\Facades\Notification::fake();
         config(['mail.default' => 'smtp']); // servidor con correo real
         $ana = $this->makeUser($this->makeTenant('acme'), 'employee', ['email' => 'ana@acme.test']);
 
-        // La app (sin código de empresa): contraseña temporal por correo, respuesta neutra
+        // La app (sin código de empresa): enlace de un solo uso por correo, respuesta neutra
         $this->postJson('/api/v1/auth/forgot-password', ['email' => 'ana@acme.test'])->assertOk()
             ->assertJsonPath('message', \App\Modules\Core\Services\PasswordRecovery::RESPONSE);
-        \Illuminate\Support\Facades\Notification::assertSentTo($ana, \App\Modules\Core\Notifications\TemporaryPasswordMail::class);
+        \Illuminate\Support\Facades\Notification::assertSentTo($ana, \App\Modules\Core\Notifications\PasswordResetLinkMail::class);
 
-        // Las rutas antiguas por empresa (token de restablecimiento) siguen cerradas
+        // Las rutas antiguas por empresa (token de restablecimiento) siguen cerradas y no tocan el enlace vigente
+        $token = \Illuminate\Support\Facades\DB::table('password_reset_tokens')->where('email', 'ana@acme.test')->value('token');
         foreach (['/api/auth/forgot-password', '/api/auth/reset-password'] as $url) {
             $this->withHeaders(['X-Tenant-Slug' => 'acme'])->postJson($url, ['email' => 'ana@acme.test'])->assertStatus(410)->assertJsonPath('code', 'PASSWORD_RESET_BY_ADMIN');
         }
-        $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'ana@acme.test']);
+        $this->assertSame($token, \Illuminate\Support\Facades\DB::table('password_reset_tokens')->where('email', 'ana@acme.test')->value('token'));
     }
 }

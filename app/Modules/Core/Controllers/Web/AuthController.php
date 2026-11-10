@@ -6,6 +6,8 @@ use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\User;
 use App\Modules\Core\Services\LoginGuard;
+use App\Modules\Core\Services\PasswordRecovery;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -142,7 +144,7 @@ class AuthController extends Controller
      * Empresa del subdominio (empresa.tunesa.app) o dominio propio, si aplica.
      */
     /**
-     * "¿Olvidaste tu contraseña?": envía una contraseña temporal al correo (PasswordRecovery).
+     * "¿Olvidaste tu contraseña?": envía al correo un enlace de un solo uso para crear una nueva (PasswordRecovery).
      * La respuesta es siempre la misma, exista o no el correo.
      */
     public function sendTemporaryPassword(Request $request): RedirectResponse
@@ -159,9 +161,33 @@ class AuthController extends Controller
 
         // En el dominio de una empresa solo se atiende a sus usuarios (igual que el login)
         app(\App\Modules\Core\Services\PasswordRecovery::class)
-            ->sendTemporaryPassword($email, $this->tenantFromHost($request->getHost())?->id);
+            ->sendResetLink($email, $this->tenantFromHost($request->getHost())?->id);
 
         return redirect()->route('password.request')->with('status', \App\Modules\Core\Services\PasswordRecovery::RESPONSE);
+    }
+
+    /** Página del enlace del correo: pide la nueva contraseña (si el enlace venció, lo dice) */
+    public function showResetForm(string $token, PasswordRecovery $recovery): View
+    {
+        return view('auth.reset-password', ['token' => $token, 'valid' => $recovery->userForToken($token) !== null]);
+    }
+
+    /** Cambia la contraseña con el enlace (una sola vez), cierra las sesiones y lleva al login */
+    public function resetPassword(Request $request, string $token, PasswordRecovery $recovery): RedirectResponse
+    {
+        $data = $request->validate([
+            'password' => ['required', 'string', 'confirmed', PasswordRule::min(8)->letters()->mixedCase()->numbers()],
+        ], [
+            'password.required'  => 'Escribe tu nueva contraseña.',
+            'password.confirmed' => 'Las contraseñas no coinciden.',
+        ]);
+
+        if (! $recovery->reset($token, $data['password'])) {
+            return redirect()->route('password.request')
+                ->withErrors(['email' => 'El enlace ya no sirve (venció o ya se usó). Pide uno nuevo.']);
+        }
+
+        return redirect()->route('login')->with('status', 'Listo: tu contraseña cambió. Ingresa con la nueva en la app o en el panel.');
     }
 
     private function tenantFromHost(string $host): ?Tenant

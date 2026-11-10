@@ -43,10 +43,12 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.post')->middleware('throttle:10,1');
 
-    // "¿Olvidaste tu contraseña?": contraseña temporal por correo (PasswordRecovery). RRHH sigue
-    // pudiendo restablecer el acceso desde el panel (EmployeeController::resetAccess)
+    // "¿Olvidaste tu contraseña?": enlace de un solo uso por correo (PasswordRecovery). RRHH sigue
+    // pudiendo restablecer el acceso desde el panel con el DNI (EmployeeController::resetAccess)
     Route::view('/forgot-password', 'auth.forgot-password')->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendTemporaryPassword'])->name('password.email')->middleware('throttle:5,10');
+    Route::get('/restablecer-clave/{token}', [AuthController::class, 'showResetForm'])->name('password.reset')->middleware('throttle:20,1');
+    Route::post('/restablecer-clave/{token}', [AuthController::class, 'resetPassword'])->name('password.update')->middleware('throttle:10,1');
 });
 
 // Token CSRF vigente de la sesión: el login lo pide antes de enviar si la página
