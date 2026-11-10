@@ -15,7 +15,7 @@ Cada entrada: qué se cambió, por qué, archivos, pruebas. Se agrega el commit 
 - `edfd346` FCM: `token_uri` del JSON subido se ignora; siempre `https://oauth2.googleapis.com/token` (evita SSRF con la firma).
 - Despliegue: verificable con el mecanismo existente: `storage/app/version.json` (lo escribe deploy.sh solo al terminar bien,
   después de `migrate --force`) → menú del usuario del panel "Versión web 1.N", título "Commit xxxxxxx"; detalle en
-  `storage/logs/deploy.log` (salida del cron). Sin sesión en el panel ni acceso al servidor no se pudo leer.
+  `storage/logs/deploy.log` (salida del cron). **Validado 10/11** en el panel de producción: "Versión web 1.472 · Commit d427650" (migraciones de 5683530 incluidas); dashboard, asistencia, sospechosas, intentos, calendario, programación, reportes, planillas, mapa en vivo y colaboradores responden 200 sin errores.
 
 ## 10/11/2026 — C6–C8 corregidos (local, pendiente de publicar)
 
