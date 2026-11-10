@@ -11,7 +11,7 @@ bloque 6 (no consultada todavía en esta fase).
 | Android App Bundle (AAB) | Cumplido | `scripts/build_apk.sh:149` en modo release |
 | Target SDK vigente | No verificado | Viene de Flutter; CI exige ≥ 36 (`scripts/check_play_requirements.py`) |
 | Alineación 16 KB de bibliotecas nativas | Parcial | CI lo revisa; no ejecutado en esta fase |
-| Firma de producción | **Pendiente** | GitHub Actions sin `ANDROID_KEYSTORE_*`: CI firma con llave de depuración |
+| Firma de producción | Hecho 10/11 | Llave de subida RSA 4096 (alias upload, SHA-256 40:A3:C9:AE:…:E5:B2) fuera del repo; 4 secrets `ANDROID_*` cargados; run manual 42895252849 (prod, release): APK, APK arm64 y AAB 1.6.0 firmados sin aviso de llave debug. Falta: respaldo cifrado de la llave (propietario) y activar Play App Signing al subir |
 | Permisos justificados | Cumplido | Ubicación solo en uso, cámara, notificaciones; audio y almacenamiento quitados |
 | Ubicación en segundo plano | No aplicable | No se pide |
 | Política de privacidad (URL pública) | Cumplido | `/privacidad` (administrable) |
