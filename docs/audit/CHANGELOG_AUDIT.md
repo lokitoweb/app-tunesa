@@ -2,6 +2,14 @@
 
 Cada entrada: qué se cambió, por qué, archivos, pruebas. Se agrega el commit cuando exista.
 
+## 10/11/2026 — C6–C8 corregidos (local, pendiente de publicar)
+
+- C6: entrada después de medianoche dentro del turno nocturno de ayer = jornada de ayer, con tardanza.
+- C7: la pausa del horario partido nunca cuenta como trabajada (aunque falten marcas o el refrigerio sea pagado).
+- C8: la marcación sin conexión que llega sin jornada abierta (404/409) queda registrada para RR. HH.
+- CI: en cada push solo el emulador Android 15; Android 10 los lunes, a mano y en PR.
+- Publicados y en CI verde: `5683530` (hours_v2, faltas justificadas, app:reencrypt, pruebas de seguridad).
+
 ## 10/11/2026 — Publicado en GitHub y desplegado
 
 - Publicados (solo código, sin `docs/audit`): recuperación con enlace, DNI fuera de `configurar_trujillo.php`,
