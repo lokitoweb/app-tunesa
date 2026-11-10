@@ -52,6 +52,26 @@ Si coincide algo, lo reporta como error. Si el servidor no tiene git, lo avisa. 
   `*.keystore`, `*.jks`, `key.properties`, cuentas de servicio.
 - Recomendado (requiere ajustar el repositorio): activar Dependabot; poner el repositorio en privado.
 
+### 1.6 Pasar el repositorio a privado (procedimiento preparado; no ejecutado)
+
+Datos verificados el 09/11/2026 con la API de GitHub: repositorio `lokitoweb/app-tunesa` público, 0 forks,
+0 deploy keys, 593 corridas de Actions en los últimos 30 días.
+
+**Implicaciones**
+
+| Tema | Efecto al pasar a privado | Qué hacer antes |
+|---|---|---|
+| Despliegue automático | El cron del servidor hace `git fetch`. Si `origin` es https anónimo, **deja de desplegar** (sin error visible en la web). Hay 0 deploy keys: no consta que el servidor use SSH | En el servidor: `sudo bash scripts/server-setup.sh --dry-run`; el paso 6 dice si lee el repo y si es por SSH. Si avisa https: crear deploy key de solo lectura (`docs/deployment/produccion-servidor.md` §4) y `git remote set-url origin git@github.com:lokitoweb/app-tunesa.git` como `cyp` |
+| Minutos de Actions | Público = gratis. Privado (plan Free) incluye **2 000 min/mes**; el uso medido es **~11 500 min/mes** (E2E ~5 600, APK ~3 500, backend ~2 400). Con límite de gasto 0, al agotarse **los workflows dejan de correr** | Antes: limitar disparadores (E2E y APK solo cuando cambian `mobile/` o la API, o a mano; cancelar corridas repetidas con `concurrency`). Requiere aprobación (cambia CI) |
+| Secret scanning / push protection | En repos privados sin GitHub Advanced Security se pierde el escaneo automático | Mantener la verificación propia: `app:check-production` y `.gitignore` endurecido (§1.4, §1.5) |
+| Exposición previa | Lo que ya fue público (historial, `.env` de `f10f077`, DNI antiguo) **no se des-publica**: pudo copiarse | La rotación (§2) sigue siendo necesaria |
+| Enlaces públicos | README, insignias o descargas de APK desde GitHub dejan de verse sin sesión | Revisar si alguien descarga APKs desde GitHub (hoy no hay Pages ni forks) |
+
+**Orden sin cortes**: (1) servidor por SSH y verificado con el paso 6; (2) disparadores de CI ajustados;
+(3) Settings → General → Danger Zone → Change visibility → Private (lo hace el propietario);
+(4) confirmar que un push llega a producción (`storage/logs/deploy.log`) y que CI corre; (5) rotación (§2).
+Reversión: volver a público desde la misma pantalla (no recomendado tras la rotación).
+
 ## 2. Procedimiento de rotación (preparado; se ejecuta con autorización, antes del cierre)
 
 1. **Respaldo** de la base y del `.env` del servidor.
