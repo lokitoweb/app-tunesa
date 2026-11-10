@@ -44,7 +44,7 @@ Despliegue: push a master → GitHub Actions (pruebas) → rama production → s
 
 ## Hallazgos de arquitectura (pendientes, bloque 7)
 
-- Regla de estado de la jornada repetida: `AttendanceService::determineFinalStatus` y `ManualAttendanceEdit.php:165`.
+- ~~Regla de estado de la jornada repetida~~: resuelto en el bloque 2 (`AttendanceService::closedDayStatus` / `closedDayHours`).
 - Tres tableros "en vivo" distintos (API liveDashboard, API teamLive, web LiveBoardService) y estadísticas con SQL propio en dos sitios.
 - Sedes editables en varios lugares (`branches/index` modal, `branches/form`, `OrganizationWebController::updateBranch`, API `BranchController`) con reglas de validación duplicadas.
 - Código muerto: `Finance/Support/LegacyLinker.php`, abilities de Sanctum asignadas pero nunca exigidas, `_to_delete/google-services.json.vacio`.

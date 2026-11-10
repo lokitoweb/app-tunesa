@@ -2,6 +2,14 @@
 
 Cada entrada: qué se cambió, por qué, archivos, pruebas. Se agrega el commit cuando exista.
 
+## 09/11/2026 — Bloque 2: fórmula única de la jornada cerrada
+
+- `AttendanceService::closedDayHours` y `closedDayStatus`: la salida marcada en la app y la corrección manual de
+  RR. HH. usan la misma fórmula (antes copiada en `ManualAttendanceEdit`). Sin cambio de resultados ni de reglas.
+- Inventario de diferencias entre reporte, planilla y calendario (C1–C11) y propuesta de faltas justificadas
+  con/sin goce en `DATABASE_AUDIT.md` §B (pendiente de aprobación; no cambia la planilla).
+- Pruebas: 193 de asistencia, reportes y planilla pasan; suite completa al cierre de la tanda.
+
 ## 09/11/2026 — Datos personales fuera de `configurar_trujillo.php` (autorizado)
 
 - El DNI de la persona real (usado también como contraseña) ya no está en el código: el script lo recibe como primer

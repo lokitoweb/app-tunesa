@@ -23,7 +23,7 @@ Nada se marca como hecho si no está implementado, probado y registrado en `CHAN
 |---|---|---|
 | 0. Secretos y accesos | `SECURITY_AUDIT.md` §1–3 | En curso: inventario hecho, verificación automática en cada despliegue, DNI blindado; rotación pendiente (propietario) |
 | 1. Seguridad integral | `SECURITY_AUDIT.md` §4 | En curso: primeras correcciones hechas (ver changelog); recuperación de acceso con enlace implementada |
-| 2. Integridad de cálculos | `DATABASE_AUDIT.md` §B | Pendiente. Decisión pendiente: faltas justificadas en planilla |
+| 2. Integridad de cálculos | `DATABASE_AUDIT.md` §B | En curso: fórmula de jornada unificada (B.1). Propuesta de faltas justificadas con/sin goce (B.2) espera aprobación |
 | 3. Base de datos | `DATABASE_AUDIT.md` §A | Pendiente (migraciones se presentan antes de subir) |
 | 4. Rendimiento | `PERFORMANCE_AUDIT.md` | Pendiente (sin mediciones todavía) |
 | 5. API y sincronización | `API_AUDIT.md` | Pendiente |
@@ -34,7 +34,7 @@ Nada se marca como hecho si no está implementado, probado y registrado en `CHAN
 ## Decisiones que necesita el propietario
 
 1. ~~Aprobar el diseño de recuperación de acceso~~ — aprobado e implementado (09/11/2026).
-2. **Faltas con justificación aprobada en planilla**: ¿cuentan como falta, como justificada o no se descuentan?
+2. **Faltas justificadas con / sin goce**: aprobar la propuesta de `DATABASE_AUDIT.md` §B.2 (3 preguntas).
 3. **Rotación de secretos**: cuándo, y si se pone el repositorio en **privado** (hoy es público).
 4. **iPad**: mantener o retirar el soporte declarado (`STORE_COMPLIANCE.md`).
 5. **Reporte de fallos** (Crashlytics / Sentry / ninguno) — sin instalar nada hasta aprobarlo.
