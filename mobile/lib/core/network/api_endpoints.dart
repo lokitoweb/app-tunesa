@@ -5,6 +5,9 @@ class ApiEndpoints {
   // Configuración pública de arranque (marca blanca, reglas, versión mínima)
   static const appConfig = '/v1/app/config';
 
+  /// Política de privacidad (Marca y app) para verla dentro de la app.
+  static const privacyPolicy = '/legal/privacy';
+
   // Empresa / marca blanca (legado: backend sin /v1/app/config; requiere X-Tenant-Slug)
   static const branding = '/tenant/branding';
 

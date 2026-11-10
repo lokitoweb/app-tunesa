@@ -1,83 +1,82 @@
-@extends('layouts.guest')
-
-@section('title', 'Política de privacidad')
-
-@section('wide', '1')
-
-@section('content')
-<div class="gn-legal">
-    @include('auth._brand')
-
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-4 legal-text">
-            <h1 class="h4 fw-semibold mb-1">Política de privacidad de {{ $appName }}</h1>
-            <p class="small text-body-secondary">Última actualización: {{ $updatedAt }}</p>
-
-            <p>{{ $appName }} es la app de asistencia y autoservicio que tu empleador te entrega para marcar tu
-                entrada y salida, pedir vacaciones o permisos, ver tus boletas y mantener tu legajo al día. Tu
-                empleador decide para qué usa tus datos (es el responsable del tratamiento) y la plataforma los
-                procesa por encargo suyo. Esta política explica qué datos usa la app, para qué y cómo puedes
-                ejercer tus derechos según la Ley N.° 29733 de Protección de Datos Personales del Perú.</p>
-
-            <h2 class="h6 fw-semibold mt-4">1. Datos que usamos</h2>
-            <ul>
-                <li><strong>Identificación y empleo:</strong> nombre, correo, documento de identidad, código de colaborador, cargo, sede y turno. Los registra tu empresa al crear tu cuenta.</li>
-                <li><strong>Ubicación precisa:</strong> solo cuando abres la pantalla de marcación y al registrar una marcación, para comprobar que estás en tu sede. La app <strong>no</strong> usa tu ubicación en segundo plano.</li>
-                <li><strong>Fotos:</strong> la selfie de cada marcación (si tu empresa la exige), tu foto de perfil y las imágenes de documentos que tú adjuntas. Si tu empresa activa la detección de rostro, el teléfono solo comprueba que hay un rostro en la foto; no se crean ni guardan huellas faciales ni datos biométricos.</li>
-                <li><strong>Documentos y solicitudes:</strong> lo que tú subes (DNI, certificados, sustentos y certificados médicos de licencias), tus datos de pago, contacto de emergencia y tallas de uniforme.</li>
-                <li><strong>Asistencia y planilla:</strong> horas de marcación, tardanzas, justificaciones, boletas de pago y avance en capacitaciones.</li>
-                <li><strong>Dispositivo:</strong> modelo, sistema operativo, versión de la app, un identificador de instalación, el token de notificaciones y señales de seguridad del teléfono (por ejemplo, si está rooteado o usa ubicación simulada), para proteger tu cuenta y evitar marcaciones falsas.</li>
-            </ul>
-
-            <h2 class="h6 fw-semibold mt-4">2. Para qué los usamos</h2>
-            <ul>
-                <li>Registrar y validar tu asistencia, y calcular tardanzas y horas trabajadas.</li>
-                <li>Gestionar tus solicitudes, documentos, boletas, uniformes y capacitaciones.</li>
-                <li>Enviarte avisos (solicitudes revisadas, boletas nuevas, recordatorios de turno, alertas de seguridad).</li>
-                <li>Proteger tu cuenta y la de tu empresa frente a accesos y marcaciones indebidas.</li>
-            </ul>
-            <p>No vendemos tus datos, no mostramos publicidad y no los usamos para fines distintos a la relación laboral.</p>
-
-            <h2 class="h6 fw-semibold mt-4">3. Con quién se comparten</h2>
-            <ul>
-                <li><strong>Tu empleador:</strong> RRHH, administradores y tu supervisor ven lo necesario para su función.</li>
-                <li><strong>Google Firebase Cloud Messaging:</strong> entrega las notificaciones push (recibe el token del teléfono y el texto del aviso).</li>
-                <li><strong>Servicio de direcciones (geocodificación):</strong> recibe las coordenadas de una marcación para mostrar la dirección legible.</li>
-                <li><strong>Autoridades:</strong> solo cuando la ley lo exige.</li>
-            </ul>
-
-            <h2 class="h6 fw-semibold mt-4">4. Seguridad</h2>
-            <p>Los datos viajan cifrados (HTTPS). En el teléfono, la sesión y las marcaciones pendientes sin conexión
-                se guardan cifradas, no se incluyen en copias de seguridad y los documentos se abren desde la memoria
-                con enlaces temporales. En el servidor, los archivos son privados y cada acceso queda registrado.</p>
-
-            <h2 class="h6 fw-semibold mt-4">5. Cuánto tiempo se guardan</h2>
-            <p>Mientras dure tu relación laboral y, después, solo el tiempo que la ley laboral y tributaria obliga a
-                conservar planillas, boletas y registros de asistencia. El resto se elimina cuando lo pides o cuando
-                deja de ser necesario.</p>
-
-            <h2 class="h6 fw-semibold mt-4">6. Tus derechos y cómo eliminar tu cuenta</h2>
-            <p>Puedes pedir acceso, rectificación, cancelación u oposición (derechos ARCO) sobre tus datos. Para
-                eliminar tu cuenta y tus datos, entra a <strong>Mi perfil › Privacidad y datos › Eliminar mi cuenta</strong>
-                en la app, o usa <a href="{{ route('legal.account-deletion') }}">esta página</a> sin iniciar sesión.
-                Respondemos en un máximo de 30 días. Si no estás conforme, puedes acudir a la Autoridad Nacional de
-                Protección de Datos Personales.</p>
-
-            <h2 class="h6 fw-semibold mt-4">7. Permisos del teléfono</h2>
-            <ul>
-                <li><strong>Ubicación:</strong> solo mientras la app está abierta, para validar la marcación.</li>
-                <li><strong>Cámara:</strong> para la selfie de marcación y para fotografiar documentos.</li>
-                <li><strong>Notificaciones:</strong> para los avisos de tu empresa. Puedes apagarlos en Mi perfil › Notificaciones.</li>
-            </ul>
-            <p>Puedes negar o quitar cualquier permiso en los ajustes del teléfono; solo dejarán de funcionar las opciones que lo necesitan.</p>
-
-            <h2 class="h6 fw-semibold mt-4">8. Menores de edad</h2>
-            <p>La app es solo para colaboradores de las empresas que la usan; no está dirigida a menores de 18 años.</p>
-
-            <h2 class="h6 fw-semibold mt-4">9. Cambios y contacto</h2>
-            <p>Si cambiamos esta política, actualizaremos la fecha de arriba y te avisaremos en la app. Para cualquier consulta sobre privacidad:</p>
-            @include('legal._contact')
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Política de privacidad — {{ $appName }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+    @include('layouts.partials.brand-head', ['brandSettings' => $settings])
+    <style>
+        {{-- Documento legal: página limpia (sin fondos del login), legible en el teléfono y en el escritorio --}}
+        :root { --legal-text: #1f2937; --legal-muted: #6b7280; --legal-line: #e5e7eb; --legal-bg: #f6f7f9; --legal-surface: #ffffff; }
+        @media (prefers-color-scheme: dark) {
+            :root { --legal-text: #e5e7eb; --legal-muted: #9ca3af; --legal-line: #2b3340; --legal-bg: #0f141b; --legal-surface: #161d26; }
+        }
+        body { margin: 0; background: var(--legal-bg); color: var(--legal-text); font-family: 'Roboto', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
+        .legal-top { position: sticky; top: 0; z-index: 10; background: var(--legal-surface); border-bottom: 1px solid var(--legal-line); }
+        .legal-top-inner, .legal-main, .legal-foot { max-width: 820px; margin: 0 auto; padding-left: 20px; padding-right: 20px; }
+        .legal-top-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 64px; }
+        .legal-brand { display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
+        .legal-brand img { height: 36px; width: auto; max-width: 120px; object-fit: contain; }
+        .legal-top a.legal-action { font-size: 0.85rem; color: var(--legal-muted); text-decoration: none; white-space: nowrap; }
+        .legal-top a.legal-action:hover { color: var(--brand); }
+        .legal-main { padding-top: 32px; padding-bottom: 32px; }
+        .legal-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--brand); }
+        .legal-title { font-size: clamp(1.6rem, 1.3rem + 1.2vw, 2.1rem); font-weight: 700; letter-spacing: -0.02em; margin: 8px 0 6px; }
+        .legal-meta { font-size: 0.9rem; color: var(--legal-muted); margin-bottom: 24px; }
+        .legal-doc { background: var(--legal-surface); border: 1px solid var(--legal-line); border-radius: 14px; padding: 28px 32px; font-size: 1rem; line-height: 1.7; overflow-wrap: anywhere; }
+        .legal-doc > :first-child { margin-top: 0; }
+        .legal-doc h1, .legal-doc h2, .legal-doc h3 { font-size: 1.1rem; font-weight: 700; margin: 28px 0 10px; padding-top: 20px; border-top: 1px solid var(--legal-line); }
+        .legal-doc ul { padding-left: 1.2rem; margin-bottom: 1rem; }
+        .legal-doc li { margin-bottom: 6px; }
+        .legal-doc li::marker { color: var(--brand); }
+        .legal-doc a { color: var(--brand); }
+        .legal-contact { margin-top: 20px; background: var(--legal-surface); border: 1px solid var(--legal-line); border-radius: 14px; padding: 20px 24px; }
+        .legal-contact h2 { font-size: 1rem; font-weight: 700; margin: 0 0 8px; }
+        .legal-contact ul { font-size: 0.95rem !important; }
+        .legal-contact li { margin-bottom: 4px; }
+        .legal-foot { padding-bottom: 32px; font-size: 0.8rem; color: var(--legal-muted); text-align: center; }
+        @media (max-width: 575.98px) {
+            .legal-top-inner, .legal-main, .legal-foot { padding-left: 16px; padding-right: 16px; }
+            .legal-main { padding-top: 20px; }
+            .legal-doc { padding: 20px 18px; font-size: 0.95rem; border-radius: 12px; }
+            .legal-top a.legal-action span { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header class="legal-top">
+        <div class="legal-top-inner">
+            <a class="legal-brand" href="{{ url('/') }}">
+                @php($darkLogo = $settings->logoDarkUrl() ?: ($settings->usesDefaultLogo() ? asset(\App\Modules\Core\Models\TenantSetting::DEFAULT_LOGO_DARK) : null))
+                <picture>
+                    @if($darkLogo)<source srcset="{{ $darkLogo }}" media="(prefers-color-scheme: dark)">@endif
+                    <img src="{{ $settings->displayLogoUrl() }}" alt="{{ $appName }}">
+                </picture>
+            </a>
+            <a class="legal-action" href="{{ route('legal.account-deletion') }}"><i class="bi bi-person-x me-1"></i><span>Eliminar mi cuenta</span></a>
         </div>
-    </div>
-</div>
-@endsection
+    </header>
+
+    <main class="legal-main">
+        <span class="legal-eyebrow"><i class="bi bi-shield-lock"></i>Privacidad</span>
+        <h1 class="legal-title">Política de privacidad</h1>
+        <p class="legal-meta">{{ $appName }} · Última actualización: {{ $policy->updatedOn()->format('d/m/Y') }}</p>
+
+        <article class="legal-doc">
+            {!! $policy->html() !!}
+        </article>
+
+        <section class="legal-contact" aria-labelledby="legal-contact-title">
+            <h2 id="legal-contact-title">Contacto sobre privacidad</h2>
+            @include('legal._contact')
+        </section>
+    </main>
+
+    <footer class="legal-foot">© {{ now()->year }} {{ $appName }}</footer>
+</body>
+</html>

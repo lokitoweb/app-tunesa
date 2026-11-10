@@ -6,6 +6,7 @@ use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\AccountDeletion;
+use App\Modules\Core\Support\PrivacyPolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -26,7 +27,9 @@ class LegalController extends Controller
 
     public function privacy(Request $request): View
     {
-        return view('legal.privacy', $this->brand($request));
+        $brand = $this->brand($request);
+
+        return view('legal.privacy', $brand + ['policy' => new PrivacyPolicy($brand['settings'])]);
     }
 
     public function deletionForm(Request $request): View
@@ -58,9 +61,9 @@ class LegalController extends Controller
 
         return [
             'tenant'     => $tenant,
+            'settings'   => $settings,
             'appName'    => $settings->tradeName(),
             'contact'    => array_filter($settings->contact()) ?: array_filter($platform->contact()),
-            'updatedAt'  => '12/10/2026',
         ];
     }
 }

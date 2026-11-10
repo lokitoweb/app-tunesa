@@ -2,6 +2,7 @@
 
 namespace App\Modules\Core\Services;
 
+use App\Modules\Core\Support\PrivacyPolicy;
 use App\Modules\Core\Models\CompanyConfiguration;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
@@ -187,6 +188,8 @@ class TenantSettingsService
             'face_detection_required' => ['sometimes', 'nullable', 'boolean'],
             'offline_mode_enabled'    => ['sometimes', 'nullable', 'boolean'],
             'self_password_change'    => ['sometimes', 'nullable', 'boolean'],
+            // Política de privacidad (Markdown sencillo); privacy_policy_updated_on la pone el servidor
+            'privacy_policy'          => ['sometimes', 'nullable', 'string', 'max:30000'],
             'offline_max_hours'       => ['sometimes', 'nullable', 'integer', 'between:1,72'],
             'max_gps_accuracy_meters' => ['sometimes', 'nullable', 'integer', 'between:10,1000'],
             'mock_location_policy'    => ['sometimes', 'nullable', Rule::in(TenantSetting::MOCK_LOCATION_POLICIES)],
@@ -246,6 +249,28 @@ class TenantSettingsService
             'telegram_bot_token'   => ['sometimes', 'nullable', 'string', 'max:100', 'regex:/^\d{5,15}:[A-Za-z0-9_-]{30,60}$/'],
             'clear_telegram_bot_token' => ['sometimes', 'boolean'],
         ];
+    }
+
+    /**
+     * Política de privacidad: el formulario muestra el texto vigente; si se guarda igual al heredado
+     * (plataforma o predeterminado) no se copia, así la empresa sigue los cambios de la plataforma.
+     * La fecha de la política cambia solo cuando cambia el texto.
+     */
+    private function applyPrivacyPolicy(TenantSetting $row, ?Tenant $tenant, array $data): void
+    {
+        if (! array_key_exists('privacy_policy', $data)) {
+            return;
+        }
+        $normalize = fn (?string $text) => trim(str_replace("\r\n", "\n", (string) $text));
+        $text = $normalize($data['privacy_policy']);
+        $inherited = $tenant ? (new PrivacyPolicy(TenantSetting::forTenant(null)))->source() : PrivacyPolicy::defaultText();
+        $value = ($text === '' || $text === $normalize($inherited)) ? null : $text;
+
+        $current = $row->getOriginal('privacy_policy');
+        $row->privacy_policy = $value;
+        if ($value !== ($current === null ? null : $normalize($current))) {
+            $row->privacy_policy_updated_on = $value === null ? null : now(tenant_timezone())->toDateString();
+        }
     }
 
     public function messages(): array
@@ -322,10 +347,11 @@ class TenantSettingsService
 
         DB::transaction(function () use ($tenant, $data, $request, $actor, $row, $canServices, &$changed, &$secrets) {
             foreach (TenantSetting::SETTING_FIELDS as $field) {
-                if (array_key_exists($field, $data)) {
+                if (array_key_exists($field, $data) && $field !== 'privacy_policy_updated_on') {
                     $row->{$field} = $data[$field] === '' ? null : $data[$field];
                 }
             }
+            $this->applyPrivacyPolicy($row, $tenant, $data);
             if (isset($data['api_base_url'])) {
                 $url = rtrim($data['api_base_url'], '/');
                 // Igual al dominio detectado: se guarda vacío (automático) y sigue al dominio si cambia

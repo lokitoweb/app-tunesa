@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/config/app_config_controller.dart';
-import '../../../core/network/server_url.dart';
 import 'account_providers.dart';
+import 'privacy_policy_sheet.dart';
 
 /// Mi perfil › Privacidad y datos: qué datos usa la app, la política de
 /// privacidad y el pedido de eliminación de la cuenta (exigidos por Google Play).
@@ -13,9 +11,6 @@ class PrivacyScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final legal = ref.watch(appConfigProvider).config.legal;
-    final base = ref.watch(baseUrlProvider);
-    final privacyUrl = legal.privacyPolicyUrl ?? '$base/privacidad';
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -43,8 +38,10 @@ class PrivacyScreen extends ConsumerWidget {
                   key: const Key('privacy-policy'),
                   leading: const Icon(Icons.policy_outlined),
                   title: const Text('Política de privacidad'),
-                  trailing: const Icon(Icons.open_in_new_rounded),
-                  onTap: () => _open(context, privacyUrl),
+                  subtitle: const Text('Qué datos usamos, para qué y tus derechos'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  // Se lee dentro de la app; el enlace web queda para Google Play y App Store
+                  onTap: () => showPrivacyPolicy(context),
                 ),
                 const Divider(),
                 ListTile(
@@ -60,15 +57,6 @@ class PrivacyScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  static Future<void> _open(BuildContext context, String url) async {
-    final messenger = ScaffoldMessenger.of(context);
-    var opened = false;
-    try {
-      opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (_) {}
-    if (!opened) messenger.showSnackBar(SnackBar(content: Text('No se pudo abrir $url')));
   }
 
   static Future<void> _requestDeletion(BuildContext context, WidgetRef ref) async {

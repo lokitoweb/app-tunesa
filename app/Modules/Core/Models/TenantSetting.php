@@ -97,6 +97,7 @@ class TenantSetting extends Model
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
         'entry_reminder_minutes', 'entry_reminder_timing', 'exit_reminder_minutes', 'exit_reminder_timing',
+        'privacy_policy', 'privacy_policy_updated_on',
         'webhook_url', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_enabled', 'self_password_change',
         // Servicios externos (solo SuperAdmin, ver SERVICE_FIELDS); los secretos van en SECRET_FIELDS
@@ -142,6 +143,7 @@ class TenantSetting extends Model
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
         'entry_reminder_minutes', 'entry_reminder_timing', 'exit_reminder_minutes', 'exit_reminder_timing',
+        'privacy_policy', 'privacy_policy_updated_on',
         'webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint',
         'mock_location_policy', 'max_time_drift_seconds', 'geocoding_provider', 'fcm_service_account_json', 'fcm_enabled', 'self_password_change',
         'migo_api_token', 'migo_ruc_url', 'migo_dni_url', 'nubefact_url', 'nubefact_token',

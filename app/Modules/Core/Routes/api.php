@@ -21,6 +21,7 @@ use App\Modules\Core\Controllers\Api\Admin\CompanyConfigurationController;
 use App\Modules\Core\Controllers\Api\AccountDeletionController;
 use App\Modules\Core\Controllers\Api\AppConfigController;
 use App\Modules\Core\Controllers\Api\AuthController;
+use App\Modules\Core\Controllers\Api\LegalController;
 use App\Modules\Core\Controllers\Api\BranchController;
 use App\Modules\Core\Controllers\Api\PositionController;
 use App\Modules\Core\Controllers\Api\NotificationController;
@@ -32,6 +33,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('throttle:60,1')->group(function () {
     Route::get('v1/app/config', [AppConfigController::class, 'show']);
     Route::get('app/config',    [AppConfigController::class, 'show']);
+    // Política de privacidad para verla dentro de la app (la de su empresa con sesión)
+    Route::get('legal/privacy', [LegalController::class, 'privacy']);
 });
 
 // Acceso de la app sin código de empresa: el servidor la reconoce por el correo

@@ -9,6 +9,7 @@ import 'package:tunesa_mobile/core/providers.dart';
 import 'package:tunesa_mobile/core/storage/session_storage.dart';
 import 'package:tunesa_mobile/core/theme/app_theme.dart';
 import 'package:tunesa_mobile/features/account/data/account_repository.dart';
+import 'package:tunesa_mobile/features/account/domain/models.dart';
 import 'package:tunesa_mobile/features/account/presentation/account_providers.dart';
 import 'package:tunesa_mobile/features/account/presentation/privacy_screen.dart';
 
@@ -22,6 +23,18 @@ class _FakeAccount extends AccountRepository {
     reasons.add(reason);
     return 'Recibimos tu pedido.';
   }
+
+  @override
+  Future<PrivacyPolicy> privacyPolicy() async => PrivacyPolicy.fromJson({
+        'app_name': 'Assist Conmigo',
+        'updated_on': '2026-11-09',
+        'blocks': [
+          {'type': 'paragraph', 'text': 'Assist Conmigo protege tus datos.'},
+          {'type': 'heading', 'text': '1. Datos que usamos'},
+          {'type': 'bullet', 'text': '**Ubicación:** solo mientras marcas.'},
+        ],
+        'contact': {'email': 'privacidad@demo.pe'},
+      });
 }
 
 void main() {
@@ -70,5 +83,15 @@ void main() {
 
     expect(fake.reasons, ['Renuncié']);
     expect(find.text('Recibimos tu pedido.'), findsOneWidget);
+
+    // La política se lee dentro de la app (hoja modal), con el texto que administra la empresa
+    await tester.tap(find.byKey(const Key('privacy-policy')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('privacy-policy-sheet')), findsOneWidget);
+    expect(find.text('1. Datos que usamos'), findsOneWidget);
+    final sheet = find.byKey(const Key('privacy-policy-sheet'));
+    expect(find.descendant(of: sheet, matching: find.textContaining('solo mientras marcas')), findsOneWidget);
+    expect(find.textContaining('**'), findsNothing); // la negrita se dibuja, no se ven los asteriscos
+    expect(find.text('privacidad@demo.pe'), findsOneWidget);
   });
 }

@@ -44,3 +44,36 @@ class NotificationPreference {
         enabled: j['enabled'] != false,
       );
 }
+
+/// Política de privacidad administrable (GET /api/legal/privacy): bloques simples que la app dibuja.
+class PrivacyPolicy {
+  const PrivacyPolicy({required this.appName, required this.updatedOn, required this.blocks, this.contact = const {}, this.url});
+
+  final String appName;
+  final DateTime? updatedOn;
+  final List<PolicyBlock> blocks;
+  final Map<String, String> contact;
+  final String? url;
+
+  factory PrivacyPolicy.fromJson(Map<String, dynamic> j) => PrivacyPolicy(
+        appName: j['app_name']?.toString() ?? '',
+        updatedOn: DateTime.tryParse(j['updated_on']?.toString() ?? ''),
+        blocks: ((j['blocks'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((b) => PolicyBlock(type: b['type']?.toString() ?? 'paragraph', text: b['text']?.toString() ?? ''))
+            .toList(),
+        contact: {
+          for (final e in ((j['contact'] as Map?) ?? const {}).entries)
+            if (e.value != null && e.value.toString().isNotEmpty) e.key.toString(): e.value.toString(),
+        },
+        url: j['url']?.toString(),
+      );
+}
+
+/// heading, paragraph o bullet; el texto puede traer **negrita**.
+class PolicyBlock {
+  const PolicyBlock({required this.type, required this.text});
+
+  final String type;
+  final String text;
+}

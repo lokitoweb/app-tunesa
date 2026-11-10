@@ -10,6 +10,10 @@ final deviceSessionsProvider = FutureProvider.autoDispose<List<DeviceSession>>(
   (ref) => ref.watch(accountRepositoryProvider).sessions(),
 );
 
+final privacyPolicyProvider = FutureProvider.autoDispose<PrivacyPolicy>(
+  (ref) => ref.watch(accountRepositoryProvider).privacyPolicy(),
+);
+
 final notificationPreferencesProvider = FutureProvider.autoDispose<List<NotificationPreference>>(
   (ref) => ref.watch(accountRepositoryProvider).preferences(),
 );

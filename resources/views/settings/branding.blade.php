@@ -6,7 +6,7 @@
 @php
     // Pestaña a abrir: la pedida, o la del primer campo con error
     $fieldTabs = [
-        'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'self_password_change'],
+        'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'self_password_change', 'privacy_policy'],
         'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds', 'entry_reminder_minutes', 'entry_reminder_timing', 'exit_reminder_minutes', 'exit_reminder_timing'],
     ];
     // Campos que dependen de columnas nuevas de tenant_settings: solo se muestran si existen
@@ -458,6 +458,42 @@
                         </ul>
                     </div>
                 </div>
+
+                {{-- Política de privacidad (página /privacidad y pantalla de la app); vacía o igual a la heredada = hereda --}}
+                @if($has('privacy_policy'))
+                    @php
+                        $privacy = new \App\Modules\Core\Support\PrivacyPolicy(\App\Modules\Core\Models\TenantSetting::forTenant($isGlobal ? null : $tenant));
+                        $privacyOwn = filled($stored('privacy_policy'));
+                    @endphp
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm branding-card">
+                            <div class="card-header border-0 bg-transparent pt-3 pb-2 px-3 d-flex flex-wrap justify-content-between align-items-start gap-2">
+                                <div>
+                                    <h2 class="h6 fw-bold mb-0 text-primary-emphasis">Política de privacidad</h2>
+                                    <small class="text-secondary">Se ve en la página pública de privacidad (la que pide Google Play y App Store) y dentro de la app, en Mi perfil › Privacidad y datos.</small>
+                                </div>
+                                <a href="{{ route('legal.privacy') }}" target="_blank" rel="noopener" class="btn btn-sm btn-light border text-nowrap"><i class="bi bi-box-arrow-up-right me-1"></i>Ver la página</a>
+                            </div>
+                            <div class="card-body p-3 pt-1">
+                                <div class="d-flex flex-wrap gap-2 mb-2 small">
+                                    <span class="badge rounded-pill {{ $privacyOwn ? 'bg-primary-subtle text-primary-emphasis' : 'bg-body-secondary text-secondary' }}">
+                                        {{ $privacyOwn ? 'Texto propio de ' . $ownerName : ($isGlobal ? 'Texto predeterminado' : 'Heredado de la plataforma') }}
+                                    </span>
+                                    <span class="text-secondary">Última actualización: {{ $privacy->updatedOn()->format('d/m/Y') }}</span>
+                                </div>
+                                <label for="privacy_policy" class="visually-hidden">Texto de la política de privacidad</label>
+                                <textarea id="privacy_policy" name="privacy_policy" rows="16" maxlength="30000" spellcheck="true"
+                                          class="form-control font-monospace @error('privacy_policy') is-invalid @enderror" style="font-size: 0.8rem; line-height: 1.55; height: auto; min-height: 380px; resize: vertical;">{{ old('privacy_policy', $privacy->source()) }}</textarea>
+                                @error('privacy_policy')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                <small class="text-secondary d-block mt-2">
+                                    Formato: <code>## Título</code> para cada sección, <code>- texto</code> para viñetas, <code>**negrita**</code> y <code>[texto](https://…)</code> para enlaces.
+                                    <code>{app}</code> se reemplaza por el nombre comercial y <code>{eliminar_cuenta}</code> por la página para pedir eliminar la cuenta.
+                                    Al cambiar el texto se actualiza la fecha. {{ $isGlobal ? 'Si lo borras, vuelve el texto predeterminado.' : 'Si lo borras o lo dejas igual al de la plataforma, se hereda.' }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
 

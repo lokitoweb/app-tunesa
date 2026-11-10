@@ -366,6 +366,8 @@ final class Labels
         'entry_reminder_timing'   => 'Momento del recordatorio de entrada',
         'exit_reminder_minutes'   => 'Recordatorio de salida (min)',
         'exit_reminder_timing'    => 'Momento del recordatorio de salida',
+        'privacy_policy'          => 'Política de privacidad',
+        'privacy_policy_updated_on' => 'Fecha de la política de privacidad',
         'webhook_url'            => 'Dirección del webhook',
         'webhook_secret'          => 'Clave secreta del webhook',
         'maps_api_key'            => 'Clave de Google Maps',

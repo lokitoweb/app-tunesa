@@ -33,6 +33,12 @@ class AccountRepository {
     return json['message']?.toString() ?? 'Recibimos tu pedido.';
   }
 
+  /// Política de privacidad de su empresa (o de la plataforma), administrada en Marca y app.
+  Future<PrivacyPolicy> privacyPolicy() async {
+    final json = await _api.get(ApiEndpoints.privacyPolicy);
+    return PrivacyPolicy.fromJson(Map<String, dynamic>.from((json['data'] as Map?) ?? const {}));
+  }
+
   Future<List<NotificationPreference>> preferences() async => _parse(await _api.get(ApiEndpoints.notificationPreferences));
 
   Future<List<NotificationPreference>> setPreference(String key, bool enabled) async =>

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Modules\Core\Controllers\Web\LegalController;
 use App\Modules\Core\Models\AccountDeletionRequest;
+use App\Modules\Core\Models\TenantSetting;
 use App\Modules\Core\Services\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\CreatesTenants;
@@ -32,6 +33,40 @@ class AccountDeletionTest extends TestCase
             ->assertSee(route('legal.account-deletion'));
 
         $this->get('/eliminar-cuenta')->assertOk()->assertSee('Eliminar mi cuenta');
+    }
+
+    public function test_privacy_policy_is_administrable_and_the_app_reads_it(): void
+    {
+        $root = $this->makeUser(null, 'super_admin');
+        $acme = $this->makeTenant('acme');
+        $default = \App\Modules\Core\Support\PrivacyPolicy::defaultText();
+
+        // Guardar el mismo texto predeterminado no lo copia (sigue heredando)
+        $this->actingAs($root)->put('/settings/branding', ['privacy_policy' => $default])->assertSessionHasNoErrors();
+        $this->assertNull(TenantSetting::rowFor(null)?->privacy_policy);
+
+        // La plataforma lo cambia: la página y la API lo muestran con su fecha; el HTML del autor se descarta
+        $this->put('/settings/branding', ['privacy_policy' => "## Datos\n\n- **Ubicación:** solo al marcar en {app}.\n\n<script>alert(1)</script>"])->assertSessionHasNoErrors();
+        $row = TenantSetting::rowFor(null);
+        $this->assertSame(now(tenant_timezone())->toDateString(), \Illuminate\Support\Carbon::parse($row->privacy_policy_updated_on)->toDateString());
+        $page = $this->get('/privacidad')->assertOk()->assertSee('<strong>Ubicación:</strong>', false)->assertDontSee('<script>alert(1)</script>', false);
+        $page->assertSee(now(tenant_timezone())->format('d/m/Y'));
+
+        $this->getJson('/api/legal/privacy')->assertOk()
+            ->assertJsonPath('data.blocks.0', ['type' => 'heading', 'text' => 'Datos'])
+            ->assertJsonPath('data.blocks.1.type', 'bullet')
+            ->assertJsonPath('data.updated_on', now(tenant_timezone())->toDateString());
+
+        // Una empresa con texto propio; quien inicia sesión en la app ve el de su empresa
+        TenantSetting::editableRowFor($acme)->fill(['privacy_policy' => 'Texto de Acme.', 'privacy_policy_updated_on' => '2026-11-01'])->save();
+        $emp = $this->makeUser($acme, 'employee');
+        $this->actingIn($emp, $acme)->getJson('/api/legal/privacy')->assertOk()
+            ->assertJsonPath('data.blocks.0.text', 'Texto de Acme.')->assertJsonPath('data.updated_on', '2026-11-01');
+
+        // Borrar el texto vuelve al predeterminado
+        $this->actingAs($root)->put('/settings/branding', ['privacy_policy' => ''])->assertSessionHasNoErrors();
+        $this->assertNull(TenantSetting::rowFor(null)->privacy_policy);
+        $this->get('/privacidad')->assertSee('no</strong> usa tu ubicación en segundo plano', false);
     }
 
     public function test_app_config_links_the_legal_pages(): void
