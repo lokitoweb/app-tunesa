@@ -72,20 +72,55 @@ Datos verificados el 09/11/2026 con la API de GitHub: repositorio `lokitoweb/app
 (4) confirmar que un push llega a producción (`storage/logs/deploy.log`) y que CI corre; (5) rotación (§2).
 Reversión: volver a público desde la misma pantalla (no recomendado tras la rotación).
 
-## 2. Procedimiento de rotación (preparado; se ejecuta con autorización, antes del cierre)
+### 1.7 Informe de secretos: solo local vs. posiblemente productivos (09/11/2026, sin valores)
 
-1. **Respaldo** de la base y del `.env` del servidor.
-2. **Contraseña de Super Admin**: cambiarla desde Mi cuenta. Efecto: cierra sus sesiones. Sin más impacto.
-3. **APP_KEY** (solo si `app:check-production` reporta coincidencia, o como higiene):
-   - Afecta: cookies y sesiones (todos vuelven a iniciar sesión en el panel), URLs firmadas de `/secure-files`
-     (los enlaces vigentes de 5 min dejan de valer) y **todo lo cifrado con `encrypted`** en la base:
-     secretos de `tenant_settings` (clave de Google Maps, cuenta de servicio de Firebase, secreto de webhook,
-     tokens de Migo/Nubefact, contraseña SMTP de cada empresa) y cualquier otra columna con cast `encrypted`.
-   - Los tokens de la app (Sanctum) **no** dependen de `APP_KEY`: la app sigue conectada.
-   - Procedimiento seguro: poner la clave anterior en `APP_PREVIOUS_KEYS` (Laravel 11+ descifra con ella),
-     generar la nueva, y volver a guardar los secretos cifrados (re-cifrado) antes de quitar la anterior.
-4. Verificar con `php artisan app:check-production` y con un inicio de sesión real en panel y app.
-5. Reversión: restaurar el `.env` respaldado.
+Comparación hecha con huellas (sha256), nunca mostrando valores.
+
+| Secreto | Dónde estuvo expuesto | Clasificación | Motivo |
+|---|---|---|---|
+| `APP_KEY` del `.env` de desarrollo | `f10f077:.env` y `24c5beb:.env.example` (mismo valor) | **Solo local, salvo prueba en contrario** | El instalador genera una clave nueva; `app:check-production` lo compara en cada despliegue. **Pendiente**: confirmar en `storage/logs/deploy.log` del servidor que no reporta coincidencia |
+| `SUPERADMIN_PASSWORD` | mismos dos commits (mismo valor) | **Posiblemente productivo** si alguien la reutilizó a mano | Ningún código la lee hoy, pero una persona pudo usarla al crear el Super Admin. `app:check-production` compara el hash del Super Admin con ella |
+| `SUPERADMIN_EMAIL` | mismos commits | Dato, no secreto | Sirve para saber a quién atacar: más motivo para cambiar la contraseña |
+| `HASH_SALT`, `BCRYPT_ROUNDS` | `f10f077:.env` | **Solo local, sin uso** | Ningún código lee `HASH_SALT` |
+| DNI de una persona (usado como contraseña) | `configurar_trujillo.php` (historial) | **Posiblemente productivo** | Si esa persona no cambió la contraseña inicial, la cuenta sigue con ella. El cambio obligatorio en el primer ingreso lo impide al entrar, pero no si nunca entró |
+| Clave de Firebase de Android | `google-services.json` | Pública por diseño | Restringir por paquete y SHA-1 |
+| Clave de Google Maps (panel) | En la base (cifrada); viaja al navegador | Productiva, visible a usuarios del panel | Restringir por dominio HTTP en Google Cloud |
+| `DB_PASSWORD`, `MAIL_PASSWORD`, `MIGO_API_TOKEN`, `NUBEFACT_TOKEN`, deploy key | Solo en el `.env` / servidor | Productivos, **nunca expuestos** en el repo | No aparecen en ningún commit |
+| Secretos por empresa en la base (Maps, Firebase, webhook, Migo, Nubefact, SMTP, Telegram) | Cifrados con `APP_KEY` | Productivos, no expuestos | Dependen de que `APP_KEY` de producción no sea la del historial |
+
+## 2. Plan de rotación (preparado; se ejecuta solo con autorización)
+
+**Qué depende de `APP_KEY`** (verificado en el código):
+
+- Sesiones y cookies del panel → todos vuelven a iniciar sesión (no hay pérdida de datos).
+- URLs firmadas de `/secure-files` → los enlaces vigentes (5 min) dejan de servir.
+- Columnas cifradas (`encrypted`): `tenant_settings` (webhook, Maps, Firebase, Migo, Nubefact, SMTP, Telegram),
+  **`ethics_cases`** (asunto, relato, resolución, **identidad del denunciante**), `ethics_case_messages`
+  (mensajes) y **`employee_profiles`** (cuenta bancaria, CCI, CUSPP, cuenta CTS).
+  Si la clave cambia sin re-cifrar y sin conservar la anterior, **estos datos quedan ilegibles para siempre**.
+- No dependen de ella: contraseñas (bcrypt), tokens de la app (Sanctum, la app sigue conectada).
+
+**Orden recomendado (sin corte de servicio)**
+
+1. **Super Admin** (riesgo posible, costo cero): cambiar su contraseña desde Mi cuenta. Cierra solo sus sesiones.
+2. **Cuenta del DNI histórico**: RR. HH. revisa si esa persona ya cambió su contraseña; si no, "Restablecer
+   acceso" (vuelve a su DNI con cambio obligatorio, procedimiento habitual) o se le pide entrar y cambiarla.
+3. **Respaldo** antes de tocar `APP_KEY`: `mysqldump` completo + copia del `.env` fuera del servidor
+   (el respaldo de la base sin la clave anterior no sirve para leer los datos cifrados: guardar ambos juntos).
+4. **`APP_KEY`** (obligatoria solo si `app:check-production` reporta coincidencia; si no, higiene opcional):
+   - `APP_PREVIOUS_KEYS=<clave actual>` y `APP_KEY=<nueva>` en el `.env`, `php artisan config:cache`.
+     Laravel descifra con la anterior y cifra con la nueva: nada se rompe en este paso.
+   - Re-cifrar las columnas listadas (leer y volver a guardar cada fila). **Falta un comando** para esto
+     (`app:reencrypt`, idempotente y con conteo por tabla); se programa solo si se aprueba la rotación.
+   - Verificar: panel, ajustes de la empresa (Maps/SMTP), un caso de ética y una ficha con cuenta bancaria.
+   - Recién después, quitar `APP_PREVIOUS_KEYS`. Mantener el respaldo del `.env` anterior al menos 30 días.
+5. **Otros** (solo si hubo exposición; hoy no consta): `DB_PASSWORD`, `MAIL_PASSWORD`, tokens de Migo/Nubefact,
+   credenciales por empresa (se cambian desde Ajustes, una por una, en el proveedor y luego en la app).
+6. Verificación final: `php artisan app:check-production` sin errores; inicio de sesión real en panel y app.
+
+**Reversión**: `APP_KEY=<anterior>` y `APP_PREVIOUS_KEYS=<nueva>` (así se lee tanto lo no re-cifrado como lo ya
+re-cifrado); nunca descartar la clave nueva si algo ya se re-cifró con ella.
+**No se hace**: reescribir el historial de git ni borrar archivos históricos.
 
 ## 3. Contraseña inicial (DNI) y recuperación de acceso
 
