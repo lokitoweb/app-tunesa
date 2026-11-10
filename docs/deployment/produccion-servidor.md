@@ -287,6 +287,8 @@ Qué hace (y nada más):
    en `/etc/mysql/conf.d/zz-app-tunesa.cnf`): sin eso MySQL no deja a la app crear los triggers que
    protegen tablas como la bitácora de marcaciones, y la migración se detiene sin cambiar nada. Lee del
    `.env` solo el tipo y el host de la base, nunca la contraseña.
+6. Comprueba que el servidor puede leer el repositorio y si lo hace por SSH (deploy key, §4). Si usa https,
+   avisa: con el repositorio privado el despliegue automático se detendría. Solo lee; no cambia el remoto.
 
 **Para cambiarse de servidor:** clonar el proyecto, abrir `/install` y correr este script. El último paso
 del instalador lo recuerda; `php artisan app:check-production` avisa si las tareas programadas no corren,

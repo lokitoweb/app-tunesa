@@ -135,6 +135,18 @@ else
   fi
 fi
 
+# 6. Acceso al repositorio: con el repo privado, el https anónimo deja de servir y los despliegues se detienen.
+#    Solo lee (git ls-remote); no cambia el remoto ni muestra credenciales.
+echo "6. Repositorio"
+ORIGIN="$(as_app 'git remote get-url origin' 2>/dev/null || true)"
+if ! as_app "GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND='ssh -o BatchMode=yes' timeout 30 git ls-remote --exit-code origin HEAD" >/dev/null 2>&1; then
+  warn "El servidor no puede leer el repositorio (origin): los despliegues no llegan. Ver docs/deployment/produccion-servidor.md §4 (deploy key)."
+elif [[ "$ORIGIN" == git@* || "$ORIGIN" == ssh://* ]]; then
+  ok "origin por SSH con deploy key: sigue funcionando con el repo privado"
+else
+  warn "origin por https: si el repo pasa a privado, los despliegues se detienen. Cambiar a deploy key (docs/deployment/produccion-servidor.md §4)."
+fi
+
 # Huella de esta versión: deploy.sh avisa si el archivo cambió y hay que volver a correrlo
 if [[ $DRY -eq 0 ]]; then
   sha256sum "$0" | cut -d' ' -f1 >"$APP_DIR/storage/framework/server-setup.sha"
