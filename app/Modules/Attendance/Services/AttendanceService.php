@@ -80,8 +80,8 @@ class AttendanceService
     /**
      * Un rechazo por regla de negocio (422: geocerca, ubicación simulada, GPS,
      * sin conexión...) queda en attendance_punch_attempts. Los conflictos de
-     * estado (409/404: ya marcó, no hay jornada abierta) no son intentos
-     * rechazados, son reintentos, y no se registran.
+     * estado (409/404: ya marcó, no hay jornada abierta) en línea son reintentos y no se registran;
+     * sin conexión (C8) sí: la marca real llegó tarde y RR. HH. debe poder verla y corregir el día.
      *
      * @throws AttendanceException
      */
@@ -90,7 +90,7 @@ class AttendanceService
         try {
             return $this->attemptPunch($employee, $data);
         } catch (AttendanceException $e) {
-            if ($e->status() === 422) {
+            if ($e->status() === 422 || ($data->isOffline() && in_array($e->status(), [404, 409], true))) {
                 $this->attempts->record($employee, $data, $e);
             }
 
@@ -262,7 +262,7 @@ class AttendanceService
         $data = $c['data'];
         /** @var Carbon $at */
         $at    = $c['at'];
-        $today = $at->toDateString();
+        $today = $this->clockInWorkDate($employee, $at, $c['tenant']->timezone);
 
         // Sin FOR UPDATE: la fila del colaborador ya está bloqueada (recordInTransaction). Bloquear
         // una asistencia que aún no existe toma un gap lock que, a la hora de entrada, cruza a
@@ -343,6 +343,25 @@ class AttendanceService
         }
 
         return [$attendance, $branch, $geo, $reasons];
+    }
+
+    /**
+     * C6: una entrada dentro del turno nocturno de ayer (22:00–06:00, entra a las 00:15) es la jornada de ayer:
+     * tardanza contra las 22:00 y sin falta en el día real. Fuera de ese intervalo, si ayer no le tocaba
+     * o si ayer ya tiene entrada, es la jornada de hoy.
+     */
+    private function clockInWorkDate(User $employee, Carbon $at, string $timezone): string
+    {
+        $today     = $at->toDateString();
+        $yesterday = $at->copy()->subDay()->toDateString();
+        $shift     = $this->getCurrentShift($employee, $yesterday)[0]?->shift?->forDate($yesterday);
+        $end       = self::scheduledEnd($shift, $yesterday, $timezone);
+        if (! $end || $end->toDateString() !== $today || $at->gte($end)) {
+            return $today;
+        }
+        $started = Attendance::where('user_id', $employee->id)->where('work_date', $yesterday)->whereNotNull('clock_in_at')->exists();
+
+        return ! $started && app(ScheduleGate::class)->statusFor($employee, $yesterday)['scheduled'] ? $yesterday : $today;
     }
 
     /** @return array{0: Attendance, 1: ?Branch, 2: ?GeofenceResult, 3: array} */
@@ -1192,6 +1211,13 @@ class AttendanceService
     {
         $total  = (int) $in->diffInMinutes($out);
         $deduct = $settings->lunch_paid ? 0 : $this->breakToDeduct($total, $markedBreakMinutes, $shift, $settings);
+        // C7: en horario partido la pausa entre tramos no es refrigerio ni se trabaja, aunque falten las marcas del medio
+        if ($shift?->isSplit()) {
+            $gapStart = Carbon::parse("{$date} {$shift->break_start_time}", $tz);
+            $gapEnd   = Carbon::parse("{$date} {$shift->break_end_time}", $tz);
+            $gapEnd->lte($gapStart) && $gapEnd->addDay();
+            $deduct = max($deduct, $markedBreakMinutes, (int) max(0, $gapStart->max($in)->diffInMinutes($gapEnd->min($out), false)));
+        }
         $worked = round(max(0, $total - $deduct) / 60, 2);
         $base   = self::baseDailyHours($shift, $employee);
 

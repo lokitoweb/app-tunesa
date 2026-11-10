@@ -119,7 +119,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api-level: [29, 35]
+        # En cada push solo Android 15 (~11 min); Android 10 también los lunes, a mano y en PR (no se quita, se espacia)
+        api-level: ${{ github.event_name == 'push' && fromJSON('[35]') || fromJSON('[29, 35]') }}
     steps:
       - uses: actions/checkout@v4
 

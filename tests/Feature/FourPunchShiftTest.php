@@ -146,6 +146,24 @@ class FourPunchShiftTest extends TestCase
         $this->assertFalse($shift->fresh()->isSplit());
     }
 
+    /** C7: sin las marcas del medio (o con refrigerio pagado) la pausa entre tramos no cuenta como trabajada */
+    public function test_c7_split_shift_gap_is_never_worked_time(): void
+    {
+        // Guardado sin duración de pausa (API/importación): antes contaba 14 h - 0
+        $this->assign(['start_time' => '08:00', 'end_time' => '22:00', 'break_start_time' => '12:00', 'break_end_time' => '18:00',
+            'split_shift' => true, 'break_duration_minutes' => 0]);
+        $this->assertEquals(8.0, (float) $this->day('08:00', null, null, '22:00')->worked_hours);
+
+        // Con refrigerio pagado la pausa del partido igual se descuenta (no es refrigerio)
+        \App\Modules\Core\Models\TenantSetting::editableRowFor($this->acme)->fill(['lunch_paid' => true])->save();
+        Attendance::withoutGlobalScopes()->forceDelete();
+        $this->assertEquals(8.0, (float) $this->day('08:00', null, null, '22:00')->worked_hours);
+
+        // Solo el primer tramo: no hay pausa que descontar
+        Attendance::withoutGlobalScopes()->forceDelete();
+        $this->assertEquals(4.0, (float) $this->day('08:00', null, null, '12:00')->worked_hours);
+    }
+
     /** Olvidó el retorno del refrigerio: RR. HH. lo corrige con las 4 horas y todo se recalcula como en la app */
     public function test_hr_corrects_a_forgotten_lunch_return_with_the_four_punches(): void
     {
@@ -214,7 +232,7 @@ class FourPunchShiftTest extends TestCase
         $this->assertEquals(7.67, (float) $att->worked_hours); // 5 h + 2 h 40 min
 
         // Dentro de la tolerancia (10 min) no cuenta
-        Attendance::query()->delete();
+        Attendance::withoutGlobalScopes()->forceDelete();
         $this->travelTo(Carbon::parse('2026-11-03 07:55:00', 'America/Lima'));
         $this->assertSame(0, app(\App\Modules\Attendance\Services\AttendanceService::class)
             ->calculateBreakLateMinutes(Shift::sole(), '2026-11-03', 'America/Lima', Carbon::parse('2026-11-03 14:08:00', 'America/Lima')));

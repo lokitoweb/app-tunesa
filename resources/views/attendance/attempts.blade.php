@@ -1173,6 +1173,8 @@
                                     'OFFLINE_TOO_OLD'         => 'Se envió pasado el plazo permitido',
                                     'OFFLINE_BEFORE_CLOCK_IN' => 'Marcó antes de registrar su entrada',
                                     'OFFLINE_OUT_OF_ORDER'    => 'Marcaciones en orden incorrecto',
+                                    'NO_OPEN_ATTENDANCE'      => 'Llegó cuando el día ya estaba cerrado',
+                                    'ALREADY_CLOCKED_IN'      => 'Llegó cuando ya había otra entrada',
                                     'PHOTO_UNREADABLE'        => 'No se pudo leer la foto',
                                     'OTHER'                   => 'Turno, selfie, sin sede y otros',
                                 ][$val] ?? 'Motivo de rechazo';

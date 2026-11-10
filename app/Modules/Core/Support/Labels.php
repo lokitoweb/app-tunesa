@@ -948,6 +948,8 @@ final class Labels
             'OFFLINE_TOO_OLD'         => ['Sin conexión demasiado antigua', 'warning'],
             'OFFLINE_BEFORE_CLOCK_IN' => ['Sin conexión antes de la entrada', 'warning'],
             'OFFLINE_OUT_OF_ORDER'    => ['Sin conexión fuera de orden', 'warning'],
+            'NO_OPEN_ATTENDANCE'      => ['Sin conexión sin jornada abierta', 'warning'],
+            'ALREADY_CLOCKED_IN'      => ['Sin conexión: entrada repetida', 'warning'],
             'PHOTO_UNREADABLE'        => ['Foto ilegible', 'warning'],
         ],
         'suspicion_reason' => [

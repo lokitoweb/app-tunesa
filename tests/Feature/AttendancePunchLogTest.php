@@ -375,6 +375,34 @@ class AttendancePunchLogTest extends TestCase
         $this->assertSame(5.53, (float) $day->worked_hours); // 21:55 → 06:02 menos el refrigerio de 21:55 a 00:30
     }
 
+    public function test_c6_a_late_entry_after_midnight_belongs_to_last_nights_shift(): void
+    {
+        $this->withShift('22:00', '06:00', 15);
+
+        // Turno del 9 (22:00–06:00), entra el 10 a las 00:15: jornada del 9, 135 min tarde, sin falta en el día real
+        $this->travelTo(Carbon::parse('2026-10-10 00:15:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();
+        $day = Attendance::withoutGlobalScopes()->where('user_id', $this->emp->id)->sole();
+        $this->assertSame(['2026-10-09', 'late', 135], [$day->work_date->toDateString(), $day->status, (int) $day->late_minutes]);
+
+        $this->travelTo(Carbon::parse('2026-10-10 06:00:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-out', $this->payload(['latitude' => -12.0941832]))->assertOk();
+        $this->assertNotNull($day->fresh()->clock_out_at);
+
+        // La noche del 10 entra a tiempo: es otra jornada (la del 10), no la del 9
+        $this->travelTo(Carbon::parse('2026-10-10 21:58:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload(['latitude' => -12.0941811]))->assertCreated();
+        $this->assertSame(['2026-10-09', '2026-10-10'], Attendance::withoutGlobalScopes()->orderBy('work_date')->pluck('work_date')->map->toDateString()->all());
+    }
+
+    public function test_c6_a_day_worker_clocking_in_after_midnight_stays_on_today(): void
+    {
+        $this->withShift('08:00', '17:00');
+        $this->travelTo(Carbon::parse('2026-10-10 00:15:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();
+        $this->assertSame('2026-10-10', Attendance::withoutGlobalScopes()->sole()->work_date->toDateString());
+    }
+
     public function test_a_day_worker_who_forgot_to_clock_out_yesterday_starts_today_fresh(): void
     {
         $this->withShift('08:00', '17:00');
@@ -430,6 +458,26 @@ class AttendancePunchLogTest extends TestCase
 
         $this->assertSame(2, $this->emp->notifications()->count());
         $this->assertEqualsCanonicalizing([true, false], $this->emp->notifications()->get()->map(fn ($n) => $n->data['data']['rejected'])->all());
+    }
+
+    public function test_c8_a_late_offline_punch_without_an_open_day_is_kept_for_hr(): void
+    {
+        $this->settings($this->acme, ['offline_mode_enabled' => true, 'offline_max_hours' => 24]);
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload())->assertCreated();
+        $this->travelTo(Carbon::parse('2026-10-09 17:00:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-out', $this->payload(['latitude' => -12.0941832]))->assertOk();
+
+        // Una salida sin conexión de las 16:30 llega con el día ya cerrado: 404, pero queda registrada para RR. HH.
+        $this->travelTo(Carbon::parse('2026-10-09 19:00:00', 'America/Lima'));
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-out', $this->payload([
+            'latitude' => -12.0941811, 'offline_recorded_at' => '2026-10-09T16:30:00-05:00',
+        ]))->assertStatus(404)->assertJsonPath('code', 'NO_OPEN_ATTENDANCE');
+        $attempt = \App\Modules\Attendance\Models\AttendancePunchAttempt::withoutGlobalScopes()->sole();
+        $this->assertSame(['clock_out', 'NO_OPEN_ATTENDANCE', true], [$attempt->type, $attempt->error_code, (bool) $attempt->offline]);
+
+        // En línea, el mismo conflicto es un reintento: no se registra
+        $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-out', $this->payload(['latitude' => -12.0941822]))->assertStatus(404);
+        $this->assertSame(1, \App\Modules\Attendance\Models\AttendancePunchAttempt::withoutGlobalScopes()->count());
     }
 
     public function test_breaks_honor_offline_recorded_at_and_keep_order(): void
