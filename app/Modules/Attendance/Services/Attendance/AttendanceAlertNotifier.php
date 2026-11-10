@@ -37,12 +37,16 @@ class AttendanceAlertNotifier
     {
         $this->safely(function () use ($attendance, $punch) {
             $employee = $this->activeUser($attendance->user_id);
-            if (! $employee) {
+            // C9: un aviso por jornada (entrada y salida fuera de programación no se repiten); la marcación igual queda marcada
+            if (! $employee || ! Cache::add("attendance-alert:schedule:{$attendance->id}", true, now()->addDays(2))) {
                 return;
             }
 
             $attendance->loadMissing('shift');
-            $employee->notify(new AttendanceOutsideSchedule($attendance, $punch, $employee));
+            // Sin horario configurado (caso B) el colaborador ya lo ve en la app: el aviso es para el supervisor
+            if (! in_array(AttendancePunch::REASON_NO_SCHEDULE, $punch->suspicion_reasons ?? [], true)) {
+                $employee->notify(new AttendanceOutsideSchedule($attendance, $punch, $employee));
+            }
 
             $this->supervisorOf($punch->branch_id, $employee)
                 ?->notify((new AttendanceOutsideSchedule($attendance, $punch, $employee, forSupervisor: true))->withoutPush());

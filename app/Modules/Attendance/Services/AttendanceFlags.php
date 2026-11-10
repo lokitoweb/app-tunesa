@@ -21,9 +21,10 @@ class AttendanceFlags
 
     /**
      * Valor si la empresa no la fijó. hours_v2 (reglas aprobadas RP-01 y vigente 10) es la regla de todas las
-     * empresas desde 11/2026; "off" explícito por empresa es la vuelta atrás (attendance:flag … hours_v2 off).
+     * empresas desde 11/2026; schedule_v2 (C9) también. "off" explícito por empresa es la vuelta atrás
+     * (attendance:flag <empresa> <bandera> off).
      */
-    public const DEFAULTS = ['hours_v2' => true];
+    public const DEFAULTS = ['hours_v2' => true, ScheduleResolver::FLAG => true];
 
     public static function enabled(?Tenant $tenant, string $flag): bool
     {

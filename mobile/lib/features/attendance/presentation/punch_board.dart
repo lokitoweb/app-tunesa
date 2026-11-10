@@ -130,7 +130,7 @@ class PunchBoard extends StatelessWidget {
                   style: theme.textTheme.labelMedium?.copyWith(color: scheme.error, fontWeight: FontWeight.w600)),
             ]),
           ),
-        if (status.isNotScheduled)
+        if (status.scheduleBanner != null)
           Container(
             key: const Key('punch-not-scheduled'),
             margin: const EdgeInsets.only(top: 12),
@@ -142,7 +142,7 @@ class PunchBoard extends StatelessWidget {
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Icon(Icons.info_outline_rounded, size: 18, color: scheme.primary),
               const SizedBox(width: 8),
-              Expanded(child: Text(status.notScheduledMessage!, style: theme.textTheme.bodySmall?.copyWith(height: 1.35))),
+              Expanded(child: Text(status.scheduleBanner!, style: theme.textTheme.bodySmall?.copyWith(height: 1.35))),
             ]),
           ),
         const SizedBox(height: 16),

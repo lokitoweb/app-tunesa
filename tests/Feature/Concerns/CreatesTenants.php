@@ -54,6 +54,16 @@ trait CreatesTenants
         ], $attrs));
     }
 
+    /**
+     * schedule_v2 apagada en la empresa (regla anterior). Para pruebas de GPS, selfie o geocerca con
+     * personas sin horario: desde C9 esa marcación lleva además NO_SCHEDULE (ScheduleV2DefaultTest).
+     */
+    protected function withoutScheduleV2(Tenant $tenant): void
+    {
+        $tenant->forceFill(['settings' => array_replace_recursive((array) $tenant->settings, ['flags' => ['schedule_v2' => false]])])->save();
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+    }
+
     /** Cabeceras para una petición autenticada en la empresa dada */
     protected function actingIn(User $user, Tenant $tenant): static
     {

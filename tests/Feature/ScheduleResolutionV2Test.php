@@ -128,24 +128,24 @@ class ScheduleResolutionV2Test extends ScheduleResolutionCharacterizationTest
         $this->assertSame('rest', $monday());
     }
 
-    public function test_flag_off_by_default_and_command_is_audited(): void
+    public function test_flag_on_by_default_and_command_is_audited(): void
     {
         $this->artisan('attendance:flag', ['tenant' => 'acme', 'flag' => 'schedule_v2'])->expectsOutput('acme · schedule_v2: on')->assertSuccessful();
 
-        $log = \App\Modules\Core\Models\AuditLog::where('action', 'tenant.flag_changed')->sole();
+        $log = \App\Modules\Core\Models\AuditLog::where('action', 'tenant.flag_changed')->latest('id')->first();
         $this->assertSame($this->acme->id, $log->tenant_id);
         $this->assertSame('Prueba en modo v2', $log->meta['context']['reason']);
         // assertEquals: MySQL reordena las claves del JSON de la bitácora
         $this->assertEquals(['field' => 'flags.schedule_v2', 'old' => false, 'new' => true], collect($log->meta['changes'])->first());
 
-        // Motivo obligatorio; una bandera desconocida se rechaza; otra empresa sigue apagada
+        // Motivo obligatorio; una bandera desconocida se rechaza; otra empresa la tiene encendida por defecto (C9)
         $this->artisan('attendance:flag', ['tenant' => 'acme', 'flag' => 'schedule_v2', 'state' => 'off'])->assertExitCode(2);
         $this->artisan('attendance:flag', ['tenant' => 'acme', 'flag' => 'otra_cosa', 'state' => 'on', '--reason' => 'Probar'])->assertExitCode(2);
         $this->makeTenant('globex');
-        $this->artisan('attendance:flag', ['tenant' => 'globex', 'flag' => 'schedule_v2'])->expectsOutput('globex · schedule_v2: off');
+        $this->artisan('attendance:flag', ['tenant' => 'globex', 'flag' => 'schedule_v2'])->expectsOutput('globex · schedule_v2: on');
 
         $this->artisan('attendance:flag', ['tenant' => 'acme', 'flag' => 'schedule_v2', 'state' => 'off', '--reason' => 'Vuelta atrás'])->assertSuccessful();
         $this->assertFalse((bool) $this->acme->fresh()->setting('flags.schedule_v2'));
-        $this->assertSame(2, \App\Modules\Core\Models\AuditLog::where('action', 'tenant.flag_changed')->count());
+        $this->assertSame(3, \App\Modules\Core\Models\AuditLog::where('action', 'tenant.flag_changed')->count()); // off (base), on, off
     }
 }

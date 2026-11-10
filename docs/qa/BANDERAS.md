@@ -1,13 +1,13 @@
 # Banderas por empresa · QA Ronda 2
 
-Los cambios que alteran el comportamiento existente quedan detrás de una bandera por empresa. Todas vienen **apagadas**: con la bandera apagada, el sistema hace exactamente lo de antes.
+Los cambios que alteran el comportamiento existente quedan detrás de una bandera por empresa. Desde 11/2026 `hours_v2` y `schedule_v2` vienen **encendidas** en todas las empresas (`AttendanceFlags::DEFAULTS`); apagarlas en una empresa (`off`) vuelve exactamente a lo de antes.
 
 - **Dónde se guardan:** `tenants.settings` (JSON), en `flags.<nombre>`. El mismo mecanismo que `disabled_modules` y los cumpleaños, sin migración.
 - **Quién las cambia:** solo el comando `attendance:flag`. Cada cambio queda en la bitácora (`tenant.flag_changed`) con el valor anterior, el nuevo, el motivo y el usuario del sistema que corrió el comando.
 
 | Bandera | Qué cambia al encenderla | Estado |
 |---|---|---|
-| `schedule_v2` | `ScheduleResolver` en modo v2. Todas las pantallas, reportes y procesos eligen la asignación que **trabaja** ese día (empate: vigencia más reciente, luego id). Un día sin turno ya no se mide contra otro horario: sin tardanza, sin descanso del turno, y la marcación queda "fuera de programación" (`OUTSIDE_SCHEDULE`). | Lista para piloto |
+| `schedule_v2` | `ScheduleResolver` en modo v2. Todas las pantallas, reportes y procesos eligen la asignación que **trabaja** ese día (empate: vigencia más reciente, luego id). Un día sin turno ya no se mide contra otro horario: sin tardanza, sin descanso del turno, y la marcación queda "fuera de programación" (`OUTSIDE_SCHEDULE`). Quien no tiene **ningún** horario asignado puede marcar: queda "Sin horario configurado" (`NO_SCHEDULE`), a revisión de RR. HH., con un solo aviso al supervisor por jornada; no es falta. El día de descanso sigue bloqueado si la empresa exige turno (`punch_requires_schedule`). | Encendida por defecto (C9) |
 | `hours_v2` | Fórmula única de horas trabajadas (RP-01): el reporte descuenta el descanso igual que la jornada guardada (el mayor entre lo marcado y el fijo del turno, o el de la empresa, si la jornada pasa de 5 h). Si la empresa paga el refrigerio (`lunch_paid`), no se descuenta nada. La regla está escrita en el pie del reporte. | Lista. Valores de hoy; RR. HH. confirma si se descuenta el break (pregunta 3) |
 
 ## Activar, desactivar y consultar

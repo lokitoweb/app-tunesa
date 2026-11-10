@@ -195,6 +195,7 @@ class TodayStatus {
     this.schedule,
     this.clockSkew,
     this.notScheduledMessage,
+    this.scheduleNotice,
     this.expectedClockOut,
   });
 
@@ -246,6 +247,19 @@ class TodayStatus {
   }
 
   static const notScheduledFallback = 'Hoy no tienes turno programado';
+
+  /// Aviso que no bloquea (C9: «Sin horario configurado», RR. HH. revisa la jornada). null = sin aviso.
+  final String? scheduleNotice;
+
+  /// Lee el mensaje de `schedule` cuando sí se puede marcar (mismo texto que el panel).
+  static String? parseScheduleNotice(Object? schedule) {
+    if (schedule is! Map || schedule['can_clock_in'] != true) return null;
+    final message = schedule['message']?.toString().trim();
+    return (message == null || message.isEmpty) ? null : message;
+  }
+
+  /// Texto del recuadro informativo del tablero: el bloqueo manda sobre el aviso.
+  String? get scheduleBanner => isNotScheduled ? notScheduledMessage : scheduleNotice;
 
   /// Hora del teléfono menos la del servidor (`server_time`) al recibir la
   /// respuesta. null si el backend no la envía.

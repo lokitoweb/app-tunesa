@@ -237,6 +237,7 @@ class AttendancePunchLogTest extends TestCase
 
     public function test_mock_location_policy_rejects_or_flags(): void
     {
+        $this->withoutScheduleV2($this->acme);
         // Por defecto: reject
         $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload(['is_mocked' => 1]))
             ->assertStatus(422)->assertJsonPath('code', 'MOCK_LOCATION_DETECTED');
@@ -263,6 +264,7 @@ class AttendancePunchLogTest extends TestCase
 
     public function test_unsafe_device_is_accepted_but_flagged_for_hr(): void
     {
+        $this->withoutScheduleV2($this->acme);
         $this->actingIn($this->emp, $this->acme)->withHeader('X-Device-Integrity', 'rooted, hooked, inventado')
             ->post('/api/attendance/clock-in', $this->payload())
             ->assertCreated()
@@ -277,6 +279,7 @@ class AttendancePunchLogTest extends TestCase
 
     public function test_time_drift_beyond_the_limit_is_flagged_but_never_rejected(): void
     {
+        $this->withoutScheduleV2($this->acme);
         $this->settings(null, ['max_time_drift_seconds' => 120]);
 
         $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload([
@@ -294,6 +297,7 @@ class AttendancePunchLogTest extends TestCase
 
     public function test_face_policy_unverified_flags_and_explicit_false_rejects(): void
     {
+        $this->withoutScheduleV2($this->acme);
         $this->settings($this->acme, ['face_detection_required' => true]);
 
         $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload(['face_detected' => 0]))
@@ -433,6 +437,7 @@ class AttendancePunchLogTest extends TestCase
 
     public function test_out_of_geofence_flag_policy_flags_and_reject_policy_notifies(): void
     {
+        $this->withoutScheduleV2($this->acme);
         $far = ['latitude' => -12.0960, 'longitude' => -77.03560]; // ≈ 200 m al sur
 
         $this->actingIn($this->emp, $this->acme)->post('/api/attendance/clock-in', $this->payload($far))

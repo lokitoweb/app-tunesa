@@ -21,8 +21,11 @@ class ScheduleGate
 {
     public const MESSAGE_NOT_SCHEDULED = 'Hoy no tienes turno programado. Si debes trabajar, pide a RR. HH. que autorice tu marcación.';
 
+    /** C9, caso B: sin ningún horario asignado (schedule_v2) se marca igual y RR. HH. lo revisa */
+    public const MESSAGE_UNCONFIGURED = 'Sin horario configurado: puedes marcar y RR. HH. revisará tu jornada.';
+
     /**
-     * @return array{required: bool, scheduled: bool, authorized: bool, can_clock_in: bool, reason: ?string, message: ?string, shift: ?array}
+     * @return array{required: bool, scheduled: bool, authorized: bool, can_clock_in: bool, reason: ?string, unconfigured: bool, message: ?string, shift: ?array}
      */
     public function statusFor(User $user, string $date, ?TenantSetting $settings = null): array
     {
@@ -45,7 +48,9 @@ class ScheduleGate
             ->whereDate('work_date', $date)
             ->exists();
 
-        $canClockIn = ! $required || $scheduled || $authorized;
+        // C9 caso B: ni asignación ni día programado. Con schedule_v2 no se rechaza (sí el día de descanso)
+        $unconfigured = ! $scheduled && ! $resolved->hasAssignments && app(ScheduleResolver::class)->enabled((int) $user->tenant_id);
+        $canClockIn = ! $required || $scheduled || $authorized || $unconfigured;
         $reason = $scheduled ? null : ($resolved->hasAssignments ? 'rest_day' : 'unscheduled');
 
         return [
@@ -54,7 +59,8 @@ class ScheduleGate
             'authorized'   => $authorized,
             'can_clock_in' => $canClockIn,
             'reason'       => $reason,
-            'message'      => $canClockIn ? null : self::MESSAGE_NOT_SCHEDULED,
+            'unconfigured' => $unconfigured,
+            'message'      => $canClockIn ? ($unconfigured ? self::MESSAGE_UNCONFIGURED : null) : self::MESSAGE_NOT_SCHEDULED,
             'shift'        => $working?->shift ? [
                 'id'         => $working->shift->id,
                 'name'       => $working->shift->name,

@@ -286,6 +286,7 @@ class OrgHierarchyTest extends TestCase
 
     public function test_roaming_employee_clocks_in_at_any_branch_or_on_route_and_fixed_one_only_at_home(): void
     {
+        $this->withoutScheduleV2($this->acme);
         Storage::fake(config('filesystems.attendance_disk', 'private'));
         $payload = fn (Branch|array $at) => [
             'latitude'  => $at instanceof Branch ? (float) $at->latitude : $at[0],

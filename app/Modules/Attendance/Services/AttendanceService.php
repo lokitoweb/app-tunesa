@@ -297,7 +297,9 @@ class AttendanceService
 
         // schedule_v2 (HQ-02): sin horario ese día también es "fuera de programación", tenga o no asignaciones
         $judge = $hasAssignments || $this->schedules->enabled((int) $employee->tenant_id);
-        if ($judge && $this->isOutsideSchedule($assignment, $today, $at, $c['tenant']->timezone)) {
+        if ($gate['unconfigured'] ?? false) {
+            $reasons[] = AttendancePunch::REASON_NO_SCHEDULE; // C9 caso B
+        } elseif ($judge && $this->isOutsideSchedule($assignment, $today, $at, $c['tenant']->timezone)) {
             $reasons[] = AttendancePunch::REASON_OUTSIDE_SCHEDULE;
         }
 
@@ -473,7 +475,9 @@ class AttendanceService
         [$geo, $reasons] = $this->clockGeofence($c, $employee, $branch, $reasons);
 
         $shift = $attendance->shift?->forDate($attendance->work_date);
-        if ($shift && $this->isOutsideShiftWindow($shift, $attendance->work_date->toDateString(), $clockOutTime, $c['tenant']->timezone)) {
+        if (! $shift && in_array(AttendancePunch::REASON_NO_SCHEDULE, $attendance->punches()->where('type', 'clock_in')->first()?->suspicion_reasons ?? [], true)) {
+            $reasons[] = AttendancePunch::REASON_NO_SCHEDULE; // C9 caso B: la salida del mismo día sin horario
+        } elseif ($shift && $this->isOutsideShiftWindow($shift, $attendance->work_date->toDateString(), $clockOutTime, $c['tenant']->timezone)) {
             $reasons[] = AttendancePunch::REASON_OUTSIDE_SCHEDULE;
         }
 
@@ -802,7 +806,7 @@ class AttendanceService
 
         $reasons = $result->punch->suspicion_reasons ?? [];
 
-        if (in_array(AttendancePunch::REASON_OUTSIDE_SCHEDULE, $reasons, true)) {
+        if (array_intersect([AttendancePunch::REASON_OUTSIDE_SCHEDULE, AttendancePunch::REASON_NO_SCHEDULE], $reasons)) {
             $this->alerts->outsideSchedule($result->attendance, $result->punch);
         }
 

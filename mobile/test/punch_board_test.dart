@@ -118,6 +118,21 @@ void main() {
     expect(find.textContaining('pide a RR. HH. que autorice'), findsNWidgets(2));
   });
 
+  testWidgets('C9: sin horario configurado se avisa pero se puede marcar', (tester) async {
+    const message = 'Sin horario configurado: puedes marcar y RR. HH. revisará tu jornada.';
+    expect(TodayStatus.parseScheduleNotice({'can_clock_in': true, 'message': message}), message);
+    expect(TodayStatus.parseScheduleNotice({'can_clock_in': true, 'message': null}), isNull);
+    expect(TodayStatus.parseScheduleNotice({'can_clock_in': false, 'message': 'x'}), isNull);
+
+    final opened = <ClockAction>[];
+    const status = TodayStatus(actions: [ClockAction.clockIn], scheduleNotice: message);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PunchBoard(status: status, onPunch: opened.add))));
+    expect(find.text(message), findsOneWidget);
+    await tester.tap(find.byKey(const Key('punch-clock_in')));
+    await tester.pump();
+    expect(opened, [ClockAction.clockIn]);
+  });
+
   test('si ya marcó entrada (autorizado), el bloqueo no aplica', () {
     final s = TodayStatus(attendance: _day(clockIn: eight), actions: const [ClockAction.clockOut], notScheduledMessage: 'x');
     expect(s.isNotScheduled, isFalse);

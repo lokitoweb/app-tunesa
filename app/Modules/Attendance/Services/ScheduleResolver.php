@@ -18,12 +18,12 @@ use Illuminate\Support\Collection;
  * libre si shift_id es NULL. Programar a alguien basta para que la app, la marcación,
  * las faltas y los reportes lo usen; quien no tiene el día programado sigue como antes.
  *
- * Días sin programar, con la bandera de empresa schedule_v2 encendida:
+ * Días sin programar, con la bandera de empresa schedule_v2 encendida (por defecto desde C9, AttendanceFlags::DEFAULTS):
  *   - Asignación vigente que sí trabaja ese día; empate: vigencia más reciente, luego id.
  *   - Si ninguna trabaja: día libre, sin respaldo (para calcular no hay turno; la
  *     referencia de sede sigue siendo la vigente más reciente).
  *
- * Días sin programar con la bandera apagada (valor por defecto): reproduce exactamente
+ * Días sin programar con la bandera apagada (vuelta atrás por empresa): reproduce exactamente
  * lo que hacían las ocho copias anteriores, según la estrategia que pide el llamador:
  *   - LEGACY_FIRST_WORKING (marcación, corrección manual, faltas, recordatorio de entrada,
  *     ScheduleGate, "Mis turnos" de la app): la primera vigente que trabaja en el orden
@@ -96,8 +96,7 @@ class ScheduleResolver
         if (! isset($this->enabled[$tenantId])) {
             // La empresa de la request ya está cargada: sin consulta extra
             $current = app(TenantContext::class)->getOrNull();
-            $this->enabled[$tenantId] = (bool) ($current?->id === $tenantId ? $current : Tenant::find($tenantId))
-                ?->setting('flags.' . self::FLAG, false);
+            $this->enabled[$tenantId] = AttendanceFlags::enabled($current?->id === $tenantId ? $current : Tenant::find($tenantId), self::FLAG);
         }
 
         return $this->enabled[$tenantId];
@@ -106,7 +105,7 @@ class ScheduleResolver
     /** Para quien ya cargó las empresas (calendario): evita una consulta por empresa */
     public function remember(Tenant $tenant): void
     {
-        $this->enabled[$tenant->id] = (bool) $tenant->setting('flags.' . self::FLAG, false);
+        $this->enabled[$tenant->id] = AttendanceFlags::enabled($tenant, self::FLAG);
     }
 
     /**

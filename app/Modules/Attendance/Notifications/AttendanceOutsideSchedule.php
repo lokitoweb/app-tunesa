@@ -39,7 +39,11 @@ class AttendanceOutsideSchedule extends AppNotification
         $shift  = $this->attendance->shift?->forDate($this->attendance->work_date);
         $window = $shift ? sprintf(' (turno %s–%s)', substr((string) $shift->start_time, 0, 5), substr((string) $shift->end_time, 0, 5)) : '';
         // Sin turno ese día (QA Ronda 2, HQ-02): fuera de programación
-        $where = $shift ? 'fuera de su horario' : 'fuera de programación (no tenía horario ese día)';
+        $where = match (true) {
+            (bool) $shift => 'fuera de su horario',
+            in_array(AttendancePunch::REASON_NO_SCHEDULE, $this->punch->suspicion_reasons ?? [], true) => 'sin horario configurado; asígnale un horario o revisa su jornada',
+            default => 'fuera de programación (no tenía horario ese día)',
+        };
 
         if ($this->forSupervisor) {
             return sprintf('%s marcó %s a las %s, %s%s.',

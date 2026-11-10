@@ -36,6 +36,7 @@ class GeofenceToleranceTest extends TestCase
         Storage::fake('private');
 
         $this->acme   = $this->makeTenant('acme');
+        $this->withoutScheduleV2($this->acme); // mide GPS/selfie, no el horario
         $this->emp    = $this->makeUser($this->acme);
         $this->branch = $this->makeBranch($this->acme, ['allowed_radius_meters' => 100]);
         $this->emp->branches()->attach($this->branch->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);

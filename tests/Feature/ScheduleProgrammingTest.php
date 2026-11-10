@@ -427,7 +427,7 @@ class ScheduleProgrammingTest extends TestCase
         $this->assertNotContains('OUTSIDE_SCHEDULE', $day->clock_in_meta['suspicion_reasons'] ?? []);
     }
 
-    public function test_hq02_punch_without_any_schedule_is_outside_programming_and_alerts_the_supervisor(): void
+    public function test_hq02_punch_without_any_schedule_is_flagged_no_schedule_and_alerts_the_supervisor(): void
     {
         Notification::fake();
         $supervisor = $this->makeUser($this->acme, 'supervisor');
@@ -436,13 +436,14 @@ class ScheduleProgrammingTest extends TestCase
         $nuevo->branches()->attach($this->trujillo->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
         $reasons = fn () => Attendance::withoutGlobalScopes()->where('user_id', $nuevo->id)->sole()->clock_in_meta['suspicion_reasons'] ?? [];
 
-        // schedule_v2: fuera de programación y aviso a la jefatura de la agencia
+        // schedule_v2 (C9 caso B): sin horario configurado, a revisión y aviso a la jefatura de la agencia
         $this->flag('on');
         $this->travelTo(Carbon::parse('2026-10-06 09:00', 'America/Lima'));
         $this->actingIn($nuevo, $this->acme)->post('/api/attendance/clock-in', $this->punch())->assertCreated();
-        $this->assertContains('OUTSIDE_SCHEDULE', $reasons());
+        $this->assertSame(['NO_SCHEDULE'], $reasons());
         Notification::assertSentTo($supervisor, AttendanceOutsideSchedule::class,
-            fn (AttendanceOutsideSchedule $n) => str_contains($n->body(), 'fuera de programación (no tenía horario ese día)'));
+            fn (AttendanceOutsideSchedule $n) => str_contains($n->body(), 'sin horario configurado'));
+        Notification::assertNotSentTo($nuevo, AttendanceOutsideSchedule::class);
     }
 
     public function test_hq02_flag_off_punch_without_assignments_is_not_flagged_as_before(): void

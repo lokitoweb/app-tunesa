@@ -74,6 +74,8 @@ class ScheduleResolutionCharacterizationTest extends TestCase
         $this->b = $this->shift('B', '14:00', '21:00', [6]);
         $this->assign($this->emp, $this->a, '2026-01-01');
         $this->assign($this->emp, $this->b, '2026-06-01');
+        // Desde C9 schedule_v2 viene encendida: aquí se fija el comportamiento anterior (vuelta atrás por empresa)
+        $this->artisan('attendance:flag', ['tenant' => 'acme', 'flag' => 'schedule_v2', 'state' => 'off', '--reason' => 'Comportamiento anterior'])->assertSuccessful();
     }
 
     // =========================================================================

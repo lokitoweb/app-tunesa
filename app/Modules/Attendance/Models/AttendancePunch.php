@@ -39,6 +39,8 @@ class AttendancePunch extends Model
     public const REASON_FACE_UNVERIFIED  = 'FACE_UNVERIFIED';
     public const REASON_OUT_OF_GEOFENCE  = 'OUT_OF_GEOFENCE';
     public const REASON_OUTSIDE_SCHEDULE = 'OUTSIDE_SCHEDULE';
+    /** C9 caso B: marcó sin ningún horario asignado (se acepta y va a revisión) */
+    public const REASON_NO_SCHEDULE      = 'NO_SCHEDULE';
     public const REASON_UNSAFE_DEVICE    = 'UNSAFE_DEVICE';
     /** Fuera del radio pero dentro del margen de la precisión GPS: se acepta observada */
     public const REASON_GEOFENCE_EDGE    = 'GEOFENCE_EDGE';
