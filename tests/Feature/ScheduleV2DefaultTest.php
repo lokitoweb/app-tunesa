@@ -118,6 +118,12 @@ class ScheduleV2DefaultTest extends TestCase
         $this->assertStringContainsString('sin horario configurado', $notes[0]->data['body']);
         $this->assertSame(0, $this->emp->notifications()->count());
 
+        // Panel y app muestran el mismo estado
+        $this->actingIn($this->emp, $this->acme)->getJson('/api/attendance/today')->assertJsonPath('data.status_label', 'Sin horario configurado');
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $this->actingAs($hr)->get('/attendance?date_from=2026-10-09&date_to=2026-10-09')->assertOk()
+            ->assertSee('Sin horario configurado')->assertDontSee('Fuera de programación');
+
         // No es falta: el proceso de faltas solo mira a quien tenía turno
         $this->travelTo(Carbon::parse('2026-10-10 23:30', 'America/Lima'));
         $this->artisan('attendance:mark-absences', ['--date' => '2026-10-10'])->assertSuccessful();
@@ -132,6 +138,8 @@ class ScheduleV2DefaultTest extends TestCase
 
         $this->assertSame(['attendance.outside_schedule'], $this->supervisor->notifications()->pluck('type')->all());
         $this->assertSame(['attendance.outside_schedule'], $this->emp->notifications()->pluck('type')->all());
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $this->actingAs($hr)->get('/attendance?date_from=2026-10-09&date_to=2026-10-09')->assertOk()->assertSee('Fuera de programación');
         $this->assertSame('Fuera de programación', \App\Modules\Core\Support\Labels::enum('suspicion_reason', 'OUTSIDE_SCHEDULE'));
         $this->assertSame('Sin horario configurado', \App\Modules\Core\Support\Labels::enum('suspicion_reason', 'NO_SCHEDULE'));
     }

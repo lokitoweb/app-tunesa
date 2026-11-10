@@ -103,6 +103,11 @@ class AttendanceResource extends JsonResource
 
     private function getStatusLabel(): string
     {
+        // C9: sin horario no hay puntualidad; la app muestra lo mismo que el panel
+        if (in_array(\App\Modules\Attendance\Models\AttendancePunch::REASON_NO_SCHEDULE, $this->resource->suspicionReasons(), true)) {
+            return \App\Modules\Core\Support\Labels::enum('suspicion_reason', \App\Modules\Attendance\Models\AttendancePunch::REASON_NO_SCHEDULE);
+        }
+
         // Etiquetas únicas de estado (QA Ronda 2, RP-03)
         return DayStatus::label(DayStatus::fromRecord($this->status));
     }

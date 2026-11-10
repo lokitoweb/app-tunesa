@@ -179,6 +179,15 @@ class Attendance extends Model
         return $this->belongsTo(Shift::class);
     }
 
+    /** Motivos de revisión de la jornada (entrada y salida), sin repetir */
+    public function suspicionReasons(): array
+    {
+        return array_values(array_unique(array_merge(
+            (array) data_get($this->clock_in_meta, 'suspicion_reasons', []),
+            (array) data_get($this->clock_out_meta, 'suspicion_reasons', []),
+        )));
+    }
+
     /** Bitácora inmutable de marcaciones de la jornada */
     public function punches(): \Illuminate\Database\Eloquent\Relations\HasMany
     {

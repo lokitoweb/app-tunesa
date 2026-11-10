@@ -182,10 +182,19 @@
                             <span>{{ number_format((float) ($att->worked_hours ?? 0), 2) }} h</span>
                         </td>
                         <td class="text-nowrap" data-label="Estado">
+                            @php($dayReasons = $att->suspicionReasons())
                             <div class="d-flex flex-wrap gap-1">
-                                @include('partials.attendance-status', ['status' => $att->status])
+                                {{-- C9: sin horario no hay puntualidad que mostrar; el estado es "Sin horario configurado" --}}
+                                @if(in_array('NO_SCHEDULE', $dayReasons, true))
+                                    <span class="status-pill tone-amber" title="Marcó sin ningún horario asignado: RR. HH. revisa la jornada"><i class="bi bi-calendar-x"></i>Sin horario configurado</span>
+                                @else
+                                    @include('partials.attendance-status', ['status' => $att->status])
+                                    @if(in_array('OUTSIDE_SCHEDULE', $dayReasons, true))
+                                        <span class="status-pill tone-amber" title="Marcó fuera de la ventana de su turno"><i class="bi bi-clock-history"></i>Fuera de programación</span>
+                                    @endif
+                                @endif
                                 @if($att->is_suspicious)
-                                    <span class="status-pill tone-amber" title="Ubicación simulada, hora desfasada, rostro no verificado o fuera de la ubicación"><i class="bi bi-shield-exclamation"></i>Sospechosa</span>
+                                    <span class="status-pill tone-amber" title="{{ $dayReasons ? collect($dayReasons)->map(fn ($r) => \App\Modules\Core\Support\Labels::enum('suspicion_reason', $r))->implode(' · ') : 'Revisar la marcación' }}"><i class="bi bi-shield-exclamation"></i>Sospechosa</span>
                                 @endif
                                 @if($att->punches_incomplete)
                                     <span class="status-pill tone-rose" title="Horario de 4 marcaciones: faltó la salida o el retorno del refrigerio"><i class="bi bi-exclamation-circle"></i>Marcaciones incompletas</span>
