@@ -837,20 +837,23 @@
             root.querySelector('[aria-expanded]')?.setAttribute('aria-expanded', 'true');
             // Flota sobre todo (modales incluidos), pegado al campo, con posición fija en la pantalla: ningún
             // contenedor con scroll lo recorta ni lo estira. Abre hacia arriba solo si abajo no cabe y arriba hay más.
-            const rect = root.getBoundingClientRect();
-            const isCal = panel.classList.contains('mc-cal');
-            const width = isCal ? Math.min(296, innerWidth - 16) : rect.width;
-            const below = innerHeight - rect.bottom - 12;
-            const above = rect.top - 12;
-            const up = below < Math.min(panel.scrollHeight, 340) && above > below;
-            root.classList.toggle('drop-up', up);
-            Object.assign(panel.style, {
-                position: 'fixed', zIndex: 2000, width: `${width}px`, right: 'auto',
-                left: `${Math.max(8, Math.min(rect.left, innerWidth - width - 8))}px`,
-                top: up ? 'auto' : `${rect.bottom + 6}px`,
-                bottom: up ? `${innerHeight - rect.top + 6}px` : 'auto',
-                maxHeight: `${Math.max(up ? above : below, 220)}px`, overflowY: 'auto',
-            });
+            controls.place = () => {
+                const rect = root.getBoundingClientRect();
+                const isCal = panel.classList.contains('mc-cal');
+                const width = isCal ? Math.min(296, innerWidth - 16) : rect.width;
+                const below = innerHeight - rect.bottom - 12;
+                const above = rect.top - 12;
+                const up = below < Math.min(panel.scrollHeight, 340) && above > below;
+                root.classList.toggle('drop-up', up);
+                Object.assign(panel.style, {
+                    position: 'fixed', zIndex: 2000, width: `${width}px`, right: 'auto',
+                    left: `${Math.max(8, Math.min(rect.left, innerWidth - width - 8))}px`,
+                    top: up ? 'auto' : `${rect.bottom + 6}px`,
+                    bottom: up ? `${innerHeight - rect.top + 6}px` : 'auto',
+                    maxHeight: `${Math.max(up ? above : below, 220)}px`, overflowY: 'auto',
+                });
+            };
+            controls.place();
             controls.open = root;
             return true;
         },
@@ -1057,9 +1060,9 @@
         },
     };
     document.addEventListener('click', (e) => { if (controls.open && !controls.open.contains(e.target)) controls.close(); });
-    // Panel fijo: si se desplaza la página o el modal (no la lista del propio panel) o cambia el tamaño, se cierra
-    document.addEventListener('scroll', (e) => { if (controls.open && !controls.open.contains(e.target)) controls.close(); }, true);
-    window.addEventListener('resize', () => controls.close());
+    // Panel fijo: si se desplaza la página o el modal (p. ej. al enfocar el campo) o cambia el tamaño, sigue pegado al campo
+    document.addEventListener('scroll', (e) => { if (controls.open && !controls.open.contains(e.target)) controls.place?.(); }, true);
+    window.addEventListener('resize', () => { if (controls.open) controls.place?.(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && controls.open) { const b = controls.open.querySelector('.mc-btn'); controls.close(); b?.focus(); } });
     document.addEventListener('DOMContentLoaded', () => controls.init());
 
