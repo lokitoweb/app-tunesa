@@ -182,9 +182,12 @@ function justify(day) {
 @media (max-width: 575.98px) {
     .att-stat-value { font-size: 1.2rem; }
     .att-stat-label { font-size: .66rem; flex-direction: column; gap: .15rem; }
-    .att-day { grid-template-columns: 52px minmax(0, 1fr); gap: .75rem; padding: .85rem; align-items: start; }
+    .att-day { grid-template-columns: auto minmax(0, 1fr); gap: .65rem .6rem; padding: .8rem .85rem; align-items: center; }
+    .att-date { flex-direction: row-reverse; gap: .3rem; width: auto; height: auto; padding: .2rem .55rem; border-radius: 8px; }
+    .att-date-num { font-size: .95rem; }
+    .att-date-wd { font-size: .68rem; margin-top: 0; }
     .att-info { display: contents; }
-    .att-badges { align-self: center; }
+    .att-badges { align-self: center; justify-content: flex-start; }
     .att-times { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding: .6rem .25rem 0; border-top: 1px solid var(--border-color); }
     .att-times dt { font-size: .7rem; white-space: nowrap; }
     .att-times dd { font-size: .84rem; }
