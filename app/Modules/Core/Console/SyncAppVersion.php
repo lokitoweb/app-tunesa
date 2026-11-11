@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Http;
  * La última compilación de producción de la app en GitHub ("App móvil: APK" en master, terminada bien y con el
  * artefacto tunesa-apk-prod-release) pasa a ser la "Última versión publicada" de Marca y app. Desde ahí rige lo
  * que ya existía: las apps más viejas ven el aviso y llega el push "Nueva versión" (solo a quien no la tiene).
+ * Corre cada 2 minutos; sin compilación nueva, una sola petición a GitHub.
  * Versión = major.minor de mobile/pubspec.yaml + n.º de compilación, igual que el workflow (1.6.160).
  * Nunca baja la versión guardada. Repo privado: APP_RELEASES_TOKEN (lectura de Actions) en el .env.
  */
@@ -19,6 +20,9 @@ class SyncAppVersion extends Command
     protected $signature = 'app:sync-version';
 
     protected $description = 'Toma la última compilación de producción de la app en GitHub como "Última versión publicada"';
+
+    /** Última compilación ya revisada */
+    public const LAST_RUN = 'app-sync-version:last-run';
 
     public function handle(): int
     {
@@ -41,6 +45,12 @@ class SyncAppVersion extends Command
             return self::SUCCESS;
         }
 
+        // Sin compilaciones nuevas desde la vuelta anterior: una sola petición (cada 2 min = 30 por hora, bajo el límite de 60)
+        $newest = $runs->json('workflow_runs.0.id');
+        if ($newest && \Illuminate\Support\Facades\Cache::get(self::LAST_RUN) === $newest) {
+            return self::SUCCESS;
+        }
+
         // La más nueva que sea de producción (una manual de staging o túnel no cuenta)
         foreach ($runs->json('workflow_runs', []) as $run) {
             $artifacts = $api("actions/runs/{$run['id']}/artifacts")->json('artifacts', []);
@@ -48,10 +58,12 @@ class SyncAppVersion extends Command
                 $version = "{$base}.{$run['run_number']}";
                 EnsureSupportedAppVersion::rememberNewerVersion($version, TenantSetting::forTenant(null), null);
                 $this->info("Última compilación de producción: {$version}");
+                \Illuminate\Support\Facades\Cache::forever(self::LAST_RUN, $newest);
 
                 return self::SUCCESS;
             }
         }
+        \Illuminate\Support\Facades\Cache::forever(self::LAST_RUN, $newest);
         $this->line('Sin compilaciones de producción recientes.');
 
         return self::SUCCESS;
