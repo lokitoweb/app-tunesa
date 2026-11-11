@@ -64,7 +64,7 @@
                 </div>
                 <div class="col-6 col-lg-3">
                     <label for="birth_date" class="form-label">Fecha de nacimiento</label>
-                    <input type="date" id="birth_date" data-modern-date data-icon="bi-cake2" name="birth_date" value="{{ old('birth_date', $employee?->birth_date?->format('Y-m-d') ?? '') }}" max="{{ now()->subDay()->format('Y-m-d') }}" class="form-control @error('birth_date') is-invalid @enderror" title="Para el módulo de cumpleaños (en la app solo se muestran día y mes)">
+                    <input type="date" id="birth_date" data-modern-date data-icon="bi-cake2" data-start-years-ago="30" name="birth_date" value="{{ old('birth_date', $employee?->birth_date?->format('Y-m-d') ?? '') }}" max="{{ now()->subDay()->format('Y-m-d') }}" class="form-control @error('birth_date') is-invalid @enderror" title="Para el módulo de cumpleaños (en la app solo se muestran día y mes)">
                     @error('birth_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-6 col-lg-3">

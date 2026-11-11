@@ -134,7 +134,7 @@
                                     {{-- Fecha de Nacimiento --}}
                                     <div class="col-12 col-md-4">
                                         <label for="edit_birth_date" class="emp-form-label">Fecha de Nacimiento</label>
-                                        <input type="date" id="edit_birth_date" data-modern-date data-icon="bi-cake2" name="birth_date" class="emp-form-input" max="{{ now()->subDay()->format('Y-m-d') }}">
+                                        <input type="date" id="edit_birth_date" data-modern-date data-icon="bi-cake2" data-start-years-ago="30" name="birth_date" class="emp-form-input" max="{{ now()->subDay()->format('Y-m-d') }}">
                                         <div class="invalid-feedback" id="edit_err_birth_date"></div>
                                     </div>
 

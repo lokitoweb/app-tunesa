@@ -835,24 +835,22 @@
             if (!opening) return false;
             root.classList.add('is-open');
             root.querySelector('[aria-expanded]')?.setAttribute('aria-expanded', 'true');
-            // Espacio real: la ventana o el contenedor con scroll que lo recorta (el cuerpo de un modal).
-            // Hacia arriba solo si cabe entero; si no, hacia abajo y el contenedor se desplaza para mostrarlo
-            // (antes, en un modal, el calendario se abría arriba recortado y no se podía elegir mes ni año).
+            // Flota sobre todo (modales incluidos), pegado al campo, con posición fija en la pantalla: ningún
+            // contenedor con scroll lo recorta ni lo estira. Abre hacia arriba solo si abajo no cabe y arriba hay más.
             const rect = root.getBoundingClientRect();
-            const need = Math.min(panel.scrollHeight, 320) + 16;
-            let top = 0;
-            let bottom = innerHeight;
-            for (let el = root.parentElement; el && el !== document.body; el = el.parentElement) {
-                if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(el).overflowY)) {
-                    const box = el.getBoundingClientRect();
-                    top = Math.max(top, box.top);
-                    bottom = Math.min(bottom, box.bottom);
-                    break;
-                }
-            }
-            const up = bottom - rect.bottom < need && rect.top - top >= need;
+            const isCal = panel.classList.contains('mc-cal');
+            const width = isCal ? Math.min(296, innerWidth - 16) : rect.width;
+            const below = innerHeight - rect.bottom - 12;
+            const above = rect.top - 12;
+            const up = below < Math.min(panel.scrollHeight, 340) && above > below;
             root.classList.toggle('drop-up', up);
-            if (!up) requestAnimationFrame(() => panel.scrollIntoView({ block: 'nearest' }));
+            Object.assign(panel.style, {
+                position: 'fixed', zIndex: 2000, width: `${width}px`, right: 'auto',
+                left: `${Math.max(8, Math.min(rect.left, innerWidth - width - 8))}px`,
+                top: up ? 'auto' : `${rect.bottom + 6}px`,
+                bottom: up ? `${innerHeight - rect.top + 6}px` : 'auto',
+                maxHeight: `${Math.max(up ? above : below, 220)}px`, overflowY: 'auto',
+            });
             controls.open = root;
             return true;
         },
@@ -981,7 +979,8 @@
             const minYear = parse(min)?.getFullYear() ?? today.getFullYear() - 90;
             const maxYear = parse(max)?.getFullYear() ?? today.getFullYear() + 5;
             // Abre en la fecha elegida; si no hay, en hoy (o en el máximo si hoy queda fuera, p. ej. nacimiento)
-            let view = parse(input.value) || (parse(max) && parse(max) < today ? parse(max) : today);
+            const startYearsAgo = Number(input.dataset.startYearsAgo || 0);
+            let view = parse(input.value) || (startYearsAgo ? new Date(today.getFullYear() - startYearsAgo, 0, 1) : (parse(max) && parse(max) < today ? parse(max) : today));
 
             const sync = () => {
                 const d = parse(input.value);
@@ -1058,6 +1057,9 @@
         },
     };
     document.addEventListener('click', (e) => { if (controls.open && !controls.open.contains(e.target)) controls.close(); });
+    // Panel fijo: si se desplaza la página o el modal (no la lista del propio panel) o cambia el tamaño, se cierra
+    document.addEventListener('scroll', (e) => { if (controls.open && !controls.open.contains(e.target)) controls.close(); }, true);
+    window.addEventListener('resize', () => controls.close());
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && controls.open) { const b = controls.open.querySelector('.mc-btn'); controls.close(); b?.focus(); } });
     document.addEventListener('DOMContentLoaded', () => controls.init());
 
