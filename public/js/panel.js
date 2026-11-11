@@ -835,9 +835,24 @@
             if (!opening) return false;
             root.classList.add('is-open');
             root.querySelector('[aria-expanded]')?.setAttribute('aria-expanded', 'true');
-            // Se abre hacia arriba si abajo no hay espacio
+            // Espacio real: la ventana o el contenedor con scroll que lo recorta (el cuerpo de un modal).
+            // Hacia arriba solo si cabe entero; si no, hacia abajo y el contenedor se desplaza para mostrarlo
+            // (antes, en un modal, el calendario se abría arriba recortado y no se podía elegir mes ni año).
             const rect = root.getBoundingClientRect();
-            root.classList.toggle('drop-up', innerHeight - rect.bottom < Math.min(panel.scrollHeight, 320) + 16 && rect.top > innerHeight - rect.bottom);
+            const need = Math.min(panel.scrollHeight, 320) + 16;
+            let top = 0;
+            let bottom = innerHeight;
+            for (let el = root.parentElement; el && el !== document.body; el = el.parentElement) {
+                if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(el).overflowY)) {
+                    const box = el.getBoundingClientRect();
+                    top = Math.max(top, box.top);
+                    bottom = Math.min(bottom, box.bottom);
+                    break;
+                }
+            }
+            const up = bottom - rect.bottom < need && rect.top - top >= need;
+            root.classList.toggle('drop-up', up);
+            if (!up) requestAnimationFrame(() => panel.scrollIntoView({ block: 'nearest' }));
             controls.open = root;
             return true;
         },
