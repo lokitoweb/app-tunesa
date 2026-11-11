@@ -27,22 +27,41 @@ class PortalController extends Controller
 {
     public function home(Request $request): Response
     {
+        return Inertia::render('HR/Pages/Portal/Home', self::punchState($request));
+    }
+
+    /**
+     * ¿Puede marcar desde la web ahora? Con el permiso de marcación web (jefaturas y oficina) siempre;
+     * el resto, solo con un plan de contingencia vigente que lo cubra.
+     */
+    public static function canPunchFromWeb(\App\Modules\Core\Models\User $user): bool
+    {
+        return self::sections($user)['attendance'] && $user->hasPermission('attendance.mark')
+            && ($user->hasPermission('attendance.web_punch') || \App\Modules\Attendance\Models\AttendanceContingency::activeFor($user));
+    }
+
+    /** Estado del día para la tarjeta de marcación (Mi espacio y panel) */
+    public static function punchState(Request $request): array
+    {
         $user = $request->user();
+        $enabled = self::sections($user)['attendance'];
         $today = Carbon::now(tenant_timezone())->toDateString();
-        $attendance = $this->attendanceEnabled($request)
+        $attendance = $enabled
             ? Attendance::where('user_id', $user->id)->where('work_date', $today)->with(['branch', 'shift'])->first()
             : null;
 
-        return Inertia::render('HR/Pages/Portal/Home', [
+        return [
             'today'      => $today,
             'attendance' => $attendance ? (new AttendanceResource($attendance))->resolve($request) : null,
-            'schedule'   => $this->attendanceEnabled($request) ? app(ScheduleGate::class)->statusFor($user, $today) : null,
+            'schedule'   => $enabled ? app(ScheduleGate::class)->statusFor($user, $today) : null,
             'next'       => AttendanceController::determineNextAction($attendance),
             // Plan de contingencia vigente que la cubre: puede marcar aquí
-            'contingency' => $this->attendanceEnabled($request) && $user->hasPermission('attendance.mark')
+            'contingency' => $enabled && $user->hasPermission('attendance.mark')
                 ? \App\Modules\Attendance\Models\AttendanceContingency::activeFor($user)?->only(['reason', 'ends_at'])
                 : null,
-        ]);
+            // Jefaturas y oficina (attendance.web_punch): marcan aquí siempre, haya o no plan de contingencia
+            'webPunch'   => $enabled && $user->hasPermission('attendance.mark') && $user->hasPermission('attendance.web_punch'),
+        ];
     }
 
     public function attendance(Request $request): Response
@@ -72,7 +91,8 @@ class PortalController extends Controller
         $data = $request->validate(['type' => ['required', \Illuminate\Validation\Rule::in(\App\Modules\Attendance\Models\AttendancePunch::TYPES)]]);
 
         $plan = \App\Modules\Attendance\Models\AttendanceContingency::activeFor($user);
-        if (! $plan) {
+        $web = ! $plan && $user->hasPermission('attendance.web_punch');
+        if (! $plan && ! $web) {
             return back()->with('error', 'No hay un plan de contingencia activo para ti: marca desde la app.');
         }
         if (app(\App\Modules\Onboarding\Middleware\EnsureOnboardingApproved::class)->blocks($user)) {
@@ -81,12 +101,13 @@ class PortalController extends Controller
 
         try {
             $result = app(\App\Modules\Attendance\Services\AttendanceService::class)->punch($user,
-                \App\Modules\Attendance\Services\Attendance\PunchData::contingency($data['type'], $plan->id, $request->ip(), mb_substr((string) $request->userAgent(), 0, 255)));
+                $web ? \App\Modules\Attendance\Services\Attendance\PunchData::web($data['type'], $request->ip(), mb_substr((string) $request->userAgent(), 0, 255))
+                    : \App\Modules\Attendance\Services\Attendance\PunchData::contingency($data['type'], $plan->id, $request->ip(), mb_substr((string) $request->userAgent(), 0, 255)));
         } catch (\App\Modules\Attendance\Exceptions\AttendanceException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', self::PUNCH_LABELS[$data['type']] . ' registrada a las ' . $result->punch->server_time->setTimezone(tenant_timezone())->format('h:i a') . ' (plan de contingencia).');
+        return back()->with('success', self::PUNCH_LABELS[$data['type']] . ' registrada a las ' . $result->punch->server_time->setTimezone(tenant_timezone())->format('h:i a') . ($web ? ' desde la web.' : ' (plan de contingencia).'));
     }
 
     public const PUNCH_LABELS = ['clock_in' => 'Entrada', 'break_start' => 'Inicio de refrigerio', 'break_end' => 'Fin de refrigerio', 'clock_out' => 'Salida'];

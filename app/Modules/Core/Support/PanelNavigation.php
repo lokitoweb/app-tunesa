@@ -34,6 +34,7 @@ class PanelNavigation
             ],
             'Monitoreo' => [
                 ['Core', true, 'dashboard', [], 'speedometer2', 'Dashboard', $request->routeIs('dashboard*')],
+                ['Attendance', $hasTenant && \App\Modules\HR\Controllers\Web\PortalController::canPunchFromWeb($user), 'attendance.my-punch', [], 'fingerprint', 'Marcar mi asistencia', $request->routeIs('attendance.my-punch')],
                 ['Attendance', ['attendance.view_team', 'attendance.view_all'], 'live.index', [], 'broadcast', 'Tablero en vivo', $request->routeIs('live.*')],
                 ['Attendance', 'attendance.view_all', 'attendance.index', [], 'clock-history', 'Marcaciones y GPS', $request->routeIs('attendance.index', 'attendance.show')],
                 ['Attendance', ['attendance.view_team', 'attendance.view_all'], 'attendance.calendar', [], 'calendar3', 'Calendario', $request->routeIs('attendance.calendar*')],

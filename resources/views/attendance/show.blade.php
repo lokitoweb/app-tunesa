@@ -186,12 +186,14 @@
             'within' => $attendance->clock_in_within_geofence, 'distance' => $attendance->clock_in_distance_meters,
             'lat' => $attendance->clock_in_latitude, 'lng' => $attendance->clock_in_longitude,
             'offline' => data_get($attendance->clock_in_meta, 'offline'), 'synced' => data_get($attendance->clock_in_meta, 'synced_at'),
+            'web' => data_get($attendance->clock_in_meta, 'source') === 'web',
         ],
         'out' => [
             'title' => 'Salida', 'icon' => 'box-arrow-right', 'photo' => $attendance->clock_out_photo, 'at' => $attendance->clock_out_at,
             'within' => $attendance->clock_out_within_geofence, 'distance' => $attendance->clock_out_distance_meters,
             'lat' => $attendance->clock_out_latitude, 'lng' => $attendance->clock_out_longitude,
             'offline' => data_get($attendance->clock_out_meta, 'offline'), 'synced' => data_get($attendance->clock_out_meta, 'synced_at'),
+            'web' => data_get($attendance->clock_out_meta, 'source') === 'web',
         ],
     ];
 @endphp
@@ -260,7 +262,7 @@
                     </h2>
                     @if($m['at'])
                         @if($m['within'] === null)
-                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-life-preserver me-1"></i>Sin GPS · contingencia</span>
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi {{ $m['web'] ? 'bi-laptop' : 'bi-life-preserver' }} me-1"></i>Sin GPS · {{ $m['web'] ? 'desde la web' : 'contingencia' }}</span>
                         @elseif($m['within'])
                             <span class="live-location-badge in-range">
                                 <span class="badge-dot" style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span>

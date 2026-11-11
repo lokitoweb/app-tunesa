@@ -68,6 +68,10 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::delete('/{id}', [OffShiftAuthorizationWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     });
 
+    // Marcar mi asistencia desde el panel: jefaturas y oficina (attendance.web_punch) o con un plan de contingencia vigente
+    Route::get('/my-punch', [\App\Modules\Attendance\Controllers\Web\MyPunchWebController::class, 'show'])->name('attendance.my-punch');
+    Route::post('/my-punch', [\App\Modules\Attendance\Controllers\Web\MyPunchWebController::class, 'store'])->name('attendance.my-punch.store')->middleware('throttle:10,1');
+
     // Plan de contingencia: se marca desde Mi espacio mientras la app no funciona (RR. HH.)
     Route::middleware('can:attendance.contingency')->prefix('attendance-contingency')->name('attendance.contingency.')->group(function () {
         Route::get('/', [\App\Modules\Attendance\Controllers\Web\ContingencyWebController::class, 'index'])->name('index');

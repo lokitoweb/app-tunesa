@@ -44,11 +44,13 @@ final class PunchData
         public readonly array $deviceFlags = [],
         /** Marca desde Mi espacio bajo un plan de contingencia vigente: hora del servidor, sin GPS */
         public readonly ?int $contingencyId = null,
+        /** Marca desde Mi espacio con el permiso attendance.web_punch (jefaturas y oficina): igual que contingencia, sin plan */
+        public readonly bool $web = false,
     ) {
         if (! in_array($type, AttendancePunch::TYPES, true)) {
             throw new InvalidArgumentException("Tipo de marcación desconocido: {$type}");
         }
-        if (! $contingencyId && ($latitude === null || $longitude === null)) {
+        if (! $contingencyId && ! $web && ($latitude === null || $longitude === null)) {
             throw new InvalidArgumentException('Una marcación sin ubicación solo es posible en contingencia.');
         }
     }
@@ -59,9 +61,16 @@ final class PunchData
         return new self(type: $type, latitude: null, longitude: null, ip: $ip, userAgent: $userAgent, contingencyId: $contingencyId);
     }
 
+    /** Marca web de quien tiene attendance.web_punch: hora del servidor, sin GPS, IP y navegador como evidencia */
+    public static function web(string $type, ?string $ip, ?string $userAgent): self
+    {
+        return new self(type: $type, latitude: null, longitude: null, ip: $ip, userAgent: $userAgent, web: true);
+    }
+
+    /** Desde la web (plan de contingencia o permiso de marcación web): sin teléfono ni GPS */
     public function isContingency(): bool
     {
-        return $this->contingencyId !== null;
+        return $this->contingencyId !== null || $this->web;
     }
 
     /**
@@ -135,6 +144,7 @@ final class PunchData
             'client_uuid'     => $this->clientUuid,
             'device_flags'    => $this->deviceFlags ?: null,
             'contingency_id'  => $this->contingencyId,
+            'source'          => $this->web ? 'web' : null,
         ], fn ($v) => $v !== null && $v !== '');
 
         if ($this->faceDetected !== null) {

@@ -23,7 +23,11 @@ const tabTitle = computed(() => [props.title, person.value.full_name || auth.val
 </script>
 
 <template>
-    <Head :title="tabTitle" />
+    <Head :title="tabTitle">
+        <meta name="theme-color" :content="brand.primary_color || '#3C729E'" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+    </Head>
     <div class="portal">
         <header class="portal-top">
             <div class="container-lg px-3 d-flex align-items-center gap-3">
@@ -45,7 +49,7 @@ const tabTitle = computed(() => [props.title, person.value.full_name || auth.val
             </div>
         </header>
 
-        <nav class="portal-nav" aria-label="Secciones">
+        <nav class="portal-nav d-none d-md-block" aria-label="Secciones">
             <div class="container-lg px-3">
                 <div class="portal-tabs">
                     <Link v-for="l in links" :key="l.href" :href="l.href" class="portal-tab" :class="{ active: current(l.href) }" :aria-current="current(l.href) ? 'page' : undefined">
@@ -56,9 +60,15 @@ const tabTitle = computed(() => [props.title, person.value.full_name || auth.val
         </nav>
 
         <FlashToasts />
-        <main class="container-lg px-3 pt-3 pb-5">
+        <main class="container-lg px-3 pt-3 pb-5 portal-main">
             <slot />
         </main>
+
+        <nav class="portal-bottom d-md-none" aria-label="Secciones">
+            <Link v-for="l in links" :key="l.href" :href="l.href" class="portal-bottom-item" :class="{ active: current(l.href) }" :aria-current="current(l.href) ? 'page' : undefined">
+                <i class="bi" :class="current(l.href) ? l.icon + '-fill' : l.icon"></i><span>{{ l.label }}</span>
+            </Link>
+        </nav>
     </div>
 </template>
 
@@ -83,8 +93,18 @@ const tabTitle = computed(() => [props.title, person.value.full_name || auth.val
 .portal .card .table { margin-bottom: 0; }
 .portal .card > .table-responsive:first-child, .portal .card > ul:first-child { border-radius: var(--portal-radius); overflow: hidden; }
 .portal-title { font-size: clamp(1.3rem, 1.1rem + .7vw, 1.6rem); font-weight: 700; letter-spacing: -.025em; margin: .5rem 0 1.25rem; }
-@media (max-width: 575.98px) {
-    .portal-tab { padding: .75rem .8rem; }
-    .portal-tab span { font-size: .9rem; }
+/* Celular: se usa como una app (barra inferior fija, encabezado compacto, área segura del teléfono) */
+.portal-bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; justify-content: space-around;
+    padding: .35rem .25rem calc(.35rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-surface) 94%, transparent); backdrop-filter: blur(12px); }
+.portal-bottom-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: .15rem; padding: .35rem 0; min-height: 52px;
+    color: var(--text-muted); text-decoration: none; font-size: .72rem; font-weight: 600; border-radius: var(--radius-sm); -webkit-tap-highlight-color: transparent; }
+.portal-bottom-item i { font-size: 1.3rem; line-height: 1; }
+.portal-bottom-item.active { color: var(--brand); }
+.portal-bottom-item:focus-visible { outline: none; box-shadow: var(--ring); }
+@media (max-width: 767.98px) {
+    .portal-top { padding: .55rem 0; position: sticky; top: 0; z-index: 25; }
+    .portal-logo { max-height: 32px; }
+    .portal-main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)) !important; }
 }
 </style>

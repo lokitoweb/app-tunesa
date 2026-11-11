@@ -153,6 +153,10 @@
                                 @else
                                     <span class="status-pill tone-rose"><i class="bi bi-geo-alt"></i>Fuera ({{ $att->clock_in_distance_meters }} m)</span>
                                 @endif
+                            @elseif(data_get($att->clock_in_meta, 'source') === 'web')
+                                <span class="status-pill tone-blue" title="Marcó desde el panel o Mi espacio (cargo con marcación web): hora del servidor, sin GPS"><i class="bi bi-laptop"></i>Desde la web</span>
+                            @elseif(data_get($att->clock_in_meta, 'contingency_id'))
+                                <span class="status-pill tone-amber" title="Marcó desde la web con un plan de contingencia: hora del servidor, sin GPS"><i class="bi bi-life-preserver"></i>Contingencia</span>
                             @else
                                 <span class="cell-sub">No registrado</span>
                             @endif

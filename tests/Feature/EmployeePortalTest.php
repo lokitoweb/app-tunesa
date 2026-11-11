@@ -146,6 +146,42 @@ class EmployeePortalTest extends TestCase
         $punch->update(['contingency_id' => null]);
     }
 
+    public function test_heads_and_office_roles_punch_from_the_panel_without_a_contingency_plan(): void
+    {
+        $this->seedRoles();
+        $acme = $this->makeTenant('acme');
+        $lima = $this->makeBranch($acme, ['name' => 'Lima']);
+        \App\Modules\Core\Models\TenantSetting::updateOrCreate(['tenant_id' => $acme->id], ['punch_requires_schedule' => false]);
+        $approved = ['onboarding_status' => \App\Modules\Onboarding\Models\OnboardingProcess::APPROVED];
+        [$sup, $acc, $log, $emp] = array_map(function ($role) use ($acme, $lima, $approved) {
+            $u = $this->makeUser($acme, $role);
+            $u->forceFill($approved)->save();
+            $u->branches()->attach($lima->id, ['is_primary' => true]);
+
+            return $u;
+        }, ['supervisor', 'accountant', 'logistics', 'employee']);
+
+        // Supervisor y contabilidad: el menú lo ofrece y marcan desde el panel, sin GPS, etiquetado como web
+        $this->actingAs($sup)->get('/my-punch')->assertOk()->assertInertia(fn ($p) => $p->component('Attendance/Pages/MyPunch')->where('webPunch', true));
+        $this->post('/my-punch', ['type' => 'clock_in'])->assertSessionHas('success');
+        $punch = \App\Modules\Attendance\Models\AttendancePunch::where('user_id', $sup->id)->sole();
+        $this->assertSame([null, null], [$punch->contingency_id, $punch->latitude]);
+        $this->assertSame('web', Attendance::where('user_id', $sup->id)->sole()->clock_in_meta['source'] ?? null);
+        $this->actingAs($acc)->post('/my-punch', ['type' => 'clock_in'])->assertSessionHas('success');
+        // RR. HH. lo ve en Marcaciones como "Desde la web" (sin GPS, no "No registrado")
+        $this->actingAs($this->makeUser($acme, 'hr_manager'))->get('/attendance')->assertOk()->assertSee('Desde la web');
+
+        // Logística y colaboradores: solo con plan de contingencia (como antes)
+        $this->actingAs($log)->get('/my-punch')->assertNotFound();
+        $this->actingAs($log)->post('/my-punch', ['type' => 'clock_in'])->assertSessionHas('error');
+        $this->actingAs($emp)->post('/mi-espacio/marcar', ['type' => 'clock_in'])->assertSessionHas('error');
+
+        // La empresa puede quitárselo al supervisor en Roles y permisos
+        app(\App\Modules\Core\Services\RolePermissions::class)->save($acme, 'supervisor',
+            array_values(array_diff(\App\Modules\Core\Models\User::find($sup->id)->permissionSlugs(), ['attendance.web_punch'])), null);
+        $this->actingAs(\App\Modules\Core\Models\User::find($sup->id))->get('/my-punch')->assertNotFound();
+    }
+
     public function test_profile_masks_accounts_and_password_change_returns_to_the_portal(): void
     {
         $this->seedRoles();
