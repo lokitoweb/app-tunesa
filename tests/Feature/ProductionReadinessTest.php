@@ -33,6 +33,9 @@ class ProductionReadinessTest extends TestCase
     {
         $this->artisan('app:check-production')->expectsOutputToContain('server-setup.sh');
 
+        // Minuto impar: schedule:run corre las tareas en procesos aparte (fuera de la transacción de la prueba y sin
+        // Http::fake). En minuto par entraría app:sync-version, que consultaría GitHub y guardaría la versión real en la base
+        $this->travelTo(now()->setTime(10, 1));
         $this->artisan('schedule:run');   // el heartbeat del scheduler deja la señal
 
         $this->artisan('app:check-production')->doesntExpectOutputToContain('server-setup.sh');
