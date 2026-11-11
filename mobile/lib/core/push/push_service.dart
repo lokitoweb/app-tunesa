@@ -158,6 +158,8 @@ class PushService {
           _channelId,
           _channelName,
           importance: Importance.high,
+          playSound: true,
+          enableVibration: true,
         ));
     final launch = await local.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp ?? false) _openPayload(launch?.notificationResponse?.payload);
@@ -181,7 +183,9 @@ class PushService {
             importance: Importance.high,
             priority: Priority.high,
             icon: _smallIcon,
+            playSound: true,
           ),
+          iOS: DarwinNotificationDetails(presentSound: true, presentAlert: true, presentBadge: true),
         ),
         payload: jsonEncode(message.data),
       );

@@ -23,8 +23,7 @@ class Shimmer extends StatefulWidget {
   static const period = Duration(milliseconds: 1500);
 
   /// Avance del brillo (0..1), o null si no hay que animar.
-  static Animation<double>? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_ShimmerScope>()?.animation;
+  static Animation<double>? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_ShimmerScope>()?.animation;
 
   @override
   State<Shimmer> createState() => _ShimmerState();
@@ -110,8 +109,7 @@ class _SlideGradient extends GradientTransform {
   final double percent;
 
   @override
-  Matrix4 transform(Rect bounds, {TextDirection? textDirection}) =>
-      Matrix4.translationValues(bounds.width * (percent * 2 - 1), 0, 0);
+  Matrix4 transform(Rect bounds, {TextDirection? textDirection}) => Matrix4.translationValues(bounds.width * (percent * 2 - 1), 0, 0);
 }
 
 /// Colores de la silueta, derivados del tema (claro u oscuro).
@@ -124,9 +122,7 @@ class SkeletonColors {
   factory SkeletonColors.of(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final base = dark
-        ? scheme.surfaceContainerHighest
-        : Color.lerp(scheme.surfaceContainerHighest, Colors.white, 0.35)!;
+    final base = dark ? scheme.surfaceContainerHighest : Color.lerp(scheme.surfaceContainerHighest, Colors.white, 0.35)!;
     final highlight = dark ? Color.lerp(base, Colors.white, 0.10)! : Color.lerp(base, Colors.white, 0.75)!;
     return SkeletonColors(base, highlight);
   }
@@ -203,13 +199,7 @@ enum SkeletonLeading { none, circle, square }
 /// Una fila tipo ListTile dentro de una tarjeta: icono o avatar, título,
 /// subtítulo y, opcional, una etiqueta a la derecha (estado, monto…).
 class SkeletonTile extends StatelessWidget {
-  const SkeletonTile({
-    super.key,
-    this.leading = SkeletonLeading.circle,
-    this.lines = 2,
-    this.trailing = false,
-    this.seed = 0,
-  });
+  const SkeletonTile({super.key, this.leading = SkeletonLeading.circle, this.lines = 2, this.trailing = false, this.seed = 0});
 
   final SkeletonLeading leading;
   final int lines;
@@ -261,12 +251,7 @@ class _FillHeight extends StatelessWidget {
       if (!constraints.hasBoundedHeight) return builder(fallbackCount);
       final count = (constraints.maxHeight / itemExtent).ceil().clamp(1, 12);
       return ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topCenter,
-          minHeight: 0,
-          maxHeight: double.infinity,
-          child: builder(count),
-        ),
+        child: OverflowBox(alignment: Alignment.topCenter, minHeight: 0, maxHeight: double.infinity, child: builder(count)),
       );
     },
   );
@@ -331,11 +316,7 @@ class SkeletonSummary extends StatelessWidget {
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SkeletonBox(width: 44, height: 22),
-                SizedBox(height: 8),
-                SkeletonLine(widthFactor: 0.8, height: 10),
-              ],
+              children: [SkeletonBox(width: 44, height: 22), SizedBox(height: 8), SkeletonLine(widthFactor: 0.8, height: 10)],
             ),
           ),
         ],
@@ -361,11 +342,7 @@ class SkeletonPunchBoard extends StatelessWidget {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SkeletonLine(widthFactor: 0.45, height: 10),
-                    SizedBox(height: 8),
-                    SkeletonLine(widthFactor: 0.7, height: 16),
-                  ],
+                  children: [SkeletonLine(widthFactor: 0.45, height: 10), SizedBox(height: 8), SkeletonLine(widthFactor: 0.7, height: 16)],
                 ),
               ),
             ],
@@ -502,9 +479,7 @@ class SkeletonDocument extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Row(
-                    children: [SkeletonBox(width: 64, height: 28), Spacer(), SkeletonBox(width: 90, height: 12)],
-                  ),
+                  const Row(children: [SkeletonBox(width: 64, height: 28), Spacer(), SkeletonBox(width: 90, height: 12)]),
                   const SizedBox(height: 24),
                   for (var i = 0; i < count; i++) ...[
                     if (i > 0) const SizedBox(height: 10),
@@ -588,4 +563,83 @@ class RevealSize extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       AnimatedSize(duration: skeletonFade, curve: Curves.easeOut, alignment: Alignment.topCenter, child: child);
+}
+
+/// Inicio completo mientras llega el primer día: saludo, horario y marcas, y accesos directos
+/// con la misma forma que las tarjetas reales (nada aparece "a medias").
+class SkeletonHome extends StatelessWidget {
+  const SkeletonHome({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Shimmer(
+        child: SkeletonCard(
+          padding: EdgeInsets.all(18),
+          child: Row(
+            children: [
+              SkeletonCircle(size: 56),
+              SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonLine(widthFactor: 0.65, height: 16),
+                    SizedBox(height: 10),
+                    SkeletonLine(widthFactor: 0.45, height: 12),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      SizedBox(height: 16),
+      SkeletonPunchBoard(),
+      SizedBox(height: 16),
+      Shimmer(
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(child: _SkeletonAction()),
+                SizedBox(width: 12),
+                Expanded(child: _SkeletonAction()),
+              ],
+            ),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _SkeletonAction()),
+                SizedBox(width: 12),
+                Expanded(child: _SkeletonAction()),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _SkeletonAction extends StatelessWidget {
+  const _SkeletonAction();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    height: 112,
+    child: SkeletonCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SkeletonBox(width: 36, height: 36, radius: 10),
+          Spacer(),
+          SkeletonLine(widthFactor: 0.35, height: 10),
+          SizedBox(height: 6),
+          SkeletonLine(widthFactor: 0.7, height: 14),
+        ],
+      ),
+    ),
+  );
 }

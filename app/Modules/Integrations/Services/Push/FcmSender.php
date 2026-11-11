@@ -88,15 +88,7 @@ class FcmSender
                 'token'        => $token,
                 'notification' => ['title' => $title, 'body' => $body],
                 'data'         => self::stringData($data),
-                'android'      => [
-                    'priority'     => 'high',
-                    'notification' => ['channel_id' => (string) config('services.fcm.android_channel_id', 'tunesa_default')],
-                ],
-                'apns'         => [
-                    'headers' => ['apns-priority' => '10'],
-                    'payload' => ['aps' => ['sound' => 'default']],
-                ],
-            ],
+            ] + self::platformOptions(),
         ];
 
         try {
@@ -155,8 +147,7 @@ class FcmSender
             'topic'        => $topic,
             'notification' => ['title' => $title, 'body' => $body],
             'data'         => self::stringData($data),
-            'android'      => ['priority' => 'high', 'notification' => ['channel_id' => (string) config('services.fcm.android_channel_id', 'tunesa_default')]],
-        ]];
+        ] + self::platformOptions()];
 
         try {
             return $this->post($account, $message)->successful();
@@ -316,5 +307,23 @@ class FcmSender
     private function cacheKey(array $account): string
     {
         return 'fcm:access_token:' . sha1($account['client_email'] . '|' . $account['private_key']);
+    }
+
+    /**
+     * Android e iOS: prioridad alta y sonido del teléfono, igual para avisos a una persona y a un tema.
+     * Android suena por el canal tunesa_default (importancia alta, lo crea la app) y además lo pide aquí.
+     */
+    public static function platformOptions(): array
+    {
+        return [
+            'android' => [
+                'priority'     => 'high',
+                'notification' => ['channel_id' => (string) config('services.fcm.android_channel_id', 'tunesa_default'), 'sound' => 'default', 'default_sound' => true],
+            ],
+            'apns'    => [
+                'headers' => ['apns-priority' => '10'],
+                'payload' => ['aps' => ['sound' => 'default']],
+            ],
+        ];
     }
 }

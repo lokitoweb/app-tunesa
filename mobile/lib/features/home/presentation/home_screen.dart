@@ -104,39 +104,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         },
         child: ListView(
           padding: pagePadding(context),
-          children: [
-            HomeGreeting(name: auth.user?.firstName ?? '', initials: auth.user?.initials ?? '?', avatarUrl: auth.user?.avatarUrl),
-            const SizedBox(height: 16),
-            // Las tarjetas que llegan después crecen suave, sin empujar de golpe
-            const RevealSize(child: AnnouncementHomeCard()),
-            const RevealSize(child: TrainingHomeCard()),
-            const RevealSize(child: _PendingDocumentsCard()),
-            if (user != null && user.hasTeamArea) ...[
-              _TeamSection(canApprove: user.canApproveRequests, canViewTeam: user.canViewTeam, canAuthorizePayments: user.canAuthorizePayments),
-              const SizedBox(height: 16),
-            ],
-            if (!ref.watch(marksAttendanceProvider))
-              const OnboardingGateCard()
-            else
-              today.whenSkeleton(
-                loading: () => const SkeletonPunchBoard(),
-                error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(todayStatusProvider)),
-                data: (status) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ShiftCard(schedule: status.schedule),
-                    const SizedBox(height: 12),
-                    if (canPunch)
-                      PunchBoard(status: status, onPunch: (action) => context.push('/clock/${action.apiName}'))
-                    else
-                      const OnboardingGateCard(),
+          // Primera carga del día: todo el inicio en skeleton (no solo el tablero); en las recargas se ven los datos anteriores
+          children: ref.watch(marksAttendanceProvider) && today.isLoading && !today.hasValue
+              ? const [SkeletonHome()]
+              : [
+                  HomeGreeting(name: auth.user?.firstName ?? '', initials: auth.user?.initials ?? '?', avatarUrl: auth.user?.avatarUrl),
+                  const SizedBox(height: 16),
+                  // Las tarjetas que llegan después crecen suave, sin empujar de golpe
+                  const RevealSize(child: AnnouncementHomeCard()),
+                  const RevealSize(child: TrainingHomeCard()),
+                  const RevealSize(child: _PendingDocumentsCard()),
+                  if (user != null && user.hasTeamArea) ...[
+                    _TeamSection(
+                      canApprove: user.canApproveRequests,
+                      canViewTeam: user.canViewTeam,
+                      canAuthorizePayments: user.canAuthorizePayments,
+                    ),
+                    const SizedBox(height: 16),
                   ],
-                ),
-              ),
-            const SizedBox(height: 16),
-            const RevealSize(child: BirthdayHomeCard()),
-            const QuickActions(),
-          ],
+                  if (!ref.watch(marksAttendanceProvider))
+                    const OnboardingGateCard()
+                  else
+                    today.whenSkeleton(
+                      loading: () => const SkeletonPunchBoard(),
+                      error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(todayStatusProvider)),
+                      data: (status) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ShiftCard(schedule: status.schedule),
+                          const SizedBox(height: 12),
+                          if (canPunch)
+                            PunchBoard(status: status, onPunch: (action) => context.push('/clock/${action.apiName}'))
+                          else
+                            const OnboardingGateCard(),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  const RevealSize(child: BirthdayHomeCard()),
+                  const QuickActions(),
+                ],
         ),
       ),
     );
@@ -162,47 +169,65 @@ class HomeGreeting extends StatelessWidget {
     const accent = AppTheme.success;
 
     return BrandHero(
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(2.5),
-          decoration: BoxDecoration(shape: BoxShape.circle, color: BrandHero.ringColor(context)),
-          child: CircleAvatar(
-            key: const Key('greeting-avatar'),
-            radius: 28,
-            backgroundColor: scheme.primaryContainer,
-            foregroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl!),
-            // Si la foto no carga, quedan las iniciales debajo
-            onForegroundImageError: avatarUrl == null ? null : (_, _) {},
-            child: Text(initials, style: TextStyle(color: scheme.onPrimaryContainer, fontSize: 20, fontWeight: FontWeight.w700)),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: BrandHero.ringColor(context)),
+            child: CircleAvatar(
+              key: const Key('greeting-avatar'),
+              radius: 28,
+              backgroundColor: scheme.primaryContainer,
+              foregroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl!),
+              // Si la foto no carga, quedan las iniciales debajo
+              onForegroundImageError: avatarUrl == null ? null : (_, _) {},
+              child: Text(
+                initials,
+                style: TextStyle(color: scheme.onPrimaryContainer, fontSize: 20, fontWeight: FontWeight.w700),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Siempre en una línea: con nombres largos el texto se reduce
-            FittedBox(
-              key: const Key('greeting-text'),
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text('$greeting, $name',
-                  maxLines: 1, softWrap: false, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(6)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.calendar_today_rounded, size: 13, color: accent.withValues(alpha: 0.95)),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(Fmt.dayLong(DateTime.now()),
-                      overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Siempre en una línea: con nombres largos el texto se reduce
+                FittedBox(
+                  key: const Key('greeting-text'),
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '$greeting, $name',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800),
+                  ),
                 ),
-              ]),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(6)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.calendar_today_rounded, size: 13, color: accent.withValues(alpha: 0.95)),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          Fmt.dayLong(DateTime.now()),
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ]),
-        ),
-      ]),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -221,48 +246,57 @@ class _TeamSection extends ConsumerWidget {
     final payments = canAuthorizePayments ? (ref.watch(pendingPaymentAuthorizationsCountProvider).value ?? 0) : 0;
 
     return Card(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Text('Mi equipo', style: Theme.of(context).textTheme.titleMedium),
-        ),
-        if (canApprove)
-          ListTile(
-            leading: const Icon(Icons.fact_check_outlined),
-            title: const Text('Aprobaciones'),
-            subtitle: Text(pending > 0 ? '$pending solicitud(es) por revisar' : 'Sin solicitudes pendientes'),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (pending > 0) Badge(label: Text(pending > 99 ? '99+' : '$pending')),
-              const Icon(Icons.chevron_right_rounded),
-            ]),
-            onTap: () async {
-              await context.push('/approvals');
-              if (context.mounted) ref.invalidate(pendingApprovalsCountProvider);
-            },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Text('Mi equipo', style: Theme.of(context).textTheme.titleMedium),
           ),
-        if (canAuthorizePayments)
-          ListTile(
-            leading: const Icon(Icons.verified_outlined),
-            title: const Text('Autorizar pagos'),
-            subtitle: Text(payments > 0 ? '$payments orden(es) de pago por autorizar' : 'Sin órdenes de pago pendientes'),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (payments > 0) Badge(label: Text(payments > 99 ? '99+' : '$payments')),
-              const Icon(Icons.chevron_right_rounded),
-            ]),
-            onTap: () async {
-              await context.push('/payment-authorizations');
-              if (context.mounted) ref.invalidate(pendingPaymentAuthorizationsCountProvider);
-            },
-          ),
-        if (canViewTeam)
-          ListTile(
-            leading: const Icon(Icons.groups_outlined),
-            title: const Text('Equipo en vivo'),
-            subtitle: const Text('Quién marcó, tardanzas y fuera de geocerca'),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => context.push('/team'),
-          ),
-      ]),
+          if (canApprove)
+            ListTile(
+              leading: const Icon(Icons.fact_check_outlined),
+              title: const Text('Aprobaciones'),
+              subtitle: Text(pending > 0 ? '$pending solicitud(es) por revisar' : 'Sin solicitudes pendientes'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (pending > 0) Badge(label: Text(pending > 99 ? '99+' : '$pending')),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
+              onTap: () async {
+                await context.push('/approvals');
+                if (context.mounted) ref.invalidate(pendingApprovalsCountProvider);
+              },
+            ),
+          if (canAuthorizePayments)
+            ListTile(
+              leading: const Icon(Icons.verified_outlined),
+              title: const Text('Autorizar pagos'),
+              subtitle: Text(payments > 0 ? '$payments orden(es) de pago por autorizar' : 'Sin órdenes de pago pendientes'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (payments > 0) Badge(label: Text(payments > 99 ? '99+' : '$payments')),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
+              ),
+              onTap: () async {
+                await context.push('/payment-authorizations');
+                if (context.mounted) ref.invalidate(pendingPaymentAuthorizationsCountProvider);
+              },
+            ),
+          if (canViewTeam)
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: const Text('Equipo en vivo'),
+              subtitle: const Text('Quién marcó, tardanzas y fuera de geocerca'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.push('/team'),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -283,9 +317,15 @@ class _PendingDocumentsCard extends ConsumerWidget {
       child: Card(
         child: ListTile(
           key: const Key('home-pending-documents'),
-          leading: CircleAvatar(backgroundColor: scheme.error.withValues(alpha: 0.12), foregroundColor: scheme.error, child: const Icon(Icons.task_alt_rounded)),
-          title: Text(pending == 1 ? 'Tienes 1 documento por confirmar' : 'Tienes $pending documentos por confirmar',
-              style: const TextStyle(fontWeight: FontWeight.w700)),
+          leading: CircleAvatar(
+            backgroundColor: scheme.error.withValues(alpha: 0.12),
+            foregroundColor: scheme.error,
+            child: const Icon(Icons.task_alt_rounded),
+          ),
+          title: Text(
+            pending == 1 ? 'Tienes 1 documento por confirmar' : 'Tienes $pending documentos por confirmar',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
           subtitle: const Text('Léelos y marca "Leído y conforme".'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/company-documents?tab=pending'),
@@ -327,9 +367,11 @@ class ShiftCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(works ? 'Tu horario de hoy' : 'Hoy',
-                      key: const Key('shift-label'),
-                      style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant, letterSpacing: 0.2)),
+                  Text(
+                    works ? 'Tu horario de hoy' : 'Hoy',
+                    key: const Key('shift-label'),
+                    style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant, letterSpacing: 0.2),
+                  ),
                   const SizedBox(height: 2),
                   // La hora en una línea: en pantallas angostas se achica en vez de cortarse
                   FittedBox(
@@ -340,7 +382,10 @@ class ShiftCard extends StatelessWidget {
                       works ? s.hoursLabel : 'Sin horario programado',
                       maxLines: 1,
                       softWrap: false,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, fontFeatures: const [FontFeature.tabularFigures()]),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -360,4 +405,3 @@ class ShiftCard extends StatelessWidget {
     );
   }
 }
-

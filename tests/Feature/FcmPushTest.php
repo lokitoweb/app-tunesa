@@ -76,6 +76,14 @@ class FcmPushTest extends TestCase
         return app(FcmSender::class);
     }
 
+    public function test_person_and_topic_pushes_share_the_sound_options(): void
+    {
+        $options = FcmSender::platformOptions();
+        $this->assertSame('default', $options['android']['notification']['sound']);
+        $this->assertSame('default', $options['apns']['payload']['aps']['sound']);
+        $this->assertSame('10', $options['apns']['headers']['apns-priority']);
+    }
+
     public function test_jwt_is_rs256_signed_by_the_service_account(): void
     {
         $account = TenantSetting::parseServiceAccount($this->serviceAccount());
@@ -153,7 +161,10 @@ class FcmPushTest extends TestCase
                 && $m['notification'] === ['title' => 'Hola', 'body' => 'Cuerpo']
                 && $m['data'] === ['leave_request_id' => '14', 'approved' => 'true', 'meta' => '{"a":1}']
                 && $m['android']['priority'] === 'high'
-                && $m['android']['notification']['channel_id'] === 'tunesa_default';
+                && $m['android']['notification']['channel_id'] === 'tunesa_default'
+                // Suena en Android e iOS
+                && $m['android']['notification']['sound'] === 'default'
+                && $m['apns']['payload']['aps']['sound'] === 'default';
         });
     }
 
