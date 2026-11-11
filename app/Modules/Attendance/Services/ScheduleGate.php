@@ -66,6 +66,7 @@ class ScheduleGate
                 'name'       => $working->shift->name,
                 'start_time' => substr((string) $working->shift->forDate($day)->start_time, 0, 5),
                 'end_time'   => substr((string) $working->shift->forDate($day)->end_time, 0, 5),
+                'split'      => $working->shift->forDate($day)->isSplit(),
             ] : null,
         ];
     }

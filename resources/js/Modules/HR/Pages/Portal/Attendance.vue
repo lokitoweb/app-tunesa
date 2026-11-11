@@ -99,7 +99,8 @@ function justify(day) {
                     </div>
                     <dl class="att-times">
                         <div><dt>Entrada</dt><dd>{{ hhmm(d.clock_in?.time) || '—' }}</dd></div>
-                        <div><dt>Refrigerio</dt><dd>{{ hhmm(d.break?.start_time) ? `${hhmm(d.break.start_time)}–${hhmm(d.break?.end_time) || '…'}` : '—' }}</dd></div>
+                        <div><dt>{{ d.is_split ? 'Fin 1.er tramo' : 'Inicio break' }}</dt><dd>{{ hhmm(d.break?.start_time) || '—' }}</dd></div>
+                        <div><dt>{{ d.is_split ? 'Inicio 2.º tramo' : 'Fin break' }}</dt><dd>{{ hhmm(d.break?.end_time) || '—' }}</dd></div>
                         <div><dt>Salida</dt><dd>{{ hhmm(d.clock_out?.time) || '—' }}</dd></div>
                     </dl>
                 </div>
@@ -163,8 +164,8 @@ function justify(day) {
 .att-date-wd { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-top: .15rem; }
 .att-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .45rem; }
 .att-badges { display: flex; flex-wrap: wrap; gap: .35rem; }
-.att-times { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; margin: 0; }
-.att-times div { display: flex; gap: .35rem; align-items: baseline; }
+.att-times { display: grid; grid-template-columns: repeat(4, minmax(0, 7.5rem)); gap: .5rem 1rem; margin: 0; }
+.att-times div { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
 .att-times dt { font-size: .75rem; font-weight: 600; color: var(--text-muted); }
 .att-times dd { margin: 0; white-space: nowrap; font-size: .9rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-primary); }
 .att-justify { display: inline-flex; align-items: center; gap: .4rem; flex-shrink: 0; padding: .5rem .85rem; border-radius: 10px; font-size: .85rem; font-weight: 600;
@@ -182,8 +183,10 @@ function justify(day) {
     .att-stat-value { font-size: 1.2rem; }
     .att-stat-label { font-size: .66rem; flex-direction: column; gap: .15rem; }
     .att-day { grid-template-columns: 52px minmax(0, 1fr); gap: .75rem; padding: .85rem; align-items: start; }
-    .att-times { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
-    .att-times div { flex-direction: column; gap: .1rem; }
+    .att-info { display: contents; }
+    .att-badges { align-self: center; }
+    .att-times { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; padding: .6rem .25rem 0; border-top: 1px solid var(--border-color); }
+    .att-times dt { font-size: .7rem; white-space: nowrap; }
     .att-times dd { font-size: .84rem; }
     .att-justify { grid-column: 1 / -1; width: 100%; justify-content: center; min-height: 44px; }
 }

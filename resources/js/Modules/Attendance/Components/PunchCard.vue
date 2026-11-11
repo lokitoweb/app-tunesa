@@ -34,11 +34,12 @@ const dateLabel = computed(() => {
 });
 const hhmm = (t) => (t ? t.slice(0, 5) : null);
 
-// Las 4 marcas del día, en orden (las mismas que registra la app)
+// Las 4 marcas del día, en orden y con los mismos nombres que la app (horario partido: tramos)
+const split = computed(() => !!props.schedule?.shift?.split || !!props.attendance?.is_split);
 const slots = computed(() => [
     { key: 'clock_in', label: 'Entrada', action: 'Marcar entrada', icon: 'bi-box-arrow-in-right', time: hhmm(props.attendance?.clock_in?.time) },
-    { key: 'break_start', label: 'Inicio refrigerio', action: 'Iniciar refrigerio', icon: 'bi-cup-hot', time: hhmm(props.attendance?.break?.start_time) },
-    { key: 'break_end', label: 'Fin refrigerio', action: 'Terminar refrigerio', icon: 'bi-arrow-repeat', time: hhmm(props.attendance?.break?.end_time) },
+    { key: 'break_start', label: split.value ? 'Fin 1.er tramo' : 'Inicio break', action: split.value ? 'Marcar fin del 1.er tramo' : 'Marcar inicio de break', icon: 'bi-cup-hot', time: hhmm(props.attendance?.break?.start_time) },
+    { key: 'break_end', label: split.value ? 'Inicio 2.º tramo' : 'Fin break', action: split.value ? 'Marcar inicio del 2.º tramo' : 'Marcar fin de break', icon: 'bi-arrow-repeat', time: hhmm(props.attendance?.break?.end_time) },
     { key: 'clock_out', label: 'Salida', action: 'Marcar salida', icon: 'bi-box-arrow-right', time: hhmm(props.attendance?.clock_out?.time) },
 ]);
 

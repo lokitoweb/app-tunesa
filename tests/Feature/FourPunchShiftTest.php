@@ -162,6 +162,11 @@ class FourPunchShiftTest extends TestCase
         // Solo el primer tramo: no hay pausa que descontar
         Attendance::withoutGlobalScopes()->forceDelete();
         $this->assertEquals(4.0, (float) $this->day('08:00', null, null, '12:00')->worked_hours);
+
+        // La web y la app nombran la pausa como tramos: el horario del día y la jornada dicen que es partido
+        $today = app(\App\Modules\Attendance\Services\ScheduleGate::class)->statusFor($this->emp, Attendance::withoutGlobalScopes()->sole()->work_date->toDateString());
+        $this->assertTrue($today['shift']['split']);
+        $this->assertTrue((new \App\Modules\Attendance\Resources\AttendanceResource(Attendance::withoutGlobalScopes()->with('shift')->sole()))->resolve()['is_split']);
     }
 
     /** Olvidó el retorno del refrigerio: RR. HH. lo corrige con las 4 horas y todo se recalcula como en la app */

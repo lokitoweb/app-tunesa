@@ -19,6 +19,8 @@ class AttendanceResource extends JsonResource
             'work_date'  => $this->work_date?->toDateString(),
             'status'     => $this->status,
             'status_label' => $this->getStatusLabel(),
+            // Horario partido: la pausa se nombra fin del 1.er tramo / inicio del 2.º (como en la app)
+            'is_split'     => (bool) $this->shift?->forDate($this->work_date)?->isSplit(),
 
             // Estado de la jornada
             'is_open'       => $this->isOpen(),
