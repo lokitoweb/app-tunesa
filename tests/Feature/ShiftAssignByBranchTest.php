@@ -41,4 +41,34 @@ class ShiftAssignByBranchTest extends TestCase
         $this->assertNotContains($rosa->id, $ids, 'otra agencia');
         $this->assertNotContains($old->id, $ids, 'una asignación vencida no cuenta como sede vigente');
     }
+
+    public function test_each_role_sees_the_right_agencies_and_a_supervisor_without_agencies_is_told_what_to_do(): void
+    {
+        $this->seedRoles();
+        $acme  = $this->makeTenant('acme');
+        $other = $this->makeTenant('other');
+        $hr    = $this->makeUser($acme, 'hr_manager');
+        $juan  = $this->makeUser($acme, 'supervisor', ['first_name' => 'Juan']);
+        $trujillo = $this->makeBranch($acme, ['name' => 'Agencia Trujillo']);
+        $lima     = $this->makeBranch($acme, ['name' => 'Agencia Lima']);
+        $foreign  = $this->makeBranch($other, ['name' => 'Agencia Ajena', 'supervisor_id' => $juan->id]);
+        $names = fn ($user) => collect($this->actingAs($user)->get('/shifts/schedule')->assertOk()->viewData('page')['props']['branches'])->pluck('name')->sort()->values()->all();
+        $hint  = fn ($user) => $this->actingAs($user)->get('/shifts/schedule')->viewData('page')['props']['noBranchesHint'];
+
+        // Supervisor sin agencias a su cargo: no ve ninguna (ni la de otra empresa) y la pantalla dice qué hacer
+        $this->assertSame([], $names($juan));
+        $this->assertStringContainsString('Supervisor» en Sedes', $hint($juan));
+
+        // Lo nombran supervisor de Trujillo: ve solo Trujillo y programa a su gente
+        $trujillo->update(['supervisor_id' => $juan->id]);
+        $this->assertSame(['Agencia Trujillo'], $names($juan));
+        $this->assertNull($hint($juan));
+        // Si pide Lima (no es suya) se le abre su única agencia, nunca Lima
+        $this->actingAs($juan)->getJson("/shifts/schedule?branch_id={$lima->id}&month=2026-10")->assertOk()->assertJsonPath('branchId', $trujillo->id);
+        $this->actingAs($juan)->get("/shifts/schedule/export?branch_id={$lima->id}&month=2026-10")->assertNotFound();
+
+        // RR. HH. ve todas las de su empresa, nunca las de otra
+        $this->assertSame(['Agencia Lima', 'Agencia Trujillo'], $names($hr));
+        $this->assertNotContains($foreign->name, $names($hr));
+    }
 }

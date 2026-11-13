@@ -79,8 +79,14 @@ class ScheduleWebController extends Controller
         }
 
         // Lo programado rige al guardar, por colaborador (ScheduleResolver): no hay nada que activar
+        $viewer = $request->user();
+
         return Inertia::render('HR/Pages/Schedule/Index', $payload + [
             'branches' => $branches->map(fn (Branch $b) => $b->only(['id', 'name'])),
+            // Sin agencias: por qué y qué hacer (un supervisor solo programa las agencias que supervisa)
+            'noBranchesHint' => $branches->isNotEmpty() ? null : ($viewer->seesAllAttendance() || $viewer->isOrgScoped()
+                ? 'No hay agencias activas para programar. Créalas o actívalas en Sedes.'
+                : 'Aún no eres supervisor de ninguna agencia. Pide a RR. HH. o al administrador que te asigne como «Supervisor» en Sedes › editar la agencia; después verás aquí sus colaboradores.'),
             'today'    => CarbonImmutable::now(tenant_timezone())->toDateString(),
         ]);
     }

@@ -9,6 +9,7 @@ import { useConfirm } from '@/Modules/Core/Composables/useConfirm';
 // Los días en blanco del mes guardado quedan como día libre.
 const props = defineProps({
     branches: { type: Array, default: () => [] },
+    noBranchesHint: { type: String, default: null },
     shifts: { type: Array, default: () => [] },
     branchId: { type: Number, default: null },
     month: { type: String, required: true },
@@ -417,7 +418,12 @@ async function repeat() {
                 <span class="sched-hint d-none d-xl-inline"><i class="bi bi-hand-index me-1"></i>Clic o arrastra · clic en el número del día marca a los seleccionados</span>
             </div>
 
-            <div v-if="!state.branchId" class="text-center text-body-secondary py-5">
+            <div v-if="!branches.length && noBranchesHint" class="text-center py-5 px-3" role="status">
+                <i class="bi bi-person-badge fs-3 d-block mb-2 text-warning"></i>
+                <p class="fw-semibold mb-1">No tienes agencias para programar</p>
+                <p class="text-body-secondary small mb-0 mx-auto" style="max-width: 520px;">{{ noBranchesHint }}</p>
+            </div>
+            <div v-else-if="!state.branchId" class="text-center text-body-secondary py-5">
                 <i class="bi bi-geo-alt fs-3 d-block mb-2"></i>
                 Elige la agencia para ver y programar a sus colaboradores.
             </div>
