@@ -76,7 +76,9 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         ->name('dashboard.live-stream')
         ->middleware('throttle:60,1');
     Route::post('/admin/switch-tenant', [DashboardController::class, 'switchTenant'])->name('admin.tenant.switch');
-    Route::get('/admin/choose-tenant', [DashboardController::class, 'chooseTenant'])->name('admin.tenant.choose');
+    Route::get('/choose-company', [DashboardController::class, 'chooseTenant'])->name('admin.tenant.choose');
+    // Dirección anterior (enlaces guardados): misma pantalla con la URL nueva
+    Route::get('/admin/choose-tenant', [DashboardController::class, 'legacyChooseTenant']);
 
     // Mi cuenta: datos personales, seguridad y sesiones
     Route::get('/account', [AccountWebController::class, 'edit'])->name('account.edit');

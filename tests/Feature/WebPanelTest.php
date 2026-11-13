@@ -247,7 +247,7 @@ class WebPanelTest extends TestCase
 
         // Crear o editar sí necesita empresa: con varias, pregunta "¿En qué empresa?"
         $this->from('/secure-files/selfie-in/1')->get('/employees/create')
-            ->assertRedirect(route('admin.tenant.choose', ['next' => '/employees/create']));
+            ->assertRedirect(\App\Modules\Core\Middleware\SetWebTenant::chooserUrl('/employees/create'));
         $this->post('/shifts', ['name' => 'Sin empresa'])->assertStatus(409)
             ->assertSee('¿En qué empresa?')->assertSee('name="_tenant"', false)->assertSee('value="Sin empresa"', false);
         $this->assertDatabaseMissing('shifts', ['name' => 'Sin empresa']);

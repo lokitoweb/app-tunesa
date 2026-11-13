@@ -77,7 +77,7 @@ class CustomRolesTest extends TestCase
         $acme = $this->makeTenant('acme');
         $root = $this->makeUser(null, 'super_admin');
 
-        $this->actingAs($root)->get('/settings/roles')->assertRedirect(route('admin.tenant.choose', ['next' => '/settings/roles']));
+        $this->actingAs($root)->get('/settings/roles')->assertRedirect(\App\Modules\Core\Middleware\SetWebTenant::chooserUrl('/settings/roles'));
 
         // Elige la empresa y vuelve a Roles y permisos de esa empresa
         $this->post('/admin/switch-tenant', ['tenant_id' => $acme->id, 'next' => '/settings/roles'])->assertRedirect('/settings/roles');

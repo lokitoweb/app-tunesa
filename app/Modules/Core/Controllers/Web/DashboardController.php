@@ -173,7 +173,7 @@ class DashboardController extends Controller
     {
         abort_unless($request->user()->isSuperAdmin(), 403);
 
-        $next    = SetWebTenant::relativeUrl($request->query('next'));
+        $next    = SetWebTenant::relativeUrl(is_string($request->query('next')) ? $request->query('next') : null);
         $tenants = SetWebTenant::activeTenants();
 
         if ($tenants->count() === 1) {
@@ -188,6 +188,14 @@ class DashboardController extends Controller
             'cancel'  => SetWebTenant::indexForUrl($next),
             'replay'  => null,
         ]);
+    }
+
+    /** /admin/choose-tenant (dirección anterior): redirige a /choose-company con el mismo destino */
+    public function legacyChooseTenant(Request $request): RedirectResponse
+    {
+        $next = $request->query('next');
+
+        return redirect(SetWebTenant::chooserUrl(is_string($next) ? $next : null), 301);
     }
 
     /**

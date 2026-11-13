@@ -35,9 +35,9 @@ class SuperAdminTenantPickerTest extends TestCase
         $root = $this->makeUser(null, 'super_admin');
 
         $this->actingAs($root)->get('/employees/create')
-            ->assertRedirect(route('admin.tenant.choose', ['next' => '/employees/create']));
+            ->assertRedirect(\App\Modules\Core\Middleware\SetWebTenant::chooserUrl('/employees/create'));
 
-        $this->get(route('admin.tenant.choose', ['next' => '/employees/create']))->assertOk()
+        $this->get(\App\Modules\Core\Middleware\SetWebTenant::chooserUrl('/employees/create'))->assertOk()
             ->assertSee('¿En qué empresa?')->assertSee('Acme SAC')->assertSee('Other SRL')->assertDontSee('data-label="dormida sa', false)
             ->assertSee('value="/employees/create"', false)
             ->assertSee('href="' . route('employees.index') . '"', false);
@@ -58,7 +58,7 @@ class SuperAdminTenantPickerTest extends TestCase
         // Saldos, totales y reportes son de una sola empresa: sin elegirla se pregunta, nunca se suman
         foreach (['/treasury', '/petty-cash', '/fixed-costs', '/cash-flow', '/finance-reports', "/finance-reports/scheduled{$range}",
             '/payroll-payments', '/inventory', '/fuel', '/purchases/by-product'] as $url) {
-            $this->actingAs($root)->get($url)->assertRedirect(route('admin.tenant.choose', ['next' => $url]));
+            $this->actingAs($root)->get($url)->assertRedirect(\App\Modules\Core\Middleware\SetWebTenant::chooserUrl($url));
         }
         // Los listados sin montos siguen en la vista global
         $this->get('/suppliers')->assertOk();
@@ -125,7 +125,7 @@ class SuperAdminTenantPickerTest extends TestCase
         $this->assertSame($acme->id, Shift::withoutGlobalScopes()->where('name', 'Turno Noche')->value('tenant_id'));
         $this->assertNull(session('admin_tenant_id'), 'Sigue en la vista global');
 
-        $this->get(route('admin.tenant.choose', ['next' => '/shifts']))->assertRedirect('/shifts');
+        $this->get(\App\Modules\Core\Middleware\SetWebTenant::chooserUrl('/shifts'))->assertRedirect('/shifts');
     }
 
     public function test_vue_and_json_requests_get_the_picker_url(): void
@@ -138,11 +138,11 @@ class SuperAdminTenantPickerTest extends TestCase
         $this->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => '', 'Referer' => url('/shifts')])
             ->post('/shifts', self::SHIFT)
             ->assertStatus(409)
-            ->assertHeader('X-Inertia-Location', route('admin.tenant.choose', ['next' => '/shifts']));
+            ->assertHeader('X-Inertia-Location', \App\Modules\Core\Middleware\SetWebTenant::chooserUrl('/shifts'));
 
         $this->flushHeaders()->postJson('/shifts', self::SHIFT)->assertStatus(409)
             ->assertJsonPath('tenant_required', true)
-            ->assertJsonPath('choose_url', route('admin.tenant.choose', ['next' => '/shifts']));
+            ->assertJsonPath('choose_url', \App\Modules\Core\Middleware\SetWebTenant::chooserUrl('/shifts'));
     }
 
     public function test_only_super_admin_opens_the_picker(): void
@@ -151,6 +151,31 @@ class SuperAdminTenantPickerTest extends TestCase
         $admin = $this->makeUser($acme, 'company_admin');
 
         $this->actingAs($admin)->get(route('admin.tenant.choose'))->assertForbidden();
+    }
+
+    public function test_the_picker_url_is_readable_old_links_still_work_and_it_never_leaves_the_site(): void
+    {
+        $this->makeTenant('acme');
+        $this->makeTenant('other');
+        $root = $this->makeUser(null, 'super_admin');
+        $chooser = \App\Modules\Core\Middleware\SetWebTenant::class;
+
+        // Legible: la ruta a la que se vuelve va tal cual; lo que lleva su propia consulta se codifica
+        $this->assertSame(url('/choose-company?next=/settings/roles'), $chooser::chooserUrl('/settings/roles'));
+        $this->assertSame(url('/choose-company?next=/employees%3Fpage%3D2%26q%3Dana'), $chooser::chooserUrl('/employees?page=2&q=ana'));
+        $this->actingAs($root)->get('/settings/roles')->assertRedirect(url('/choose-company?next=/settings/roles'));
+        $this->get('/choose-company?next=/settings/roles')->assertOk()->assertSee('value="/settings/roles"', false);
+        $this->get('/choose-company?next=/employees%3Fpage%3D2%26q%3Dana')->assertOk()->assertSee('/employees?page=2&amp;q=ana', false);
+
+        // Enlaces guardados con la dirección anterior (codificada) llevan a la nueva
+        $this->get('/admin/choose-tenant?next=%2Fsettings%2Froles')->assertStatus(301)->assertRedirect(url('/choose-company?next=/settings/roles'));
+        $this->get('/admin/choose-tenant?next[]=x')->assertStatus(301)->assertRedirect(url('/choose-company'));
+        $this->get('/choose-company?next[]=x')->assertOk()->assertSee('value="/dashboard"', false);
+
+        // Nunca saca del sitio
+        $this->assertSame(url('/choose-company?next=/robar'), $chooser::chooserUrl('https://malo.example/robar')); // se queda en este sitio
+        $this->assertSame(url('/choose-company?next=/dashboard'), $chooser::chooserUrl('//malo.example'));
+        $this->get('/choose-company?next=//malo.example')->assertOk()->assertDontSee('malo.example');
     }
 
     public function test_vue_screens_receive_company_status_for_the_picker(): void

@@ -209,4 +209,29 @@ class CredentialPolicyTest extends TestCase
 
         $this->assertSame('midominio.com', TenantSetting::forTenant($acme)->loginEmailDomain());
     }
+
+    public function test_existing_pending_temporary_passwords_get_ten_days_once_and_new_ones_keep_72_hours(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $this->travelTo(now()->setDate(2026, 11, 13)->setTime(17, 0));
+        $pending  = $this->makeUser($acme, 'employee', ['must_change_password' => true, 'temp_password_expires_at' => now()->addHours(72)]);
+        $expired  = $this->makeUser($acme, 'employee', ['email' => 'ana@acme.pe', 'must_change_password' => true, 'temp_password_expires_at' => now()->subDay()]);
+        $changed  = $this->makeUser($acme, 'employee', ['must_change_password' => false, 'temp_password_expires_at' => null]);
+        $longer   = $this->makeUser($acme, 'employee', ['must_change_password' => true, 'temp_password_expires_at' => now()->addDays(20)]);
+        app(TenantContext::class)->clear();
+
+        (require base_path('app/Modules/Core/Database/Migrations/2026_11_15_000001_extend_pending_temporary_passwords.php'))->up();
+
+        $until = '2026-11-23 23:59:59';
+        $this->assertSame($until, $pending->fresh()->temp_password_expires_at->toDateTimeString());
+        $this->assertSame($until, $expired->fresh()->temp_password_expires_at->toDateTimeString(), 'la que ya había vencido vuelve a servir');
+        $this->assertNull($changed->fresh()->temp_password_expires_at);
+        $this->assertSame('2026-12-03 17:00:00', $longer->fresh()->temp_password_expires_at->toDateTimeString(), 'no se acorta un plazo mayor');
+
+        // La que había vencido ya deja entrar (y obliga a cambiarla)
+        $this->login('ana@acme.pe', 'Secret123')->assertOk();
+
+        // Un alta nueva después del despliegue: 72 h como siempre
+        $this->assertTrue(app(CredentialProvisioner::class)->temporaryAttributes('x')['temp_password_expires_at']->equalTo(now()->addHours(72)));
+    }
 }

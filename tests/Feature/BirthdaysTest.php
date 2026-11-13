@@ -172,7 +172,7 @@ class BirthdaysTest extends TestCase
 
         // Con varias, pregunta en qué empresa
         $this->makeTenant('globex');
-        $this->get('/company-documents/create')->assertRedirect(route('admin.tenant.choose', ['next' => '/company-documents/create']));
+        $this->get('/company-documents/create')->assertRedirect(\App\Modules\Core\Middleware\SetWebTenant::chooserUrl('/company-documents/create'));
     }
 
     public function test_home_carousel_is_this_month_in_my_branch_and_greets_me_on_my_day(): void

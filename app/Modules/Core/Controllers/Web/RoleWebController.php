@@ -24,7 +24,7 @@ class RoleWebController extends Controller
     {
         // Vista global del Super Admin: los roles son de cada empresa, se elige una y se vuelve aquí
         if (! current_tenant_id_or_null()) {
-            return redirect()->route('admin.tenant.choose', ['next' => '/settings/roles']);
+            return redirect()->to(\App\Modules\Core\Middleware\SetWebTenant::chooserUrl('/settings/roles'));
         }
         $tenant = $this->tenant();
         $standard = $this->roles->standard($tenant);

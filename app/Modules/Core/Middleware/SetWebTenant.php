@@ -178,7 +178,7 @@ class SetWebTenant
             : 'Elige la empresa en la que quieres crear o editar.';
         $isWrite = ! $request->isMethodSafe();
         $back    = $isWrite ? $this->moduleIndex($request) : $request->fullUrl();
-        $chooser = route('admin.tenant.choose', ['next' => self::relativeUrl($back)]);
+        $chooser = self::chooserUrl($back);
 
         if ($request->header('X-Inertia')) {
             return Inertia::location($chooser);
@@ -208,6 +208,17 @@ class SetWebTenant
                 'fields' => Arr::dot($request->except(['_token', '_method'])),
             ],
         ], 409);
+    }
+
+    /**
+     * Selector "¿En qué empresa?" con la pantalla a la que se vuelve, legible:
+     * /choose-company?next=/settings/roles (las barras van tal cual; ?, & y = se codifican).
+     */
+    public static function chooserUrl(?string $next = null): string
+    {
+        $url = route('admin.tenant.choose');
+
+        return $next === null ? $url : $url . '?next=' . str_replace('%2F', '/', rawurlencode(self::relativeUrl($next)));
     }
 
     /** Ruta relativa y del mismo sitio (evita redirecciones abiertas con ?next=) */
