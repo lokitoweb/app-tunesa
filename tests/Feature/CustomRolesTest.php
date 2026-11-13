@@ -71,4 +71,16 @@ class CustomRolesTest extends TestCase
             ->assertInertia(fn ($p) => $p->where('roles', fn ($roles) => ! collect($roles)->contains('slug', 'c-caja')));
         $this->delete('/settings/roles/custom/c-caja')->assertNotFound();
     }
+
+    public function test_super_admin_in_the_global_view_is_asked_for_a_company_instead_of_an_error(): void
+    {
+        $acme = $this->makeTenant('acme');
+        $root = $this->makeUser(null, 'super_admin');
+
+        $this->actingAs($root)->get('/settings/roles')->assertRedirect(route('admin.tenant.choose', ['next' => '/settings/roles']));
+
+        // Elige la empresa y vuelve a Roles y permisos de esa empresa
+        $this->post('/admin/switch-tenant', ['tenant_id' => $acme->id, 'next' => '/settings/roles'])->assertRedirect('/settings/roles');
+        $this->get('/settings/roles')->assertOk()->assertInertia(fn ($p) => $p->where('company', $acme->company_name));
+    }
 }
