@@ -9789,7 +9789,11 @@ a.dash-kpi-card.is-link.is-active { border-color: var(--brand); box-shadow: 0 0 
 .emp-table th:last-child, .emp-table td:last-child { position: sticky; right: 0; z-index: 1; box-shadow: -8px 0 8px -8px rgba(15, 23, 42, 0.18); }
 
 /* Sedes › supervisores: selección múltiple con casillas (branches/partials/supervisor-picker) */
-.supervisor-picker-menu { min-width: 100%; max-width: min(420px, 92vw); }
+.supervisor-picker-menu { min-width: 0; max-width: 92vw; border-radius: 10px; border: 1px solid var(--bs-border-color); }
+.supervisor-picker-options { scrollbar-width: thin; }
+.supervisor-picker-option { font-size: .875rem; padding: .45rem .5rem; }
+.supervisor-picker-option .text-truncate { min-width: 0; }
+.supervisor-picker-role { font-size: .72rem; padding: .1rem .45rem; border-radius: 999px; background: var(--bs-secondary-bg); color: var(--bs-secondary-color); white-space: nowrap; }
 .supervisor-picker-options { max-height: 240px; overflow-y: auto; }
 .supervisor-picker-option { cursor: pointer; white-space: normal; }
 .supervisor-picker-option:has(input:checked) { background: var(--bs-primary-bg-subtle); }

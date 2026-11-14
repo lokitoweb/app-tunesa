@@ -22,7 +22,7 @@
                        data-name="{{ \Illuminate\Support\Str::lower($s->first_name . ' ' . $s->last_name) }}">
                     <input type="checkbox" class="form-check-input m-0" name="supervisor_ids[]" value="{{ $s->id }}" @checked(in_array((int) $s->id, $selected, true))>
                     <span class="text-truncate">{{ $s->first_name }} {{ $s->last_name }}</span>
-                    <span class="ms-auto small text-body-secondary">{{ label('role', $s->role) }}</span>
+                    <span class="ms-auto supervisor-picker-role">{{ label('user_role', $s->role) }}</span>
                 </label>
             @empty
                 <div class="small text-body-secondary px-2 py-1">No hay usuarios activos con rol Supervisor, RR. HH. o Administrador.</div>
@@ -71,6 +71,10 @@
             root.addEventListener('change', refresh);
             search.addEventListener('input', filter);
             root.querySelector('.supervisor-picker-clear').addEventListener('click', () => { boxes().forEach((b) => (b.checked = false)); refresh(); });
+            // El menú flota (posición fija, para salir del modal) con el ancho exacto del campo
+            const toggle = root.querySelector('.supervisor-picker-toggle');
+            const menu = root.querySelector('.supervisor-picker-menu');
+            root.addEventListener('show.bs.dropdown', () => { menu.style.width = `${Math.max(toggle.offsetWidth, 280)}px`; });
             root.addEventListener('shown.bs.dropdown', () => search.focus());
 
             window.supervisorPickers[root.id] = {
