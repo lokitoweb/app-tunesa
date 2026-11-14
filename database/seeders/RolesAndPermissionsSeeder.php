@@ -27,6 +27,8 @@ class RolesAndPermissionsSeeder extends Seeder
         // Personas y estructura
         'users.view'             => ['Ver colaboradores', 'users'],
         'users.manage'           => ['Crear y editar colaboradores', 'users'],
+        // Solo el Super Admin lo otorga a otros roles (RolePermissions::SUPER_ADMIN_ONLY)
+        'employees.transfer'     => ['Trasladar colaboradores a otra empresa del grupo', 'users'],
         'branches.view'          => ['Ver sucursales y geocercas', 'branches'],
         'branches.manage'        => ['Crear y editar sucursales y geocercas', 'branches'],
 
@@ -135,7 +137,8 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::COMPANY_ADMIN => [
             'Administrador de Empresa',
             'Dueño de la cuenta de la empresa. Acceso total dentro de su empresa.',
-            ['*', '-tenants.manage'],
+            // El traslado entre empresas es de RR. HH. y del Super Admin, no del administrador de una empresa
+            ['*', '-tenants.manage', '-employees.transfer'],
         ],
         Role::HR_MANAGER => [
             'Recursos Humanos',

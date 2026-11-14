@@ -30,6 +30,12 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::post('/{id}/reset-access', [EmployeeController::class, 'resetAccess'])->name('reset-access')->whereNumber('id')->middleware('throttle:10,1');
     });
 
+    // Traslado a otra empresa del grupo (RR. HH. y Super Admin; el Super Admin puede darlo a otros roles)
+    Route::prefix('employees/{id}/transfer')->name('employees.transfer')->whereNumber('id')->middleware('can:employees.transfer')->group(function () {
+        Route::get('/options', [\App\Modules\HR\Controllers\Web\EmployeeTransferWebController::class, 'options'])->name('.options');
+        Route::post('/', [\App\Modules\HR\Controllers\Web\EmployeeTransferWebController::class, 'store'])->middleware('throttle:10,1');
+    });
+
     // Legajo digital: ficha del colaborador y revisión de documentos
     Route::prefix('documents')->name('documents.')->middleware('can:documents.review')->group(function () {
         Route::get('/', [DocumentWebController::class, 'index'])->name('index');

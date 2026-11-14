@@ -84,6 +84,8 @@ class SetWebTenant
         'ethics.reply',
         'ethics.status',
         'ethics.assign',
+        // Traslado entre empresas: el servicio trabaja en cada empresa (origen y destino) por su cuenta
+        'employees.transfer',
     ];
 
     /**

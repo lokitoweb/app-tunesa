@@ -26,6 +26,12 @@ class RolePermissions
     /** Nunca se otorgan a un rol de empresa */
     public const LOCKED = ['tenants.manage', 'roles.manage'];
 
+    /**
+     * Solo el Super Admin los otorga o quita (cruzan empresas): el administrador de una empresa no los
+     * ve en Roles y permisos y, al guardar o restablecer un rol, se conserva lo que puso el Super Admin.
+     */
+    public const SUPER_ADMIN_ONLY = ['employees.transfer'];
+
     /** Grupo de permisos → módulo que lo activa (los grupos sin módulo son del núcleo) */
     private const GROUP_MODULE = [
         'training' => 'Training', 'benefits' => 'Benefits', 'birthdays' => 'Birthdays', 'company_docs' => 'CompanyDocs',
@@ -117,9 +123,11 @@ class RolePermissions
      *
      * @return array<string, list<array{slug: string, name: string}>>
      */
-    public function grantable(Tenant $tenant): array
+    public function grantable(Tenant $tenant, ?\App\Modules\Core\Models\User $actor = null): array
     {
-        return Permission::whereNotIn('slug', self::LOCKED)->orderBy('id')->get(['slug', 'name', 'group'])
+        $hidden = $actor?->isSuperAdmin() ? self::LOCKED : array_merge(self::LOCKED, self::SUPER_ADMIN_ONLY);
+
+        return Permission::whereNotIn('slug', $hidden)->orderBy('id')->get(['slug', 'name', 'group'])
             ->filter(fn ($p) => ! isset(self::GROUP_MODULE[$p->group]) || ModuleRegistry::enabledFor($tenant, self::GROUP_MODULE[$p->group]))
             ->groupBy('group')
             ->map(fn ($g) => $g->map(fn ($p) => ['slug' => $p->slug, 'name' => $p->name])->values()->all())
@@ -137,7 +145,8 @@ class RolePermissions
     {
         $all = $this->standard($tenant);
         abort_unless(array_key_exists($role, $all), 422, 'Ese rol no se puede personalizar.');
-        $grantable = collect($this->grantable($tenant))->flatten(1)->pluck('slug')->all();
+        $actor = $by ? \App\Modules\Core\Models\User::withoutGlobalScopes()->find($by) : null;
+        $grantable = collect($this->grantable($tenant, $actor))->flatten(1)->pluck('slug')->all();
         $standard = $all[$role];
         $before = $this->effective($tenant)[$role];
         // Fuera de lo editable se respeta lo que ya había
@@ -162,10 +171,13 @@ class RolePermissions
         return ['added' => array_values(array_diff($wanted, $before)), 'removed' => array_values(array_diff($before, $wanted))];
     }
 
-    public function reset(Tenant $tenant, string $role): void
+    public function reset(Tenant $tenant, string $role, ?\App\Modules\Core\Models\User $actor = null): void
     {
         abort_unless(array_key_exists($role, $this->standard($tenant)), 422, 'Ese rol no se puede personalizar.');
-        RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('role', $role)->delete();
+        RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('role', $role)
+            // Lo que solo decide el Super Admin no lo deshace el administrador de la empresa
+            ->when(! $actor?->isSuperAdmin(), fn ($q) => $q->whereDoesntHave('permission', fn ($p) => $p->whereIn('slug', self::SUPER_ADMIN_ONLY)))
+            ->delete();
         \App\Modules\Core\Models\User::forgetPermissionMemo();
     }
 }

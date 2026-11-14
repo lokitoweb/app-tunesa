@@ -41,7 +41,7 @@ class RoleWebController extends Controller
         return Inertia::render('Core/Pages/Roles/Index', [
             'roles'     => $system->concat($custom)->values(),
             'bases'     => $system->map(fn ($r) => ['slug' => $r['slug'], 'name' => $r['name']])->values(),
-            'groups'    => collect($this->roles->grantable($tenant))->map(fn ($permissions, $group) => [
+            'groups'    => collect($this->roles->grantable($tenant, request()->user()))->map(fn ($permissions, $group) => [
                 'key' => $group, 'label' => RolePermissions::GROUP_LABELS[$group] ?? ucfirst($group), 'permissions' => $permissions,
             ])->values(),
             'effective' => $this->roles->effective($tenant),
@@ -90,7 +90,7 @@ class RoleWebController extends Controller
     public function reset(Request $request, string $role): RedirectResponse
     {
         $tenant = $this->tenant();
-        $this->roles->reset($tenant, $role);
+        $this->roles->reset($tenant, $role, $request->user());
         $this->audit->log('roles.reset', null, ['role' => $role]);
 
         return back()->with('success', 'El rol volvió a los permisos de su rol base.');

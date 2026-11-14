@@ -35,10 +35,17 @@
         @can('profiles.manage')
             <a href="{{ route('employees.file', $employee->id) }}" class="btn btn-outline-primary"><i class="bi bi-folder2-open me-1"></i>Ver legajo</a>
         @endcan
+        @if($employee->status === 'active' && $employee->tenant_id && auth()->user()->can('employees.transfer')
+            && \App\Modules\Core\Models\Tenant::where('status', 'active')->where('id', '!=', $employee->tenant_id)->exists())
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#transferModal">
+                <i class="bi bi-arrow-left-right me-1"></i>Trasladar a otra empresa
+            </button>
+        @endif
     </div>
 </header>
 
 @include('employees._credentials')
+@include('employees.partials.transfer', ['employee' => $employee])
 
 {{-- Fuera del formulario principal: un formulario no puede ir dentro de otro --}}
 <form method="POST" action="{{ route('employees.reset-access', $employee->id) }}" id="resetAccessForm"
