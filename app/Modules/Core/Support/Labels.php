@@ -64,6 +64,7 @@ final class Labels
         'branch.created'                     => ['Sucursal creada', 'success', 'geo-alt'],
         'branch.updated'                     => ['Sucursal actualizada', 'primary', 'geo-alt'],
         'branch.supervisors_changed'         => ['Supervisores de la sede cambiados', 'primary', 'person-badge'],
+        'data.cleanup'                       => ['Limpieza de datos', 'danger', 'trash3'],
         'branch.deleted'                     => ['Sucursal eliminada', 'danger', 'geo-alt'],
         // Jerarquía organizacional
         'zone.created'                       => ['Zona creada', 'success', 'diagram-3'],
