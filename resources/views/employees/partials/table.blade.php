@@ -165,6 +165,13 @@
                                         aria-label="{{ $emp->status === 'active' ? 'Desactivar acceso de' : 'Activar colaborador' }} {{ $emp->first_name }}">
                                     <i class="bi {{ $emp->status === 'active' ? 'bi-check-circle-fill' : 'bi-slash-circle' }}"></i>
                                 </button>
+                                {{-- Eliminar (registro por error): abre su ficha con la confirmación por documento --}}
+                                @if(app(\App\Modules\HR\Services\EmployeeDeletion::class)->canDelete($emp, auth()->user()))
+                                    <a href="{{ route('employees.edit', $emp->id) }}#eliminar" class="btn-table-action text-danger"
+                                       title="Eliminar a {{ $emp->first_name }} (registro por error)" aria-label="Eliminar a {{ $emp->first_name }}">
+                                        <i class="bi bi-trash3"></i>
+                                    </a>
+                                @endif
                             </div>
                         </td>
                     </tr>

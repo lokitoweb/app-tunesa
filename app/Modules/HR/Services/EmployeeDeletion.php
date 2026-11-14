@@ -29,6 +29,13 @@ final class EmployeeDeletion
         return $this->purger->footprint([$employee->id]);
     }
 
+    /** ¿Ve la opción de eliminar? (ficha, listado y diálogo de edición usan esta misma regla) */
+    public function canDelete(User $employee, User $actor): bool
+    {
+        return $actor->can('employees.delete') && ! $employee->isSuperAdmin() && $employee->tenant_id
+            && (int) $employee->id !== (int) $actor->id && ($actor->isSuperAdmin() || $actor->canManage($employee));
+    }
+
     /** Quién puede eliminar a quién (antes de pedir nada más) */
     public function authorize(User $employee, User $actor): void
     {

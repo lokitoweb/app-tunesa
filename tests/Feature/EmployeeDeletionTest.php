@@ -49,6 +49,8 @@ class EmployeeDeletionTest extends TestCase
 
         $this->actingAs($root)->get("/employees/{$wrong->id}/edit")->assertOk()
             ->assertSee('Zona de acciones peligrosas')->assertSee('1 jornadas de asistencia', false);
+        // Desde el listado: ícono «Eliminar» que abre su ficha con la confirmación
+        $this->get('/employees?search=Error')->assertOk()->assertSee("/employees/{$wrong->id}/edit#eliminar", false);
 
         // Documento equivocado: no borra nada
         $this->delete("/employees/{$wrong->id}", ['confirm_document' => '00000000'])->assertSessionHasErrorsIn('deleteEmployee', 'confirm_document');
@@ -79,6 +81,7 @@ class EmployeeDeletionTest extends TestCase
 
         foreach ([$admin, $hr] as $who) {
             $this->actingAs($who)->get("/employees/{$wrong->id}/edit")->assertOk()->assertDontSee('Zona de acciones peligrosas');
+            $this->get('/employees?search=Error')->assertOk()->assertDontSee('#eliminar', false);
             $this->actingAs($who)->delete("/employees/{$wrong->id}", ['confirm_document' => '71234567'])->assertForbidden();
         }
         $roles = app(RolePermissions::class);

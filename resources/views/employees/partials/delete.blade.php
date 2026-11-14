@@ -2,8 +2,7 @@
     Zona de acciones peligrosas: eliminar a un colaborador registrado por error (EmployeeDeletion).
     Solo con el permiso employees.delete. Parámetro: $employee.
 --}}
-@if(auth()->user()->can('employees.delete') && ! $employee->isSuperAdmin() && (int) $employee->id !== (int) auth()->id()
-    && (auth()->user()->isSuperAdmin() || auth()->user()->canManage($employee)))
+@if(app(\App\Modules\HR\Services\EmployeeDeletion::class)->canDelete($employee, auth()->user()))
     @php
         $had = app(\App\Modules\HR\Services\EmployeeDeletion::class)->footprint($employee);
         $confirmWith = $employee->document_number ?: $employee->employee_code;
@@ -60,9 +59,10 @@
             const button = document.getElementById('confirmDeleteBtn');
             const norm = (v) => String(v || '').replace(/\s+/g, '').toLowerCase();
             input.addEventListener('input', () => { button.disabled = norm(input.value) !== norm(input.dataset.expected); });
-            @if($deleteErrors->any())
+            // Con error de confirmación, o desde el ícono «Eliminar» del listado (#eliminar), se abre la confirmación
+            if (@json($deleteErrors->any()) || location.hash === '#eliminar') {
                 document.addEventListener('DOMContentLoaded', () => bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteEmployeeModal')).show());
-            @endif
+            }
         })();
     </script>
 @endif
