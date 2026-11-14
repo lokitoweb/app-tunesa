@@ -4,11 +4,8 @@ namespace App\Modules\Core\Services;
 
 use App\Modules\Benefits\Models\Benefit;
 use App\Modules\CompanyDocs\Models\CompanyDocument;
-use App\Modules\Core\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -58,13 +55,14 @@ class DataCleanup
     public function plan(): array
     {
         $ids = $this->userIds();
+        $footprint = app(UserPurger::class)->footprint($ids);
         $plan = [
             'Colaboradores inactivos y usuario de prueba' => count($ids),
-            '  · su asistencia (jornadas)' => $ids ? DB::table('attendances')->whereIn('user_id', $ids)->count() : 0,
-            '  · sus marcaciones' => $ids ? DB::table('attendance_punches')->whereIn('user_id', $ids)->count() : 0,
-            '  · sus documentos del legajo' => $ids ? DB::table('employee_documents')->whereIn('user_id', $ids)->count() : 0,
-            '  · sus solicitudes' => $ids ? DB::table('leave_requests')->whereIn('user_id', $ids)->count() : 0,
-            '  · sus boletas' => $ids ? DB::table('payslips')->whereIn('user_id', $ids)->count() : 0,
+            '  · su asistencia (jornadas)' => $footprint['asistencia'],
+            '  · sus marcaciones' => $footprint['marcaciones'],
+            '  · sus documentos del legajo' => $footprint['documentos'],
+            '  · sus solicitudes' => $footprint['solicitudes'],
+            '  · sus boletas' => $footprint['boletas'],
         ];
         foreach (self::TABLES as $label => $tables) {
             $plan[$label] = collect($tables)->filter(fn ($t) => Schema::hasTable($t))->sum(fn ($t) => DB::table($t)->count());
@@ -76,11 +74,12 @@ class DataCleanup
     /** Borra todo lo indicado. Devuelve lo borrado (mismas etiquetas que plan()). */
     public function run(): array
     {
-        $plan  = $this->plan();
-        $ids   = $this->userIds();
-        $files = $this->filesToDelete($ids);
+        $plan   = $this->plan();
+        $ids    = $this->userIds();
+        $purger = app(UserPurger::class);
+        $files  = array_merge($this->sectionFiles(), $purger->filesFor($ids));
 
-        DB::transaction(function () use ($ids) {
+        DB::transaction(function () use ($ids, $purger) {
             foreach (self::TABLES as $tables) {
                 foreach ($tables as $table) {
                     if (Schema::hasTable($table)) {
@@ -91,83 +90,33 @@ class DataCleanup
             // Destinatarios de beneficios y documentos borrados (relación polimórfica, sin llave foránea)
             DB::table('audience_targets')->whereIn('targetable_type', [Benefit::class, CompanyDocument::class])->delete();
 
-            if ($ids) {
-                // Lo que apunta a la persona sin llave foránea; el resto lo borra la base en cascada
-                DB::table('notifications')->where('notifiable_type', User::class)->whereIn('notifiable_id', $ids)->delete();
-                DB::table('personal_access_tokens')->where('tokenable_type', User::class)->whereIn('tokenable_id', $ids)->delete();
-                DB::table('audience_targets')->where('target_type', 'user')->whereIn('target_id', $ids)->delete();
-                if (Schema::hasTable('sessions')) {
-                    DB::table('sessions')->whereIn('user_id', $ids)->delete();
-                }
-                foreach (array_chunk($ids, 500) as $chunk) {
-                    DB::table('users')->whereIn('id', $chunk)->delete();
-                }
-            }
+            // Las personas: misma regla que «Eliminar colaborador» (UserPurger)
+            $purger->deleteRows($ids);
         });
 
-        $this->deleteFiles($files);
+        $purger->deleteFiles($files);
 
         return $plan;
     }
 
     /**
-     * Archivos de lo que se borra: [disco|null, ruta, ¿selfie con miniatura?]. disco null = se busca en
-     * los discos privado y público (rutas generadas por el sistema, únicas).
+     * Archivos de las secciones que se vacían: [disco|null, ruta, ¿selfie?] (los de las personas los da UserPurger).
      *
      * @return list<array{0: ?string, 1: string, 2: bool}>
      */
-    private function filesToDelete(array $ids): array
+    private function sectionFiles(): array
     {
         $files = [];
-        $add = function (iterable $paths, ?string $disk = null, bool $selfie = false) use (&$files) {
-            foreach ($paths as $path) {
-                if (filled($path)) {
-                    $files[] = [$disk, (string) $path, $selfie];
-                }
-            }
-        };
-        $selfieDisk = config('filesystems.attendance_disk', 'private');
-
-        $add(DB::table('ethics_case_attachments')->pluck('path'));
-        $add(DB::table('benefits')->pluck('image_path'));
+        foreach (DB::table('ethics_case_attachments')->pluck('path')->merge(DB::table('benefits')->pluck('image_path'))->filter() as $path) {
+            $files[] = [null, (string) $path, false];
+        }
         foreach (['training_lessons', 'company_documents'] as $table) {
             foreach (DB::table($table)->whereNotNull('file_path')->get(['file_disk', 'file_path']) as $row) {
-                $add([$row->file_path], $row->file_disk ?: null);
+                $files[] = [$row->file_disk ?: null, (string) $row->file_path, false];
             }
-        }
-
-        foreach (array_chunk($ids, 500) as $chunk) {
-            $add(DB::table('users')->whereIn('id', $chunk)->pluck('avatar_path'));
-            foreach (DB::table('attendances')->whereIn('user_id', $chunk)->get(['clock_in_photo', 'clock_out_photo', 'justification_file']) as $a) {
-                $add([$a->clock_in_photo, $a->clock_out_photo], $selfieDisk, true);
-                $add([$a->justification_file]);
-            }
-            $add(DB::table('attendance_punches')->whereIn('user_id', $chunk)->pluck('photo_path'), $selfieDisk, true);
-            $add(DB::table('employee_documents')->whereIn('user_id', $chunk)->pluck('path'));
-            $add(DB::table('leave_requests')->whereIn('user_id', $chunk)->pluck('attachment_path'));
-            $add(DB::table('payslips')->whereIn('user_id', $chunk)->pluck('file_path'));
         }
 
         return $files;
-    }
-
-    /** Un archivo que no se pudo borrar queda en el registro: nunca deshace la limpieza */
-    private function deleteFiles(array $files): void
-    {
-        foreach ($files as [$disk, $path, $selfie]) {
-            try {
-                if ($selfie) {
-                    app(\App\Modules\Attendance\Services\Attendance\SelfieStorage::class)->delete($path, $disk);
-
-                    continue;
-                }
-                foreach ($disk ? [$disk] : ['private', 'public'] as $d) {
-                    Storage::disk($d)->delete($path);
-                }
-            } catch (\Throwable $e) {
-                Log::warning("Limpieza: no se pudo borrar el archivo {$path}: " . $e->getMessage());
-            }
-        }
     }
 
     public static function normalize(string $name): string

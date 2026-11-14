@@ -58,4 +58,6 @@
     @method('PUT')
     @include('employees._form', ['employee' => $employee])
 </form>
+
+@include('employees.partials.delete', ['employee' => $employee])
 @endsection

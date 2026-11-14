@@ -30,7 +30,7 @@ class RolePermissions
      * Solo el Super Admin los otorga o quita (cruzan empresas): el administrador de una empresa no los
      * ve en Roles y permisos y, al guardar o restablecer un rol, se conserva lo que puso el Super Admin.
      */
-    public const SUPER_ADMIN_ONLY = ['employees.transfer'];
+    public const SUPER_ADMIN_ONLY = ['employees.transfer', 'employees.delete'];
 
     /** Grupo de permisos → módulo que lo activa (los grupos sin módulo son del núcleo) */
     private const GROUP_MODULE = [

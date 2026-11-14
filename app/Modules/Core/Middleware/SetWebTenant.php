@@ -101,6 +101,8 @@ class SetWebTenant
         'employees.transfer',
         // Acceso a varias empresas: lo asigna el Super Admin para todo el grupo
         'settings.company-access.update',
+        // Eliminar colaborador: trabaja en la empresa de la persona (EmployeeDeletion)
+        'employees.destroy',
     ];
 
     /**

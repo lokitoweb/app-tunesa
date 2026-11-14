@@ -29,6 +29,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'users.manage'           => ['Crear y editar colaboradores', 'users'],
         // Solo el Super Admin lo otorga a otros roles (RolePermissions::SUPER_ADMIN_ONLY)
         'employees.transfer'     => ['Trasladar colaboradores a otra empresa del grupo', 'users'],
+        // Solo el Super Admin por defecto; él puede darlo a otros roles (RolePermissions::SUPER_ADMIN_ONLY)
+        'employees.delete'       => ['Eliminar colaboradores registrados por error (con todo lo suyo)', 'users'],
         'branches.view'          => ['Ver sucursales y geocercas', 'branches'],
         'branches.manage'        => ['Crear y editar sucursales y geocercas', 'branches'],
 
@@ -138,7 +140,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'Administrador de Empresa',
             'Dueño de la cuenta de la empresa. Acceso total dentro de su empresa.',
             // El traslado entre empresas es de RR. HH. y del Super Admin, no del administrador de una empresa
-            ['*', '-tenants.manage', '-employees.transfer'],
+            ['*', '-tenants.manage', '-employees.transfer', '-employees.delete'],
         ],
         Role::HR_MANAGER => [
             'Recursos Humanos',
@@ -146,7 +148,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ['*', '-tenants.manage', '-tenants.branding', '-company.configure', '-audit.view', '-roles.manage',
                 '-suppliers.manage', '-requisitions.view_all', '-requisitions.approve', '-purchasing.manage',
                 '-treasury.view', '-treasury.pay', '-fixed_costs.manage',
-                '-fleet.manage', '-inventory.manage', '-fuel.manage', '-signatories.manage'],
+                '-fleet.manage', '-inventory.manage', '-fuel.manage', '-signatories.manage', '-employees.delete'],
         ],
         Role::MANAGER => [
             'Gerencia',
