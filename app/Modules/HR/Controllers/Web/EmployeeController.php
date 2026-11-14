@@ -311,7 +311,8 @@ class EmployeeController extends Controller
                             'shift' => $status['shift'] ? "{$status['shift']['start_time']}–{$status['shift']['end_time']}" : null,
                             'name' => $status['shift']['name'] ?? null];
                     })->all(),
-                    'avatar_url'                 => $employee->avatar_path ? asset('storage/' . $employee->avatar_path) : null,                ],
+                    'avatar_url'                 => $employee->avatar_path ? asset('storage/' . $employee->avatar_path) : null,
+                ],
             ]);
         }
 
