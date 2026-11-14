@@ -77,6 +77,11 @@ class HandleInertiaRequests extends Middleware
             },
             'nav'     => fn () => $user ? PanelNavigation::for($user, $request) : [],
             'tenants' => fn () => $user?->isSuperAdmin() ? Tenant::orderBy('company_name')->get(['id', 'company_name', 'ruc', 'status']) : [],
+            // Quien supervisa varias empresas: la suya y las asignadas, para el selector (sin "Todas las empresas")
+            'switchTenants' => fn () => $user && ! $user->isSuperAdmin()
+                ? \App\Modules\Core\Middleware\SetWebTenant::switchableTenants($user)->map(fn ($t) => [
+                    'id' => $t->id, 'company_name' => $t->company_name, 'own' => $t->id === (int) $user->tenant_id,
+                ])->values() : [],
             // Vista global del Super Admin: los listados muestran la empresa de cada registro
             'globalView'  => fn () => (bool) View::shared('globalView', false),
             'tenantNames' => fn () => View::shared('tenantNames', []),

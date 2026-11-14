@@ -68,11 +68,11 @@
                 <button class="sidebar-toggle-btn d-lg-none" type="button" id="sidebarMobileToggle" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false">
                     <i class="bi bi-list"></i>
                 </button>
-                @if($navUser->isSuperAdmin())
+                @php
+                    $allTenants = \App\Modules\Core\Middleware\SetWebTenant::switchableTenants($navUser);
+                @endphp
+                @if($navUser->isSuperAdmin() || $allTenants->count() > 1)
                     @if(!request()->routeIs('dashboard*'))
-                        @php
-                            $allTenants = \App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']);
-                        @endphp
                         <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0 d-inline-flex align-items-center" data-skeleton id="topbarTenantForm">
                             @csrf
                             <input type="hidden" name="tenant_id" id="topbarTenantInput" value="{{ $brand?->id ?? '' }}">
@@ -96,7 +96,8 @@
                                         </div>
                                     @endif
                                     <div class="tenant-options-list">
-                                        {{-- Opción Global --}}
+                                        {{-- Opción Global (solo Super Admin) --}}
+                                        @if($navUser->isSuperAdmin())
                                         <button type="button" class="tenant-menu-item {{ !$brand ? 'is-selected' : '' }}" onclick="selectTenantAndSubmit('', 'topbarTenantInput', 'topbarTenantForm')" data-search="todas las empresas plataforma global">
                                             <span class="tenant-item-icon is-global">
                                                 <i class="bi bi-globe2"></i>
@@ -110,6 +111,7 @@
                                             @endif
                                         </button>
                                         <div class="tenant-menu-divider"></div>
+                                        @endif
                                         {{-- Empresas individuales --}}
                                         @foreach($allTenants as $t)
                                             <button type="button" class="tenant-menu-item {{ $brand?->id === $t->id ? 'is-selected' : '' }}" onclick="selectTenantAndSubmit('{{ $t->id }}', 'topbarTenantInput', 'topbarTenantForm')" data-search="{{ strtolower($t->company_name) }}">
@@ -118,7 +120,7 @@
                                                 </span>
                                                 <div class="tenant-item-content">
                                                     <span class="tenant-item-name">{{ $t->company_name }}</span>
-                                                    <span class="tenant-item-sub">Empresa activa</span>
+                                                    <span class="tenant-item-sub">{{ !$navUser->isSuperAdmin() && $t->id === (int) $navUser->tenant_id ? 'Tu empresa' : ($navUser->isSuperAdmin() ? 'Empresa activa' : 'Asignada para supervisar') }}</span>
                                                 </div>
                                                 @if($brand?->id === $t->id)
                                                     <i class="bi bi-check2 tenant-item-check"></i>

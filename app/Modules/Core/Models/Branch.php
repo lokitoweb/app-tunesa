@@ -120,7 +120,9 @@ class Branch extends Model
     /** Supervisores de la sede (uno o varios: mañana, tarde o a la vez). Sin ninguno, la ven todos los supervisores. */
     public function supervisors(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'branch_supervisors')->withTimestamps()->orderBy('users.first_name');
+        // Sin el filtro por empresa: un supervisor de otra empresa del grupo con acceso asignado también se muestra
+        return $this->belongsToMany(User::class, 'branch_supervisors')->withTimestamps()->orderBy('users.first_name')
+            ->withoutGlobalScope(\App\Modules\Core\Models\Scopes\TenantScope::class);
     }
 
     /** Reemplaza los supervisores de la sede; supervisor_id queda como el primero (o null) */

@@ -18,7 +18,7 @@
         <input type="search" class="form-control form-control-sm mb-2 supervisor-picker-search" placeholder="Buscar por nombre…" aria-label="Buscar supervisor" autocomplete="off">
         <div class="supervisor-picker-options">
             @forelse($supervisors as $s)
-                <label class="dropdown-item d-flex align-items-center gap-2 rounded py-2 supervisor-picker-option" data-tenant="{{ $s->tenant_id }}"
+                <label class="dropdown-item d-flex align-items-center gap-2 rounded py-2 supervisor-picker-option" data-tenants="{{ implode(',', $s->supervises_tenants ?? [$s->tenant_id]) }}"
                        data-name="{{ \Illuminate\Support\Str::lower($s->first_name . ' ' . $s->last_name) }}">
                     <input type="checkbox" class="form-check-input m-0" name="supervisor_ids[]" value="{{ $s->id }}" @checked(in_array((int) $s->id, $selected, true))>
                     <span class="text-truncate">{{ $s->first_name }} {{ $s->last_name }}</span>
@@ -58,7 +58,7 @@
                 const q = (search.value || '').trim().toLocaleLowerCase('es');
                 let shown = 0;
                 root.querySelectorAll('.supervisor-picker-option').forEach((opt) => {
-                    const ofTenant = tenantId === null || opt.dataset.tenant === String(tenantId);
+                    const ofTenant = tenantId === null || opt.dataset.tenants.split(',').includes(String(tenantId));
                     const visible = ofTenant && (!q || opt.dataset.name.includes(q));
                     opt.classList.toggle('d-none', !visible);
                     if (!ofTenant) opt.querySelector('input').checked = false;

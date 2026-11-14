@@ -64,11 +64,24 @@ class SetWebTenant
                 ->withErrors(['email' => 'Tu cuenta no tiene acceso al panel o la empresa está suspendida.']);
         }
 
-        $this->activate($tenant);
+        // Supervisión de varias empresas: la que eligió en el selector, si se la asignaron (y sigue activa);
+        // lo personal (marcar, su cuenta) siempre en la suya. Sin acceso vigente vuelve a la suya.
+        $acting = $request->session()->get(self::ACTING_TENANT);
+        if ($acting && ! $user->canActInTenant((int) $acting)) {
+            $request->session()->forget(self::ACTING_TENANT);
+            $acting = null;
+        }
+        $this->activate($acting && ! $request->routeIs(self::OWN_COMPANY_ROUTES) ? Tenant::findOrFail($acting) : $tenant);
         View::share('globalView', false);
 
         return $next($request);
     }
+
+    /** Sesión: empresa asignada que el usuario está supervisando (no aplica al Super Admin) */
+    public const ACTING_TENANT = 'acting_tenant_id';
+
+    /** Lo personal siempre en su propia empresa, aunque esté supervisando otra */
+    public const OWN_COMPANY_ROUTES = ['attendance.my-punch', 'attendance.my-punch.*', 'account.*'];
 
     /** Rutas de escritura permitidas en la vista global (no crean registros de empresa) */
     public const GLOBAL_WRITE_ROUTES = [
@@ -86,6 +99,8 @@ class SetWebTenant
         'ethics.assign',
         // Traslado entre empresas: el servicio trabaja en cada empresa (origen y destino) por su cuenta
         'employees.transfer',
+        // Acceso a varias empresas: lo asigna el Super Admin para todo el grupo
+        'settings.company-access.update',
     ];
 
     /**
@@ -159,6 +174,23 @@ class SetWebTenant
         View::share('tenantNames', Tenant::orderBy('company_name')->pluck('company_name', 'id'));
 
         return $next($request);
+    }
+
+    /**
+     * Empresas del selector de la barra superior: el Super Admin, todas; quien supervisa varias, la suya y
+     * las asignadas (activas); el resto, ninguna (el panel muestra solo el nombre de su empresa).
+     */
+    public static function switchableTenants(?\App\Modules\Core\Models\User $user): Collection
+    {
+        if (! $user) {
+            return collect();
+        }
+        if ($user->isSuperAdmin()) {
+            return Tenant::orderBy('company_name')->get(['id', 'company_name']);
+        }
+        $extra = $user->extraTenantIds();
+
+        return $extra ? Tenant::whereIn('id', array_merge([(int) $user->tenant_id], $extra))->orderBy('company_name')->get(['id', 'company_name']) : collect();
     }
 
     /** Empresas activas, para el selector de "¿en qué empresa?" */

@@ -98,7 +98,7 @@ class GeofenceBranchTest extends TestCase
 
         $this->get('/branches/create')->assertOk()
             ->assertSee('Elige la empresa')->assertSee('Acme SAC')->assertSee('Other SRL')
-            ->assertSee('id="radiusInput"', false)->assertSee('data-tenant="' . $acme->id . '"', false);
+            ->assertSee('id="radiusInput"', false)->assertSee('data-tenants="' . $acme->id . '"', false);
 
         $branch = [
             'name' => 'Obra Norte', 'address' => 'Av. Norte 1', 'latitude' => -12.01, 'longitude' => -77.05,

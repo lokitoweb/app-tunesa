@@ -148,7 +148,14 @@ class NotificationDispatcher
             $hr = $users()->where('role', 'company_admin')->pluck('id');
         }
 
-        return $users()->whereIn('id', $supervisorIds->merge($hr)->unique())->get();
+        // Supervisores y jefe: de la empresa o con ella asignada para supervisarla; RR. HH.: el de la empresa
+        $bosses = User::withoutGlobalScope(TenantScope::class)
+            ->where(fn ($q) => $q->where('tenant_id', $tenantId)
+                ->orWhereIn('id', \Illuminate\Support\Facades\DB::table('user_tenant_access')->where('tenant_id', $tenantId)->select('user_id')))
+            ->where('status', 'active')->where('id', '!=', $leave->user_id)
+            ->whereIn('id', $supervisorIds->unique())->get();
+
+        return $bosses->merge($users()->whereIn('id', $hr)->get())->unique('id')->values();
     }
 
     private function employee(int $userId): ?User

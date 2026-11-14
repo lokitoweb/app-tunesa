@@ -156,8 +156,12 @@ class AttendanceAlertNotifier
             return collect();
         }
 
+        $tenantId = $employee->tenant_id;
+
         return User::withoutGlobalScope(TenantScope::class)
-            ->where('tenant_id', $employee->tenant_id)
+            // De la empresa o con esta empresa asignada para supervisarla (Acceso a varias empresas)
+            ->where(fn ($q) => $q->where('tenant_id', $tenantId)
+                ->orWhereIn('id', \Illuminate\Support\Facades\DB::table('user_tenant_access')->where('tenant_id', $tenantId)->select('user_id')))
             ->where('status', 'active')
             ->where('id', '!=', $employee->id)
             ->whereIn('id', \Illuminate\Support\Facades\DB::table('branch_supervisors')->where('branch_id', $branchId)->select('user_id'))

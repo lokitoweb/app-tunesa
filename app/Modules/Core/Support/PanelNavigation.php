@@ -31,6 +31,7 @@ class PanelNavigation
         $sections = [
             'Plataforma' => [
                 ['Core', $user->isSuperAdmin(), 'companies.index', [], 'buildings', 'Empresas', $request->routeIs('companies*')],
+                ['Core', $user->isSuperAdmin(), 'settings.company-access', [], 'diagram-3', 'Acceso a varias empresas', $request->routeIs('settings.company-access*')],
             ],
             'Monitoreo' => [
                 ['Core', true, 'dashboard', [], 'speedometer2', 'Dashboard', $request->routeIs('dashboard*')],

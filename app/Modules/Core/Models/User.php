@@ -322,17 +322,22 @@ class User extends Authenticatable
      */
     public function permissionSlugs(): array
     {
+        // Empresa cuyos permisos rigen: la suya, o la que supervisa por acceso asignado (su rol base, con los
+        // ajustes que esa empresa hizo a ese rol; su rol propio solo existe en su empresa)
+        $tenantId = $this->permissionTenantId();
+        $customId = $tenantId === ($this->tenant_id ? (int) $this->tenant_id : null) ? $this->custom_role_id : null;
+        $cacheKey = "permission_slugs:{$tenantId}";
         // Mismo rol en la misma empresa = mismos permisos: listas de personas no consultan una vez por fila
         $memo = app(self::PERMISSION_MEMO);
-        $memoKey = "{$this->tenant_id}|{$this->role}|{$this->custom_role_id}";
-        if (! array_key_exists('permission_slugs', $this->permissionCache) && isset($memo[$memoKey])) {
-            $this->permissionCache['permission_slugs'] = $memo[$memoKey];
+        $memoKey = "{$tenantId}|{$this->role}|{$customId}";
+        if (! array_key_exists($cacheKey, $this->permissionCache) && isset($memo[$memoKey])) {
+            $this->permissionCache[$cacheKey] = $memo[$memoKey];
         }
-        if (! array_key_exists('permission_slugs', $this->permissionCache)) {
+        if (! array_key_exists($cacheKey, $this->permissionCache)) {
             // Rol propio de la empresa: parte de su rol base y aplica sus propias diferencias
             [$base, $key] = [$this->role, $this->role];
-            if ($this->custom_role_id && $this->tenant_id && self::overridesTableReady()) {
-                $custom = Role::query()->whereKey($this->custom_role_id)->where('tenant_id', $this->tenant_id)->first(['id', 'slug', 'base_role']);
+            if ($customId && $tenantId && self::overridesTableReady()) {
+                $custom = Role::query()->whereKey($customId)->where('tenant_id', $tenantId)->first(['id', 'slug', 'base_role']);
                 if ($custom?->base_role === $this->role) {
                     $key = $custom->slug;
                 }
@@ -344,8 +349,8 @@ class User extends Authenticatable
                 ->all();
 
             // Lo que la empresa cambió en Configuración › Roles y permisos: estándar + concedidos − quitados
-            if ($this->tenant_id && self::overridesTableReady()) {
-                $overrides = RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $this->tenant_id)->where('role', $key)
+            if ($tenantId && self::overridesTableReady()) {
+                $overrides = RolePermissionOverride::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('role', $key)
                     ->join('permissions', 'permissions.id', '=', 'role_permission_overrides.permission_id')
                     ->pluck('role_permission_overrides.granted', 'permissions.slug');
                 $slugs = array_values(array_unique(array_merge(
@@ -354,10 +359,58 @@ class User extends Authenticatable
                 )));
             }
 
-            $this->permissionCache['permission_slugs'] = $memo[$memoKey] = $slugs;
+            $this->permissionCache[$cacheKey] = $memo[$memoKey] = $slugs;
         }
 
-        return $this->permissionCache['permission_slugs'];
+        return $this->permissionCache[$cacheKey];
+    }
+
+    /**
+     * Empresas que el Super Admin le asignó para supervisar además de la suya (user_tenant_access).
+     * Sigue siendo de su empresa: ahí marca y está su legajo; en las asignadas actúa con su mismo rol.
+     */
+    public function extraTenants(): BelongsToMany
+    {
+        return $this->belongsToMany(Tenant::class, 'user_tenant_access')->withTimestamps()->withPivot('granted_by');
+    }
+
+    /** ids de las empresas asignadas (activas), memorizados en la instancia */
+    public function extraTenantIds(): array
+    {
+        if (! $this->tenant_id || ! self::accessTableReady()) {
+            return [];
+        }
+
+        return $this->permissionCache['extra_tenant_ids'] ??= \Illuminate\Support\Facades\DB::table('user_tenant_access')
+            ->join('tenants', 'tenants.id', '=', 'user_tenant_access.tenant_id')
+            ->where('user_tenant_access.user_id', $this->id)->where('tenants.status', 'active')
+            ->where('tenants.id', '!=', $this->tenant_id)
+            ->pluck('tenants.id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /** ¿Puede trabajar en el panel en esta empresa? (la suya o una asignada) */
+    public function canActInTenant(?int $tenantId): bool
+    {
+        return $tenantId !== null && ($tenantId === (int) $this->tenant_id || in_array($tenantId, $this->extraTenantIds(), true));
+    }
+
+    /** Empresa activa del contexto si es una asignada; si no, la suya */
+    private function permissionTenantId(): ?int
+    {
+        $own = $this->tenant_id ? (int) $this->tenant_id : null;
+        $context = app(\App\Modules\Core\Services\TenantContext::class);
+        if ($own && $context->resolved() && $context->id() !== $own && in_array($context->id(), $this->extraTenantIds(), true)) {
+            return $context->id();
+        }
+
+        return $own;
+    }
+
+    private static ?bool $accessReady = null;
+
+    private static function accessTableReady(): bool
+    {
+        return self::$accessReady ??= \Illuminate\Support\Facades\Schema::hasTable('user_tenant_access');
     }
 
     /** En un despliegue el código nuevo responde antes de migrar: sin la tabla, rige el estándar */

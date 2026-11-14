@@ -52,10 +52,10 @@
     </div>
 
     <div class="dash-controls header-controls">
-        @if($navUser->isSuperAdmin())
-            @php
-                $dashTenants = \App\Modules\Core\Models\Tenant::orderBy('company_name')->get(['id', 'company_name']);
-            @endphp
+        @php
+            $dashTenants = \App\Modules\Core\Middleware\SetWebTenant::switchableTenants($navUser);
+        @endphp
+        @if($navUser->isSuperAdmin() || $dashTenants->count() > 1)
             <form method="POST" action="{{ route('admin.tenant.switch') }}" class="m-0 d-inline-flex" data-skeleton id="dashboardTenantForm">
                 @csrf
                 <input type="hidden" name="tenant_id" id="dashboardTenantInput" value="{{ $brandTenant?->id ?? '' }}">
@@ -79,6 +79,7 @@
                             </div>
                         @endif
                         <div class="tenant-options-list">
+                            @if($navUser->isSuperAdmin())
                             <button type="button" class="tenant-menu-item {{ !$brandTenant ? 'is-selected' : '' }}" onclick="selectTenantAndSubmit('', 'dashboardTenantInput', 'dashboardTenantForm')" data-search="todas las empresas consolidado plataforma global">
                                 <span class="tenant-item-icon is-global">
                                     <i class="bi bi-globe2"></i>
@@ -92,6 +93,7 @@
                                 @endif
                             </button>
                             <div class="tenant-menu-divider"></div>
+                            @endif
                             @foreach($dashTenants as $t)
                                 <button type="button" class="tenant-menu-item {{ $brandTenant?->id === $t->id ? 'is-selected' : '' }}" onclick="selectTenantAndSubmit('{{ $t->id }}', 'dashboardTenantInput', 'dashboardTenantForm')" data-search="{{ strtolower($t->company_name) }}">
                                     <span class="tenant-item-icon is-tenant">

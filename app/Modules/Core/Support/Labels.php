@@ -178,6 +178,7 @@ final class Labels
         'employee.terminated'                => ['Cese registrado con su liquidación', 'danger', 'person-x'],
         'employee.transferred_out'           => ['Trasladado a otra empresa del grupo', 'warning', 'arrow-left-right'],
         'employee.transferred_in'            => ['Ingresó por traslado desde otra empresa', 'success', 'arrow-left-right'],
+        'users.tenant_access_changed'        => ['Acceso a varias empresas cambiado', 'primary', 'diagram-3'],
         'labor_regime.created'               => ['Régimen laboral agregado', 'success', 'sliders'],
         'labor_regime.updated'               => ['Régimen laboral modificado', 'info', 'sliders'],
         'labor_regime.parameters_updated'    => ['Remuneración mínima y asignación familiar modificadas', 'info', 'sliders'],

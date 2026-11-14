@@ -51,8 +51,12 @@ onUnmounted(() => {
 // Selector de Empresa del Super Admin
 const showTenantMenu = ref(false);
 const tenantSearch = ref('');
+// Super Admin: todas las empresas; quien supervisa varias: la suya y las asignadas (sin "Todas las empresas")
+const isSuperAdmin = computed(() => !!page.props.auth?.is_super_admin);
+const tenantList = computed(() => (isSuperAdmin.value ? page.props.tenants : page.props.switchTenants) || []);
+const showTenantSelector = computed(() => isSuperAdmin.value || tenantList.value.length > 1);
 const filteredTenants = computed(() => {
-    const list = page.props.tenants || [];
+    const list = tenantList.value;
     if (!tenantSearch.value.trim()) return list;
     const q = tenantSearch.value.trim().toLowerCase();
     return list.filter(t => (t.company_name || '').toLowerCase().includes(q));
@@ -177,7 +181,7 @@ onUnmounted(() => {
                         <i class="bi bi-list"></i>
                     </button>
                     <!-- Selector de empresa del Super Admin -->
-                    <form v-if="auth.is_super_admin" method="POST" action="/admin/switch-tenant" class="m-0 d-inline-flex align-items-center" id="vueTenantForm">
+                    <form v-if="showTenantSelector" method="POST" action="/admin/switch-tenant" class="m-0 d-inline-flex align-items-center" id="vueTenantForm">
                         <input type="hidden" name="_token" :value="page.props.csrf">
                         <input type="hidden" name="tenant_id" :value="brand.tenant_id || ''">
                         <div class="dropdown topbar-tenant-dropdown" :class="{ show: showTenantMenu }">
@@ -191,31 +195,33 @@ onUnmounted(() => {
                             <div v-if="showTenantMenu" class="dropdown-menu dropdown-menu-start topbar-tenant-menu shadow-lg show" style="display: block;">
                                 <div class="tenant-menu-header">
                                     <span class="tenant-menu-title"><i class="bi bi-buildings-fill text-primary me-1"></i> EMPRESA ACTIVA</span>
-                                    <span class="tenant-menu-badge">{{ (page.props.tenants || []).length }} disp.</span>
+                                    <span class="tenant-menu-badge">{{ tenantList.length }} disp.</span>
                                 </div>
-                                <div v-if="(page.props.tenants || []).length >= 4" class="tenant-search-box">
+                                <div v-if="tenantList.length >= 4" class="tenant-search-box">
                                     <i class="bi bi-search tenant-search-icon"></i>
                                     <input type="text" v-model="tenantSearch" class="tenant-search-input" placeholder="Buscar empresa..." autocomplete="off" @click.stop>
                                 </div>
                                 <div class="tenant-options-list">
-                                    <button type="button" class="tenant-menu-item" :class="{ 'is-selected': !brand.tenant_id }" @click="selectTenant('')">
-                                        <span class="tenant-item-icon is-global">
-                                            <i class="bi bi-globe2"></i>
-                                        </span>
-                                        <div class="tenant-item-content">
-                                            <span class="tenant-item-name">Todas las empresas</span>
-                                            <span class="tenant-item-sub">Consolidado global de la plataforma</span>
-                                        </div>
-                                        <i v-if="!brand.tenant_id" class="bi bi-check2 tenant-item-check"></i>
-                                    </button>
-                                    <div class="tenant-menu-divider"></div>
+                                    <template v-if="isSuperAdmin">
+                                        <button type="button" class="tenant-menu-item" :class="{ 'is-selected': !brand.tenant_id }" @click="selectTenant('')">
+                                            <span class="tenant-item-icon is-global">
+                                                <i class="bi bi-globe2"></i>
+                                            </span>
+                                            <div class="tenant-item-content">
+                                                <span class="tenant-item-name">Todas las empresas</span>
+                                                <span class="tenant-item-sub">Consolidado global de la plataforma</span>
+                                            </div>
+                                            <i v-if="!brand.tenant_id" class="bi bi-check2 tenant-item-check"></i>
+                                        </button>
+                                        <div class="tenant-menu-divider"></div>
+                                    </template>
                                     <button v-for="t in filteredTenants" :key="t.id" type="button" class="tenant-menu-item" :class="{ 'is-selected': brand.tenant_id === t.id }" @click="selectTenant(t.id)">
                                         <span class="tenant-item-icon is-tenant">
                                             <i class="bi bi-building"></i>
                                         </span>
                                         <div class="tenant-item-content">
                                             <span class="tenant-item-name">{{ t.company_name }}</span>
-                                            <span class="tenant-item-sub">Empresa activa</span>
+                                            <span class="tenant-item-sub">{{ isSuperAdmin ? 'Empresa activa' : (t.own ? 'Tu empresa' : 'Asignada para supervisar') }}</span>
                                         </div>
                                         <i v-if="brand.tenant_id === t.id" class="bi bi-check2 tenant-item-check"></i>
                                     </button>

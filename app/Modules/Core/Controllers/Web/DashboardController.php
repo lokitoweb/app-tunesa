@@ -140,10 +140,22 @@ class DashboardController extends Controller
 
     /**
      * Super Admin: elige la empresa a administrar (o vuelve a la vista de plataforma).
+     * Quien supervisa varias empresas: elige entre la suya y las que le asignó el Super Admin.
      */
     public function switchTenant(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
+        $user = $request->user();
+        if (! $user->isSuperAdmin()) {
+            $tenantId = $request->integer('tenant_id') ?: (int) $user->tenant_id;
+            abort_unless($user->canActInTenant($tenantId), 403, 'No tienes acceso a esa empresa.');
+            $tenantId === (int) $user->tenant_id
+                ? $request->session()->forget(SetWebTenant::ACTING_TENANT)
+                : $request->session()->put(SetWebTenant::ACTING_TENANT, $tenantId);
+            $next = $request->input('next');
+
+            return redirect()->to(is_string($next) && $next !== '' ? SetWebTenant::relativeUrl($next) : route('dashboard'))
+                ->with('success', 'Ahora ves ' . Tenant::find($tenantId)?->company_name . '.');
+        }
 
         $validated = $request->validate([
             'tenant_id' => ['nullable', 'integer', 'exists:tenants,id'],

@@ -145,6 +145,12 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::put('/{id}', [CompanyWebController::class, 'update'])->name('update')->whereNumber('id');
     });
 
+    // Supervisión de varias empresas (Super Admin): a quién se le asignan otras empresas del grupo
+    Route::prefix('settings/company-access')->name('settings.company-access')->middleware('can:tenants.manage')->group(function () {
+        Route::get('/', [\App\Modules\Core\Controllers\Web\CompanyAccessWebController::class, 'index']);
+        Route::put('/', [\App\Modules\Core\Controllers\Web\CompanyAccessWebController::class, 'update'])->name('.update');
+    });
+
     // Bitácora de auditoría
     Route::get('/audit', [AuditLogWebController::class, 'index'])->name('audit.index')->middleware('can:audit.view');
 });

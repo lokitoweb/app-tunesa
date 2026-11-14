@@ -221,11 +221,22 @@ class BranchWebController extends Controller
      */
     private function supervisors(?int $tenantId): Collection
     {
-        return User::forTenant($tenantId)
+        // De la empresa y, además, quienes tienen asignada esta empresa para supervisarla (Acceso a varias empresas)
+        $access = \Illuminate\Support\Facades\DB::table('user_tenant_access');
+        $people = User::withoutGlobalScopes()->whereNull('deleted_at')
+            ->when($tenantId, fn ($q) => $q->where(fn ($w) => $w->where('tenant_id', $tenantId)
+                ->orWhereIn('id', (clone $access)->where('tenant_id', $tenantId)->select('user_id'))))
+            ->whereNotNull('tenant_id')
             ->whereIn('role', self::SUPERVISOR_ROLES)
             ->where('status', 'active')
             ->orderBy('first_name')
             ->get();
+        // Empresas en las que cada uno puede supervisar (el selector de la vista global filtra con esto)
+        $extra = (clone $access)->whereIn('user_id', $people->modelKeys())->get(['user_id', 'tenant_id'])->groupBy('user_id');
+        $people->each(fn (User $u) => $u->setAttribute('supervises_tenants', collect([(int) $u->tenant_id])
+            ->merge(($extra[$u->id] ?? collect())->pluck('tenant_id')->map(fn ($id) => (int) $id))->unique()->values()->all()));
+
+        return $people;
     }
 
     /** El radio (allowed_radius_meters) es la geocerca en metros que usa la marcación */
@@ -250,11 +261,12 @@ class BranchWebController extends Controller
             'geofence_policy'           => ['nullable', Rule::in(array_keys(CompanyConfiguration::GEOFENCE_POLICIES))],
             'zone_id'               => ['sometimes', 'nullable', 'integer', Rule::exists('zones', 'id')->where('tenant_id', $tenantId)],
             'branch_type'           => ['sometimes', Rule::in(array_keys(Branch::TYPES))],
-            'supervisor_id'         => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $tenantId)->whereIn('role', self::SUPERVISOR_ROLES)],
-            // Varios supervisores (mañana, tarde o a la vez): activos, de esta empresa y con rol que supervisa
+            'supervisor_id'         => ['nullable', 'integer', Rule::in($eligible = $this->supervisors($tenantId)->modelKeys())],
+            // Varios supervisores (mañana, tarde o a la vez): activos, con rol que supervisa, de esta empresa
+            // o con esta empresa asignada para supervisarla
             'supervisors_sent'      => ['nullable', 'boolean'],
             'supervisor_ids'        => ['nullable', 'array', 'max:50'],
-            'supervisor_ids.*'      => ['integer', 'distinct', Rule::exists('users', 'id')->where('tenant_id', $tenantId)->where('status', 'active')->whereNull('deleted_at')->whereIn('role', self::SUPERVISOR_ROLES)],
+            'supervisor_ids.*'      => ['integer', 'distinct', Rule::in($eligible)],
             'is_active'             => ['nullable', 'boolean'],
             'notes'                 => ['nullable', 'string', 'max:500'],
         ];
