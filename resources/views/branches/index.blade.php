@@ -108,7 +108,7 @@
                  data-city="{{ strtolower($b->city ?? '') }}"
                  data-address="{{ strtolower($b->address) }}"
                  data-code="{{ strtolower($b->code ?? '') }}"
-                 data-supervisor="{{ strtolower($b->supervisor ? $b->supervisor->first_name . ' ' . $b->supervisor->last_name : '') }}"
+                 data-supervisor="{{ mb_strtolower($b->supervisors->map(fn ($s) => $s->first_name . ' ' . $s->last_name)->join(' ')) }}"
                  data-status="{{ $b->is_active ? 'active' : 'inactive' }}"
                  data-type="{{ $b->branch_type ?? 'agency' }}"
                  data-zone="{{ $b->zone_id ? $b->zone_id : 'none' }}">
@@ -213,10 +213,12 @@
                                     <div class="branch-icon-pill bg-info-subtle text-info">
                                         <i class="bi bi-person-badge"></i>
                                     </div>
-                                    <span class="branch-info-label">Supervisor:</span>
+                                    @php $supNames = $b->supervisors->map(fn ($s) => trim($s->first_name . ' ' . $s->last_name)); @endphp
+                                    <span class="branch-info-label">{{ $supNames->count() > 1 ? 'Supervisores:' : 'Supervisor:' }}</span>
                                 </div>
-                                <span class="branch-info-val text-body" title="{{ $b->supervisor ? $b->supervisor->first_name . ' ' . $b->supervisor->last_name : 'Sin asignar' }}">
-                                    {{ $b->supervisor ? $b->supervisor->first_name . ' ' . $b->supervisor->last_name : 'Sin asignar' }}
+                                <span class="branch-info-val {{ $supNames->isEmpty() ? 'text-body-secondary' : 'text-body' }}"
+                                      title="{{ $supNames->isEmpty() ? 'Sin asignar: la ven todos los supervisores de la empresa' : $supNames->join(', ') }}">
+                                    {{ $supNames->isEmpty() ? 'Sin asignar (todos)' : $supNames->join(', ') }}
                                 </span>
                             </div>
 
@@ -333,7 +335,7 @@
                                 </label>
                                 <div class="pretty-select">
                                     <i class="bi bi-buildings pretty-select-icon" aria-hidden="true"></i>
-                                    <select id="m_tenant_id" name="tenant_id" class="form-select" required>
+                                    <select id="m_tenant_id" name="tenant_id" class="form-select" required onchange="supervisorPickers.m_supervisors.tenant(this.value || '0')">
                                     <option value="">Selecciona la empresa...</option>
                                     @foreach($companies as $cId => $cName)
                                         <option value="{{ $cId }}">{{ $cName }}</option>
@@ -409,19 +411,13 @@
                             @endif
                         </div>
 
-                        {{-- Supervisor / Responsable --}}
+                        {{-- Supervisores / Encargados: uno o varios (mañana, tarde o a la vez) --}}
                         <div class="col-12 col-md-6">
-                            <label for="m_supervisor_id" class="form-label fw-semibold small text-body mb-1">
-                                Supervisor / Encargado <span class="text-muted fw-normal">(Opcional)</span>
-                            </label>
-                            <select id="m_supervisor_id" name="supervisor_id" class="form-select" style="height: 40px; border-radius: 8px; font-size: 0.85rem;">
-                                <option value="">Sin supervisor asignado</option>
-                                @foreach($supervisors as $s)
-                                    <option value="{{ $s->id }}" data-tenant="{{ $s->tenant_id }}">
-                                        {{ $s->first_name }} {{ $s->last_name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <span class="form-label fw-semibold small text-body mb-1 d-block" id="m_supervisors_label">
+                                Supervisores / Encargados <span class="text-muted fw-normal">(Opcional)</span>
+                            </span>
+                            @include('branches.partials.supervisor-picker', ['pickerId' => 'm_supervisors', 'supervisors' => $supervisors, 'selected' => [],
+                                'inputClass' => 'form-select'])
                         </div>
 
                         {{-- Ubigeo: departamento (city) > provincia > distrito --}}
@@ -735,7 +731,9 @@
         document.getElementById('m_document_series').value = '';
         document.getElementById('m_branch_type').value = 'agency';
         document.getElementById('m_zone_id').value = '';
-        document.getElementById('m_supervisor_id').value = '';
+        supervisorPickers.m_supervisors.set([]);
+        {{-- Vista global: hasta elegir la empresa no se ofrece a nadie ('0'); con empresa fija, a todos los suyos --}}
+        supervisorPickers.m_supervisors.tenant(document.getElementById('m_tenant_id') ? '0' : null);
         branchUbigeo.set('', '', '');
         document.getElementById('m_address').value = '';
         document.getElementById('m_latitude').value = '-12.046374';
@@ -764,7 +762,9 @@
         document.getElementById('m_document_series').value = branch.document_series || '';
         document.getElementById('m_branch_type').value = branch.branch_type || 'agency';
         document.getElementById('m_zone_id').value = branch.zone_id || '';
-        document.getElementById('m_supervisor_id').value = branch.supervisor_id || '';
+        {{-- Solo los usuarios de la empresa de la sede; marcados los que ya la supervisan --}}
+        supervisorPickers.m_supervisors.tenant(branch.tenant_id);
+        supervisorPickers.m_supervisors.set((branch.supervisors || []).map((s) => s.id));
         {{-- Departamento de la lista (sin importar mayúsculas); un valor anterior fuera de la lista se conserva como "(actual)" --}}
         const citySelect = document.getElementById('m_city');
         citySelect.querySelectorAll('option[data-legacy]').forEach((o) => o.remove());

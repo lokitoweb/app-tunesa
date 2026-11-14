@@ -125,11 +125,12 @@ class NotificationDispatcher
     {
         $tenantId = $leave->tenant_id;
 
-        $supervisorIds = Branch::withoutGlobalScope(TenantScope::class)
+        // Todos los supervisores asignados a las sedes del colaborador (uno o varios por sede)
+        $branchIds = Branch::withoutGlobalScope(TenantScope::class)
             ->where('tenant_id', $tenantId)
-            ->whereNotNull('supervisor_id')
             ->whereHas('employees', fn ($q) => $q->where('users.id', $leave->user_id))
-            ->pluck('supervisor_id');
+            ->pluck('id');
+        $supervisorIds = \Illuminate\Support\Facades\DB::table('branch_supervisors')->whereIn('branch_id', $branchIds)->pluck('user_id');
 
         // Jefe inmediato: el jefe del área del colaborador
         $departmentId = User::withoutGlobalScope(TenantScope::class)->whereKey($leave->user_id)->value('department_id');

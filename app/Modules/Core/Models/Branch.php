@@ -88,16 +88,53 @@ class Branch extends Model
                 throw new \DomainException('Solo un usuario con alcance de toda la empresa crea sedes o las cambia de zona.');
             }
         });
+
+        // Compatibilidad: quien aún guarda un solo supervisor (supervisor_id) lo refleja en la lista
+        static::saved(function (Branch $branch) {
+            if ($branch->syncingSupervisors || ! $branch->wasChanged('supervisor_id') && ! $branch->wasRecentlyCreated) {
+                return;
+            }
+            if ($old = $branch->getOriginal('supervisor_id')) {
+                $branch->supervisors()->detach($old);
+            }
+            if ($branch->supervisor_id) {
+                $branch->supervisors()->syncWithoutDetaching([$branch->supervisor_id]);
+            }
+        });
     }
+
+    /** true mientras syncSupervisors() guarda: el evento saved no debe tocar la lista */
+    private bool $syncingSupervisors = false;
 
     public function zone(): BelongsTo
     {
         return $this->belongsTo(Zone::class);
     }
 
+    /** Primer supervisor de la lista (compatibilidad: API antigua y textos que muestran un nombre) */
     public function supervisor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'supervisor_id');
+    }
+
+    /** Supervisores de la sede (uno o varios: mañana, tarde o a la vez). Sin ninguno, la ven todos los supervisores. */
+    public function supervisors(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'branch_supervisors')->withTimestamps()->orderBy('users.first_name');
+    }
+
+    /** Reemplaza los supervisores de la sede; supervisor_id queda como el primero (o null) */
+    public function syncSupervisors(array $userIds): void
+    {
+        $ids = array_values(array_unique(array_map('intval', array_filter($userIds))));
+        $this->supervisors()->sync($ids);
+        $this->syncingSupervisors = true;
+        try {
+            $this->forceFill(['supervisor_id' => $ids[0] ?? null])->saveQuietly();
+        } finally {
+            $this->syncingSupervisors = false;
+        }
+        $this->unsetRelation('supervisors')->unsetRelation('supervisor');
     }
 
     public function employees(): BelongsToMany
@@ -172,6 +209,21 @@ class Branch extends Model
     public function scopeVisibleTo($query, User $viewer)
     {
         // Con alcance de zona o sede, BranchScope ya dejó solo las sedes de su territorio
-        return $viewer->seesAllAttendance() || $viewer->isOrgScoped() ? $query : $query->where($this->qualifyColumn('supervisor_id'), $viewer->id);
+        return $viewer->seesAllAttendance() || $viewer->isOrgScoped() ? $query : $query->supervisedBy($viewer);
+    }
+
+    /**
+     * Sedes a cargo de $supervisor: donde figura entre sus supervisores y, si es supervisor
+     * (attendance.view_team), también las que no tienen ningún supervisor asignado. Regla única
+     * para horarios, asistencia, aprobaciones, avisos y la app.
+     */
+    public function scopeSupervisedBy($query, User $supervisor)
+    {
+        $id = $this->qualifyColumn('id');
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('branch_supervisors')->select('branch_id');
+
+        return $query->where(fn ($q) => $q
+            ->whereIn($id, $pivot()->where('user_id', $supervisor->id))
+            ->when($supervisor->hasPermission('attendance.view_team'), fn ($q) => $q->orWhereNotIn($id, $pivot())));
     }
 }

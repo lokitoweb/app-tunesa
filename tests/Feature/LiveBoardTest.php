@@ -155,7 +155,8 @@ class LiveBoardTest extends TestCase
 
     public function test_supervisor_sees_only_team(): void
     {
-        $otherBranch = $this->makeBranch($this->tenant, ['name' => 'Sede Norte']);
+        // Sede Norte es de otro supervisor (sin supervisor la verían todos los supervisores)
+        $otherBranch = $this->makeBranch($this->tenant, ['name' => 'Sede Norte', 'supervisor_id' => $this->makeUser($this->tenant, 'supervisor')->id]);
         $this->employee('outsider', $this->shift('Otro', '08:00'), $otherBranch);
 
         $json = $this->actingAs($this->supervisor)->getJson('/live/data')->assertOk()->json();

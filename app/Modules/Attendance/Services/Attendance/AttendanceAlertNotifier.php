@@ -48,8 +48,8 @@ class AttendanceAlertNotifier
                 $employee->notify(new AttendanceOutsideSchedule($attendance, $punch, $employee));
             }
 
-            $this->supervisorOf($punch->branch_id, $employee)
-                ?->notify((new AttendanceOutsideSchedule($attendance, $punch, $employee, forSupervisor: true))->withoutPush());
+            $this->supervisorsOf($punch->branch_id, $employee)
+                ->each(fn (User $s) => $s->notify((new AttendanceOutsideSchedule($attendance, $punch, $employee, forSupervisor: true))->withoutPush()));
         });
     }
 
@@ -62,8 +62,8 @@ class AttendanceAlertNotifier
                 return;
             }
 
-            $this->supervisorOf($attendance->branch_id, $employee)
-                ?->notify((new AttendanceEarlyExit($attendance, $minutes, $scheduledEnd, $employee))->withoutPush());
+            $this->supervisorsOf($attendance->branch_id, $employee)
+                ->each(fn (User $s) => $s->notify((new AttendanceEarlyExit($attendance, $minutes, $scheduledEnd, $employee))->withoutPush()));
         });
     }
 
@@ -89,8 +89,8 @@ class AttendanceAlertNotifier
 
             $employee->notify(new AttendanceOutsideGeofence($info, $punchType, $rejected, $employee));
 
-            $this->supervisorOf($branch?->id, $employee)
-                ?->notify((new AttendanceOutsideGeofence($info, $punchType, $rejected, $employee, forSupervisor: true))->withoutPush());
+            $this->supervisorsOf($branch?->id, $employee)
+                ->each(fn (User $s) => $s->notify((new AttendanceOutsideGeofence($info, $punchType, $rejected, $employee, forSupervisor: true))->withoutPush()));
         });
     }
 
@@ -114,9 +114,7 @@ class AttendanceAlertNotifier
                 ->whereIn('role', ['company_admin', 'hr_manager'])
                 ->get();
 
-            if ($supervisor = $this->supervisorOf($branchId, $employee)) {
-                $recipients->push($supervisor);
-            }
+            $recipients = $recipients->concat($this->supervisorsOf($branchId, $employee));
 
             $recipients->unique('id')
                 ->reject(fn (User $u) => (int) $u->id === (int) $employee->id)
@@ -138,9 +136,7 @@ class AttendanceAlertNotifier
                 ->where('status', 'active')
                 ->whereIn('role', ['company_admin', 'hr_manager'])
                 ->get();
-            if ($supervisor = $this->supervisorOf($attendance->branch_id, $employee)) {
-                $recipients->push($supervisor);
-            }
+            $recipients = $recipients->concat($this->supervisorsOf($attendance->branch_id, $employee));
 
             $recipients->unique('id')
                 ->reject(fn (User $u) => (int) $u->id === (int) $employee->id)
@@ -148,21 +144,24 @@ class AttendanceAlertNotifier
         });
     }
 
-    private function supervisorOf(?int $branchId, User $employee): ?User
+    /**
+     * Supervisores asignados a la sede (uno o varios), activos, de la misma empresa y sin el propio
+     * colaborador. Una sede sin supervisores no avisa a ninguno: RR. HH. y administración igual reciben lo suyo.
+     *
+     * @return \Illuminate\Support\Collection<int, User>
+     */
+    private function supervisorsOf(?int $branchId, User $employee): \Illuminate\Support\Collection
     {
         if (! $branchId) {
-            return null;
+            return collect();
         }
 
-        $supervisorId = Branch::withoutGlobalScope(TenantScope::class)->whereKey($branchId)->value('supervisor_id');
-
-        if (! $supervisorId || (int) $supervisorId === (int) $employee->id) {
-            return null;
-        }
-
-        $supervisor = $this->activeUser((int) $supervisorId);
-
-        return $supervisor && (int) $supervisor->tenant_id === (int) $employee->tenant_id ? $supervisor : null;
+        return User::withoutGlobalScope(TenantScope::class)
+            ->where('tenant_id', $employee->tenant_id)
+            ->where('status', 'active')
+            ->where('id', '!=', $employee->id)
+            ->whereIn('id', \Illuminate\Support\Facades\DB::table('branch_supervisors')->where('branch_id', $branchId)->select('user_id'))
+            ->get();
     }
 
     private function activeUser(int $id): ?User

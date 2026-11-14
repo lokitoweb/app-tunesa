@@ -76,7 +76,7 @@ class ApprovalWebController extends Controller
                 ->with([
                     'employee:id,first_name,last_name,employee_code,avatar_path,department_id', 'reviewer:id,first_name,last_name',
                     // "Revisa": jefe de área o supervisor de sede, y RR. HH.
-                    'employee.department.head:id,first_name,last_name', 'employee.branches.supervisor:id,first_name,last_name',
+                    'employee.department.head:id,first_name,last_name', 'employee.branches.supervisors:users.id,users.first_name,users.last_name',
                 ])
                 ->orderBy('start_date')
                 ->paginate($perPage)

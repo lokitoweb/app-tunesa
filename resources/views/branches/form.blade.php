@@ -85,13 +85,11 @@
                             </div>
                         @endif
                         <div class="col-sm-7">
-                            <label for="supervisor_id" class="form-label">Supervisor a cargo</label>
-                            <select id="supervisor_id" name="supervisor_id" class="form-select @error('supervisor_id') is-invalid @enderror">
-                                <option value="">Sin supervisor</option>
-                                @foreach($supervisors as $s)
-                                    <option value="{{ $s->id }}" data-tenant="{{ $s->tenant_id }}" @selected(old('supervisor_id', $branch->supervisor_id) == $s->id)>{{ $s->first_name }} {{ $s->last_name }}</option>
-                                @endforeach
-                            </select>
+                            <span class="form-label d-block">Supervisores a cargo</span>
+                            @include('branches.partials.supervisor-picker', ['pickerId' => 'f_supervisors', 'supervisors' => $supervisors,
+                                'selected' => old('supervisor_ids', $branch->exists ? $branch->supervisors->pluck('id')->all() : []),
+                                'inputClass' => 'form-select' . ($errors->has('supervisor_ids.*') || $errors->has('supervisor_ids') ? ' is-invalid' : '')])
+                            @error('supervisor_ids.*')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
                     </div>
                     <div class="row g-3 mb-3">
@@ -419,17 +417,11 @@ document.addEventListener('DOMContentLoaded', () => {
     {{-- Vista global: solo se ofrecen los supervisores de la empresa elegida --}}
     const company = document.getElementById('tenant_id');
     if (company) {
-        const supervisor = document.getElementById('supervisor_id');
-        const filterSupervisors = () => {
-            supervisor.querySelectorAll('option[data-tenant]').forEach((opt) => {
-                const show = opt.dataset.tenant === company.value;
-                opt.hidden = !show;
-                opt.disabled = !show;
-                if (!show && opt.selected) supervisor.value = '';
-            });
-        };
+        const filterSupervisors = () => supervisorPickers.f_supervisors.tenant(company.value || '0');
         company.addEventListener('change', filterSupervisors);
         filterSupervisors();
+    } else if (@json($branch->exists)) {
+        supervisorPickers.f_supervisors.tenant(@json($branch->tenant_id));
     }
     [latInput, lngInput].forEach((input) => input.addEventListener('change', () => {
         const lat = parseFloat(latInput.value), lng = parseFloat(lngInput.value);

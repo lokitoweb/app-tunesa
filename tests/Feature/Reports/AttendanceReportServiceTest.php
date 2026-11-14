@@ -321,7 +321,8 @@ class AttendanceReportServiceTest extends TestCase
         $supervisor = $this->makeUser($tenant, 'supervisor');
         $emp->branches()->first()->update(['supervisor_id' => $supervisor->id]);
         $outsider = $this->makeUser($tenant, 'employee');
-        $outsider->branches()->attach($this->makeBranch($tenant)->id);
+        $otherSup = $this->makeUser($tenant, 'supervisor');
+        $outsider->branches()->attach($this->makeBranch($tenant, ['supervisor_id' => $otherSup->id])->id); // sede de otro supervisor
 
         $other = $this->makeTenant('globex');
         $foreign = $this->makeUser($other, 'employee');
@@ -332,7 +333,7 @@ class AttendanceReportServiceTest extends TestCase
         $admin = $this->makeUser($tenant, 'company_admin');
         $ids = $this->service->employeesQuery($this->filters($tenant, '2026-10-01', '2026-10-05', $admin))->pluck('id')->all();
         // El administrador también marca asistencia: aparece en el reporte de su empresa
-        $this->assertEqualsCanonicalizing([$emp->id, $supervisor->id, $outsider->id, $admin->id], $ids);
+        $this->assertEqualsCanonicalizing([$emp->id, $supervisor->id, $otherSup->id, $outsider->id, $admin->id], $ids);
 
         $super = $this->makeUser(null, 'super_admin');
         $ids = $this->service->employeesQuery(new ReportFilters(null, '2026-10-01', '2026-10-05', viewer: $super))->pluck('id')->all();

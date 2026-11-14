@@ -55,13 +55,21 @@ class ShiftAssignByBranchTest extends TestCase
         $names = fn ($user) => collect($this->actingAs($user)->get('/shifts/schedule')->assertOk()->viewData('page')['props']['branches'])->pluck('name')->sort()->values()->all();
         $hint  = fn ($user) => $this->actingAs($user)->get('/shifts/schedule')->viewData('page')['props']['noBranchesHint'];
 
-        // Supervisor sin agencias a su cargo: no ve ninguna (ni la de otra empresa) y la pantalla dice qué hacer
+        // Agencias sin supervisor asignado: las ve todo supervisor de la empresa (nunca las de otra)
+        $this->assertSame(['Agencia Lima', 'Agencia Trujillo'], $names($juan));
+        $this->assertNull($hint($juan));
+
+        // Todas con otros supervisores: no ve ninguna y la pantalla dice qué hacer
+        $pedro = $this->makeUser($acme, 'supervisor', ['first_name' => 'Pedro']);
+        $trujillo->syncSupervisors([$pedro->id]);
+        $lima->syncSupervisors([$pedro->id]);
         $this->assertSame([], $names($juan));
         $this->assertStringContainsString('Supervisor» en Sedes', $hint($juan));
 
-        // Lo nombran supervisor de Trujillo: ve solo Trujillo y programa a su gente
-        $trujillo->update(['supervisor_id' => $juan->id]);
+        // Lo agregan a Trujillo junto a Pedro (dos supervisores): ve solo Trujillo y programa a su gente
+        $trujillo->syncSupervisors([$pedro->id, $juan->id]);
         $this->assertSame(['Agencia Trujillo'], $names($juan));
+        $this->assertSame(['Agencia Lima', 'Agencia Trujillo'], $names($pedro));
         $this->assertNull($hint($juan));
         // Si pide Lima (no es suya) se le abre su única agencia, nunca Lima
         $this->actingAs($juan)->getJson("/shifts/schedule?branch_id={$lima->id}&month=2026-10")->assertOk()->assertJsonPath('branchId', $trujillo->id);

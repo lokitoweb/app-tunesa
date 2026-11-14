@@ -514,7 +514,8 @@ class ScheduleProgrammingTest extends TestCase
         $post($this->hr, ['reason' => str_repeat('x', 301), 'rows' => [['user_id' => $this->people['Juan']->id, 'days' => []]]])->assertStatus(422)->assertJsonValidationErrors('reason');
         $post($this->hr, ['rows' => [['user_id' => $this->people['Juan']->id, 'days' => ['2026-10-02' => 999999]]]])->assertStatus(422)->assertJsonValidationErrors('rows');
 
-        // Regla 6: un supervisor programa, pero solo sus agencias: esta no es suya
+        // Regla 6: un supervisor programa, pero solo sus agencias: esta es de otro supervisor
+        $this->trujillo->update(['supervisor_id' => $this->makeUser($this->acme, 'supervisor')->id]);
         $supervisor = $this->makeUser($this->acme, 'supervisor');
         $post($supervisor, ['rows' => [['user_id' => $this->people['Juan']->id, 'days' => []]]])->assertNotFound();
         // Contabilidad no programa
@@ -526,7 +527,7 @@ class ScheduleProgrammingTest extends TestCase
     {
         $supervisor = $this->makeUser($this->acme, 'supervisor');
         $this->trujillo->update(['supervisor_id' => $supervisor->id]);
-        $lima = $this->makeBranch($this->acme, ['name' => 'Ag. Lima']);
+        $lima = $this->makeBranch($this->acme, ['name' => 'Ag. Lima', 'supervisor_id' => $this->makeUser($this->acme, 'supervisor')->id]); // de otro supervisor
         $ajeno = $this->makeUser($this->acme, 'employee', ['first_name' => 'Ajeno']);
         $ajeno->branches()->attach($lima->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
 
@@ -561,7 +562,7 @@ class ScheduleProgrammingTest extends TestCase
         $supervisor = $this->makeUser($this->acme, 'supervisor');
         $this->trujillo->update(['supervisor_id' => $supervisor->id]);
         $ajeno = $this->makeUser($this->acme, 'employee', ['first_name' => 'Ajeno']);
-        $ajeno->branches()->attach($this->makeBranch($this->acme)->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        $ajeno->branches()->attach($this->makeBranch($this->acme, ['supervisor_id' => $this->makeUser($this->acme, 'supervisor')->id])->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
         $authorize = fn (User $who) => $this->actingAs($supervisor)->post('/attendance-offshift', ['user_id' => $who->id, 'work_date' => '2026-10-03', 'reason' => 'Inventario de sábado']);
 
         $authorize($this->people['Juan'])->assertSessionHasNoErrors()->assertRedirect('/attendance-offshift');

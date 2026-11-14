@@ -86,7 +86,7 @@ class ScheduleWebController extends Controller
             // Sin agencias: por qué y qué hacer (un supervisor solo programa las agencias que supervisa)
             'noBranchesHint' => $branches->isNotEmpty() ? null : ($viewer->seesAllAttendance() || $viewer->isOrgScoped()
                 ? 'No hay agencias activas para programar. Créalas o actívalas en Sedes.'
-                : 'Aún no eres supervisor de ninguna agencia. Pide a RR. HH. o al administrador que te asigne como «Supervisor» en Sedes › editar la agencia; después verás aquí sus colaboradores.'),
+                : 'Todas las agencias tienen asignados otros supervisores. Pide a RR. HH. o al administrador que te agreguen como «Supervisor» en Sedes › editar la agencia (puede tener varios); después verás aquí sus colaboradores.'),
             'today'    => CarbonImmutable::now(tenant_timezone())->toDateString(),
         ]);
     }

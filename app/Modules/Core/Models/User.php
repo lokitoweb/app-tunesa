@@ -522,13 +522,14 @@ class User extends Authenticatable
     }
 
     /**
-     * Equipo de un supervisor: colaboradores asignados a las sucursales donde
-     * él es supervisor (branches.supervisor_id). Misma regla que la API y Aprobaciones.
+     * Equipo de un supervisor: colaboradores asignados a las sucursales a su cargo
+     * (Branch::scopeSupervisedBy: las que supervisa y las que no tienen supervisor).
+     * Misma regla que la API, Aprobaciones y los avisos.
      */
     public function scopeSupervisedBy($query, User $supervisor)
     {
         return $query->where('users.id', '!=', $supervisor->id)
-            ->whereHas('branches', fn ($q) => $q->where('branches.supervisor_id', $supervisor->id));
+            ->whereHas('branches', fn ($q) => $q->supervisedBy($supervisor));
     }
 
     /** Usuarios cuya asistencia puede ver $viewer: todos o solo su equipo */

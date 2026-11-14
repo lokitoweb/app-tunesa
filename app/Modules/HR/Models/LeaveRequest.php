@@ -155,7 +155,7 @@ class LeaveRequest extends Model
     /**
      * Quién revisa la solicitud, para mostrarlo claro al colaborador y en el
      * panel: su jefe inmediato (jefe de área o, si no hay, supervisor de sede)
-     * y RR. HH. Requiere employee.department.head y employee.branches.supervisor.
+     * y RR. HH. Requiere employee.department.head y employee.branches.supervisors.
      */
     public function reviewersLabel(): string
     {
@@ -163,10 +163,12 @@ class LeaveRequest extends Model
         // users.department es una columna de texto: la relación se lee aparte
         $department = $employee?->relationLoaded('department') ? $employee->getRelation('department') : $employee?->department()->first();
         $head = $department?->head;
+        // Supervisores de sus sedes (uno o varios), sin el propio colaborador
+        $supervisors = $employee?->branches->flatMap(fn ($b) => $b->supervisors)->reject(fn ($s) => $s->id === $employee->id)->unique('id')->values() ?? collect();
         $boss = $head && $head->id !== $employee->id
             ? "{$head->full_name} (jefe de área)"
-            : (($s = $employee?->branches->first(fn ($b) => $b->supervisor && $b->supervisor->id !== $employee->id)?->supervisor)
-                ? "{$s->full_name} (supervisor de sede)"
+            : ($supervisors->isNotEmpty()
+                ? $supervisors->pluck('full_name')->join(', ', ' o ') . ($supervisors->count() > 1 ? ' (supervisores de sede)' : ' (supervisor de sede)')
                 : null);
 
         return $boss ? "{$boss} o RR. HH." : 'RR. HH.';

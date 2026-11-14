@@ -44,7 +44,7 @@ class OrganizationWebController extends Controller
     {
         $tenantId = current_tenant_id_or_null();
 
-        $branches = Branch::with(['supervisor:id,first_name,last_name', 'positions:id'])
+        $branches = Branch::with(['supervisors:users.id,users.first_name,users.last_name', 'positions:id'])
             ->withCount(['employees' => fn ($q) => $q->where('status', 'active')])
             ->orderBy('name')->get();
 
@@ -95,7 +95,8 @@ class OrganizationWebController extends Controller
                 'radius'        => $b->allowed_radius_meters,
                 'is_active'     => $b->is_active,
                 'supervisor_id' => $b->supervisor_id,
-                'supervisor'    => $b->supervisor?->full_name,
+                // Uno o varios: "Ana Díaz, Juan Pérez" (el buscador y la tarjeta lo muestran tal cual)
+                'supervisor'    => $b->supervisors->map(fn ($s) => $s->full_name)->join(', ') ?: null,
                 'employees'     => $b->employees_count,
                 'staff'         => ($staff[$b->id] ?? collect())->map(fn ($row) => [
                     'department_id' => $row->department_id,

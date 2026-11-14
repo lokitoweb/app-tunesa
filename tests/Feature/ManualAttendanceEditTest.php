@@ -115,7 +115,8 @@ class ManualAttendanceEditTest extends TestCase
         $this->actingAs($this->supervisor)->get($this->url($this->emp, '2026-10-09'))->assertOk();
         $this->actingAs($this->supervisor)->get($this->url($this->supervisor, '2026-10-09'))->assertForbidden();
         $other = $this->makeUser($this->acme, 'employee');
-        $other->branches()->attach($this->makeBranch($this->acme)->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        // Sede de otro supervisor (una sin supervisor la verían todos los supervisores)
+        $other->branches()->attach($this->makeBranch($this->acme, ['supervisor_id' => $this->makeUser($this->acme, 'supervisor')->id])->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
         $this->actingAs($this->supervisor)->get($this->url($other, '2026-10-09'))->assertForbidden();
 
         // Colaborador: no entra al panel; otra empresa: no existe

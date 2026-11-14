@@ -38,7 +38,7 @@ class BranchWebController extends Controller
         $tenantId = current_tenant_id_or_null();
 
         $branches = Branch::forTenant($tenantId)
-            ->with(['supervisor', 'zone', 'tenant'])
+            ->with(['supervisors:users.id,users.first_name,users.last_name', 'zone', 'tenant'])
             ->withCount(['employees' => fn($q) => $q->where('status', 'active')])
             ->orderBy('name')
             ->get();
@@ -99,9 +99,15 @@ class BranchWebController extends Controller
         $validated['tenant_id'] = $tenantId;
         $validated['is_active'] = $request->boolean('is_active', true);
         $validated['code']      = $validated['code'] ?? 'BR-' . strtoupper(substr(uniqid(), -5));
+        $supervisorIds = $this->supervisorIds($request, $validated);
 
-        $branch = Branch::create($validated);
-        app(AuditLogger::class)->logCreated('branch.created', $branch, ['name' => $branch->name]);
+        $branch = \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $supervisorIds) {
+            $branch = Branch::create($validated);
+            $branch->syncSupervisors($supervisorIds ?? []);
+
+            return $branch;
+        });
+        app(AuditLogger::class)->logCreated('branch.created', $branch, ['name' => $branch->name, 'supervisors' => $this->supervisorNames($branch)]);
 
         $msg = "Sucursal '{$branch->name}' creada con geocerca de {$branch->allowed_radius_meters}m.";
         if ($request->header('X-Inertia') || $request->wantsJson()) {
@@ -116,7 +122,7 @@ class BranchWebController extends Controller
      */
     public function edit(int $id): View
     {
-        $branch = Branch::forTenant(current_tenant_id_or_null())->with('tenant')->findOrFail($id);
+        $branch = Branch::forTenant(current_tenant_id_or_null())->with(['tenant', 'supervisors:users.id'])->findOrFail($id);
 
         return view('branches.form', [
             'branch'      => $branch,
@@ -136,7 +142,18 @@ class BranchWebController extends Controller
         $validated = $request->validate($this->rules($branch->tenant_id));
 
         $validated['is_active'] = $request->boolean('is_active', true);
-        app(AuditLogger::class)->updateWithAudit('branch.updated', $branch, $validated, ['name' => $branch->name]);
+        $supervisorIds = $this->supervisorIds($request, $validated);
+        $before = $this->supervisorNames($branch);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($branch, $validated, $supervisorIds) {
+            app(AuditLogger::class)->updateWithAudit('branch.updated', $branch, $validated, ['name' => $branch->name]);
+            if ($supervisorIds !== null) {
+                $branch->syncSupervisors($supervisorIds);
+            }
+        });
+        if (($after = $this->supervisorNames($branch)) !== $before) {
+            app(AuditLogger::class)->log('branch.supervisors_changed', $branch, ['name' => $branch->name, 'before' => $before ?: 'Sin supervisor', 'after' => $after ?: 'Sin supervisor']);
+        }
 
         $msg = "Sucursal '{$branch->name}' actualizada correctamente.";
         if ($request->header('X-Inertia') || $request->wantsJson()) {
@@ -175,6 +192,30 @@ class BranchWebController extends Controller
     }
 
     /**
+     * Supervisores elegidos (supervisor_ids[]); un formulario o integración antigua que aún manda
+     * supervisor_id (uno solo) sigue funcionando. Se quitan de $validated: se guardan en la lista.
+     */
+    private function supervisorIds(Request $request, array &$validated): ?array
+    {
+        // El formulario manda supervisors_sent=1 (las casillas desmarcadas no viajan): sin él ni
+        // supervisor_id, la lista no se toca (un guardado parcial no borra a los supervisores)
+        $ids = match (true) {
+            $request->boolean('supervisors_sent') || $request->has('supervisor_ids') => (array) ($validated['supervisor_ids'] ?? []),
+            $request->exists('supervisor_id') => array_filter([$validated['supervisor_id'] ?? null]),
+            default => null,
+        };
+        unset($validated['supervisor_ids'], $validated['supervisor_id'], $validated['supervisors_sent']);
+
+        return $ids === null ? null : array_values(array_unique(array_map('intval', $ids)));
+    }
+
+    /** "Ana Díaz, Juan Pérez": para la bitácora */
+    private function supervisorNames(Branch $branch): string
+    {
+        return $branch->supervisors()->get(['users.first_name', 'users.last_name'])->map(fn ($u) => $u->full_name)->join(', ');
+    }
+
+    /**
      * Responsables posibles. Sin empresa (vista global) trae los de todas,
      * y el formulario filtra la lista según la empresa elegida.
      */
@@ -210,6 +251,10 @@ class BranchWebController extends Controller
             'zone_id'               => ['sometimes', 'nullable', 'integer', Rule::exists('zones', 'id')->where('tenant_id', $tenantId)],
             'branch_type'           => ['sometimes', Rule::in(array_keys(Branch::TYPES))],
             'supervisor_id'         => ['nullable', 'integer', Rule::exists('users', 'id')->where('tenant_id', $tenantId)->whereIn('role', self::SUPERVISOR_ROLES)],
+            // Varios supervisores (mañana, tarde o a la vez): activos, de esta empresa y con rol que supervisa
+            'supervisors_sent'      => ['nullable', 'boolean'],
+            'supervisor_ids'        => ['nullable', 'array', 'max:50'],
+            'supervisor_ids.*'      => ['integer', 'distinct', Rule::exists('users', 'id')->where('tenant_id', $tenantId)->where('status', 'active')->whereNull('deleted_at')->whereIn('role', self::SUPERVISOR_ROLES)],
             'is_active'             => ['nullable', 'boolean'],
             'notes'                 => ['nullable', 'string', 'max:500'],
         ];

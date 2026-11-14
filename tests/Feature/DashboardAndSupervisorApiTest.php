@@ -26,7 +26,8 @@ class DashboardAndSupervisorApiTest extends TestCase
         $mine       = $this->makeUser($acme, 'employee', ['first_name' => 'Ana']);
         $notMine    = $this->makeUser($acme, 'employee', ['first_name' => 'Luis']);
         $branchA    = $this->makeBranch($acme, ['supervisor_id' => $supervisor->id]);
-        $branchB    = $this->makeBranch($acme);
+        $otherSup   = $this->makeUser($acme, 'supervisor');
+        $branchB    = $this->makeBranch($acme, ['supervisor_id' => $otherSup->id]); // de otro supervisor
         $mine->branches()->attach($branchA->id, ['is_primary' => true]);
         $notMine->branches()->attach($branchB->id, ['is_primary' => true]);
 
@@ -80,12 +81,12 @@ class DashboardAndSupervisorApiTest extends TestCase
         // RRHH (ve toda la asistencia) cubre a toda la empresa, sin la otra empresa
         $this->actingIn($hr, $acme)->getJson('/api/supervisor/attendance/live')
             ->assertOk()
-            ->assertJsonPath('summary.team_size', 3) // Ana, Luis y el supervisor
+            ->assertJsonPath('summary.team_size', 4) // Ana, Luis y los dos supervisores
             ->assertJsonCount(2, 'attendances');
         $this->actingIn($hr, $acme)->getJson('/api/supervisor/attendance')->assertJsonPath('meta.total', 2);
         $ids = collect($this->actingIn($hr, $acme)->getJson('/api/supervisor/team')->assertOk()->json('data'))->pluck('id')->sort()->values()->all();
         // Mismo equipo que attendance/live: también el supervisor, que marca
-        $this->assertSame(collect([$mine->id, $notMine->id, $supervisor->id])->sort()->values()->all(), $ids);
+        $this->assertSame(collect([$mine->id, $notMine->id, $supervisor->id, $otherSup->id])->sort()->values()->all(), $ids);
         $this->assertSame($mine->full_name, collect($this->actingIn($hr, $acme)->getJson('/api/supervisor/team')->json('data'))->firstWhere('id', $mine->id)['full_name']);
 
         // Las consultas no crecen con el tamaño del equipo (antes ~3 por integrante)

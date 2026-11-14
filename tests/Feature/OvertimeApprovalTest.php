@@ -145,7 +145,7 @@ class OvertimeApprovalTest extends TestCase
 
     public function test_supervisor_only_sees_and_bulk_approves_their_team(): void
     {
-        $other = $this->employee('Ajeno', 'Lima', $this->makeBranch($this->acme, ['name' => 'Lima']));
+        $other = $this->employee('Ajeno', 'Lima', $this->makeBranch($this->acme, ['name' => 'Lima', 'supervisor_id' => $this->makeUser($this->acme, 'supervisor')->id]));
         $mine1 = $this->workDay($this->emp, '2026-10-05', 10 * 60);
         $mine2 = $this->workDay($this->emp, '2026-10-06', 9 * 60);
         $theirs = $this->workDay($other, '2026-10-05', 10 * 60);

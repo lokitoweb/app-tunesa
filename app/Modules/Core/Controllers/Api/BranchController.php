@@ -39,7 +39,7 @@ class BranchController extends Controller
     public function show(int $id): JsonResponse
     {
         $branch = Branch::where('tenant_id', current_tenant_id())
-            ->with('supervisor', 'employees')
+            ->with('supervisor', 'supervisors', 'employees')
             ->findOrFail($id);
 
         return response()->json([
@@ -220,6 +220,10 @@ class BranchController extends Controller
                 'email'    => $branch->supervisor->email,
             ] : null,
         ];
+        // Todos los supervisores (uno o varios); "supervisor" sigue siendo el primero para clientes anteriores
+        if ($branch->relationLoaded('supervisors')) {
+            $data['supervisors'] = $branch->supervisors->map(fn ($s) => ['id' => $s->id, 'name' => $s->full_name, 'email' => $s->email])->values();
+        }
 
         if ($detailed && $branch->relationLoaded('employees')) {
             $data['employees_count'] = $branch->employees->count();

@@ -36,7 +36,7 @@ class LeaveRequestController extends Controller
         $requests = LeaveRequest::where('user_id', $request->user()->id)
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->when($request->type,   fn ($q) => $q->where('type',   $request->type))
-            ->with(['reviewer:id,first_name,last_name', 'employee.department.head:id,first_name,last_name', 'employee.branches.supervisor:id,first_name,last_name'])
+            ->with(['reviewer:id,first_name,last_name', 'employee.department.head:id,first_name,last_name', 'employee.branches.supervisors:users.id,users.first_name,users.last_name'])
             ->orderByDesc('start_date')
             ->paginate(20);
 

@@ -126,7 +126,8 @@ class AttendanceCalendarTest extends TestCase
 
     public function test_supervisor_sees_only_their_team(): void
     {
-        $other = $this->employee('Ajeno', 'Lima', $this->makeBranch($this->acme, ['name' => 'Lima']));
+        // Lima tiene su propio supervisor (una sede sin supervisor la verían todos los supervisores)
+        $other = $this->employee('Ajeno', 'Lima', $this->makeBranch($this->acme, ['name' => 'Lima', 'supervisor_id' => $this->makeUser($this->acme, 'supervisor')->id]));
 
         $this->assertArrayHasKey($other->id, $this->cells());
         $this->assertSame([$this->emp->id], array_keys($this->cells($this->supervisor)));
@@ -251,7 +252,7 @@ class AttendanceCalendarTest extends TestCase
     public function test_person_calendar_shows_the_month_and_respects_scope(): void
     {
         $this->day($this->emp, '2026-09-02', ['status' => 'late', 'late_minutes' => 12, 'clock_in_at' => '2026-09-02 08:22:00', 'clock_out_at' => '2026-09-02 17:00:00']);
-        $other = $this->employee('Ajeno', 'Lima', $this->makeBranch($this->acme, ['name' => 'Lima']));
+        $other = $this->employee('Ajeno', 'Lima', $this->makeBranch($this->acme, ['name' => 'Lima', 'supervisor_id' => $this->makeUser($this->acme, 'supervisor')->id]));
 
         $response = $this->actingAs($this->supervisor)->get(route('attendance.calendar.person', ['id' => $this->emp->id, 'month' => '2026-09']))
             ->assertOk()->assertSee('Rosa Quispe')->assertSee('08:22 am – 05:00 pm')->assertSee('12 min tarde');

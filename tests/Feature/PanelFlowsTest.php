@@ -192,7 +192,7 @@ class PanelFlowsTest extends TestCase
         $sup  = $this->makeUser($acme, 'supervisor');
         $hr   = $this->makeUser($acme, 'hr_manager');
         $mine   = $this->makeBranch($acme, ['name' => 'Sede Propia', 'supervisor_id' => $sup->id]);
-        $others = $this->makeBranch($acme, ['name' => 'Sede Ajena']);
+        $others = $this->makeBranch($acme, ['name' => 'Sede Ajena', 'supervisor_id' => $this->makeUser($acme, 'supervisor')->id]);
         $ana  = $this->makeUser($acme, 'employee', ['first_name' => 'Ana']);
         $beto = $this->makeUser($acme, 'employee', ['first_name' => 'Beto']);
         $ana->branches()->attach($mine->id, ['is_primary' => true]);
