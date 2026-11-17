@@ -14,6 +14,10 @@ class Env {
   /// En pantalla manda la marca del servidor (nombre y logo de "Marca y app"); este es el respaldo.
   static const String appName = String.fromEnvironment('APP_NAME', defaultValue: 'ERP');
 
+  /// Fecha de compilación (YYYY-MM-DD, hora de Perú) que pasan scripts/build_apk.sh y el workflow de iOS.
+  /// Vacía en compilaciones de desarrollo: Inicio no muestra "Última actualización".
+  static const String buildDate = String.fromEnvironment('BUILD_DATE');
+
   /// Nombre del entorno: dev | staging | prod.
   static const String name = String.fromEnvironment('ENV_NAME', defaultValue: 'dev');
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/async_views.dart';
@@ -92,7 +93,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // Logo de la empresa del usuario (llega con su configuración al ingresar); la sede se ve en "Mi perfil"
       appBar: AppBar(
         // Solo el logo (la pestaña de abajo ya dice "Inicio"); el Row lo deja a la izquierda
-        title: const Row(mainAxisSize: MainAxisSize.min, children: [BrandLogo(height: 32)]),
+        title: Row(children: [
+          const BrandLogo(height: 32),
+          if (Env.buildDate.isNotEmpty) const Expanded(child: Center(child: BuildStamp(Env.buildDate))),
+        ]),
         actions: const [NotificationBell(), SizedBox(width: 4)],
       ),
       body: RefreshIndicator(
@@ -151,6 +155,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 /// Saludo de Inicio: foto, nombre y fecha sobre el azul de la marca.
+/// "Última actualización 17/11/2026": fecha en que se compiló la app instalada (YYYY-MM-DD), para
+/// saber de un vistazo si el colaborador tiene la versión al día. Se achica sola en pantallas angostas.
+class BuildStamp extends StatelessWidget {
+  const BuildStamp(this.isoDate, {super.key});
+
+  final String isoDate;
+
+  /// YYYY-MM-DD → DD/MM/YYYY (si no tiene ese formato, tal cual)
+  static String label(String isoDate) {
+    final p = isoDate.split('-');
+    return 'Última actualización ${p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : isoDate}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = label(isoDate);
+    return Semantics(
+      label: text,
+      excludeSemantics: true,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(999)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.update_rounded, size: 14, color: scheme.primary),
+              const SizedBox(width: 4),
+              Text(text, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class HomeGreeting extends StatelessWidget {
   const HomeGreeting({super.key, required this.name, required this.initials, this.avatarUrl});
 

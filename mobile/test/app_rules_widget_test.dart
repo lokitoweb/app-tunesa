@@ -58,10 +58,11 @@ class _CountingGps extends LocationService {
 
 /// GPS fijo en (lat, lng) con buena precisión.
 class _FixedGps extends LocationService {
-  _FixedGps(this.lat, this.lng);
+  _FixedGps(this.lat, this.lng, {this.accuracy = 8});
 
   final double lat;
   final double lng;
+  final double accuracy;
 
   @override
   Future<LocationFix> getVerifiedFix({
@@ -73,7 +74,7 @@ class _FixedGps extends LocationService {
       latitude: lat,
       longitude: lng,
       timestamp: DateTime(2026, 10, 11, 8),
-      accuracy: 8,
+      accuracy: accuracy,
       altitude: 0,
       altitudeAccuracy: 0,
       heading: 0,
@@ -199,6 +200,16 @@ void main() {
     expect(find.text('Estás fuera del perímetro'), findsOneWidget);
     expect(find.textContaining('Acércate a Agencia Centro para marcar'), findsOneWidget);
     expect(find.text('Volver a verificar'), findsOneWidget);
+  });
+
+  testWidgets('GPS impreciso que no alcanza para decidir: pide mejorar la señal, no dice "fuera del perímetro"', (tester) async {
+    final spy = _SpyReporter();
+    // ~250 m al norte con ±200 m: el margen de error alcanza la agencia (radio 100 m)
+    await pumpClock(tester, gps: _FixedGps(_agency.lat + 0.00225, _agency.lng, accuracy: 200), reporter: spy);
+    expect(find.byType(SelfieScreen), findsNothing);
+    expect(find.text('Estás fuera del perímetro'), findsNothing);
+    expect(find.textContaining('Tu GPS está impreciso (±200 m)'), findsOneWidget);
+    expect(spy.reported.single.code, isNot(AppAttempt.geofenceCode));
   });
 
   testWidgets('fuera del perímetro se reporta como intento rechazado, una vez por apertura', (tester) async {

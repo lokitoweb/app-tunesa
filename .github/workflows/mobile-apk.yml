@@ -238,6 +238,8 @@ jobs:
           # Misma versión automática que Android
           BASE_VERSION=$(sed -n 's/^version: *\([0-9]*\.[0-9]*\)\..*/\1/p' pubspec.yaml)
           EXTRA="$EXTRA --build-name=$BASE_VERSION.$APP_BUILD_NUMBER --build-number=$APP_BUILD_NUMBER"
+          # Misma fecha de compilación que Android (Inicio: "Última actualización")
+          EXTRA="$EXTRA --dart-define=BUILD_DATE=$(TZ=America/Lima date +%Y-%m-%d)"
           for VAR in FIREBASE_API_KEY FIREBASE_APP_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_PROJECT_ID FIREBASE_IOS_APP_ID FIREBASE_IOS_BUNDLE_ID; do
             if [ -n "${!VAR}" ]; then EXTRA="$EXTRA --dart-define=$VAR=${!VAR}"; fi
           done

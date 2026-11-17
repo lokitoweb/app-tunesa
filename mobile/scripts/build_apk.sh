@@ -54,6 +54,8 @@ trap 'scripts/apply_brand.sh default >/dev/null' EXIT
 
 # Nombre de la app: brand.json del kit como segundo archivo de defines (APP_NAME)
 EXTRA_DEFINES=("--dart-define-from-file=branding/${BRAND}/brand.json")
+# Fecha de esta compilación (hora de Perú): Inicio la muestra como "Última actualización"
+EXTRA_DEFINES+=("--dart-define=BUILD_DATE=$(TZ=America/Lima date +%Y-%m-%d)")
 # En GitHub cada compilación sube la versión sola: major.minor de pubspec.yaml + n.º de compilación
 if [[ -n "${APP_BUILD_NUMBER:-}" ]]; then
   BASE_VERSION=$(sed -n 's/^version: *\([0-9]*\.[0-9]*\)\..*/\1/p' pubspec.yaml)
