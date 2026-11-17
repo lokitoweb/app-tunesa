@@ -26,6 +26,9 @@ Route::middleware('api.tenant')->group(function () {
             Route::post('break-start', [AttendanceController::class, 'breakStart']);
             Route::post('break-end',   [AttendanceController::class, 'breakEnd']);
             Route::post('clock-out',   [AttendanceController::class, 'clockOut']);
+            // Confirmar una marca enviada sin respuesta (señal lenta), sin reenviar la foto
+            Route::get('punches/{clientUuid}', [AttendanceController::class, 'confirmPunch'])
+                ->where('clientUuid', '[0-9a-fA-F-]{36}')->middleware('throttle:30,1');
         });
         // Bloqueos que hizo la app antes de enviar (GPS falso, impreciso, fuera del radio)
         Route::post('attempts', [PunchAttemptController::class, 'store'])

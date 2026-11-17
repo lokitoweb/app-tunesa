@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/storage/session_storage.dart';
 import '../../../core/utils/attachment_picker.dart';
 import '../../../core/utils/formatters.dart';
@@ -112,6 +113,39 @@ class AttendanceRepository implements PunchTransport {
       FormData.fromMap({...fields, 'photo': ?(photo == null ? null : _photoFile(photo))}),
     );
     return PunchOutcome.fromJson(json);
+  }
+
+  /// Esperas entre consultas al confirmar una marca sin respuesta (~26 s en total).
+  static const confirmWaits = [Duration(seconds: 2), Duration(seconds: 4), Duration(seconds: 8), Duration(seconds: 12)];
+
+  /// Envía y, si la respuesta no llega (señal lenta o cortada), confirma con el servidor por el
+  /// `client_uuid` sin volver a subir la foto; si no llegó, la reenvía una vez (mismo uuid: nunca
+  /// se duplica). Solo si eso también falla, el error sube a la pantalla. [onConfirming] avisa a la
+  /// pantalla que está confirmando.
+  Future<PunchOutcome> sendPunchConfirmed(PunchCapture capture, {void Function()? onConfirming, List<Duration> waits = confirmWaits}) async {
+    try {
+      return await sendPunch(capture);
+    } on ApiException catch (e) {
+      if (!e.isNetwork) rethrow;
+      onConfirming?.call();
+      return await confirmPunch(capture.clientUuid, waits: waits) ?? await sendPunch(capture);
+    }
+  }
+
+  /// ¿Llegó la marca con este `client_uuid`? null = no llegó tras [waits] (o sin señal para preguntar).
+  Future<PunchOutcome?> confirmPunch(String clientUuid, {List<Duration> waits = confirmWaits}) async {
+    for (final wait in waits) {
+      await Future<void>.delayed(wait);
+      try {
+        await _api.get(ApiEndpoints.punchStatus(clientUuid));
+        return const PunchOutcome(message: '✅ Tu marcación quedó registrada.', duplicate: true);
+      } on ApiException catch (e) {
+        // 404: aún no llega (puede seguir subiendo) · sin señal: se vuelve a preguntar
+        if (e.statusCode == 404 || e.isNetwork) continue;
+        rethrow;
+      }
+    }
+    return null;
   }
 
   /// Copia de la marcación para la cola offline: la selfie (ya comprimida)

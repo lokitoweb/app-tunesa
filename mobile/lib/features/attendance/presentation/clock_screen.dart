@@ -83,6 +83,9 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   PunchCapture? _capture;
 
   bool _sending = false;
+
+  /// La respuesta tardó: se está confirmando con el servidor si la marca llegó.
+  bool _confirming = false;
   ApiException? _sendError;
 
   /// Salida antes de hora: la persona ya confirmó que quiere salir igual.
@@ -169,10 +172,31 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
               for (final b in ref.read(myBranchesProvider).value ?? const <BranchGeofence>[]) (lat: b.lat, lng: b.lng, radius: b.radius),
             ],
           );
-      return (fix, null);
+      final unsure = _unsureOutside(fix);
+      return unsure == null ? (fix, null) : (null, unsure);
     } on LocationException catch (e) {
       return (null, e);
     }
+  }
+
+  /// Geocerca estricta y GPS impreciso que deja el punto fuera pero su margen de error alcanza la sede:
+  /// no se dice "Estás fuera del perímetro" sin estar seguros; se pide mejorar la señal.
+  LocationException? _unsureOutside(LocationFix fix) {
+    if (!_mobile.geofenceStrictMode) return null;
+    final near = nearestBranch(ref.read(myBranchesProvider).value ?? const [], fix.position);
+    if (near == null ||
+        near.inside ||
+        fix.accuracy <= LocationService.reliableMeters ||
+        near.distance - fix.accuracy > near.branch.radius) {
+      return null;
+    }
+    return LocationException(
+      LocationFailure.lowAccuracy,
+      'Tu GPS está impreciso (±${fix.accuracy.round()} m) y no alcanza para confirmar que estás en ${near.branch.name}. '
+      'Espera unos segundos junto a una ventana o en la puerta y vuelve a verificar.',
+      position: fix.position,
+      isMocked: fix.isMocked,
+    );
   }
 
   Future<void> _locate() async {
@@ -373,7 +397,9 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
 
     setState(() => _sending = true);
     try {
-      final outcome = await ref.read(attendanceRepositoryProvider).sendPunch(capture);
+      final outcome = await ref
+          .read(attendanceRepositoryProvider)
+          .sendPunchConfirmed(capture, onConfirming: () => mounted ? setState(() => _confirming = true) : null);
       ref.invalidate(todayStatusProvider);
       if (!mounted) return;
       showSnack(context, _withMockWarning(outcome.message, capture));
@@ -397,7 +423,12 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
       if (e.code == 'ONBOARDING_PENDING') ref.invalidate(onboardingProvider);
       if (mounted) setState(() => _sendError = e);
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) {
+        setState(() {
+          _sending = false;
+          _confirming = false;
+        });
+      }
     }
   }
 
@@ -573,6 +604,14 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     final label = _label.toLowerCase();
     final retake = _Action('Repetir selfie', Icons.camera_front_outlined, _takeSelfie);
 
+    if (_sending && _confirming) {
+      return const _Status(
+        _Tone.busy,
+        Icons.cloud_sync_outlined,
+        'Confirmando tu marcación…',
+        'Tu señal está lenta. Ya la enviamos; estamos confirmando que llegó.',
+      );
+    }
     if (_sending) {
       return const _Status(
         _Tone.busy,

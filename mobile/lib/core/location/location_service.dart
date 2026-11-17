@@ -115,7 +115,7 @@ class LocationService {
   static const double _earthRadiusMeters = 6371000;
 
   /// Lecturas por marcación, ventana para tomarlas y precisión que ya basta.
-  static const int maxSamples = 6;
+  static const int maxSamples = 10;
   static const Duration sampleWindow = Duration(seconds: 20);
   static const double goodEnoughMeters = 15;
 
@@ -204,7 +204,11 @@ class LocationService {
     final deadline = DateTime.now().add(sampleWindow);
     bool settled() {
       final best = bestSample(samples);
-      return best.accuracy <= goodEnoughMeters || (best.accuracy <= maxAccuracy && samples.length >= 2) || confirmedInside(best, sites);
+      return best.accuracy <= goodEnoughMeters ||
+          confirmedInside(best, sites) ||
+          // Lectura dudosa (el círculo de error toca la sede pero el punto cae fuera): se sigue
+          // leyendo hasta agotar la ventana antes de decidir, como hacen las apps de asistencia
+          (best.accuracy <= maxAccuracy && samples.length >= 2 && !ambiguous(best, sites));
     }
 
     while (samples.length < maxSamples && !settled()) {
@@ -223,6 +227,16 @@ class LocationService {
   /// (distancia al centro + precisión ≤ radio). Misma regla que el backend.
   static bool confirmedInside(Position p, List<GeoSite> sites) =>
       sites.any((s) => haversineMeters(p.latitude, p.longitude, s.lat, s.lng) + p.accuracy <= s.radius);
+
+  /// Precisión desde la que una lectura dudosa no basta para decir "fuera del perímetro" (m).
+  static const double reliableMeters = 30;
+
+  /// ¿No se puede decidir con esta lectura? El punto cae fuera de toda sede, pero su círculo de
+  /// error alcanza alguna (distancia − precisión ≤ radio) y la precisión no es buena.
+  static bool ambiguous(Position p, List<GeoSite> sites) =>
+      p.accuracy > goodEnoughMeters &&
+      sites.any((s) => haversineMeters(p.latitude, p.longitude, s.lat, s.lng) - p.accuracy <= s.radius) &&
+      !sites.any((s) => haversineMeters(p.latitude, p.longitude, s.lat, s.lng) <= s.radius);
 
   /// La lectura más precisa (menor `accuracy`); ante empate, la más reciente.
   @visibleForTesting

@@ -77,21 +77,62 @@ class AttendanceController extends Controller
         return $this->punch($request->user(), $request->toPunchData('clock_out'));
     }
 
+    /**
+     * ¿Llegó la marcación con este client_uuid? La app lo consulta cuando envió una marca y no recibió
+     * respuesta (señal lenta o cortada): confirma sin volver a subir la foto. 200 = registrada
+     * (misma respuesta que un reenvío) · 404 PUNCH_NOT_FOUND = no llegó (la app la reenvía, mismo uuid).
+     *
+     * GET /api/attendance/punches/{client_uuid}
+     */
+    public function confirmPunch(Request $request, string $clientUuid): JsonResponse
+    {
+        try {
+            $result = $this->attendanceService->findDuplicate($request->user(), strtolower($clientUuid));
+        } catch (\Exception $e) {
+            return $this->handleAttendanceException($e);
+        }
+
+        if (! $result) {
+            return response()->json(['success' => false, 'message' => 'La marcación aún no llega al servidor.', 'code' => 'PUNCH_NOT_FOUND'], 404);
+        }
+
+        return $this->punchResponse($result, $result->punch->type);
+    }
+
+    /** Desde aquí una marcación es lenta: queda en el registro con sus tiempos para poder medirla */
+    private const SLOW_PUNCH_MS = 5000;
+
     private function punch(User $employee, PunchData $data): JsonResponse
     {
+        $started = microtime(true);
         try {
             $result = $this->attendanceService->punch($employee, $data);
         } catch (\Exception $e) {
             return $this->handleAttendanceException($e);
         }
 
+        $ms = (int) round((microtime(true) - $started) * 1000);
+        if ($ms >= self::SLOW_PUNCH_MS) {
+            \Illuminate\Support\Facades\Log::warning('Marcación lenta', [
+                'punch_id' => $result->punch->id, 'type' => $data->type, 'processing_ms' => $ms,
+                // Desde que el celular la envió hasta que el servidor empezó (subida + desfase del reloj)
+                'upload_s' => $data->deviceSentAt ? $result->punch->server_time?->getTimestamp() - $data->deviceSentAt->getTimestamp() : null,
+                'photo_kb' => $data->photo ? (int) round($data->photo->getSize() / 1024) : null,
+            ]);
+        }
+
+        return $this->punchResponse($result, $data->type);
+    }
+
+    private function punchResponse(PunchResult $result, string $type): JsonResponse
+    {
         return response()->json([
             'success'   => true,
             'duplicate' => $result->duplicate,
             'message'   => $result->duplicate ? 'Esta marcación ya estaba registrada.' : self::successMessage($result),
             'data'      => new AttendanceResource($result->attendance),
             'punch'     => $result->punch->toApi(),
-        ], $data->type === 'clock_in' && ! $result->duplicate ? 201 : 200);
+        ], $type === 'clock_in' && ! $result->duplicate ? 201 : 200);
     }
 
     public static function successMessage(PunchResult $result): string

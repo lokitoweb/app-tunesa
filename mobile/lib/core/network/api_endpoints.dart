@@ -53,6 +53,8 @@ class ApiEndpoints {
   static const breakEnd = '/attendance/break-end';
   static const clockOut = '/attendance/clock-out';
   static const attendanceAttempts = '/attendance/attempts';
+  /// Confirmar una marca enviada sin respuesta (por su client_uuid)
+  static String punchStatus(String clientUuid) => '/attendance/punches/$clientUuid';
 
   /// Envío en lote de la cola sin conexión (máx. 50; la app manda 20).
   static const syncBatch = '/v1/attendances/sync-batch';

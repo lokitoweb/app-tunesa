@@ -768,7 +768,11 @@ class AttendanceService
     // IDEMPOTENCIA
     // =========================================================================
 
-    private function findDuplicate(User $employee, string $clientUuid): ?PunchResult
+    /**
+     * La marcación de $employee con ese client_uuid, si llegó. También la usa la app para confirmar
+     * una marca cuya respuesta no recibió (GET /api/attendance/punches/{client_uuid}), sin reenviar la foto.
+     */
+    public function findDuplicate(User $employee, string $clientUuid): ?PunchResult
     {
         $punch = AttendancePunch::withoutGlobalScopes()
             ->where('tenant_id', $employee->tenant_id)

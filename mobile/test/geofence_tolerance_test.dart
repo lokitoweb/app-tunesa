@@ -105,4 +105,28 @@ void main() {
       expect(LocationService.confirmedInside(_pos(5), const []), isFalse);
     });
   });
+
+  group('lectura dudosa: no se dice "fuera" sin estar seguros (caso Piura: 90 m, ±100 m, radio 50 m)', () {
+    const site = (lat: -12.09418, lng: -77.03560, radius: 50.0);
+    // ~90 m al norte de la sede
+    const lat90 = -12.09337;
+
+    test('±100 m a 90 m: dudosa, se sigue leyendo el GPS', () {
+      expect(LocationService.ambiguous(_pos(100, lat: lat90), const [site]), isTrue);
+    });
+
+    test('lectura precisa fuera: no es dudosa (está fuera de verdad)', () {
+      expect(LocationService.ambiguous(_pos(10, lat: lat90), const [site]), isFalse);
+      // caso de ayer: 3,4 km con ±11 m
+      expect(LocationService.ambiguous(_pos(11, lat: -12.0630), const [site]), isFalse);
+    });
+
+    test('lejos aunque sea imprecisa: no es dudosa', () {
+      expect(LocationService.ambiguous(_pos(100, lat: -12.0900), const [site]), isFalse); // ~465 m
+    });
+
+    test('con el punto dentro de la sede no es dudosa', () {
+      expect(LocationService.ambiguous(_pos(100), const [site]), isFalse);
+    });
+  });
 }
