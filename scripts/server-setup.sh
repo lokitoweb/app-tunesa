@@ -147,6 +147,52 @@ else
   warn "origin por https: si el repo pasa a privado, los despliegues se detienen. Cambiar a deploy key (docs/deployment/produccion-servidor.md §4)."
 fi
 
+# 7. Capacidad de PHP-FPM: con pocos procesos (p. ej. max_children = 8) las peticiones esperan en fila
+#    cuando muchos marcan a la vez (entrada, refrigerio) y el celular se cansa de esperar. Se calcula con la
+#    memoria del servidor (40 % para este sitio, el resto queda para MySQL y otros sitios) y lo que pesa de
+#    verdad cada proceso. Solo sube, nunca baja; respalda el pool y lo restaura si la prueba de PHP falla.
+#    Pool: PHP_FPM_POOL=/ruta/al.conf o se busca por el nombre del sitio en pool.d.
+echo "7. Capacidad de PHP-FPM"
+POOL_DIR="/etc/php/$PHPV/fpm/pool.d"
+SITE="$(basename "$(dirname "$APP_DIR")")"; SITE="${SITE%%.*}"
+POOL="${PHP_FPM_POOL:-}"
+if [[ -z "$POOL" && -d "$POOL_DIR" ]]; then
+  mapfile -t FOUND < <(grep -lE "^\s*listen\s*=.*${SITE}" "$POOL_DIR"/*.conf 2>/dev/null || true)
+  [[ ${#FOUND[@]} -eq 1 ]] && POOL="${FOUND[0]}"
+fi
+if [[ -z "$FPM" || -z "$POOL" || ! -f "$POOL" ]]; then
+  warn "No identifiqué el pool de PHP-FPM del sitio ($SITE). Vuelve a correr con PHP_FPM_POOL=/etc/php/$PHPV/fpm/pool.d/<pool>.conf"
+else
+  POOL_NAME="$(grep -m1 -oP '^\s*\[\K[^\]]+' "$POOL")"
+  CURRENT_MAX="$(grep -oP '^\s*pm\.max_children\s*=\s*\K\d+' "$POOL" || echo 5)"
+  MEM_MB=$(( $(awk '/^MemTotal:/{print $2}' /proc/meminfo) / 1024 ))
+  # Lo que pesa cada proceso del pool ahora (promedio), con un piso de 60 MB por seguridad
+  PER_MB="$(ps -eo rss,args | awk -v p="pool $POOL_NAME" 'index($0,p){s+=$1;n++} END{print (n? int(s/n/1024) : 0)}')"
+  (( PER_MB < 60 )) && PER_MB=60
+  TARGET=$(( MEM_MB * 40 / 100 / PER_MB ))
+  (( TARGET > 50 )) && TARGET=50
+  if (( TARGET <= CURRENT_MAX )); then
+    ok "pool $POOL_NAME: max_children = $CURRENT_MAX (alcanza para ${MEM_MB} MB de RAM, ~${PER_MB} MB por proceso)"
+  elif [[ $DRY -eq 1 ]]; then
+    warn "pool $POOL_NAME: max_children pasaría de $CURRENT_MAX a $TARGET (RAM ${MEM_MB} MB, ~${PER_MB} MB por proceso)"
+  else
+    cp -p "$POOL" "$POOL.bak-app-tunesa"
+    set_pm() { if grep -qE "^\s*;?\s*$1\s*=" "$POOL"; then sed -i -E "s|^\s*;?\s*$1\s*=.*|$1 = $2|" "$POOL"; else echo "$1 = $2" >>"$POOL"; fi; }
+    set_pm pm dynamic
+    set_pm pm.max_children "$TARGET"
+    set_pm pm.start_servers $(( TARGET / 4 > 2 ? TARGET / 4 : 2 ))
+    set_pm pm.min_spare_servers $(( TARGET / 4 > 2 ? TARGET / 4 : 2 ))
+    set_pm pm.max_spare_servers $(( TARGET / 2 > 4 ? TARGET / 2 : 4 ))
+    set_pm pm.max_requests 500
+    if "php-fpm$PHPV" -t >/dev/null 2>&1 && systemctl reload "$FPM"; then
+      ok "pool $POOL_NAME: max_children $CURRENT_MAX → $TARGET (RAM ${MEM_MB} MB, ~${PER_MB} MB por proceso); respaldo en $POOL.bak-app-tunesa"
+    else
+      cp -p "$POOL.bak-app-tunesa" "$POOL"
+      warn "La prueba de PHP-FPM falló: se restauró el pool tal como estaba. Nada cambió."
+    fi
+  fi
+fi
+
 # Huella de esta versión: deploy.sh avisa si el archivo cambió y hay que volver a correrlo
 if [[ $DRY -eq 0 ]]; then
   sha256sum "$0" | cut -d' ' -f1 >"$APP_DIR/storage/framework/server-setup.sha"

@@ -289,6 +289,12 @@ Qué hace (y nada más):
    `.env` solo el tipo y el host de la base, nunca la contraseña.
 6. Comprueba que el servidor puede leer el repositorio y si lo hace por SSH (deploy key, §4). Si usa https,
    avisa: con el repositorio privado el despliegue automático se detendría. Solo lee; no cambia el remoto.
+7. Ajusta la capacidad del pool de PHP-FPM del sitio (`pm.max_children` y compañía) a la memoria del
+   servidor: 40 % de la RAM dividido entre lo que pesa de verdad cada proceso (mínimo 60 MB), hasta 50.
+   Con pocos procesos, cuando muchos marcan a la vez las peticiones esperan en fila y la app se cansa de
+   esperar. Solo sube, nunca baja; deja un respaldo `<pool>.conf.bak-app-tunesa` y, si la prueba de
+   PHP-FPM falla, lo restaura sin cambiar nada. El pool se busca por el nombre del sitio en
+   `/etc/php/<versión>/fpm/pool.d/`; si no lo encuentra, se indica con `PHP_FPM_POOL=/ruta/al.conf`.
 
 **Para cambiarse de servidor:** clonar el proyecto, abrir `/install` y correr este script. El último paso
 del instalador lo recuerda; `php artisan app:check-production` avisa si las tareas programadas no corren,
