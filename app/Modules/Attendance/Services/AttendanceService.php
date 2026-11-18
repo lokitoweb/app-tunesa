@@ -286,13 +286,15 @@ class AttendanceService
             throw new AttendanceException(ScheduleGate::MESSAGE_NOT_SCHEDULED, 'NOT_SCHEDULED', 422);
         }
 
-        // Itinerantes (choferes, relevos, técnicos): marcan en la sede donde estén o en ruta
+        [$assignment, $hasAssignments, $reference] = $this->getCurrentShift($employee, $today);
+
+        // Itinerantes (choferes, relevos, técnicos): marcan en la sede donde estén o en ruta.
+        // El resto, en la agencia del día (la programada si tiene varias asignadas)
         $branch = $employee->roaming_attendance_enabled && ! $data->isContingency()
             ? $this->roamingBranch($employee, $today, $data)
-            : $this->getEmployeeBranchForToday($employee, $today);
+            : $this->dayBranch($employee, $today, $reference?->branch_id, $data);
         [$geo, $reasons] = $this->clockGeofence($c, $employee, $branch, $reasons);
 
-        [$assignment, $hasAssignments] = $this->getCurrentShift($employee, $today);
         $shift = $assignment?->shift?->forDate($today);
 
         // schedule_v2 (HQ-02): sin horario ese día también es "fuera de programación", tenga o no asignaciones
@@ -1001,22 +1003,63 @@ class AttendanceService
         }
     }
 
+    /**
+     * Agencia del día de quien no es itinerante (con varias agencias asignadas en su empresa):
+     *  1. La de su día programado o su asignación semanal, si es una de sus agencias asignadas.
+     *  2. Sin ella y con varias asignadas: la que contiene el punto (la más cercana).
+     *  3. Si no, su principal; fuera de ella, la geocerca la rechaza como siempre.
+     * Con una sola agencia es siempre esa (como antes). El Tablero en vivo usa la misma regla (dayBranchId).
+     */
+    private function dayBranch(User $employee, string $date, ?int $referenceBranchId, PunchData $data): Branch
+    {
+        $assigned = $this->assignedBranches($employee, $date);
+        if ($assigned->isEmpty()) {
+            return $this->getEmployeeBranchForToday($employee, $date); // lanza NO_BRANCH_ASSIGNED, mismo mensaje
+        }
+
+        if ($referenceBranchId && $assigned->contains('id', $referenceBranchId)) {
+            return $assigned->firstWhere('id', $referenceBranchId);
+        }
+        if ($assigned->count() > 1 && $data->latitude !== null && $data->longitude !== null) {
+            $inside = $assigned
+                ->map(fn (Branch $b) => [$b, $this->geofence->check($data->latitude, $data->longitude, $b, $data->accuracyMeters)])
+                ->filter(fn (array $pair) => $pair[1]->isWithinGeofence)
+                ->sortBy(fn (array $pair) => $pair[1]->distanceMeters)
+                ->first();
+            if ($inside) {
+                return $inside[0];
+            }
+        }
+
+        return $assigned->first();
+    }
+
+    /**
+     * Agencia del día para mostrar (sin ubicación): la del día programado o su asignación si es una
+     * de sus agencias asignadas; si no, la principal (la primera de $assignedIds).
+     *
+     * @param  list<int>  $assignedIds  agencias asignadas, la principal primero
+     */
+    public static function dayBranchId(?int $referenceBranchId, array $assignedIds): ?int
+    {
+        return $referenceBranchId && in_array($referenceBranchId, $assignedIds, true) ? $referenceBranchId : ($assignedIds[0] ?? null);
+    }
+
+    /** Agencias activas vigentes del empleado para la fecha, la principal primero (sin fecha de inicio = desde siempre) */
+    private function assignedBranches(User $employee, string $date): \Illuminate\Support\Collection
+    {
+        return $employee->branches()
+            ->where(fn ($q) => $q->whereNull('employee_branch.assigned_from')->orWhere('employee_branch.assigned_from', '<=', $date))
+            ->where(fn ($q) => $q->whereNull('employee_branch.assigned_until')->orWhere('employee_branch.assigned_until', '>=', $date))
+            ->where('branches.is_active', true)
+            ->orderByPivot('is_primary', 'desc')
+            ->get();
+    }
+
     /** Sucursal vigente del empleado para la fecha (principal primero). */
     private function getEmployeeBranchForToday(User $employee, string $date): Branch
     {
-        $branch = $employee->branches()
-            // Sin fecha de inicio (asignada desde el panel) = vigente desde siempre
-            ->where(function ($q) use ($date) {
-                $q->whereNull('employee_branch.assigned_from')
-                    ->orWhere('employee_branch.assigned_from', '<=', $date);
-            })
-            ->where(function ($q) use ($date) {
-                $q->whereNull('employee_branch.assigned_until')
-                    ->orWhere('employee_branch.assigned_until', '>=', $date);
-            })
-            ->orderByPivot('is_primary', 'desc')
-            ->where('branches.is_active', true)
-            ->first();
+        $branch = $this->assignedBranches($employee, $date)->first();
 
         if (! $branch) {
             throw new AttendanceException(

@@ -56,7 +56,11 @@ class LiveBoardService
     {
         $users = User::forTenant($tenantId)
             ->teamOf($viewer)
-            ->when($branchId, fn ($q, $id) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $id)))
+            // Candidatos de la agencia: asignados a ella o que marcaron ahí (itinerantes). Abajo queda solo
+            // quien trabaja hoy ahí (agencia de su marca o del día)
+            ->when($branchId, fn ($q, $id) => $q->where(fn ($w) => $w->whereHas('branches', fn ($b) => $b->where('branches.id', $id))
+                ->orWhereExists(fn ($e) => $e->from('attendances')->whereColumn('attendances.user_id', 'users.id')
+                    ->where('attendances.branch_id', $id)->where('attendances.work_date', '>=', now()->subDays(2)->toDateString()))))
             ->orderBy('last_name')->orderBy('first_name')
             ->get(['users.id', 'users.tenant_id', 'first_name', 'last_name', 'employee_code', 'position', 'avatar_path']);
 
@@ -109,12 +113,13 @@ class LiveBoardService
             ->get(['tenant_id', 'date'])
             ->mapWithKeys(fn (Holiday $h) => [$h->tenant_id . '|' . $h->date->toDateString() => true]) : collect();
 
-        $branchNames = $ids ? DB::table('employee_branch')
+        // Agencias asignadas de cada persona, la principal primero (para la agencia del día)
+        $assignedBranches = $ids ? DB::table('employee_branch')
             ->join('branches', 'branches.id', '=', 'employee_branch.branch_id')
             ->whereIn('employee_branch.user_id', $ids)
             ->orderByDesc('employee_branch.is_primary')
-            ->get(['employee_branch.user_id', 'branches.name'])
-            ->groupBy('user_id')->map(fn ($r) => $r->first()->name) : collect();
+            ->get(['employee_branch.user_id', 'branches.id', 'branches.name'])
+            ->groupBy('user_id') : collect();
 
         $rows = [];
         $models = [];
@@ -137,6 +142,14 @@ class LiveBoardService
                 userId: $user->id, tenantId: $user->tenant_id);
             $assignment = $resolved->reference;
             $shift = ($current?->shift ?? $assignment?->shift)?->forDate($current?->work_date ?? $c['today']);
+            // Agencia: la de la marcación; sin marca, la del día (misma regla que al marcar: AttendanceService::dayBranchId)
+            $assigned = $assignedBranches->get($user->id, collect());
+            $dayBranchId = AttendanceService::dayBranchId($assignment?->branch_id ? (int) $assignment->branch_id : null, $assigned->pluck('id')->map(fn ($id) => (int) $id)->all());
+            $rowBranchId = $current?->branch_id ?? $dayBranchId;
+            // Filtro por agencia: quien trabaja hoy ahí (marcó ahí o le toca ahí)
+            if ($branchId && (int) $rowBranchId !== (int) $branchId) {
+                continue;
+            }
 
             $row = [
                 'user_id'         => $user->id,
@@ -148,7 +161,7 @@ class LiveBoardService
                 'position'        => $user->position,
                 'avatar_path'     => $user->avatar_path,
                 'avatar_url'      => $user->avatar_path ? asset('storage/' . $user->avatar_path) : null,
-                'branch'          => $current?->branch?->name ?? $branchNames->get($user->id),
+                'branch'          => $current?->branch?->name ?? $assigned->firstWhere('id', $dayBranchId)?->name,
                 'shift'           => $shift?->name,
                 'shift_start'     => hora($shift?->start_time),
                 'clock_in'        => hora($current?->clock_in_at),
