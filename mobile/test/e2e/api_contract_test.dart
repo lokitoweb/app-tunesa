@@ -128,7 +128,8 @@ void main() {
     test('inicio: turno de hoy, sedes y marcaciones completas', () async {
       final repo = AttendanceRepository(s.api, s.storage, appVersion: '9.9.9');
       final branches = await repo.myBranches();
-      expect(branches, isNotEmpty);
+      expect(branches.branches, isNotEmpty);
+      expect(branches.roaming, isFalse, reason: 'el colaborador de prueba marca en su agencia');
 
       var today = await repo.today();
       expect(today.actions, contains(ClockAction.clockIn));

@@ -60,8 +60,8 @@ final weekScheduleProvider = FutureProvider.autoDispose<List<DaySchedule>>((ref)
   return ref.watch(attendanceRepositoryProvider).schedule(today, today.add(const Duration(days: 6)));
 });
 
-/// Sucursales asignadas (geocercas) para la validación previa en el teléfono.
-final myBranchesProvider = FutureProvider.autoDispose<List<BranchGeofence>>(
+/// Sucursales asignadas (geocercas) y marcación itinerante, para la validación previa en el teléfono.
+final myBranchesProvider = FutureProvider.autoDispose<MyBranches>(
   (ref) => ref.watch(attendanceRepositoryProvider).myBranches(),
 );
 

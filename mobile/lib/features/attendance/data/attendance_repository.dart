@@ -63,12 +63,7 @@ class AttendanceRepository implements PunchTransport {
         .toList();
   }
 
-  Future<List<BranchGeofence>> myBranches() async {
-    final json = await _api.get(ApiEndpoints.myBranches);
-    return ((json['data'] as List?) ?? const [])
-        .map((e) => BranchGeofence.fromJson(Map<String, dynamic>.from(e as Map)))
-        .toList();
-  }
+  Future<MyBranches> myBranches() async => MyBranches.fromJson(await _api.get(ApiEndpoints.myBranches));
 
   /// Dirección legible (`GET /geocode/reverse`), o null si no hay.
   Future<String?> reverseGeocode(double lat, double lng) async {

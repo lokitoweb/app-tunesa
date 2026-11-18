@@ -124,6 +124,7 @@ void main() {
     bool settle = true,
     bool disclosed = true,
     _SpyReporter? reporter,
+    bool roaming = false,
   }) async {
     SharedPreferences.setMockInitialValues({
       AppConfigRepository.cacheKey: _cache(mobile: mobile),
@@ -135,7 +136,7 @@ void main() {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
           locationServiceProvider.overrideWithValue(gps ?? _NoGps()),
-          myBranchesProvider.overrideWith((ref) async => const [_agency]),
+          myBranchesProvider.overrideWith((ref) async => MyBranches(const [_agency], roaming: roaming)),
           connectivityProvider.overrideWith((ref) => Stream.value(true)),
           offlineSyncProvider.overrideWith(() => _FakeSync(sync)),
           attemptReporterProvider.overrideWithValue(reporter ?? _SpyReporter()),
@@ -227,6 +228,15 @@ void main() {
   testWidgets('dentro de la agencia no se reporta nada', (tester) async {
     final spy = _SpyReporter();
     await pumpClock(tester, gps: _FixedGps(_agency.lat, _agency.lng), settle: false, reporter: spy);
+    expect(spy.reported, isEmpty);
+  });
+
+  testWidgets('marcación itinerante: fuera de toda agencia igual abre la cámara y no se reporta como fuera', (tester) async {
+    final spy = _SpyReporter();
+    // ~1,1 km de la agencia, con geocerca estricta en la empresa (caso de Trujillo: 71 m, radio 30 m)
+    await pumpClock(tester, gps: _FixedGps(_agency.lat + 0.01, _agency.lng), roaming: true, reporter: spy, settle: false);
+    expect(find.text('Estás fuera del perímetro'), findsNothing);
+    expect(find.byType(SelfieScreen), findsOneWidget);
     expect(spy.reported, isEmpty);
   });
 

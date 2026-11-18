@@ -150,6 +150,10 @@ class BranchController extends Controller
         return response()->json([
             'success' => true,
             'data'    => $branches->map(fn($b) => $this->formatBranch($b)),
+            // Marcación itinerante (ficha del colaborador): marca donde esté; la app no lo frena por
+            // geocerca y el servidor tampoco (AttendanceService). Viaja aquí porque la app pide esta
+            // lista cada vez que entra a marcar: un cambio de RR. HH. se aplica sin reiniciar la app.
+            'roaming' => (bool) $employee->roaming_attendance_enabled,
         ]);
     }
 

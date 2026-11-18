@@ -300,6 +300,23 @@ class TodayStatus {
 }
 
 /// Sucursal asignada con su geocerca.
+/// Respuesta de GET /my-branches: sus sedes (geocercas) y si marca de forma itinerante.
+class MyBranches {
+  const MyBranches(this.branches, {this.roaming = false});
+
+  final List<BranchGeofence> branches;
+
+  /// Marcación itinerante (ficha del colaborador): marca donde esté; la geocerca no lo frena.
+  final bool roaming;
+
+  factory MyBranches.fromJson(Map<String, dynamic> json) => MyBranches(
+        ((json['data'] as List?) ?? const [])
+            .map((e) => BranchGeofence.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+        roaming: json['roaming'] == true,
+      );
+}
+
 class BranchGeofence {
   const BranchGeofence({
     required this.id,

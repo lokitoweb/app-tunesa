@@ -160,16 +160,23 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     }
   }
 
+  /// Sedes asignadas (geocercas) que llegaron del servidor; vacío mientras cargan.
+  List<BranchGeofence> get _branches => ref.read(myBranchesProvider).value?.branches ?? const [];
+
+  /// Geocerca estricta de la empresa, salvo para quien tiene marcación itinerante (marca donde esté;
+  /// el servidor tampoco lo frena por geocerca). Única regla para bloquear "fuera del perímetro".
+  bool get _strictGeofence => _mobile.geofenceStrictMode && !(ref.read(myBranchesProvider).value?.roaming ?? false);
+
   /// Lectura verificada que nunca lanza (se pide al disparar y se espera después).
   Future<(LocationFix?, LocationException?)> _safeFix() async {
     try {
       final fix = await ref
           .read(locationServiceProvider)
           .getVerifiedFix(
-            maxAccuracyMeters: effectiveMaxAccuracy(_mobile.maxGpsAccuracyMeters, ref.read(myBranchesProvider).value ?? const []),
+            maxAccuracyMeters: effectiveMaxAccuracy(_mobile.maxGpsAccuracyMeters, _branches),
             mockPolicy: _mobile.mockLocationPolicy,
             sites: [
-              for (final b in ref.read(myBranchesProvider).value ?? const <BranchGeofence>[]) (lat: b.lat, lng: b.lng, radius: b.radius),
+              for (final b in _branches) (lat: b.lat, lng: b.lng, radius: b.radius),
             ],
           );
       final unsure = _unsureOutside(fix);
@@ -182,8 +189,8 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   /// Geocerca estricta y GPS impreciso que deja el punto fuera pero su margen de error alcanza la sede:
   /// no se dice "Estás fuera del perímetro" sin estar seguros; se pide mejorar la señal.
   LocationException? _unsureOutside(LocationFix fix) {
-    if (!_mobile.geofenceStrictMode) return null;
-    final near = nearestBranch(ref.read(myBranchesProvider).value ?? const [], fix.position);
+    if (!_strictGeofence) return null;
+    final near = nearestBranch(_branches, fix.position);
     if (near == null ||
         near.inside ||
         fix.accuracy <= LocationService.reliableMeters ||
@@ -221,8 +228,8 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
   bool _isOutside(LocationFix fix) => _outsideAttempt(fix) != null;
 
   AppAttempt? _outsideAttempt(LocationFix fix, {DateTime? at}) {
-    if (!_mobile.geofenceStrictMode) return null;
-    final near = nearestBranch(ref.read(myBranchesProvider).value ?? const [], fix.position);
+    if (!_strictGeofence) return null;
+    final near = nearestBranch(_branches, fix.position);
     if (near == null || near.inside) return null;
     return AppAttempt.outside(widget.action, fix, branch: near.branch, distance: near.distance, at: at);
   }
@@ -456,8 +463,9 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     final usesSelfie = needsSelfie || optionalSelfie;
     final hasShot = _selfie != null;
     final fix = _shotFix ?? _preview;
-    final near = fix == null ? null : nearestBranch(branches.value ?? const [], fix.position);
-    final outside = mobile.geofenceStrictMode && near != null && !near.inside;
+    final near = fix == null ? null : nearestBranch(branches.value?.branches ?? const [], fix.position);
+    final strict = mobile.geofenceStrictMode && !(branches.value?.roaming ?? false);
+    final outside = strict && near != null && !near.inside;
     final mocked = fix?.isMocked ?? false;
     final earlyWarning = widget.action == ClockAction.clockOut
         ? ref.watch(todayStatusProvider).value?.clockOutWarning(DateTime.now())
@@ -530,7 +538,7 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
                       _LocationCard(
                         fix: fix,
                         near: near,
-                        strict: mobile.geofenceStrictMode,
+                        strict: strict,
                         branchesLoading: branches.isLoading,
                         branchesFailed: branches.hasError,
                         takenWithShot: _shotFix != null,

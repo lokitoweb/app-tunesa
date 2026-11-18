@@ -168,6 +168,14 @@ class GeofenceToleranceTest extends TestCase
             ->assertJsonPath('data.0.geofence.max_gps_accuracy_meters', 60);
     }
 
+    public function test_my_branches_tells_the_app_when_the_employee_marks_roaming(): void
+    {
+        // La app pide esta lista al entrar a marcar: el cambio de RR. HH. llega sin reiniciarla
+        $this->actingIn($this->emp, $this->acme)->getJson('/api/my-branches')->assertOk()->assertJsonPath('roaming', false);
+        $this->emp->update(['roaming_attendance_enabled' => true]);
+        $this->actingIn($this->emp->fresh(), $this->acme)->getJson('/api/my-branches')->assertOk()->assertJsonPath('roaming', true);
+    }
+
     public function test_hr_sets_branch_geofence_tuning_from_the_panel(): void
     {
         $hr = $this->makeUser($this->acme, 'hr_manager');
