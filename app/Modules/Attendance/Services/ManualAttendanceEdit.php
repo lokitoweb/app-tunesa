@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
  * Corrección manual de una jornada desde el panel (permiso attendance.edit).
  *
  * RRHH y administradores (attendance.view_all) corrigen a cualquiera de la
- * empresa; un supervisor, solo a su equipo. Nadie se corrige a sí mismo.
+ * empresa; un supervisor, solo a su equipo. Lo propio, solo con attendance.edit_own.
  * Las horas se recalculan con las mismas reglas que al marcar desde la app
  * (descanso fijo, jornada base, horas extra por aprobar) y el antes y después
  * queda en la bitácora con el motivo.
@@ -28,9 +28,16 @@ class ManualAttendanceEdit
         private readonly AuditLogger $audit,
     ) {}
 
+    /**
+     * Única regla de quién corrige a quién (pantalla, guardado y botones). Lo propio requiere
+     * attendance.edit_own (por defecto RR. HH. y administración; se otorga en Roles y permisos).
+     */
     public function canEdit(User $editor, User $employee): bool
     {
-        if (! $editor->can('attendance.edit') || (int) $editor->id === (int) $employee->id) {
+        if ((int) $editor->id === (int) $employee->id) {
+            return $editor->can('attendance.edit_own');
+        }
+        if (! $editor->can('attendance.edit')) {
             return false;
         }
 

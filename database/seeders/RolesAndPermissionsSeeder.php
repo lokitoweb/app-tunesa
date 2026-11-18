@@ -40,6 +40,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'shifts.manage'          => ['Crear y editar turnos', 'shifts'],
         'shifts.assign'          => ['Asignar turnos a colaboradores', 'shifts'],
         'shifts.program'         => ['Programar horarios en el calendario (su agencia)', 'shifts'],
+        'shifts.program_own'     => ['Programar su propio horario', 'shifts'],
 
         // Asistencia
         'attendance.mark'        => ['Marcar asistencia (selfie + GPS)', 'attendance'],
@@ -49,6 +50,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'attendance.review'      => ['Aprobar o rechazar justificaciones', 'attendance'],
         'attendance.authorize_offshift' => ['Autorizar marcación fuera de turno (días sin programación)', 'attendance'],
         'attendance.edit'        => ['Corregir marcaciones a mano (con motivo)', 'attendance'],
+        'attendance.edit_own'    => ['Corregir sus propias marcaciones (con motivo)', 'attendance'],
         'attendance.contingency' => ['Activar el plan de contingencia (marcar desde Mi espacio sin la app)', 'attendance'],
         'attendance.web_punch'   => ['Marcar desde la web (Mi espacio) sin plan de contingencia', 'attendance'],
 
@@ -181,7 +183,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'Supervisor',
             'Supervisa la asistencia y solicitudes de su equipo.',
             [
-                'users.view', 'branches.view', 'shifts.view', 'shifts.view_own', 'shifts.program',
+                'users.view', 'branches.view', 'shifts.view', 'shifts.view_own', 'shifts.program', 'shifts.program_own',
                 'attendance.mark', 'attendance.web_punch', 'attendance.view_own', 'attendance.view_team', 'attendance.edit', 'attendance.authorize_offshift',
                 'dashboard.view', 'reports.view',
                 'leave.request', 'leave.approve_team',

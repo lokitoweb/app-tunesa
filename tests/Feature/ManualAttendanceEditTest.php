@@ -114,6 +114,14 @@ class ManualAttendanceEditTest extends TestCase
         // Supervisor: su equipo sí, a sí mismo no; fuera de su equipo, no
         $this->actingAs($this->supervisor)->get($this->url($this->emp, '2026-10-09'))->assertOk();
         $this->actingAs($this->supervisor)->get($this->url($this->supervisor, '2026-10-09'))->assertForbidden();
+        $this->assertFalse($this->supervisor->can('attendance.edit_own'), 'el supervisor no corrige lo suyo por defecto');
+
+        // Lo propio: RR. HH. sí (attendance.edit_own por defecto); si su empresa se lo quita, no
+        $this->actingAs($this->hr)->get($this->url($this->hr, '2026-10-09'))->assertOk();
+        $roles = app(\App\Modules\Core\Services\RolePermissions::class);
+        $roles->save($this->acme, 'hr_manager', array_values(array_diff($roles->effective($this->acme)['hr_manager'], ['attendance.edit_own'])), null);
+        $this->actingAs($this->hr->fresh())->get($this->url($this->hr, '2026-10-09'))->assertForbidden();
+        $this->actingAs($this->hr->fresh())->get($this->url($this->emp, '2026-10-09'))->assertOk();
         $other = $this->makeUser($this->acme, 'employee');
         // Sede de otro supervisor (una sin supervisor la verían todos los supervisores)
         $other->branches()->attach($this->makeBranch($this->acme, ['supervisor_id' => $this->makeUser($this->acme, 'supervisor')->id])->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);

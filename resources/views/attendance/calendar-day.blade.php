@@ -945,7 +945,7 @@
                                     </td>
                                     @if($canEdit)
                                         <td class="text-end">
-                                            @if((int) $r['user_id'] !== (int) auth()->id() && $filters->day <= now(tenant_timezone())->toDateString())
+                                            @if(((int) $r['user_id'] !== (int) auth()->id() || $canEditOwn) && $filters->day <= now(tenant_timezone())->toDateString())
                                                 <a href="{{ route('attendance.manual.edit', ['id' => $r['user_id'], 'date' => $filters->day]) }}" class="cal-btn-edit-action" title="Corregir asistencia de {{ $r['first_name'] }}">
                                                     <i class="bi bi-pencil"></i>
                                                     <span class="visually-hidden">Corregir asistencia de {{ $r['first_name'] }}</span>

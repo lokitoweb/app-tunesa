@@ -557,6 +557,37 @@ class ScheduleProgrammingTest extends TestCase
         $this->assertSame(1, EmployeeScheduleDay::count());
     }
 
+    public function test_own_schedule_follows_the_program_own_permission(): void
+    {
+        $supervisor = $this->makeUser($this->acme, 'supervisor', ['first_name' => 'Sara']);
+        $this->trujillo->update(['supervisor_id' => $supervisor->id]);
+        $supervisor->branches()->attach($this->trujillo->id, ['is_primary' => true, 'assigned_from' => '2020-01-01']);
+        $people = fn (User $who) => collect($this->actingAs($who)->getJson(route('shifts.schedule', ['branch_id' => $this->trujillo->id, 'month' => '2026-11']))
+            ->assertOk()->json('people'))->pluck('id');
+        $saveOwn = fn (User $who) => $this->actingAs($who)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-11-02', 'to' => '2026-11-02', 'reason' => 'Mi horario',
+            'rows' => [['user_id' => $who->id, 'days' => ['2026-11-02' => $this->a->id]]],
+        ]);
+
+        // Por defecto el supervisor se ve y se programa a sí mismo, junto a su equipo
+        $this->assertTrue($people($supervisor)->contains($supervisor->id));
+        $this->assertTrue($people($supervisor)->contains($this->people['Juan']->id));
+        $saveOwn($supervisor)->assertOk()->assertJsonPath('result.created', 1);
+
+        // Si su empresa le quita «Programar su propio horario», ya no aparece ni puede guardarse
+        $roles = app(\App\Modules\Core\Services\RolePermissions::class);
+        $roles->save($this->acme, 'supervisor', array_values(array_diff($roles->effective($this->acme)['supervisor'], ['shifts.program_own'])), null);
+        $this->assertFalse($people($supervisor->fresh())->contains($supervisor->id));
+        $this->assertTrue($people($supervisor->fresh())->contains($this->people['Juan']->id), 'a su equipo lo sigue programando');
+        $saveOwn($supervisor->fresh())->assertStatus(422);
+
+        // RR. HH. ve a toda la agencia y, con el permiso por defecto, también a sí mismo
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $hr->branches()->attach($this->trujillo->id, ['is_primary' => false, 'assigned_from' => '2020-01-01']);
+        $this->assertTrue($people($hr)->contains($hr->id));
+        $this->assertTrue($people($hr)->contains($this->people['Juan']->id));
+    }
+
     public function test_rule11_supervisor_authorizes_days_without_schedule_only_for_his_team(): void
     {
         $supervisor = $this->makeUser($this->acme, 'supervisor');

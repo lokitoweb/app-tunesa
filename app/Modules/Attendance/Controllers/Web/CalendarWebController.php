@@ -123,6 +123,8 @@ class CalendarWebController extends Controller
             'shifts'   => Shift::forTenant($tenantId)->orderBy('start_time')->get(['id', 'name', 'start_time']),
             'canOpen'  => $request->user()->can('attendance.view_all'),
             'canEdit'  => $request->user()->can('attendance.edit'),
+            // Su propia fila: solo con «Corregir sus propias marcaciones» (ManualAttendanceEdit::canEdit)
+            'canEditOwn' => $request->user()->can('attendance.edit_own'),
         ]);
     }
 

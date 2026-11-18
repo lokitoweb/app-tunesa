@@ -52,8 +52,9 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     Route::get('/attendance-calendar/day', [CalendarWebController::class, 'day'])->name('attendance.calendar.day');
     Route::get('/attendance-calendar/person/{id}', [CalendarWebController::class, 'person'])->name('attendance.calendar.person');
 
-    // Corrección manual de una jornada (RRHH: toda la empresa; supervisor: su equipo)
-    Route::middleware('can:attendance.edit')->group(function () {
+    // Corrección manual de una jornada (RRHH: toda la empresa; supervisor: su equipo; lo propio con
+    // attendance.edit_own). Sin middleware de permiso: ManualAttendanceEdit::canEdit decide (403) en ambas.
+    Route::group([], function () {
         Route::get('/attendance-calendar/person/{id}/day/{date}', [AttendanceEditWebController::class, 'edit'])->name('attendance.manual.edit')
             ->whereNumber('id')->where('date', '\\d{4}-\\d{2}-\\d{2}');
         Route::put('/attendance-calendar/person/{id}/day/{date}', [AttendanceEditWebController::class, 'update'])->name('attendance.manual.update')

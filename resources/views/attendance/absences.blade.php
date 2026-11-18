@@ -134,7 +134,7 @@
                             </td>
                             <td class="text-end pe-4 py-3 text-nowrap">
                                 <div class="d-inline-flex align-items-center gap-1.5 justify-content-end">
-                                    @if($canEdit)
+                                    @if($canEdit && ((int) $a['user_id'] !== (int) auth()->id() || $canEditOwn))
                                         <a href="{{ route('attendance.manual.edit', ['id' => $a['user_id'], 'date' => $a['date']]) }}" class="btn btn-sm btn-outline-primary shadow-sm" title="Regularizar asistencia de {{ $a['name'] }}" aria-label="Regularizar asistencia" style="border-radius: 8px; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0;">
                                             <i class="bi bi-pencil-square"></i>
                                         </a>

@@ -54,6 +54,7 @@ class AbsenceWebController extends Controller
             'defaults' => $defaults,
             'branches' => Branch::forTenant($tenantId)->visibleTo($user)->orderBy('name')->get(['id', 'name']),
             'canEdit'  => $user->can('attendance.edit'),
+            'canEditOwn' => $user->can('attendance.edit_own'),
         ]);
     }
 }

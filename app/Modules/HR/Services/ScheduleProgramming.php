@@ -39,7 +39,11 @@ class ScheduleProgramming
             ->whereHas('branches', fn ($q) => $q->where('branches.id', $branch->id)
                 ->where(fn ($w) => $w->whereNull('employee_branch.assigned_from')->orWhere('employee_branch.assigned_from', '<=', $to))
                 ->where(fn ($w) => $w->whereNull('employee_branch.assigned_until')->orWhere('employee_branch.assigned_until', '>=', $from)))
-            ->visibleTo($viewer)
+            // Su equipo y, con «Programar su propio horario», también él (si está en esta agencia);
+            // sin ese permiso nunca aparece él mismo, ni para RR. HH.
+            ->where(fn ($q) => $q->whereIn('users.id', User::select('users.id')->visibleTo($viewer))
+                ->when($viewer->can('shifts.program_own'), fn ($w) => $w->orWhere('users.id', $viewer->id)))
+            ->when(! $viewer->can('shifts.program_own'), fn ($q) => $q->where('users.id', '!=', $viewer->id))
             ->orderBy('last_name')->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name', 'employee_code', 'document_number', 'position', 'position_id', 'tenant_id', 'hire_date', 'termination_date']);
     }
