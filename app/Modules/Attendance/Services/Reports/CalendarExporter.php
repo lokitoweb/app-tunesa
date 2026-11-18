@@ -4,6 +4,7 @@ namespace App\Modules\Attendance\Services\Reports;
 
 use App\Modules\Attendance\Services\AttendanceCalendarService;
 use App\Modules\Attendance\Services\CalendarFilters;
+use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -17,7 +18,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  */
 class CalendarExporter
 {
-    private const LEAD = ['Código', 'Colaborador', 'Cargo'];
+    private const LEAD = ['Código', 'Colaborador', 'Agencia', 'Cargo'];
 
     private const TOTALS = ['Faltas', 'Tardanzas', 'Min. tarde', 'Justificadas', 'Observadas', 'Horas', 'HE aprobadas', 'HE por aprobar'];
 
@@ -41,32 +42,37 @@ class CalendarExporter
         $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
         $sheet->getStyle("A1:{$lastColumn}1")->getFont()->setBold(true);
         $sheet->getStyle("A1:{$lastColumn}1")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->freezePane('D2');
+        $sheet->freezePane(Coordinate::stringFromColumnIndex(count(self::LEAD) + 1) . '2');
 
         $row = 2;
         $firstDay = count(self::LEAD) + 1;
-        foreach ($this->calendar->each($f) as $r) {
-            $sheet->setCellValue([1, $row], (string) $r['employee_code']);
-            $sheet->setCellValue([2, $row], "{$r['last_name']}, {$r['first_name']}");
-            $sheet->setCellValue([3, $row], (string) $r['position']);
+        // De a 200 filas: las agencias de cada bloque salen en una sola consulta
+        foreach ($this->chunks($this->calendar->each($f), 200) as $block) {
+            $agencies = $this->agencies($f, array_column($block, 'user_id'));
+            foreach ($block as $r) {
+                $sheet->setCellValue([1, $row], (string) $r['employee_code']);
+                $sheet->setCellValue([2, $row], "{$r['last_name']}, {$r['first_name']}");
+                $sheet->setCellValue([3, $row], $agencies[$r['user_id']] ?? '');
+                $sheet->setCellValue([4, $row], (string) $r['position']);
 
-            $col = $firstDay;
-            foreach (array_keys($days) as $day) {
-                $cell = $r['cells'][$day] ?? null;
-                if ($cell) {
-                    $this->paint($sheet, $col, $row, $cell);
+                $col = $firstDay;
+                foreach (array_keys($days) as $day) {
+                    $cell = $r['cells'][$day] ?? null;
+                    if ($cell) {
+                        $this->paint($sheet, $col, $row, $cell);
+                    }
+                    $col++;
                 }
-                $col++;
-            }
 
-            $t = $r['totals'];
-            foreach ([$t['absent'], $t['late'], $t['late_minutes'], $t['excused'], $t['suspicious'], $t['worked_hours'], $t['overtime_approved'], $t['overtime_pending']] as $value) {
-                $sheet->setCellValue([$col++, $row], $value);
+                $t = $r['totals'];
+                foreach ([$t['absent'], $t['late'], $t['late_minutes'], $t['excused'], $t['suspicious'], $t['worked_hours'], $t['overtime_approved'], $t['overtime_pending']] as $value) {
+                    $sheet->setCellValue([$col++, $row], $value);
+                }
+                $row++;
             }
-            $row++;
         }
 
-        foreach ([1, 2, 3] as $c) {
+        foreach ([1, 2, 3, 4] as $c) {
             $sheet->getColumnDimensionByColumn($c)->setAutoSize(true);
         }
         for ($c = $firstDay; $c < $firstDay + count($days); $c++) {
@@ -82,6 +88,44 @@ class CalendarExporter
         $book->setActiveSheetIndex(0);
         (new Xlsx($book))->save($path);
         $book->disconnectWorksheets();
+    }
+
+    /**
+     * Agencia de cada persona, según el filtro: la elegida; con zona, sus agencias de esa zona; sin filtro,
+     * todas las suyas (la principal primero). Misma regla con la que el calendario filtra por agencia.
+     *
+     * @param  list<int>  $userIds
+     * @return array<int, string>  user_id => "Agencia A, Agencia B"
+     */
+    private function agencies(CalendarFilters $f, array $userIds): array
+    {
+        return DB::table('employee_branch')
+            ->join('branches', 'branches.id', '=', 'employee_branch.branch_id')
+            ->whereIn('employee_branch.user_id', $userIds)
+            ->whereNull('branches.deleted_at')
+            ->when($f->branchId, fn ($q, $id) => $q->where('branches.id', $id))
+            ->when($f->zoneId, fn ($q, $id) => $q->where('branches.zone_id', $id))
+            ->orderByDesc('employee_branch.is_primary')->orderBy('branches.name')
+            ->get(['employee_branch.user_id', 'branches.name'])
+            ->groupBy('user_id')
+            ->map(fn ($rows) => $rows->pluck('name')->unique()->implode(', '))
+            ->all();
+    }
+
+    /** Agrupa un generador en bloques de $size sin cargarlo entero */
+    private function chunks(iterable $rows, int $size): \Generator
+    {
+        $block = [];
+        foreach ($rows as $r) {
+            $block[] = $r;
+            if (count($block) === $size) {
+                yield $block;
+                $block = [];
+            }
+        }
+        if ($block) {
+            yield $block;
+        }
     }
 
     private function paint($sheet, int $col, int $row, array $cell): void

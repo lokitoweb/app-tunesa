@@ -207,11 +207,30 @@ class AttendanceCalendarTest extends TestCase
         $file = $response->baseResponse->getFile()->getPathname();
         $sheet = IOFactory::load($file)->getSheet(0);
 
+        $this->assertSame(['Código', 'Colaborador', 'Agencia', 'Cargo'], [$sheet->getCell('A1')->getValue(), $sheet->getCell('B1')->getValue(), $sheet->getCell('C1')->getValue(), $sheet->getCell('D1')->getValue()]);
         $this->assertSame('Quispe, Rosa', $sheet->getCell('B2')->getValue());
-        $this->assertSame('X 2', $sheet->getCell('E1')->getValue());
-        $this->assertSame('T', $sheet->getCell('E2')->getValue());
-        $this->assertSame(AttendanceCalendarService::FILLS['late'], $sheet->getStyle('E2')->getFill()->getStartColor()->getRGB());
-        $this->assertSame('F', $sheet->getCell('D2')->getValue(), 'el martes 1 sin marcación es falta');
+        $this->assertSame($this->branch->name, $sheet->getCell('C2')->getValue());
+        $this->assertSame('X 2', $sheet->getCell('F1')->getValue());
+        $this->assertSame('T', $sheet->getCell('F2')->getValue());
+        $this->assertSame(AttendanceCalendarService::FILLS['late'], $sheet->getStyle('F2')->getFill()->getStartColor()->getRGB());
+        $this->assertSame('F', $sheet->getCell('E2')->getValue(), 'el martes 1 sin marcación es falta');
+    }
+
+    public function test_excel_agency_follows_the_filter(): void
+    {
+        $other = $this->makeBranch($this->acme, ['name' => 'AG. PIURA']);
+        $this->emp->branches()->attach($other->id, ['is_primary' => false, 'assigned_from' => '2020-01-01']);
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $agency = function (array $params) use ($hr) {
+            $file = $this->actingAs($hr)->get(route('attendance.calendar.excel', ['month' => '2026-09', 'q' => 'Quispe'] + $params))
+                ->assertOk()->baseResponse->getFile()->getPathname();
+
+            return IOFactory::load($file)->getSheet(0)->getCell('C2')->getValue();
+        };
+
+        // Sin filtro: todas sus agencias, la principal primero; con filtro: la elegida
+        $this->assertSame($this->branch->name . ', AG. PIURA', $agency([]));
+        $this->assertSame('AG. PIURA', $agency(['branch_id' => $other->id]));
     }
 
     public function test_day_view_lists_expected_and_marked_people_by_shift(): void
