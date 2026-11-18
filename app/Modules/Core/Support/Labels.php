@@ -455,6 +455,9 @@ final class Labels
         'birth_md'                => 'Cumpleaños (mes y día)',
         'gender'                  => 'Género',
         'role'                    => 'Rol',
+        // Roles y permisos (bitácora «Permisos de un rol personalizados»)
+        'added'                   => 'Permisos agregados',
+        'removed'                 => 'Permisos quitados',
         'employee_code'           => 'Código de colaborador',
         'hire_date'               => 'Fecha de ingreso',
         'termination_date'        => 'Fecha de cese',
@@ -1020,6 +1023,8 @@ final class Labels
 
     /** Tipo de valor para formatear (lo que no está aquí se infiere del nombre) */
     public const FIELD_TYPES = [
+        'added'              => 'permissions',
+        'removed'            => 'permissions',
         'working_days'       => 'weekdays',
         'supervisor_id'      => 'reference',
         'zone_id'            => 'reference',
@@ -1227,6 +1232,8 @@ final class Labels
             'weekdays'       => self::join(array_map(fn ($d) => self::enum('weekday', $d), (array) $value)),
             'document_types' => self::join(array_map(fn ($d) => self::enum('document_type', $d), (array) $value)),
             'fields'         => self::join(array_map(fn ($f) => self::field((string) $f, $subjectType), self::listOf($value))),
+            // Códigos de permiso → su nombre del catálogo («Corregir sus propias marcaciones (con motivo)»)
+            'permissions'    => self::join(array_map(fn ($p) => \Database\Seeders\RolesAndPermissionsSeeder::PERMISSIONS[(string) $p][0] ?? self::humanize((string) $p), self::listOf($value))),
             'hidden'         => 'Dato técnico',
             'reference'      => 'Registro vinculado',
             default          => self::text($value),

@@ -161,6 +161,19 @@ class AuditStructuredLogTest extends TestCase
             ->assertPageMisses('"meta"');
     }
 
+    public function test_role_permission_changes_read_in_spanish(): void
+    {
+        $log = new AuditLog(['action' => 'roles.updated', 'meta' => [
+            'role' => 'supervisor', 'added' => ['attendance.edit_own', 'shifts.program_own'], 'removed' => ['attendance.edit'],
+        ]]);
+        $pairs = collect(AuditLogPresenter::make($log)->toArray()['pairs'])->pluck('text', 'label');
+
+        $this->assertSame('Supervisor', $pairs['Rol']);
+        $this->assertSame('Corregir sus propias marcaciones (con motivo) y Programar su propio horario', $pairs['Permisos agregados']);
+        $this->assertSame('Corregir marcaciones a mano (con motivo)', $pairs['Permisos quitados']);
+        $this->assertFalse($pairs->has('Added'));
+    }
+
     public function test_bank_account_and_password_changes_are_never_stored_in_clear(): void
     {
         $acme  = $this->makeTenant('acme');
