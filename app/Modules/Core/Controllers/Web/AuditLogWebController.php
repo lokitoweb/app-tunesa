@@ -66,10 +66,4 @@ class AuditLogWebController extends Controller
             ],
         ]);
     }
-
-    /** @deprecated Usa App\Modules\Core\Support\Labels::action() */
-    public static function actionLabel(string $action): string
-    {
-        return Labels::action($action);
-    }
 }

@@ -84,6 +84,13 @@ void main() {
     expect(script.requests.where((r) => r.method == 'POST').length, 2);
   });
 
+  test('el identificador de cada marcación es un UUID v4 válido y único', () {
+    final ids = List.generate(500, (_) => newClientUuid());
+    final v4 = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$');
+    expect(ids.every(v4.hasMatch), isTrue);
+    expect(ids.toSet(), hasLength(500));
+  });
+
   test('un error de negocio no se confirma: sube a la pantalla', () async {
     final (repo, script) = await _repo([422]);
 

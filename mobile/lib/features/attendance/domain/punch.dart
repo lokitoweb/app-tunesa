@@ -1,16 +1,21 @@
+import 'dart:math';
 import 'dart:typed_data';
 import '../../../core/utils/json_num.dart';
-
-import 'package:uuid/uuid.dart';
 
 import '../../../core/utils/formatters.dart';
 import 'models.dart';
 
-const _uuid = Uuid();
+final _random = Random.secure();
 
-/// Nuevo `client_uuid` (v4). Se genera una sola vez por captura y se reusa
-/// en cada reintento: el backend responde `duplicate: true` si ya la tiene.
-String newClientUuid() => _uuid.v4();
+/// Nuevo `client_uuid` (v4, RFC 4122, con el generador seguro del sistema). Se genera una sola vez
+/// por captura y se reusa en cada reintento: el backend responde `duplicate: true` si ya la tiene.
+String newClientUuid() {
+  final b = List<int>.generate(16, (_) => _random.nextInt(256));
+  b[6] = (b[6] & 0x0f) | 0x40; // versión 4
+  b[8] = (b[8] & 0x3f) | 0x80; // variante RFC 4122
+  final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+}
 
 /// ISO 8601 en UTC con milisegundos: 2026-10-09T13:01:02.123Z.
 String isoUtc(DateTime d) => d.toUtc().toIso8601String();
