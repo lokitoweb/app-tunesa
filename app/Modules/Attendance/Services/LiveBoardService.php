@@ -227,6 +227,9 @@ class LiveBoardService
         $rows = array_map(function (array $row) use ($snapshot) {
             $model = $row['attendance_id'] ? ($snapshot['models'][$row['attendance_id']] ?? null) : null;
             $row['photo_url'] = $model && $row['has_photo'] ? attendance_photo_url($model, 'in') : null;
+            // Avatar de la fila: la miniatura (enlace estable, el navegador la reutiliza en cada actualización);
+            // la foto completa solo se pide al ampliar
+            $row['thumb_url'] = $model && $row['has_photo'] ? attendance_photo_thumb_url($model, 'in') : null;
             $row['detail_url'] = $row['attendance_id'] && Route::has('attendance.show') && auth()->user()?->can('attendance.view_all')
                 ? route('attendance.show', $row['attendance_id'])
                 : null;

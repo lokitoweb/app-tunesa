@@ -21,11 +21,20 @@ final class PrivateFile
         'Content-Security-Policy' => "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
     ];
 
-    /** 404 si no hay ruta o el archivo no existe en el disco */
-    public static function response(string $disk, ?string $path, ?string $name = null, string $disposition = 'inline'): Response
+    /**
+     * 404 si no hay ruta o el archivo no existe en el disco.
+     *
+     * @param  int  $browserCacheSeconds  solo miniaturas de selfie con enlace firmado: el navegador de quien ya
+     *                                    la ve puede guardarla hasta que el enlace vence (nunca un proxy: private)
+     */
+    public static function response(string $disk, ?string $path, ?string $name = null, string $disposition = 'inline', int $browserCacheSeconds = 0): Response
     {
         abort_if(empty($path) || ! Storage::disk($disk)->exists($path), 404);
 
-        return Storage::disk($disk)->response($path, $name ?? basename($path), self::HEADERS, $disposition);
+        $headers = $browserCacheSeconds > 0
+            ? ['Cache-Control' => 'private, max-age=' . $browserCacheSeconds] + self::HEADERS
+            : self::HEADERS;
+
+        return Storage::disk($disk)->response($path, $name ?? basename($path), $headers, $disposition);
     }
 }

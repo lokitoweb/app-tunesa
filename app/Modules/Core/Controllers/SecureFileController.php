@@ -45,7 +45,10 @@ class SecureFileController extends Controller
             $disk = 'public';
         }
 
-        return PrivateFile::response($disk, $path, $name);
+        // Miniatura: el navegador la reutiliza hasta que vence su enlace (SecureFileUrl::thumb); lo demás, sin guardar
+        $cacheSeconds = $thumb ? max(0, min(3600, (int) request()->query('expires') - now()->getTimestamp())) : 0;
+
+        return PrivateFile::response($disk, $path, $name, 'inline', $cacheSeconds);
     }
 
     private function document(int $id): array

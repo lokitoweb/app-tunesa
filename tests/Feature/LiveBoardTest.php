@@ -91,6 +91,24 @@ class LiveBoardTest extends TestCase
         return collect($json['rows'])->mapWithKeys(fn ($r) => [$r['name'] => $r['status']])->all();
     }
 
+    public function test_rows_show_the_selfie_thumbnail_and_open_the_full_photo_on_zoom(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('private');
+        Attendance::where('user_id', $this->people['working']->id)->update(['clock_in_photo' => 'attendance/selfie.webp']);
+        $admin = $this->makeUser($this->tenant, 'company_admin');
+
+        $row = collect($this->actingAs($admin)->getJson('/live/data')->assertOk()->json('rows'))->firstWhere('name', 'Working Test');
+        $this->assertStringContainsString('/secure-files/selfie-in-thumb/', $row['thumb_url']);
+        $this->assertStringContainsString('/secure-files/selfie-in/', $row['photo_url']);
+
+        // Misma miniatura en la siguiente actualización: el navegador la reutiliza
+        $this->travel(20)->seconds();
+        $again = collect($this->actingAs($admin)->getJson('/live/data')->json('rows'))->firstWhere('name', 'Working Test');
+        $this->assertSame($row['thumb_url'], $again['thumb_url']);
+
+        $this->actingAs($admin)->get(route('live.index'))->assertSee('r.thumb_url || photoSrc', false);
+    }
+
     public function test_page_requires_team_permission(): void
     {
         // El colaborador no entra al panel (SetWebTenant lo saca antes de llegar al tablero)

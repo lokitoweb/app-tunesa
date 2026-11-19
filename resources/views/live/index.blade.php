@@ -284,12 +284,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function rowHtml(r) {
         const tone = TONES[r.status] || 'neutral';
         const photoSrc = r.photo_url || r.avatar_url;
+        {{-- En la lista, la miniatura (el navegador la reutiliza en cada actualización); la foto completa al ampliar --}}
+        const listSrc = r.thumb_url || photoSrc;
         const init = initials(r.name);
-        
+
         {{-- Avatar: Foto de marcación o perfil si existe, o iniciales estilizadas --}}
         const thumb = photoSrc
             ? `<div class="live-collab-avatar has-photo" data-photo="${Panel.esc(photoSrc)}" data-photo-title="${Panel.esc(r.name)}" data-photo-meta="${Panel.esc(r.branch || '')} · ${Panel.esc(r.clock_in ? 'Marcación ' + r.clock_in : 'Perfil')}" title="Clic para ampliar foto">
-                   <img src="${Panel.esc(photoSrc)}" alt="${Panel.esc(r.name)}" onerror="this.onerror=null; this.parentElement.classList.remove('has-photo'); this.parentElement.innerHTML='${Panel.esc(init)}';">
+                   <img src="${Panel.esc(listSrc)}" alt="${Panel.esc(r.name)}" onerror="this.onerror=null; this.parentElement.classList.remove('has-photo'); this.parentElement.innerHTML='${Panel.esc(init)}';">
                </div>`
             : `<div class="live-collab-avatar" title="${Panel.esc(r.name)}">${Panel.esc(init)}</div>`;
         

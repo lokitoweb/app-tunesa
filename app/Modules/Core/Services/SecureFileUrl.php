@@ -33,10 +33,16 @@ class SecureFileUrl
         return URL::temporarySignedRoute('secure-files.show', $expires, ['kind' => $kind, 'id' => $id]);
     }
 
-    /** Miniatura de 160 px de una selfie ('selfie-in', 'selfie-out' o 'punch-photo') */
+    /**
+     * Miniatura de 160 px de una selfie ('selfie-in', 'selfie-out' o 'punch-photo'). El vencimiento se
+     * redondea a ventanas de $minutes: durante toda la ventana el enlace es el mismo, así el navegador
+     * reutiliza la imagen en recargas y filtros (SecureFileController la deja guardar hasta que vence)
+     * y una vista con muchas selfies no agota el límite de pedidos. Vale entre $minutes y 2×$minutes.
+     */
     public function thumb(string $kind, int $id, ?int $minutes = null): string
     {
-        $expires = now()->addMinutes($minutes ?? (int) config('filesystems.signed_url_minutes', 5));
+        $window = 60 * max(1, $minutes ?? (int) config('filesystems.signed_url_minutes', 5));
+        $expires = \Illuminate\Support\Carbon::createFromTimestamp((intdiv(now()->getTimestamp(), $window) + 2) * $window);
 
         return URL::temporarySignedRoute('secure-files.show', $expires, ['kind' => "{$kind}-thumb", 'id' => $id]);
     }

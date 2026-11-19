@@ -151,6 +151,37 @@ class SelfieEvidenceTest extends TestCase
         $this->get(str_replace('selfie-in-thumb', 'document-thumb', $thumb))->assertNotFound();
     }
 
+    public function test_thumbnail_link_is_stable_and_only_the_viewers_browser_may_keep_it(): void
+    {
+        $this->clockIn()->assertCreated();
+        $attendance = Attendance::withoutGlobalScopes()->sole();
+        $urls = app(SecureFileUrl::class);
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-11-19 10:01:00'));
+
+        // Mismo enlace en recargas y filtros dentro de la ventana: el navegador reutiliza la imagen
+        $first = $urls->thumb('selfie-in', $attendance->id, 15);
+        $this->travel(9)->minutes();
+        $this->assertSame($first, $urls->thumb('selfie-in', $attendance->id, 15));
+        $this->travel(10)->minutes();
+        $this->assertNotSame($first, $urls->thumb('selfie-in', $attendance->id, 15), 'nueva ventana, nuevo enlace');
+
+        // Siempre vale al menos la ventana completa
+        parse_str((string) parse_url($first, PHP_URL_QUERY), $q);
+        $this->assertGreaterThanOrEqual(\Illuminate\Support\Carbon::parse('2026-11-19 10:01:00')->addMinutes(15)->getTimestamp(), (int) $q['expires']);
+
+        // La miniatura: solo el navegador (private), hasta que vence; nunca public ni proxies
+        $this->travelBack();
+        $thumb = $urls->thumb('selfie-in', $attendance->id, 15);
+        $cache = (string) $this->get($thumb)->assertOk()->headers->get('Cache-Control');
+        $this->assertStringContainsString('private', $cache);
+        $this->assertMatchesRegularExpression('/max-age=([1-9]\d*)/', $cache);
+        $this->assertStringNotContainsString('public', $cache);
+
+        // La foto completa sigue sin guardarse
+        $full = $urls->make('private', $attendance->clock_in_photo, 'selfie-in', $attendance->id);
+        $this->assertStringContainsString('no-store', (string) $this->get($full)->assertOk()->headers->get('Cache-Control'));
+    }
+
     public function test_opening_someone_elses_selfie_is_audited_once_per_hour(): void
     {
         $this->clockIn()->assertCreated();

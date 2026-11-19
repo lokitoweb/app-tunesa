@@ -114,6 +114,9 @@ class DashboardController extends Controller
         // 7. Tendencia semanal optimizada con un único query agregado
         $weeklyChart = $this->getWeeklyTrendData($tenantId, $selectedBranchId, $user);
 
+        // 8. Mapa: presentes por agencia y marcaciones del período con ubicación (mismo bloque que el refresco)
+        $mapData = $this->mapData($tenantId, $dateFrom, $dateTo, $selectedBranchId, $user);
+
         $platform = $tenantId === null ? [
             'tenants'        => Tenant::count(),
             'active_tenants' => Tenant::where('status', 'active')->count(),
@@ -125,6 +128,7 @@ class DashboardController extends Controller
             'allBranches',
             'selectedBranchId',
             'recentAttendances',
+            'mapData',
             'weeklyChart',
             'hourlyDistribution',
             'hourlyLabels',
@@ -213,6 +217,43 @@ class DashboardController extends Controller
     /**
      * Endpoint API/JSON para actualización en tiempo real (polling o SSE) del dashboard.
      */
+    /** Tope de puntos del mapa: más que esto en un período es ilegible y pesado (se muestran los más recientes) */
+    private const MAP_POINTS = 300;
+
+    /**
+     * Datos del mapa de geocercas: personas presentes por agencia (marcaron entrada en el período) y los
+     * puntos de esas entradas con ubicación (verde dentro / rojo fuera). Dos consultas agregadas, con el
+     * mismo alcance que el resto del Dashboard. Lo usan la carga inicial y el refresco de cada 20 s.
+     *
+     * @return array{presence: array<int, int>, points: list<array<string, mixed>>}
+     */
+    private function mapData(?int $tenantId, string $dateFrom, string $dateTo, ?int $branchId, $user): array
+    {
+        $base = fn () => Attendance::forTenant($tenantId)->visibleTo($user)
+            ->whereBetween('work_date', [$dateFrom, $dateTo])->whereNotNull('clock_in_at')
+            ->when($branchId, fn ($q, $id) => $q->where('branch_id', $id));
+
+        $presence = $base()->selectRaw('branch_id, COUNT(DISTINCT user_id) as total')->groupBy('branch_id')
+            ->pluck('total', 'branch_id')->map(fn ($n) => (int) $n)->all();
+
+        $points = $base()->whereNotNull('clock_in_latitude')->whereNotNull('clock_in_longitude')
+            ->with('user:id,first_name,last_name', 'branch:id,name')
+            ->orderByDesc('clock_in_at')->limit(self::MAP_POINTS)
+            ->get(['id', 'user_id', 'branch_id', 'clock_in_at', 'clock_in_latitude', 'clock_in_longitude', 'clock_in_within_geofence', 'clock_in_distance_meters'])
+            ->map(fn (Attendance $a) => [
+                'id'       => $a->id,
+                'name'     => trim(($a->user?->first_name ?? '') . ' ' . ($a->user?->last_name ?? '')),
+                'branch'   => $a->branch?->name,
+                'time'     => hora($a->clock_in_at, true),
+                'lat'      => (float) $a->clock_in_latitude,
+                'lng'      => (float) $a->clock_in_longitude,
+                'within'   => $a->clock_in_within_geofence === null ? null : (bool) $a->clock_in_within_geofence,
+                'distance' => $a->clock_in_distance_meters,
+            ])->values()->all();
+
+        return ['presence' => $presence, 'points' => $points];
+    }
+
     public function liveStream(Request $request): JsonResponse
     {
         $tenantId = $this->resolveTenantId();
@@ -309,6 +350,7 @@ class DashboardController extends Controller
             'timestamp'           => Carbon::now(tenant_timezone())->toIso8601String(),
             'kpis'                => $kpis,
             'attendances'         => $attendances,
+            'map'                 => $this->mapData($tenantId, $dateFrom, $dateTo, $selectedBranchId, $user),
             'hourlyDistribution'  => $hourlyDistribution,
             'weeklyChart'         => $weeklyChart,
             'selectedBranchId'    => $selectedBranchId,

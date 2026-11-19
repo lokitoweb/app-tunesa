@@ -475,24 +475,51 @@ document.addEventListener('DOMContentLoaded', () => {
     Panel.tiles(map);
 
     const mapCirclesLayer = L.layerGroup().addTo(map);
+    {{-- Entradas del período con ubicación: verde dentro, rojo fuera (se renuevan con el refresco de 20 s) --}}
+    const mapPointsLayer = L.layerGroup().addTo(map);
+    const MAP_COLORS = { brand: '#0ea5e9', inside: '#059669', outside: '#dc2626' };
+    let mapPresence = {};
+    let mapFitKey = null;
 
+    {{-- Cada agencia: marcador visible a cualquier zoom (nombre y presentes) y su perímetro real --}}
     function renderMapBranches(branchId = null) {
         mapCirclesLayer.clearLayers();
-        const bounds = [];
-        const toShow = branchId 
-            ? allBranchesList.filter(b => b.id === branchId)
-            : allBranchesList;
+        const toShow = branchId ? allBranchesList.filter(b => b.id === branchId) : allBranchesList;
 
         toShow.forEach((b) => {
             if (!b.latitude || !b.longitude) return;
             const center = [parseFloat(b.latitude), parseFloat(b.longitude)];
             const radius = parseInt(b.allowed_radius_meters, 10) || 50;
-            L.circle(center, { radius, color: '#0ea5e9', fillColor: '#0ea5e9', fillOpacity: .18, weight: 2 })
-                .addTo(mapCirclesLayer)
-                .bindPopup(`<strong>${Panel.esc(b.name)}</strong><br><small>Radio: ${radius} m</small>`);
-            bounds.push(center);
+            const present = mapPresence[b.id] || 0;
+            const info = `<strong>${Panel.esc(b.name)}</strong><br><small>${present} ${present === 1 ? 'presente' : 'presentes'} · radio ${radius} m</small>`;
+            L.circle(center, { radius, color: MAP_COLORS.brand, fillColor: MAP_COLORS.brand, fillOpacity: .18, weight: 2 })
+                .addTo(mapCirclesLayer).bindPopup(info);
+            L.circleMarker(center, { radius: 7, color: '#ffffff', weight: 2, fillColor: MAP_COLORS.brand, fillOpacity: 1 })
+                .addTo(mapCirclesLayer).bindPopup(info)
+                .bindTooltip(`${Panel.esc(b.name)} · ${present}`, { direction: 'top', offset: [0, -6] });
         });
+    }
 
+    {{-- Puntos de entrada: color por geocerca; sin ubicación (contingencia) no se dibuja --}}
+    function renderMapPoints(points) {
+        mapPointsLayer.clearLayers();
+        (points || []).forEach((p) => {
+            if (p.within === null || !p.lat || !p.lng) return;
+            const color = p.within ? MAP_COLORS.inside : MAP_COLORS.outside;
+            const where = p.within ? 'Dentro' : `Fuera${p.distance != null ? ' · ' + parseInt(p.distance, 10) + ' m' : ''}`;
+            L.circleMarker([p.lat, p.lng], { radius: 5, color: '#ffffff', weight: 1, fillColor: color, fillOpacity: .95 })
+                .addTo(mapPointsLayer)
+                .bindPopup(`<strong>${Panel.esc(p.name)}</strong><br><small>${Panel.esc(p.time || '')} · ${Panel.esc(p.branch || '')}<br>${Panel.esc(where)}</small>`);
+        });
+    }
+
+    {{-- Encuadre solo al cambiar de agencia (no en cada refresco: no le quita el zoom a quien mira) --}}
+    function fitMap(branchId) {
+        const key = String(branchId || 'all');
+        if (mapFitKey === key) return;
+        mapFitKey = key;
+        const bounds = (branchId ? allBranchesList.filter(b => b.id === branchId) : allBranchesList)
+            .filter(b => b.latitude && b.longitude).map(b => [parseFloat(b.latitude), parseFloat(b.longitude)]);
         if (bounds.length === 1) {
             map.setView(bounds[0], 15);
         } else if (bounds.length > 1) {
@@ -500,8 +527,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderMap(mapData, branchId) {
+        if (mapData) mapPresence = mapData.presence || {};
+        renderMapBranches(branchId);
+        if (mapData) renderMapPoints(mapData.points);
+        fitMap(branchId);
+    }
+
     let currentBranchId = @json($selectedBranchId);
-    renderMapBranches(currentBranchId);
+    renderMap(@json($mapData), currentBranchId);
 
     {{-- 2 y 3. Gráficos con los colores del tema (claro / oscuro) y de la marca de la empresa --}}
     const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -604,7 +638,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (branchSelectEl) {
         branchSelectEl.addEventListener('change', (e) => {
             currentBranchId = e.target.value ? parseInt(e.target.value, 10) : null;
-            renderMapBranches(currentBranchId);
+            renderMap(null, currentBranchId);
             window.fetchDashboardData({ branch_id: currentBranchId }, true, false);
         });
     }
@@ -946,6 +980,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+
+            {{-- Mapa: presentes por agencia y puntos de entrada del período --}}
+            if (data.map) renderMap(data.map, currentBranchId);
 
             {{-- Actualizar Sedes Activas y Calibración --}}
             const activeBranchesEl = document.getElementById('kpiActiveBranches');
