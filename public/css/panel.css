@@ -9638,6 +9638,47 @@ a.dash-kpi-card.is-link.is-active { border-color: var(--brand); box-shadow: 0 0 
 .dash-badge { display: inline-block; }
 .dash-exec .dash-hero #telemetryRefreshBtn { flex: 0 0 38px; width: 38px !important; height: 38px; }
 
+/* Cabecera: saludo a la izquierda y filtros a la derecha SIEMPRE en una sola fila, en todo ancho. Un nombre
+   largo se parte en su columna; los filtros se compactan por etapas (texto con «…», luego solo ícono; el
+   valor completo queda en el title del botón y en su menú). Nada se va abajo. */
+.dash-exec .dash-hero .dash-head { flex-wrap: nowrap; }
+.dash-exec .dash-hero .dash-head-text { flex: 1 1 auto; min-width: 0; }
+.dash-exec .dash-hero .dash-title {
+    overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+.dash-exec .dash-hero .dash-controls { flex: 0 0 auto; flex-wrap: nowrap; justify-content: flex-end; width: auto; }
+.dash-exec .dash-hero .dash-controls > * { flex: 0 0 auto; }
+/* Mediana: texto de los filtros recortado con «…» */
+@media (max-width: 1440px) {
+    .dash-exec .dash-hero .header-filter-btn { min-width: 8rem; max-width: 11rem; }
+    .dash-exec .dash-hero .dash-title { font-size: 1.35rem; }
+}
+/* Tablet: empresa y sede solo con ícono; la fecha muestra solo su etiqueta («Hoy», «Ayer»…) */
+@media (max-width: 1199.98px) {
+    .dash-exec .dash-hero .header-filter-btn { width: 38px !important; min-width: 38px !important; max-width: 38px !important; padding: 0; justify-content: center; }
+    .dash-exec .dash-hero .header-filter-btn :is(.header-filter-text, .header-filter-chevron) { display: none; }
+    .dash-exec .dash-hero .date-filter-pill :is(.divider, #calTriggerFrom, #calTriggerTo) { display: none; }
+    .dash-exec .dash-hero .date-filter-pill { width: auto !important; flex-wrap: nowrap; white-space: nowrap; }
+}
+/* Celular: el texto de arriba y la hora a todo el ancho; en la fila del medio, el saludo y los filtros (todo en
+   íconos) lado a lado. Se anula el «ancho completo» de .dash-controls de las reglas generales de celular. */
+@media (max-width: 575.98px) {
+    .dash-exec .dash-hero .dash-head {
+        display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.6rem; align-items: center;
+        grid-template-areas: "eyebrow eyebrow" "title controls" "subtitle subtitle";
+    }
+    .dash-exec .dash-hero .dash-head-text { display: contents; }
+    .dash-exec .dash-hero .dash-eyebrow { grid-area: eyebrow; flex-wrap: wrap; }
+    .dash-exec .dash-hero .dash-title { grid-area: title; font-size: 1.15rem; -webkit-line-clamp: 4; line-clamp: 4; }
+    .dash-exec .dash-hero .dash-subtitle { grid-area: subtitle; }
+    .dash-exec .dash-hero .dash-controls { grid-area: controls; gap: 0.35rem; }
+    .dash-exec .dash-hero .dash-controls > * { width: auto !important; min-width: 0; }
+    .dash-exec .dash-hero .date-filter-pill { width: 38px !important; height: 38px; padding: 0; justify-content: center; }
+    .dash-exec .dash-hero .date-filter-pill > :not(.bi-calendar3) { display: none; }
+    .dash-exec .dash-hero .date-filter-pill::after { display: none; }
+}
+
 /* Ficha del colaborador (crear y editar): secciones con un propósito, marcación a la derecha y fija al bajar */
 .emp-edit { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1rem; align-items: start; }
 .emp-edit-main, .emp-edit-side { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }

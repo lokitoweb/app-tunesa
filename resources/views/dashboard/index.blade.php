@@ -175,7 +175,7 @@
 
         {{-- Filtro de Calendario / Período Interactivo Profesional (Screenshot 1) --}}
         <div class="dropdown" id="dashboardCalendarDropdown">
-            <button type="button" class="date-filter-pill dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" id="dateFilterDropdownBtn">
+            <button type="button" class="date-filter-pill dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" id="dateFilterDropdownBtn" title="Período" aria-label="Período">
                 <i class="bi bi-calendar3 text-primary"></i>
                 <span class="fw-bold text-dark" id="calTriggerLabel">{{ $presetLabel }}</span>
                 <span class="divider">|</span>
