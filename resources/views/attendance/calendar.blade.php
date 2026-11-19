@@ -1463,7 +1463,8 @@ async function executeInternalFetch(params) {
     try {
         const url = new URL('{{ route("attendance.calendar") }}', window.location.origin);
         Object.entries(params).forEach(([k, v]) => {
-            if (v !== null && v !== undefined && v !== '') {
+            {{-- branch_id vacío («Todas las sucursales») sí viaja: el servidor recuerda la sede elegida y solo así guarda «Todas» --}}
+            if (v !== null && v !== undefined && (v !== '' || k === 'branch_id')) {
                 url.searchParams.set(k, v);
             }
         });
@@ -1520,7 +1521,7 @@ function changeMonthInternal(monthValue) {
 {{-- Limpiar filtros internamente --}}
 function resetInternalFilter() {
     const month = document.getElementById('monthInput').value;
-    executeInternalFetch({ month });
+    executeInternalFetch({ month, branch_id: '' });
 }
 
 {{-- Alternar entre Vista Calendario y Vista Matriz --}}

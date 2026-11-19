@@ -1002,7 +1002,8 @@ async function applyDayFilter(customParams = {}) {
         const url = new URL('{{ route("attendance.calendar.day") }}', window.location.origin);
         {{-- Solo agregar parámetros que no estén vacíos para mantener la URL completamente limpia --}}
         Object.entries(params).forEach(([k, v]) => {
-            if (v !== null && v !== undefined && String(v).trim() !== '') {
+            {{-- branch_id vacío («Todas las sucursales») sí viaja: el servidor recuerda la sede elegida y solo así guarda «Todas» --}}
+            if (v !== null && v !== undefined && (String(v).trim() !== '' || k === 'branch_id')) {
                 url.searchParams.set(k, String(v).trim());
             }
         });

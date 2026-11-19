@@ -352,5 +352,12 @@ class QaRonda2CasesTest extends TestCase
         // "Todas las sucursales" también se recuerda; una sede fuera de alcance se ignora
         $this->actingAs($this->hr)->get(route('attendance.calendar', ['month' => '2026-10', 'branch_id' => '']))->assertCookie($cookie, '');
         $this->withCookie($cookie, '999999')->actingAs($this->hr)->get(route('attendance.calendar', ['month' => '2026-10']))->assertOk()->assertSee('Otro');
+
+        // El filtro sin recargar (mes y día) envía branch_id aunque esté vacío: si no, el servidor
+        // repondría la sede recordada y «Todas las sucursales» volvería sola a la anterior
+        $this->actingAs($this->hr)->get(route('attendance.calendar', ['month' => '2026-10']))
+            ->assertSee("(v !== '' || k === 'branch_id')", false)->assertSee("executeInternalFetch({ month, branch_id: '' })", false);
+        $this->actingAs($this->hr)->get(route('attendance.calendar.day', ['date' => '2026-10-20']))
+            ->assertSee("(String(v).trim() !== '' || k === 'branch_id')", false);
     }
 }
