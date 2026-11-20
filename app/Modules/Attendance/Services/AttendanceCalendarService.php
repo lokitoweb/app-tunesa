@@ -190,16 +190,7 @@ class AttendanceCalendarService
             return;
         }
 
-        // Después del commit: cada incremento en su propia transacción corta, sin
-        // retener el bloqueo de la fila mientras dura la transacción de la marcación
-        DB::afterCommit(function () use ($tenantId, $month) {
-            // La vista global del Super Admin (sin empresa) también se invalida
-            foreach (array_unique([$tenantId, null]) as $id) {
-                $key = self::versionKey($id, $month);
-                Cache::add($key, 0, now()->addDays(40));
-                Cache::increment($key);
-            }
-        });
+        self::renew(fn (?int $id) => self::versionKey($id, $month), $tenantId);
     }
 
     /**
@@ -520,14 +511,23 @@ class AttendanceCalendarService
      * Renueva la caché de todos los meses cerrados de la empresa (y de la vista global). Lo llaman los cambios
      * en horarios, asignaciones de horario, feriados y datos del colaborador que se ven en el calendario
      * (AppServiceProvider). tenantId null (p. ej. un feriado de la plataforma) renueva el de todas las empresas.
-     * Después del commit, como bump(): si la transacción se revierte, no se renueva nada.
      */
     public static function bumpAll(?int $tenantId): void
     {
-        DB::afterCommit(function () use ($tenantId) {
+        self::renew(fn (?int $id) => self::generalKey($id), $tenantId);
+    }
+
+    /**
+     * Sube el contador de la empresa y el de la vista global del Super Admin. Después del commit: cada incremento
+     * en su propia transacción corta (sin retener el bloqueo mientras dura la de la marcación) y, si la
+     * transacción se revierte, no se renueva nada.
+     */
+    private static function renew(\Closure $key, ?int $tenantId): void
+    {
+        DB::afterCommit(function () use ($key, $tenantId) {
             foreach (array_unique([$tenantId, null]) as $id) {
-                Cache::add(self::generalKey($id), 0, now()->addDays(40));
-                Cache::increment(self::generalKey($id));
+                Cache::add($key($id), 0, now()->addDays(40));
+                Cache::increment($key($id));
             }
         });
     }

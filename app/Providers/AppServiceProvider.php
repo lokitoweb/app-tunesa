@@ -7,6 +7,9 @@ use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Services\AttendanceCalendarService;
 use App\Modules\HR\Models\EmployeeDocument;
 use App\Modules\HR\Models\EmployeeShift;
+use App\Modules\HR\Models\Holiday;
+use App\Modules\HR\Models\Shift;
+use App\Modules\Core\Models\Position;
 use App\Modules\Core\Models\TenantSetting;
 use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\Payroll\Models\Payslip;
@@ -130,20 +133,19 @@ class AppServiceProvider extends ServiceProvider
         // Lo que se ve en todos los meses (plantilla del horario, asignaciones, feriados y datos del colaborador
         // que muestra el calendario): renueva al instante los meses cerrados que estaban en caché
         $bumpAll = fn ($m) => AttendanceCalendarService::bumpAll($m->tenant_id);
-        foreach ([\App\Modules\HR\Models\Shift::class, EmployeeShift::class, \App\Modules\HR\Models\Holiday::class] as $model) {
+        foreach ([Shift::class, EmployeeShift::class, Holiday::class] as $model) {
             $model::saved($bumpAll);
             $model::deleted($bumpAll);
         }
-        // Solo los datos del colaborador que muestra el calendario (no el último acceso u otros campos)
+        // Solo los datos del colaborador que muestra el calendario (no el último acceso u otros campos). Altas y bajas
+        // no hacen falta: la clave de cada página lleva a sus personas
         User::updated(function (User $u) use ($bumpAll) {
             if ($u->wasChanged(['first_name', 'last_name', 'employee_code', 'position', 'avatar_path', 'hire_date', 'termination_date'])) {
                 $bumpAll($u);
             }
         });
-        User::created($bumpAll);
-        User::deleted($bumpAll);
         // Renombrar un cargo actualiza users.position con una consulta (sin eventos de User)
-        \App\Modules\Core\Models\Position::updated(function ($p) use ($bumpAll) {
+        Position::updated(function (Position $p) use ($bumpAll) {
             if ($p->wasChanged('name')) {
                 $bumpAll($p);
             }
