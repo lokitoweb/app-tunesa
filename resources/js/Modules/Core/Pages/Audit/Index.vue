@@ -1,5 +1,6 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { router } from '@inertiajs/vue3';
 import AppLayout from '@/Modules/Core/Layouts/AppLayout.vue';
 import AuditValue from '@/Modules/Core/Components/AuditValue.vue';
 import TenantBadge from '@/Modules/Core/Components/TenantBadge.vue';
@@ -10,110 +11,49 @@ const props = defineProps({
     actions: Array,
     users: Array,
     filters: Object,
+    stats: Object,
+    toneCounts: Object,
 });
 
-// Filtros reactivos internos (cero mutación de URL en la barra de navegación)
-const searchQuery = ref('');
+// Filtros: el servidor busca, filtra, cuenta y pagina sobre TODA la bitácora (no solo la página que llegó)
+const searchQuery = ref(props.filters?.q || '');
 const filterAction = ref(props.filters?.action || '');
 const filterUserId = ref(props.filters?.user_id ? String(props.filters.user_id) : '');
 const filterFrom = ref(props.filters?.from || '');
 const filterTo = ref(props.filters?.to || '');
-const activeTone = ref('all');
+const activeTone = ref(props.filters?.tone || 'all');
 
-const rawLogs = computed(() => props.logs?.data || []);
+const paginatedLogs = computed(() => props.logs?.data || []);
 
-// Filtrado 100% interno e instantáneo en memoria
-const filteredLogs = computed(() => {
-    let list = rawLogs.value;
+function visit(page = 1) {
+    router.get('/audit', {
+        q: searchQuery.value.trim() || undefined,
+        action: filterAction.value || undefined,
+        user_id: filterUserId.value || undefined,
+        from: filterFrom.value || undefined,
+        to: filterTo.value || undefined,
+        tone: activeTone.value !== 'all' ? activeTone.value : undefined,
+        page: page > 1 ? page : undefined,
+    }, { preserveState: true, preserveScroll: true, replace: true });
+}
 
-    if (searchQuery.value.trim()) {
-        const q = searchQuery.value.toLowerCase().trim();
-        list = list.filter((log) => {
-            return (
-                (log.actor_name && log.actor_name.toLowerCase().includes(q)) ||
-                (log.actor_role && log.actor_role.toLowerCase().includes(q)) ||
-                (log.action_label && log.action_label.toLowerCase().includes(q)) ||
-                (log.subject_label && log.subject_label.toLowerCase().includes(q)) ||
-                (log.summary && log.summary.toLowerCase().includes(q)) ||
-                (log.ip && log.ip.includes(q)) ||
-                (log.device && log.device.toLowerCase().includes(q)) ||
-                (log.badge?.label && log.badge.label.toLowerCase().includes(q))
-            );
-        });
-    }
-
-    if (filterAction.value) {
-        list = list.filter((log) => {
-            return (
-                log.action === filterAction.value ||
-                log.action_label === filterAction.value ||
-                (log.badge?.label && log.badge.label === filterAction.value)
-            );
-        });
-    }
-
-    if (filterUserId.value) {
-        list = list.filter((log) => String(log.user_id || log.actor_id || '') === String(filterUserId.value) || (log.actor_name && props.users?.find(u => String(u.id) === String(filterUserId.value))?.name === log.actor_name));
-    }
-
-    if (filterFrom.value) {
-        list = list.filter((log) => {
-            const dateStr = log.created_at || log.date || '';
-            // Formatos usuales: YYYY-MM-DD o DD/MM/YYYY
-            if (dateStr.includes('/')) {
-                const parts = dateStr.split(' ')[0].split('/');
-                if (parts.length === 3) {
-                    const iso = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                    return iso >= filterFrom.value;
-                }
-            }
-            return dateStr >= filterFrom.value;
-        });
-    }
-
-    if (filterTo.value) {
-        list = list.filter((log) => {
-            const dateStr = log.created_at || log.date || '';
-            if (dateStr.includes('/')) {
-                const parts = dateStr.split(' ')[0].split('/');
-                if (parts.length === 3) {
-                    const iso = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                    return iso <= filterTo.value;
-                }
-            }
-            return dateStr.substring(0, 10) <= filterTo.value;
-        });
-    }
-
-    if (activeTone.value !== 'all') {
-        list = list.filter((log) => log.badge?.tone === activeTone.value);
-    }
-
-    return list;
+// La búsqueda espera a que se termine de escribir; los demás filtros consultan al instante
+let searchTimer = null;
+watch(searchQuery, () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => visit(), 400);
 });
+watch([filterAction, filterUserId, filterFrom, filterTo, activeTone], () => visit());
 
-// Paginación interna reactiva (15 por página)
-const currentPage = ref(1);
-const perPage = ref(15);
-
-watch([searchQuery, filterAction, filterUserId, filterFrom, filterTo, activeTone], () => {
-    currentPage.value = 1;
-});
-
-const totalCount = computed(() => filteredLogs.value.length);
-const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / perPage.value)));
-
-const paginatedLogs = computed(() => {
-    const start = (currentPage.value - 1) * perPage.value;
-    return filteredLogs.value.slice(start, start + perPage.value);
-});
-
-const pageStart = computed(() => (totalCount.value === 0 ? 0 : (currentPage.value - 1) * perPage.value + 1));
-const pageEnd = computed(() => Math.min(currentPage.value * perPage.value, totalCount.value));
+const currentPage = computed(() => props.logs?.current_page || 1);
+const totalPages = computed(() => props.logs?.last_page || 1);
+const totalCount = computed(() => props.logs?.total || 0);
+const pageStart = computed(() => props.logs?.from || 0);
+const pageEnd = computed(() => props.logs?.to || 0);
 
 function setPage(p) {
-    if (p >= 1 && p <= totalPages.value) {
-        currentPage.value = p;
+    if (p >= 1 && p <= totalPages.value && p !== currentPage.value) {
+        visit(p);
     }
 }
 
@@ -126,34 +66,16 @@ function clearFilters() {
     activeTone.value = 'all';
 }
 
-const hasActiveFilters = computed(() => {
-    return Boolean(
-        searchQuery.value ||
-        filterAction.value ||
-        filterUserId.value ||
-        filterFrom.value ||
-        filterTo.value ||
-        activeTone.value !== 'all'
-    );
-});
+const hasActiveFilters = computed(() => Boolean(
+    searchQuery.value || filterAction.value || filterUserId.value || filterFrom.value || filterTo.value || activeTone.value !== 'all',
+));
 
-// KPIs Ejecutivos
-const kpiTotal = computed(() => rawLogs.value.length);
-const kpiUsersCount = computed(() => new Set(rawLogs.value.map(l => l.actor_name).filter(Boolean)).size);
-const kpiChangesCount = computed(() => rawLogs.value.filter(l => l.structured && l.changes?.length > 0).length);
-const kpiExportCount = computed(() => rawLogs.value.filter(l => l.action?.includes('export') || l.badge?.label?.toLowerCase().includes('export')).length);
-
-// Conteo reactivo por categoría para los chips de filtro
-const countByTone = computed(() => {
-    const counts = { all: rawLogs.value.length, success: 0, primary: 0, warning: 0, danger: 0 };
-    for (const log of rawLogs.value) {
-        const tone = log.badge?.tone;
-        if (tone && counts[tone] !== undefined) {
-            counts[tone]++;
-        }
-    }
-    return counts;
-});
+// Totales de toda la bitácora con los filtros aplicados (servidor)
+const kpiTotal = computed(() => props.stats?.total ?? 0);
+const kpiUsersCount = computed(() => props.stats?.users ?? 0);
+const kpiChangesCount = computed(() => props.stats?.changes ?? 0);
+const kpiExportCount = computed(() => props.stats?.exports ?? 0);
+const countByTone = computed(() => props.toneCounts || { all: 0, success: 0, primary: 0, warning: 0, danger: 0 });
 
 // Registro seleccionado para el modal de cambios
 const selected = ref(null);
@@ -180,7 +102,7 @@ const badgeClass = (tone) => `bg-${tone}-subtle text-${tone}-emphasis border bor
             </article>
         </section>
 
-        <!-- Barra de Filtros Interna y Reactiva (CERO mutación de URL) -->
+        <!-- Filtros: los resuelve el servidor sobre toda la bitácora -->
         <section class="surface">
         <div class="audit-filters">
             <div class="row g-3 align-items-center">
@@ -329,7 +251,7 @@ const badgeClass = (tone) => `bg-${tone}-subtle text-${tone}-emphasis border bor
                 </table>
             </div>
 
-            <!-- Paginador Interno Reactivo -->
+            <!-- Paginador (páginas del servidor, 25 registros cada una) -->
             <footer class="surface-foot">
                 <div class="small text-body-secondary">
                     Mostrando <strong class="text-body">{{ pageStart }}</strong> a <strong class="text-body">{{ pageEnd }}</strong> de <strong class="text-body">{{ totalCount }}</strong> registros
