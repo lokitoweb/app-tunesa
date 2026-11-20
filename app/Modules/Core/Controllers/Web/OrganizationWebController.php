@@ -80,7 +80,8 @@ class OrganizationWebController extends Controller
                 ->orderBy('name')->get(['id', 'tenant_id', 'department_id', 'name', 'code', 'description', 'is_roaming', 'trip_control', 'is_active', 'required_documents']),
             // Documentos que un cargo puede pedir además de los de toda la empresa (Configuración de la app)
             'documentTypes'    => \App\Modules\HR\Models\EmployeeDocument::TYPES,
-            'companyDocuments' => \App\Modules\Core\Models\CompanyConfiguration::current()->requiredDocuments(),
+            // Vista global del Super Admin (sin empresa elegida): no hay documentos de empresa que mostrar
+            'companyDocuments' => current_tenant_id_or_null() ? \App\Modules\Core\Models\CompanyConfiguration::current()->requiredDocuments() : [],
             'branches' => $branches->map(fn (Branch $b) => [
                 'id'            => $b->id,
                 'tenant_id'     => $b->tenant_id,
