@@ -51,8 +51,10 @@ class LocalChangesHardeningTest extends TestCase
             ->assertJsonPath('kpis.totalRecords', '2')
             ->assertJsonPath('kpis.onTimeCount', '1')
             ->assertJsonPath('kpis.lateCount', '1')
-            ->assertJsonPath('kpis.totalHours', '15.5')
-            ->assertJsonPath('kpis.overtimeHours', '1.0')
+            // Horas de jornada: Ana 8 − 1 de extra = 7 + Beto 7,5 = 14,5. La hora extra de Ana no está
+            // aprobada: no suma (solo las aprobadas cuentan, igual que la planilla)
+            ->assertJsonPath('kpis.totalHours', '14.5')
+            ->assertJsonPath('kpis.overtimeHours', '0.0')
             ->assertJsonPath('counts.late', 1);
 
         $this->actingAs($sup)->withHeaders($ajax)->get('/reports?preset=today')->assertOk()

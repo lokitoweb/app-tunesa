@@ -230,6 +230,36 @@ class Attendance extends Model
         return "CASE WHEN {$table}.overtime_status = 'approved' THEN COALESCE({$table}.overtime_approved_hours, 0) ELSE 0 END";
     }
 
+    /** Minutos de jornada en SQL (lo mismo que regularMinutes()), para sumas exactas por colaborador o período */
+    public static function regularMinutesSql(string $table = 'attendances'): string
+    {
+        $diff = "ROUND(COALESCE({$table}.worked_hours, 0) * 60) - ROUND(COALESCE({$table}.overtime_hours, 0) * 60)";
+
+        return "CASE WHEN {$diff} > 0 THEN {$diff} ELSE 0 END";
+    }
+
+    /**
+     * Minutos exactos de unas horas guardadas con 2 decimales. Las jornadas se calculan en minutos enteros
+     * (7 h 32 min = 7.53 h): redondear al minuto los recupera sin el error de los decimales (07:32:00, no 07:31:48).
+     * Para mostrar y sumar duraciones siempre se pasa por aquí; así los totales cuadran al minuto.
+     */
+    public static function minutes(int|float|string|null $hours): int
+    {
+        return (int) round((float) $hours * 60);
+    }
+
+    /** Minutos de jornada (sin horas extra), exactos */
+    public function regularMinutes(): int
+    {
+        return max(0, self::minutes($this->worked_hours) - self::minutes($this->overtime_hours));
+    }
+
+    /** Minutos de horas extra aprobadas, exactos (0 si no están aprobadas) */
+    public function payableOvertimeMinutes(): int
+    {
+        return self::minutes($this->payableOvertimeHours());
+    }
+
     // =========================================================================
     // HELPERS
     // =========================================================================

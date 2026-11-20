@@ -32,6 +32,7 @@ class ClockOutControlTest extends TestCase
     public function test_clock_out_follows_entry_rules_and_reports_the_expected_end_of_that_day(): void
     {
         $this->seedRoles();
+        $this->withoutPunchTimeLimits(); // salida antes de hora (aviso y cálculo): con el límite activo solo sin conexión
         Storage::fake('public');
         Storage::fake('private');
 

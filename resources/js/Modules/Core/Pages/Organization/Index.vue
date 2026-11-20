@@ -396,6 +396,7 @@ const catalogForm = useForm({
     head_id: null,
     description: '',
     is_roaming: false,
+    trip_control: false,
     required_documents: [],
 });
 
@@ -411,6 +412,7 @@ function openCreateCatalogModal(catalog) {
     catalogForm.head_id = null;
     catalogForm.description = '';
     catalogForm.is_roaming = false;
+    catalogForm.trip_control = false;
     catalogForm.required_documents = [];
     showCatalogModal.value = true;
 }
@@ -426,6 +428,7 @@ function openEditCatalogModal(catalog, row) {
     catalogForm.head_id = row.head_id ?? null;
     catalogForm.description = row.description ?? '';
     catalogForm.is_roaming = Boolean(row.is_roaming);
+    catalogForm.trip_control = Boolean(row.trip_control);
     catalogForm.required_documents = [...(row.required_documents || [])];
     showCatalogModal.value = true;
 }
@@ -1408,6 +1411,10 @@ const catalogDetail = (catalog, row) => {
                                             <i class="bi bi-truck"></i>
                                             <span>Itinerante</span>
                                         </span>
+                                        <span v-if="row.trip_control" class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle d-inline-flex align-items-center" style="font-size: 0.68rem; gap: 4px;" title="No marca: sus días trabajados salen de la Bitácora de viajes">
+                                            <i class="bi bi-signpost-split"></i>
+                                            <span>Control por viajes</span>
+                                        </span>
                                     </div>
                                     <div v-if="row.description" class="text-muted small mt-0.5 text-truncate" style="max-width: 380px;">
                                         {{ row.description }}
@@ -1748,6 +1755,22 @@ const catalogDetail = (catalog, row) => {
                                     </div>
                                     <div class="form-check form-switch m-0 ps-3">
                                         <input id="pos_roaming" v-model="catalogForm.is_roaming" class="form-check-input" type="checkbox" role="switch" style="cursor: pointer; width: 42px; height: 22px;">
+                                    </div>
+                                </div>
+
+                                <!-- Control por viajes (choferes): no marcan; sus días trabajados salen de la Bitácora de viajes -->
+                                <div class="org-modal-section-card mb-3 d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center" style="gap: 12px !important;">
+                                        <div class="d-flex align-items-center justify-content-center bg-warning-subtle text-warning rounded-circle" style="width: 32px; height: 32px; flex-shrink: 0;">
+                                            <i class="bi bi-signpost-split fs-6"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold text-dark small">Control por viajes</div>
+                                            <div class="text-muted" style="font-size: 0.75rem;">Para choferes y ayudantes: no marcan en la app, no tienen faltas ni tardanzas y sus días trabajados salen de la Bitácora de viajes.</div>
+                                        </div>
+                                    </div>
+                                    <div class="form-check form-switch m-0 ps-3">
+                                        <input id="pos_trip_control" v-model="catalogForm.trip_control" class="form-check-input" type="checkbox" role="switch" style="cursor: pointer; width: 42px; height: 22px;">
                                     </div>
                                 </div>
                             </template>

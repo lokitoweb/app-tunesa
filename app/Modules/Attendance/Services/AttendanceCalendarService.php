@@ -96,7 +96,7 @@ class AttendanceCalendarService
         [$from, $to] = $f->range();
 
         return User::forTenant($f->tenantId)
-            ->clocking()
+            ->clocking()->timeTracked()
             ->when($f->viewer, fn ($q) => $q->visibleTo($f->viewer))
             ->when($f->branchId, fn ($q, $id) => $q->whereHas('branches', fn ($b) => $b->where('branches.id', $id)))
             ->when($f->zoneId, fn ($q, $id) => $q->whereHas('branches', fn ($b) => $b->where('branches.zone_id', $id)))
@@ -320,7 +320,7 @@ class AttendanceCalendarService
         }
 
         foreach (['worked_hours', 'overtime_approved', 'overtime_pending'] as $key) {
-            $totals[$key] = round($totals[$key], 2);
+            $totals[$key] = round($totals[$key], 4); // horas de minutos exactos: 4 decimales no pierden el minuto
         }
 
         return [
@@ -394,11 +394,12 @@ class AttendanceCalendarService
                 $overtime->isNotEmpty()                                               => Attendance::OVERTIME_REJECTED,
                 default                                                               => null,
             };
-            $overtimeHours = (float) $overtime->sum(fn (Attendance $a) => match ($a->overtime_status) {
-                Attendance::OVERTIME_APPROVED => $overtimeStatus === Attendance::OVERTIME_APPROVED ? (float) $a->overtime_approved_hours : 0,
-                Attendance::OVERTIME_PENDING  => (float) $a->overtime_hours,
+            // Al minuto exacto de cada jornada (ver Attendance::minutes): así los totales cuadran con lo que se muestra
+            $overtimeHours = $overtime->sum(fn (Attendance $a) => match ($a->overtime_status) {
+                Attendance::OVERTIME_APPROVED => $overtimeStatus === Attendance::OVERTIME_APPROVED ? Attendance::minutes($a->overtime_approved_hours) : 0,
+                Attendance::OVERTIME_PENDING  => Attendance::minutes($a->overtime_hours),
                 default                       => 0,
-            });
+            }) / 60;
 
             return $this->make($state, $shift + [
                 'attendance_id' => $record->id,
@@ -406,7 +407,8 @@ class AttendanceCalendarService
                 'clock_in'      => hora($worked?->clock_in_at),
                 'clock_out'     => hora($records->last(fn (Attendance $a) => $a->clock_out_at !== null)?->clock_out_at),
                 'late_minutes'  => $lateMinutes,
-                'worked_hours'  => (float) $records->sum(fn (Attendance $a) => (float) $a->worked_hours),
+                // Horas de jornada (sin horas extra: esas van aparte y solo suman las aprobadas)
+            'worked_hours'  => $records->sum(fn (Attendance $a) => $a->regularMinutes()) / 60,
                 'note'          => $leave && $state === 'excused' ? $leave->type_label : null,
                 'overtime_status' => $overtimeStatus,
                 'overtime_hours'  => round($overtimeHours, 2),
@@ -502,7 +504,8 @@ class AttendanceCalendarService
             return $build();
         }
 
-        $version = (int) Cache::get(self::versionKey($f->tenantId, $f->month), 0);
+        // Un periodo propio puede tocar dos o tres meses: cualquier cambio en uno de ellos renueva la caché
+        $version = implode('.', array_map(fn (string $m) => (int) Cache::get(self::versionKey($f->tenantId, $m), 0), $f->months()));
         // attendance:flag sube esta versión: encender o apagar schedule_v2 se ve al instante (vista global: hasta CACHE_MINUTES)
         $flags = $f->tenantId ? (int) Cache::get(ScheduleResolver::flagsVersionKey($f->tenantId), 0) : null;
         $key = 'attendance-calendar:' . sha1(json_encode([$f->toQuery(), $f->tenantId, $f->viewer?->id, $f->userId, $part, $version, $flags]));

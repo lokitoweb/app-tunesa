@@ -205,6 +205,27 @@ if (! function_exists('formato_duracion')) {
     }
 }
 
+if (! function_exists('minutos_hms')) {
+    /**
+     * Minutos como horas:minutos:segundos («00:15:00», «150:40:00»; las horas pueden pasar de 24). Tardanza, horas
+     * y horas extra se calculan y pagan al minuto: es el formato de pantallas y exportaciones, y lo que se suma cuadra.
+     */
+    function minutos_hms(int|float $minutes): string
+    {
+        $m = max(0, (int) round($minutes));
+
+        return sprintf('%02d:%02d:00', intdiv($m, 60), $m % 60);
+    }
+}
+
+if (! function_exists('horas_hms')) {
+    /** Horas guardadas (2 decimales) como horas:minutos:segundos exactas al minuto: 7.53 → «07:32:00» */
+    function horas_hms(int|float|string|null $hours): string
+    {
+        return minutos_hms(\App\Modules\Attendance\Models\Attendance::minutes($hours));
+    }
+}
+
 if (! function_exists('formato_tardanza')) {
     /**
      * Retorna la tardanza de una asistencia desglosada en horas, minutos y segundos ("3 h 51 min 14 s tarde").

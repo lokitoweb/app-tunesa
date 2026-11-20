@@ -183,7 +183,13 @@
                             </div>
                         </td>
                         <td class="text-nowrap fw-semibold" data-label="Horas">
-                            <span>{{ number_format((float) ($att->worked_hours ?? 0), 2) }} h</span>
+                            {{-- Horas de jornada; las horas extra van aparte con su estado (solo cuentan las aprobadas) --}}
+                            <span>{{ minutos_hms($att->regularMinutes()) }}</span>
+                            @if((float) $att->overtime_hours > 0)
+                                <div class="cell-sub" title="Horas extra · {{ $att->overtime_status ? label('overtime_status', $att->overtime_status) : 'Sin solicitud' }}">
+                                    +{{ horas_hms($att->overtime_hours) }} HE{{ $att->overtime_status ? ' · ' . label('overtime_status', $att->overtime_status) : '' }}
+                                </div>
+                            @endif
                         </td>
                         <td class="text-nowrap" data-label="Estado">
                             @php($dayReasons = $att->suspicionReasons())

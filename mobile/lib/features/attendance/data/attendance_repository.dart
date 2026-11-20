@@ -45,6 +45,7 @@ class AttendanceRepository implements PunchTransport {
       notScheduledMessage: TodayStatus.parseNotScheduled(today['schedule']),
       scheduleNotice: TodayStatus.parseScheduleNotice(today['schedule']),
       expectedClockOut: DateTime.tryParse(today['expected_clock_out']?.toString() ?? ''),
+      clockOutAllowedFrom: DateTime.tryParse(today['clock_out_allowed_from']?.toString() ?? ''),
     );
   }
 

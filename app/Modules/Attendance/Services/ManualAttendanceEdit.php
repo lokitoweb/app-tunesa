@@ -161,7 +161,7 @@ class ManualAttendanceEdit
                     throw ValidationException::withMessages(['clock_out' => 'La salida debe ser después del retorno del refrigerio.']);
                 }
                 [$worked, $overtime, $base, $earlyExit] = $this->attendance->closedDayHours($employee, $employee->tenant, $shift, $date, $tz, $in, $out,
-                    (int) $values['break_minutes'], TenantSetting::forTenant($employee->tenant));
+                    (int) $values['break_minutes'], TenantSetting::forTenant($employee->tenant), $bs ?? null, $be ?? null);
 
                 $values['clock_out_at']   = $out->format('Y-m-d H:i:s');
                 $values['worked_hours']   = $worked;

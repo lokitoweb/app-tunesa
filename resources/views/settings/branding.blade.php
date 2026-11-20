@@ -7,7 +7,7 @@
     // Pestaña a abrir: la pedida, o la del primer campo con error
     $fieldTabs = [
         'app'           => ['api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters', 'self_password_change', 'privacy_policy'],
-        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds', 'entry_reminder_minutes', 'entry_reminder_timing', 'exit_reminder_minutes', 'exit_reminder_timing'],
+        'reglas'        => ['default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'punch_time_limits', 'clock_in_early_minutes', 'break_end_early_minutes', 'clock_out_early_minutes', 'trip_work_days', 'trip_rest_days', 'default_geofence_radius', 'geofence_policy', 'mock_location_policy', 'max_time_drift_seconds', 'entry_reminder_minutes', 'entry_reminder_timing', 'exit_reminder_minutes', 'exit_reminder_timing'],
     ];
     // Campos que dependen de columnas nuevas de tenant_settings: solo se muestran si existen
     $has = fn (string $column) => in_array($column, $columns, true);
@@ -552,6 +552,48 @@
                                     'label' => 'Marcar solo con turno programado',
                                     'desc'  => 'En días de descanso o sin programación la app no deja marcar entrada. RR. HH. o Gerencia pueden autorizar un día puntual en Asistencia › Marcación fuera de turno.'])
                             </div>
+                            @if ($has('punch_time_limits'))
+                                <div class="mt-3 pt-3 border-top">
+                                    @include('settings.partials.bool-setting', ['flag' => 'punch_time_limits',
+                                        'label' => 'No marcar antes de la hora del horario',
+                                        'desc'  => 'La app no deja marcar la entrada, el fin del refrigerio ni la salida antes de su hora (con el margen de abajo). Lo marcado sin conexión se registra igual. Para salir antes, la persona pide un permiso; con el permiso aprobado para ese día puede marcar su salida.'])
+                                    <div class="row g-3 mt-1">
+                                        @foreach ([
+                                            'clock_in_early_minutes'  => ['Entrada', 'bi-box-arrow-in-right', 'Ej.: 1 = horario 8:00, se marca desde 7:59. Las horas se cuentan desde las 8:00.'],
+                                            'break_end_early_minutes' => ['Fin del refrigerio', 'bi-cup-hot', 'Antes de completar el refrigerio. Se descuenta siempre el refrigerio completo.'],
+                                            'clock_out_early_minutes' => ['Salida', 'bi-box-arrow-right', '0 = desde la hora exacta de salida.'],
+                                        ] as $field => [$text, $icon, $help])
+                                            <div class="col-sm-4">
+                                                <label for="{{ $field }}" class="form-label small fw-semibold text-secondary mb-1">{{ $text }}: minutos antes</label>
+                                                <div class="modern-input-wrapper">
+                                                    <span class="modern-input-icon"><i class="bi {{ $icon }}"></i></span>
+                                                    <input type="number" id="{{ $field }}" name="{{ $field }}" min="0" max="240" value="{{ $val($field) }}" placeholder="{{ $inh($field) }}" class="modern-input-control @error($field) is-invalid @enderror">
+                                                    <span class="modern-input-suffix">min</span>
+                                                </div>
+                                                <div class="form-text small">{{ $help }}</div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+                            @if ($has('trip_work_days'))
+                                <div class="mt-3 pt-3 border-top">
+                                    <div class="fw-semibold small mb-1">Choferes (cargos con «Control por viajes»)</div>
+                                    <div class="form-text small mb-2">No marcan en la app ni tienen faltas ni tardanzas: sus días trabajados salen de la Bitácora de viajes y se comparan con estos días del mes.</div>
+                                    <div class="row g-3">
+                                        @foreach (['trip_work_days' => ['Días de trabajo al mes', 'bi-signpost-split'], 'trip_rest_days' => ['Días de descanso al mes', 'bi-moon-stars']] as $field => [$text, $icon])
+                                            <div class="col-sm-4">
+                                                <label for="{{ $field }}" class="form-label small fw-semibold text-secondary mb-1">{{ $text }}</label>
+                                                <div class="modern-input-wrapper">
+                                                    <span class="modern-input-icon"><i class="bi {{ $icon }}"></i></span>
+                                                    <input type="number" id="{{ $field }}" name="{{ $field }}" min="0" max="31" value="{{ $val($field) }}" placeholder="{{ $inh($field) }}" class="modern-input-control @error($field) is-invalid @enderror">
+                                                    <span class="modern-input-suffix">días</span>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>

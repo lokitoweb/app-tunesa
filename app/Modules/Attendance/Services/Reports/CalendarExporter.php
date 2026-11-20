@@ -20,7 +20,10 @@ class CalendarExporter
 {
     private const LEAD = ['Código', 'Colaborador', 'Agencia', 'Cargo'];
 
-    private const TOTALS = ['Faltas', 'Tardanzas', 'Min. tarde', 'Justificadas', 'Observadas', 'Horas', 'HE aprobadas', 'HE por aprobar'];
+    private const TOTALS = ['Faltas', 'Tardanzas', 'Tardanza', 'Justificadas', 'Observadas', 'Horas de jornada', 'HE aprobadas', 'HE por aprobar'];
+
+    /** Duraciones como tiempo de Excel (fracción de día) con formato [hh]:mm:ss: se ven como 00:12:00 o 31:40:12 y se pueden sumar */
+    private const DURATION_FORMAT = '[hh]:mm:ss';
 
     /** Estados con texto claro sobre su color */
     private const LIGHT_TEXT = ['present', 'absent', 'excused'];
@@ -32,8 +35,8 @@ class CalendarExporter
         $days = $this->calendar->days($f);
 
         $book = new Spreadsheet();
-        $book->getProperties()->setTitle("Calendario de asistencia {$f->month}")->setCreator(config('app.name'));
-        $sheet = $book->getActiveSheet()->setTitle('Calendario ' . $f->month);
+        $book->getProperties()->setTitle("Calendario de asistencia " . $f->periodLabel())->setCreator(config('app.name'));
+        $sheet = $book->getActiveSheet()->setTitle($f->from ? 'Calendario' : 'Calendario ' . $f->month);
 
         $headers = array_merge(self::LEAD, array_map(fn ($d) => "{$d['weekday']} {$d['day']}", array_values($days)), self::TOTALS);
         foreach ($headers as $i => $text) {
@@ -65,8 +68,15 @@ class CalendarExporter
                 }
 
                 $t = $r['totals'];
-                foreach ([$t['absent'], $t['late'], $t['late_minutes'], $t['excused'], $t['suspicious'], $t['worked_hours'], $t['overtime_approved'], $t['overtime_pending']] as $value) {
+                foreach ([$t['absent'], $t['late']] as $value) {
                     $sheet->setCellValue([$col++, $row], $value);
+                }
+                $this->duration($sheet, $col++, $row, $t['late_minutes'] * 60);
+                foreach ([$t['excused'], $t['suspicious']] as $value) {
+                    $sheet->setCellValue([$col++, $row], $value);
+                }
+                foreach ([$t['worked_hours'], $t['overtime_approved'], $t['overtime_pending']] as $hours) {
+                    $this->duration($sheet, $col++, $row, \App\Modules\Attendance\Models\Attendance::minutes($hours) * 60);
                 }
                 $row++;
             }
@@ -112,6 +122,12 @@ class CalendarExporter
             ->all();
     }
 
+    private function duration($sheet, int $col, int $row, int|float $seconds): void
+    {
+        $sheet->setCellValue([$col, $row], max(0, (int) round($seconds)) / 86400);
+        $sheet->getStyle([$col, $row])->getNumberFormat()->setFormatCode(self::DURATION_FORMAT);
+    }
+
     /** Agrupa un generador en bloques de $size sin cargarlo entero */
     private function chunks(iterable $rows, int $size): \Generator
     {
@@ -148,8 +164,8 @@ class CalendarExporter
             $cell['note'],
             $cell['suspicious'] ? 'Observada' : null,
             match ($cell['overtime_status'] ?? null) {
-                'pending'  => "Horas extra por aprobar: {$cell['overtime_hours']} h",
-                'approved' => "Horas extra aprobadas: {$cell['overtime_hours']} h",
+                'pending'  => 'Horas extra por aprobar: ' . horas_hms($cell['overtime_hours']),
+                'approved' => 'Horas extra aprobadas: ' . horas_hms($cell['overtime_hours']),
                 'rejected' => 'Horas extra rechazadas',
                 default    => null,
             },

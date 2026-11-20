@@ -64,6 +64,16 @@ trait CreatesTenants
         app(\App\Modules\Core\Services\TenantContext::class)->clear();
     }
 
+    /**
+     * Sin «No marcar antes de la hora del horario» en la plataforma: para pruebas de marcas fuera de
+     * horario (alertas, salida anticipada, turnos nocturnos), que con el límite activo solo llegan sin conexión.
+     * El límite en sí se prueba en PunchTimeLimitsTest.
+     */
+    protected function withoutPunchTimeLimits(): void
+    {
+        \App\Modules\Core\Models\TenantSetting::editableRowFor(null)->fill(['punch_time_limits' => false])->save();
+    }
+
     /** Cabeceras para una petición autenticada en la empresa dada */
     protected function actingIn(User $user, Tenant $tenant): static
     {

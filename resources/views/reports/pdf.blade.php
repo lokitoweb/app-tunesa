@@ -128,11 +128,11 @@
                     <td>{{ $att->branch->name ?? '' }}</td>
                     <td>{{ $att->clock_in_at ? $att->clock_in_at->format('h:i a') : '--' }}</td>
                     <td>{{ $att->clock_out_at ? $att->clock_out_at->format('h:i a') : '--' }}</td>
-                    <td>{{ $att->late_minutes ? minutes_label($att->late_minutes) : '-' }}</td>
-                    <td style="text-align: right;">{{ number_format((float) ($att->worked_hours ?? 0), 2) }}</td>
-                    <td style="text-align: right;">{{ number_format((float) ($att->overtime_hours ?? 0), 2) }}</td>
+                    <td>{{ $att->late_minutes ? minutos_hms((int) $att->late_minutes) : '-' }}</td>
+                    <td style="text-align: right;">{{ minutos_hms($att->regularMinutes()) }}</td>
+                    <td style="text-align: right;">{{ horas_hms($att->overtime_hours) }}{{ $att->overtime_status ? ' (' . label('overtime_status', $att->overtime_status) . ')' : '' }}</td>
                     <td>{{ $att->clock_in_within_geofence === null ? 'Sin GPS (contingencia)' : ($att->clock_in_within_geofence ? 'Válida' : 'Fuera') }}</td>
-                    <td>{{ ucfirst($att->status) }}</td>
+                    <td>{{ label('attendance_status', $att->status) }}</td>
                 </tr>
             @empty
                 <tr>
@@ -144,10 +144,10 @@
 
     <div style="margin-top: 15px;">
         <div class="summary-item">
-            <strong>Total Horas Regulares:</strong> {{ number_format((float) $attendances->sum('worked_hours'), 2) }} hrs
+            <strong>Total horas de jornada:</strong> {{ minutos_hms($attendances->sum(fn ($a) => $a->regularMinutes())) }}
         </div>
         <div class="summary-item">
-            <strong>Total Horas Extras:</strong> {{ number_format((float) $attendances->sum('overtime_hours'), 2) }} hrs
+            <strong>Total horas extra aprobadas:</strong> {{ minutos_hms($attendances->sum(fn ($a) => $a->payableOvertimeMinutes())) }}
         </div>
         <div class="summary-item">
             <strong>Total Retardos:</strong> {{ $attendances->where('late_minutes', '>', 0)->count() }} ocurrencias

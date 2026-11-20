@@ -130,28 +130,39 @@ class ApprovalWebController extends Controller
         return back()->with('success', 'Horas extra ' . ($validated['decision'] === 'approved' ? 'aprobadas' : 'rechazadas') . '.');
     }
 
-    /** Aprobar varias jornadas a la vez, con todas sus horas calculadas */
+    /**
+     * Aprobar (con todas sus horas calculadas) o rechazar varias jornadas a la vez. Rechazar exige el motivo,
+     * que queda en cada jornada y en la bitácora, igual que el rechazo de una por una (OvertimeApproval::review).
+     */
     public function approveOvertimeBulk(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'ids'   => ['required', 'array', 'max:100'],
-            'ids.*' => ['integer'],
-        ], ['ids.required' => 'Marca al menos una jornada.']);
+            'ids'      => ['required', 'array', 'max:100'],
+            'ids.*'    => ['integer'],
+            'decision' => ['nullable', 'in:approved,rejected'],
+            'notes'    => ['required_if:decision,rejected', 'nullable', 'string', 'max:500'],
+        ], [
+            'ids.required'      => 'Marca al menos una jornada.',
+            'notes.required_if' => 'Indica el motivo del rechazo.',
+        ]);
 
         $user = Auth::user();
-        $approved = 0;
+        $decision = $validated['decision'] ?? Attendance::OVERTIME_APPROVED;
+        $done = 0;
 
         $this->overtime->query($user)
             ->whereIn('id', $validated['ids'])
             ->where('overtime_status', Attendance::OVERTIME_PENDING)
             ->where('user_id', '!=', $user->id)
             ->get()
-            ->each(function (Attendance $attendance) use ($user, &$approved) {
-                $this->overtime->review($attendance, $user, Attendance::OVERTIME_APPROVED);
-                $approved++;
+            ->each(function (Attendance $attendance) use ($user, $decision, $validated, &$done) {
+                $this->overtime->review($attendance, $user, $decision, null, $validated['notes'] ?? null);
+                $done++;
             });
 
-        return back()->with('success', $approved === 1 ? 'Se aprobó 1 jornada con horas extra.' : "Se aprobaron {$approved} jornadas con horas extra.");
+        $verb = $decision === Attendance::OVERTIME_APPROVED ? ['aprobó', 'aprobaron'] : ['rechazó', 'rechazaron'];
+
+        return back()->with('success', $done === 1 ? "Se {$verb[0]} 1 jornada con horas extra." : "Se {$verb[1]} {$done} jornadas con horas extra.");
     }
 
     /** Sustento adjunto de una solicitud (certificado médico, etc.) */

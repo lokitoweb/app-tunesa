@@ -101,6 +101,14 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
 
   /// Confirma una salida antes de hora. Cancelar vuelve a Inicio sin marcar.
   Future<bool> _confirmEarlyExit() async {
+    final block = widget.action == ClockAction.clockOut
+        ? ref.read(todayStatusProvider).value?.clockOutBlock(DateTime.now())
+        : null;
+    if (block != null) {
+      _earlyAsked = true;
+      await _showClockOutBlocked(block);
+      return false;
+    }
     final warning = _earlyWarning;
     if (warning == null || _earlyConfirmed) return true;
     _earlyAsked = true;
@@ -131,7 +139,33 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     return false;
   }
 
-  bool get _needsSelfie => widget.action.requiresSelfie && _mobile.selfieRequired;
+  /// Salida antes de hora con el límite de la empresa: no se marca; se ofrece pedir un permiso.
+  Future<void> _showClockOutBlocked(String message) async {
+    final askLeave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        icon: Icon(Icons.schedule_rounded, color: Theme.of(c).colorScheme.error),
+        title: const Text('Aún no es tu hora de salida'),
+        content: Text(message),
+        actions: [
+          TextButton(key: const Key('early-exit-back'), onPressed: () => Navigator.pop(c, false), child: const Text('Volver')),
+          FilledButton(key: const Key('early-exit-leave'), onPressed: () => Navigator.pop(c, true), child: const Text('Solicitar permiso')),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    final router = GoRouter.maybeOf(context);
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      router?.go('/home');
+    }
+    if (askLeave == true) router?.push('/requests/new?type=permission');
+  }
+
+  bool get _needsSelfie =>widget.action.requiresSelfie && _mobile.selfieRequired;
 
   /// Descansos: selfie opcional (si la empresa usa selfie).
   bool get _optionalSelfie => !widget.action.requiresSelfie && _mobile.selfieRequired;
@@ -467,9 +501,8 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
     final strict = mobile.geofenceStrictMode && !(branches.value?.roaming ?? false);
     final outside = strict && near != null && !near.inside;
     final mocked = fix?.isMocked ?? false;
-    final earlyWarning = widget.action == ClockAction.clockOut
-        ? ref.watch(todayStatusProvider).value?.clockOutWarning(DateTime.now())
-        : null;
+    final today = widget.action == ClockAction.clockOut ? ref.watch(todayStatusProvider).value : null;
+    final earlyWarning = today?.clockOutBlock(DateTime.now()) ?? today?.clockOutWarning(DateTime.now());
     final earlyPending = earlyWarning != null && !_earlyConfirmed;
 
     // Salida antes de hora: primero el aviso (una vez), luego la cámara
@@ -637,6 +670,18 @@ class _ClockScreenState extends ConsumerState<ClockScreen> {
         'GPS_ACCURACY_TOO_LOW',
       }.contains(sendError.code);
       final faceIssue = sendError.code == 'FACE_NOT_DETECTED';
+      // Antes de hora (respuesta del servidor si la app no lo detectó antes): salida → pedir permiso
+      if (sendError.code == 'CLOCK_OUT_TOO_EARLY' || sendError.code == 'CLOCK_IN_TOO_EARLY') {
+        return _Status(
+          _Tone.error,
+          Icons.schedule_rounded,
+          'Aún no es la hora',
+          sendError.message,
+          primary: sendError.code == 'CLOCK_OUT_TOO_EARLY'
+              ? _Action('Solicitar permiso', Icons.event_note_rounded, () => context.push('/requests/new?type=permission'))
+              : _Action('Reintentar', Icons.refresh_rounded, _send),
+        );
+      }
       final message = faceIssue
           ? '${sendError.message}\nRepite la selfie con tu rostro centrado y buena luz.'
           : sendError.message;

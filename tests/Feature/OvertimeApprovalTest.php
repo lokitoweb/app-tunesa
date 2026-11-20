@@ -143,6 +143,46 @@ class OvertimeApprovalTest extends TestCase
         $this->assertSame(2.0, (float) $own->fresh()->overtime_approved_hours, 'sin horas indicadas se aprueban todas');
     }
 
+    public function test_bulk_rejection_needs_a_reason_and_rejected_hours_never_add_up_anywhere(): void
+    {
+        $day1 = $this->workDay($this->emp, '2026-10-05', 10 * 60);       // 8 h de jornada + 2 h extra
+        $day2 = $this->workDay($this->emp, '2026-10-06', 9 * 60 + 30);   // 8 h de jornada + 1 h 30 min extra
+
+        // Rechazar varias exige el motivo
+        $this->actingAs($this->supervisor)->post(route('approvals.overtime.bulk'), ['ids' => [$day1->id, $day2->id], 'decision' => 'rejected'])
+            ->assertSessionHasErrors('notes');
+        $this->assertSame('pending', $day1->fresh()->overtime_status);
+
+        $this->actingAs($this->supervisor)->post(route('approvals.overtime.bulk'), ['ids' => [$day1->id, $day2->id], 'decision' => 'rejected', 'notes' => 'No autorizadas'])
+            ->assertSessionHas('success', 'Se rechazaron 2 jornadas con horas extra.');
+        foreach ([$day1, $day2] as $d) {
+            $d->refresh();
+            $this->assertSame(['rejected', 'No autorizadas', null], [$d->overtime_status, $d->overtime_review_notes, $d->overtime_approved_hours]);
+            $this->assertSame(8.0, $d->regularHours(), 'la jornada no incluye las horas extra');
+            $this->assertSame(8.0, $d->payableHours(), 'a pagar: solo la jornada');
+        }
+        $this->assertSame(2, AuditLog::withoutGlobalScopes()->where('action', 'attendance.overtime_rejected')->count());
+
+        // Planilla: 16 h a pagar (8 + 8), 0 extra aprobadas ni por aprobar
+        $row = app(PayrollExportService::class)->rows(2026, 10)->firstWhere('full_name', $this->emp->full_name);
+        $this->assertSame([16.0, 0.0, 0.0], [$row['payable_hours'], $row['overtime_hours'], $row['overtime_pending_hours']]);
+
+        // Calendario: horas de jornada 16 h, sin extras aprobadas ni por aprobar
+        $totals = collect(app(AttendanceCalendarService::class)->paginate(new CalendarFilters($this->acme->id, '2026-10'))->items())
+            ->firstWhere('user_id', $this->emp->id)['totals'];
+        $this->assertSame([16.0, 0.0, 0.0], [$totals['worked_hours'], $totals['overtime_approved'], $totals['overtime_pending']]);
+
+        // Excel de Marcaciones y GPS: horas:minutos:segundos y el rechazo a la vista
+        $hr = $this->makeUser($this->acme, 'hr_manager');
+        $csv = $this->actingAs($hr)->get(route('reports.export.excel', ['start_date' => '2026-10-01', 'end_date' => '2026-10-31']))->streamedContent();
+        $rows = collect(explode("\n", trim($csv)))->map(fn ($l) => str_getcsv($l, ';'));
+        $head = array_map(fn ($h) => trim($h, "\xEF\xBB\xBF"), $rows->first());
+        $line = $rows->first(fn ($r) => ($r[1] ?? null) === '2026-10-05');
+        $col = fn (string $name) => $line[array_search($name, $head, true)];
+        $this->assertSame(['00:00:00', '08:00:00', '02:00:00', 'Rechazadas', '00:00:00'],
+            [$col('Tardanza'), $col('Horas de jornada'), $col('Horas extra'), $col('Estado horas extra'), $col('Horas extra aprobadas')]);
+    }
+
     public function test_supervisor_only_sees_and_bulk_approves_their_team(): void
     {
         $other = $this->employee('Ajeno', 'Lima', $this->makeBranch($this->acme, ['name' => 'Lima', 'supervisor_id' => $this->makeUser($this->acme, 'supervisor')->id]));

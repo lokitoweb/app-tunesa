@@ -68,9 +68,11 @@ class AttendanceExport
                 'Hora Salida',
                 'Distancia Salida (m)',
                 'Geocerca Salida',
-                'Minutos Tardanza',
-                'Horas Trabajadas',
-                'Horas Extras',
+                'Tardanza',
+                'Horas de jornada',
+                'Horas extra',
+                'Estado horas extra',
+                'Horas extra aprobadas',
                 'Estado Asistencia',
                 'Justificación',
                 'Estado Justificación',
@@ -112,12 +114,16 @@ class AttendanceExport
                         $row->clock_out_at ? $row->clock_out_at->format('h:i:s a') : 'Sin marcar',
                         $row->clock_out_distance_meters ?? '0',
                         self::geofenceLabel($row->clock_out_at, $row->clock_out_within_geofence),
-                        $row->late_minutes ?? 0,
-                        number_format((float) ($row->worked_hours ?? 0), 2),
-                        number_format((float) ($row->overtime_hours ?? 0), 2),
+                        // Duraciones como horas:minutos:segundos; las horas extra rechazadas o por aprobar no
+                        // suman: van aparte con su estado y solo las aprobadas cuentan (igual que la planilla)
+                        minutos_hms((int) $row->late_minutes),
+                        minutos_hms($row->regularMinutes()),
+                        horas_hms($row->overtime_hours),
+                        $row->overtime_status ? label('overtime_status', $row->overtime_status) : '',
+                        minutos_hms($row->payableOvertimeMinutes()),
                         $this->mapStatus($row->status),
                         $row->notes ?? '',
-                        $row->justification_status ?? 'N/A',
+                        $row->justification_status ? label('justification_status', $row->justification_status) : '',
                     ], ';');
                 }
             });

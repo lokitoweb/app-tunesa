@@ -53,6 +53,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'attendance.edit_own'    => ['Corregir sus propias marcaciones (con motivo)', 'attendance'],
         'attendance.contingency' => ['Activar el plan de contingencia (marcar desde Mi espacio sin la app)', 'attendance'],
         'attendance.web_punch'   => ['Marcar desde la web (Mi espacio) sin plan de contingencia', 'attendance'],
+        'attendance.trips'       => ['Registrar la bitácora de viajes de choferes (ida y vuelta)', 'attendance'],
 
         // Dashboard y reportes
         'dashboard.view'         => ['Ver dashboard y mapa en tiempo real', 'dashboard'],
@@ -158,7 +159,7 @@ class RolesAndPermissionsSeeder extends Seeder
             [
                 'users.view', 'branches.view', 'shifts.view', 'shifts.view_own',
                 // Gerencia no marca asistencia (Configuración › Roles y permisos puede activarlo por empresa)
-                'attendance.view_own', 'attendance.view_team', 'attendance.view_all', 'attendance.edit', 'attendance.authorize_offshift', 'attendance.web_punch',
+                'attendance.view_own', 'attendance.view_team', 'attendance.view_all', 'attendance.edit', 'attendance.authorize_offshift', 'attendance.web_punch', 'attendance.trips',
                 'dashboard.view', 'reports.view', 'reports.export', 'expirations.view',
                 'leave.request', 'leave.approve_team', 'leave.approve_all',
                 'suppliers.view', 'requisitions.create', 'requisitions.view_all', 'requisitions.approve', 'treasury.view',
@@ -184,7 +185,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'Supervisa la asistencia y solicitudes de su equipo.',
             [
                 'users.view', 'branches.view', 'shifts.view', 'shifts.view_own', 'shifts.program', 'shifts.program_own',
-                'attendance.mark', 'attendance.web_punch', 'attendance.view_own', 'attendance.view_team', 'attendance.edit', 'attendance.authorize_offshift',
+                'attendance.mark', 'attendance.web_punch', 'attendance.view_own', 'attendance.view_team', 'attendance.edit', 'attendance.authorize_offshift', 'attendance.trips',
                 'dashboard.view', 'reports.view',
                 'leave.request', 'leave.approve_team',
                 'payslips.view_own', 'profile.manage_own', 'training.view_own',

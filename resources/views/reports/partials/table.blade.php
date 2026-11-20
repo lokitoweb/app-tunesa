@@ -54,13 +54,14 @@
                         @endif
                     </td>
                     <td class="text-end small {{ $att->late_minutes > 0 ? 'text-warning-emphasis fw-bold' : 'text-body-secondary' }}">
-                        {{ minutes_label($att->late_minutes) }}
+                        {{ minutos_hms((int) $att->late_minutes) }}
                     </td>
                     <td class="text-end fw-bold text-body small">
-                        {{ number_format((float) ($att->worked_hours ?? 0), 2) }}
+                        {{ minutos_hms($att->regularMinutes()) }}
                     </td>
-                    <td class="text-end small {{ ($att->overtime_hours ?? 0) > 0 ? 'text-primary fw-bold' : 'text-body-secondary' }}">
-                        {{ number_format((float) ($att->overtime_hours ?? 0), 2) }}
+                    <td class="text-end small {{ ($att->overtime_hours ?? 0) > 0 ? 'text-primary fw-bold' : 'text-body-secondary' }}" title="{{ $att->overtime_status ? label('overtime_status', $att->overtime_status) : '' }}">
+                        {{ horas_hms($att->overtime_hours) }}
+                        @if($att->overtime_status)<span class="d-block fw-normal" style="font-size: 0.7rem;">{{ label('overtime_status', $att->overtime_status) }}</span>@endif
                     </td>
                     <td class="text-center">
                         @if($att->clock_in_at && $att->clock_in_within_geofence === null)

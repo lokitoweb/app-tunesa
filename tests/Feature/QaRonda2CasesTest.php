@@ -46,6 +46,7 @@ class QaRonda2CasesTest extends TestCase
     {
         parent::setUp();
         $this->seedRoles();
+        $this->withoutPunchTimeLimits();
         Storage::fake('public');
         Storage::fake('private');
         $this->travelTo(Carbon::parse('2026-09-30 18:00', 'America/Lima'));
@@ -218,7 +219,8 @@ class QaRonda2CasesTest extends TestCase
         $this->assertSame([$this->hr->id, 'Olvidó marcar la salida; confirmado por su supervisor.'], [$log->user_id, $log->meta['context']['reason']]);
         $this->assertSame('2026-10-01 15:00', collect($log->meta['changes'])->firstWhere('field', 'clock_out_at')['new']);
         $after = $this->day($this->report('2026-10-01', '2026-10-01'), $yohana, '2026-10-01');
-        $this->assertSame(['normal', '6:02'], [$after['day_status'], AttendanceReportService::hm($after['worked_minutes'])]);
+        // Jornada desde la entrada del horario (08:00): 08:00 → 15:00 − 60 min de refrigerio = 6:00 (los 2 min previos no cuentan)
+        $this->assertSame(['normal', '6:00'], [$after['day_status'], AttendanceReportService::hm($after['worked_minutes'])]);
     }
 
     public function test_rule7_early_exit_is_its_own_status_and_alerts_the_supervisor(): void
@@ -244,18 +246,19 @@ class QaRonda2CasesTest extends TestCase
     public function test_rule10_overtime_only_after_the_official_exit(): void
     {
         $juan = $this->p['Juan'];
-        // Llega 07:30 y sale 16:00: 8:30 de permanencia − 60 min de break = 7:30 trabajadas.
-        // Antes: 7,5 h no pasan la jornada base de 8 h → 0 h extra. Regla 10: 1 h, la de 15:00 a 16:00.
+        // Llega 07:30 y sale 16:00: se cuenta desde su entrada (08:00) → 8:00 − 60 min de break = 7:00 trabajadas.
+        // Regla 10: 1 h extra, la de 15:00 a 16:00 (la media hora antes de entrar no es jornada ni extra).
         $this->punch($juan, '2026-10-06 07:30', 'clock-in');
         $this->punch($juan, '2026-10-06 16:00', 'clock-out');
 
         $saved = Attendance::withoutGlobalScopes()->where('user_id', $juan->id)->sole();
-        $this->assertEquals([7.5, 1.0], [(float) $saved->worked_hours, (float) $saved->overtime_hours]);
+        $this->assertEquals([7.0, 1.0], [(float) $saved->worked_hours, (float) $saved->overtime_hours]);
+        $this->assertSame(6.0, $saved->regularHours(), 'jornada: 7 − 1 de extra');
         $this->assertSame(Attendance::OVERTIME_PENDING, $saved->overtime_status, 'Regla 4: queda por aprobar');
 
         $this->travelTo(Carbon::parse('2026-10-07 09:00', 'America/Lima'));
         $day = $this->day($this->report('2026-10-06', '2026-10-06'), $juan, '2026-10-06');
-        $this->assertSame([450, 60], [$day['worked_minutes'], $day['overtime_day_minutes'] + $day['overtime_night_minutes']]);
+        $this->assertSame([420, 60], [$day['worked_minutes'], $day['overtime_day_minutes'] + $day['overtime_night_minutes']]);
 
         // La corrección manual calcula igual (misma función)
         $this->actingAs($this->hr)->put(route('attendance.manual.update', ['id' => $juan->id, 'date' => '2026-10-06']), [
@@ -356,7 +359,7 @@ class QaRonda2CasesTest extends TestCase
         // El filtro sin recargar (mes y día) envía branch_id aunque esté vacío: si no, el servidor
         // repondría la sede recordada y «Todas las sucursales» volvería sola a la anterior
         $this->actingAs($this->hr)->get(route('attendance.calendar', ['month' => '2026-10']))
-            ->assertSee("(v !== '' || k === 'branch_id')", false)->assertSee("executeInternalFetch({ month, branch_id: '' })", false);
+            ->assertSee("(v !== '' || k === 'branch_id')", false)->assertSee("executeInternalFetch({ month, from, to, branch_id: '' })", false);
         $this->actingAs($this->hr)->get(route('attendance.calendar.day', ['date' => '2026-10-20']))
             ->assertSee("(String(v).trim() !== '' || k === 'branch_id')", false);
     }

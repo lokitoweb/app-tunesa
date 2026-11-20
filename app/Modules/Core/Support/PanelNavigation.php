@@ -42,6 +42,7 @@ class PanelNavigation
                 ['Attendance', 'attendance.view_all', 'attendance.attempts', [], 'slash-circle', 'Intentos rechazados', $request->routeIs('attendance.attempts')],
                 ['Attendance', ['attendance.view_team', 'attendance.view_all'], 'attendance.absences', [], 'person-x', 'Control de faltas', $request->routeIs('attendance.absences')],
                 ['Attendance', 'attendance.authorize_offshift', 'attendance.offshift.index', [], 'calendar-plus', 'Marcación fuera de turno', $request->routeIs('attendance.offshift.*')],
+                ['Attendance', 'attendance.trips', 'attendance.trips.index', [], 'signpost-split', 'Bitácora de viajes', $request->routeIs('attendance.trips.*')],
                 ['Attendance', 'attendance.contingency', 'attendance.contingency.index', [], 'life-preserver', 'Plan de contingencia', $request->routeIs('attendance.contingency.*'),
                     fn () => $hasTenant ? \App\Modules\Attendance\Models\AttendanceContingency::active()->count() : 0],
                 ['HR', 'leave.approve_team', 'approvals.index', [], 'check2-square', 'Aprobaciones', $request->routeIs('approvals*'), fn () => $hasTenant ? self::pendingApprovals($user) : 0],

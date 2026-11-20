@@ -185,6 +185,14 @@ class AttendanceController extends Controller
         if ((! $attendance || is_null($attendance->clock_in_at)) && ! $schedule['can_clock_in']) {
             $nextAction = ['action' => null, 'actions' => [], 'label' => $schedule['message'], 'code' => 'NOT_SCHEDULED'];
         }
+        // Choferes: sin botones de marcación (la app ya muestra el texto cuando no hay acciones)
+        if ($employee->isTripControlled()) {
+            $nextAction = ['action' => null, 'actions' => [], 'label' => AttendanceService::MESSAGE_TRIP_CONTROLLED, 'code' => 'TRIP_CONTROLLED'];
+            $schedule = ['can_clock_in' => false, 'reason' => 'trip_controlled', 'message' => AttendanceService::MESSAGE_TRIP_CONTROLLED] + $schedule;
+        }
+
+        $settings = \App\Modules\Core\Models\TenantSetting::forTenant($employee->tenant);
+        $open = $attendance?->clock_in_at && ! $attendance->clock_out_at;
 
         return response()->json([
             'success'     => true,
@@ -192,8 +200,12 @@ class AttendanceController extends Controller
             'next_action' => $nextAction,
             'schedule'    => $schedule,
             // Jornada abierta: hora de salida esperada (la app avisa si se sale antes y queda incompleta)
-            'expected_clock_out' => $attendance?->clock_in_at && ! $attendance->clock_out_at
-                ? AttendanceService::expectedClockOut($attendance, tenant_timezone(), (int) \App\Modules\Core\Models\TenantSetting::forTenant($employee->tenant)->lunch_minutes)->toIso8601String()
+            'expected_clock_out' => $open
+                ? AttendanceService::expectedClockOut($attendance, tenant_timezone(), (int) $settings->lunch_minutes)->toIso8601String()
+                : null,
+            // Desde qué hora se puede marcar la salida (límite de la empresa; null = sin límite o con permiso aprobado)
+            'clock_out_allowed_from' => $open
+                ? AttendanceService::clockOutAllowedFrom($attendance->setRelation('user', $employee), $settings, tenant_timezone())?->toIso8601String()
                 : null,
             'server_time' => Carbon::now(tenant_timezone())->toIso8601String(),
             'timezone'    => tenant_timezone(),
@@ -286,7 +298,7 @@ class AttendanceController extends Controller
 
         // Personal activo que marca (mismo criterio que el panel: User::clocking(), permiso attendance.mark), para saber cuántos faltan
         $totalEmployees = \App\Modules\Core\Models\User::where('tenant_id', $tenantId)
-            ->clocking()
+            ->clocking()->timeTracked()
             ->where('status', 'active')
             ->when($branchId, fn($q) => $q->whereHas('branches', fn($bq) => $bq->where('branch_id', $branchId)))
             ->count();

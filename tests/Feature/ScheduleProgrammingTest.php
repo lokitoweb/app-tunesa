@@ -55,6 +55,7 @@ class ScheduleProgrammingTest extends TestCase
     {
         parent::setUp();
         $this->seedRoles();
+        $this->withoutPunchTimeLimits();
         Storage::fake('public');
         Storage::fake('private');
         $this->travelTo(Carbon::parse('2026-10-01 10:00', 'America/Lima'));

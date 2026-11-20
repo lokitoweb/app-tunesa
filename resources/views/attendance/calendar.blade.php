@@ -820,14 +820,14 @@
     text-align: center;
 }
 .cal-col-tot-min {
-    min-width: 3.2rem;
-    width: 3.2rem;
+    min-width: 4.6rem;
+    width: 4.6rem;
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
 .cal-col-tot-hours {
-    min-width: 3.5rem;
-    width: 3.5rem;
+    min-width: 4.6rem;
+    width: 4.6rem;
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
@@ -951,8 +951,8 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
 
 @section('content')
 @php
-    $monthLabel = \Carbon\Carbon::createFromFormat('!Y-m', $filters->month)->locale('es')->isoFormat('MMMM [de] YYYY');
-    $fmtHours = fn ($h, $unit = true) => rtrim(rtrim(number_format((float) $h, 2, '.', ''), '0'), '.') . ($unit ? ' h' : '');
+    // Periodo: el mes entero o el rango elegido en el selector (p. ej. la semana del tareo)
+    [$rangeStart, $rangeEnd] = $filters->range();
 
     $items = collect($rows->items());
     $totalEmployees = $rows->total();
@@ -961,16 +961,14 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     $totalMinutosTarde = $items->sum(fn($r) => $r['totals']['late_minutes'] ?? 0);
 
     // Semanas para el calendario mensual (7 columnas Lun - Dom)
-    $firstDate = \Carbon\CarbonImmutable::createFromFormat('!Y-m', $filters->month);
+    $firstDate = \Carbon\CarbonImmutable::parse($rangeStart);
     $firstDayOfWeek = $firstDate->dayOfWeekIso; // 1 = Lunes, 7 = Domingo
     $daysKeys = array_keys($days);
-    
-    // Cálculo de días previos para padding visual elegante
-    $prevMonthDate = $firstDate->subMonth();
-    $daysInPrevMonth = $prevMonthDate->daysInMonth;
+
+    // Días previos al periodo (relleno visual de la primera semana)
     $prevPadded = [];
     for ($i = $firstDayOfWeek - 1; $i > 0; $i--) {
-        $prevPadded[] = $daysInPrevMonth - $i + 1;
+        $prevPadded[] = $firstDate->subDays($i)->day;
     }
     
     $paddedDays = array_merge(array_fill(0, $firstDayOfWeek - 1, null), $daysKeys);
@@ -1004,7 +1002,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     <header class="page-head">
         <div class="page-head-text">
             <h1 class="page-title">Calendario de asistencia</h1>
-            <p class="page-subtitle">Vista mensual de asistencias, faltas y tardanzas por colaborador.</p>
+            <p class="page-subtitle">Asistencias, faltas y tardanzas por colaborador, del mes o del periodo que elijas.</p>
         </div>
         <div class="page-actions">
             <a href="{{ route('attendance.calendar.excel', $filters->toQuery()) }}" class="btn btn-light border" title="Descargar el reporte mensual en Excel">
@@ -1030,11 +1028,12 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
         <div class="filter-row justify-content-between">
             <div class="d-flex align-items-center gap-2">
                 <button type="button" class="icon-btn" title="Mes anterior" aria-label="Mes anterior" onclick="changeMonthInternal('{{ $filters->previousMonth() }}')"><i class="bi bi-chevron-left"></i></button>
-                <span class="cal-month-title">{{ \Illuminate\Support\Str::ucfirst($monthLabel) }}</span>
+                <span class="cal-month-title">{{ $filters->periodLabel() }}</span>
                 <button type="button" class="icon-btn" title="Mes siguiente" aria-label="Mes siguiente" onclick="changeMonthInternal('{{ $filters->nextMonth() }}')"><i class="bi bi-chevron-right"></i></button>
-                @if($filters->month !== now(tenant_timezone())->format('Y-m'))
+                @if($filters->from || $filters->month !== now(tenant_timezone())->format('Y-m'))
                     <button type="button" class="btn btn-sm btn-light border" onclick="changeMonthInternal('{{ now(tenant_timezone())->format('Y-m') }}')" title="Volver al mes actual">Mes actual</button>
                 @endif
+                @include('partials.date-range-picker', ['prefix' => 'attCal', 'start' => $rangeStart, 'end' => $rangeEnd, 'preset' => $filters->preset(), 'label' => $filters->from ? null : $filters->periodLabel()])
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <select id="quickCollaboratorSelect" class="form-select w-auto" aria-label="Ver el calendario de" onchange="switchCollaboratorCalendar(this.value)">
@@ -1051,6 +1050,8 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
         </div>
         <form id="internalFilterForm" class="filter-row border-0" role="search" onsubmit="event.preventDefault(); applyInternalFilter();">
             <input type="hidden" id="monthInput" name="month" value="{{ $filters->month }}">
+            <input type="hidden" id="fromInput" name="from" value="{{ $filters->from }}">
+            <input type="hidden" id="toInput" name="to" value="{{ $filters->to }}">
             <div class="search-field">
                 <i class="bi bi-search"></i>
                 <input type="search" id="q" name="q" class="form-control" value="{{ $filters->search }}" placeholder="Buscar colaborador o DNI…" aria-label="Buscar colaborador o DNI" onkeydown="if(event.key === 'Enter') applyInternalFilter();">
@@ -1246,8 +1247,8 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                         @endforeach
                         <th class="border-start cal-col-tot-f" title="Faltas"><span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.68rem; padding: 2px 6px;">F</span></th>
                         <th class="cal-col-tot-t" title="Tardanzas"><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.68rem; padding: 2px 6px;">T</span></th>
-                        <th class="cal-col-tot-min" title="Minutos de tardanza"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.725rem;">Min</span></th>
-                        <th class="cal-col-tot-hours" title="Horas trabajadas"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.725rem;">Horas</span></th>
+                        <th class="cal-col-tot-min" title="Tardanza (horas:minutos:segundos)"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.725rem;">Tardanza</span></th>
+                        <th class="cal-col-tot-hours" title="Horas de jornada, sin horas extra (horas:minutos:segundos)"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.725rem;">Horas</span></th>
                         <th class="cal-col-tot-he" title="Horas Extra (aprobadas y por aprobar)"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.725rem;">HE</span></th>
                     </tr>
                 </thead>
@@ -1306,8 +1307,8 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                                         $c['note'] ?? null,
                                         $c['suspicious'] ? 'Observada' : null,
                                         match ($c['overtime_status'] ?? null) {
-                                            'pending'  => 'HE ' . $fmtHours($c['overtime_hours']) . ' por aprobar',
-                                            'approved' => 'HE ' . $fmtHours($c['overtime_hours']) . ' aprobadas',
+                                            'pending'  => 'HE ' . horas_hms($c['overtime_hours']) . ' por aprobar',
+                                            'approved' => 'HE ' . horas_hms($c['overtime_hours']) . ' aprobadas',
                                             'rejected' => 'HE rechazadas',
                                             default    => null,
                                         },
@@ -1331,12 +1332,12 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                             @endforeach
                             <td class="border-start cal-col-tot-f fw-bold {{ $r['totals']['absent'] ? 'text-danger' : 'text-muted opacity-50' }}">{{ $r['totals']['absent'] }}</td>
                             <td class="cal-col-tot-t fw-bold {{ $r['totals']['late'] ? 'text-warning-emphasis' : 'text-muted opacity-50' }}">{{ $r['totals']['late'] }}</td>
-                            <td class="cal-col-tot-min" style="color: var(--cal-text-muted);">{{ $r['totals']['late_minutes'] ?: '—' }}</td>
-                            <td class="cal-col-tot-hours fw-medium" style="color: var(--cal-text-main);">{{ rtrim(rtrim(number_format($r['totals']['worked_hours'], 2, '.', ''), '0'), '.') }}</td>
+                            <td class="cal-col-tot-min" style="color: var(--cal-text-muted); white-space: nowrap;">{{ $r['totals']['late_minutes'] ? minutos_hms($r['totals']['late_minutes']) : '—' }}</td>
+                            <td class="cal-col-tot-hours fw-medium" style="color: var(--cal-text-main); white-space: nowrap;">{{ horas_hms($r['totals']['worked_hours']) }}</td>
                             <td class="cal-col-tot-he text-success fw-bold" style="white-space: nowrap;">
-                                {{ $r['totals']['overtime_approved'] ? $fmtHours($r['totals']['overtime_approved'], false) : '—' }}
+                                {{ $r['totals']['overtime_approved'] ? horas_hms($r['totals']['overtime_approved']) : '—' }}
                                 @if($r['totals']['overtime_pending'])
-                                    <span class="d-block small text-warning-emphasis" style="font-size: 0.65rem; font-weight: 700;" title="HE por aprobar: +{{ $fmtHours($r['totals']['overtime_pending'], false) }}">+{{ $fmtHours($r['totals']['overtime_pending'], false) }}</span>
+                                    <span class="d-block small text-warning-emphasis" style="font-size: 0.65rem; font-weight: 700;" title="HE por aprobar: +{{ horas_hms($r['totals']['overtime_pending']) }}">+{{ horas_hms($r['totals']['overtime_pending']) }}</span>
                                 @endif
                             </td>
                         </tr>
@@ -1437,6 +1438,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
 @endsection
 
 @section('scripts')
+@include('partials.date-range-engine')
 <script>
 {{-- Obtener siempre los datos reactivos del DOM (incluso tras actualizaciones AJAX) --}}
 function getCalendarRows() {
@@ -1485,7 +1487,8 @@ async function executeInternalFetch(params) {
         if (newContainer) {
             document.getElementById('calendar-app-container').innerHTML = newContainer.innerHTML;
             window.calendarRows = getCalendarRows();
-            
+            initPeriodPicker();
+
             {{-- Restaurar modo matriz si estaba activo --}}
             if (currentCalViewMode === 'matrix') {
                 toggleViewMode('matrix');
@@ -1515,14 +1518,45 @@ function changeMonthInternal(monthValue) {
     const formData = new FormData(form);
     const params = Object.fromEntries(formData.entries());
     params.month = monthValue;
+    delete params.from;
+    delete params.to;
     executeInternalFetch(params);
 }
 
-{{-- Limpiar filtros internamente --}}
+{{-- Limpiar filtros internamente (se conserva el periodo) --}}
 function resetInternalFilter() {
     const month = document.getElementById('monthInput').value;
-    executeInternalFetch({ month, branch_id: '' });
+    const from = document.getElementById('fromInput')?.value;
+    const to = document.getElementById('toInput')?.value;
+    executeInternalFetch({ month, from, to, branch_id: '' });
 }
+
+{{-- Selector de periodo: «Este mes» y «Mes anterior» abren el mes entero; el resto, el rango Desde/Hasta --}}
+function initPeriodPicker() {
+    {{-- Valores del periodo desde el HTML (tras cada recarga sin refrescar llegan nuevos) --}}
+    const period = document.getElementById('attCalCalendarDropdown')?.dataset;
+    if (!period) return;
+    setupInteractiveCalendar({
+        dropdownId: 'attCalCalendarDropdown', triggerBtnId: 'attCalDateFilterDropdownBtn', triggerLabelId: 'attCalCalTriggerLabel',
+        triggerFromId: 'attCalCalTriggerFrom', triggerToId: 'attCalCalTriggerTo', inputFromId: 'attCalCalInputFrom', inputToId: 'attCalCalInputTo',
+        monthTitleId: 'attCalCalCurrentMonthTitle', daysGridId: 'attCalCalDaysGrid', prevMonthBtnId: 'attCalCalPrevMonthBtn',
+        nextMonthBtnId: 'attCalCalNextMonthBtn', cancelBtnId: 'attCalCalCancelBtn', applyBtnId: 'attCalCalApplyBtn',
+        fromWrapperId: 'attCalCalFromInputWrapper', toWrapperId: 'attCalCalToInputWrapper',
+        initialStart: period.start, initialEnd: period.end, initialPreset: period.preset,
+        onApply(start, end, preset) {
+            if (preset === 'month' || preset === 'prev_month') {
+                changeMonthInternal(start.substring(0, 7));
+                return;
+            }
+            const params = Object.fromEntries(new FormData(document.getElementById('internalFilterForm')).entries());
+            delete params.month;
+            params.from = start;
+            params.to = end;
+            executeInternalFetch(params);
+        },
+    });
+}
+document.addEventListener('DOMContentLoaded', initPeriodPicker);
 
 {{-- Alternar entre Vista Calendario y Vista Matriz --}}
 function toggleViewMode(mode) {

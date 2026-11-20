@@ -101,8 +101,8 @@ class ReportWebController extends Controller
                 SUM(CASE WHEN status = 'late' OR COALESCE(late_minutes, 0) > 0 THEN 1 ELSE 0 END) AS late,
                 SUM(CASE WHEN status = 'absent' AND COALESCE(justification_status, 'none') <> 'approved' THEN 1 ELSE 0 END) AS absent,
                 SUM(CASE WHEN status IN ('excused', 'justified') OR justification_status = 'approved' THEN 1 ELSE 0 END) AS excused,
-                COALESCE(SUM(worked_hours), 0) AS hours,
-                COALESCE(SUM(overtime_hours), 0) AS overtime
+                COALESCE(SUM(" . Attendance::regularMinutesSql() . "), 0) / 60 AS hours,
+                COALESCE(SUM(" . Attendance::payableOvertimeSql() . "), 0) AS overtime
             ")->first();
 
         $totalRecords  = (int) ($stats->total ?? 0);

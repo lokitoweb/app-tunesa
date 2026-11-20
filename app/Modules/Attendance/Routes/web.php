@@ -7,6 +7,7 @@ use App\Modules\Attendance\Controllers\Web\CalendarWebController;
 use App\Modules\Attendance\Controllers\Web\HoursReportWebController;
 use App\Modules\Attendance\Controllers\Web\LiveBoardController;
 use App\Modules\Attendance\Controllers\Web\OffShiftAuthorizationWebController;
+use App\Modules\Attendance\Controllers\Web\TripLogWebController;
 use App\Modules\Attendance\Controllers\Web\PunchAttemptWebController;
 use App\Modules\Attendance\Controllers\Web\ReportWebController;
 use Illuminate\Support\Facades\Route;
@@ -67,6 +68,14 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/', [OffShiftAuthorizationWebController::class, 'index'])->name('index');
         Route::post('/', [OffShiftAuthorizationWebController::class, 'store'])->name('store')->middleware('throttle:30,1');
         Route::delete('/{id}', [OffShiftAuthorizationWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
+    });
+
+    // Bitácora de viajes de choferes (cargos con «Control por viajes»): ida y vuelta firmada por el supervisor
+    Route::middleware('can:attendance.trips')->prefix('attendance-trips')->name('attendance.trips.')->group(function () {
+        Route::get('/', [TripLogWebController::class, 'index'])->name('index');
+        Route::post('/', [TripLogWebController::class, 'store'])->name('store')->middleware('throttle:60,1');
+        Route::put('/{id}', [TripLogWebController::class, 'update'])->name('update')->whereNumber('id')->middleware('throttle:60,1');
+        Route::delete('/{id}', [TripLogWebController::class, 'destroy'])->name('destroy')->whereNumber('id');
     });
 
     // Marcar mi asistencia desde el panel: jefaturas y oficina (attendance.web_punch) o con un plan de contingencia vigente

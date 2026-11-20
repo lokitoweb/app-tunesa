@@ -11,6 +11,7 @@ use App\Modules\Attendance\Models\AttendancePunch;
 use App\Modules\Core\Models\Branch;
 use App\Modules\HR\Models\EmployeeShift;
 use App\Modules\HR\Models\Holiday;
+use App\Modules\HR\Models\LeaveRequest;
 use App\Modules\HR\Models\Shift;
 use App\Modules\Core\Models\Tenant;
 use App\Modules\Core\Models\TenantSetting;
@@ -47,6 +48,8 @@ use Illuminate\Support\Facades\Log;
 class AttendanceService
 {
     /** Jornada base sin turno asignado (horas) */
+    public const MESSAGE_TRIP_CONTROLLED = 'Tu asistencia se registra en la Bitácora de viajes: no necesitas marcar en la app.';
+
     public const FULL_TIME_HOURS = 8.0;
     public const PART_TIME_HOURS = 4.0;
 
@@ -105,6 +108,11 @@ class AttendanceService
 
         if ($data->clientUuid && ($existing = $this->findDuplicate($employee, $data->clientUuid))) {
             return $existing;
+        }
+
+        // Choferes (cargo con «Control por viajes»): no marcan; el supervisor registra sus viajes
+        if ($employee->isTripControlled()) {
+            throw new AttendanceException(self::MESSAGE_TRIP_CONTROLLED, 'TRIP_CONTROLLED', 422);
         }
 
         $serverTime = CarbonImmutable::now('UTC');
@@ -296,6 +304,8 @@ class AttendanceService
         [$geo, $reasons] = $this->clockGeofence($c, $employee, $branch, $reasons);
 
         $shift = $assignment?->shift?->forDate($today);
+        self::rejectBefore(self::clockInAllowedFrom($shift, $today, $c['tenant']->timezone, $c['settings']), $c, 'CLOCK_IN_TOO_EARLY',
+            'Aún no es tu hora de entrada: podrás marcar desde las %s.');
 
         // schedule_v2 (HQ-02): sin horario ese día también es "fuera de programación", tenga o no asignaciones
         $judge = $hasAssignments || $this->schedules->enabled((int) $employee->tenant_id);
@@ -431,6 +441,8 @@ class AttendanceService
         // El fin del refrigerio se marca a su término o después, nunca antes. Una marca sin conexión
         // ya ocurrió en el celular: se registra tal cual para no perderla.
         $minimum = self::minimumBreakMinutes($shift, $c['settings']);
+        // Con el límite de hora activo, el margen de la empresa (p. ej. 1 min antes); se descuenta igual el refrigerio completo
+        $minimum = max(0, $minimum - ($c['settings']->punchTimeLimits()['break_end'] ?? 0));
         if (! $data->isOffline() && $breakMinutes < $minimum) {
             throw new AttendanceException(
                 "Tu refrigerio es de {$minimum} min: podrás marcar el fin desde las " . hora($breakStart->copy()->addMinutes($minimum)) . '.',
@@ -477,6 +489,8 @@ class AttendanceService
         [$geo, $reasons] = $this->clockGeofence($c, $employee, $branch, $reasons);
 
         $shift = $attendance->shift?->forDate($attendance->work_date);
+        self::rejectBefore(self::clockOutAllowedFrom($attendance->setRelation('user', $employee), $c['settings'], $c['tenant']->timezone), $c, 'CLOCK_OUT_TOO_EARLY',
+            'Aún no es tu hora de salida: podrás marcarla desde las %s. Para salir antes, solicita un permiso en la app; con el permiso aprobado para hoy podrás marcar tu salida.');
         if (! $shift && in_array(AttendancePunch::REASON_NO_SCHEDULE, $attendance->punches()->where('type', 'clock_in')->first()?->suspicion_reasons ?? [], true)) {
             $reasons[] = AttendancePunch::REASON_NO_SCHEDULE; // C9 caso B: la salida del mismo día sin horario
         } elseif ($shift && $this->isOutsideShiftWindow($shift, $attendance->work_date->toDateString(), $clockOutTime, $c['tenant']->timezone)) {
@@ -488,7 +502,9 @@ class AttendanceService
         // Horas trabajadas (proporcionales a lo marcado). El descanso fijo del turno se
         // descuenta aunque no se marque; con "Refrigerio pagado" no se descuenta nada.
         [$workedHours, $overtimeHours, $dailyHours, $earlyExit] = $this->closedDayHours($employee, $c['tenant'], $shift, $attendance->work_date->toDateString(), $c['tenant']->timezone,
-            $this->localTime($attendance->clock_in_at), $clockOutTime, (int) ($attendance->break_minutes ?? 0), $c['settings']);
+            $this->localTime($attendance->clock_in_at), $clockOutTime, (int) ($attendance->break_minutes ?? 0), $c['settings'],
+            $attendance->break_start_at ? $this->localTime($attendance->break_start_at) : null,
+            $attendance->break_end_at ? $this->localTime($attendance->break_end_at) : null);
 
         $attendance->update([
             'clock_out_at'              => $clockOutTime,
@@ -523,6 +539,51 @@ class AttendanceService
     // =========================================================================
     // CONTROLES
     // =========================================================================
+
+    /**
+     * No se marca antes de la hora del horario menos el margen de la empresa (Configuración › Reglas).
+     * Sin límite ($from null) o sin conexión (la marca ya ocurrió en el celular) no se bloquea.
+     */
+    private static function rejectBefore(?Carbon $from, array $c, string $code, string $message): void
+    {
+        if ($from && ! $c['data']->isOffline() && $c['at']->lt($from)) {
+            throw new AttendanceException(sprintf($message, hora($from)), $code, 422, ['allowed_from' => $from->toIso8601String()]);
+        }
+    }
+
+    /** Desde qué hora se puede marcar la entrada (null = sin límite o sin horario ese día) */
+    public static function clockInAllowedFrom(?Shift $shift, string $date, string $timezone, TenantSetting $settings): ?Carbon
+    {
+        $margin = $settings->punchTimeLimits()['clock_in'] ?? null;
+
+        return $margin === null ? null : self::scheduledStart($shift, $date, $timezone)?->subMinutes($margin);
+    }
+
+    /**
+     * Desde qué hora se puede marcar la salida de la jornada (null = sin límite, sin horario o con permiso
+     * aprobado ese día). La misma respuesta bloquea la marcación y avisa en la app (/attendance/today).
+     */
+    public static function clockOutAllowedFrom(Attendance $attendance, TenantSetting $settings, string $timezone): ?Carbon
+    {
+        $margin = $settings->punchTimeLimits()['clock_out'] ?? null;
+        $date   = $attendance->work_date->toDateString();
+        $end    = $margin === null ? null : self::scheduledEnd($attendance->shift, $date, $timezone);
+        if (! $end || ! $attendance->user || self::hasApprovedLeave($attendance->user, $date)) {
+            return null;
+        }
+
+        return $end->subMinutes($margin);
+    }
+
+    /** Permiso, licencia o vacaciones aprobados que cubren la fecha: puede marcar su salida antes de hora */
+    private static function hasApprovedLeave(User $employee, string $date): bool
+    {
+        return LeaveRequest::withoutGlobalScopes()
+            ->where('user_id', $employee->id)
+            ->where('status', 'approved')
+            ->overlapping($date, $date)
+            ->exists();
+    }
 
     /**
      * GPS simulado, precisión y rostro. Rechaza (AttendanceException) o agrega
@@ -1154,6 +1215,14 @@ class AttendanceService
 
     /** Jornada base: la del turno; sin turno, 8 h (tiempo completo) o 4 h (medio tiempo) */
     /** Salida oficial del horario del día, en hora local de la empresa (día siguiente si cruza medianoche) */
+    /** Hora de entrada del horario ese día, en la zona de la empresa (null sin horario) */
+    public static function scheduledStart(?Shift $shift, string $date, string $timezone): ?Carbon
+    {
+        $shift = $shift?->forDate($date);
+
+        return $shift?->start_time ? Carbon::parse("{$date} {$shift->start_time}", $timezone) : null;
+    }
+
     public static function scheduledEnd(?Shift $shift, string $date, string $timezone): ?Carbon
     {
         $shift = $shift?->forDate($date);
@@ -1258,8 +1327,18 @@ class AttendanceService
      *
      * @return array{0: float, 1: float, 2: float, 3: int} [horas trabajadas, horas extra, jornada base, minutos de salida anticipada]
      */
-    public function closedDayHours(User $employee, ?Tenant $tenant, ?Shift $shift, string $date, string $tz, Carbon $in, Carbon $out, int $markedBreakMinutes, TenantSetting $settings): array
+    public function closedDayHours(User $employee, ?Tenant $tenant, ?Shift $shift, string $date, string $tz, Carbon $in, Carbon $out, int $markedBreakMinutes, TenantSetting $settings, ?Carbon $breakStart = null, ?Carbon $breakEnd = null): array
     {
+        // Lo marcado antes de la hora de entrada no es jornada: se cuenta desde la entrada del horario.
+        // Quien llega tarde cuenta desde que llegó (su tardanza se calcula aparte, igual que siempre).
+        $start = self::scheduledStart($shift, $date, $tz);
+        if ($start && $in->lt($start) && $start->lt($out)) {
+            // La parte del refrigerio anterior a la entrada ya quedó fuera de la jornada: no se descuenta dos veces
+            if ($breakStart && $breakEnd) {
+                $markedBreakMinutes = max(0, $markedBreakMinutes - (int) max(0, $breakStart->max($in)->diffInMinutes($breakEnd->min($start), false)));
+            }
+            $in = $start;
+        }
         $total  = (int) $in->diffInMinutes($out);
         $deduct = $settings->lunch_paid ? 0 : $this->breakToDeduct($total, $markedBreakMinutes, $shift, $settings);
         // C7: en horario partido la pausa entre tramos no es refrigerio ni se trabaja, aunque falten las marcas del medio

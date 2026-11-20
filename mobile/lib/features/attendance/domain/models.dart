@@ -197,7 +197,20 @@ class TodayStatus {
     this.notScheduledMessage,
     this.scheduleNotice,
     this.expectedClockOut,
+    this.clockOutAllowedFrom,
   });
+
+  /// Desde qué hora la empresa deja marcar la salida (`clock_out_allowed_from`; null = sin límite o con permiso aprobado).
+  final DateTime? clockOutAllowedFrom;
+
+  /// Salida bloqueada por la empresa hasta su hora: la app no ofrece "marcar igual", sino pedir un permiso.
+  String? clockOutBlock(DateTime deviceNow) {
+    final from = clockOutAllowedFrom;
+    final now = deviceNow.subtract(clockSkew ?? Duration.zero);
+    if (from == null || !now.isBefore(from)) return null;
+    return 'Podrás marcar tu salida desde las ${Fmt.time(from)}. Para salir antes, solicita un permiso; '
+        'cuando te lo aprueben podrás marcar tu salida.';
+  }
 
   /// Hora de salida esperada de la jornada abierta (`expected_clock_out`).
   final DateTime? expectedClockOut;

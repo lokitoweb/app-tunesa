@@ -51,6 +51,14 @@ class TenantSetting extends Model
         'lunch_paid'              => false,
         // Solo se marca entrada un día con turno programado (o autorizado por RRHH)
         'punch_requires_schedule' => true,
+        // No se marca antes de hora: entrada desde 1 min antes, fin de refrigerio 1 min antes de completarlo, salida exacta
+        'punch_time_limits'       => true,
+        'clock_in_early_minutes'  => 1,
+        'break_end_early_minutes' => 1,
+        'clock_out_early_minutes' => 0,
+        // Choferes (cargo con «Control por viajes»): días de trabajo y de descanso al mes
+        'trip_work_days'          => 26,
+        'trip_rest_days'          => 4,
         'default_geofence_radius' => 50,
         'mock_location_policy'    => 'reject',
         'max_time_drift_seconds'  => 300,
@@ -96,6 +104,7 @@ class TenantSetting extends Model
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
+        'punch_time_limits', 'clock_in_early_minutes', 'break_end_early_minutes', 'clock_out_early_minutes', 'trip_work_days', 'trip_rest_days',
         'entry_reminder_minutes', 'entry_reminder_timing', 'exit_reminder_minutes', 'exit_reminder_timing',
         'privacy_policy', 'privacy_policy_updated_on',
         'webhook_url', 'notification_endpoint',
@@ -142,6 +151,7 @@ class TenantSetting extends Model
         'api_base_url', 'min_supported_version', 'latest_version', 'force_update', 'update_url',
         'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'offline_max_hours', 'max_gps_accuracy_meters',
         'default_grace_minutes', 'lunch_minutes', 'lunch_paid', 'vacation_days_per_year', 'punch_requires_schedule', 'default_geofence_radius',
+        'punch_time_limits', 'clock_in_early_minutes', 'break_end_early_minutes', 'clock_out_early_minutes', 'trip_work_days', 'trip_rest_days',
         'entry_reminder_minutes', 'entry_reminder_timing', 'exit_reminder_minutes', 'exit_reminder_timing',
         'privacy_policy', 'privacy_policy_updated_on',
         'webhook_url', 'webhook_secret', 'maps_api_key', 'notification_endpoint',
@@ -161,6 +171,12 @@ class TenantSetting extends Model
         'offline_mode_enabled'    => 'boolean',
         'lunch_paid'              => 'boolean',
         'punch_requires_schedule' => 'boolean',
+        'punch_time_limits'       => 'boolean',
+        'clock_in_early_minutes'  => 'integer',
+        'break_end_early_minutes' => 'integer',
+        'clock_out_early_minutes' => 'integer',
+        'trip_work_days'          => 'integer',
+        'trip_rest_days'          => 'integer',
         'offline_max_hours'       => 'integer',
         'max_gps_accuracy_meters' => 'integer',
         'default_grace_minutes'   => 'integer',
@@ -750,6 +766,26 @@ class TenantSetting extends Model
             'geocoding_provider'      => $this->geocodingProvider(),
             'fcm_enabled'             => $this->fcmEnabled(),
             'self_password_change'    => (bool) $this->self_password_change,
+        ];
+    }
+
+    /**
+     * Desde cuántos minutos antes de la hora del horario se puede marcar (null = sin límite).
+     * La app los usa para avisar antes; el servidor los aplica en AttendanceService.
+     *
+     * @return array{clock_in: int, break_end: int, clock_out: int}|null
+     */
+    public function punchTimeLimits(): ?array
+    {
+        if (! $this->punch_time_limits) {
+            return null;
+        }
+        $minutes = fn (string $key) => max(0, min(240, (int) $this->{$key}));
+
+        return [
+            'clock_in'  => $minutes('clock_in_early_minutes'),
+            'break_end' => $minutes('break_end_early_minutes'),
+            'clock_out' => $minutes('clock_out_early_minutes'),
         ];
     }
 

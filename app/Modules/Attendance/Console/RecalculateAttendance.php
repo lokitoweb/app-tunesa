@@ -57,7 +57,8 @@ class RecalculateAttendance extends Command
                     $date = $a->work_date->toDateString();
                     $local = fn (Carbon $at) => Carbon::createFromFormat('Y-m-d H:i:s', $at->format('Y-m-d H:i:s'), $tz);
                     [$worked, $overtime, $base, $earlyExit] = $service->closedDayHours($a->user, $tenant, $a->shift?->forDate($a->work_date), $date, $tz,
-                        $local($a->clock_in_at), $local($a->clock_out_at), (int) ($a->break_minutes ?? 0), $settings);
+                        $local($a->clock_in_at), $local($a->clock_out_at), (int) ($a->break_minutes ?? 0), $settings,
+                        $a->break_start_at ? $local($a->break_start_at) : null, $a->break_end_at ? $local($a->break_end_at) : null);
 
                     $new = ['worked_hours' => $worked, 'overtime_hours' => $overtime, 'early_exit_minutes' => $earlyExit];
                     if (in_array($a->status, ['present', 'late', 'half_day'], true)) {

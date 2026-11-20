@@ -230,7 +230,7 @@ class CalendarWebController extends Controller
         $path = tempnam(sys_get_temp_dir(), 'cal') . '.xlsx';
         $this->exporter->xlsx($filters, $path);
 
-        return response()->download($path, "calendario-asistencia-{$filters->month}.xlsx", [
+        return response()->download($path, 'calendario-asistencia-' . ($filters->from ? "{$filters->from}_{$filters->to}" : $filters->month) . '.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ])->deleteFileAfterSend();
     }

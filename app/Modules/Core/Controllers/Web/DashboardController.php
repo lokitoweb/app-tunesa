@@ -461,7 +461,7 @@ class DashboardController extends Controller
         // 1. Colaboradores activos sujetos a marcación (colaboradores y supervisores)
         $employeesQuery = $this->forTenant(User::query(), $tenantId)
             ->visibleTo($viewer)
-            ->clocking()
+            ->clocking()->timeTracked()
             ->where('status', 'active');
 
         if ($branchId) {

@@ -41,7 +41,7 @@ class HoursReportWebController extends Controller
         $totals = $this->reports->totals($filters);
 
         $branches  = Branch::forTenant($tenantId)->visibleTo($request->user())->orderBy('name')->get(['id', 'name', 'tenant_id']);
-        $employees = User::forTenant($tenantId)->clocking()
+        $employees = User::forTenant($tenantId)->clocking()->timeTracked()
             ->visibleTo($request->user())
             ->orderBy('last_name')->orderBy('first_name')
             ->limit(500)

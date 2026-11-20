@@ -35,6 +35,7 @@ class FcmPushTest extends TestCase
     {
         parent::setUp();
         $this->seedRoles();
+        $this->withoutPunchTimeLimits();
 
         [$this->privateKey, $this->publicKey] = $this->makeRsaKeyPair();
 

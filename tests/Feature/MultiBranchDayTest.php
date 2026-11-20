@@ -35,6 +35,7 @@ class MultiBranchDayTest extends TestCase
     {
         parent::setUp();
         $this->seedRoles();
+        $this->withoutPunchTimeLimits();
         Storage::fake('public');
         Storage::fake('private');
         $this->travelTo(Carbon::parse('2026-11-18 07:30:00', 'America/Lima'));

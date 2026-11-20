@@ -42,6 +42,7 @@ class ScheduleV2DefaultTest extends TestCase
         Storage::fake('public');
         Storage::fake('private');
         $this->seedRoles();
+        $this->withoutPunchTimeLimits();
         $this->acme       = $this->makeTenant('acme');
         $this->supervisor = $this->makeUser($this->acme, 'supervisor');
         $this->branch     = $this->makeBranch($this->acme, ['allowed_radius_meters' => 100, 'supervisor_id' => $this->supervisor->id]);

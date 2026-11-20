@@ -214,6 +214,13 @@ class AttendanceCalendarTest extends TestCase
         $this->assertSame('T', $sheet->getCell('F2')->getValue());
         $this->assertSame(AttendanceCalendarService::FILLS['late'], $sheet->getStyle('F2')->getFill()->getStartColor()->getRGB());
         $this->assertSame('F', $sheet->getCell('E2')->getValue(), 'el martes 1 sin marcación es falta');
+
+        // Totales de tiempo como duración de Excel [h]:mm:ss (se ven 08:00:00 y se pueden sumar)
+        $headers = $sheet->rangeToArray('A1:' . $sheet->getHighestColumn() . '1')[0];
+        $hoursCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(array_search('Horas de jornada', $headers, true) + 1);
+        $lateCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(array_search('Tardanza', $headers, true) + 1);
+        $this->assertSame('[hh]:mm:ss', $sheet->getStyle("{$hoursCol}2")->getNumberFormat()->getFormatCode());
+        $this->assertSame('00:12:00', $sheet->getCell("{$lateCol}2")->getFormattedValue(), '12 min de tardanza');
     }
 
     public function test_excel_agency_follows_the_filter(): void

@@ -26,7 +26,7 @@ class TenantSettingsService
 {
     private const HEX     = 'regex:/^#[0-9A-Fa-f]{6}$/';
     private const SEMVER  = 'regex:/^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/';
-    public const BOOLEANS = ['force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'lunch_paid', 'punch_requires_schedule', 'fcm_enabled', 'self_password_change'];
+    public const BOOLEANS = ['force_update', 'selfie_required', 'face_detection_required', 'offline_mode_enabled', 'lunch_paid', 'punch_requires_schedule', 'punch_time_limits', 'fcm_enabled', 'self_password_change'];
 
     public function __construct(private readonly AuditLogger $audit) {}
 
@@ -204,6 +204,12 @@ class TenantSettingsService
             'vacation_days_per_year'  => ['sometimes', 'nullable', 'integer', 'between:0,60'],
             'lunch_paid'              => ['sometimes', 'nullable', 'boolean'],
             'punch_requires_schedule' => ['sometimes', 'nullable', 'boolean'],
+            'punch_time_limits'       => ['sometimes', 'nullable', 'boolean'],
+            'clock_in_early_minutes'  => ['sometimes', 'nullable', 'integer', 'between:0,240'],
+            'break_end_early_minutes' => ['sometimes', 'nullable', 'integer', 'between:0,240'],
+            'clock_out_early_minutes' => ['sometimes', 'nullable', 'integer', 'between:0,240'],
+            'trip_work_days'          => ['sometimes', 'nullable', 'integer', 'between:0,31'],
+            'trip_rest_days'          => ['sometimes', 'nullable', 'integer', 'between:0,31'],
             'default_geofence_radius' => ['sometimes', 'nullable', 'integer', 'between:10,5000'],
             'geofence_policy'         => ['sometimes', Rule::in(array_keys(CompanyConfiguration::GEOFENCE_POLICIES))],
 

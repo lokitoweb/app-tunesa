@@ -49,9 +49,15 @@
             @csrf
             <div class="form-check mb-0">
                 <input class="form-check-input" type="checkbox" id="overtimeAll" onclick="document.querySelectorAll('[data-overtime-pick]').forEach((c) => c.checked = this.checked)">
-                <label class="form-check-label small fw-semibold" for="overtimeAll">Seleccionar todas para aprobación masiva</label>
+                <label class="form-check-label small fw-semibold" for="overtimeAll">Seleccionar todas</label>
             </div>
-            <button class="btn btn-sm btn-success ms-auto"><i class="bi bi-check2-all me-1"></i>Aprobar las marcadas</button>
+            <input type="text" name="notes" maxlength="500" class="form-control form-control-sm ms-auto" style="max-width: 18rem;"
+                   placeholder="Motivo (obligatorio para rechazar)" aria-label="Motivo del rechazo">
+            <button class="btn btn-sm btn-outline-danger" name="decision" value="rejected"
+                    onclick="if (!this.form.notes.value.trim()) { this.form.notes.focus(); return false; } return confirm('¿Rechazar las horas extra marcadas? No se pagarán.');">
+                <i class="bi bi-x-lg me-1"></i>Rechazar las marcadas
+            </button>
+            <button class="btn btn-sm btn-success" name="decision" value="approved"><i class="bi bi-check2-all me-1"></i>Aprobar las marcadas</button>
         </form>
     @endif
 

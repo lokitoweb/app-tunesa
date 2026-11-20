@@ -35,6 +35,7 @@ class FourPunchShiftTest extends TestCase
     {
         parent::setUp();
         $this->seedRoles();
+        $this->withoutPunchTimeLimits();
         Storage::fake('public');
         Storage::fake('private');
         $this->travelTo(Carbon::parse('2026-11-02 07:55:00', 'America/Lima')); // lunes

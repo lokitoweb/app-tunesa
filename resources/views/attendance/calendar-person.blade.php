@@ -459,7 +459,6 @@
 @php
     $monthLabel = \Carbon\Carbon::createFromFormat('!Y-m', $filters->month)->locale('es')->isoFormat('MMMM [de] YYYY');
     $t = $row['totals'];
-    $fmtHours = fn ($h) => rtrim(rtrim(number_format((float) $h, 2, '.', ''), '0'), '.') . ' h';
     $initials = strtoupper(substr($row['first_name'] ?? '', 0, 1) . substr($row['last_name'] ?? '', 0, 1));
 @endphp
 
@@ -559,8 +558,8 @@
                 <i class="bi bi-briefcase-fill"></i>
             </div>
             <div>
-                <div class="cal-person-kpi-value">{{ rtrim(rtrim(number_format($t['worked_hours'], 2, '.', ''), '0'), '.') ?: 0 }} h</div>
-                <div class="cal-person-kpi-label">Horas trabajadas</div>
+                <div class="cal-person-kpi-value">{{ horas_hms($t['worked_hours']) }}</div>
+                <div class="cal-person-kpi-label">Horas de jornada</div>
             </div>
         </div>
 
@@ -570,8 +569,8 @@
                     <i class="bi bi-plus-circle-fill"></i>
                 </div>
                 <div>
-                    <div class="cal-person-kpi-value text-success">{{ $fmtHours($t['overtime_approved']) }}</div>
-                    <div class="cal-person-kpi-label">Horas extra @if($t['overtime_pending'])<span class="text-warning-emphasis">(+{{ $fmtHours($t['overtime_pending']) }} pte)</span>@endif</div>
+                    <div class="cal-person-kpi-value text-success">{{ horas_hms($t['overtime_approved']) }}</div>
+                    <div class="cal-person-kpi-label">Horas extra @if($t['overtime_pending'])<span class="text-warning-emphasis">(+{{ horas_hms($t['overtime_pending']) }} pte)</span>@endif</div>
                 </div>
             </div>
         @endif
@@ -651,11 +650,11 @@
 
                                 @if($c['overtime_status'] === 'pending')
                                     <div class="cal-person-badge-late">
-                                        <i class="bi bi-plus me-0.5"></i>HE {{ $fmtHours($c['overtime_hours']) }} por aprobar
+                                        <i class="bi bi-plus me-0.5"></i>HE {{ horas_hms($c['overtime_hours']) }} por aprobar
                                     </div>
                                 @elseif($c['overtime_status'] === 'approved')
                                     <div class="cal-person-badge-ot">
-                                        <i class="bi bi-check me-0.5"></i>HE {{ $fmtHours($c['overtime_hours']) }} aprobadas
+                                        <i class="bi bi-check me-0.5"></i>HE {{ horas_hms($c['overtime_hours']) }} aprobadas
                                     </div>
                                 @endif
 

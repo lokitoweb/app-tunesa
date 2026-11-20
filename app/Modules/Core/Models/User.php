@@ -548,6 +548,41 @@ class User extends Authenticatable
         return $this->belongsTo(Position::class, 'position_id');
     }
 
+    /** Cargo con «Control por viajes» (choferes): no marca; sus días trabajados salen de la Bitácora de viajes */
+    public function isTripControlled(): bool
+    {
+        return (bool) $this->jobPosition?->trip_control;
+    }
+
+    private static ?bool $tripColumnReady = null;
+
+    /** El deploy actualiza el código antes de migrar: sin la columna todavía, nadie es chofer por viajes */
+    private static function tripColumnReady(): bool
+    {
+        return self::$tripColumnReady ??= \Illuminate\Support\Facades\Schema::hasColumn('positions', 'trip_control');
+    }
+
+    /** Solo quienes tienen cargo con «Control por viajes» */
+    public function scopeTripControlled($query)
+    {
+        if (! self::tripColumnReady()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereIn('users.position_id', fn ($s) => $s->select('id')->from('positions')->where('trip_control', true));
+    }
+
+    /** Sin «Control por viajes»: el personal al que se le cuentan faltas, tardanzas y horas por marcación */
+    public function scopeTimeTracked($query)
+    {
+        if (! self::tripColumnReady()) {
+            return $query;
+        }
+
+        return $query->where(fn ($q) => $q->whereNull('users.position_id')
+            ->orWhereNotIn('users.position_id', fn ($s) => $s->select('id')->from('positions')->where('trip_control', true)));
+    }
+
     public function assignedZone(): BelongsTo
     {
         return $this->belongsTo(Zone::class, 'scope_zone_id');

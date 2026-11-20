@@ -45,6 +45,7 @@ class AttendancePunchLogTest extends TestCase
     {
         parent::setUp();
         $this->seedRoles();
+        $this->withoutPunchTimeLimits();
         Storage::fake('public');
         Storage::fake('private');
         Http::fake(['nominatim.openstreetmap.org/*' => Http::response(['display_name' => 'Av. Javier Prado Este 2578, San Isidro, Lima'])]);
