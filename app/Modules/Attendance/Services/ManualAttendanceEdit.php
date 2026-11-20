@@ -50,12 +50,10 @@ class ManualAttendanceEdit
         return Attendance::where('user_id', $employee->id)->where('work_date', $date)->orderBy('id')->first();
     }
 
-    /** Horario de ese día: el de la jornada registrada o el programado (con sus horas por día de la semana) */
+    /** Horario de ese día: el programado (manda sobre el que quedó en la jornada) con sus horas por día de la semana */
     public function shiftFor(User $employee, string $date, ?Attendance $record): ?\App\Modules\HR\Models\Shift
     {
-        [$assignment] = $this->attendance->getCurrentShift($employee, $date);
-
-        return ($record?->shift ?? $assignment?->shift)?->forDate($date);
+        return $this->attendance->dayShift($employee, $date, $record);
     }
 
     /**
@@ -100,8 +98,9 @@ class ManualAttendanceEdit
         $tz = tenant_timezone();
         $record = $this->find($employee, $date);
         $before = $record ? $this->snapshot($record) : [];
-        [$assignment, , $reference] = $this->attendance->getCurrentShift($employee, $date);
-        $shift = ($record?->shift ?? $assignment?->shift)?->forDate($date);
+        [, , $reference] = $this->attendance->getCurrentShift($employee, $date);
+        // El turno programado del día, no el que quedó guardado al registrar la jornada (pudo cambiar la programación)
+        $shift = $this->shiftFor($employee, $date, $record);
 
         $values = [
             'shift_id'      => $shift?->id,

@@ -2,7 +2,9 @@
 
 namespace App\Modules\HR\Services;
 
+use App\Modules\Attendance\Models\Attendance;
 use App\Modules\Attendance\Services\AttendanceCalendarService;
+use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\Attendance\Services\ScheduleResolver;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\User;
@@ -240,8 +242,34 @@ class ScheduleProgramming
             $this->audit->log('schedule.programmed', $branch, $range + [
                 'reason' => mb_substr($reason, 0, 500), 'changed_days' => count($changes), 'changes' => $changes,
             ]);
+            $this->refreshMarkedDays($changes, $reason);
         }
 
         return $counts;
+    }
+
+    /**
+     * Días reprogramados que ya tienen marcación (p. ej. RR. HH. corrige MAÑANA → TARDE de un día pasado): la
+     * jornada se recalcula con el nuevo turno (tardanza, horas, extras) y queda en la bitácora con el antes y el después.
+     */
+    private function refreshMarkedDays(array $changes, string $reason): void
+    {
+        $pairs = collect($changes)->mapWithKeys(fn ($c) => [$c['user_id'] . '|' . $c['date'] => true]);
+        $service = app(AttendanceService::class); // nueva: lee la programación recién guardada
+        Attendance::whereIn('user_id', collect($changes)->pluck('user_id')->unique()->all())
+            ->whereBetween('work_date', [collect($changes)->min('date'), collect($changes)->max('date')])
+            ->whereNotNull('clock_in_at')
+            ->with(['user.tenant', 'shift'])
+            ->get()
+            ->filter(fn (Attendance $a) => $pairs->has($a->user_id . '|' . $a->work_date->toDateString()))
+            ->each(function (Attendance $a) use ($service, $reason) {
+                $before = $a->only(['shift_id', 'late_minutes', 'worked_hours', 'overtime_hours', 'early_exit_minutes', 'status', 'overtime_status']);
+                if ($service->refreshDay($a)) {
+                    $this->audit->logChanges('attendance.recalculated', $a, $before, $a->only(array_keys($before)), [
+                        'employee_id' => $a->user_id, 'work_date' => $a->work_date->toDateString(),
+                        'reason' => 'Programación de horarios cambiada: ' . mb_substr($reason, 0, 300),
+                    ]);
+                }
+            });
     }
 }

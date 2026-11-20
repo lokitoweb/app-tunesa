@@ -1355,6 +1355,75 @@ class AttendanceService
             self::earlyExitMinutes($shift, $date, $tz, $out)];
     }
 
+    /**
+     * Turno con el que se juzga una jornada: el programado para esa fecha (Programación de horarios o asignación).
+     * El turno guardado en la jornada es solo el del momento en que se registró: si después RR. HH. cambió la
+     * programación, manda la programación. Sin ninguna programación ni asignación, se usa el guardado.
+     */
+    public function dayShift(User $employee, string $date, ?Attendance $record = null): ?Shift
+    {
+        [$assignment, $hasAssignments] = $this->getCurrentShift($employee, $date);
+        $programmed = $hasAssignments || $this->schedules->enabled((int) $employee->tenant_id);
+
+        return ($programmed ? $assignment?->shift : $record?->shift)?->forDate($date);
+    }
+
+    /**
+     * Recalcula una jornada marcada con el turno vigente de su fecha (dayShift): turno, tardanza, horas,
+     * horas extra, salida anticipada y estado, con las mismas fórmulas que al marcar. Si cambian las horas
+     * extra vuelven a quedar por aprobar, igual que en la corrección manual; con $keepReviewedOvertime las ya aprobadas o
+     * rechazadas no se tocan (procesos por lote). Devuelve los cambios (vacío = nada cambió).
+     */
+    public function refreshDay(Attendance $attendance, bool $keepReviewedOvertime = false): array
+    {
+        $employee = $attendance->user;
+        if (! $employee || ! $attendance->clock_in_at) {
+            return [];
+        }
+        $date  = $attendance->work_date->toDateString();
+        $tz    = tenant_timezone();
+        $shift = $this->dayShift($employee, $date, $attendance);
+        $in    = $this->localTime($attendance->clock_in_at);
+        $late  = $this->calculateLateMinutes($shift, $date, $tz, $in);
+
+        $values = ['shift_id' => $shift?->id, 'late_minutes' => $late];
+        if ($attendance->break_end_at) {
+            $values['break_late_minutes'] = $this->calculateBreakLateMinutes($shift, $date, $tz, $this->localTime($attendance->break_end_at));
+        }
+        // Solo estados calculados: una falta justificada, vacaciones u otro estado puesto por RR. HH. se respeta
+        $worked = in_array($attendance->status, ['present', 'late', 'half_day'], true);
+        if ($attendance->clock_out_at) {
+            [$hours, $overtime, $base, $earlyExit] = $this->closedDayHours($employee, $employee->tenant, $shift, $date, $tz, $in,
+                $this->localTime($attendance->clock_out_at), (int) ($attendance->break_minutes ?? 0), TenantSetting::forTenant($employee->tenant),
+                $attendance->break_start_at ? $this->localTime($attendance->break_start_at) : null,
+                $attendance->break_end_at ? $this->localTime($attendance->break_end_at) : null);
+            $values += [
+                'worked_hours' => $hours, 'overtime_hours' => $overtime, 'early_exit_minutes' => $earlyExit,
+                'punches_incomplete' => (bool) $shift?->hasBreakWindow() && ($attendance->break_start_at === null || $attendance->break_end_at === null),
+            ];
+            if ($worked) {
+                $values['status'] = self::closedDayStatus($late > 0, $hours, $base);
+            }
+            $reviewed = in_array($attendance->overtime_status, [Attendance::OVERTIME_APPROVED, Attendance::OVERTIME_REJECTED], true);
+            if ($keepReviewedOvertime && $reviewed) {
+                unset($values['overtime_hours']); // ya revisadas por RR. HH.: no se cambian solas
+            } elseif (abs((float) $attendance->overtime_hours - $overtime) >= 0.01) {
+                $values += ['overtime_status' => Attendance::overtimeStatusFor($overtime), 'overtime_approved_hours' => null,
+                    'overtime_reviewed_by' => null, 'overtime_reviewed_at' => null, 'overtime_review_notes' => null];
+            }
+        } elseif ($worked) {
+            $values['status'] = $late > 0 ? 'late' : 'present';
+        }
+
+        $attendance->fill($values);
+        $changes = $attendance->getDirty();
+        if ($changes) {
+            $attendance->save();
+        }
+
+        return $changes;
+    }
+
     /** Estado de una jornada cerrada: tardanza, media jornada (menos del 60 % de la base) o presente */
     public static function closedDayStatus(bool $late, float $workedHours, float $dailyHours): string
     {
