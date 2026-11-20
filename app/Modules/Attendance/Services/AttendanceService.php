@@ -1256,9 +1256,7 @@ class AttendanceService
             return round($workedHours, 2);
         }
         if ($day?->overtime_rule === 'after' && $day->overtime_from) {
-            $from = Carbon::parse("{$date} {$day->overtime_from}", $timezone);
-
-            return round(min($workedHours * 60, max(0, $from->diffInMinutes($out, false))) / 60, 2);
+            return self::minutesAfter(Carbon::parse("{$date} {$day->overtime_from}", $timezone), $out, $workedHours);
         }
 
         $end = $afterOfficialExit ? self::scheduledEnd($shift, $date, $timezone) : null;
@@ -1266,7 +1264,18 @@ class AttendanceService
             return max(0, round($workedHours - $baseHours, 2));
         }
 
-        return round(min($workedHours * 60, max(0, $end->diffInMinutes($out, false))) / 60, 2);
+        return self::minutesAfter($end, $out, $workedHours);
+    }
+
+    /**
+     * Horas desde $from hasta la salida, en minutos completos (como las horas trabajadas) y sin pasar de lo trabajado.
+     * Carbon 3 mide los minutos con decimales: salir a las 23:00:40 no es 1 minuto de hora extra.
+     */
+    private static function minutesAfter(Carbon $from, Carbon $out, float $workedHours): float
+    {
+        $minutes = (int) floor(max(0, $from->diffInMinutes($out, false)));
+
+        return round(min(Attendance::minutes($workedHours), $minutes) / 60, 2);
     }
 
     /** Duración del refrigerio: la del turno (o su ventana fija); sin turno, la de la empresa */
