@@ -32,6 +32,8 @@ final class Labels
         'attendance.trip_updated'            => ['Viaje de la bitácora actualizado', 'info', 'signpost-split'],
         'attendance.trip_returned'           => ['Vuelta del viaje firmada', 'success', 'check2-circle'],
         'attendance.trip_deleted'            => ['Viaje eliminado de la bitácora', 'danger', 'trash'],
+        'attendance.trip_sheet_uploaded'     => ['Hoja de viajes firmada subida', 'success', 'file-earmark-check'],
+        'attendance.trip_sheet_deleted'      => ['Hoja de viajes firmada quitada', 'danger', 'trash'],
         'attendance.recalculated'            => ['Jornadas recalculadas con la fórmula vigente', 'info', 'arrow-repeat'],
         // Acceso
         'auth.login'                         => ['Inicio de sesión', 'secondary', 'box-arrow-in-right'],
@@ -383,6 +385,8 @@ final class Labels
         'trip_rest_days'          => 'Choferes: días de descanso al mes',
         'trip_control'            => 'Control por viajes',
         'trip_date'               => 'Fecha de ida',
+        'period_from'             => 'Periodo desde',
+        'period_to'               => 'Periodo hasta',
         'route'                   => 'Ruta',
         'driver_id'               => 'Chofer',
         'helper_id'               => 'Ayudante',

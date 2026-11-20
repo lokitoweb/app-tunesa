@@ -108,6 +108,41 @@ class TripLogTest extends TestCase
             ->assertSee('24 días por completar')
             ->assertSee('Firmó');
 
+        // Hoja para firmar en Excel con el formato del requerimiento: IDA | VUELTA | FIRMA
+        $file = $this->actingAs($this->hr)->get(route('attendance.trips.export', ['from' => '2026-11-01', 'to' => '2026-11-30']))
+            ->assertOk()->assertDownload('bitacora-viajes-2026-11-01_2026-11-30.xlsx')->baseResponse->getFile()->getPathname();
+        $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file)->getActiveSheet();
+        @unlink($file);
+        $this->assertSame(['N°', 'IDA', 'VUELTA', 'FIRMA DEL CHOFER'], [$sheet->getCell('A6')->getValue(), $sheet->getCell('B6')->getValue(),
+            $sheet->getCell('G6')->getValue(), $sheet->getCell('J6')->getValue()]);
+        $this->assertSame([...\App\Modules\Attendance\Services\Reports\TripSheetExporter::IDA, ...\App\Modules\Attendance\Services\Reports\TripSheetExporter::VUELTA],
+            $sheet->rangeToArray('B7:I7')[0]);
+        // Por fecha y hora de salida: 18/11, luego el 20 de las 06:30 con su vuelta y el de las 19:00
+        $this->assertSame('18/11/2026', $sheet->getCell('B8')->getValue());
+        $this->assertSame([2, '20/11/2026', 'Trujillo – Huamachuco', "Chofer, Pedro\nAyud.: Ayudante, Luis", 'T1A-234'],
+            $sheet->rangeToArray('A9:E9', null, true, false)[0]);
+        $this->assertSame(['20/11/2026', '18:10', 'Huamachuco – Trujillo', null], $sheet->rangeToArray('G9:J9')[0]);
+        $this->assertSame('', (string) $sheet->getCell('G10')->getValue());
+        $this->assertSame('SUPERVISOR', $sheet->getCell('C25')->getValue()); // 15 filas para firmar y las firmas al pie
+
+        // Evidencia: la hoja firmada se sube (PDF o foto), se descarga y se quita sin borrar el archivo
+        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30',
+            'sheet' => UploadedFile::fake()->create('virus.exe', 10, 'application/octet-stream')])->assertSessionHasErrors('sheet');
+        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30',
+            'sheet' => UploadedFile::fake()->create('hoja-noviembre.pdf', 300, 'application/pdf'), 'notes' => 'Semana 1'])->assertSessionHasNoErrors();
+        $signed = \App\Modules\Attendance\Models\TripSheet::firstOrFail();
+        Storage::disk('private')->assertExists($signed->file_path);
+        $this->assertTrue(\App\Modules\Core\Models\AuditLog::where('action', 'attendance.trip_sheet_uploaded')->exists());
+        $this->actingAs($this->hr)->get(route('attendance.trips.index'))->assertSee('hoja-noviembre.pdf')->assertSee('Semana 1');
+        $this->actingAs($this->hr)->get(route('attendance.trips.sheets.download', $signed->id))->assertOk()->assertDownload('hoja-noviembre.pdf');
+        // Otra empresa no la ve
+        app(\App\Modules\Core\Services\TenantContext::class)->clear();
+        $other = $this->makeUser($this->makeTenant('otra'), 'hr_manager');
+        $this->actingAs($other)->get(route('attendance.trips.sheets.download', $signed->id))->assertNotFound();
+        $this->actingAs($this->hr)->delete(route('attendance.trips.sheets.destroy', $signed->id))->assertSessionHasNoErrors();
+        $this->assertSoftDeleted($signed);
+        Storage::disk('private')->assertExists($signed->file_path);
+
         // Solo choferes con «Control por viajes»; el ayudante no puede ser el mismo chofer
         $this->actingAs($this->hr)->post(route('attendance.trips.store'), ['driver_id' => $this->clerk->id] + $trip + ['trip_date' => '2026-11-20'])
             ->assertSessionHasErrors('driver_id');

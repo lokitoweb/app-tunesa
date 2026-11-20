@@ -3,6 +3,10 @@
 namespace App\Modules\Attendance\Controllers\Web;
 
 use App\Modules\Attendance\Models\TripLog;
+use App\Modules\Attendance\Models\TripSheet;
+use Illuminate\Support\Facades\Storage;
+use App\Modules\Attendance\Services\Reports\TripSheetExporter;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Modules\Core\Controllers\Controller;
 use App\Modules\Core\Models\Branch;
 use App\Modules\Core\Models\TenantSetting;
@@ -26,22 +30,13 @@ class TripLogWebController extends Controller
 
     public function index(Request $request): View
     {
-        $now  = CarbonImmutable::now(tenant_timezone());
-        $data = $request->validate([
-            'from'      => ['nullable', 'date_format:Y-m-d'],
-            'to'        => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
-            'driver_id' => ['nullable', 'integer'],
-        ]);
-        $from = $data['from'] ?? $now->startOfMonth()->toDateString();
-        $to   = $data['to'] ?? $now->endOfMonth()->toDateString();
+        $now = CarbonImmutable::now(tenant_timezone());
+        [$data, $from, $to] = $this->filters($request);
 
         $people = $this->people($request);
         $ids    = $people->pluck('id')->all();
 
-        $trips = TripLog::with(['driver:id,first_name,last_name', 'helper:id,first_name,last_name', 'signer:id,first_name,last_name', 'branch:id,name'])
-            ->whereBetween('trip_date', [$from, $to])
-            ->ofPeople($ids)
-            ->when($data['driver_id'] ?? null, fn ($q, $id) => $q->ofPeople([(int) $id]))
+        $trips = $this->tripsQuery($request, $data, $from, $to)
             ->orderByDesc('trip_date')->orderByDesc('departure_time')
             ->paginate(25)->withQueryString();
 
@@ -60,7 +55,103 @@ class TripLogWebController extends Controller
             'driverId'  => $data['driver_id'] ?? null,
             'today'     => $now->toDateString(),
             'hasTenant' => (bool) current_tenant_id_or_null(),
+            // Hojas firmadas cuyo periodo se cruza con el filtrado
+            'sheets'    => current_tenant_id_or_null() ? $this->sheets($request)->with('uploader:id,first_name,last_name')
+                ->where('period_from', '<=', $to)->where('period_to', '>=', $from)->latest()->get() : collect(),
         ]);
+    }
+
+    /** Hoja de control en Excel con el formato del requerimiento (IDA · VUELTA · FIRMA), para imprimir y que firmen */
+    public function export(Request $request, TripSheetExporter $exporter): BinaryFileResponse
+    {
+        abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa en el selector superior.');
+        [$data, $from, $to] = $this->filters($request);
+
+        $trips = $this->tripsQuery($request, $data, $from, $to)->orderBy('trip_date')->orderBy('departure_time')->get();
+        $path  = tempnam(sys_get_temp_dir(), 'trp');
+        $exporter->xlsx($trips, current_tenant(), $from, $to, $path);
+
+        return response()->download($path, "bitacora-viajes-{$from}_{$to}.xlsx", [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend();
+    }
+
+    /** @return array{0: array, 1: string, 2: string} filtros validados y el periodo (por defecto el mes actual) */
+    private function filters(Request $request): array
+    {
+        $now  = CarbonImmutable::now(tenant_timezone());
+        $data = $request->validate([
+            'from'      => ['nullable', 'date_format:Y-m-d'],
+            'to'        => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'driver_id' => ['nullable', 'integer'],
+        ]);
+
+        return [$data, $data['from'] ?? $now->startOfMonth()->toDateString(), $data['to'] ?? $now->endOfMonth()->toDateString()];
+    }
+
+    /** Viajes del periodo de las personas que quien consulta puede ver (misma lista en pantalla y en Excel) */
+    private function tripsQuery(Request $request, array $data, string $from, string $to)
+    {
+        return TripLog::with(['driver:id,first_name,last_name', 'helper:id,first_name,last_name', 'signer:id,first_name,last_name', 'branch:id,name'])
+            ->whereBetween('trip_date', [$from, $to])
+            ->ofPeople($this->people($request)->pluck('id')->all())
+            ->when($data['driver_id'] ?? null, fn ($q, $id) => $q->ofPeople([(int) $id]));
+    }
+
+    /** Sube la hoja firmada por los choferes (PDF o foto) como evidencia del periodo; queda en el disco privado */
+    public function storeSheet(Request $request): RedirectResponse
+    {
+        abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa en el selector superior.');
+        $data = $request->validate([
+            'period_from' => ['required', 'date_format:Y-m-d'],
+            'period_to'   => ['required', 'date_format:Y-m-d', 'after_or_equal:period_from'],
+            'sheet'       => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
+            'notes'       => ['nullable', 'string', 'max:300'],
+        ], [
+            'sheet.required' => 'Adjunta la hoja firmada (PDF o foto).',
+            'sheet.mimes'    => 'La hoja firmada debe ser PDF, JPG, PNG o WEBP.',
+            'sheet.max'      => 'La hoja firmada no puede pesar más de 10 MB.',
+        ]);
+
+        $file  = $request->file('sheet');
+        $sheet = TripSheet::create([
+            'tenant_id'     => current_tenant_id_or_null(),
+            'period_from'   => $data['period_from'],
+            'period_to'     => $data['period_to'],
+            'file_path'     => $file->store('trip-sheets/' . current_tenant_id_or_null(), 'private'),
+            'original_name' => mb_substr($file->getClientOriginalName(), 0, 200),
+            'mime_type'     => $file->getMimeType(),
+            'size_bytes'    => $file->getSize(),
+            'notes'         => $data['notes'] ?? null,
+            'uploaded_by'   => $request->user()->id,
+        ]);
+        $this->audit->log('attendance.trip_sheet_uploaded', $sheet, $sheet->only(['period_from', 'period_to', 'original_name']));
+
+        return back()->with('success', 'Hoja firmada subida como evidencia del periodo.');
+    }
+
+    public function downloadSheet(Request $request, int $id): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $sheet = $this->sheets($request)->findOrFail($id);
+
+        return Storage::disk('private')->download($sheet->file_path, $sheet->original_name, ['Content-Type' => $sheet->mime_type]);
+    }
+
+    /** Quita la hoja de la lista; el archivo se conserva (borrado lógico) por si hay que revisarla */
+    public function destroySheet(Request $request, int $id): RedirectResponse
+    {
+        $sheet = $this->sheets($request)->findOrFail($id);
+        $this->audit->log('attendance.trip_sheet_deleted', $sheet, $sheet->only(['period_from', 'period_to', 'original_name']));
+        $sheet->delete();
+
+        return back()->with('success', 'Hoja firmada quitada de la lista.');
+    }
+
+    /** Hojas firmadas que ve quien consulta: con «ver todo» las de la empresa; si no, las que subió */
+    private function sheets(Request $request)
+    {
+        return TripSheet::query()->when(! $request->user()->hasPermission('attendance.view_all'),
+            fn ($q) => $q->where('uploaded_by', $request->user()->id));
     }
 
     public function store(Request $request): RedirectResponse

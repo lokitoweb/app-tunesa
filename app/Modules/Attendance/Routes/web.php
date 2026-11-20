@@ -73,6 +73,10 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
     // Bitácora de viajes de choferes (cargos con «Control por viajes»): ida y vuelta firmada por el supervisor
     Route::middleware('can:attendance.trips')->prefix('attendance-trips')->name('attendance.trips.')->group(function () {
         Route::get('/', [TripLogWebController::class, 'index'])->name('index');
+        Route::get('/export', [TripLogWebController::class, 'export'])->name('export');
+        Route::post('/sheets', [TripLogWebController::class, 'storeSheet'])->name('sheets.store')->middleware('throttle:20,1');
+        Route::get('/sheets/{id}', [TripLogWebController::class, 'downloadSheet'])->name('sheets.download')->whereNumber('id');
+        Route::delete('/sheets/{id}', [TripLogWebController::class, 'destroySheet'])->name('sheets.destroy')->whereNumber('id');
         Route::post('/', [TripLogWebController::class, 'store'])->name('store')->middleware('throttle:60,1');
         Route::put('/{id}', [TripLogWebController::class, 'update'])->name('update')->whereNumber('id')->middleware('throttle:60,1');
         Route::delete('/{id}', [TripLogWebController::class, 'destroy'])->name('destroy')->whereNumber('id');

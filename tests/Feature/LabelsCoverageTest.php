@@ -26,7 +26,7 @@ class LabelsCoverageTest extends TestCase
     /** Tablas cuyos campos pueden aparecer en el cuadro de cambios de la bitácora */
     private const AUDITED_TABLES = [
         'tenant_settings', 'company_configurations', 'branches', 'users', 'employee_profiles',
-        'shifts', 'tenants', 'leave_requests', 'payslips', 'attendances', 'trip_logs', 'positions',
+        'shifts', 'tenants', 'leave_requests', 'payslips', 'attendances', 'trip_logs', 'trip_sheets', 'positions',
     ];
 
     /** Ajustes nuevos (pueden no existir aún como columna en esta rama) */

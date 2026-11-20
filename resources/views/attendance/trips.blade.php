@@ -233,6 +233,78 @@
                 <div class="px-4 py-3">{{ $trips->links() }}</div>
             @endif
         </div>
+
+        @if($hasTenant)
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 pt-3 px-4 d-flex flex-wrap justify-content-between align-items-start gap-2">
+                    <div>
+                        <h2 class="h6 fw-bold mb-0"><i class="bi bi-file-earmark-check text-success me-1"></i>Hojas firmadas</h2>
+                        <small class="text-secondary">Descarga la hoja del periodo, imprímela para que firmen los choferes y súbela escaneada o en foto como evidencia.</small>
+                    </div>
+                    <a href="{{ route('attendance.trips.export', array_filter(['from' => $from, 'to' => $to, 'driver_id' => $driverId])) }}" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Descargar hoja para firmar
+                    </a>
+                </div>
+                <div class="card-body px-4 pt-2">
+                    <form method="POST" action="{{ route('attendance.trips.sheets.store') }}" enctype="multipart/form-data" class="row g-2 align-items-end">
+                        @csrf
+                        <div class="col-6 col-md-3">
+                            <label for="s_from" class="form-label small fw-semibold mb-1">Periodo desde</label>
+                            <input type="date" id="s_from" name="period_from" value="{{ old('period_from', $from) }}" class="form-control form-control-sm @error('period_from') is-invalid @enderror" required>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label for="s_to" class="form-label small fw-semibold mb-1">Hasta</label>
+                            <input type="date" id="s_to" name="period_to" value="{{ old('period_to', $to) }}" class="form-control form-control-sm @error('period_to') is-invalid @enderror" required>
+                            @error('period_to')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label for="s_file" class="form-label small fw-semibold mb-1">Hoja firmada <span class="text-secondary fw-normal">(PDF o foto, hasta 10 MB)</span></label>
+                            <input type="file" id="s_file" name="sheet" accept=".pdf,.jpg,.jpeg,.png,.webp" class="form-control form-control-sm @error('sheet') is-invalid @enderror" required>
+                            @error('sheet')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-12 col-md-9">
+                            <input type="text" name="notes" maxlength="300" value="{{ old('notes') }}" class="form-control form-control-sm" placeholder="Observación (opcional)" aria-label="Observación">
+                        </div>
+                        <div class="col-12 col-md-3 d-grid">
+                            <button type="submit" class="btn btn-sm btn-success text-white"><i class="bi bi-upload me-1"></i>Subir hoja firmada</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col" class="ps-4">Periodo</th>
+                                <th scope="col">Archivo</th>
+                                <th scope="col">Subido por</th>
+                                <th scope="col" class="pe-4 text-end"><span class="visually-hidden">Acciones</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($sheets as $sheet)
+                                <tr>
+                                    <td class="ps-4 text-nowrap">{{ $dmy($sheet->period_from) }} al {{ $dmy($sheet->period_to) }}</td>
+                                    <td>
+                                        <i class="bi {{ $sheet->mime_type === 'application/pdf' ? 'bi-file-earmark-pdf text-danger' : 'bi-file-earmark-image text-primary' }} me-1"></i>{{ $sheet->original_name }}
+                                        @if($sheet->notes)<div class="small text-secondary">{{ $sheet->notes }}</div>@endif
+                                    </td>
+                                    <td class="text-nowrap">{{ $name($sheet->uploader) }}<div class="small text-secondary">{{ $sheet->created_at->timezone(tenant_timezone())->format('d/m/Y H:i') }}</div></td>
+                                    <td class="pe-4 text-end text-nowrap">
+                                        <a href="{{ route('attendance.trips.sheets.download', $sheet->id) }}" class="btn btn-sm btn-outline-primary" title="Descargar hoja firmada" aria-label="Descargar hoja firmada"><i class="bi bi-download"></i></a>
+                                        <form method="POST" action="{{ route('attendance.trips.sheets.destroy', $sheet->id) }}" class="d-inline" onsubmit="return confirm('¿Quitar esta hoja firmada de la lista?');">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Quitar hoja firmada" aria-label="Quitar hoja firmada"><i class="bi bi-trash"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="4" class="text-center text-secondary py-4">Aún no hay hojas firmadas de este periodo.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @endif
     </div>
 </div>
 @endsection
