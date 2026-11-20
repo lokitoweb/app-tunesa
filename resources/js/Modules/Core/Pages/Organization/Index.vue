@@ -601,10 +601,13 @@ const catalogDetail = (catalog, row) => {
                     <span class="badge rounded-pill" :class="step.warn ? 'text-bg-warning' : 'bg-body-secondary text-secondary'">{{ step.count }}</span>
                 </li>
             </ol>
+            <!-- Solo el número: los nombres (sin repetir) van en el tooltip y cada área ya dice «Sin jefe de área» en su lista -->
             <div v-if="canManage && areasWithoutHead.length" class="small text-warning-emphasis mt-2">
                 <i class="bi bi-exclamation-triangle me-1"></i>
-                {{ areasWithoutHead.length === 1 ? 'El área' : 'Las áreas' }} {{ areasWithoutHead.map((d) => d.name).join(', ') }}
-                {{ areasWithoutHead.length === 1 ? 'no tiene' : 'no tienen' }} jefe: sus solicitudes las revisa el supervisor de la sede o RR. HH.
+                <strong :title="[...new Set(areasWithoutHead.map((d) => d.name))].join(', ')">
+                    {{ areasWithoutHead.length === 1 ? '1 área sin jefe' : `${areasWithoutHead.length} áreas sin jefe` }}
+                </strong>:
+                sus solicitudes las revisa el supervisor de la sede o RR. HH.
                 <button type="button" class="btn btn-link btn-sm p-0 align-baseline" @click="openEditCatalogModal('departments', areasWithoutHead[0])">Asignar jefe</button>
             </div>
 

@@ -920,32 +920,71 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     background: rgba(17, 22, 34, 0.82);
 }
 
-{{-- Barra de Convenciones --}}
-.cal-legend-bar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1.5rem;
-    padding: 0.75rem 1rem;
+{{-- Leyenda: una tarjeta; estados en grilla alineada y horarios plegables --}}
+.cal-legend {
     background: var(--cal-bg);
     border: 1px solid var(--cal-border);
     border-radius: 10px;
-    font-size: 0.775rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.76rem;
     color: var(--cal-text-muted);
-    flex-wrap: wrap;
-    box-shadow: var(--cal-shadow);
+}
+.cal-legend-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cal-text-main);
+    margin-bottom: 0.5rem;
+}
+.cal-legend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+    gap: 0.4rem 1rem;
 }
 .cal-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+}
+.cal-legend-item > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cal-legend-token {
+    flex: 0 0 auto;
+    min-width: 1.6rem;
+    height: 1.25rem;
+    padding: 0 0.25rem;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.66rem;
+    font-weight: 700;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-weight: 600;
+    justify-content: center;
 }
-.cal-legend-item .badge-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+.cal-legend-swatch {
+    flex: 0 0 auto;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 3px;
 }
+.cal-legend details {
+    border-top: 1px solid var(--cal-border);
+    margin-top: 0.65rem;
+    padding-top: 0.55rem;
+}
+.cal-legend summary {
+    cursor: pointer;
+    list-style: none;
+}
+.cal-legend summary::-webkit-details-marker { display: none; }
+.cal-legend summary .bi-chevron-down { transition: transform 0.15s; }
+.cal-legend details[open] summary .bi-chevron-down { transform: rotate(180deg); }
+.cal-legend details .cal-legend-grid { margin-top: 0.5rem; }
 </style>
 @endsection
 
@@ -1354,32 +1393,40 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
     </div>
     </div>
 
-    {{-- Convenciones / Indicadores --}}
-    <div class="cal-legend-bar">
-        <span class="fw-bold" style="color: var(--cal-text-main);"><i class="bi bi-info-circle text-primary me-1"></i> Convenciones:</span>
-        {{-- Estados: misma fuente que las celdas (DayStatus / AttendanceCalendarService::states) --}}
-        @php($toneColors = ['success' => '#16a34a', 'warning' => '#d97706', 'danger' => '#dc2626', 'primary' => '#2563eb', 'secondary' => '#64748b', 'info' => '#0ea5e9', 'light' => '#e2e8f0'])
-        @foreach($states as $state => [$letter, $tone, $label])
-            @continue($state === 'scheduled')
-            <div class="cal-legend-item">
-                <span class="badge-dot" style="background: {{ $toneColors[$tone] ?? '#94a3b8' }};"></span>
-                <span>{{ $label }} ({{ $letter }})</span>
-            </div>
-        @endforeach
-    </div>
-    {{-- HQ-04: color por horario (franja inferior de cada celda) --}}
-    @php($shiftColors = collect($rows->items())->flatMap(fn ($r) => collect($r['cells'])->filter(fn ($c) => $c && $c['shift'] && $c['shift_color'])->mapWithKeys(fn ($c) => [$c['shift'] => $c['shift_color']]))->sortKeys())
-    @if($shiftColors->isNotEmpty())
-        <div class="cal-legend-bar">
-            <span class="fw-bold" style="color: var(--cal-text-main);"><i class="bi bi-palette text-primary me-1"></i> Horarios:</span>
-            @foreach($shiftColors as $name => $color)
+    {{-- Leyenda: estados (misma fuente que las celdas: AttendanceCalendarService::states) y color por horario (HQ-04, franja inferior de cada celda) --}}
+    @php
+        $toneColors = ['success' => '#16a34a', 'warning' => '#d97706', 'danger' => '#dc2626', 'primary' => '#2563eb', 'secondary' => '#64748b', 'info' => '#0ea5e9', 'light' => '#94a3b8'];
+        $shiftColors = collect($rows->items())->flatMap(fn ($r) => collect($r['cells'])->filter(fn ($c) => $c && $c['shift'] && $c['shift_color'])->mapWithKeys(fn ($c) => [$c['shift'] => $c['shift_color']]))->sortKeys(SORT_NATURAL | SORT_FLAG_CASE);
+    @endphp
+    <div class="cal-legend mx-3 mb-3" aria-label="Leyenda del calendario">
+        <div class="cal-legend-title"><i class="bi bi-info-circle text-primary me-1"></i>Leyenda</div>
+        <div class="cal-legend-grid">
+            @foreach($states as $state => [$letter, $tone, $label])
+                @continue($state === 'scheduled')
                 <div class="cal-legend-item">
-                    <span class="badge-dot" style="background: {{ $color }};"></span>
-                    <span>{{ $name }}</span>
+                    <span class="cal-legend-token" style="background: {{ $toneColors[$tone] ?? '#94a3b8' }};">{{ $letter }}</span>
+                    <span title="{{ $label }}">{{ $label }}</span>
                 </div>
             @endforeach
         </div>
-    @endif
+        @if($shiftColors->isNotEmpty())
+            <details>
+                <summary class="cal-legend-title mb-0">
+                    <i class="bi bi-palette text-primary me-1"></i>Horarios ({{ $shiftColors->count() }})
+                    <span class="fw-normal text-lowercase" style="color: var(--cal-text-muted);">· color de la franja inferior de cada día</span>
+                    <i class="bi bi-chevron-down ms-1"></i>
+                </summary>
+                <div class="cal-legend-grid">
+                    @foreach($shiftColors as $name => $color)
+                        <div class="cal-legend-item">
+                            <span class="cal-legend-swatch" style="background: {{ $color }};"></span>
+                            <span title="{{ $name }}">{{ $name }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </details>
+        @endif
+    </div>
 
     @if($rows->total() > 0)
         <div class="card-footer border-0 py-3 px-4 d-flex justify-content-between align-items-center" style="background: var(--cal-bg); border-top: 1px solid var(--cal-border) !important;">

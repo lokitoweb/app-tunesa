@@ -431,19 +431,17 @@
 
 {{-- Leyenda de Convenciones --}}
 .cal-person-legend {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1.5rem;
-    padding: 0.85rem 1.25rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+    gap: 0.4rem 1rem;
+    padding: 0.75rem 1rem;
     background: var(--cal-bg);
     border: 1px solid var(--cal-border);
-    border-radius: 8px;
-    font-size: 0.8rem;
+    border-radius: 10px;
+    font-size: 0.76rem;
     color: var(--cal-text-muted);
-    flex-wrap: wrap;
-    box-shadow: var(--cal-shadow);
 }
+.cal-person-legend > .fw-bold { grid-column: 1 / -1; }
 .cal-person-legend-item {
     display: inline-flex;
     align-items: center;
