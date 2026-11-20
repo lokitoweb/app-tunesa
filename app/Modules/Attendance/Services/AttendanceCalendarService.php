@@ -130,7 +130,8 @@ class AttendanceCalendarService
             ->paginate($perPage, ['users.*'])
             ->withQueryString();
 
-        $rows = $this->cached($f, 'page:' . $page->currentPage() . ':' . $perPage, fn () => $this->rows($page->getCollection(), $f));
+        // Las personas de la página van en la clave: si alguien entra o sale de la lista, la página no reusa filas ajenas
+        $rows = $this->cached($f, 'page:' . $page->getCollection()->pluck('id')->implode(','), fn () => $this->rows($page->getCollection(), $f));
         $page->setCollection(collect($rows));
 
         return $page;
@@ -508,9 +509,32 @@ class AttendanceCalendarService
         $version = implode('.', array_map(fn (string $m) => (int) Cache::get(self::versionKey($f->tenantId, $m), 0), $f->months()));
         // attendance:flag sube esta versión: encender o apagar schedule_v2 se ve al instante (vista global: hasta CACHE_MINUTES)
         $flags = $f->tenantId ? (int) Cache::get(ScheduleResolver::flagsVersionKey($f->tenantId), 0) : null;
-        $key = 'attendance-calendar:' . sha1(json_encode([$f->toQuery(), $f->tenantId, $f->viewer?->id, $f->userId, $part, $version, $flags]));
+        // Horarios, asignaciones, feriados o datos del colaborador cambiados (bumpAll): todos los meses de la empresa
+        $general = array_map(fn (?int $id) => (int) Cache::get(self::generalKey($id), 0), array_unique([$f->tenantId, null]));
+        $key = 'attendance-calendar:' . sha1(json_encode([$f->toQuery(), $f->tenantId, $f->viewer?->id, $f->userId, $part, $version, $flags, $general]));
 
         return Cache::remember($key, now()->addMinutes(self::CACHE_MINUTES), $build);
+    }
+
+    /**
+     * Renueva la caché de todos los meses cerrados de la empresa (y de la vista global). Lo llaman los cambios
+     * en horarios, asignaciones de horario, feriados y datos del colaborador que se ven en el calendario
+     * (AppServiceProvider). tenantId null (p. ej. un feriado de la plataforma) renueva el de todas las empresas.
+     * Después del commit, como bump(): si la transacción se revierte, no se renueva nada.
+     */
+    public static function bumpAll(?int $tenantId): void
+    {
+        DB::afterCommit(function () use ($tenantId) {
+            foreach (array_unique([$tenantId, null]) as $id) {
+                Cache::add(self::generalKey($id), 0, now()->addDays(40));
+                Cache::increment(self::generalKey($id));
+            }
+        });
+    }
+
+    private static function generalKey(?int $tenantId): string
+    {
+        return 'attendance-calendar:g:' . ($tenantId ?? 'all');
     }
 
     private static function versionKey(?int $tenantId, string $month): string

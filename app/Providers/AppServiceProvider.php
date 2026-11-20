@@ -127,6 +127,28 @@ class AppServiceProvider extends ServiceProvider
         LeaveRequest::saved($bumpLeave);
         LeaveRequest::deleted($bumpLeave);
 
+        // Lo que se ve en todos los meses (plantilla del horario, asignaciones, feriados y datos del colaborador
+        // que muestra el calendario): renueva al instante los meses cerrados que estaban en caché
+        $bumpAll = fn ($m) => AttendanceCalendarService::bumpAll($m->tenant_id);
+        foreach ([\App\Modules\HR\Models\Shift::class, EmployeeShift::class, \App\Modules\HR\Models\Holiday::class] as $model) {
+            $model::saved($bumpAll);
+            $model::deleted($bumpAll);
+        }
+        // Solo los datos del colaborador que muestra el calendario (no el último acceso u otros campos)
+        User::updated(function (User $u) use ($bumpAll) {
+            if ($u->wasChanged(['first_name', 'last_name', 'employee_code', 'position', 'avatar_path', 'hire_date', 'termination_date'])) {
+                $bumpAll($u);
+            }
+        });
+        User::created($bumpAll);
+        User::deleted($bumpAll);
+        // Renombrar un cargo actualiza users.position con una consulta (sin eventos de User)
+        \App\Modules\Core\Models\Position::updated(function ($p) use ($bumpAll) {
+            if ($p->wasChanged('name')) {
+                $bumpAll($p);
+            }
+        });
+
         // Los permisos sembrados (RolesAndPermissionsSeeder) funcionan como
         // abilities de Gate: $user->can('shifts.manage'), @can en Blade, etc.
         Gate::before(function (User $user, string $ability) {
