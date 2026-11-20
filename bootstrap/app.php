@@ -95,6 +95,20 @@ return Application::configure(basePath: dirname(__DIR__))
             'password_confirmation',
         ]);
 
+        // Servicio suspendido en toda la instalación (ServiceSuspension): la web ve la página «Servicio suspendido»
+        // y la app el mismo aviso (SERVICE_SUSPENDED). Las actualizaciones (deploy) siguen con su 503 de siempre.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, \Illuminate\Http\Request $request) {
+            if ($e->getStatusCode() !== 503 || ! \App\Modules\Core\Services\ServiceSuspension::active()) {
+                return null;
+            }
+            $message = \App\Modules\Core\Services\ServiceSuspension::message();
+            if ($request->is('api', 'api/*') || ($request->expectsJson() && ! $request->header('X-Inertia'))) {
+                return response()->json(['success' => false, 'message' => $message, 'code' => 'SERVICE_SUSPENDED'], 503);
+            }
+
+            return response()->view('errors.service-suspended', ['suspendedMessage' => $message], 503);
+        });
+
         // Ciberseguridad: censurar parámetros confidenciales de la petición antes de cualquier volcado o pantalla de error
         $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
             $sensitiveKeys = ['password', 'password_confirmation', 'current_password', 'secret', 'token', 'access_token', 'refresh_token', 'credit_card', 'cvv'];

@@ -61,7 +61,7 @@ class SetWebTenant
             $request->session()->invalidate();
 
             return redirect()->route('login')
-                ->withErrors(['email' => 'Tu cuenta no tiene acceso al panel o la empresa está suspendida.']);
+                ->withErrors(['email' => $tenant && ! $tenant->isActive() ? $tenant->blockedMessage() : 'Tu cuenta no tiene acceso al panel.']);
         }
 
         // Supervisión de varias empresas: la que eligió en el selector, si se la asignaron (y sigue activa);

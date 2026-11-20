@@ -85,6 +85,12 @@ class AuthController extends Controller
                     : collect($e->errors())->flatten()->first()]);
         }
 
+        // Empresa suspendida o cancelada (p. ej. por falta de pago): no se abre la sesión y se dice el motivo
+        if (! $user->isSuperAdmin() && $user->tenant && ! $user->tenant->isActive()) {
+            return redirect()->route('login')->withInput($request->only('email'))
+                ->withErrors(['email' => $user->tenant->blockedMessage()]);
+        }
+
         // 6. Panel web, o Mi espacio (portal del colaborador) para quien no tiene panel
         $portal = ! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view') && $user->hasPermission('portal.access');
         if (! $user->isSuperAdmin() && ! $user->hasPermission('dashboard.view') && ! $portal) {

@@ -44,6 +44,29 @@ class CompanyWebController extends Controller
         private readonly TenantContext $tenantContext,
     ) {}
 
+    /**
+     * Suspende el servicio en toda la instalación (ServiceSuspension). Solo el Super Admin, escribiendo SUSPENDER.
+     * Termina en su enlace de acceso: el navegador queda habilitado para seguir entrando y poder reactivar.
+     */
+    public function suspendService(Request $request, \App\Modules\Core\Services\ServiceSuspension $service): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403);
+        $data = $request->validate([
+            'confirm' => ['required', 'in:SUSPENDER'],
+            'message' => ['nullable', 'string', 'max:300'],
+        ], ['confirm.in' => 'Escribe SUSPENDER en mayúsculas para confirmar.', 'confirm.required' => 'Escribe SUSPENDER para confirmar.']);
+
+        return redirect()->away($service->suspend($request->user(), $data['message'] ?? null));
+    }
+
+    public function resumeService(Request $request, \App\Modules\Core\Services\ServiceSuspension $service): RedirectResponse
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403);
+        $service->resume($request->user());
+
+        return redirect()->route('companies.index')->with('success', 'Servicio reactivado: todas las empresas pueden entrar de nuevo a la web y a la app.');
+    }
+
     public function index(Request $request): View
     {
         $request->validate([

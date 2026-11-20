@@ -213,9 +213,17 @@ else
   backup_db
 fi
 
-log "Modo mantenimiento"
-"$PHP" artisan down --retry=15 --refresh=15 || true
-IN_MAINTENANCE=1
+# Servicio suspendido por el Super Admin (ServiceSuspension): ya está en mantenimiento y debe seguir así;
+# el deploy no lo pone ni lo quita (si no, al terminar reactivaría una plataforma suspendida)
+SUSPENDED=0
+if [[ -f storage/framework/service-suspended && -f storage/framework/down ]]; then SUSPENDED=1; fi
+if [[ $SUSPENDED -eq 0 ]]; then
+  log "Modo mantenimiento"
+  "$PHP" artisan down --retry=15 --refresh=15 || true
+  IN_MAINTENANCE=1
+else
+  log "Servicio suspendido: se actualiza sin reactivarlo"
+fi
 
 clear_compiled
 "$PHP" artisan migrate --force
@@ -238,7 +246,7 @@ log "Cachés de producción"
 # Los workers (si hay queue:work permanente) toman el código nuevo
 "$PHP" artisan queue:restart
 
-"$PHP" artisan up
+if [[ $SUSPENDED -eq 0 ]]; then "$PHP" artisan up; fi
 IN_MAINTENANCE=0
 trap - ERR
 rm -f "$FAILED_MARK"

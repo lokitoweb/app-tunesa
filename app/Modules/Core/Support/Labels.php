@@ -58,6 +58,8 @@ final class Labels
         'tenant.created'                     => ['Empresa creada', 'success', 'building-add'],
         'tenant.updated'                     => ['Empresa actualizada', 'primary', 'building-gear'],
         'tenant.suspended'                   => ['Empresa suspendida', 'warning', 'building-slash'],
+        'platform.suspended'                 => ['Servicio de la plataforma suspendido', 'danger', 'pause-circle'],
+        'platform.resumed'                   => ['Servicio de la plataforma reactivado', 'success', 'play-circle'],
         'tenant.activated'                   => ['Empresa reactivada', 'success', 'building-check'],
         'tenant.deleted'                     => ['Empresa dada de baja', 'danger', 'building-x'],
         'tenant.document_code_updated'       => ['Abreviatura de correlativos cambiada', 'primary', 'hash'],

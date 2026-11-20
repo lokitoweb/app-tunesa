@@ -128,6 +128,15 @@ class Tenant extends Model
         return $this->status === 'active';
     }
 
+    /** Lo que ve en el login quien intenta entrar a una empresa suspendida o cancelada (panel y Mi espacio) */
+    public function blockedMessage(): string
+    {
+        $state = $this->status === 'cancelled' ? 'cancelado' : 'suspendido';
+
+        return "El acceso de {$this->company_name} está {$state}. Nadie de la empresa puede ingresar al sistema ni a la app. "
+            . 'Comunícate con el administrador de tu empresa.';
+    }
+
     /**
      * Datos de marca blanca para el panel y la app móvil.
      */

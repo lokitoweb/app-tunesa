@@ -25,6 +25,49 @@
     </div>
 </header>
 
+@if(auth()->user()->isSuperAdmin())
+    @php($serviceSuspended = \App\Modules\Core\Services\ServiceSuspension::active())
+    <section class="surface mb-3 p-3 {{ $serviceSuspended ? 'border border-danger' : '' }}" aria-label="Servicio de la plataforma">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+            <div style="max-width: 720px;">
+                <h2 class="h6 fw-bold mb-1">
+                    <i class="bi bi-power me-1 {{ $serviceSuspended ? 'text-danger' : 'text-success' }}"></i>Servicio de la plataforma:
+                    <span class="{{ $serviceSuspended ? 'text-danger' : 'text-success' }}">{{ $serviceSuspended ? 'SUSPENDIDO' : 'Activo' }}</span>
+                </h2>
+                @if($serviceSuspended)
+                    <p class="small mb-1">Nadie de ninguna empresa puede entrar a la web ni a la app; ven «{{ \App\Modules\Core\Services\ServiceSuspension::message() }}». Las tareas automáticas (recordatorios, faltas, avisos) están detenidas.</p>
+                    <p class="small mb-0">Tu enlace de acceso mientras está suspendido (guárdalo; con él entras desde otro navegador o equipo):
+                        <code class="user-select-all">{{ \App\Modules\Core\Services\ServiceSuspension::ownerLink() }}</code></p>
+                @else
+                    <p class="small text-secondary mb-0">Suspende todo el sistema (todas las empresas, web y app), por ejemplo si el cliente no pagó. Solo tú podrás entrar, con un enlace propio, para reactivarlo. No se borra ningún dato.</p>
+                @endif
+            </div>
+            @if($serviceSuspended)
+                <form method="POST" action="{{ route('platform.service.resume') }}" onsubmit="return confirm('¿Reactivar el servicio para todas las empresas?');">
+                    @csrf
+                    <button type="submit" class="btn btn-success text-white"><i class="bi bi-play-circle me-1"></i>Reactivar servicio</button>
+                </form>
+            @else
+                <form method="POST" action="{{ route('platform.service.suspend') }}" class="d-flex flex-wrap align-items-end gap-2"
+                      onsubmit="return confirm('Se suspenderá TODO el sistema para todas las empresas (web y app). ¿Continuar?');">
+                    @csrf
+                    <div>
+                        <label for="suspend_message" class="form-label small fw-semibold mb-1">Mensaje que verán (opcional)</label>
+                        <input type="text" id="suspend_message" name="message" maxlength="300" class="form-control form-control-sm" style="min-width: 260px;"
+                               placeholder="{{ \App\Modules\Core\Services\ServiceSuspension::DEFAULT_MESSAGE }}">
+                    </div>
+                    <div>
+                        <label for="suspend_confirm" class="form-label small fw-semibold mb-1">Escribe SUSPENDER</label>
+                        <input type="text" id="suspend_confirm" name="confirm" required autocomplete="off" class="form-control form-control-sm @error('confirm') is-invalid @enderror" style="width: 140px;">
+                        @error('confirm')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-pause-circle me-1"></i>Suspender servicio</button>
+                </form>
+            @endif
+        </div>
+    </section>
+@endif
+
 <section class="dash-kpis" aria-label="Resumen de empresas">
     @foreach ([['Total de empresas', $stats['total'] ?? $companies->total(), 'brand', 'buildings'], ['Empresas activas', $stats['active'] ?? $companies->where('status', 'active')->count(), 'emerald', 'check-circle'], ['Usuarios de la plataforma', $stats['total_users'] ?? 0, 'blue', 'people'], ['Dominios propios', $stats['custom_domains'] ?? 0, 'amber', 'globe']] as [$klabel, $kvalue, $ktone, $kicon])
         <article class="dash-kpi-card">

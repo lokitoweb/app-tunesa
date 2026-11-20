@@ -45,7 +45,7 @@ class ResolveTenant
         if (! $tenant->isActive()) {
             return response()->json([
                 'success' => false,
-                'message' => 'La cuenta de la empresa está suspendida o cancelada.',
+                'message' => $tenant->blockedMessage(),
                 'code'    => 'TENANT_INACTIVE',
             ], 403);
         }

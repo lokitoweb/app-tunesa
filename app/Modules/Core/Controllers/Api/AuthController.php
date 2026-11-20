@@ -101,7 +101,7 @@ class AuthController extends Controller
         if (! $user->tenant?->isActive()) {
             return response()->json([
                 'success' => false,
-                'message' => 'La cuenta de la empresa está suspendida o cancelada.',
+                'message' => $user->tenant ? $user->tenant->blockedMessage() : 'La cuenta de la empresa está suspendida o cancelada.',
                 'code'    => 'TENANT_INACTIVE',
             ], 403);
         }

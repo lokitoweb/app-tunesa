@@ -28,7 +28,7 @@ class SetPortalTenant
             Auth::logout();
             $request->session()->invalidate();
 
-            return redirect()->route('login')->withErrors(['email' => 'Tu cuenta no tiene acceso a Mi espacio o la empresa está suspendida.']);
+            return redirect()->route('login')->withErrors(['email' => $tenant && ! $tenant->isActive() ? $tenant->blockedMessage() : 'Tu cuenta no tiene acceso a Mi espacio.']);
         }
 
         app(SetWebTenant::class)->activate($tenant);

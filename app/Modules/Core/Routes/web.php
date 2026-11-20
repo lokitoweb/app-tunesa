@@ -145,6 +145,12 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::put('/{id}', [CompanyWebController::class, 'update'])->name('update')->whereNumber('id');
     });
 
+    // Servicio de toda la instalación (solo el Super Admin): suspender por falta de pago y reactivar
+    Route::prefix('platform/service')->name('platform.service.')->middleware('can:tenants.manage')->group(function () {
+        Route::post('/suspend', [CompanyWebController::class, 'suspendService'])->name('suspend');
+        Route::post('/resume', [CompanyWebController::class, 'resumeService'])->name('resume');
+    });
+
     // Supervisión de varias empresas (Super Admin): a quién se le asignan otras empresas del grupo
     Route::prefix('settings/company-access')->name('settings.company-access')->middleware('can:tenants.manage')->group(function () {
         Route::get('/', [\App\Modules\Core\Controllers\Web\CompanyAccessWebController::class, 'index']);
