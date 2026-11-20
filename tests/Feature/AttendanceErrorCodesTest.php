@@ -113,6 +113,8 @@ class AttendanceErrorCodesTest extends TestCase
 
     public function test_break_not_allowed_by_shift(): void
     {
+        // Hora fija dentro del horario (8:00–17:00): con el reloj real, de madrugada la entrada sería «antes de hora»
+        $this->travelTo(Carbon::parse('2026-10-09 08:00:00', 'America/Lima'));
         $acme = $this->makeTenant('acme');
         $emp  = $this->employeeWithBranch($acme);
         $this->assignShift($acme, $emp, ['break_allowed' => false]);
