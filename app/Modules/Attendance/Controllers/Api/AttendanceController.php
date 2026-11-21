@@ -181,7 +181,11 @@ class AttendanceController extends Controller
         $schedule = app(\App\Modules\Attendance\Services\ScheduleGate::class)->statusFor($employee, $today);
 
         // Determinar el próximo paso disponible para la UI de la app
-        $nextAction = $this->determineNextAction($attendance);
+        // Break según el turno programado del día (si cambiaron el turno después de marcar, manda el programado)
+        $dayShift = $attendance?->clock_in_at
+            ? app(AttendanceService::class)->dayShift($employee, $attendance->work_date->toDateString(), $attendance)
+            : null;
+        $nextAction = $this->determineNextAction($attendance, $dayShift?->break_allowed ?? true);
         if ((! $attendance || is_null($attendance->clock_in_at)) && ! $schedule['can_clock_in']) {
             $nextAction = ['action' => null, 'actions' => [], 'label' => $schedule['message'], 'code' => 'NOT_SCHEDULED'];
         }
@@ -678,10 +682,15 @@ class AttendanceController extends Controller
      * Determina qué acción debe mostrar la app móvil según el estado actual.
      * La UI de Flutter usa esto para saber qué botón renderizar.
      */
-    public static function determineNextAction(?Attendance $attendance): array
+    public static function determineNextAction(?Attendance $attendance, bool $breakAllowed = true): array
     {
         if (! $attendance || is_null($attendance->clock_in_at)) {
             return ['action' => 'clock_in', 'label' => 'Marcar Entrada', 'icon' => 'login'];
+        }
+
+        // Turno sin break (interruptor «Permite break» apagado): solo entrada y salida
+        if (! $breakAllowed && is_null($attendance->break_start_at) && is_null($attendance->clock_out_at)) {
+            return ['action' => 'clock_out', 'label' => 'Marcar Salida', 'icon' => 'logout'];
         }
 
         if (is_null($attendance->break_start_at) && is_null($attendance->clock_out_at)) {

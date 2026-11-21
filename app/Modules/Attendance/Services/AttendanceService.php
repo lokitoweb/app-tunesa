@@ -391,7 +391,8 @@ class AttendanceService
             throw new AttendanceException('Ya iniciaste tu descanso.', 'BREAK_ALREADY_STARTED', 409);
         }
 
-        $shift = $attendance->shift;
+        // El turno programado del día manda (igual que el tablero de la app), no el que quedó al marcar
+        $shift = $this->dayShift($c['employee'], $attendance->work_date->toDateString(), $attendance);
         if ($shift && ! $shift->break_allowed) {
             throw new AttendanceException('Tu turno no permite descansos.', 'BREAK_NOT_ALLOWED', 422);
         }

@@ -16,7 +16,56 @@ class AbsenceService
 {
     public const MAX_DAYS = 62;
 
-    public function __construct(private readonly AttendanceCalendarService $calendar) {}
+    public function __construct(
+        private readonly AttendanceCalendarService $calendar,
+        private readonly \App\Modules\Core\Services\AuditLogger $audit,
+    ) {}
+
+    /** Faltas que registró el sistema y nadie tocó: sin marcación, sin corrección manual y sin justificación enviada */
+    public static function automatic(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereNull('clock_in_at')->whereNull('manual_edited_at')
+            ->whereIn('status', ['absent', 'excused'])
+            ->where(fn ($q) => $q->whereNull('justification_status')->orWhere('justification_status', 'none'));
+    }
+
+    /**
+     * Anula las faltas automáticas de días pasados programados como «libre». El cierre nocturno registra la falta
+     * de quien debía trabajar y no marcó; si después se guarda ese día como libre, la falta contradecía la
+     * programación. Solo con evidencia explícita (fila «libre» en la Programación de horarios de esa persona y
+     * fecha): no se deduce nada de turnos fijos, feriados ni días sin programar. Cada una queda en la bitácora.
+     * Devuelve cuántas; $dryRun solo cuenta.
+     */
+    public function voidOnDaysOff(\Illuminate\Database\Eloquent\Builder $candidates, string $reason, bool $dryRun = false): int
+    {
+        $today = CarbonImmutable::now(tenant_timezone())->toDateString();
+        $voided = 0;
+
+        self::automatic($candidates)->where('work_date', '<', $today)
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('employee_schedule_days as day_off')
+                ->whereColumn('day_off.user_id', 'attendances.user_id')
+                ->whereColumn('day_off.work_date', 'attendances.work_date')
+                ->whereNull('day_off.shift_id'))
+            ->orderBy('id')
+            ->chunkById(500, function ($rows) use ($reason, $dryRun, &$voided) {
+                foreach ($rows as $row) {
+                    $voided++;
+                    if ($dryRun) {
+                        continue;
+                    }
+                    $this->audit->log('attendance.absence_voided', $row, [
+                        'employee_id' => $row->user_id, 'work_date' => $row->work_date->toDateString(),
+                        'status' => $row->status, 'shift_id' => $row->shift_id, 'branch_id' => $row->branch_id,
+                        'notes' => $row->notes, 'reason' => $reason,
+                    ]);
+                    // Borrado definitivo: la falta nunca debió existir y el día queda libre para una marcación
+                    // posterior (índice único por persona, sede y fecha). La bitácora guarda lo que había.
+                    $row->forceDelete();
+                }
+            });
+
+        return $voided;
+    }
 
     /**
      * @return array{items: list<array>, total: int, people: int}

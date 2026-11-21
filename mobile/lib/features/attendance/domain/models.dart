@@ -137,8 +137,13 @@ class DaySchedule {
     this.breakStart,
     this.breakEnd,
     this.split = false,
+    this.breakAllowed = true,
     this.branch,
   });
+
+  /// El horario tiene break (interruptor «Permite break»). Sin break: solo entrada y salida.
+  /// Un servidor anterior no lo envía: se asume que sí, como antes.
+  final bool breakAllowed;
 
   final DateTime date;
   final bool isWorkday;
@@ -182,6 +187,7 @@ class DaySchedule {
       breakStart: shift?['break_start_time'] as String?,
       breakEnd: shift?['break_end_time'] as String?,
       split: shift?['split'] == true,
+      breakAllowed: shift?['break_allowed'] != false,
       branch: json['branch'] as String?,
     );
   }
@@ -299,6 +305,12 @@ class TodayStatus {
   }
 
   bool get isDayComplete => attendance?.clockOut != null;
+
+  /// Casillas del tablero: sin break en el horario de hoy, solo entrada y salida (si ya marcó un
+  /// break antes de que cambiaran el horario, se sigue mostrando para no ocultar lo registrado).
+  List<ClockAction> get punchSteps => schedule?.breakAllowed == false && attendance?.breakStart == null
+      ? const [ClockAction.clockIn, ClockAction.clockOut]
+      : ClockAction.values;
 
   /// Interpreta `next_action` de /attendance/today.
   static List<ClockAction> parseActions(Map? next) {

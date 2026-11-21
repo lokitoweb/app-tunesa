@@ -182,6 +182,8 @@ class ShiftController extends Controller
                     'break_start_time' => $shift->hasBreakWindow() ? substr($shift->break_start_time, 0, 5) : null,
                     'break_end_time'   => $shift->hasBreakWindow() ? substr($shift->break_end_time, 0, 5) : null,
                     'split'            => $shift->isSplit(),
+                    // Sin break: la app muestra solo entrada y salida (2 marcaciones)
+                    'break_allowed'    => (bool) $assignment->shift->break_allowed,
                     'color'      => $assignment->shift->color,
                 ] : null,
                 'branch'     => $assignment?->branch?->name,

@@ -3,6 +3,7 @@
 namespace App\Modules\HR\Services;
 
 use App\Modules\Attendance\Models\Attendance;
+use App\Modules\Attendance\Services\AbsenceService;
 use App\Modules\Attendance\Services\AttendanceCalendarService;
 use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\Attendance\Services\ScheduleResolver;
@@ -243,9 +244,23 @@ class ScheduleProgramming
                 'reason' => mb_substr($reason, 0, 500), 'changed_days' => count($changes), 'changes' => $changes,
             ]);
             $this->refreshMarkedDays($changes, $reason);
+            $this->voidAbsencesOnDaysOff($changes, $reason);
         }
 
         return $counts;
+    }
+
+    /** Días pasados que se guardaron como libres y ya tenían la falta automática del cierre nocturno: la falta se anula */
+    private function voidAbsencesOnDaysOff(array $changes, string $reason): void
+    {
+        $daysOff = collect($changes)->where('new', 'libre');
+        if ($daysOff->isEmpty()) {
+            return;
+        }
+        app(AbsenceService::class)->voidOnDaysOff(
+            Attendance::query()->where(fn ($q) => $daysOff->each(fn ($c) => $q->orWhere(fn ($w) => $w->where('user_id', $c['user_id'])->where('work_date', $c['date'])))),
+            'Día programado como libre: ' . mb_substr($reason, 0, 300),
+        );
     }
 
     /**

@@ -6,7 +6,7 @@ import '../../../core/widgets/async_views.dart';
 import '../domain/models.dart';
 
 /// Tablero del día: las cuatro marcaciones (entrada, inicio y fin de break,
-/// salida) con la hora exacta de cada una debajo. Solo se puede tocar la que
+/// salida), o solo entrada y salida si el horario no tiene break, con la hora exacta de cada una debajo. Solo se puede tocar la que
 /// el servidor ofrece en `next_action`; las demás explican qué falta.
 class PunchBoard extends StatelessWidget {
   const PunchBoard({super.key, required this.status, required this.onPunch});
@@ -70,7 +70,8 @@ class PunchBoard extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
     final a = status.attendance;
     final started = a?.clockIn != null;
-    final done = ClockAction.values.where((x) => timeOf(x, a) != null).length;
+    final steps = status.punchSteps;
+    final done = steps.where((x) => timeOf(x, a) != null).length;
 
     // Completa: verde · en curso: color de la marca · sin marcar: neutro
     final (label, color, icon) = status.isNotScheduled
@@ -107,14 +108,14 @@ class PunchBoard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-            child: Text('$done/4', style: TextStyle(color: color, fontWeight: FontWeight.w800)),
+            child: Text('$done/${steps.length}', style: TextStyle(color: color, fontWeight: FontWeight.w800)),
           ),
         ]),
         const SizedBox(height: 12),
         ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: LinearProgressIndicator(
-            value: done / 4,
+            value: done / steps.length,
             minHeight: 6,
             backgroundColor: scheme.outlineVariant.withValues(alpha: 0.35),
             valueColor: AlwaysStoppedAnimation(dark ? AppTheme.successGlow : AppTheme.success),
@@ -147,7 +148,7 @@ class PunchBoard extends StatelessWidget {
           ),
         const SizedBox(height: 16),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          for (final action in ClockAction.values) ...[
+          for (final action in steps) ...[
             if (action != ClockAction.clockIn) const SizedBox(width: 10),
             Expanded(
               child: _PunchTile(

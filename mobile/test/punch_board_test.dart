@@ -89,6 +89,29 @@ void main() {
     expect(opened, [ClockAction.breakEnd]);
   });
 
+  testWidgets('horario sin break: solo entrada y salida, contador sobre 2', (tester) async {
+    final noBreak = DaySchedule.fromJson({
+      'date': '2026-10-10', 'is_workday': true,
+      'shift': {'name': 'Estibador', 'start_time': '12:30', 'end_time': '20:30', 'break_allowed': false},
+    });
+    expect(noBreak.breakAllowed, isFalse);
+    // Un servidor anterior no envía el dato: se asume con break, como antes
+    expect(DaySchedule.fromJson({'date': '2026-10-10', 'is_workday': true, 'shift': {'name': 'X'}}).breakAllowed, isTrue);
+
+    final status = TodayStatus(attendance: _day(clockIn: eight), actions: const [ClockAction.clockOut], schedule: noBreak);
+    expect(status.punchSteps, [ClockAction.clockIn, ClockAction.clockOut]);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: PunchBoard(status: status, onPunch: (_) {}))));
+    expect(find.text('Entrada'), findsOneWidget);
+    expect(find.text('Salida'), findsOneWidget);
+    expect(find.text('Inicio break'), findsNothing);
+    expect(find.text('Fin break'), findsNothing);
+    expect(find.text('1/2'), findsOneWidget);
+
+    // Si ya había marcado un break antes de que le quitaran el break al horario, se sigue viendo
+    final marked = TodayStatus(attendance: _day(clockIn: eight, breakStart: '15:00', onBreak: true), actions: const [ClockAction.breakEnd], schedule: noBreak);
+    expect(marked.punchSteps, ClockAction.values);
+  });
+
   test('distancia legible a la sede', () {
     expect(formatDistance(85), '85 m');
     expect(formatDistance(1530), '1,5 km');
