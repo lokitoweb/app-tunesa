@@ -831,6 +831,12 @@
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
+.cal-col-tot-week {
+    min-width: 4.6rem;
+    width: 4.6rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
 .cal-col-tot-he {
     min-width: 3.8rem;
     width: 3.8rem;
@@ -1287,7 +1293,10 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                         <th class="border-start cal-col-tot-f" title="Faltas"><span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size: 0.68rem; padding: 2px 6px;">F</span></th>
                         <th class="cal-col-tot-t" title="Tardanzas"><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size: 0.68rem; padding: 2px 6px;">T</span></th>
                         <th class="cal-col-tot-min" title="Tardanza (horas:minutos:segundos)"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.725rem;">Tardanza</span></th>
-                        <th class="cal-col-tot-hours" title="Horas de jornada, sin horas extra (horas:minutos:segundos)"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.725rem;">Horas</span></th>
+                        @foreach($weekTotals as $w)
+                            <th class="cal-col-tot-week{{ $loop->first ? ' border-start' : '' }}" title="Horas de jornada de la semana, del {{ \Carbon\Carbon::parse($w['from'])->format('d/m') }} al {{ \Carbon\Carbon::parse($w['to'])->format('d/m') }} (lunes a domingo)"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.65rem; line-height: 1.15; display: block;">{{ \Illuminate\Support\Str::before($w['label'], ' · ') }}<br>{{ \Illuminate\Support\Str::after($w['label'], ' · ') }}</span></th>
+                        @endforeach
+                        <th class="cal-col-tot-hours{{ $weekTotals ? ' border-start' : '' }}" title="Horas de jornada, sin horas extra (horas:minutos:segundos): la suma de las semanas"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.725rem;">Horas</span></th>
                         <th class="cal-col-tot-he" title="Horas Extra (aprobadas y por aprobar)"><span class="small fw-bold" style="color: var(--cal-text-muted); font-size: 0.725rem;">HE</span></th>
                     </tr>
                 </thead>
@@ -1372,7 +1381,11 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                             <td class="border-start cal-col-tot-f fw-bold {{ $r['totals']['absent'] ? 'text-danger' : 'text-muted opacity-50' }}">{{ $r['totals']['absent'] }}</td>
                             <td class="cal-col-tot-t fw-bold {{ $r['totals']['late'] ? 'text-warning-emphasis' : 'text-muted opacity-50' }}">{{ $r['totals']['late'] }}</td>
                             <td class="cal-col-tot-min" style="color: var(--cal-text-muted); white-space: nowrap;">{{ $r['totals']['late_minutes'] ? minutos_hms($r['totals']['late_minutes']) : '—' }}</td>
-                            <td class="cal-col-tot-hours fw-medium" style="color: var(--cal-text-main); white-space: nowrap;">{{ horas_hms($r['totals']['worked_hours']) }}</td>
+                            @foreach($weekTotals as $i => $w)
+                                @php $weekMinutes = $r['totals']['week_minutes'][$i] ?? 0; @endphp
+                                <td class="cal-col-tot-week{{ $loop->first ? ' border-start' : '' }} {{ $weekMinutes ? '' : 'opacity-50' }}" style="color: var(--cal-text-muted); white-space: nowrap;">{{ $weekMinutes ? minutos_hms($weekMinutes) : '—' }}</td>
+                            @endforeach
+                            <td class="cal-col-tot-hours fw-medium{{ $weekTotals ? ' border-start' : '' }}" style="color: var(--cal-text-main); white-space: nowrap;">{{ horas_hms($r['totals']['worked_hours']) }}</td>
                             <td class="cal-col-tot-he text-success fw-bold" style="white-space: nowrap;">
                                 {{ $r['totals']['overtime_approved'] ? horas_hms($r['totals']['overtime_approved']) : '—' }}
                                 @if($r['totals']['overtime_pending'])
@@ -1382,7 +1395,7 @@ button.cal-cell-token { cursor: pointer; outline: none; background: transparent;
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ count($days) + 6 }}" class="text-center py-4" style="color: var(--cal-text-muted);">
+                            <td colspan="{{ count($days) + 6 + count($weekTotals) }}" class="text-center py-4" style="color: var(--cal-text-muted);">
                                 No hay colaboradores con estos filtros.
                             </td>
                         </tr>

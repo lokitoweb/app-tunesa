@@ -37,6 +37,9 @@ class AttendanceCalendarService
 
     public const CACHE_MINUTES = 10;
 
+    /** Formato de las filas guardadas en caché: subirlo cuando cambian sus datos (2 = horas por semana) */
+    private const ROW_FORMAT = 2;
+
     private ?ScheduleResolver $schedules = null;
 
     /** Estado del semáforo → estado para mostrar (DayStatus) y tono Bootstrap */
@@ -289,11 +292,18 @@ class AttendanceCalendarService
 
     private function row(User $user, CalendarFilters $f, Collection $attendances, Collection $assignments, Collection $leaves, array $holidays, string $today, ?string $avatarUrl = null): array
     {
+        $weeks = $f->weeks();
         $totals = ['absent' => 0, 'late' => 0, 'late_minutes' => 0, 'excused' => 0, 'worked_hours' => 0.0, 'suspicious' => 0,
-            'overtime_approved' => 0.0, 'overtime_pending' => 0.0];
+            'overtime_approved' => 0.0, 'overtime_pending' => 0.0,
+            // Horas de jornada por semana (lunes a domingo, CalendarFilters::weeks), en minutos exactos: suman el total
+            'week_minutes' => array_fill(0, count($weeks), 0)];
         $cells = [];
+        $week = 0;
 
         foreach ($this->days($f) as $day => $meta) {
+            while ($day > $weeks[$week]['to']) {
+                $week++;
+            }
             $records = $attendances->get($user->id . '|' . $day, collect());
             $cell = $this->cell($user, $day, $today, $records, $assignments, $leaves, $holidays);
             $cells[$day] = $cell;
@@ -307,6 +317,7 @@ class AttendanceCalendarService
             $totals['suspicious']   += $cell['suspicious'] ? 1 : 0;
             $totals['late_minutes'] += $cell['late_minutes'];
             $totals['worked_hours'] += $cell['worked_hours'];
+            $totals['week_minutes'][$week] += (int) round($cell['worked_hours'] * 60);
             $totals['overtime_approved'] += $cell['overtime_status'] === Attendance::OVERTIME_APPROVED ? $cell['overtime_hours'] : 0;
             $totals['overtime_pending']  += $cell['overtime_status'] === Attendance::OVERTIME_PENDING ? $cell['overtime_hours'] : 0;
         }
@@ -502,7 +513,7 @@ class AttendanceCalendarService
         $flags = $f->tenantId ? (int) Cache::get(ScheduleResolver::flagsVersionKey($f->tenantId), 0) : null;
         // Horarios, asignaciones, feriados o datos del colaborador cambiados (bumpAll): todos los meses de la empresa
         $general = array_map(fn (?int $id) => (int) Cache::get(self::generalKey($id), 0), array_unique([$f->tenantId, null]));
-        $key = 'attendance-calendar:' . sha1(json_encode([$f->toQuery(), $f->tenantId, $f->viewer?->id, $f->userId, $part, $version, $flags, $general]));
+        $key = 'attendance-calendar:' . sha1(json_encode([self::ROW_FORMAT, $f->toQuery(), $f->tenantId, $f->viewer?->id, $f->userId, $part, $version, $flags, $general]));
 
         return Cache::remember($key, now()->addMinutes(self::CACHE_MINUTES), $build);
     }

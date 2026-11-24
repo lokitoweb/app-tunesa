@@ -20,7 +20,10 @@ class CalendarExporter
 {
     private const LEAD = ['Código', 'Colaborador', 'Agencia', 'Cargo'];
 
-    private const TOTALS = ['Faltas', 'Tardanzas', 'Tardanza', 'Justificadas', 'Observadas', 'Horas de jornada', 'HE aprobadas', 'HE por aprobar'];
+    /** Totales antes y después de las horas por semana (una columna por semana de lunes a domingo, CalendarFilters::weeks) */
+    private const TOTALS = ['Faltas', 'Tardanzas', 'Tardanza', 'Justificadas', 'Observadas'];
+
+    private const HOURS = ['Horas de jornada', 'HE aprobadas', 'HE por aprobar'];
 
     /** Duraciones como tiempo de Excel (fracción de día) con formato [hh]:mm:ss: se ven como 00:12:00 o 31:40:12 y se pueden sumar */
     private const DURATION_FORMAT = '[hh]:mm:ss';
@@ -33,12 +36,14 @@ class CalendarExporter
     public function xlsx(CalendarFilters $f, string $path): void
     {
         $days = $this->calendar->days($f);
+        $weeks = $f->weeks();
 
         $book = new Spreadsheet();
         $book->getProperties()->setTitle("Calendario de asistencia " . $f->periodLabel())->setCreator(config('app.name'));
         $sheet = $book->getActiveSheet()->setTitle($f->from ? 'Calendario' : 'Calendario ' . $f->month);
 
-        $headers = array_merge(self::LEAD, array_map(fn ($d) => "{$d['weekday']} {$d['day']}", array_values($days)), self::TOTALS);
+        $headers = array_merge(self::LEAD, array_map(fn ($d) => "{$d['weekday']} {$d['day']}", array_values($days)), self::TOTALS,
+            array_map(fn ($w) => 'Horas ' . $w['label'], $weeks), self::HOURS);
         foreach ($headers as $i => $text) {
             $sheet->setCellValue([$i + 1, 1], $text);
         }
@@ -74,6 +79,9 @@ class CalendarExporter
                 $this->duration($sheet, $col++, $row, $t['late_minutes'] * 60);
                 foreach ([$t['excused'], $t['suspicious']] as $value) {
                     $sheet->setCellValue([$col++, $row], $value);
+                }
+                foreach (array_keys($weeks) as $i) {
+                    $this->duration($sheet, $col++, $row, ($t['week_minutes'][$i] ?? 0) * 60);
                 }
                 foreach ([$t['worked_hours'], $t['overtime_approved'], $t['overtime_pending']] as $hours) {
                     $this->duration($sheet, $col++, $row, \App\Modules\Attendance\Models\Attendance::minutes($hours) * 60);

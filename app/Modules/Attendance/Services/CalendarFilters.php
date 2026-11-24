@@ -92,6 +92,31 @@ final class CalendarFilters
         return [$start->toDateString(), $start->endOfMonth()->toDateString()];
     }
 
+    /**
+     * Semanas de lunes a domingo del periodo para los subtotales del tareo, cortadas al inicio y al fin del periodo
+     * y en el cambio de mes (la semana del 30/11 al 06/12 son dos: «30/11» en noviembre y «01–06/12» en diciembre).
+     * Juntas cubren todos los días del periodo, una sola vez: ningún día queda fuera ni se cuenta dos veces.
+     * El número es la semana del mes (la 1.ª puede ser de un día: noviembre de 2026 empieza en domingo).
+     *
+     * @return list<array{from: string, to: string, label: string}>
+     */
+    public function weeks(): array
+    {
+        [$from, $to] = $this->range();
+        $weeks = [];
+        for ($d = CarbonImmutable::parse($from); $d->toDateString() <= $to; $d = $end->addDay()) {
+            $end = collect([$d->addDays(7 - $d->dayOfWeekIso), $d->endOfMonth()->startOfDay(), CarbonImmutable::parse($to)])->min();
+            $number = intdiv($d->day + $d->startOfMonth()->dayOfWeekIso - 2, 7) + 1;
+            $weeks[] = [
+                'from'  => $d->toDateString(),
+                'to'    => $end->toDateString(),
+                'label' => "Sem {$number} · " . ($d->isSameDay($end) ? $d->format('d/m') : $d->format('d') . '–' . $end->format('d/m')),
+            ];
+        }
+
+        return $weeks;
+    }
+
     /** Meses (Y-m) que toca el rango: la caché de meses cerrados se invalida por mes */
     public function months(): array
     {

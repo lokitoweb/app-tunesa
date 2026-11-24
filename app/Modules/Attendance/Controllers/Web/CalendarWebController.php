@@ -44,6 +44,7 @@ class CalendarWebController extends Controller
             'filters'     => $filters,
             'rows'        => $this->calendar->paginate($filters),
             'days'        => $this->calendar->days($filters),
+            'weekTotals'  => $filters->weeks(),
             'states'      => AttendanceCalendarService::states(),
             'today'       => now(tenant_timezone())->toDateString(),
             'branches'    => Branch::forTenant($tenantId)->visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
