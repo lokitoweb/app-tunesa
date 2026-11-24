@@ -1351,12 +1351,15 @@ class AttendanceService
         }
         $total  = (int) $in->diffInMinutes($out);
         $deduct = $settings->lunch_paid ? 0 : $this->breakToDeduct($total, $markedBreakMinutes, $shift, $settings);
-        // C7: en horario partido la pausa entre tramos no es refrigerio ni se trabaja, aunque falten las marcas del medio
+        // C7: en horario partido la pausa entre tramos no es refrigerio ni se trabaja, aunque falten las marcas del medio.
+        // Se descuenta solo la parte de la pausa que cae dentro de lo marcado (o lo marcado como pausa), nunca la pausa
+        // entera como descanso fijo (su duración puede ser mayor que lo trabajado: 405 min en 06:30–11:45 · 18:30–21:30).
+        // Quien trabajó solo el 1.er tramo (06:48–12:07) tiene 4 h 57 (hasta el fin del tramo, 11:45), no 0.
         if ($shift?->isSplit()) {
             $gapStart = Carbon::parse("{$date} {$shift->break_start_time}", $tz);
             $gapEnd   = Carbon::parse("{$date} {$shift->break_end_time}", $tz);
             $gapEnd->lte($gapStart) && $gapEnd->addDay();
-            $deduct = max($deduct, $markedBreakMinutes, (int) max(0, $gapStart->max($in)->diffInMinutes($gapEnd->min($out), false)));
+            $deduct = max($markedBreakMinutes, (int) max(0, $gapStart->max($in)->diffInMinutes($gapEnd->min($out), false)));
         }
         $worked = round(max(0, $total - $deduct) / 60, 2);
         $base   = self::baseDailyHours($shift, $employee);

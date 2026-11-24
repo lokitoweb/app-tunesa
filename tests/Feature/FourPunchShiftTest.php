@@ -164,6 +164,20 @@ class FourPunchShiftTest extends TestCase
         Attendance::withoutGlobalScopes()->forceDelete();
         $this->assertEquals(4.0, (float) $this->day('08:00', null, null, '12:00')->worked_hours);
 
+        // Caso real (TURNO PARTIDO M,J,V, 06:30–11:45 · 18:30–21:30, pausa de 405 min): solo el 1.er tramo, de 06:48 a 12:07.
+        // Antes se descontaban los 405 min de la pausa como descanso fijo y la jornada quedaba en 0; ahora son 4 h 57
+        // (06:48 → 11:45: lo que cae dentro de la pausa no es jornada)
+        Attendance::withoutGlobalScopes()->forceDelete();
+        EmployeeShift::query()->delete();
+        $this->assign(['name' => 'TURNO PARTIDO M,J,V', 'start_time' => '06:30', 'end_time' => '21:30', 'break_start_time' => '11:45',
+            'break_end_time' => '18:30', 'split_shift' => true, 'break_duration_minutes' => 405]);
+        $partial = $this->day('06:48', null, null, '12:07');
+        $this->assertSame(297, $partial->regularMinutes());
+        $this->assertSame(18, (int) $partial->late_minutes);
+        // El día completo sigue igual: 06:30–11:45 y 18:30–21:30 = 8 h 15
+        Attendance::withoutGlobalScopes()->forceDelete();
+        $this->assertSame(495, Attendance::minutes($this->day('06:30', '11:45', '18:30', '21:30')->worked_hours));
+
         // La web y la app nombran la pausa como tramos: el horario del día y la jornada dicen que es partido
         $today = app(\App\Modules\Attendance\Services\ScheduleGate::class)->statusFor($this->emp, Attendance::withoutGlobalScopes()->sole()->work_date->toDateString());
         $this->assertTrue($today['shift']['split']);
