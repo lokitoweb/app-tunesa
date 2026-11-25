@@ -32,6 +32,8 @@ final class Labels
         'attendance.trip_updated'            => ['Viaje de la bitácora actualizado', 'info', 'signpost-split'],
         'attendance.trip_returned'           => ['Vuelta del viaje firmada', 'success', 'check2-circle'],
         'attendance.trip_deleted'            => ['Viaje eliminado de la bitácora', 'danger', 'trash'],
+        'attendance.pre_go_live_removed'     => ['Falta de antes del inicio del sistema eliminada', 'danger', 'trash'],
+        'schedule.pre_go_live_removed'       => ['Programación de antes del inicio del sistema eliminada', 'danger', 'trash'],
         'attendance.absence_voided'          => ['Falta anulada: el día está programado como libre', 'warning', 'calendar-x'],
         'attendance.trip_sheet_uploaded'     => ['Hoja de viajes firmada subida', 'success', 'file-earmark-check'],
         'attendance.trip_sheet_deleted'      => ['Hoja de viajes firmada quitada', 'danger', 'trash'],
