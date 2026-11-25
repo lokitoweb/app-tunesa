@@ -336,6 +336,8 @@ final class Labels
         'phone'                   => 'Teléfono',
         'title'                   => 'Título',
         'reason'                  => 'Motivo',
+        'test_punches'            => 'Marcaciones de prueba',
+        'backup'                  => 'Copia de respaldo',
         'date'                    => 'Fecha',
         'user_id'                 => 'Colaborador',
         'branch_id'               => 'Sucursal',
