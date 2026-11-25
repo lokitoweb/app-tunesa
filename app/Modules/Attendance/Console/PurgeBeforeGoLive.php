@@ -28,6 +28,7 @@ class PurgeBeforeGoLive extends Command
 {
     protected $signature = 'attendance:purge-before-go-live {tenant : Slug de la empresa}
                             {--before= : Primer día real (Y-m-d): se limpia lo anterior}
+                            {--attendance= : Ids de faltas confirmadas como prueba (p. ej. 150,155): se quitan aunque tengan eventos de prueba o corrección, siempre sin entrada ni salida y antes de --before}
                             {--apply : Borrar (sin esto solo lista)}';
 
     protected $description = 'Limpia la programación y las faltas sin marcación de antes de que la empresa empezara a usar el sistema';
@@ -50,7 +51,16 @@ class PurgeBeforeGoLive extends Command
         $scoped = fn ($model) => $model::withoutGlobalScope(TenantScope::class)->withoutGlobalScope(BranchScope::class)
             ->where('tenant_id', $tenant->id)->where('work_date', '<', $before);
         $days = $scoped(EmployeeScheduleDay::class)->orderBy('work_date')->get();
-        $absences = $scoped(Attendance::class)->whereNull('clock_in_at')->whereNull('clock_out_at')->whereNull('manual_edited_at')->orderBy('work_date')->get();
+        $confirmed = array_values(array_filter(array_map('intval', explode(',', (string) $this->option('attendance')))));
+        $absences = $scoped(Attendance::class)->whereNull('clock_in_at')->whereNull('clock_out_at')
+            ->where(fn ($q) => $q->whereNull('manual_edited_at')->orWhereIn('id', $confirmed))->orderBy('work_date')->get();
+        // Eventos de prueba en la bitácora de marcaciones: se van con su falta (borrado en cascada) y quedan en la copia
+        $punches = DB::table('attendance_punches')->whereIn('attendance_id', $absences->pluck('id'))->orderBy('id')->get();
+        if ($punches->isNotEmpty() && array_diff($punches->pluck('attendance_id')->unique()->all(), $confirmed)) {
+            $this->error('Hay faltas con eventos en la bitácora de marcaciones que no se confirmaron con --attendance: no se borra nada.');
+
+            return self::FAILURE;
+        }
         $kept = $scoped(Attendance::class)->where(fn ($q) => $q->whereNotNull('clock_in_at')->orWhereNotNull('clock_out_at')->orWhereNotNull('manual_edited_at'))->count();
 
         $this->line("{$tenant->company_name}: antes del {$before} hay " . $days->count() . ' días de programación y ' . $absences->count()
@@ -72,10 +82,11 @@ class PurgeBeforeGoLive extends Command
             'tenant' => $tenant->only(['id', 'slug', 'company_name']), 'before' => $before,
             'employee_schedule_days' => $days->map->getAttributes()->values(),
             'attendances' => $absences->map->getAttributes()->values(),
+            'attendance_punches' => $punches,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
         $reason = "Antes del inicio de uso del sistema ({$before})";
-        DB::transaction(function () use ($days, $absences, $audit, $reason, $copy) {
+        DB::transaction(function () use ($days, $absences, $punches, $audit, $reason, $copy) {
             foreach ($days as $d) {
                 $audit->log('schedule.pre_go_live_removed', $d, ['employee_id' => $d->user_id, 'work_date' => $d->work_date->toDateString(),
                     'shift_id' => $d->shift_id, 'reason' => $reason, 'backup' => $copy]);
@@ -83,7 +94,7 @@ class PurgeBeforeGoLive extends Command
             }
             foreach ($absences as $a) {
                 $audit->log('attendance.pre_go_live_removed', $a, ['employee_id' => $a->user_id, 'work_date' => $a->work_date->toDateString(),
-                    'status' => $a->status, 'reason' => $reason, 'backup' => $copy]);
+                    'status' => $a->status, 'test_punches' => $punches->where('attendance_id', $a->id)->count(), 'reason' => $reason, 'backup' => $copy]);
                 $a->forceDelete();
             }
         });

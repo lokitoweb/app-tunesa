@@ -76,6 +76,28 @@ class PurgeBeforeGoLiveTest extends TestCase
         $this->assertTrue(AuditLog::withoutGlobalScopes()->where('action', 'schedule.pre_go_live_removed')->exists());
         $this->assertTrue(AuditLog::withoutGlobalScopes()->where('action', 'attendance.pre_go_live_removed')->exists());
 
+        // Caso real (Sandy y Luz María, 15/11): falta con eventos de prueba en la bitácora de marcaciones y corregida.
+        // Sin confirmarla se deja; confirmada con --attendance se quita con sus eventos, que van a la copia
+        $tested = $att($emp, '2026-11-15', ['manual_edited_at' => now()]);
+        foreach (['clock_in' => '15:20:41', 'clock_out' => '15:20:50'] as $type => $time) {
+            \Illuminate\Support\Facades\DB::table('attendance_punches')->insert(['tenant_id' => $tunesa->id, 'attendance_id' => $tested->id,
+                'user_id' => $emp->id, 'type' => $type, 'latitude' => 0, 'longitude' => 0, 'server_time' => "2026-11-15 {$time}"]);
+        }
+        $this->artisan('attendance:purge-before-go-live', ['tenant' => 'tunesaexpres', '--before' => '2026-11-16', '--apply' => true])
+            ->expectsOutputToContain('hay 0 días de programación y 0 faltas sin marcación')->assertSuccessful();
+        $this->assertNotNull(Attendance::withoutGlobalScopes()->find($tested->id));
+
+        $this->artisan('attendance:purge-before-go-live', ['tenant' => 'tunesaexpres', '--before' => '2026-11-16', '--attendance' => (string) $tested->id, '--apply' => true])
+            ->expectsOutputToContain('Borrados: 0 días de programación y 1 faltas')->assertSuccessful();
+        $this->assertNull(Attendance::withoutGlobalScopes()->withTrashed()->find($tested->id));
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('attendance_punches')->where('attendance_id', $tested->id)->count());
+        $copy = json_decode(Storage::disk('private')->get(collect(Storage::disk('private')->allFiles('backups/purge-before-go-live'))->sort()->last()), true);
+        $this->assertSame([$tested->id], array_column($copy['attendances'], 'id'));
+        $this->assertCount(2, $copy['attendance_punches']);
+        // Lo real se mantiene
+        $this->assertNotNull(Attendance::withoutGlobalScopes()->find($punched->id));
+        $this->assertNotNull(Attendance::withoutGlobalScopes()->find($manual->id));
+
         // Otra instalación sin esa empresa: no hace nada
         $this->artisan('attendance:purge-before-go-live', ['tenant' => 'no-existe', '--before' => '2026-11-16', '--apply' => true])->assertSuccessful();
     }
