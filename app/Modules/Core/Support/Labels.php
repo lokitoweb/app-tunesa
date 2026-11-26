@@ -70,6 +70,7 @@ final class Labels
         'tenant.document_code_updated'       => ['Abreviatura de correlativos cambiada', 'primary', 'hash'],
         'tenant.flag_changed'                => ['Bandera de asistencia cambiada', 'warning', 'flag'],
         'schedule.programmed'                => ['Programación de horarios guardada', 'primary', 'calendar3'],
+        'schedule.vacation_registered'       => ['Vacaciones registradas en la programación', 'primary', 'airplane'],
 
         // Sucursales y turnos
         'branch.created'                     => ['Sucursal creada', 'success', 'geo-alt'],

@@ -151,6 +151,12 @@ class TripLogTest extends TestCase
         $this->assertNull($signed->leg);
         $this->actingAs($this->hr)->get(route('attendance.trips.index'))->assertDontSee('name="leg"', false)
             ->assertSeeInOrder(['Subir hoja firmada', 'Descargar para imprimir', 'hoja-noviembre.pdf']);
+        // La lista muestra todas las hojas del periodo agrupadas por su semana, en orden de fechas
+        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-16', 'period_to' => '2026-11-22',
+            'sheet' => UploadedFile::fake()->create('semana-4.pdf', 100, 'application/pdf')])->assertSessionHasNoErrors();
+        $this->actingAs($this->hr)->get(route('attendance.trips.index'))
+            ->assertSeeInOrder(['Del 01/11/2026 al 30/11/2026', '1 hoja', 'hoja-noviembre.pdf', 'Del 16/11/2026 al 22/11/2026', '1 hoja', 'semana-4.pdf']);
+        \App\Modules\Attendance\Models\TripSheet::where('original_name', 'semana-4.pdf')->delete();
         Storage::disk('private')->assertExists($signed->file_path);
         $this->assertTrue(\App\Modules\Core\Models\AuditLog::where('action', 'attendance.trip_sheet_uploaded')->exists());
         $this->actingAs($this->hr)->get(route('attendance.trips.index'))->assertSee('hoja-noviembre.pdf')->assertSee('Semana 1');

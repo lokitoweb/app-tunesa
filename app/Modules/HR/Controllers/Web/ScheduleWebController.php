@@ -88,6 +88,7 @@ class ScheduleWebController extends Controller
                 ? 'No hay agencias activas para programar. Créalas o actívalas en Sedes.'
                 : 'Todas las agencias tienen asignados otros supervisores. Pide a RR. HH. o al administrador que te agreguen como «Supervisor» en Sedes › editar la agencia (puede tener varios); después verás aquí sus colaboradores.'),
             'today'    => CarbonImmutable::now(tenant_timezone())->toDateString(),
+            'canVacation' => self::canRegisterVacations($viewer),
         ]);
     }
 
@@ -178,14 +179,31 @@ class ScheduleWebController extends Controller
             'from'      => ['required', 'date_format:Y-m-d'],
             'to'        => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
             'reason'    => ['nullable', 'string', 'max:300'],
-            'rows'      => ['required', 'array', 'min:1', 'max:' . self::MAX_PEOPLE],
+            'rows'      => ['present', 'array', 'max:' . self::MAX_PEOPLE],
             'rows.*.user_id' => ['required', 'integer', 'distinct'],
             'rows.*.days'    => ['present', 'array'],
             'rows.*.days.*'  => ['nullable', 'integer'],
+            // Botón «Vacaciones»: días pintados como vacaciones (se registran aprobadas por quien programa)
+            'vacations'           => ['nullable', 'array', 'max:' . self::MAX_PEOPLE],
+            'vacations.*.user_id' => ['required', 'integer', 'distinct'],
+            'vacations.*.dates'   => ['required', 'array', 'min:1', 'max:' . self::MAX_RANGE_DAYS],
+            'vacations.*.dates.*' => ['date_format:Y-m-d', 'after_or_equal:from', 'before_or_equal:to'],
+        ], [
+            'vacations.*.dates.*.after_or_equal'  => 'Hay días de vacaciones fuera del periodo elegido.',
+            'vacations.*.dates.*.before_or_equal' => 'Hay días de vacaciones fuera del periodo elegido.',
         ]);
+        $vacations = collect($data['vacations'] ?? [])->mapWithKeys(fn ($v) => [(int) $v['user_id'] => $v['dates']])->all();
+        $ownReason = trim((string) ($data['reason'] ?? '')); // el motivo que escribió (las vacaciones no llevan el genérico)
+        if (! $data['rows'] && ! $vacations) {
+            throw ValidationException::withMessages(['rows' => 'No hay cambios para guardar.']);
+        }
         $data['reason'] = self::reason($data['reason'] ?? null, 'Programación de horarios');
         $this->guardRange($data['from'], $data['to'], self::MAX_RANGE_DAYS, 'to');
         [$branch, $userIds] = $this->scope($request, (int) $data['branch_id'], array_column($data['rows'], 'user_id'), $data['from'], $data['to']);
+        if ($vacations) {
+            $this->scope($request, $branch->id, array_keys($vacations), $data['from'], $data['to']);
+            $this->guardVacationApprover($request->user(), array_keys($vacations));
+        }
 
         $values = [];
         foreach ($data['rows'] as $row) {
@@ -198,9 +216,42 @@ class ScheduleWebController extends Controller
         }
         $this->guardShifts(collect($values)->flatten()->filter()->unique()->all(), (int) $branch->tenant_id);
 
-        $result = $this->programming->saveRange($request->user(), $branch, $userIds, $data['from'], $data['to'], $values, $data['reason']);
+        // Primero las vacaciones: si alguna choca con otra solicitud no se guarda nada
+        $registered = $vacations ? $this->programming->registerVacations($request->user(), $branch, $vacations, $ownReason) : 0;
+        $result = $values ? $this->programming->saveRange($request->user(), $branch, $userIds, $data['from'], $data['to'], $values, $data['reason'])
+            : ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'locked' => 0];
 
-        return response()->json(['message' => "Programación guardada: {$result['created']} días nuevos, {$result['updated']} cambiados." . self::lockedNote($result), 'result' => $result]);
+        $message = trim(($values ? "Programación guardada: {$result['created']} días nuevos, {$result['updated']} cambiados." : '')
+            . ($registered ? " Vacaciones registradas como aprobadas: {$registered} " . ($registered === 1 ? 'tramo' : 'tramos') . ' (descuentan del saldo).' : ''));
+
+        return response()->json(['message' => $message . self::lockedNote($result),
+            'result' => $result + ['vacations' => $registered]]);
+    }
+
+    /** Quien puede aprobar vacaciones ve el botón «Vacaciones» en la programación */
+    public static function canRegisterVacations(\App\Modules\Core\Models\User $user): bool
+    {
+        return $user->hasPermission('leave.approve_all') || $user->hasPermission('leave.approve_team');
+    }
+
+    /** Pintar vacaciones las aprueba: solo quien puede aprobar vacaciones de esas personas, y nunca las propias */
+    private function guardVacationApprover(\App\Modules\Core\Models\User $editor, array $userIds): void
+    {
+        if (in_array($editor->id, $userIds, true)) {
+            throw ValidationException::withMessages(['vacations' => 'No puedes registrar tus propias vacaciones: pídelas desde la app.']);
+        }
+        if (! self::canRegisterVacations($editor)) {
+            throw ValidationException::withMessages(['vacations' => 'No tienes permiso para aprobar vacaciones.']);
+        }
+        // Mismo alcance que Aprobaciones (LeaveRequest::approvableBy): RR. HH. toda la empresa; el jefe, su equipo
+        $approvable = \App\Modules\Core\Models\User::whereIn('id', $userIds)
+            ->when(! $editor->hasPermission('leave.approve_all'), fn ($q) => $q->where(fn ($w) => $w
+                ->whereHas('branches', fn ($b) => $b->visibleTo($editor))
+                ->orWhereHas('department', fn ($d) => $d->where('head_id', $editor->id))))
+            ->count();
+        if ($approvable !== count($userIds)) {
+            throw ValidationException::withMessages(['vacations' => 'No tienes permiso para aprobar vacaciones de alguno de estos colaboradores.']);
+        }
     }
 
     /** Motivo opcional para la bitácora: sin motivo queda uno genérico */

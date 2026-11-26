@@ -118,6 +118,56 @@ class ScheduleProgrammingTest extends TestCase
         $this->program_again_is_idempotent();
     }
 
+    /**
+     * Botón «Vacaciones»: los días pintados se registran como vacaciones aprobadas por quien programa (un tramo por
+     * días seguidos), bloquean la grilla, descuentan del saldo, avisan al colaborador y quedan en la bitácora.
+     * Encima de otra solicitud no se registra nada (ni la programación del mismo guardado).
+     */
+    public function test_vacation_brush_registers_approved_vacations_synced_with_balance_and_grid(): void
+    {
+        Notification::fake();
+        $juan = $this->people['Juan'];
+        $fidel = $this->people['Fidel'];
+        $juan->update(['hire_date' => '2024-01-10']);
+        $this->actingAs($this->hr)->get(route('shifts.schedule', ['branch_id' => $this->trujillo->id, 'month' => '2026-10']))
+            ->assertInertia(fn ($page) => $page->where('canVacation', true));
+
+        $this->actingAs($this->hr)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-10-01', 'to' => '2026-10-31', 'reason' => 'Vacaciones de octubre',
+            'rows' => [['user_id' => $fidel->id, 'days' => ['2026-10-12' => $this->a->id]]],
+            'vacations' => [['user_id' => $juan->id, 'dates' => ['2026-10-16', '2026-10-12', '2026-10-13', '2026-10-14']]],
+        ])->assertOk()->assertJsonPath('result.vacations', 2)->assertJsonPath('result.created', 1);
+
+        $leaves = \App\Modules\HR\Models\LeaveRequest::orderBy('start_date')->get();
+        $this->assertSame([['2026-10-12', '2026-10-14', 3], ['2026-10-16', '2026-10-16', 1]],
+            $leaves->map(fn ($l) => [$l->start_date->toDateString(), $l->end_date->toDateString(), (int) $l->days])->all());
+        $this->assertTrue($leaves->every(fn ($l) => $l->type === 'vacation' && $l->status === 'approved' && $l->with_pay === true && $l->reviewed_by === $this->hr->id));
+        $grid = $this->actingAs($this->hr)->getJson(route('shifts.schedule', ['branch_id' => $this->trujillo->id, 'month' => '2026-10']))->json('grid');
+        $this->assertSame('vacation', $grid[$juan->id]['2026-10-13']['source']);
+        $this->assertSame('programmed', $grid[$fidel->id]['2026-10-12']['source']);
+        $this->assertSame(4, app(\App\Modules\HR\Services\VacationBalance::class)->for($juan->fresh(), Carbon::parse('2026-10-31'))['used']);
+        Notification::assertSentTo($juan, \App\Modules\HR\Notifications\LeaveRequestReviewed::class, 2);
+        $this->assertCount(2, AuditLog::where('action', 'schedule.vacation_registered')->sole()->meta['context']['vacations']);
+
+        // Encima de vacaciones ya aprobadas: error claro y no se guarda nada del envío
+        $this->actingAs($this->hr)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-10-01', 'to' => '2026-10-31',
+            'rows' => [['user_id' => $fidel->id, 'days' => ['2026-10-13' => $this->b->id]]],
+            'vacations' => [['user_id' => $juan->id, 'dates' => ['2026-10-14', '2026-10-15']]],
+        ])->assertUnprocessable()->assertJsonValidationErrors('vacations');
+        $this->assertSame(2, \App\Modules\HR\Models\LeaveRequest::count());
+        $this->assertFalse(EmployeeScheduleDay::where('user_id', $fidel->id)->where('work_date', '2026-10-13')->exists());
+
+        // Fuera del periodo enviado o sin cambios: rechazado
+        $this->actingAs($this->hr)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-10-01', 'to' => '2026-10-31', 'rows' => [],
+            'vacations' => [['user_id' => $juan->id, 'dates' => ['2026-11-02']]],
+        ])->assertUnprocessable();
+        $this->actingAs($this->hr)->postJson(route('shifts.schedule.save'), [
+            'branch_id' => $this->trujillo->id, 'from' => '2026-10-01', 'to' => '2026-10-31', 'rows' => [],
+        ])->assertUnprocessable()->assertJsonValidationErrors('rows');
+    }
+
     /** QA3-03: la pantalla trae el catálogo de cargos y el cargo de cada persona; repetir para los visibles no toca a los ocultos */
     public function test_position_filter_data_and_bulk_copy_only_touches_the_people_sent(): void
     {

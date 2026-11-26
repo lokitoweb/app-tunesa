@@ -171,6 +171,75 @@ class ScheduleProgramming
         return $out;
     }
 
+    /**
+     * Botón «Vacaciones» de la programación: los días pintados se registran como solicitudes de vacaciones ya
+     * aprobadas por quien programa (una por cada tramo de días seguidos). Es el mismo registro que una solicitud
+     * aprobada en Aprobaciones: descuenta del saldo, bloquea los días, cuenta en la planilla y en los reportes,
+     * y el colaborador recibe el aviso. No se registra encima de otra solicitud pendiente o aprobada.
+     *
+     * @param  array<int, string[]>  $byUser  user_id => fechas Y-m-d
+     * @return int solicitudes creadas
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    public function registerVacations(User $editor, Branch $branch, array $byUser, string $reason): int
+    {
+        $ranges = [];
+        foreach ($byUser as $userId => $dates) {
+            $dates = array_values(array_unique($dates));
+            sort($dates);
+            foreach ($dates as $date) {
+                $last = isset($ranges[$userId]) ? array_key_last($ranges[$userId]) : null;
+                if ($last !== null && CarbonImmutable::parse($ranges[$userId][$last][1])->addDay()->toDateString() === $date) {
+                    $ranges[$userId][$last][1] = $date;
+                } else {
+                    $ranges[$userId][] = [$date, $date];
+                }
+            }
+        }
+
+        $people = User::whereIn('id', array_keys($ranges))->get(['id', 'tenant_id', 'first_name', 'last_name', 'hire_date', 'termination_date'])->keyBy('id');
+        $created = DB::transaction(function () use ($editor, $ranges, $people, $reason) {
+            DB::table('users')->whereIn('id', array_keys($ranges))->lockForUpdate()->pluck('id');
+            $out = collect();
+            foreach ($ranges as $userId => $list) {
+                $person = $people->get($userId);
+                foreach ($list as [$start, $end]) {
+                    if (($person->hire_date && $start < $person->hire_date->toDateString())
+                        || ($person->termination_date && $end > $person->termination_date->toDateString())) {
+                        throw \Illuminate\Validation\ValidationException::withMessages(['vacations' => "{$person->full_name}: las vacaciones caen fuera de su contrato."]);
+                    }
+                    $clash = LeaveRequest::where('user_id', $userId)->whereIn('status', ['pending', 'approved'])->overlapping($start, $end)->first();
+                    if ($clash) {
+                        throw \Illuminate\Validation\ValidationException::withMessages(['vacations' => sprintf('%s ya tiene %s (%s) del %s al %s. Revísala en Aprobaciones.',
+                            $person->full_name, mb_strtolower($clash->type_label), $clash->status === 'pending' ? 'pendiente' : 'aprobada',
+                            $clash->start_date->format('d/m/Y'), $clash->end_date->format('d/m/Y'))]);
+                    }
+                    $out->push(LeaveRequest::create([
+                        'tenant_id' => $person->tenant_id, 'user_id' => $userId, 'type' => 'vacation',
+                        'start_date' => $start, 'end_date' => $end,
+                        'days' => CarbonImmutable::parse($start)->diffInDays(CarbonImmutable::parse($end)) + 1,
+                        'reason' => mb_substr('Registrada en Programación de horarios' . ($reason !== '' ? ": {$reason}" : ''), 0, 1000),
+                        'status' => 'approved', 'with_pay' => true,
+                        'reviewed_by' => $editor->id, 'reviewed_at' => now(), 'review_notes' => $reason !== '' ? mb_substr($reason, 0, 1000) : null,
+                    ]));
+                }
+            }
+
+            return $out;
+        });
+
+        $this->audit->log('schedule.vacation_registered', $branch, [
+            'reason' => mb_substr($reason, 0, 500),
+            'vacations' => $created->map(fn (LeaveRequest $l) => ['leave_request_id' => $l->id, 'employee_id' => $l->user_id,
+                'from' => $l->start_date->toDateString(), 'to' => $l->end_date->toDateString(), 'days' => (int) $l->days])->all(),
+        ]);
+        // Mismo aviso que recibe el colaborador cuando le aprueban una solicitud
+        $created->each(fn (LeaveRequest $l) => rescue(fn () => $people->get($l->user_id)?->notify(new \App\Modules\HR\Notifications\LeaveRequestReviewed($l)), report: true));
+
+        return $created->count();
+    }
+
     private static function id(mixed $value): ?int
     {
         return $value === null ? null : (int) $value;

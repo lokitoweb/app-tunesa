@@ -67,9 +67,11 @@ class TripLogWebController extends Controller
             'driverId'  => $data['driver_id'] ?? null,
             'today'     => $now->toDateString(),
             'hasTenant' => (bool) current_tenant_id_or_null(),
-            // Hojas firmadas cuyo periodo se cruza con el filtrado
+            // Todas las hojas firmadas cuyo periodo se cruza con el filtrado, agrupadas por su periodo (semana) en orden
             'sheets'    => current_tenant_id_or_null() ? $this->sheets($request)->with('uploader:id,first_name,last_name')
-                ->where('period_from', '<=', $to)->where('period_to', '>=', $from)->latest()->get() : collect(),
+                ->where('period_from', '<=', $to)->where('period_to', '>=', $from)
+                ->orderBy('period_from')->orderBy('period_to')->latest()->get()
+                ->groupBy(fn ($s) => $s->period_from->toDateString() . '|' . $s->period_to->toDateString()) : collect(),
         ]);
     }
 

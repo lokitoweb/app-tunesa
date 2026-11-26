@@ -21,7 +21,10 @@ const props = defineProps({
     holidays: { type: [Object, Array], default: () => ({}) },
     deadline: { type: String, default: null },
     today: { type: String, required: true },
+    canVacation: { type: Boolean, default: false }, // puede aprobar vacaciones: ve el botón «Vacaciones»
 });
+// Pincel «Vacaciones»: los días pintados se registran al guardar como vacaciones aprobadas (descuentan del saldo)
+const VACATION = 'vac';
 
 const { ask } = useConfirm();
 const headers = { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
@@ -148,14 +151,19 @@ const cellLabel = (shiftId) => (shiftById.value[shiftId]?.start || '?').replace(
 // después del cese): bloqueados, el pincel no los cambia
 const isLocked = (userId, date) => ['vacation', 'out'].includes(cell(userId, date).source);
 const isOut = (userId, date) => cell(userId, date).source === 'out';
+const isNewVacation = (userId, date) => cell(userId, date).source === 'vacation_new';
 
-// value: id de turno, o null = día libre (borrador)
+// value: id de turno, null = día libre o VACATION (borrador)
 function paint(userId, date, value = brush.value) {
     if (isLocked(userId, date)) return;
     state.grid[userId] = state.grid[userId] || {};
-    state.grid[userId][date] = { shift_id: value, source: 'edited' };
+    state.grid[userId][date] = value === VACATION ? { shift_id: null, source: 'vacation_new' } : { shift_id: value, source: 'edited' };
     dirty.value = true;
 }
+// ¿La celda ya tiene lo que pinta el pincel? (clic de nuevo = quitar)
+const hasBrush = (userId, date) => (brush.value === VACATION
+    ? isNewVacation(userId, date)
+    : brush.value !== null && Number(cell(userId, date).shift_id) === Number(brush.value));
 
 // Pintar arrastrando el mouse. Si la primera celda ya tiene el horario del pincel, el gesto
 // desmarca (vuelve a libre) en vez de pintar: clic de nuevo = quitar, igual al arrastrar.
@@ -165,16 +173,21 @@ const unmarking = ref(false);
 // Lo que vino del servidor: desmarcar una celda que estaba sin programar la deja como estaba
 let saved = JSON.parse(JSON.stringify(state.grid));
 function unpaint(userId, date) {
-    if ((saved[userId]?.[date]?.source ?? 'none') !== 'none') return paint(userId, date, null);
     if (isLocked(userId, date)) return;
+    // Quitar vacaciones aún no guardadas: la celda vuelve a como estaba
+    if (isNewVacation(userId, date)) {
+        state.grid[userId][date] = { ...(saved[userId]?.[date] ?? { shift_id: null, source: 'none' }) };
+        dirty.value = true;
+        return;
+    }
+    if ((saved[userId]?.[date]?.source ?? 'none') !== 'none') return paint(userId, date, null);
     state.grid[userId] = state.grid[userId] || {};
     state.grid[userId][date] = { shift_id: null, source: 'none' };
     dirty.value = true;
 }
 function startPaint(userId, date) {
     if (isLocked(userId, date)) return;
-    const current = cell(userId, date).shift_id;
-    unmarking.value = brush.value !== null && Number(current) === Number(brush.value);
+    unmarking.value = hasBrush(userId, date);
     dragValue.value = unmarking.value ? null : brush.value;
     dragging.value = true;
     overPaint(userId, date);
@@ -194,7 +207,7 @@ function targets() {
 // Columna: si todos los elegidos ya tienen el horario del pincel ese día, se desmarca
 function paintColumn(date) {
     const who = targets().filter((p) => !isLocked(p.id, date));
-    const all = brush.value !== null && who.length && who.every((p) => Number(cell(p.id, date).shift_id) === Number(brush.value));
+    const all = who.length && who.every((p) => hasBrush(p.id, date));
     who.forEach((p) => (all ? unpaint(p.id, date) : paint(p.id, date, brush.value)));
 }
 function toggle(id) {
@@ -216,7 +229,7 @@ async function load(params) {
         saved = JSON.parse(JSON.stringify(state.grid));
         state.branchId = res.data.branchId;
         // El pincel sigue si el horario existe en la nueva agencia; si no, el primero de ella
-        if (brush.value !== null && !state.shifts.some((s) => s.id === brush.value)) brush.value = state.shifts[0]?.id ?? null;
+        if (brush.value !== null && brush.value !== VACATION && !state.shifts.some((s) => s.id === brush.value)) brush.value = state.shifts[0]?.id ?? null;
         selected.value = new Set();
         dirty.value = false;
     } catch (e) {
@@ -248,26 +261,38 @@ function editedRows(who) {
     })).filter((r) => Object.keys(r.days).length);
 }
 
+// Días pintados con «Vacaciones» (aún sin guardar), por colaborador
+function vacationRows(who) {
+    return who.map((p) => ({ user_id: p.id, dates: days.value.filter((d) => isNewVacation(p.id, d.date)).map((d) => d.date) }))
+        .filter((r) => r.dates.length);
+}
+
 async function save() {
     const rows = editedRows(targets());
-    if (!rows.length) {
+    const vacations = vacationRows(targets());
+    if (!rows.length && !vacations.length) {
         showToast('No hay cambios para guardar.', 'danger');
         return;
     }
     const total = rows.reduce((n, r) => n + Object.keys(r.days).length, 0);
+    const vacationDays = vacations.reduce((n, r) => n + r.dates.length, 0);
     // Cambios hechos antes de filtrar a personas que ahora no se ven: no se guardan (se avisa)
     const visibleIds = new Set(visiblePeople.value.map((p) => p.id));
-    const hiddenEdited = editedRows(state.people.filter((p) => !visibleIds.has(p.id))).length;
+    const hidden = state.people.filter((p) => !visibleIds.has(p.id));
+    const hiddenEdited = editedRows(hidden).length + vacationRows(hidden).length;
     const hiddenNote = hiddenEdited ? ` Hay cambios en ${hiddenEdited} colaborador(es) ocultos por el filtro de cargo: no se guardan; quita el filtro para guardarlos.` : '';
+    const parts = [];
+    if (total) parts.push(`Se guardarán ${total} día(s) marcados de ${rows.length} colaborador(es). Rigen desde ya en la app y la marcación; los días que no marcaste no cambian.`);
+    if (vacationDays) parts.push(`${vacationDays} día(s) de vacaciones de ${vacations.length} colaborador(es) quedarán aprobados a tu nombre y se descuentan de su saldo.`);
     const ok = await ask({
         title: 'Guardar programación',
-        message: `Se guardarán ${total} día(s) marcados de ${rows.length} colaborador(es). Rigen desde ya en la app y la marcación; los días que no marcaste no cambian.${hiddenNote}`,
+        message: parts.join(' ') + hiddenNote,
         confirmText: 'Guardar', cancelText: 'Cancelar', variant: 'primary', icon: 'bi bi-floppy2-fill',
     });
     if (!ok) return;
     saving.value = true;
     try {
-        const res = await axios.post('/shifts/schedule', { branch_id: state.branchId, from: state.from, to: state.to, reason: reason.value, rows }, { headers });
+        const res = await axios.post('/shifts/schedule', { branch_id: state.branchId, from: state.from, to: state.to, reason: reason.value, rows, vacations }, { headers });
         dirty.value = false;
         showToast(res.data.message);
         await load({});
@@ -414,6 +439,10 @@ async function repeat() {
                 <button type="button" class="sched-chip" :class="{ active: brush === null }" :aria-pressed="brush === null" @click="brush = null">
                     <span class="sched-dot sched-dot-free"></span><span class="fw-semibold">Día libre</span>
                 </button>
+                <button v-if="canVacation" type="button" class="sched-chip" :class="{ active: brush === VACATION }" style="--chip: #7c3aed" :aria-pressed="brush === VACATION"
+                    title="Al guardar quedan como vacaciones aprobadas a tu nombre y se descuentan del saldo" @click="brush = VACATION">
+                    <span class="sched-dot" style="background: #7c3aed"></span><span class="fw-semibold">Vacaciones</span>
+                </button>
                 <span v-if="!state.shifts.length" class="small text-body-secondary">Esta agencia aún no tiene horarios. Créalos en <a href="/shifts">Horarios</a>.</span>
                 <span class="sched-hint d-none d-xl-inline"><i class="bi bi-hand-index me-1"></i>Clic o arrastra · clic en el número del día marca a los seleccionados</span>
             </div>
@@ -457,7 +486,8 @@ async function repeat() {
                             </td>
                             <td v-for="d in days" :key="d.date" class="sched-cell"
                                 :class="{
-                                    'sched-vacation': isLocked(p.id, d.date) && !isOut(p.id, d.date),
+                                    'sched-vacation': (isLocked(p.id, d.date) && !isOut(p.id, d.date)) || isNewVacation(p.id, d.date),
+                                    'sched-vacation-new': isNewVacation(p.id, d.date),
                                     'sched-out': isOut(p.id, d.date),
                                     'sched-none': cell(p.id, d.date).source === 'none' && !state.holidays[d.date],
                                     'sched-inherited': cell(p.id, d.date).source === 'assignment',
@@ -466,11 +496,12 @@ async function repeat() {
                                 :aria-disabled="isLocked(p.id, d.date) || undefined"
                                 :title="isOut(p.id, d.date) ? 'Fuera de su contrato (antes del ingreso o después del cese): no se programa'
                                     : isLocked(p.id, d.date) ? 'Vacaciones aprobadas: bloqueado'
+                                    : isNewVacation(p.id, d.date) ? 'Vacaciones por registrar: al guardar quedan aprobadas · clic para quitar'
                                     : cell(p.id, d.date).shift_id ? `${shiftById[cell(p.id, d.date).shift_id]?.name} (${cell(p.id, d.date).source === 'assignment' ? 'de la asignación semanal' : 'programado'}) · clic para quitar`
                                     : ({ none: 'Sin programación', assignment_off: 'Día libre (descanso de la asignación semanal)' }[cell(p.id, d.date).source] || 'Día libre')"
                                 @mousedown.prevent="startPaint(p.id, d.date)" @mouseenter="overPaint(p.id, d.date)">
                                 <template v-if="isOut(p.id, d.date)"></template>
-                                <template v-else-if="isLocked(p.id, d.date)">VAC</template>
+                                <template v-else-if="isLocked(p.id, d.date) || isNewVacation(p.id, d.date)">VAC</template>
                                 <template v-else>{{ cell(p.id, d.date).shift_id ? cellLabel(cell(p.id, d.date).shift_id) : '' }}</template>
                             </td>
                         </tr>
@@ -638,4 +669,6 @@ async function repeat() {
     font-size: 0.6rem;
     letter-spacing: 0.02em;
 }
+/* Vacaciones pintadas y aún sin guardar: se pueden quitar con otro clic */
+.sched-vacation-new { cursor: crosshair; opacity: 0.75; outline: 2px dashed #fff; outline-offset: -4px; }
 </style>

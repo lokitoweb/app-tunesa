@@ -355,17 +355,22 @@
                     <table class="table align-middle mb-0">
                         <thead>
                             <tr>
-                                <th scope="col" class="ps-4">Periodo</th>
-                                <th scope="col">Archivo</th>
+                                <th scope="col" class="ps-4">Hojas subidas</th>
                                 <th scope="col">Subido por</th>
                                 <th scope="col" class="pe-4 text-end"><span class="visually-hidden">Acciones</span></th>
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($sheets as $sheet)
+                            @forelse($sheets as $group)
+                                <tr class="table-light">
+                                    <th scope="colgroup" colspan="3" class="ps-4 small">
+                                        <i class="bi bi-calendar-week text-success me-1"></i>Del {{ $dmy($group->first()->period_from) }} al {{ $dmy($group->first()->period_to) }}
+                                        <span class="badge bg-success-subtle text-success-emphasis ms-1">{{ $group->count() }} {{ $group->count() === 1 ? 'hoja' : 'hojas' }}</span>
+                                    </th>
+                                </tr>
+                                @foreach($group as $sheet)
                                 <tr>
-                                    <td class="ps-4 text-nowrap">{{ $dmy($sheet->period_from) }} al {{ $dmy($sheet->period_to) }}</td>
-                                    <td>
+                                    <td class="ps-4">
                                         <i class="bi {{ $sheet->mime_type === 'application/pdf' ? 'bi-file-earmark-pdf text-danger' : 'bi-file-earmark-image text-primary' }} me-1"></i>{{ $sheet->original_name }}
                                         @if($sheet->notes)<div class="small text-secondary">{{ $sheet->notes }}</div>@endif
                                     </td>
@@ -378,8 +383,9 @@
                                         </form>
                                     </td>
                                 </tr>
+                                @endforeach
                             @empty
-                                <tr><td colspan="4" class="text-center text-secondary py-4">Aún no hay hojas firmadas de este periodo.</td></tr>
+                                <tr><td colspan="3" class="text-center text-secondary py-4">Aún no hay hojas firmadas de este periodo.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
