@@ -51,10 +51,11 @@ return new class extends Migration
         DB::table('trip_logs')->whereNotNull('co_driver_id')->whereNull('helper_id')->update(['helper_id' => DB::raw('co_driver_id')]);
         Schema::table('trip_sheets', fn (Blueprint $table) => $table->dropColumn('leg'));
         Schema::table('trip_logs', function (Blueprint $table) {
-            $table->dropUnique(['tenant_id', 'trip_number']);
+            // MySQL: primero la llave foránea, después el índice que la sostiene
+            $table->dropForeign(['co_driver_id']);
             $table->dropIndex(['co_driver_id', 'trip_date']);
-            $table->dropConstrainedForeignId('co_driver_id');
-            $table->dropColumn(['trip_number', 'arrival_date', 'arrival_time', 'return_departure_date', 'return_departure_time']);
+            $table->dropUnique(['tenant_id', 'trip_number']);
+            $table->dropColumn(['co_driver_id', 'trip_number', 'arrival_date', 'arrival_time', 'return_departure_date', 'return_departure_time']);
         });
     }
 };
