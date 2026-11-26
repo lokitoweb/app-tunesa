@@ -13,11 +13,9 @@ class TripSheet extends Model
 {
     use BelongsToTenant, SoftDeletes;
 
-    /** Hoja de conducción que se firmó (las anteriores a este dato no lo tienen) */
-    public const LEGS = ['ida' => 'Conducción de ida', 'regreso' => 'Conducción de regreso'];
-
+    // La columna «leg» (ida/regreso) ya no se pide: la hoja se identifica por su periodo. Se conserva por lo ya subido.
     protected $fillable = [
-        'tenant_id', 'period_from', 'period_to', 'leg', 'file_path', 'original_name', 'mime_type', 'size_bytes', 'notes', 'uploaded_by',
+        'tenant_id', 'period_from', 'period_to', 'file_path', 'original_name', 'mime_type', 'size_bytes', 'notes', 'uploaded_by',
     ];
 
     protected $casts = ['period_from' => 'date', 'period_to' => 'date'];

@@ -118,11 +118,9 @@ class TripLogWebController extends Controller
         $data = $request->validate([
             'period_from' => ['required', 'date_format:Y-m-d'],
             'period_to'   => ['required', 'date_format:Y-m-d', 'after_or_equal:period_from'],
-            'leg'        => ['required', Rule::in(array_keys(TripSheet::LEGS))],
             'sheet'       => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
             'notes'       => ['nullable', 'string', 'max:300'],
         ], [
-            'leg.required'   => 'Indica si es la hoja de conducción de ida o la de regreso.',
             'sheet.required' => 'Adjunta la hoja firmada (PDF o foto).',
             'sheet.mimes'    => 'La hoja firmada debe ser PDF, JPG, PNG o WEBP.',
             'sheet.max'      => 'La hoja firmada no puede pesar más de 10 MB.',
@@ -133,7 +131,6 @@ class TripLogWebController extends Controller
             'tenant_id'     => current_tenant_id_or_null(),
             'period_from'   => $data['period_from'],
             'period_to'     => $data['period_to'],
-            'leg'          => $data['leg'],
             'file_path'     => $file->store('trip-sheets/' . current_tenant_id_or_null(), 'private'),
             'original_name' => mb_substr($file->getClientOriginalName(), 0, 200),
             'mime_type'     => $file->getMimeType(),
@@ -141,9 +138,9 @@ class TripLogWebController extends Controller
             'notes'         => $data['notes'] ?? null,
             'uploaded_by'   => $request->user()->id,
         ]);
-        $this->audit->log('attendance.trip_sheet_uploaded', $sheet, $sheet->only(['period_from', 'period_to', 'leg', 'original_name']));
+        $this->audit->log('attendance.trip_sheet_uploaded', $sheet, $sheet->only(['period_from', 'period_to', 'original_name']));
 
-        return back()->with('success', 'Hoja de ' . mb_strtolower(TripSheet::LEGS[$sheet->leg]) . ' firmada subida como evidencia.');
+        return back()->with('success', 'Hoja firmada subida como evidencia.');
     }
 
     public function downloadSheet(Request $request, int $id): \Symfony\Component\HttpFoundation\StreamedResponse

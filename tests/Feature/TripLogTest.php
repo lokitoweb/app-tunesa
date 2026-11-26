@@ -140,16 +140,17 @@ class TripLogTest extends TestCase
         $this->assertSame(['Huamachuco – Trujillo', '20/11/2026 13:00', '20/11/2026 18:10', '05:10:00'],
             [$regreso->getCell('C8')->getValue(), $regreso->getCell('H8')->getValue(), $regreso->getCell('I8')->getValue(), $regreso->getCell('J8')->getValue()]);
 
-        // Evidencia: la hoja firmada se sube indicando si es la de ida o la de regreso
-        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30', 'leg' => 'ida',
-            'sheet' => UploadedFile::fake()->create('virus.exe', 10, 'application/octet-stream')])->assertSessionHasErrors('sheet');
+        // Evidencia: la hoja firmada se sube con el periodo que cubre (sin elegir ida o regreso); arriba el formulario, abajo la descarga
         $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30',
-            'sheet' => UploadedFile::fake()->create('hoja.pdf', 300, 'application/pdf')])->assertSessionHasErrors('leg');
-        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30', 'leg' => 'regreso',
+            'sheet' => UploadedFile::fake()->create('virus.exe', 10, 'application/octet-stream')])->assertSessionHasErrors('sheet');
+        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-30', 'period_to' => '2026-11-01',
+            'sheet' => UploadedFile::fake()->create('hoja.pdf', 300, 'application/pdf')])->assertSessionHasErrors('period_to');
+        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30',
             'sheet' => UploadedFile::fake()->create('hoja-noviembre.pdf', 300, 'application/pdf'), 'notes' => 'Semana 1'])->assertSessionHasNoErrors();
         $signed = \App\Modules\Attendance\Models\TripSheet::firstOrFail();
-        $this->assertSame('regreso', $signed->leg);
-        $this->actingAs($this->hr)->get(route('attendance.trips.index'))->assertSee('Conducción de regreso');
+        $this->assertNull($signed->leg);
+        $this->actingAs($this->hr)->get(route('attendance.trips.index'))->assertDontSee('name="leg"', false)
+            ->assertSeeInOrder(['Subir hoja firmada', 'Descargar para imprimir', 'hoja-noviembre.pdf']);
         Storage::disk('private')->assertExists($signed->file_path);
         $this->assertTrue(\App\Modules\Core\Models\AuditLog::where('action', 'attendance.trip_sheet_uploaded')->exists());
         $this->actingAs($this->hr)->get(route('attendance.trips.index'))->assertSee('hoja-noviembre.pdf')->assertSee('Semana 1');

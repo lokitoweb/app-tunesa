@@ -310,32 +310,13 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-transparent border-0 pt-3 px-4">
                     <h2 class="h6 fw-bold mb-0"><i class="bi bi-file-earmark-check text-success me-1"></i>Hojas de conducción para firmar</h2>
-                    <small class="text-secondary">Descarga en Excel la hoja de conducción de ida y la de regreso, por semana (lunes a domingo, según la fecha de salida del viaje) o de todo el periodo. Imprímelas, que firmen los tres y súbelas firmadas.</small>
+                    <small class="text-secondary">Sube aquí la hoja ya firmada indicando el periodo que cubre. Para imprimir, descarga en Excel la hoja de conducción de ida y la de regreso, por semana (lunes a domingo, según la fecha de salida del viaje) o de todo el periodo.</small>
                 </div>
                 <div class="card-body px-4 pt-2">
-                    <div class="d-flex flex-wrap gap-2">
-                        @foreach($weeks as $w)
-                            <a href="{{ route('attendance.trips.export', array_filter(['from' => $w['from'], 'to' => $w['to'], 'driver_id' => $driverId])) }}" class="btn btn-sm btn-outline-success">
-                                <i class="bi bi-file-earmark-excel me-1"></i>{{ $w['label'] }}
-                            </a>
-                        @endforeach
-                        <a href="{{ route('attendance.trips.export', array_filter(['from' => $from, 'to' => $to, 'driver_id' => $driverId])) }}" class="btn btn-sm btn-success text-white">
-                            <i class="bi bi-file-earmark-excel me-1"></i>Todo el periodo
-                        </a>
-                    </div>
-
-                    <form method="POST" action="{{ route('attendance.trips.sheets.store') }}" enctype="multipart/form-data" class="row g-2 align-items-end mt-3 pt-3 border-top">
+                    {{-- Primero se sube la hoja firmada (con el periodo que cubre); debajo se descargan las hojas para imprimir --}}
+                    <form method="POST" action="{{ route('attendance.trips.sheets.store') }}" enctype="multipart/form-data" class="row g-2 align-items-end">
                         @csrf
-                        <div class="col-12 col-md-3">
-                            <label for="s_leg" class="form-label small fw-semibold mb-1">Hoja firmada</label>
-                            <select id="s_leg" name="leg" class="form-select form-select-sm @error('leg') is-invalid @enderror" required>
-                                <option value="">Elige…</option>
-                                @foreach(\App\Modules\Attendance\Models\TripSheet::LEGS as $leg => $legLabel)
-                                    <option value="{{ $leg }}" @selected(old('leg') === $leg)>{{ $legLabel }}</option>
-                                @endforeach
-                            </select>
-                            @error('leg')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        </div>
+                        <div class="col-12 small fw-bold text-success text-uppercase"><i class="bi bi-upload me-1"></i>Subir hoja firmada</div>
                         <div class="col-6 col-md-2">
                             <label for="s_from" class="form-label small fw-semibold mb-1">Desde</label>
                             <input type="date" id="s_from" name="period_from" value="{{ old('period_from', $from) }}" class="form-control form-control-sm @error('period_from') is-invalid @enderror" required>
@@ -345,7 +326,7 @@
                             <input type="date" id="s_to" name="period_to" value="{{ old('period_to', $to) }}" class="form-control form-control-sm @error('period_to') is-invalid @enderror" required>
                             @error('period_to')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
-                        <div class="col-12 col-md-5">
+                        <div class="col-12 col-md-8">
                             <label for="s_file" class="form-label small fw-semibold mb-1">Archivo <span class="text-secondary fw-normal">(PDF o foto, hasta 10 MB)</span></label>
                             <input type="file" id="s_file" name="sheet" accept=".pdf,.jpg,.jpeg,.png,.webp" class="form-control form-control-sm @error('sheet') is-invalid @enderror" required>
                             @error('sheet')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -357,13 +338,24 @@
                             <button type="submit" class="btn btn-sm btn-success text-white"><i class="bi bi-upload me-1"></i>Subir hoja firmada</button>
                         </div>
                     </form>
+
+                    <div class="small fw-bold text-secondary text-uppercase mt-3 pt-3 border-top mb-2"><i class="bi bi-printer me-1"></i>Descargar para imprimir</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach($weeks as $w)
+                            <a href="{{ route('attendance.trips.export', array_filter(['from' => $w['from'], 'to' => $w['to'], 'driver_id' => $driverId])) }}" class="btn btn-sm btn-outline-success">
+                                <i class="bi bi-file-earmark-excel me-1"></i>{{ $w['label'] }}
+                            </a>
+                        @endforeach
+                        <a href="{{ route('attendance.trips.export', array_filter(['from' => $from, 'to' => $to, 'driver_id' => $driverId])) }}" class="btn btn-sm btn-success text-white">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Todo el periodo
+                        </a>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
                         <thead>
                             <tr>
-                                <th scope="col" class="ps-4">Hoja</th>
-                                <th scope="col">Periodo</th>
+                                <th scope="col" class="ps-4">Periodo</th>
                                 <th scope="col">Archivo</th>
                                 <th scope="col">Subido por</th>
                                 <th scope="col" class="pe-4 text-end"><span class="visually-hidden">Acciones</span></th>
@@ -372,14 +364,7 @@
                         <tbody>
                             @forelse($sheets as $sheet)
                                 <tr>
-                                    <td class="ps-4 text-nowrap">
-                                        @if($sheet->leg)
-                                            <span class="badge {{ $sheet->leg === 'ida' ? 'bg-primary-subtle text-primary-emphasis' : 'bg-warning-subtle text-warning-emphasis' }}">{{ \App\Modules\Attendance\Models\TripSheet::LEGS[$sheet->leg] ?? '' }}</span>
-                                        @else
-                                            <span class="badge bg-light text-secondary">General</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-nowrap">{{ $dmy($sheet->period_from) }} al {{ $dmy($sheet->period_to) }}</td>
+                                    <td class="ps-4 text-nowrap">{{ $dmy($sheet->period_from) }} al {{ $dmy($sheet->period_to) }}</td>
                                     <td>
                                         <i class="bi {{ $sheet->mime_type === 'application/pdf' ? 'bi-file-earmark-pdf text-danger' : 'bi-file-earmark-image text-primary' }} me-1"></i>{{ $sheet->original_name }}
                                         @if($sheet->notes)<div class="small text-secondary">{{ $sheet->notes }}</div>@endif
@@ -394,7 +379,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="5" class="text-center text-secondary py-4">Aún no hay hojas firmadas de este periodo.</td></tr>
+                                <tr><td colspan="4" class="text-center text-secondary py-4">Aún no hay hojas firmadas de este periodo.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
