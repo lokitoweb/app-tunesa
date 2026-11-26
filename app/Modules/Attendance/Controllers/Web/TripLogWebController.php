@@ -19,10 +19,12 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * Bitácora de viajes (requerimiento Tunesa): el supervisor registra la IDA de cada viaje
- * (fecha, ruta, chofer, ayudante, placa, hora de salida) y la VUELTA (fecha, hora, ruta), que
- * queda firmada con su usuario y la hora. Los choferes no marcan: un día con viaje es día
- * trabajado y se compara con los días de trabajo del mes (Configuración › Reglas, 26 / 4).
+ * Bitácora de viajes (requerimiento Tunesa): el supervisor registra cada viaje (N.º de salida automático,
+ * ruta, Conductor 1, Conductor 2, Auxiliar de carga, placa y agencia) con su IDA (salida y llegada) y su
+ * REGRESO (salida y llegada, que queda firmada con su usuario y la hora). Los choferes no marcan: un día
+ * con viaje es día trabajado (meta del mes en Configuración › Reglas, 26 / 4) y las horas de conducción de
+ * cada tramo las heredan los tres. Las hojas para firmar salen por semana (lunes a domingo, por fecha de
+ * salida) o por todo el periodo, una de conducción de ida y otra de regreso.
  */
 class TripLogWebController extends Controller
 {
@@ -42,11 +44,21 @@ class TripLogWebController extends Controller
 
         $settings = TenantSetting::forTenant(current_tenant_id_or_null() ? current_tenant() : null);
         $worked   = TripLog::workedDays($ids, $from, $to);
+        // Horas de conducción del periodo (todos los viajes, no solo la página)
+        $driving  = TripLog::drivingMinutes(TripLog::whereBetween('trip_date', [$from, $to])->ofPeople($ids)
+            ->get(['id', 'trip_date', 'departure_time', 'arrival_date', 'arrival_time', 'return_departure_date', 'return_departure_time',
+                'return_date', 'return_time', ...TripLog::CREW]));
 
         return view('attendance.trips', [
             'trips'     => $trips,
             'people'    => $people,
-            'summary'   => $people->map(fn (User $u) => ['user' => $u, 'days' => $worked[$u->id] ?? 0])->sortByDesc('days')->values(),
+            'summary'   => $people->map(fn (User $u) => ['user' => $u, 'days' => $worked[$u->id] ?? 0,
+                'outbound' => $driving[$u->id]['outbound'] ?? 0, 'return' => $driving[$u->id]['return'] ?? 0])
+                ->sortByDesc('days')->values(),
+            // Hojas para firmar: semanas de lunes a domingo del periodo (mismas que el tareo) o el periodo completo
+            // N.º de salida que tendrá el próximo viaje (lo asigna el sistema al registrar)
+            'nextNumber' => current_tenant_id_or_null() ? (int) TripLog::max('trip_number') + 1 : null,
+            'weeks'     => (new \App\Modules\Attendance\Services\CalendarFilters(current_tenant_id_or_null(), substr($from, 0, 7), from: $from, to: $to))->weeks(),
             'workDays'  => (int) $settings->trip_work_days,
             'restDays'  => (int) $settings->trip_rest_days,
             'branches'  => Branch::visibleTo($request->user())->orderBy('name')->get(['id', 'name']),
@@ -61,7 +73,7 @@ class TripLogWebController extends Controller
         ]);
     }
 
-    /** Hoja de control en Excel con el formato del requerimiento (IDA · VUELTA · FIRMA), para imprimir y que firmen */
+    /** Hojas de conducción en Excel (ida y regreso) de la semana o del periodo elegido, para imprimir y que firmen */
     public function export(Request $request, TripSheetExporter $exporter): BinaryFileResponse
     {
         abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa en el selector superior.');
@@ -92,7 +104,8 @@ class TripLogWebController extends Controller
     /** Viajes del periodo de las personas que quien consulta puede ver (misma lista en pantalla y en Excel) */
     private function tripsQuery(Request $request, array $data, string $from, string $to)
     {
-        return TripLog::with(['driver:id,first_name,last_name', 'helper:id,first_name,last_name', 'signer:id,first_name,last_name', 'branch:id,name'])
+        return TripLog::with(['driver:id,first_name,last_name', 'coDriver:id,first_name,last_name', 'helper:id,first_name,last_name',
+            'signer:id,first_name,last_name', 'branch:id,name'])
             ->whereBetween('trip_date', [$from, $to])
             ->ofPeople($this->people($request)->pluck('id')->all())
             ->when($data['driver_id'] ?? null, fn ($q, $id) => $q->ofPeople([(int) $id]));
@@ -105,9 +118,11 @@ class TripLogWebController extends Controller
         $data = $request->validate([
             'period_from' => ['required', 'date_format:Y-m-d'],
             'period_to'   => ['required', 'date_format:Y-m-d', 'after_or_equal:period_from'],
+            'leg'        => ['required', Rule::in(array_keys(TripSheet::LEGS))],
             'sheet'       => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
             'notes'       => ['nullable', 'string', 'max:300'],
         ], [
+            'leg.required'   => 'Indica si es la hoja de conducción de ida o la de regreso.',
             'sheet.required' => 'Adjunta la hoja firmada (PDF o foto).',
             'sheet.mimes'    => 'La hoja firmada debe ser PDF, JPG, PNG o WEBP.',
             'sheet.max'      => 'La hoja firmada no puede pesar más de 10 MB.',
@@ -118,6 +133,7 @@ class TripLogWebController extends Controller
             'tenant_id'     => current_tenant_id_or_null(),
             'period_from'   => $data['period_from'],
             'period_to'     => $data['period_to'],
+            'leg'          => $data['leg'],
             'file_path'     => $file->store('trip-sheets/' . current_tenant_id_or_null(), 'private'),
             'original_name' => mb_substr($file->getClientOriginalName(), 0, 200),
             'mime_type'     => $file->getMimeType(),
@@ -125,9 +141,9 @@ class TripLogWebController extends Controller
             'notes'         => $data['notes'] ?? null,
             'uploaded_by'   => $request->user()->id,
         ]);
-        $this->audit->log('attendance.trip_sheet_uploaded', $sheet, $sheet->only(['period_from', 'period_to', 'original_name']));
+        $this->audit->log('attendance.trip_sheet_uploaded', $sheet, $sheet->only(['period_from', 'period_to', 'leg', 'original_name']));
 
-        return back()->with('success', 'Hoja firmada subida como evidencia del periodo.');
+        return back()->with('success', 'Hoja de ' . mb_strtolower(TripSheet::LEGS[$sheet->leg]) . ' firmada subida como evidencia.');
     }
 
     public function downloadSheet(Request $request, int $id): \Symfony\Component\HttpFoundation\StreamedResponse
@@ -159,14 +175,15 @@ class TripLogWebController extends Controller
         abort_unless(current_tenant_id_or_null(), 422, 'Elige una empresa en el selector superior.');
         $data = $this->validated($request);
 
-        $trip = TripLog::create($data + ['tenant_id' => current_tenant_id_or_null(), 'created_by' => $request->user()->id]
-            + $this->signature($request, $data));
-        $this->audit->log('attendance.trip_created', $trip, $trip->only(['trip_date', 'route', 'driver_id', 'helper_id', 'vehicle_plate', 'departure_time']));
+        // En una transacción: el N.º de salida (el siguiente de la empresa) se reserva con bloqueo
+        $trip = \Illuminate\Support\Facades\DB::transaction(fn () => TripLog::create($data
+            + ['tenant_id' => current_tenant_id_or_null(), 'created_by' => $request->user()->id] + $this->signature($request, $data)));
+        $this->audit->log('attendance.trip_created', $trip, $trip->only(['trip_number', 'trip_date', 'route', ...TripLog::CREW, 'vehicle_plate', 'departure_time']));
         if ($trip->hasReturned()) {
             $this->audit->log('attendance.trip_returned', $trip, $trip->only(['return_date', 'return_time', 'return_route']));
         }
 
-        return back()->with('success', 'Viaje registrado' . ($trip->hasReturned() ? ' con su vuelta firmada.' : '. Registra la vuelta cuando regrese.'));
+        return back()->with('success', "Viaje N.º {$trip->trip_number} registrado" . ($trip->hasReturned() ? ' con su regreso firmado.' : '. Completa la llegada y el regreso cuando ocurran.'));
     }
 
     public function update(Request $request, int $id): RedirectResponse
@@ -180,7 +197,7 @@ class TripLogWebController extends Controller
             $this->audit->log('attendance.trip_returned', $trip, $trip->only(['return_date', 'return_time', 'return_route']));
         }
 
-        return back()->with('success', $returning ? 'Vuelta registrada y firmada.' : 'Viaje actualizado.');
+        return back()->with('success', $returning ? "Regreso del viaje N.º {$trip->trip_number} registrado y firmado." : "Viaje N.º {$trip->trip_number} actualizado.");
     }
 
     public function destroy(Request $request, int $id): RedirectResponse
@@ -192,35 +209,70 @@ class TripLogWebController extends Controller
         return back()->with('success', 'Viaje eliminado de la bitácora.');
     }
 
-    /** IDA obligatoria; la VUELTA (fecha y hora) se registra al regresar, juntas */
+    /**
+     * IDA: salida obligatoria; su llegada, la salida y la llegada del REGRESO se completan cuando ocurren (fecha y hora
+     * juntas). Las tres personas son distintas y los momentos van en orden: salida ida ≤ llegada ida ≤ salida regreso ≤ llegada regreso.
+     */
     private function validated(Request $request, ?TripLog $trip = null): array
     {
         $ids = $this->people($request)->pluck('id')->all();
+        $pair = fn (string $date, string $time) => [
+            $date => ['nullable', "required_with:{$time}", 'date_format:Y-m-d'],
+            $time => ['nullable', "required_with:{$date}", 'date_format:H:i'],
+        ];
 
         $data = $request->validate([
             'trip_date'      => ['required', 'date_format:Y-m-d'],
             'route'          => ['required', 'string', 'max:150'],
             'driver_id'      => ['required', 'integer', Rule::in($ids)],
-            'helper_id'      => ['nullable', 'integer', 'different:driver_id', Rule::in($ids)],
+            'co_driver_id'   => ['nullable', 'integer', 'different:driver_id', Rule::in($ids)],
+            'helper_id'      => ['nullable', 'integer', 'different:driver_id', 'different:co_driver_id', Rule::in($ids)],
             'vehicle_plate'  => ['required', 'string', 'max:15', 'regex:/^[A-Za-z0-9-]+$/'],
             'departure_time' => ['required', 'date_format:H:i'],
             'branch_id'      => ['nullable', 'integer', Rule::in(Branch::visibleTo($request->user())->pluck('id')->all())],
-            'return_date'    => ['nullable', 'required_with:return_time', 'date_format:Y-m-d', 'after_or_equal:trip_date'],
-            'return_time'    => ['nullable', 'required_with:return_date', 'date_format:H:i'],
+            ...$pair('arrival_date', 'arrival_time'),
+            ...$pair('return_departure_date', 'return_departure_time'),
+            ...$pair('return_date', 'return_time'),
             'return_route'   => ['nullable', 'string', 'max:150'],
             'notes'          => ['nullable', 'string', 'max:300'],
         ], [
-            'driver_id.in'                 => 'Elige un chofer con cargo de «Control por viajes» de tu equipo.',
-            'helper_id.in'                 => 'Elige un ayudante con cargo de «Control por viajes» de tu equipo.',
-            'helper_id.different'          => 'El ayudante no puede ser el mismo chofer.',
-            'vehicle_plate.regex'          => 'La placa solo lleva letras, números y guiones.',
-            'return_date.after_or_equal'   => 'La vuelta no puede ser antes de la ida.',
-            'return_date.required_with'    => 'Indica la fecha de la vuelta.',
-            'return_time.required_with'    => 'Indica la hora de la vuelta.',
+            'driver_id.in'                   => 'Elige un conductor con cargo de «Control por viajes» de tu equipo.',
+            'co_driver_id.in'                => 'Elige un conductor con cargo de «Control por viajes» de tu equipo.',
+            'helper_id.in'                   => 'Elige un auxiliar con cargo de «Control por viajes» de tu equipo.',
+            'co_driver_id.different'         => 'El conductor 2 no puede ser el mismo conductor 1.',
+            'helper_id.different'            => 'El auxiliar de carga no puede ser uno de los conductores.',
+            'vehicle_plate.regex'            => 'La placa solo lleva letras, números y guiones.',
+            'arrival_date.required_with'     => 'Indica la fecha de llegada de la ida.',
+            'arrival_time.required_with'     => 'Indica la hora de llegada de la ida.',
+            'return_departure_date.required_with' => 'Indica la fecha de salida del regreso.',
+            'return_departure_time.required_with' => 'Indica la hora de salida del regreso.',
+            'return_date.required_with'      => 'Indica la fecha de llegada del regreso.',
+            'return_time.required_with'      => 'Indica la hora de llegada del regreso.',
         ]);
         $data['vehicle_plate'] = strtoupper($data['vehicle_plate']);
-        if (! empty($data['return_date']) && $data['return_date'] === $data['trip_date'] && $data['return_time'] < $data['departure_time']) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['return_time' => 'La hora de vuelta es anterior a la salida del mismo día.']);
+        foreach (['co_driver_id', 'helper_id', 'arrival_date', 'arrival_time', 'return_departure_date', 'return_departure_time', 'return_date', 'return_time'] as $optional) {
+            $data[$optional] = ($data[$optional] ?? null) ?: null;
+        }
+
+        // Orden de los momentos del viaje
+        $steps = [
+            'departure_time'        => [TripLog::moment($data['trip_date'], $data['departure_time']), 'la salida de la ida'],
+            'arrival_time'          => [TripLog::moment($data['arrival_date'], $data['arrival_time']), 'la llegada de la ida'],
+            'return_departure_time' => [TripLog::moment($data['return_departure_date'], $data['return_departure_time']), 'la salida del regreso'],
+            'return_time'           => [TripLog::moment($data['return_date'], $data['return_time']), 'la llegada del regreso'],
+        ];
+        if ($data['return_time'] && ! $data['return_departure_time']) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['return_departure_time' => 'Registra la salida del regreso antes de su llegada.']);
+        }
+        $previous = null;
+        foreach ($steps as $field => [$at, $label]) {
+            if (! $at) {
+                continue;
+            }
+            if ($previous && $at->lt($previous[0])) {
+                throw \Illuminate\Validation\ValidationException::withMessages([$field => ucfirst($label) . " no puede ser antes de {$previous[1]}."]);
+            }
+            $previous = [$at, $label];
         }
 
         return $data;

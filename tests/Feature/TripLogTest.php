@@ -82,55 +82,74 @@ class TripLogTest extends TestCase
 
     public function test_the_supervisor_logs_trips_and_the_days_worked_count_against_26(): void
     {
-        $trip = ['route' => 'Trujillo – Huamachuco', 'driver_id' => $this->driver->id, 'helper_id' => $this->helper->id,
+        $chofer = Position::withoutGlobalScopes()->where('name', 'Chofer')->firstOrFail();
+        $aux = $this->makeUser($this->acme, 'employee', ['first_name' => 'Rosa', 'last_name' => 'Auxiliar', 'position_id' => $chofer->id]);
+        $trip = ['route' => 'Trujillo – Huamachuco', 'driver_id' => $this->driver->id, 'co_driver_id' => $this->helper->id, 'helper_id' => $aux->id,
             'vehicle_plate' => 't1a-234', 'departure_time' => '06:30'];
 
-        // IDA hoy; la VUELTA se firma después
+        // IDA hoy (sin llegada todavía): el sistema le pone el N.º de salida
         $this->actingAs($this->hr)->post(route('attendance.trips.store'), $trip + ['trip_date' => '2026-11-20'])->assertSessionHasNoErrors();
         $log = TripLog::firstOrFail();
+        $this->assertSame(1, $log->trip_number);
         $this->assertSame('T1A-234', $log->vehicle_plate);
+        $this->assertNull($log->outboundMinutes());
         $this->assertFalse($log->hasReturned());
 
+        // Se completa: llegada de la ida 11:45 (5 h 15), salida del regreso 13:00 y llegada 18:10 (5 h 10): queda firmado
         $this->actingAs($this->hr)->put(route('attendance.trips.update', $log->id), $trip + ['trip_date' => '2026-11-20',
+            'arrival_date' => '2026-11-20', 'arrival_time' => '11:45', 'return_departure_date' => '2026-11-20', 'return_departure_time' => '13:00',
             'return_date' => '2026-11-20', 'return_time' => '18:10', 'return_route' => 'Huamachuco – Trujillo'])->assertSessionHasNoErrors();
         $log->refresh();
+        $this->assertSame([315, 310], [$log->outboundMinutes(), $log->returnMinutes()]);
         $this->assertTrue($log->hasReturned());
         $this->assertSame($this->hr->id, $log->return_signed_by);
 
-        // Dos viajes el mismo día cuentan un día; otro día, otro más (chofer). El ayudante solo fue el 20
-        $this->actingAs($this->hr)->post(route('attendance.trips.store'), ['helper_id' => null] + $trip + ['trip_date' => '2026-11-20', 'departure_time' => '19:00']);
-        $this->actingAs($this->hr)->post(route('attendance.trips.store'), ['helper_id' => null] + $trip + ['trip_date' => '2026-11-18']);
-        $this->assertSame([$this->driver->id => 2, $this->helper->id => 1],
-            TripLog::workedDays([$this->driver->id, $this->helper->id], '2026-11-01', '2026-11-30'));
+        // Las horas y los días los heredan los tres. Dos viajes el mismo día cuentan un día; otro día, otro más
+        $this->actingAs($this->hr)->post(route('attendance.trips.store'), ['co_driver_id' => null, 'helper_id' => null, 'trip_date' => '2026-11-20', 'departure_time' => '19:00'] + $trip)->assertSessionHasNoErrors();
+        // Sale el sábado 21 y regresa el domingo 22: cuenta en la semana y el día del sábado (fecha de salida)
+        $this->actingAs($this->hr)->post(route('attendance.trips.store'), ['co_driver_id' => null, 'helper_id' => null, 'trip_date' => '2026-11-21', 'departure_time' => '22:00',
+            'arrival_date' => '2026-11-22', 'arrival_time' => '04:00'] + $trip)->assertSessionHasNoErrors();
+        $this->assertSame([2, 3], TripLog::orderBy('id')->skip(1)->take(2)->pluck('trip_number')->all());
+        $this->assertSame([$this->driver->id => 2, $this->helper->id => 1, $aux->id => 1],
+            TripLog::workedDays([$this->driver->id, $this->helper->id, $aux->id], '2026-11-01', '2026-11-30'));
+        $driving = TripLog::drivingMinutes(TripLog::all());
+        $this->assertSame(['outbound' => 315 + 360, 'return' => 310], $driving[$this->driver->id]);
+        $this->assertSame(['outbound' => 315, 'return' => 310], $driving[$aux->id]);
 
-        $this->actingAs($this->hr)->get(route('attendance.trips.index'))->assertOk()
+        $this->actingAs($this->hr)->get(route('attendance.trips.index', ['from' => '2026-11-01', 'to' => '2026-11-30']))->assertOk()
             ->assertSee('Meta del mes: 26 días de trabajo y 4 de descanso')
             ->assertSee('24 días por completar')
-            ->assertSee('Firmó');
+            ->assertSee('Firmó')->assertSee('N.º de salida 4')
+            ->assertSee('11:15:00')->assertSee('TOTALES')
+            ->assertSee('Sem 4 · 16–22/11')->assertSee('Todo el periodo');
 
-        // Hoja para firmar en Excel con el formato del requerimiento: IDA | VUELTA | FIRMA
-        $file = $this->actingAs($this->hr)->get(route('attendance.trips.export', ['from' => '2026-11-01', 'to' => '2026-11-30']))
-            ->assertOk()->assertDownload('bitacora-viajes-2026-11-01_2026-11-30.xlsx')->baseResponse->getFile()->getPathname();
-        $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file)->getActiveSheet();
+        // Hojas de conducción en Excel: una de ida y otra de regreso, con N.º de salida, tripulación, horas y tres firmas
+        $file = $this->actingAs($this->hr)->get(route('attendance.trips.export', ['from' => '2026-11-16', 'to' => '2026-11-22']))
+            ->assertOk()->assertDownload('bitacora-viajes-2026-11-16_2026-11-22.xlsx')->baseResponse->getFile()->getPathname();
+        $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($file);
         @unlink($file);
-        $this->assertSame(['N°', 'IDA', 'VUELTA', 'FIRMA DEL CHOFER'], [$sheet->getCell('A6')->getValue(), $sheet->getCell('B6')->getValue(),
-            $sheet->getCell('G6')->getValue(), $sheet->getCell('J6')->getValue()]);
-        $this->assertSame([...\App\Modules\Attendance\Services\Reports\TripSheetExporter::IDA, ...\App\Modules\Attendance\Services\Reports\TripSheetExporter::VUELTA],
-            $sheet->rangeToArray('B7:I7')[0]);
-        // Por fecha y hora de salida: 18/11, luego el 20 de las 06:30 con su vuelta y el de las 19:00
-        $this->assertSame('18/11/2026', $sheet->getCell('B8')->getValue());
-        $this->assertSame([2, '20/11/2026', 'Trujillo – Huamachuco', "Chofer, Pedro\nAyud.: Ayudante, Luis", 'T1A-234'],
-            $sheet->rangeToArray('A9:E9', null, true, false)[0]);
-        $this->assertSame(['20/11/2026', '18:10', 'Huamachuco – Trujillo', null], $sheet->rangeToArray('G9:J9')[0]);
-        $this->assertSame('', (string) $sheet->getCell('G10')->getValue());
-        $this->assertSame('SUPERVISOR', $sheet->getCell('C25')->getValue()); // 15 filas para firmar y las firmas al pie
+        $this->assertSame(['Conducción de ida', 'Conducción de regreso'], $book->getSheetNames());
+        $ida = $book->getSheet(0);
+        $this->assertSame(\App\Modules\Attendance\Services\Reports\TripSheetExporter::COLUMNS, $ida->rangeToArray('B7:M7')[0]);
+        $this->assertSame(['IDA', 'FIRMAS'], [$ida->getCell('H6')->getValue(), $ida->getCell('K6')->getValue()]);
+        $this->assertSame(['1', 'Trujillo – Huamachuco', 'T1A-234', 'Chofer, Pedro', 'Ayudante, Luis', 'Auxiliar, Rosa', '20/11/2026 06:30', '20/11/2026 11:45', '05:15:00'],
+            $ida->rangeToArray('B8:J8')[0]);
+        $this->assertSame(['3', '21/11/2026 22:00', '22/11/2026 04:00', '06:00:00'], [$ida->getCell('B10')->getValue(), $ida->getCell('H10')->getValue(), $ida->getCell('I10')->getValue(), $ida->getCell('J10')->getValue()]);
+        $regreso = $book->getSheet(1);
+        $this->assertSame('REGRESO', $regreso->getCell('H6')->getValue());
+        $this->assertSame(['Huamachuco – Trujillo', '20/11/2026 13:00', '20/11/2026 18:10', '05:10:00'],
+            [$regreso->getCell('C8')->getValue(), $regreso->getCell('H8')->getValue(), $regreso->getCell('I8')->getValue(), $regreso->getCell('J8')->getValue()]);
 
-        // Evidencia: la hoja firmada se sube (PDF o foto), se descarga y se quita sin borrar el archivo
-        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30',
+        // Evidencia: la hoja firmada se sube indicando si es la de ida o la de regreso
+        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30', 'leg' => 'ida',
             'sheet' => UploadedFile::fake()->create('virus.exe', 10, 'application/octet-stream')])->assertSessionHasErrors('sheet');
         $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30',
+            'sheet' => UploadedFile::fake()->create('hoja.pdf', 300, 'application/pdf')])->assertSessionHasErrors('leg');
+        $this->actingAs($this->hr)->post(route('attendance.trips.sheets.store'), ['period_from' => '2026-11-01', 'period_to' => '2026-11-30', 'leg' => 'regreso',
             'sheet' => UploadedFile::fake()->create('hoja-noviembre.pdf', 300, 'application/pdf'), 'notes' => 'Semana 1'])->assertSessionHasNoErrors();
         $signed = \App\Modules\Attendance\Models\TripSheet::firstOrFail();
+        $this->assertSame('regreso', $signed->leg);
+        $this->actingAs($this->hr)->get(route('attendance.trips.index'))->assertSee('Conducción de regreso');
         Storage::disk('private')->assertExists($signed->file_path);
         $this->assertTrue(\App\Modules\Core\Models\AuditLog::where('action', 'attendance.trip_sheet_uploaded')->exists());
         $this->actingAs($this->hr)->get(route('attendance.trips.index'))->assertSee('hoja-noviembre.pdf')->assertSee('Semana 1');
@@ -143,10 +162,36 @@ class TripLogTest extends TestCase
         $this->assertSoftDeleted($signed);
         Storage::disk('private')->assertExists($signed->file_path);
 
-        // Solo choferes con «Control por viajes»; el ayudante no puede ser el mismo chofer
+        // Solo personas con «Control por viajes»; los tres son distintos; los momentos van en orden
         $this->actingAs($this->hr)->post(route('attendance.trips.store'), ['driver_id' => $this->clerk->id] + $trip + ['trip_date' => '2026-11-20'])
             ->assertSessionHasErrors('driver_id');
-        $this->actingAs($this->hr)->post(route('attendance.trips.store'), ['helper_id' => $this->driver->id] + $trip + ['trip_date' => '2026-11-20'])
+        $this->actingAs($this->hr)->post(route('attendance.trips.store'), ['co_driver_id' => $this->driver->id] + $trip + ['trip_date' => '2026-11-20'])
+            ->assertSessionHasErrors('co_driver_id');
+        $this->actingAs($this->hr)->post(route('attendance.trips.store'), ['helper_id' => $this->helper->id] + $trip + ['trip_date' => '2026-11-20'])
             ->assertSessionHasErrors('helper_id');
+        $this->actingAs($this->hr)->post(route('attendance.trips.store'), $trip + ['trip_date' => '2026-11-20', 'arrival_date' => '2026-11-20', 'arrival_time' => '05:00'])
+            ->assertSessionHasErrors('arrival_time');
+        $this->actingAs($this->hr)->post(route('attendance.trips.store'), $trip + ['trip_date' => '2026-11-20', 'return_date' => '2026-11-20', 'return_time' => '18:00'])
+            ->assertSessionHasErrors('return_departure_time');
+    }
+
+    /** Los viajes que ya existían: el «Ayudante» (2.º chofer) pasa a Conductor 2 y se numeran en el orden en que se registraron */
+    public function test_existing_trips_are_carried_over_without_losing_data(): void
+    {
+        $migration = require base_path('app/Modules/Attendance/Database/Migrations/2026_11_29_000001_trip_logs_crew_and_driving_hours.php');
+        $migration->down();
+        $rows = [['2026-11-23', '20:00', $this->helper->id], ['2026-11-23', '08:30', null]];
+        foreach ($rows as $i => [$date, $time, $helper]) {
+            \Illuminate\Support\Facades\DB::table('trip_logs')->insert(['tenant_id' => $this->acme->id, 'trip_date' => $date, 'route' => 'Ruta ' . $i,
+                'driver_id' => $this->driver->id, 'helper_id' => $helper, 'vehicle_plate' => 'T8H-624', 'departure_time' => $time,
+                'created_at' => now()->addMinutes($i), 'updated_at' => now()]);
+        }
+        $migration->up();
+
+        $trips = TripLog::orderBy('id')->get();
+        $this->assertSame([1, 2], $trips->pluck('trip_number')->all());
+        $this->assertSame([$this->helper->id, null], $trips->pluck('co_driver_id')->all());
+        $this->assertSame([null, null], $trips->pluck('helper_id')->all());
+        $this->assertSame(['Ruta 0', 'Ruta 1'], $trips->pluck('route')->all());
     }
 }
