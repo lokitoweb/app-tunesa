@@ -111,14 +111,16 @@ class TareoExporter
             $date->day, $date->locale('es')->isoFormat('dddd, D [de] MMMM [de] YYYY'),
             $d['mark1'] ?? '', $d['mark2'] ?? '', $hm($d['ht1_minutes'] ?? 0),
             $d['mark3'] ?? '', $d['mark4'] ?? '', $hm($d['ht2_minutes'] ?? 0),
-            $hm(self::totalHt($d)), $weekTotal === null ? '' : HoursReportExporter::duration($weekTotal),
+            $hm(self::totalHt($d)), $hm($weekTotal),
             $marked ? ($d['scheduled_in'] ?? '') : '', $hm($d['entry_late_minutes'] ?? 0),
             $marked ? ($d['scheduled_break_in'] ?? '') : '', $hm($d['break_late_minutes'] ?? 0),
             $hm(($d['entry_late_minutes'] ?? 0) + ($d['break_late_minutes'] ?? 0)),
             $marked ? ($d['scheduled_out'] ?? '') : '',
             $hm($overtime), ($d['overtime_status'] ?? null) ? label('overtime_status', $d['overtime_status']) : '',
             $hm($d['overtime_approved_minutes'] ?? 0), $hm($d['payable_minutes'] ?? 0),
-            trim(($marked && ($d['open'] ?? false) ? 'Sin salida. ' : '') . ($d['note'] ?? '')),
+            trim(($marked && ($d['open'] ?? false) ? 'Sin salida. ' : '')
+                . (($d['break_unmarked'] ?? false) ? 'Refrigerio sin marcar: HT según la jornada (descuenta la pausa del horario). ' : '')
+                . ($d['note'] ?? '')),
         ];
     }
 

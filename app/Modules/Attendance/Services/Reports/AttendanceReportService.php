@@ -429,7 +429,15 @@ class AttendanceReportService
             default                                            => null,
         };
 
-        return array_merge($row, $this->marks($first, $last, ($first->shift ?? $assignedShift)?->forDate($day)));
+        $row = array_merge($row, $this->marks($first, $last, ($first->shift ?? $assignedShift)?->forDate($day)));
+        // 4 marcaciones sin marcar el refrigerio (solo entrada y salida): no hay tramos que medir; las horas
+        // son las de la jornada del sistema, que ya descuenta la pausa del horario
+        $row['break_unmarked'] = $row['four_marks'] && $row['mark4'] !== null && ($row['mark2'] === null || $row['mark3'] === null);
+        if ($row['break_unmarked']) {
+            [$row['ht1_minutes'], $row['ht2_minutes']] = [$row['worked_minutes'], 0];
+        }
+
+        return $row;
     }
 
     /**
@@ -815,7 +823,7 @@ class AttendanceReportService
             'early_minutes'          => 0,
             'justified_minutes'      => 0,
             // Tareo por colaborador: marcaciones, horas por tramo, extras y horas que se pagan
-            'mark1' => null, 'mark2' => null, 'mark3' => null, 'mark4' => null, 'four_marks' => false,
+            'mark1' => null, 'mark2' => null, 'mark3' => null, 'mark4' => null, 'four_marks' => false, 'break_unmarked' => false,
             'ht1_minutes'            => 0,
             'ht2_minutes'            => 0,
             'overtime_status'        => null,

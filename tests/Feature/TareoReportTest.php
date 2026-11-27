@@ -105,6 +105,11 @@ class TareoReportTest extends TestCase
         $att->update(['overtime_status' => Attendance::OVERTIME_APPROVED, 'overtime_approved_hours' => $att->overtime_hours]);
         $att->refresh();
         Holiday::create(['tenant_id' => $this->acme->id, 'date' => '2026-11-04', 'name' => 'Feriado de prueba', 'kind' => 'holiday']);
+        // Jueves 05/11: solo entrada y salida en un horario de 4 marcaciones (no marcó el refrigerio)
+        $this->punch('2026-11-05 08:00:00', '/api/attendance/clock-in');
+        $this->punch('2026-11-05 17:00:00', '/api/attendance/clock-out');
+        $thursday = Attendance::where('user_id', $this->emp->id)->whereDate('work_date', '2026-11-05')->sole();
+        $thursdayMinutes = Attendance::minutes($thursday->worked_hours);
         $this->travelTo(Carbon::parse('2026-11-09 09:00:00', 'America/Lima'));
 
         // Botón en Marcaciones y GPS, con el periodo y la agencia del filtro
@@ -126,7 +131,13 @@ class TareoReportTest extends TestCase
         $this->assertSame(['ADM', 'Ag. Trujillo', 'Ventura Romero, Segundo', 2, 'lunes, 2 de noviembre de 2026'],
             [$val('Cargo', 2), $val('Sede', 2), $val('Colaborador', 2), $val('N.°', 2), $val('Día', 2)]);
         $this->assertSame(['08:15', '13:00', '14:20', '18:00'], [$val('Marcación 1', 2), $val('Marcación 2', 2), $val('Marcación 3', 2), $val('Marcación 4', 2)]);
-        $this->assertSame([285, 220, 505, 505], [$min('HT 1', 2), $min('HT 2', 2), $min('Total HT', 2), $min('Total por semana', 2)]);
+        $this->assertSame([285, 220, 505, 505 + $thursdayMinutes], [$min('HT 1', 2), $min('HT 2', 2), $min('Total HT', 2), $min('Total por semana', 2)]);
+
+        // Jueves sin marcar el refrigerio: M1 y M4, y las horas de la jornada del sistema (descuenta la pausa), no 0
+        $this->assertSame(['08:00', null, null, '17:00'], [$val('Marcación 1', 5), $val('Marcación 2', 5), $val('Marcación 3', 5), $val('Marcación 4', 5)]);
+        $this->assertSame(480, $thursdayMinutes);
+        $this->assertSame([480, 480], [$min('HT 1', 5), $min('Total HT', 5)]);
+        $this->assertStringContainsString('Refrigerio sin marcar', (string) $val('Observación', 5));
         $this->assertSame(['08:00', '14:00', '17:00'], [$val('Hora ingreso 1', 2), $val('Hora ingreso 2', 2), $val('Hora salida', 2)]);
         $this->assertSame([15, 20, 35], [$min('Tardanza 1', 2), $min('Tardanza 2', 2), $min('Total tardanza', 2)]);
         $overtime = Attendance::minutes($att->overtime_hours);
@@ -144,9 +155,11 @@ class TareoReportTest extends TestCase
 
         // Resumen del periodo: lo marcado real y, aparte, las horas que se pagan
         $this->assertSame('Resumen del periodo', $val('Día', 9));
-        $this->assertSame([505, 15, 20, 35, $overtime], [$min('Total HT', 9), $min('Tardanza 1', 9), $min('Tardanza 2', 9), $min('Total tardanza', 9), $min('Total horas extra (aprobadas)', 9)]);
-        $this->assertSame($att->regularMinutes() + $overtime, $min('Horas que se pagan', 9));
-        $this->assertStringContainsString('Días trabajados: 1', (string) $val('Observación', 9));
+        $this->assertSame([505 + 480, 15, 20, 35, $overtime], [$min('Total HT', 9), $min('Tardanza 1', 9), $min('Tardanza 2', 9), $min('Total tardanza', 9), $min('Total horas extra (aprobadas)', 9)]);
+        $this->assertSame($att->regularMinutes() + $overtime + $thursday->regularMinutes(), $min('Horas que se pagan', 9));
+        $this->assertStringContainsString('Días trabajados: 2', (string) $val('Observación', 9));
+        // El total de la semana va solo en su primera fila
+        $this->assertNull($val('Total por semana', 3));
     }
 
     public function test_tareo_needs_report_export_permission(): void
