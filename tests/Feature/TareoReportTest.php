@@ -121,7 +121,7 @@ class TareoReportTest extends TestCase
         $response->assertOk()->assertDownload('tareo-por-colaborador_2026-11-02_al_2026-11-08.xlsx');
 
         $sheet = IOFactory::load($response->getFile()->getPathname())->getSheetByName('Tareo');
-        $headers = $sheet->rangeToArray('A1:X1')[0];
+        $headers = $sheet->rangeToArray('A1:Y1')[0];
         $this->assertSame(\App\Modules\Attendance\Services\Reports\TareoExporter::HEADERS, $headers);
         $col = fn (string $name) => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(array_search($name, $headers, true) + 1);
         $val = fn (string $name, int $row) => $sheet->getCell($col($name) . $row)->getValue();
@@ -138,7 +138,8 @@ class TareoReportTest extends TestCase
         $this->assertSame(480, $thursdayMinutes);
         $this->assertSame([480, 480], [$min('HT 1', 5), $min('Total HT', 5)]);
         $this->assertStringContainsString('Refrigerio sin marcar', (string) $val('Observación', 5));
-        $this->assertSame(['08:00', '14:00', '17:00'], [$val('Hora ingreso 1', 2), $val('Hora ingreso 2', 2), $val('Hora salida', 2)]);
+        // Horario del día con sus 4 horas, en el orden de las marcaciones (corrección de Contabilidad, 27/11/2026)
+        $this->assertSame(['08:00', '13:00', '14:00', '17:00'], [$val('Hora ingreso 1', 2), $val('Hora salida 1', 2), $val('Hora ingreso 2', 2), $val('Hora salida 2', 2)]);
         $this->assertSame([15, 20, 35], [$min('Tardanza 1', 2), $min('Tardanza 2', 2), $min('Total tardanza', 2)]);
         $overtime = Attendance::minutes($att->overtime_hours);
         $this->assertGreaterThan(0, $overtime);

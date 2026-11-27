@@ -788,8 +788,9 @@ class AttendanceReportService
 
         return [
             'scheduled_in'  => $s?->start_time ? substr((string) $s->start_time, 0, 5) : null,
-            // Hora ingreso 2 del tareo: retorno del refrigerio (solo horarios de 4 marcaciones)
-            'scheduled_break_in' => $s?->hasBreakWindow() ? substr((string) $s->break_end_time, 0, 5) : null,
+            // Tareo: Hora salida 1 / Hora ingreso 2 = inicio y fin del refrigerio (solo horarios de 4 marcaciones)
+            'scheduled_break_out' => $s?->hasBreakWindow() ? substr((string) $s->break_start_time, 0, 5) : null,
+            'scheduled_break_in' =>$s?->hasBreakWindow() ? substr((string) $s->break_end_time, 0, 5) : null,
             'scheduled_out' => $s?->end_time ? substr((string) $s->end_time, 0, 5) : null,
         ];
     }

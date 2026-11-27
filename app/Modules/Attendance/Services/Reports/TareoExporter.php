@@ -27,7 +27,7 @@ class TareoExporter
     public const HEADERS = [
         'Cargo', 'Sede', 'Colaborador', 'N.°', 'Día',
         'Marcación 1', 'Marcación 2', 'HT 1', 'Marcación 3', 'Marcación 4', 'HT 2', 'Total HT', 'Total por semana',
-        'Hora ingreso 1', 'Tardanza 1', 'Hora ingreso 2', 'Tardanza 2', 'Total tardanza', 'Hora salida',
+        'Hora ingreso 1', 'Tardanza 1', 'Hora salida 1', 'Hora ingreso 2', 'Tardanza 2', 'Hora salida 2', 'Total tardanza',
         'Horas extra', 'Estado horas extra', 'Total horas extra (aprobadas)', 'Horas que se pagan', 'Observación',
     ];
 
@@ -105,6 +105,13 @@ class TareoExporter
         $hm   = fn (?int $minutes) => $minutes ? HoursReportExporter::duration($minutes) : '';
         $marked = ($d['mark1'] ?? null) !== null;
         $overtime = ($d['overtime_day_minutes'] ?? 0) + ($d['overtime_night_minutes'] ?? 0);
+        // Horario del día en el mismo orden que las marcaciones: con refrigerio, ingreso 1 · salida 1 · ingreso 2 · salida 2;
+        // sin refrigerio, ingreso 1 · salida 1 (como Marcación 1 y 2)
+        $break = ($d['scheduled_break_out'] ?? null) !== null;
+        [$in1, $out1, $in2, $out2] = $marked
+            ? ($break ? [$d['scheduled_in'] ?? '', $d['scheduled_break_out'], $d['scheduled_break_in'] ?? '', $d['scheduled_out'] ?? '']
+                      : [$d['scheduled_in'] ?? '', $d['scheduled_out'] ?? '', '', ''])
+            : ['', '', '', ''];
 
         return [
             $report['position'] ?? '', $d['branch'] ?? $report['branch'] ?? '', self::name($report),
@@ -112,10 +119,9 @@ class TareoExporter
             $d['mark1'] ?? '', $d['mark2'] ?? '', $hm($d['ht1_minutes'] ?? 0),
             $d['mark3'] ?? '', $d['mark4'] ?? '', $hm($d['ht2_minutes'] ?? 0),
             $hm(self::totalHt($d)), $hm($weekTotal),
-            $marked ? ($d['scheduled_in'] ?? '') : '', $hm($d['entry_late_minutes'] ?? 0),
-            $marked ? ($d['scheduled_break_in'] ?? '') : '', $hm($d['break_late_minutes'] ?? 0),
+            $in1, $hm($d['entry_late_minutes'] ?? 0), $out1,
+            $in2, $hm($d['break_late_minutes'] ?? 0), $out2,
             $hm(($d['entry_late_minutes'] ?? 0) + ($d['break_late_minutes'] ?? 0)),
-            $marked ? ($d['scheduled_out'] ?? '') : '',
             $hm($overtime), ($d['overtime_status'] ?? null) ? label('overtime_status', $d['overtime_status']) : '',
             $hm($d['overtime_approved_minutes'] ?? 0), $hm($d['payable_minutes'] ?? 0),
             trim(($marked && ($d['open'] ?? false) ? 'Sin salida. ' : '')
@@ -133,7 +139,7 @@ class TareoExporter
         return [
             $report['position'] ?? '', $report['branch'] ?? '', self::name($report), '', 'Resumen del periodo',
             '', '', '', '', '', '', $hm($t['ht']), '',
-            '', $hm($t['late1']), '', $hm($t['late2']), $hm($t['late1'] + $t['late2']), '',
+            '', $hm($t['late1']), '', '', $hm($t['late2']), '', $hm($t['late1'] + $t['late2']),
             $hm($t['ot']), '', $hm($t['ot_ok']), $hm($t['pay']),
             "Días trabajados: {$s['days_worked']} · Faltas injustificadas: {$s['absences_unjustified']} · Faltas justificadas: {$s['absences_justified']}"
             . " · Descansos: {$s['rest_days']} · Feriados: {$s['holiday_days']} · Vacaciones: {$s['vacation_days']}",
