@@ -248,6 +248,21 @@ class Attendance extends Model
         return (int) round((float) $hours * 60);
     }
 
+    /**
+     * Tardanza del día que se descuenta: la de entrada (tardanza 1) + la del retorno del refrigerio
+     * (tardanza 2). Decisión del ingeniero (Tareo por colaborador, 26/11/2026): las dos van a planilla.
+     */
+    public function tardinessMinutes(): int
+    {
+        return max(0, (int) $this->late_minutes) + max(0, (int) $this->break_late_minutes);
+    }
+
+    /** Lo mismo en SQL, para sumas por colaborador (planilla) */
+    public static function tardinessSql(string $table = 'attendances'): string
+    {
+        return "(COALESCE({$table}.late_minutes, 0) + COALESCE({$table}.break_late_minutes, 0))";
+    }
+
     /** Minutos de jornada (sin horas extra), exactos */
     public function regularMinutes(): int
     {
@@ -373,13 +388,13 @@ class Attendance extends Model
      */
     public function justifiedMinutesAtStake(): ?int
     {
-        return $this->clock_in_at === null ? null : (int) $this->late_minutes + (int) $this->early_exit_minutes;
+        return $this->clock_in_at === null ? null : $this->tardinessMinutes() + (int) $this->early_exit_minutes;
     }
 
     /** Tipo de incidencia del día, para RR. HH. (panel, app y exportaciones usan esta misma etiqueta) */
     public function incidentLabel(): string
     {
-        $late = (int) $this->late_minutes > 0;
+        $late = $this->tardinessMinutes() > 0;
         $early = (int) $this->early_exit_minutes > 0;
 
         return match (true) {

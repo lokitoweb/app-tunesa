@@ -34,6 +34,8 @@ Route::middleware(['auth', 'web.tenant'])->group(function () {
         Route::get('/hours', [HoursReportWebController::class, 'index'])->name('hours');
         Route::get('/hours/excel', [HoursReportWebController::class, 'excel'])->name('hours.excel')->middleware('can:reports.export');
         Route::get('/hours/pdf', [HoursReportWebController::class, 'pdf'])->name('hours.pdf')->middleware('can:reports.export');
+        // Tareo por colaborador (botón de Marcaciones y GPS)
+        Route::get('/tareo/excel', [HoursReportWebController::class, 'tareo'])->name('tareo.excel')->middleware('can:reports.export');
 
         // Reporte mensual automático (enlace firmado de la notificación)
         Route::get('/monthly/{tenant}/{period}', [HoursReportWebController::class, 'monthly'])->name('monthly.download')

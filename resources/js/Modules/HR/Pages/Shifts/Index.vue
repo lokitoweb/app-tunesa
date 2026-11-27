@@ -105,6 +105,7 @@ const defaultShiftData = () => ({
     break_start_time: '',
     break_end_time: '',
     split_shift: false,
+    break_grace_minutes: 0,
     working_days: [1, 2, 3, 4, 5],
     rotation_work_days: 4,
     rotation_rest_days: 2,
@@ -170,6 +171,7 @@ function openEditModal(shift) {
     shiftForm.break_start_time = shift.break_start_time || '';
     shiftForm.break_end_time = shift.break_end_time || '';
     shiftForm.split_shift = Boolean(shift.split_shift);
+    shiftForm.break_grace_minutes = shift.break_grace_minutes ?? 0;
     shiftForm.working_days = Array.isArray(shift.working_days) ? [...shift.working_days] : [1, 2, 3, 4, 5];
     shiftForm.rotation_work_days = shift.rotation_work_days ?? 4;
     shiftForm.rotation_rest_days = shift.rotation_rest_days ?? 2;
@@ -647,6 +649,11 @@ async function destroy(shift) {
                                             <div class="col-6 col-md-4">
                                                 <label for="modal_break_end" class="form-label fw-semibold small text-dark mb-1.5">{{ shiftForm.split_shift ? 'Inicio del 2.º tramo' : 'Retorno de refrigerio' }}</label>
                                                 <input id="modal_break_end" v-model="shiftForm.break_end_time" type="text" inputmode="numeric" maxlength="5" placeholder="14:00" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.break_end_time }" style="border-radius: 8px; height: 42px;" @blur="normalizeTime('break_end_time')">
+                                            </div>
+                                            <div v-if="shiftForm.break_start_time && shiftForm.break_end_time" class="col-12 col-md-4">
+                                                <label for="modal_break_grace" class="form-label fw-semibold small text-dark mb-1.5">{{ shiftForm.split_shift ? 'Tolerancia 2.º tramo (min)' : 'Tolerancia del retorno (min)' }}</label>
+                                                <input id="modal_break_grace" v-model="shiftForm.break_grace_minutes" type="number" min="0" max="240" class="form-control font-monospace" :class="{ 'is-invalid': shiftForm.errors.break_grace_minutes }" style="border-radius: 8px; height: 42px;" title="Pasada, cuenta como tardanza 2 y se descuenta en planilla. 0 = sin tolerancia.">
+                                                <div v-if="shiftForm.errors.break_grace_minutes" class="invalid-feedback">{{ shiftForm.errors.break_grace_minutes }}</div>
                                             </div>
                                             <div v-if="shiftForm.errors.break_start_time || shiftForm.errors.break_end_time" class="col-12 invalid-feedback d-block mt-0">{{ shiftForm.errors.break_start_time || shiftForm.errors.break_end_time }}</div>
                                         </div>

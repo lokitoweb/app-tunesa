@@ -36,6 +36,7 @@ class Shift extends Model
         'end_time',
         'crosses_midnight',
         'grace_period_minutes',
+        'break_grace_minutes',
         'break_allowed',
         'break_duration_minutes',
         'break_start_time',
@@ -61,6 +62,7 @@ class Shift extends Model
         'daily_hours'            => 'decimal:2',
         'rotation_work_days'     => 'integer',
         'rotation_rest_days'     => 'integer',
+        'break_grace_minutes'    => 'integer',
     ];
 
     /** Perfiles de turno: agrupan horarios del mismo tipo de personal */

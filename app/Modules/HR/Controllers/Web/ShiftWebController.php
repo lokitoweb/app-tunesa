@@ -98,7 +98,8 @@ class ShiftWebController extends Controller
             'end_time'               => substr((string) $shift->end_time, 0, 5),
             'crosses_midnight'       => (bool) $shift->crosses_midnight,
             'grace_period_minutes'   => $shift->grace_period_minutes,
-            'daily_hours'            => $shift->daily_hours,
+            'break_grace_minutes'    => (int) $shift->break_grace_minutes,
+            'daily_hours'          => $shift->daily_hours,
             'break_allowed'          => (bool) $shift->break_allowed,
             'break_duration_minutes' => $shift->break_duration_minutes,
             'break_start_time'       => $shift->break_start_time ? substr((string) $shift->break_start_time, 0, 5) : null,
@@ -241,7 +242,9 @@ class ShiftWebController extends Controller
             'start_time'             => ['required', 'date_format:H:i'],
             'end_time'               => ['required', 'date_format:H:i'],
             'grace_period_minutes'   => ['required', 'integer', 'between:0,240'],
-            'break_allowed'          => ['nullable', 'boolean'],
+            // Tolerancia del retorno del refrigerio (4 marcaciones); sin el campo se conserva lo guardado
+            'break_grace_minutes'    => ['sometimes', 'nullable', 'integer', 'between:0,240'],
+            'break_allowed'         => ['nullable', 'boolean'],
             'break_duration_minutes' => ['required', 'integer', 'between:0,480'],
             // QA3-04: horas fijas del refrigerio (4 marcaciones). Las dos o ninguna (2 marcaciones)
             'break_start_time'       => ['nullable', 'date_format:H:i', 'required_with:break_end_time'],
@@ -275,6 +278,9 @@ class ShiftWebController extends Controller
         $data['is_active']        = $request->boolean('is_active');
         $data['crosses_midnight'] = $data['end_time'] <= $data['start_time'];
         $data['working_days']     = array_map('intval', $data['working_days'] ?? [0, 1, 2, 3, 4, 5, 6]);
+        if (array_key_exists('break_grace_minutes', $data)) {
+            $data['break_grace_minutes'] = (int) $data['break_grace_minutes'];
+        }
 
         // 4 marcaciones: el refrigerio va dentro de la jornada y en orden; su duración sale de las horas
         if (filled($data['break_start_time'] ?? null) && filled($data['break_end_time'] ?? null)) {

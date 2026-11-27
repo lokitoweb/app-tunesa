@@ -217,7 +217,7 @@ class AttendanceCalendarService
             ->whereBetween('work_date', [$from, $to])
             ->orderBy('work_date')->orderBy('clock_in_at')->orderBy('id')
             ->get(['id', 'tenant_id', 'user_id', 'branch_id', 'work_date', 'status', 'clock_in_at', 'clock_out_at',
-                'late_minutes', 'worked_hours', 'is_suspicious', 'justification_status',
+                'late_minutes', 'break_late_minutes', 'worked_hours', 'is_suspicious', 'justification_status',
                 'overtime_hours', 'overtime_status', 'overtime_approved_hours', 'manual_edited_at'])
             ->groupBy(fn (Attendance $a) => $a->user_id . '|' . $a->work_date->toDateString());
 
@@ -387,7 +387,8 @@ class AttendanceCalendarService
                 $state = 'incomplete';
             }
 
-            $lateMinutes = (int) $records->sum(fn (Attendance $a) => max(0, (int) $a->late_minutes));
+            // Entrada + retorno del refrigerio: lo mismo que se descuenta en planilla
+            $lateMinutes = (int) $records->sum(fn (Attendance $a) => $a->tardinessMinutes());
 
             // Horas extra del día: por aprobar manda (hay algo que hacer); si no, las aprobadas
             $overtime = $records->filter(fn (Attendance $a) => $a->overtime_status !== null);

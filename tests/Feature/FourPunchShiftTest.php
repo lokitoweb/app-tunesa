@@ -95,8 +95,9 @@ class FourPunchShiftTest extends TestCase
             'grace_period_minutes' => 10, 'break_allowed' => true, 'break_duration_minutes' => 45, 'daily_hours' => 8, 'working_days' => [1, 2, 3, 4, 5], 'is_active' => true,
         ], $extra));
 
-        $post(['break_start_time' => '13:00', 'break_end_time' => '14:00'])->assertSessionHasNoErrors();
+        $post(['break_start_time' => '13:00', 'break_end_time' => '14:00', 'break_grace_minutes' => 5])->assertSessionHasNoErrors();
         $shift = Shift::where('name', 'ADM-LV')->sole();
+        $this->assertSame(5, $shift->break_grace_minutes, 'tolerancia del retorno, administrable por horario');
         $this->assertSame(['13:00', '14:00', 60], [substr($shift->break_start_time, 0, 5), substr($shift->break_end_time, 0, 5), (int) $shift->break_duration_minutes]);
         $this->assertTrue($shift->hasBreakWindow());
         $this->assertSame('08:00 · 13:00 · 14:00 · 17:00', $shift->timesLabel());
@@ -213,7 +214,7 @@ class FourPunchShiftTest extends TestCase
         $att = Attendance::where('user_id', $this->emp->id)->sole();
         $this->assertSame(['13:00', '14:20', '17:20'], [$att->break_start_at->format('H:i'), $att->break_end_at->format('H:i'), $att->clock_out_at->format('H:i')]);
         $this->assertSame(80, (int) $att->break_minutes);
-        $this->assertSame(20, (int) $att->break_late_minutes, 'retorno tardío con la tolerancia del turno');
+        $this->assertSame(20, (int) $att->break_late_minutes, 'retorno tardío (sin tolerancia en el retorno)');
         $this->assertFalse($att->punches_incomplete);
         $this->assertEquals(8.0, (float) $att->worked_hours, '9 h 20 min de jornada menos 80 min de refrigerio');
         $this->assertSame('present', $att->status);
@@ -251,11 +252,15 @@ class FourPunchShiftTest extends TestCase
         $this->assertSame(20, $att->break_late_minutes);
         $this->assertEquals(7.67, (float) $att->worked_hours); // 5 h + 2 h 40 min
 
-        // Dentro de la tolerancia (10 min) no cuenta
+        // La tolerancia del horario (10 min) es solo para la entrada: el retorno no tiene (decisión del ingeniero)
         Attendance::withoutGlobalScopes()->forceDelete();
         $this->travelTo(Carbon::parse('2026-11-03 07:55:00', 'America/Lima'));
-        $this->assertSame(0, app(\App\Modules\Attendance\Services\AttendanceService::class)
-            ->calculateBreakLateMinutes(Shift::sole(), '2026-11-03', 'America/Lima', Carbon::parse('2026-11-03 14:08:00', 'America/Lima')));
+        $late = fn () => app(\App\Modules\Attendance\Services\AttendanceService::class)
+            ->calculateBreakLateMinutes(Shift::sole(), '2026-11-03', 'America/Lima', Carbon::parse('2026-11-03 14:08:00', 'America/Lima'));
+        $this->assertSame(8, $late());
+        // Con tolerancia del retorno configurada en el horario, dentro de ella no cuenta
+        Shift::sole()->update(['break_grace_minutes' => 10]);
+        $this->assertSame(0, $late());
     }
 
     /** T4: horario de 2 marcaciones (sábado sin refrigerio) sigue funcionando sin pedir refrigerio */

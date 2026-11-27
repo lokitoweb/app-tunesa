@@ -12,6 +12,12 @@
         <a href="{{ route('reports.export.excel', request()->all()) }}" class="btn btn-light border">
             <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar a Excel
         </a>
+        @if (auth()->user()->can('reports.view') && auth()->user()->can('reports.export'))
+            <a href="{{ route('reports.tareo.excel', array_filter(['from' => $startDate, 'to' => $endDate, 'branch_id' => request('branch_id'), 'q' => mb_substr((string) request('search'), 0, 80)])) }}" class="btn btn-light border"
+               title="Un renglón por día y por colaborador, con las 4 marcaciones, tardanzas, horas extra y horas que se pagan">
+                <i class="bi bi-calendar-week me-1"></i>Tareo por colaborador
+            </a>
+        @endif
     </div>
 </header>
 

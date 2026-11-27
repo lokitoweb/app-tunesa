@@ -9,6 +9,7 @@ use App\Modules\Core\Models\User;
 use App\Modules\Attendance\Services\Reports\AttendanceReportService;
 use App\Modules\Attendance\Services\Reports\HoursReportExporter;
 use App\Modules\Attendance\Services\Reports\ReportFilters;
+use App\Modules\Attendance\Services\Reports\TareoExporter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -82,6 +83,19 @@ class HoursReportWebController extends Controller
         $this->exporter->xlsx($filters, $path);
 
         return response()->download($path, self::fileName($filters, 'xlsx'), [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend();
+    }
+
+    /** «Tareo por colaborador» (botón de Marcaciones y GPS): mismo periodo, agencia y búsqueda del filtro */
+    public function tareo(Request $request, TareoExporter $tareo): BinaryFileResponse
+    {
+        $filters = ReportFilters::fromRequest($request, current_tenant_id_or_null());
+
+        $path = tempnam(sys_get_temp_dir(), 'tar') . '.xlsx';
+        $tareo->xlsx($filters, $path);
+
+        return response()->download($path, "tareo-por-colaborador_{$filters->from}_al_{$filters->to}.xlsx", [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ])->deleteFileAfterSend();
     }

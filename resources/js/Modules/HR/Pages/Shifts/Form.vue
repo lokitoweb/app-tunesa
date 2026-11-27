@@ -37,6 +37,7 @@ const form = useForm({
     break_start_time: props.shift.break_start_time || '',
     break_end_time: props.shift.break_end_time || '',
     split_shift: !!props.shift.split_shift,
+    break_grace_minutes: props.shift.break_grace_minutes ?? 0,
     working_days: Array.isArray(props.shift.working_days) ? [...props.shift.working_days] : [1, 2, 3, 4, 5],
     profile: props.shift.profile ?? '',
     day_schedules: emptyDays(props.shift.day_schedules),
@@ -277,6 +278,12 @@ function submit() {
                         <div v-if="!(form.break_start_time && form.break_end_time)" class="col-md-6">
                             <label for="break_duration_minutes" class="emp-form-label">Duración del descanso (minutos) *</label>
                             <input id="break_duration_minutes" v-model="form.break_duration_minutes" type="number" min="0" max="480" class="emp-form-input font-monospace" :class="{ 'is-invalid': form.errors.break_duration_minutes }" required>
+                        </div>
+                        <div v-if="form.break_start_time && form.break_end_time" class="col-md-6">
+                            <label for="break_grace_minutes" class="emp-form-label">{{ form.split_shift ? 'Tolerancia del inicio del 2.º tramo (min)' : 'Tolerancia del retorno (min)' }}</label>
+                            <input id="break_grace_minutes" v-model="form.break_grace_minutes" type="number" min="0" max="240" class="emp-form-input font-monospace" :class="{ 'is-invalid': form.errors.break_grace_minutes }">
+                            <div v-if="form.errors.break_grace_minutes" class="text-danger small mt-1">{{ form.errors.break_grace_minutes }}</div>
+                            <div class="small text-muted">Pasada, cuenta como tardanza 2 y se descuenta en planilla. 0 = sin tolerancia.</div>
                         </div>
                         <div v-if="form.break_start_time && form.break_end_time" class="col-md-6">
                             <div class="emp-switch-box d-flex align-items-center justify-content-between">

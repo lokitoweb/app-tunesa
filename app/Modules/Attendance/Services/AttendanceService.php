@@ -1193,7 +1193,8 @@ class AttendanceService
             $scheduledReturn->addDay();
         }
 
-        if ($returnedAt->lessThanOrEqualTo($scheduledReturn->copy()->addMinutes(max(0, (int) $shift->grace_period_minutes)))) {
+        // La tolerancia del horario es solo para la entrada; el retorno tiene la suya (0 por defecto)
+        if ($returnedAt->lessThanOrEqualTo($scheduledReturn->copy()->addMinutes(max(0, (int) $shift->break_grace_minutes)))) {
             return 0;
         }
 

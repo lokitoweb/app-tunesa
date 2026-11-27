@@ -161,12 +161,13 @@ class HoursReportExporter
     }
 
     /** Duración para la celda: minutos como fracción de día, que Excel muestra en H:MM */
-    private static function duration(int $minutes): array
+    public static function duration(int $minutes): array
     {
         return ['duration' => $minutes];
     }
 
-    private function header(Worksheet $sheet, array $headers): void
+    /** Encabezado con estilo, fijo y con filtro (también lo usa TareoExporter) */
+    public static function header(Worksheet $sheet, array $headers): void
     {
         $sheet->fromArray($headers, null, 'A1');
         $last  = $sheet->getHighestColumn();
@@ -180,7 +181,7 @@ class HoursReportExporter
     }
 
     /** Escribe una fila: números como números, texto siempre como texto (evita fórmulas inyectadas) */
-    private function row(Worksheet $sheet, int $row, array $values): void
+    public static function row(Worksheet $sheet, int $row, array $values): void
     {
         foreach (array_values($values) as $i => $value) {
             $cell = [$i + 1, $row];

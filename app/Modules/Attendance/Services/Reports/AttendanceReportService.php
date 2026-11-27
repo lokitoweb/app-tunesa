@@ -286,13 +286,13 @@ class AttendanceReportService
             $worked = $records->filter(fn (Attendance $a) => $a->clock_in_at !== null);
 
             if ($worked->isNotEmpty()) {
-                $row = $this->workedDay($worked, $resolved->assignment?->shift, $lunchPaid);
+                $row = $this->workedDay($worked, $resolved->assignment?->shift, $lunchPaid, $day);
                 $row += ['date' => $day, 'status' => 'worked', 'scheduled' => (bool) $scheduled, 'holiday' => $isHoliday, 'note' => $isHoliday ? 'Feriado trabajado' : ''];
                 // Tardanza / salida anticipada justificada (RR. HH.): el día sigue trabajado con sus horas reales;
                 // esos minutos salen de "Tardanza" y van a "Justificado" (con o sin goce), igual que en planilla
                 if ($justifiedRecord = $worked->first(fn (Attendance $a) => $a->justification_status === 'approved')) {
                     $row['justified_minutes'] = $row['late_minutes'] + $row['early_minutes'];
-                    [$row['late_minutes'], $row['early_minutes']] = [0, 0];
+                    [$row['late_minutes'], $row['early_minutes'], $row['entry_late_minutes'], $row['break_late_minutes']] = [0, 0, 0, 0];
                     if ($row['justified_minutes'] > 0) {
                         $row['note'] = trim($row['note'] . ' ' . $justifiedRecord->incidentLabel() . ' justificada'
                             . (($pay = $justifiedRecord->justificationPayLabel()) ? ' (' . mb_strtolower($pay) . ')' : ' (sin clasificar)'));
@@ -397,7 +397,7 @@ class AttendanceReportService
      *
      * @param  Collection<int, Attendance>  $records
      */
-    private function workedDay(Collection $records, ?Shift $assignedShift, bool $lunchPaid): array
+    private function workedDay(Collection $records, ?Shift $assignedShift, bool $lunchPaid, string $day): array
     {
         $row = self::emptyDay();
         $first = $records->first();
@@ -410,6 +410,9 @@ class AttendanceReportService
                     $row[$key] += $value;
                 }
             }
+            // Horas que se pagan (jornada + extras aprobadas) y extras aprobadas, al minuto como en planilla
+            $row['payable_minutes'] += $attendance->regularMinutes() + $attendance->payableOvertimeMinutes();
+            $row['overtime_approved_minutes'] += $attendance->payableOvertimeMinutes();
         }
 
         $row['clock_in']  = hora(self::wallClock($first->clock_in_at));
@@ -417,8 +420,40 @@ class AttendanceReportService
         $row['branch']    = $first->branch?->name;
         $row['shift']     = ($first->shift ?? $assignedShift)?->name;
         $row['open']      = $records->contains(fn (Attendance $a) => $a->clock_out_at === null);
+        // Horas extra del día: por aprobar manda (hay algo que hacer); si no, aprobadas o rechazadas (igual que la Matriz tareo)
+        $statuses = $records->pluck('overtime_status')->filter();
+        $row['overtime_status'] = match (true) {
+            $statuses->contains(Attendance::OVERTIME_PENDING)  => Attendance::OVERTIME_PENDING,
+            $statuses->contains(Attendance::OVERTIME_APPROVED) => Attendance::OVERTIME_APPROVED,
+            $statuses->isNotEmpty()                            => Attendance::OVERTIME_REJECTED,
+            default                                            => null,
+        };
 
-        return $row;
+        return array_merge($row, $this->marks($first, $last, ($first->shift ?? $assignedShift)?->forDate($day)));
+    }
+
+    /**
+     * Las marcaciones del día como en el tareo de Contabilidad: M1–M2 (1.er tramo) y M3–M4 (2.º tramo,
+     * solo con refrigerio marcado u horario de 4 marcaciones) y las horas marcadas de cada tramo.
+     * ponytail: con dos jornadas el mismo día (dos sedes) se toman la entrada de la primera y la salida
+     * de la última; el refrigerio, de la primera que lo marcó.
+     */
+    private function marks(Attendance $first, Attendance $last, ?Shift $shift): array
+    {
+        $withBreak = $first->break_start_at || $first->break_end_at || $shift?->hasBreakWindow();
+        $in  = self::wallClock($first->clock_in_at);
+        $out = self::wallClock($last->clock_out_at);
+        [$m2, $m3, $m4] = $withBreak ? [self::wallClock($first->break_start_at), self::wallClock($first->break_end_at), $out] : [$out, null, null];
+        $span = fn (?CarbonImmutable $a, ?CarbonImmutable $b) => $a && $b && $b->gt($a) ? self::minutes($b->getTimestamp() - $a->getTimestamp()) : 0;
+
+        // 24 h, como el Excel de Contabilidad y las horas programadas del tareo
+        $hm = fn (?CarbonImmutable $t) => $t?->format('H:i');
+
+        return [
+            'mark1' => $hm($in), 'mark2' => $hm($m2), 'mark3' => $hm($m3), 'mark4' => $hm($m4),
+            'four_marks' => (bool) $withBreak,
+            'ht1_minutes' => $span($in, $m2), 'ht2_minutes' => $span($m3, $m4),
+        ];
     }
 
     /**
@@ -435,7 +470,10 @@ class AttendanceReportService
             'night_minutes'          => 0,
             'overtime_day_minutes'   => 0,
             'overtime_night_minutes' => 0,
-            'late_minutes'           => max(0, (int) $attendance->late_minutes),
+            // Tardanza que se descuenta (entrada + retorno del refrigerio, como planilla) y su desglose para el tareo
+            'late_minutes'           => $attendance->tardinessMinutes(),
+            'entry_late_minutes'     => max(0, (int) $attendance->late_minutes),
+            'break_late_minutes'     => max(0, (int) $attendance->break_late_minutes),
             'early_minutes'          => 0,
         ];
 
@@ -742,6 +780,8 @@ class AttendanceReportService
 
         return [
             'scheduled_in'  => $s?->start_time ? substr((string) $s->start_time, 0, 5) : null,
+            // Hora ingreso 2 del tareo: retorno del refrigerio (solo horarios de 4 marcaciones)
+            'scheduled_break_in' => $s?->hasBreakWindow() ? substr((string) $s->break_end_time, 0, 5) : null,
             'scheduled_out' => $s?->end_time ? substr((string) $s->end_time, 0, 5) : null,
         ];
     }
@@ -770,8 +810,17 @@ class AttendanceReportService
             'overtime_day_minutes'   => 0,
             'overtime_night_minutes' => 0,
             'late_minutes'           => 0,
+            'entry_late_minutes'     => 0,
+            'break_late_minutes'     => 0,
             'early_minutes'          => 0,
             'justified_minutes'      => 0,
+            // Tareo por colaborador: marcaciones, horas por tramo, extras y horas que se pagan
+            'mark1' => null, 'mark2' => null, 'mark3' => null, 'mark4' => null, 'four_marks' => false,
+            'ht1_minutes'            => 0,
+            'ht2_minutes'            => 0,
+            'overtime_status'        => null,
+            'overtime_approved_minutes' => 0,
+            'payable_minutes'        => 0,
         ];
     }
 }

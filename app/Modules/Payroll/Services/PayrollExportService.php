@@ -88,6 +88,8 @@ class PayrollExportService
         $payableOvertime = Attendance::payableOvertimeSql();
         // Justificación aprobada por RR. HH. (sus minutos o el día salen de tardanzas/faltas y van a su columna con / sin goce)
         $justified = "(justification_status = 'approved')";
+        // Tardanza que se descuenta: entrada + retorno del refrigerio (Attendance::tardinessMinutes)
+        $late = Attendance::tardinessSql();
 
         $attendance = Attendance::query()
             ->whereIn('user_id', $ids)
@@ -98,15 +100,15 @@ class PayrollExportService
                 COALESCE(SUM({$payableOvertime}), 0) AS overtime_hours,
                 COALESCE(SUM(CASE WHEN overtime_status = 'pending' THEN overtime_hours ELSE 0 END), 0) AS overtime_pending_hours,
                 COALESCE(SUM(COALESCE(worked_hours, 0) - COALESCE(overtime_hours, 0) + {$payableOvertime}), 0) AS payable_hours,
-                SUM(CASE WHEN late_minutes > 0 AND NOT {$justified} THEN 1 ELSE 0 END) AS late_count,
-                COALESCE(SUM(CASE WHEN {$justified} THEN 0 ELSE late_minutes END), 0) AS late_minutes,
+                SUM(CASE WHEN {$late} > 0 AND NOT {$justified} THEN 1 ELSE 0 END) AS late_count,
+                COALESCE(SUM(CASE WHEN {$justified} THEN 0 ELSE {$late} END), 0) AS late_minutes,
                 COALESCE(SUM(CASE WHEN {$justified} THEN 0 ELSE early_exit_minutes END), 0) AS early_exit_minutes,
-                COALESCE(SUM(CASE WHEN {$justified} AND clock_in_at IS NOT NULL AND justification_paid = 1 THEN late_minutes + early_exit_minutes ELSE 0 END), 0) AS justified_minutes_paid,
-                COALESCE(SUM(CASE WHEN {$justified} AND clock_in_at IS NOT NULL AND justification_paid = 0 THEN late_minutes + early_exit_minutes ELSE 0 END), 0) AS justified_minutes_unpaid,
+                COALESCE(SUM(CASE WHEN {$justified} AND clock_in_at IS NOT NULL AND justification_paid = 1 THEN {$late} + early_exit_minutes ELSE 0 END), 0) AS justified_minutes_paid,
+                COALESCE(SUM(CASE WHEN {$justified} AND clock_in_at IS NOT NULL AND justification_paid = 0 THEN {$late} + early_exit_minutes ELSE 0 END), 0) AS justified_minutes_unpaid,
                 SUM(CASE WHEN status = 'absent' AND NOT {$justified} THEN 1 ELSE 0 END) AS absences,
                 SUM(CASE WHEN clock_in_at IS NULL AND {$justified} AND justification_paid = 1 THEN 1 ELSE 0 END) AS excused_paid,
                 SUM(CASE WHEN clock_in_at IS NULL AND {$justified} AND justification_paid = 0 THEN 1 ELSE 0 END) AS excused_unpaid,
-                SUM(CASE WHEN {$justified} AND justification_paid IS NULL AND (clock_in_at IS NULL OR late_minutes + early_exit_minutes > 0) THEN 1 ELSE 0 END) AS unclassified")
+                SUM(CASE WHEN {$justified} AND justification_paid IS NULL AND (clock_in_at IS NULL OR {$late} + early_exit_minutes > 0) THEN 1 ELSE 0 END) AS unclassified")
             ->groupBy('user_id')
             ->get()
             ->keyBy('user_id');
